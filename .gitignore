@@ -1,0 +1,28 @@
+# Environment files
+.env
+.env.*
+!.env.example
+*.env
+env
+
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Next.js build output
+.next/
+**/.next/
+
+# Build outputs & caches
+dist/
+**/dist/
+build/
+**/build/
+.cache/
+**/.cache/
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
