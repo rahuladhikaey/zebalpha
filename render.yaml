@@ -10,7 +10,7 @@ services:
     startCommand: npx tsx src/index.ts
     envVars:
       - key: NODE_VERSION
-        value: 20.x
+        value: 22.x
 
   # 2. Main Customer Storefront (Next.js)
   - type: web
@@ -23,7 +23,7 @@ services:
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
-        value: 20.x
+        value: 22.x
 
   # 3. Admin Panel (Next.js)
   - type: web
@@ -36,4 +36,4 @@ services:
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
-        value: 20.x
+        value: 22.x

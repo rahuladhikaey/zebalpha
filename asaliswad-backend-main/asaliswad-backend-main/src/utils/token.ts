@@ -2,10 +2,8 @@ import type {
 	AccessTokenPayload, 
 	RefreshTokenPayload 
 } from "@/types/auth";
-import jwt, {
-	JsonWebTokenError, 
-	TokenExpiredError, 
-} from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+const { JsonWebTokenError, TokenExpiredError } = jwt;
 import { createHash } from "crypto";
 import { AppError } from "@/utils/app-error";
 
