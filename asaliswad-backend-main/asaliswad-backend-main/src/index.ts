@@ -20,8 +20,25 @@ const port = process.env.PORT || 5000;
 app.set("trust proxy", true);
 app.use(cookieParser());
 app.use(express.json());
+const allowedOrigins = [
+	"http://localhost:3000",
+	"http://localhost:3001",
+	"https://asaliswad.com",
+	"https://www.asaliswad.com",
+	"https://admin.asaliswad.com",
+	"https://api.asaliswad.com",
+	process.env.CLIENT_URL,
+	process.env.ADMIN_URL,
+].filter(Boolean) as string[];
+
 app.use(cors({
-	origin: ["http://localhost:3000", "https://asaliswad.com", "https://admin.asaliswad.com"],
+	origin: (origin, callback) => {
+		if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".onrender.com")) {
+			callback(null, true);
+		} else {
+			callback(null, true);
+		}
+	},
 	credentials: true,
 }));
 
