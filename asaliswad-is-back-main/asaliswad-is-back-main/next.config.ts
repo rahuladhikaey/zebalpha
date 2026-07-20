@@ -11,6 +11,21 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  async redirects() {
+    return [
+      {
+        source: '/admin',
+        destination: 'https://admin.asaliswad.com',
+        permanent: true,
+      },
+      {
+        source: '/admin/:path*',
+        destination: 'https://admin.asaliswad.com/:path*',
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
