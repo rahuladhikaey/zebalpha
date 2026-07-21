@@ -1,6 +1,6 @@
 export async function sendOtpEmail(toEmail: string, otpCode: string): Promise<boolean> {
 	const apiKey = process.env.BREVO_API_KEY;
-	const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@asaliswad.com";
+	const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL || "noreply@asaliswad.com";
 	const senderName = process.env.BREVO_SENDER_NAME || "Asali Swad";
 
 	if (!apiKey) {

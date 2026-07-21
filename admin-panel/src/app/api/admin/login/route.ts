@@ -11,13 +11,8 @@ export async function POST(req: Request) {
     const ADMIN_ACCESS_KEY_2 = process.env.ADMIN_ACCESS_KEY_2;
     const JWT_SECRET = process.env.ADMIN_JWT_SECRET;
 
-    if (!ADMIN_ACCESS_KEY_1 || !ADMIN_ACCESS_KEY_2) {
-      console.error("Admin keys are not set in environment variables!");
-      return NextResponse.json({ success: false, message: "Server misconfiguration." }, { status: 500 });
-    }
-
-    if (!JWT_SECRET) {
-      console.error("ADMIN_JWT_SECRET is not set in environment variables!");
+    if (!ADMIN_ACCESS_KEY_1 || !ADMIN_ACCESS_KEY_2 || !JWT_SECRET) {
+      console.error("Admin environment variables missing!");
       return NextResponse.json({ success: false, message: "Server misconfiguration." }, { status: 500 });
     }
 

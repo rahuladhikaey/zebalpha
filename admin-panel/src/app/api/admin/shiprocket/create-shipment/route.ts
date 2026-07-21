@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { getShiprocketToken, createShiprocketOrder } from "@/lib/shiprocket";
 
-
 export async function POST(req: Request) {
   try {
     const { orderId } = await req.json();
 
-    // 1. Fetch order details from Supabase
     const { data: order, error: orderError } = await supabaseServer
       .from("orders")
       .select("*")
@@ -18,7 +16,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // 2. Authenticate with Shiprocket
     let token;
     try {
       token = await getShiprocketToken();
@@ -26,49 +23,48 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Shiprocket Auth Failed: " + err.message }, { status: 500 });
     }
 
-    // 3. Prepare Shiprocket Payload
-    // Note: We attempt to extract pincode and city from the address string
-    // A more robust way would be to have separate columns in the database
-    const items = JSON.parse(order.product_details);
+    let items = [];
+    try {
+      items = typeof order.product_details === "string" ? JSON.parse(order.product_details) : (order.product_details || []);
+    } catch (e) {
+      items = [];
+    }
+
     const orderItems = items.map((item: any) => ({
-      name: item.name,
+      name: item.name || "Item",
       sku: `SKU-${item.id || 'SPICE'}`,
-      units: item.quantity,
-      selling_price: item.price,
+      units: item.quantity || 1,
+      selling_price: item.price || 0,
     }));
 
-    // Basic extraction logic for demonstration
-    // Expecting address format: "Vill: ..., P.O: ..., Pin: 123456, Info: ..."
-    const pincodeMatch = order.address.match(/Pin:\s*(\d{6})/i);
-    const pincode = pincodeMatch ? pincodeMatch[1] : "000000";
+    const pincodeMatch = order.address ? order.address.match(/Pin:\s*(\d{6})/i) : null;
+    const pincode = pincodeMatch ? pincodeMatch[1] : "700001";
 
     const shiprocketPayload = {
       order_id: `AS-ORD-${order.id}`,
       order_date: new Date(order.created_at).toISOString().split('T')[0],
       pickup_location: "Primary",
-      billing_customer_name: order.customer_name,
+      billing_customer_name: order.customer_name || "Customer",
       billing_last_name: ".",
-      billing_address: order.address,
-      billing_city: "Kolkata", // Default fallback, should be extracted
+      billing_address: order.address || "Kolkata",
+      billing_city: "Kolkata",
       billing_pincode: pincode,
-      billing_state: "West Bengal", // Default fallback
+      billing_state: "West Bengal",
       billing_country: "India",
-      billing_email: "customer@example.com", // Placeholder
-      billing_phone: order.phone,
+      billing_email: "customer@example.com",
+      billing_phone: order.phone || "0000000000",
       shipping_is_billing: true,
       order_items: orderItems,
       payment_method: order.payment_method === "COD" ? "COD" : "Prepaid",
-      sub_total: order.total_amount,
+      sub_total: order.total_amount || 0,
       length: 10,
       breadth: 10,
       height: 10,
       weight: 0.5,
     };
 
-    // 4. Create Order in Shiprocket
     const result = await createShiprocketOrder(token, shiprocketPayload);
 
-    // 5. Update local order with shipment details
     await supabaseServer
       .from("orders")
       .update({ 

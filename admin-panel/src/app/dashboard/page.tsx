@@ -513,16 +513,24 @@ export default function AdminPage() {
       }
 
       const uploads = Array.from(imageFiles).map(async (file) => {
-        const path = `${PRODUCT_IMAGES_FOLDER}/${Date.now()}-${file.name}`;
-        const { error } = await supabaseStorage.storage.from(PRODUCT_IMAGES_BUCKET).upload(path, file, { cacheControl: "3600", upsert: false });
-        if (error) {
-          if (error.message?.includes("Bucket not found")) {
-            throw new Error("Bucket not found");
-          }
-          throw error;
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "p1ish280";
+        const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "asaliswad_products";
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", preset);
+
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error?.message || "Failed to upload image to Cloudinary");
         }
-        const { data } = supabaseStorage.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(path);
-        return data.publicUrl;
+
+        return data.secure_url;
       });
 
       try {
