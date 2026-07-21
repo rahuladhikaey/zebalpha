@@ -12,11 +12,6 @@ const protectedUserRoutes = [
   '/account',
 ];
 
-// Admin routes that require the admin_session cookie
-const protectedAdminRoutes = [
-  '/admin',
-];
-
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -31,7 +26,12 @@ export async function proxy(request: NextRequest) {
     return preflightResponse;
   }
 
-  // 1. Refresh Supabase session and handle customer auth
+  // 1. Redirect or block any /admin path on storefront to main admin domain
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    return NextResponse.redirect('https://admin.asaliswad.com', 301);
+  }
+
+  // 2. Refresh Supabase session and handle customer auth
   const { response, user } = await updateSession(request);
 
   // Check if it's a customer protected route
@@ -45,26 +45,6 @@ export async function proxy(request: NextRequest) {
       url.pathname = '/login';
       url.searchParams.set('redirect', pathname);
       return NextResponse.redirect(url);
-    }
-  }
-
-  // 2. Handle Admin Routes Protection
-  const isAdminRoute = pathname === '/admin' || (pathname.startsWith('/admin/') && pathname !== '/admin/login');
-  
-  if (isAdminRoute) {
-    const adminSession = request.cookies.get('admin_session');
-    if (!adminSession) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/admin/login';
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // 3. API Protection
-  if (pathname.startsWith('/api/admin/') && pathname !== '/api/admin/login' && pathname !== '/api/admin/logout') {
-    const adminSession = request.cookies.get('admin_session');
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
   }
 
@@ -86,13 +66,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
