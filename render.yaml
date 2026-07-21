@@ -1,37 +1,24 @@
 services:
-  # 1. Express Backend API
-  - type: web
-    name: asaliswad-backend
-    runtime: node
-    plan: free
-    region: singapore
-    rootDir: asaliswad-backend-main/asaliswad-backend-main
-    buildCommand: npm install
-    startCommand: npx tsx src/index.ts
-    envVars:
-      - key: NODE_VERSION
-        value: 22.x
-
-  # 2. Main Customer Storefront (Next.js)
+  # 1. Main Customer Storefront (Next.js)
   - type: web
     name: asaliswad-storefront
     runtime: node
     plan: free
     region: singapore
-    rootDir: asaliswad-is-back-main/asaliswad-is-back-main
+    rootDir: user-frontend
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
         value: 22.x
 
-  # 3. Admin Panel (Next.js)
+  # 2. Admin Panel (Next.js)
   - type: web
     name: asaliswad-admin-panel
     runtime: node
     plan: free
     region: singapore
-    rootDir: asaliswad-admin-panel-main/asaliswad-admin-panel-main
+    rootDir: admin-panel
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
