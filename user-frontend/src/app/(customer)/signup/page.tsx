@@ -301,13 +301,15 @@ export default function SignupPage() {
                 </form>
               ) : (
                 <form onSubmit={handleOtpSubmit} className="space-y-6">
-                  <div className="rounded-2xl bg-slate-50 p-6 border-2 border-slate-100/50 text-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Temporary OTP Code</span>
-                    <div className="mt-2 text-3xl font-black tracking-widest text-emerald-600 font-mono bg-white inline-block px-6 py-2 rounded-xl shadow-sm border border-emerald-100">
-                      {tempOtp}
+                  <div className="rounded-2xl bg-emerald-50/50 p-6 border-2 border-emerald-100/50 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 mb-3">
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
                     </div>
-                    <p className="mt-3 text-[11px] font-medium leading-relaxed text-slate-500">
-                      Enter the 6-digit temporary verification code displayed above to activate your account.
+                    <span className="text-[11px] font-black uppercase tracking-widest text-emerald-800">Verification Code Sent</span>
+                    <p className="mt-2 text-xs font-bold leading-relaxed text-slate-600">
+                      We sent a 6-digit verification code to <span className="text-emerald-700 font-extrabold">{email}</span>. Please check your email inbox.
                     </p>
                   </div>
 

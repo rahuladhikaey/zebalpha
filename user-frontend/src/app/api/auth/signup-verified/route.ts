@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       // Handle different error types
       const message = error.message.toLowerCase();
-      
+
       if (message.includes("already registered") || message.includes("duplicate")) {
         return NextResponse.json(
           { error: "An account already exists for this email. Please sign in." },

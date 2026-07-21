@@ -47,12 +47,11 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        otp, // Returned for testing / fallback UI
         emailSent,
         expiresAt,
         message: emailSent
           ? "Verification OTP sent to your email!"
-          : "OTP generated! Please verify."
+          : "OTP sent! Please check your inbox."
       });
     }
 
@@ -122,12 +121,11 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        otp,
         emailSent,
         expiresAt,
         message: emailSent
           ? "New verification OTP sent to your email!"
-          : "New OTP generated!"
+          : "New OTP sent! Please check your inbox."
       });
     }
 
