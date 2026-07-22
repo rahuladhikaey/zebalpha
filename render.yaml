@@ -5,22 +5,49 @@ services:
     runtime: node
     plan: free
     region: singapore
-    rootDir: user-frontend
+    rootDir: customer-app
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
         value: 22.x
 
-  # 2. Admin Panel (Next.js)
+  # 2. Seller Panel (Next.js)
   - type: web
-    name: asaliswad-admin-panel
+    name: asaliswad-seller-panel
     runtime: node
     plan: free
     region: singapore
-    rootDir: admin-panel
+    rootDir: seller-panel
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
         value: 22.x
+
+  # 3. Super Admin Panel (Next.js)
+  - type: web
+    name: asaliswad-admin-panel
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: super-admin
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.x
+
+  # 4. Express Backend API
+  - type: web
+    name: asaliswad-backend
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.x
+

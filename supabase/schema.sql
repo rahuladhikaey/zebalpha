@@ -173,3 +173,122 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ==========================================
+-- 9. SELLERS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.sellers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    business_name VARCHAR(255) NOT NULL,
+    owner_name VARCHAR(255) NOT NULL,
+    mobile_number VARCHAR(20) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    pickup_address TEXT NOT NULL,
+    warehouse_address TEXT NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    pincode VARCHAR(10) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'suspended')),
+    rejection_reason TEXT,
+    gstin VARCHAR(50),
+    pan_number VARCHAR(50),
+    bank_account_number VARCHAR(50),
+    bank_ifsc VARCHAR(20),
+    bank_name VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 10. SELLER PICKUP LOCATIONS TABLE
+CREATE TABLE IF NOT EXISTS public.seller_pickup_locations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(255),
+    address_line1 TEXT NOT NULL,
+    address_line2 TEXT,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    pincode VARCHAR(10) NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE NOT NULL,
+    shiprocket_location_id VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 11. SELLER SUPPORT TICKETS TABLE
+CREATE TABLE IF NOT EXISTS public.seller_support_tickets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
+    subject VARCHAR(255) NOT NULL,
+    category VARCHAR(100) DEFAULT 'general' NOT NULL,
+    description TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'open' NOT NULL CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+    priority VARCHAR(20) DEFAULT 'medium' NOT NULL CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    response TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 12. SELLER STOCK HISTORY TABLE
+CREATE TABLE IF NOT EXISTS public.seller_stock_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    package_name VARCHAR(100),
+    previous_stock INT NOT NULL,
+    new_stock INT NOT NULL,
+    change_reason VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- LINK PRODUCTS AND ORDERS TO SELLERS
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seller_id UUID REFERENCES public.sellers(id) ON DELETE SET NULL;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS seller_id UUID REFERENCES public.sellers(id) ON DELETE SET NULL;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS courier_name VARCHAR(100);
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_label_url TEXT;
+
+-- TRIGGERS
+CREATE TRIGGER trg_sellers_updated_at BEFORE UPDATE ON public.sellers FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_seller_pickup_locations_updated_at BEFORE UPDATE ON public.seller_pickup_locations FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_seller_support_tickets_updated_at BEFORE UPDATE ON public.seller_support_tickets FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- INDEXES
+CREATE INDEX IF NOT EXISTS idx_sellers_user ON public.sellers(user_id);
+CREATE INDEX IF NOT EXISTS idx_sellers_status ON public.sellers(status);
+CREATE INDEX IF NOT EXISTS idx_products_seller ON public.products(seller_id);
+CREATE INDEX IF NOT EXISTS idx_orders_seller ON public.orders(seller_id);
+CREATE INDEX IF NOT EXISTS idx_seller_support_tickets_seller ON public.seller_support_tickets(seller_id);
+
+-- ==========================================
+-- 13. ADMIN USERS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.admin_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    role VARCHAR(50) DEFAULT 'SUPER_ADMIN' NOT NULL CHECK (role IN ('SUPER_ADMIN', 'ADMIN_STAFF')),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 14. ADMIN AUDIT LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(100) NOT NULL,
+    ip_address VARCHAR(100),
+    user_agent TEXT,
+    action VARCHAR(50) NOT NULL CHECK (action IN ('LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'ROLE_CHANGE', 'SETTINGS_CHANGE')),
+    details TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_username ON public.admin_audit_logs(username);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_action ON public.admin_audit_logs(action);
+CREATE TRIGGER trg_admin_users_updated_at BEFORE UPDATE ON public.admin_users FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
