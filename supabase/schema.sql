@@ -438,48 +438,27 @@ BEGIN
     FOR r IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public') LOOP
         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
     END LOOP;
-END $$;
+-- GRANT SCHEMA & TABLE PERMISSIONS TO ROLES
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+GRANT INSERT ON public.sellers TO anon, authenticated;
 
--- A. PUBLIC READ POLICIES
-CREATE POLICY "Public Read Active Products" ON public.products FOR SELECT USING (is_active = true);
-CREATE POLICY "Public Read Active Categories" ON public.categories FOR SELECT USING (is_active = true);
-CREATE POLICY "Public Read Store Settings" ON public.store_settings FOR SELECT USING (true);
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
 
--- B. SELLER CONTROL POLICIES (EXPLICIT ::text CASTS TO PREVENT TYPE MISMATCH)
-CREATE POLICY "Seller Manage Own Profile" ON public.sellers 
-    FOR ALL USING (auth.uid()::text = user_id::text OR auth.role() = 'service_role');
-
-CREATE POLICY "Seller Manage Own Products" ON public.products 
-    FOR ALL USING (
-        auth.uid()::text IN (SELECT user_id::text FROM public.sellers WHERE sellers.id::text = products.seller_id::text) 
-        OR auth.role() = 'service_role'
-    );
-
-CREATE POLICY "Seller Manage Own Tickets" ON public.seller_support_tickets 
-    FOR ALL USING (
-        auth.uid()::text IN (SELECT user_id::text FROM public.sellers WHERE sellers.id::text = seller_support_tickets.seller_id::text) 
-        OR auth.role() = 'service_role'
-    );
-
--- C. CUSTOMER ORDER POLICIES (EXPLICIT ::text CASTS TO PREVENT TYPE MISMATCH)
-CREATE POLICY "Anyone Can Insert Orders" ON public.orders FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Users Read Own Orders" ON public.orders 
-    FOR SELECT USING (auth.uid()::text = user_id::text OR auth.role() = 'service_role');
-
-CREATE POLICY "Users Manage Own Addresses" ON public.user_addresses 
-    FOR ALL USING (auth.uid()::text = user_id::text OR auth.role() = 'service_role');
-
-CREATE POLICY "Users Manage Own Cart" ON public.cart_items 
-    FOR ALL USING (auth.uid()::text = user_id::text OR auth.role() = 'service_role');
-
-CREATE POLICY "Users Manage Card Apps" ON public.card_applications 
-    FOR ALL USING (auth.uid()::text = user_id::text OR auth.role() = 'service_role');
-
--- D. SUPER ADMIN / SERVICE ROLE FULL POLICIES
-CREATE POLICY "Service Role Full Access Products" ON public.products FOR ALL TO service_role USING (true);
-CREATE POLICY "Service Role Full Access Categories" ON public.categories FOR ALL TO service_role USING (true);
+-- POLICIES
+CREATE POLICY "Public Read Sellers" ON public.sellers FOR SELECT TO public USING (true);
+CREATE POLICY "Authenticated Insert Sellers" ON public.sellers FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated Manage Sellers" ON public.sellers FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Service Role Full Access Sellers" ON public.sellers FOR ALL TO service_role USING (true);
+
+CREATE POLICY "Public Read Products" ON public.products FOR SELECT TO public USING (true);
+CREATE POLICY "Authenticated Manage Products" ON public.products FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Service Role Full Access Products" ON public.products FOR ALL TO service_role USING (true);
+
+CREATE POLICY "Public Insert Orders" ON public.orders FOR INSERT TO public WITH CHECK (true);
+CREATE POLICY "Authenticated Manage Orders" ON public.orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Service Role Full Access Orders" ON public.orders FOR ALL TO service_role USING (true);
-CREATE POLICY "Service Role Full Access Settlements" ON public.seller_settlements FOR ALL TO service_role USING (true);
-CREATE POLICY "Service Role Full Access Settings" ON public.store_settings FOR ALL TO service_role USING (true);
+

@@ -59,3 +59,13 @@ CREATE POLICY "Service role can manage notifications" ON public.notifications FO
 CREATE POLICY "Anyone can submit preorder" ON public.preorders FOR INSERT TO public WITH CHECK (true);
 CREATE POLICY "Users can view own preorders" ON public.preorders FOR SELECT TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "Service role can manage preorders" ON public.preorders FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- 9. GRANT TABLE PERMISSIONS & SELLERS POLICIES
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+
+CREATE POLICY "Public Read Sellers" ON public.sellers FOR SELECT TO public USING (true);
+CREATE POLICY "Authenticated Manage Sellers" ON public.sellers FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Service Role Full Access Sellers" ON public.sellers FOR ALL TO service_role USING (true);
+
