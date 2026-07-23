@@ -8,13 +8,17 @@
 -- 1. GRANT SCHEMA & TABLE PERMISSIONS TO ROLES
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
+GRANT ALL ON TABLE public.sellers TO authenticated, service_role;
+GRANT ALL ON TABLE public.products TO authenticated, service_role;
+GRANT ALL ON TABLE public.orders TO authenticated, service_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 GRANT INSERT ON public.sellers TO anon, authenticated;
 
 -- Ensure default privileges apply to future tables created in public schema
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
 
 -- 2. ENABLE ROW LEVEL SECURITY ON ALL APPLICABLE TABLES
