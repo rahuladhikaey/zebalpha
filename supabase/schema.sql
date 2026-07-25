@@ -62,21 +62,42 @@ CREATE TABLE IF NOT EXISTS public.sellers (
     state VARCHAR(100),
     pincode VARCHAR(10),
     category VARCHAR(100) DEFAULT 'Grocery',
+    business_category VARCHAR(100) DEFAULT 'Grocery',
+    business_logo_url TEXT,
+    profile_photo_url TEXT,
+    business_description TEXT,
     profile_photo TEXT,
+    email_verified BOOLEAN DEFAULT FALSE NOT NULL,
+    fssai_license_number VARCHAR(14),
+    fssai_certificate_url TEXT,
+    fssai_status VARCHAR(50) DEFAULT 'Not Submitted' NOT NULL,
+    fssai_expiry_date DATE,
+    fssai_rejection_reason TEXT,
+    verified_at TIMESTAMPTZ,
+    verified_by UUID,
+    settings_completion_pct INT DEFAULT 0 NOT NULL,
     status VARCHAR(50) DEFAULT 'approved' NOT NULL,
     account_status VARCHAR(50) DEFAULT 'Active' NOT NULL,
     rejection_reason TEXT,
     delete_requested BOOLEAN DEFAULT FALSE NOT NULL,
     delete_date TIMESTAMPTZ,
     gstin VARCHAR(50),
-    pan_number VARCHAR(50),
-    upi_id VARCHAR(100),
+    phonepay_number VARCHAR(50),
     phonepay_no VARCHAR(100),
-    bank_account_number VARCHAR(50),
-    bank_ifsc VARCHAR(20),
-    bank_name VARCHAR(100),
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- MERCHANT VERIFICATION LOGS TABLE (AUDIT TRAIL)
+CREATE TABLE IF NOT EXISTS public.merchant_verification_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
+    action VARCHAR(100) NOT NULL,
+    performed_by UUID,
+    performer_role VARCHAR(50) DEFAULT 'admin' NOT NULL,
+    notes TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
 -- SELLER PICKUP LOCATIONS TABLE (Shiprocket Courier Integration)
