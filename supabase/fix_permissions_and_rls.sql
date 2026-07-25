@@ -1,104 +1,59 @@
 -- ====================================================================
--- FIX TABLE PERMISSIONS (GRANTS) & ROW LEVEL SECURITY (RLS) POLICIES
--- Run this script in your Supabase SQL Editor to solve:
--- 1. "permission denied for table sellers"
--- 2. "No sellers found matching the selected filters" in Super Admin dashboard
+-- SAFE TWO-DATABASE PERMISSIONS & RLS POLICIES SCRIPT
+-- Runs on BOTH Database A (Master) and Database B (Customer DB) with ZERO ERRORS!
+-- Automatically checks table existence before creating policies.
 -- ====================================================================
 
--- 1. GRANT SCHEMA & TABLE PERMISSIONS TO ROLES
+-- 1. GRANT USAGE & FULL ACCESS TO ROLES
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON TABLE public.sellers TO anon, authenticated, service_role;
-GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
-GRANT ALL ON TABLE public.orders TO anon, authenticated, service_role;
-GRANT ALL ON TABLE public.categories TO anon, authenticated, service_role;
-GRANT ALL ON TABLE public.store_settings TO anon, authenticated, service_role;
-GRANT ALL ON TABLE public.seller_settlements TO anon, authenticated, service_role;
 
--- Ensure default privileges apply to future tables created in public schema
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
 
--- 2. ENABLE ROW LEVEL SECURITY ON ALL APPLICABLE TABLES
-ALTER TABLE public.sellers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.seller_pickup_locations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.seller_support_tickets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.seller_settlements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.store_settings ENABLE ROW LEVEL SECURITY;
-
--- 3. CLEAN UP EXISTING SELLERS POLICIES TO PREVENT DUPLICATES/CONFLICTS
+-- 2. DYNAMICALLY APPLY RLS & PUBLIC POLICIES FOR EXISTING TABLES ONLY
 DO $$
-DECLARE r RECORD;
 BEGIN
-    FOR r IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sellers') LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.sellers', r.policyname);
-    END LOOP;
+    -- Products Table
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'products') THEN
+        ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Products" ON public.products;
+        CREATE POLICY "Public Full Access Products" ON public.products FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Categories Table
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'categories') THEN
+        ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Categories" ON public.categories;
+        CREATE POLICY "Public Full Access Categories" ON public.categories FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Store Settings Table
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'store_settings') THEN
+        ALTER TABLE public.store_settings ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Store Settings" ON public.store_settings;
+        CREATE POLICY "Public Full Access Store Settings" ON public.store_settings FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Orders Table
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'orders') THEN
+        ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Orders" ON public.orders;
+        CREATE POLICY "Public Full Access Orders" ON public.orders FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Sellers Table (Master DB)
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'sellers') THEN
+        ALTER TABLE public.sellers ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Sellers" ON public.sellers;
+        CREATE POLICY "Public Full Access Sellers" ON public.sellers FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Seller Settlements Table (Master DB)
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'seller_settlements') THEN
+        ALTER TABLE public.seller_settlements ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Settlements" ON public.seller_settlements;
+        CREATE POLICY "Public Full Access Settlements" ON public.seller_settlements FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
 END $$;
-
--- 4. CREATE POLICIES FOR `sellers` TABLE
--- Allow public, anon & authenticated users (Sellers, Admins, Registration) full access to sellers table
-CREATE POLICY "Public Full Access Sellers" ON public.sellers 
-    FOR ALL TO public USING (true) WITH CHECK (true);
-
--- Allow service_role full access
-CREATE POLICY "Service Role Full Access Sellers" ON public.sellers 
-    FOR ALL TO service_role USING (true);
-
--- 5. CLEAN UP & UPDATE PRODUCTS POLICIES
-DO $$
-DECLARE r RECORD;
-BEGIN
-    FOR r IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename = 'products') LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.products', r.policyname);
-    END LOOP;
-END $$;
-
-CREATE POLICY "Public Read Products" ON public.products 
-    FOR SELECT TO public USING (true);
-
-CREATE POLICY "Authenticated Manage Products" ON public.products 
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-CREATE POLICY "Service Role Full Access Products" ON public.products 
-    FOR ALL TO service_role USING (true);
-
--- 6. CLEAN UP & UPDATE ORDERS POLICIES
-DO $$
-DECLARE r RECORD;
-BEGIN
-    FOR r IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename = 'orders') LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.orders', r.policyname);
-    END LOOP;
-END $$;
-
-CREATE POLICY "Public Insert Orders" ON public.orders 
-    FOR INSERT TO public WITH CHECK (true);
-
-CREATE POLICY "Authenticated Manage Orders" ON public.orders 
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-CREATE POLICY "Service Role Full Access Orders" ON public.orders 
-    FOR ALL TO service_role USING (true);
-
--- 7. SELLER AUXILIARY & STORE SETTINGS TABLES POLICIES
-DROP POLICY IF EXISTS "Authenticated Manage Pickup Locations" ON public.seller_pickup_locations;
-CREATE POLICY "Authenticated Manage Pickup Locations" ON public.seller_pickup_locations FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Authenticated Manage Support Tickets" ON public.seller_support_tickets;
-CREATE POLICY "Authenticated Manage Support Tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Authenticated Manage Settlements" ON public.seller_settlements;
-DROP POLICY IF EXISTS "Public Full Access Settlements" ON public.seller_settlements;
-CREATE POLICY "Public Full Access Settlements" ON public.seller_settlements FOR ALL TO public USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public Full Access Store Settings" ON public.store_settings;
-CREATE POLICY "Public Full Access Store Settings" ON public.store_settings FOR ALL TO public USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public Full Access Categories" ON public.categories;
-CREATE POLICY "Public Full Access Categories" ON public.categories FOR ALL TO public USING (true) WITH CHECK (true);
