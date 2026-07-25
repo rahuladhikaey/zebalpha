@@ -51,3 +51,15 @@ services:
       - key: NODE_VERSION
         value: 22.x
 
+  # 5. Daily Seller Purge Cron Job
+  - type: cron
+    name: asaliswad-daily-purge-cron
+    runtime: node
+    plan: free
+    region: singapore
+    schedule: "0 0 * * *"
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node -e "fetch('https://api.asaliswad.com/api/v1/sellers/purge-expired', { method: 'POST' }).then(r=>r.json()).then(console.log)"
+
+
