@@ -5,7 +5,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    rootDir: customer-app
+    rootDir: asaliswad-customer
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
@@ -18,7 +18,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    rootDir: seller-panel
+    rootDir: asaliswad-seller
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
@@ -31,7 +31,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    rootDir: super-admin
+    rootDir: asaliswad-superadmin
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
@@ -44,7 +44,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    rootDir: backend
+    rootDir: asaliswad-backend
     buildCommand: npm install
     startCommand: npm start
     envVars:
@@ -58,8 +58,6 @@ services:
     plan: free
     region: singapore
     schedule: "0 0 * * *"
-    rootDir: backend
+    rootDir: asaliswad-backend
     buildCommand: npm install
-    startCommand: node -e "fetch('https://api.asaliswad.com/api/v1/sellers/purge-expired', { method: 'POST' }).then(r=>r.json()).then(console.log)"
-
-
+    startCommand: node -e "fetch('https://api.asaliswad.com/api/v1/cron/seller/purge-expired', { method: 'POST' }).then(r=>r.json()).then(console.log)"
