@@ -83,7 +83,7 @@ CREATE POLICY "Authenticated Manage Orders" ON public.orders
 CREATE POLICY "Service Role Full Access Orders" ON public.orders 
     FOR ALL TO service_role USING (true);
 
--- 7. SELLER AUXILIARY TABLES POLICIES
+-- 7. SELLER AUXILIARY & STORE SETTINGS TABLES POLICIES
 DROP POLICY IF EXISTS "Authenticated Manage Pickup Locations" ON public.seller_pickup_locations;
 CREATE POLICY "Authenticated Manage Pickup Locations" ON public.seller_pickup_locations FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
@@ -91,4 +91,8 @@ DROP POLICY IF EXISTS "Authenticated Manage Support Tickets" ON public.seller_su
 CREATE POLICY "Authenticated Manage Support Tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Authenticated Manage Settlements" ON public.seller_settlements;
-CREATE POLICY "Authenticated Manage Settlements" ON public.seller_settlements FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Public Full Access Settlements" ON public.seller_settlements;
+CREATE POLICY "Public Full Access Settlements" ON public.seller_settlements FOR ALL TO public USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Full Access Store Settings" ON public.store_settings;
+CREATE POLICY "Public Full Access Store Settings" ON public.store_settings FOR ALL TO public USING (true) WITH CHECK (true);
