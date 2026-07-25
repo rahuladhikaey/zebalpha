@@ -8,18 +8,15 @@
 -- 1. GRANT SCHEMA & TABLE PERMISSIONS TO ROLES
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
-GRANT ALL ON TABLE public.sellers TO authenticated, service_role;
-GRANT ALL ON TABLE public.products TO authenticated, service_role;
-GRANT ALL ON TABLE public.orders TO authenticated, service_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
-GRANT INSERT ON public.sellers TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.sellers TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.orders TO anon, authenticated, service_role;
 
 -- Ensure default privileges apply to future tables created in public schema
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
 
 -- 2. ENABLE ROW LEVEL SECURITY ON ALL APPLICABLE TABLES
 ALTER TABLE public.sellers ENABLE ROW LEVEL SECURITY;
@@ -42,17 +39,9 @@ BEGIN
 END $$;
 
 -- 4. CREATE POLICIES FOR `sellers` TABLE
--- Allow public & authenticated users (Sellers, Admins, Storefront) to read sellers data
-CREATE POLICY "Public Read Sellers" ON public.sellers 
-    FOR SELECT TO public USING (true);
-
--- Allow authenticated users to insert their seller profile during registration
-CREATE POLICY "Authenticated Insert Sellers" ON public.sellers 
-    FOR INSERT TO authenticated WITH CHECK (true);
-
--- Allow sellers to manage their own profile and Super Admins to manage all sellers
-CREATE POLICY "Authenticated Manage Sellers" ON public.sellers 
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- Allow public, anon & authenticated users (Sellers, Admins, Registration) full access to sellers table
+CREATE POLICY "Public Full Access Sellers" ON public.sellers 
+    FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- Allow service_role full access
 CREATE POLICY "Service Role Full Access Sellers" ON public.sellers 
