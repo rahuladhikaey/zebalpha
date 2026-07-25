@@ -13,6 +13,9 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role
 GRANT ALL ON TABLE public.sellers TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.orders TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.categories TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.store_settings TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.seller_settlements TO anon, authenticated, service_role;
 
 -- Ensure default privileges apply to future tables created in public schema
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
@@ -96,3 +99,6 @@ CREATE POLICY "Public Full Access Settlements" ON public.seller_settlements FOR 
 
 DROP POLICY IF EXISTS "Public Full Access Store Settings" ON public.store_settings;
 CREATE POLICY "Public Full Access Store Settings" ON public.store_settings FOR ALL TO public USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Full Access Categories" ON public.categories;
+CREATE POLICY "Public Full Access Categories" ON public.categories FOR ALL TO public USING (true) WITH CHECK (true);
