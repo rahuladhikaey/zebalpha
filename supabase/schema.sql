@@ -1,8 +1,7 @@
 -- ====================================================================
--- ASALI SWAD - SUPABASE INSTANCE B MASTER SCHEMA & SECURITY SETUP
--- Target URL: https://qgiichnytbukisofuqiv.supabase.co
--- Features: Sellers, SuperAdmin, Customer, Stock Alerts, Loyalty & Security RLS
--- Image Storage: Cloudinary CDN (Metadata & URLs stored in Postgres tables)
+-- ASALI SWAD - UNIFIED SINGLE SUPABASE PRODUCTION DATABASE SCHEMA
+-- Target URL: https://bprkenwmheakcqryjupi.supabase.co
+-- Features: Sellers, SuperAdmin, Customer, Products, Categories, Stock, Orders, RLS & Storage
 -- ====================================================================
 
 -- 1. ENABLE EXTENSIONS
