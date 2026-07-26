@@ -458,6 +458,9 @@ BEGIN
     FOR r IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public') LOOP
         EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
     END LOOP;
+END;
+$$;
+
 -- GRANT SCHEMA & TABLE PERMISSIONS TO ROLES
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
