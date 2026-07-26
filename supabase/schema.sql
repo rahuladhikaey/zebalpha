@@ -471,123 +471,76 @@ BEGIN
 END;
 $$;
 
--- GRANT SCHEMA & TABLE PERMISSIONS TO ROLES
+-- GRANT SCHEMA & TABLE PERMISSIONS TO ALL ROLES
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
-GRANT INSERT ON public.sellers TO anon, authenticated;
-GRANT INSERT ON public.orders TO anon, authenticated;
-GRANT INSERT ON public.notify_requests TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
 
--- POLICIES FOR ALL TABLES WITH COMPREHENSIVE SECURITY
+-- POLICIES FOR ALL TABLES (ALLOWING PUBLIC READ/WRITE FOR APPLICATION APIS)
 
 -- 1. Profiles
-CREATE POLICY "Public Read Profiles" ON public.profiles FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Own Profile" ON public.profiles FOR ALL TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "Service Role Full Access Profiles" ON public.profiles FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Profiles" ON public.profiles FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 2. Categories
-CREATE POLICY "Public Read Categories" ON public.categories FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Categories" ON public.categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Categories" ON public.categories FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Categories" ON public.categories FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 3. Sellers
-CREATE POLICY "Public Read Sellers" ON public.sellers FOR SELECT TO public USING (true);
-CREATE POLICY "Anon/Authenticated Insert Sellers" ON public.sellers FOR INSERT TO public WITH CHECK (true);
-CREATE POLICY "Authenticated Manage Sellers" ON public.sellers FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Sellers" ON public.sellers FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Sellers" ON public.sellers FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 4. Products
-CREATE POLICY "Public Read Products" ON public.products FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Products" ON public.products FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Products" ON public.products FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Products" ON public.products FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 5. Orders
-CREATE POLICY "Public Read Orders" ON public.orders FOR SELECT TO public USING (true);
-CREATE POLICY "Anon/Authenticated Insert Orders" ON public.orders FOR INSERT TO public WITH CHECK (true);
-CREATE POLICY "Authenticated Manage Orders" ON public.orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Orders" ON public.orders FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Orders" ON public.orders FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 6. Cart Items
-CREATE POLICY "Public Read Cart Items" ON public.cart_items FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Cart Items" ON public.cart_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Cart Items" ON public.cart_items FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Cart Items" ON public.cart_items FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 7. User Addresses
-CREATE POLICY "Public Read User Addresses" ON public.user_addresses FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage User Addresses" ON public.user_addresses FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access User Addresses" ON public.user_addresses FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage User Addresses" ON public.user_addresses FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 8. Card Applications (AS-Cards)
-CREATE POLICY "Public Read Card Applications" ON public.card_applications FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Card Applications" ON public.card_applications FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Card Applications" ON public.card_applications FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Card Applications" ON public.card_applications FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 9. Notify Requests
-CREATE POLICY "Public Read Notify Requests" ON public.notify_requests FOR SELECT TO public USING (true);
-CREATE POLICY "Anon/Authenticated Insert Notify Requests" ON public.notify_requests FOR INSERT TO public WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Notify Requests" ON public.notify_requests FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Notify Requests" ON public.notify_requests FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 10. Stock History
-CREATE POLICY "Public Read Stock History" ON public.stock_history FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Stock History" ON public.stock_history FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Stock History" ON public.stock_history FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Stock History" ON public.stock_history FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 11. Inventory
-CREATE POLICY "Public Read Inventory" ON public.inventory FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Inventory" ON public.inventory FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Inventory" ON public.inventory FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Inventory" ON public.inventory FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 12. Seller Pickup Locations
-CREATE POLICY "Public Read Seller Pickup Locations" ON public.seller_pickup_locations FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Seller Pickup Locations" ON public.seller_pickup_locations FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Seller Pickup Locations" ON public.seller_pickup_locations FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Seller Pickup Locations" ON public.seller_pickup_locations FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 13. Seller Support Tickets
-CREATE POLICY "Public Read Seller Support Tickets" ON public.seller_support_tickets FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Seller Support Tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Seller Support Tickets" ON public.seller_support_tickets FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Seller Support Tickets" ON public.seller_support_tickets FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 14. Seller Settlements
-CREATE POLICY "Public Read Seller Settlements" ON public.seller_settlements FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Seller Settlements" ON public.seller_settlements FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Seller Settlements" ON public.seller_settlements FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Seller Settlements" ON public.seller_settlements FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 15. Seller Reports
-CREATE POLICY "Public Read Seller Reports" ON public.seller_reports FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Seller Reports" ON public.seller_reports FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Seller Reports" ON public.seller_reports FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Seller Reports" ON public.seller_reports FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 16. Seller Notifications
-CREATE POLICY "Public Read Seller Notifications" ON public.seller_notifications FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Seller Notifications" ON public.seller_notifications FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Seller Notifications" ON public.seller_notifications FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Seller Notifications" ON public.seller_notifications FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 17. Merchant Verification Logs
-CREATE POLICY "Public Read Merchant Verification Logs" ON public.merchant_verification_logs FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Merchant Verification Logs" ON public.merchant_verification_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Merchant Verification Logs" ON public.merchant_verification_logs FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Merchant Verification Logs" ON public.merchant_verification_logs FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 18. Store Settings
-CREATE POLICY "Public Read Store Settings" ON public.store_settings FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Store Settings" ON public.store_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Store Settings" ON public.store_settings FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Store Settings" ON public.store_settings FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 19. Notifications
-CREATE POLICY "Public Read Notifications" ON public.notifications FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Notifications" ON public.notifications FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Notifications" ON public.notifications FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Notifications" ON public.notifications FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 20. Admin Users
-CREATE POLICY "Public Read Admin Users" ON public.admin_users FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Admin Users" ON public.admin_users FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Admin Users" ON public.admin_users FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Admin Users" ON public.admin_users FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- 21. Admin Audit Logs
-CREATE POLICY "Public Read Admin Audit Logs" ON public.admin_audit_logs FOR SELECT TO public USING (true);
-CREATE POLICY "Authenticated Manage Admin Audit Logs" ON public.admin_audit_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Service Role Full Access Admin Audit Logs" ON public.admin_audit_logs FOR ALL TO service_role USING (true);
+CREATE POLICY "Public Manage Admin Audit Logs" ON public.admin_audit_logs FOR ALL TO public USING (true) WITH CHECK (true);
 
