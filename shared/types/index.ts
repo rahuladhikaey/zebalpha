@@ -7,15 +7,19 @@ export type ProductPackage = {
 };
 
 export type Product = {
-	id: number;
+	id: number | string;
 	name: string;
 	price: number;
 	mrp?: number;
 	description: string;
 	image_url: string;
 	images?: string[];
-	category_id: number;
+	category_id?: number | string;
 	category_name?: string;
+	category?: string;
+	is_active?: boolean;
+	is_approved?: boolean;
+	approval_status?: string;
 	offers?: string[];
 	specifications?: Record<string, string>;
 	brand?: string;
@@ -61,8 +65,12 @@ export type OrderPayload = {
 };
 
 export type Category = {
-	id: number;
+	id: number | string;
 	name: string;
+	main_category?: string;
+	description?: string;
+	icon?: string;
+	image_url?: string;
 };
 
 export type UserProfile = {
