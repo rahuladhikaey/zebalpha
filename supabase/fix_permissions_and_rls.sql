@@ -112,4 +112,25 @@ BEGIN
         DROP POLICY IF EXISTS "Public Full Access Notifications" ON public.notifications;
         CREATE POLICY "Public Full Access Notifications" ON public.notifications FOR ALL TO public USING (true) WITH CHECK (true);
     END IF;
+
+    -- Profiles Table
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'profiles') THEN
+        ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Profiles" ON public.profiles;
+        CREATE POLICY "Public Full Access Profiles" ON public.profiles FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Order Status History Table
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'order_status_history') THEN
+        ALTER TABLE public.order_status_history ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Order Status History" ON public.order_status_history;
+        CREATE POLICY "Public Full Access Order Status History" ON public.order_status_history FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Shipment Tracking Table
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'shipment_tracking') THEN
+        ALTER TABLE public.shipment_tracking ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Public Full Access Shipment Tracking" ON public.shipment_tracking;
+        CREATE POLICY "Public Full Access Shipment Tracking" ON public.shipment_tracking FOR ALL TO public USING (true) WITH CHECK (true);
+    END IF;
 END $$;
