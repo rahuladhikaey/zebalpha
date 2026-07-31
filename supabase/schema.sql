@@ -1112,7 +1112,7 @@ CREATE POLICY "Sellers view own settlement orders" ON public.settlement_orders F
 CREATE POLICY "Admins manage settlement orders" ON public.settlement_orders FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 14. Settlement Receipts
-CREATE POLICY "Sellers view own receipts" ON public.settlement_receipts FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id::text = settlement_id::text AND ss.seller_id::text IN (SELECT id FROM public.sellers WHERE user_id::text = auth.uid()::text)));
+CREATE POLICY "Sellers view own receipts" ON public.settlement_receipts FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id::text = settlement_id::text AND ss.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
 CREATE POLICY "Admins manage receipts" ON public.settlement_receipts FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 15. Seller Payment History
