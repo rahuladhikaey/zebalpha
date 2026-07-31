@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
+    main_category VARCHAR(100) DEFAULT 'Grocery',
     image_url TEXT,
     sort_order INT DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
