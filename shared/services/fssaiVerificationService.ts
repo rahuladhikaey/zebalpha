@@ -109,3 +109,4 @@ export function calculateMerchantCompletion(seller: any): number {
 
   return Math.round((completedCount / requiredFields.length) * 100);
 }
+

@@ -750,7 +750,7 @@ DECLARE
     v_existing_id UUID;
     v_existing_status VARCHAR(50);
 BEGIN
-    SELECT ss.created_at INTO v_joining_date FROM public.sellers ss WHERE ss.id = p_seller_id;
+    SELECT ss.created_at INTO v_joining_date FROM public.sellers ss WHERE ss.id::text = p_seller_id::text;
     IF NOT FOUND OR v_joining_date IS NULL THEN
         v_joining_date := '2026-08-10 00:00:00+00';
     END IF;
@@ -773,7 +773,7 @@ BEGIN
         
         SELECT ss.id, ss.status INTO v_existing_id, v_existing_status
         FROM public.seller_settlements ss
-        WHERE ss.seller_id = p_seller_id AND ss.week_number = v_week_num;
+        WHERE ss.seller_id::text = p_seller_id::text AND ss.week_number = v_week_num;
         
         SELECT 
             COUNT(o.id),
@@ -782,7 +782,7 @@ BEGIN
             v_total_orders,
             v_gross_sales
         FROM public.orders o
-        WHERE o.seller_id = p_seller_id
+        WHERE o.seller_id::text = p_seller_id::text
           AND LOWER(o.order_status) IN ('delivered', 'completed')
           AND o.payment_status != 'REFUNDED'
           AND o.created_at >= v_week_start
@@ -825,7 +825,7 @@ BEGIN
         ss.transaction_id, ss.payment_date, ss.receipt_number, 
         ss.receipt_pdf_url, ss.notes, ss.email_sent, ss.created_at
     FROM public.seller_settlements ss
-    WHERE ss.seller_id = p_seller_id
+    WHERE ss.seller_id::text = p_seller_id::text
     ORDER BY ss.week_number ASC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
@@ -869,7 +869,7 @@ BEGIN
         ss.transaction_id, ss.payment_date, ss.receipt_number, 
         ss.receipt_pdf_url, ss.notes, ss.email_sent, ss.created_at
     FROM public.seller_settlements ss
-    JOIN public.sellers s ON ss.seller_id = s.id
+    JOIN public.sellers s ON ss.seller_id::text = s.id::text
     ORDER BY ss.end_date DESC, ss.week_number DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
@@ -891,7 +891,7 @@ DECLARE
     v_earlier_pending_count INT;
     v_updated_settlement JSONB;
 BEGIN
-    SELECT * INTO v_settlement FROM public.seller_settlements WHERE id = p_settlement_id FOR UPDATE;
+    SELECT * INTO v_settlement FROM public.seller_settlements WHERE id::text = p_settlement_id::text FOR UPDATE;
     
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Settlement not found';
@@ -903,7 +903,7 @@ BEGIN
     
     SELECT COUNT(*) INTO v_earlier_pending_count 
     FROM public.seller_settlements 
-    WHERE seller_id = v_settlement.seller_id 
+    WHERE seller_id::text = v_settlement.seller_id::text 
       AND week_number < v_settlement.week_number 
       AND status = 'PENDING';
       
@@ -926,19 +926,19 @@ BEGIN
         receipt_number = v_receipt_number,
         receipt_pdf_url = p_pdf_url,
         updated_at = NOW()
-    WHERE id = p_settlement_id;
+    WHERE id::text = p_settlement_id::text;
     
     INSERT INTO public.settlement_orders (settlement_id, order_id)
     SELECT p_settlement_id, o.id
     FROM public.orders o
-    WHERE o.seller_id = v_settlement.seller_id
+    WHERE o.seller_id::text = v_settlement.seller_id::text
       AND LOWER(o.order_status) IN ('delivered', 'completed')
       AND o.created_at >= v_settlement.start_date
       AND o.created_at <= v_settlement.end_date
       AND NOT EXISTS (
           SELECT 1 FROM public.settlement_orders so
-          JOIN public.seller_settlements ss ON so.settlement_id = ss.id
-          WHERE so.order_id = o.id AND ss.status = 'PAID'
+          JOIN public.seller_settlements ss ON so.settlement_id::text = ss.id::text
+          WHERE so.order_id::text = o.id::text AND ss.status = 'PAID'
       );
       
     INSERT INTO public.settlement_receipts (settlement_id, receipt_number, pdf_url)
@@ -976,7 +976,7 @@ BEGIN
         'receipt_pdf_url', ss.receipt_pdf_url
     ) INTO v_updated_settlement
     FROM public.seller_settlements ss
-    WHERE ss.id = p_settlement_id;
+    WHERE ss.id::text = p_settlement_id::text;
     
     RETURN v_updated_settlement;
 END;
@@ -988,20 +988,20 @@ RETURNS BOOLEAN AS $$
 DECLARE
     v_user_id UUID;
 BEGIN
-    SELECT user_id INTO v_user_id FROM public.sellers WHERE id = p_seller_id;
+    SELECT user_id INTO v_user_id FROM public.sellers WHERE id::text = p_seller_id::text;
     IF v_user_id IS NULL THEN
         RETURN FALSE;
     END IF;
 
-    DELETE FROM public.products WHERE seller_id = p_seller_id;
-    DELETE FROM public.inventory WHERE seller_id = p_seller_id;
-    DELETE FROM public.seller_pickup_locations WHERE seller_id = p_seller_id;
-    DELETE FROM public.seller_support_tickets WHERE seller_id = p_seller_id;
-    DELETE FROM public.seller_notifications WHERE seller_id = p_seller_id;
-    DELETE FROM public.seller_reports WHERE seller_id = p_seller_id;
-    DELETE FROM public.merchant_verification_logs WHERE seller_id = p_seller_id;
-    DELETE FROM public.seller_settlements WHERE seller_id = p_seller_id;
-    DELETE FROM auth.users WHERE id = v_user_id;
+    DELETE FROM public.products WHERE seller_id::text = p_seller_id::text;
+    DELETE FROM public.inventory WHERE seller_id::text = p_seller_id::text;
+    DELETE FROM public.seller_pickup_locations WHERE seller_id::text = p_seller_id::text;
+    DELETE FROM public.seller_support_tickets WHERE seller_id::text = p_seller_id::text;
+    DELETE FROM public.seller_notifications WHERE seller_id::text = p_seller_id::text;
+    DELETE FROM public.seller_reports WHERE seller_id::text = p_seller_id::text;
+    DELETE FROM public.merchant_verification_logs WHERE seller_id::text = p_seller_id::text;
+    DELETE FROM public.seller_settlements WHERE seller_id::text = p_seller_id::text;
+    DELETE FROM auth.users WHERE id::text = v_user_id::text;
 
     RETURN TRUE;
 END;
