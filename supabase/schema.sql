@@ -544,7 +544,7 @@ CREATE INDEX IF NOT EXISTS idx_seller_payment_history_seller ON public.seller_pa
 -- ====================================================================
 
 -- REVENUE SUMMARY VIEW
-CREATE OR REPLACE VIEW public.seller_revenue_summary AS
+CREATE OR REPLACE VIEW public.seller_revenue_summary WITH (security_invoker = true) AS
 SELECT
     s.id AS seller_id,
     COALESCE(SUM(CASE WHEN o.created_at >= CURRENT_DATE AND o.created_at < CURRENT_DATE + INTERVAL '1 day' AND LOWER(o.order_status) IN ('delivered', 'completed') AND o.payment_status != 'REFUNDED' THEN o.total_amount ELSE 0 END), 0) AS today_revenue,
@@ -1062,14 +1062,14 @@ BEGIN
     RETURN EXISTS (
         SELECT 1 
         FROM public.admin_users 
-        WHERE id::text = auth.uid()::text
+        WHERE id = auth.uid()
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- 1. Profiles Policy (Sellers / Customers read own, Admin full control)
-CREATE POLICY "Users read own profile" ON public.profiles FOR SELECT TO authenticated USING (id::text = auth.uid()::text);
-CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE TO authenticated USING (id::text = auth.uid()::text);
+CREATE POLICY "Users read own profile" ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid());
+CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid());
 CREATE POLICY "Admins full manage profiles" ON public.profiles FOR ALL TO authenticated USING (public.is_admin());
 
 -- 2. Categories Policy (Public read, Admin manage)
@@ -1078,79 +1078,79 @@ CREATE POLICY "Admins full manage categories" ON public.categories FOR ALL TO au
 
 -- 3. Sellers Policy (Public read approved sellers, Sellers manage own, Admins manage all)
 CREATE POLICY "Public read approved sellers" ON public.sellers FOR SELECT TO public USING (status = 'approved');
-CREATE POLICY "Sellers view own configuration" ON public.sellers FOR SELECT TO authenticated USING (user_id::text = auth.uid()::text);
-CREATE POLICY "Sellers update own configuration" ON public.sellers FOR UPDATE TO authenticated USING (user_id::text = auth.uid()::text) WITH CHECK (user_id::text = auth.uid()::text);
+CREATE POLICY "Sellers view own configuration" ON public.sellers FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "Sellers update own configuration" ON public.sellers FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE POLICY "Admins full manage sellers" ON public.sellers FOR ALL TO authenticated USING (public.is_admin());
 
 -- 4. Products Policy (Public read active products, Sellers manage own, Admins manage all)
 CREATE POLICY "Public view active products" ON public.products FOR SELECT TO public USING (is_active = true);
-CREATE POLICY "Sellers view own products" ON public.products FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
-CREATE POLICY "Sellers manage own products" ON public.products FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view own products" ON public.products FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
+CREATE POLICY "Sellers manage own products" ON public.products FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins full manage products" ON public.products FOR ALL TO authenticated USING (public.is_admin());
 
 -- 5. Orders Policy
-CREATE POLICY "Customers view own orders" ON public.orders FOR SELECT TO authenticated USING (user_id::text = auth.uid()::text);
-CREATE POLICY "Sellers view own assigned orders" ON public.orders FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Customers view own orders" ON public.orders FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "Sellers view own assigned orders" ON public.orders FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins full manage orders" ON public.orders FOR ALL TO authenticated USING (public.is_admin());
 
 -- 6. Seller Orders (Order Routing)
-CREATE POLICY "Sellers view own routed orders" ON public.seller_orders FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
-CREATE POLICY "Sellers update own routed orders" ON public.seller_orders FOR UPDATE TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view own routed orders" ON public.seller_orders FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
+CREATE POLICY "Sellers update own routed orders" ON public.seller_orders FOR UPDATE TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage routed orders" ON public.seller_orders FOR ALL TO authenticated USING (public.is_admin());
 
 -- 7. Order Items (Order Routing)
-CREATE POLICY "Sellers view routed order items" ON public.order_items FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
-CREATE POLICY "Users view order items" ON public.order_items FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view routed order items" ON public.order_items FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
+CREATE POLICY "Users view order items" ON public.order_items FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id = auth.uid()));
 CREATE POLICY "Admins manage order items" ON public.order_items FOR ALL TO authenticated USING (public.is_admin());
 
 -- 8. Payments
-CREATE POLICY "Users view own order payments" ON public.payments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id::text = auth.uid()::text));
+CREATE POLICY "Users view own order payments" ON public.payments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id = auth.uid()));
 CREATE POLICY "Admins manage payments" ON public.payments FOR ALL TO authenticated USING (public.is_admin());
 
 -- 9. Shipments
-CREATE POLICY "Sellers view own order shipments" ON public.shipments FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
-CREATE POLICY "Sellers update own order shipments" ON public.shipments FOR UPDATE TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
-CREATE POLICY "Users view own shipments" ON public.shipments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view own order shipments" ON public.shipments FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
+CREATE POLICY "Sellers update own order shipments" ON public.shipments FOR UPDATE TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
+CREATE POLICY "Users view own shipments" ON public.shipments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id = auth.uid()));
 CREATE POLICY "Admins manage shipments" ON public.shipments FOR ALL TO authenticated USING (public.is_admin());
 
 -- 10. Shipment Tracking
-CREATE POLICY "Sellers view tracking events" ON public.shipment_tracking FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.shipments s WHERE s.id::text = shipment_id::text AND s.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
-CREATE POLICY "Users view tracking events" ON public.shipment_tracking FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.shipments s JOIN public.orders o ON o.id::text = s.parent_order_id::text WHERE s.id::text = shipment_id::text AND o.user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view tracking events" ON public.shipment_tracking FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.shipments s WHERE s.id::text = shipment_id::text AND s.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid())));
+CREATE POLICY "Users view tracking events" ON public.shipment_tracking FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.shipments s JOIN public.orders o ON o.id::text = s.parent_order_id::text WHERE s.id::text = shipment_id::text AND o.user_id = auth.uid()));
 CREATE POLICY "Admins manage tracking" ON public.shipment_tracking FOR ALL TO authenticated USING (public.is_admin());
 
 -- 11. Order Status History
-CREATE POLICY "Sellers view status changes" ON public.order_status_history FOR SELECT TO authenticated USING (seller_order_id::text IN (SELECT id::text FROM public.seller_orders WHERE seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
-CREATE POLICY "Users view status changes" ON public.order_status_history FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view status changes" ON public.order_status_history FOR SELECT TO authenticated USING (seller_order_id::text IN (SELECT id::text FROM public.seller_orders WHERE seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid())));
+CREATE POLICY "Users view status changes" ON public.order_status_history FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id = auth.uid()));
 CREATE POLICY "Admins manage status history" ON public.order_status_history FOR ALL TO authenticated USING (public.is_admin());
 
 -- 12. Weekly Settlements
-CREATE POLICY "Sellers view own settlements" ON public.seller_settlements FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view own settlements" ON public.seller_settlements FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage settlements" ON public.seller_settlements FOR ALL TO authenticated USING (public.is_admin());
 
 -- 13. Settlement Orders
-CREATE POLICY "Sellers view own settlement orders" ON public.settlement_orders FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id::text = settlement_id::text AND ss.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
+CREATE POLICY "Sellers view own settlement orders" ON public.settlement_orders FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id::text = settlement_id::text AND ss.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid())));
 CREATE POLICY "Admins manage settlement orders" ON public.settlement_orders FOR ALL TO authenticated USING (public.is_admin());
 
 -- 14. Settlement Receipts
-CREATE POLICY "Sellers view own receipts" ON public.settlement_receipts FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id::text = settlement_id::text AND ss.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
+CREATE POLICY "Sellers view own receipts" ON public.settlement_receipts FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id::text = settlement_id::text AND ss.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid())));
 CREATE POLICY "Admins manage receipts" ON public.settlement_receipts FOR ALL TO authenticated USING (public.is_admin());
 
 -- 15. Seller Payment History
-CREATE POLICY "Sellers view payment history" ON public.seller_payment_history FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view payment history" ON public.seller_payment_history FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage payment history" ON public.seller_payment_history FOR ALL TO authenticated USING (public.is_admin());
 
 -- 16. Payment Audit Logs
 CREATE POLICY "Admins manage audit logs" ON public.payment_audit_logs FOR ALL TO authenticated USING (public.is_admin());
 
 -- 17. Seller Notifications
-CREATE POLICY "Sellers read own alerts" ON public.seller_notifications FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers read own alerts" ON public.seller_notifications FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage seller alerts" ON public.seller_notifications FOR ALL TO authenticated USING (public.is_admin());
 
 -- 18. Cart Items
-CREATE POLICY "Users manage own carts" ON public.cart_items FOR ALL TO authenticated USING (user_id::text = auth.uid()::text) WITH CHECK (user_id::text = auth.uid()::text);
+CREATE POLICY "Users manage own carts" ON public.cart_items FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- 19. User Addresses
-CREATE POLICY "Users manage own addresses" ON public.user_addresses FOR ALL TO authenticated USING (user_id::text = auth.uid()::text) WITH CHECK (user_id::text = auth.uid()::text);
+CREATE POLICY "Users manage own addresses" ON public.user_addresses FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- 20. Store Settings
 CREATE POLICY "Public read store settings" ON public.store_settings FOR SELECT TO public USING (true);
@@ -1161,42 +1161,42 @@ CREATE POLICY "Admins view admin lists" ON public.admin_users FOR ALL TO authent
 CREATE POLICY "Admins view admin audits" ON public.admin_audit_logs FOR ALL TO authenticated USING (public.is_admin());
 
 -- 22. Merchant Verification Logs
-CREATE POLICY "Sellers view own verification logs" ON public.merchant_verification_logs FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view own verification logs" ON public.merchant_verification_logs FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage verification logs" ON public.merchant_verification_logs FOR ALL TO authenticated USING (public.is_admin());
 
 -- 23. Seller Pickup Locations
-CREATE POLICY "Sellers manage own pickup locations" ON public.seller_pickup_locations FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers manage own pickup locations" ON public.seller_pickup_locations FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage pickup locations" ON public.seller_pickup_locations FOR ALL TO authenticated USING (public.is_admin());
 
 -- 24. Seller Support Tickets
-CREATE POLICY "Sellers manage own tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers manage own tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (public.is_admin());
 
 -- 25. Stock History
-CREATE POLICY "Sellers view own stock history" ON public.stock_history FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view own stock history" ON public.stock_history FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage stock history" ON public.stock_history FOR ALL TO authenticated USING (public.is_admin());
 
 -- 26. Inventory
-CREATE POLICY "Sellers manage own inventory" ON public.inventory FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers manage own inventory" ON public.inventory FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage inventory" ON public.inventory FOR ALL TO authenticated USING (public.is_admin());
 
 -- 27. Notify Requests
 CREATE POLICY "Public create notify requests" ON public.notify_requests FOR INSERT TO public WITH CHECK (true);
-CREATE POLICY "Sellers view own product notifications" ON public.notify_requests FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id::text = product_id::text AND p.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
+CREATE POLICY "Sellers view own product notifications" ON public.notify_requests FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id::text = product_id::text AND p.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid())));
 CREATE POLICY "Admins manage notify requests" ON public.notify_requests FOR ALL TO authenticated USING (public.is_admin());
 
 -- 28. Seller Reports
-CREATE POLICY "Sellers view own reports" ON public.seller_reports FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers view own reports" ON public.seller_reports FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
 CREATE POLICY "Admins manage reports" ON public.seller_reports FOR ALL TO authenticated USING (public.is_admin());
 
 -- 29. Notifications
-CREATE POLICY "Users read own notifications" ON public.notifications FOR SELECT TO authenticated USING (user_id::text = auth.uid()::text);
-CREATE POLICY "Users update own notifications" ON public.notifications FOR UPDATE TO authenticated USING (user_id::text = auth.uid()::text);
+CREATE POLICY "Users read own notifications" ON public.notifications FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "Users update own notifications" ON public.notifications FOR UPDATE TO authenticated USING (user_id = auth.uid());
 CREATE POLICY "Admins manage notifications" ON public.notifications FOR ALL TO authenticated USING (public.is_admin());
 
 -- 30. Card Applications
-CREATE POLICY "Users create own applications" ON public.card_applications FOR INSERT TO authenticated WITH CHECK (user_id::text = auth.uid()::text);
-CREATE POLICY "Users view own applications" ON public.card_applications FOR SELECT TO authenticated USING (user_id::text = auth.uid()::text);
+CREATE POLICY "Users create own applications" ON public.card_applications FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users view own applications" ON public.card_applications FOR SELECT TO authenticated USING (user_id = auth.uid());
 CREATE POLICY "Admins manage applications" ON public.card_applications FOR ALL TO authenticated USING (public.is_admin());
 
 -- Grant DB schema access to service layers
