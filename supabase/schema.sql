@@ -1007,6 +1007,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Automatically delete auth.users record when a seller is deleted
+CREATE OR REPLACE FUNCTION public.handle_seller_deleted()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM auth.users WHERE id = OLD.user_id) THEN
+        DELETE FROM auth.users WHERE id = OLD.user_id;
+    END IF;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_seller_deleted ON public.sellers;
+CREATE TRIGGER trigger_seller_deleted
+    AFTER DELETE ON public.sellers
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_seller_deleted();
+
 -- ====================================================================
 -- 12. ROW-LEVEL SECURITY (RLS) POLICIES WITH HARDENED ASSIGNMENTS
 -- ====================================================================
