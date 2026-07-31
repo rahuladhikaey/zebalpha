@@ -556,15 +556,15 @@ SELECT
     COALESCE(SUM(CASE WHEN o.created_at >= DATE_TRUNC('year', CURRENT_DATE) AND LOWER(o.order_status) IN ('delivered', 'completed') AND o.payment_status != 'REFUNDED' THEN o.total_amount ELSE 0 END), 0) AS this_year_revenue,
     COALESCE(SUM(CASE WHEN LOWER(o.order_status) IN ('delivered', 'completed') AND o.payment_status != 'REFUNDED' THEN o.total_amount ELSE 0 END), 0) AS lifetime_revenue,
     
-    COALESCE((SELECT SUM(net_amount) FROM public.seller_settlements WHERE seller_id = s.id AND status = 'PENDING'), 0) AS pending_settlement,
-    COALESCE((SELECT SUM(net_amount) FROM public.seller_settlements WHERE seller_id = s.id AND status = 'PAID'), 0) AS paid_settlement,
+    COALESCE((SELECT SUM(net_amount) FROM public.seller_settlements WHERE seller_id::text = s.id::text AND status = 'PENDING'), 0) AS pending_settlement,
+    COALESCE((SELECT SUM(net_amount) FROM public.seller_settlements WHERE seller_id::text = s.id::text AND status = 'PAID'), 0) AS paid_settlement,
     
     COALESCE(SUM(CASE 
         WHEN LOWER(o.order_status) IN ('delivered', 'completed') AND o.payment_status != 'REFUNDED' 
         AND NOT EXISTS (
             SELECT 1 FROM public.settlement_orders so 
-            JOIN public.seller_settlements ss ON so.settlement_id = ss.id
-            WHERE so.order_id = o.id AND ss.status = 'PAID'
+            JOIN public.seller_settlements ss ON so.settlement_id::text = ss.id::text
+            WHERE so.order_id::text = o.id::text AND ss.status = 'PAID'
         ) THEN o.total_amount 
         ELSE 0 
     END), 0) AS available_balance,
@@ -576,7 +576,7 @@ SELECT
 FROM
     public.sellers s
 LEFT JOIN
-    public.orders o ON o.seller_id = s.id
+    public.orders o ON o.seller_id::text = s.id::text
 GROUP BY
     s.id;
 
@@ -684,7 +684,7 @@ BEGIN
     IF NEW.seller_id IS NOT NULL THEN
         SELECT account_status, status INTO v_account_status, v_status
         FROM public.sellers
-        WHERE id = NEW.seller_id;
+        WHERE id::text = NEW.seller_id::text;
         
         IF v_account_status = 'Suspended' 
            OR v_status = 'suspended' 
@@ -1048,8 +1048,8 @@ ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- 1. Profiles Policy (Sellers / Customers read own, Admin full control)
-CREATE POLICY "Users read own profile" ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid()::uuid);
-CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid()::uuid);
+CREATE POLICY "Users read own profile" ON public.profiles FOR SELECT TO authenticated USING (id::text = auth.uid()::text);
+CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE TO authenticated USING (id::text = auth.uid()::text);
 CREATE POLICY "Admins full manage profiles" ON public.profiles FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 2. Categories Policy (Public read, Admin manage)
@@ -1058,79 +1058,79 @@ CREATE POLICY "Admins full manage categories" ON public.categories FOR ALL TO au
 
 -- 3. Sellers Policy (Public read approved sellers, Sellers manage own, Admins manage all)
 CREATE POLICY "Public read approved sellers" ON public.sellers FOR SELECT TO public USING (status = 'approved');
-CREATE POLICY "Sellers view own configuration" ON public.sellers FOR SELECT TO authenticated USING (user_id = auth.uid()::uuid);
-CREATE POLICY "Sellers update own configuration" ON public.sellers FOR UPDATE TO authenticated USING (user_id = auth.uid()::uuid) WITH CHECK (user_id = auth.uid()::uuid);
+CREATE POLICY "Sellers view own configuration" ON public.sellers FOR SELECT TO authenticated USING (user_id::text = auth.uid()::text);
+CREATE POLICY "Sellers update own configuration" ON public.sellers FOR UPDATE TO authenticated USING (user_id::text = auth.uid()::text) WITH CHECK (user_id::text = auth.uid()::text);
 CREATE POLICY "Admins full manage sellers" ON public.sellers FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 4. Products Policy (Public read active products, Sellers manage own, Admins manage all)
 CREATE POLICY "Public view active products" ON public.products FOR SELECT TO public USING (is_active = true);
-CREATE POLICY "Sellers view own products" ON public.products FOR SELECT TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
-CREATE POLICY "Sellers manage own products" ON public.products FOR ALL TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers view own products" ON public.products FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers manage own products" ON public.products FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
 CREATE POLICY "Admins full manage products" ON public.products FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 5. Orders Policy
-CREATE POLICY "Customers view own orders" ON public.orders FOR SELECT TO authenticated USING (user_id = auth.uid()::uuid);
-CREATE POLICY "Sellers view own assigned orders" ON public.orders FOR SELECT TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
+CREATE POLICY "Customers view own orders" ON public.orders FOR SELECT TO authenticated USING (user_id::text = auth.uid()::text);
+CREATE POLICY "Sellers view own assigned orders" ON public.orders FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
 CREATE POLICY "Admins full manage orders" ON public.orders FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 6. Seller Orders (Order Routing)
-CREATE POLICY "Sellers view own routed orders" ON public.seller_orders FOR SELECT TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
-CREATE POLICY "Sellers update own routed orders" ON public.seller_orders FOR UPDATE TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers view own routed orders" ON public.seller_orders FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers update own routed orders" ON public.seller_orders FOR UPDATE TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage routed orders" ON public.seller_orders FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 7. Order Items (Order Routing)
-CREATE POLICY "Sellers view routed order items" ON public.order_items FOR SELECT TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
-CREATE POLICY "Users view order items" ON public.order_items FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = parent_order_id AND o.user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers view routed order items" ON public.order_items FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Users view order items" ON public.order_items FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage order items" ON public.order_items FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 8. Payments
-CREATE POLICY "Users view own order payments" ON public.payments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = parent_order_id AND o.user_id = auth.uid()::uuid));
+CREATE POLICY "Users view own order payments" ON public.payments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage payments" ON public.payments FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 9. Shipments
-CREATE POLICY "Sellers view own order shipments" ON public.shipments FOR SELECT TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
-CREATE POLICY "Sellers update own order shipments" ON public.shipments FOR UPDATE TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
-CREATE POLICY "Users view own shipments" ON public.shipments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = parent_order_id AND o.user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers view own order shipments" ON public.shipments FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Sellers update own order shipments" ON public.shipments FOR UPDATE TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
+CREATE POLICY "Users view own shipments" ON public.shipments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage shipments" ON public.shipments FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 10. Shipment Tracking
-CREATE POLICY "Sellers view tracking events" ON public.shipment_tracking FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.shipments s WHERE s.id = shipment_id AND s.seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid)));
-CREATE POLICY "Users view tracking events" ON public.shipment_tracking FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.shipments s JOIN public.orders o ON o.id = s.parent_order_id WHERE s.id = shipment_id AND o.user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers view tracking events" ON public.shipment_tracking FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.shipments s WHERE s.id::text = shipment_id::text AND s.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
+CREATE POLICY "Users view tracking events" ON public.shipment_tracking FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.shipments s JOIN public.orders o ON o.id::text = s.parent_order_id::text WHERE s.id::text = shipment_id::text AND o.user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage tracking" ON public.shipment_tracking FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 11. Order Status History
-CREATE POLICY "Sellers view status changes" ON public.order_status_history FOR SELECT TO authenticated USING (seller_order_id IN (SELECT id FROM public.seller_orders WHERE seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid)));
-CREATE POLICY "Users view status changes" ON public.order_status_history FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = parent_order_id AND o.user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers view status changes" ON public.order_status_history FOR SELECT TO authenticated USING (seller_order_id::text IN (SELECT id::text FROM public.seller_orders WHERE seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
+CREATE POLICY "Users view status changes" ON public.order_status_history FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id::text = parent_order_id::text AND o.user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage status history" ON public.order_status_history FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 12. Weekly Settlements
-CREATE POLICY "Sellers view own settlements" ON public.seller_settlements FOR SELECT TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers view own settlements" ON public.seller_settlements FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage settlements" ON public.seller_settlements FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 13. Settlement Orders
-CREATE POLICY "Sellers view own settlement orders" ON public.settlement_orders FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id = settlement_id AND ss.seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid)));
+CREATE POLICY "Sellers view own settlement orders" ON public.settlement_orders FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id::text = settlement_id::text AND ss.seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text)));
 CREATE POLICY "Admins manage settlement orders" ON public.settlement_orders FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 14. Settlement Receipts
-CREATE POLICY "Sellers view own receipts" ON public.settlement_receipts FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id = settlement_id AND ss.seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid)));
+CREATE POLICY "Sellers view own receipts" ON public.settlement_receipts FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.seller_settlements ss WHERE ss.id::text = settlement_id::text AND ss.seller_id::text IN (SELECT id FROM public.sellers WHERE user_id::text = auth.uid()::text)));
 CREATE POLICY "Admins manage receipts" ON public.settlement_receipts FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 15. Seller Payment History
-CREATE POLICY "Sellers view payment history" ON public.seller_payment_history FOR SELECT TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers view payment history" ON public.seller_payment_history FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage payment history" ON public.seller_payment_history FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 16. Payment Audit Logs
 CREATE POLICY "Admins manage audit logs" ON public.payment_audit_logs FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 17. Seller Notifications
-CREATE POLICY "Sellers read own alerts" ON public.seller_notifications FOR SELECT TO authenticated USING (seller_id IN (SELECT id FROM public.sellers WHERE user_id = auth.uid()::uuid));
+CREATE POLICY "Sellers read own alerts" ON public.seller_notifications FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id::text = auth.uid()::text));
 CREATE POLICY "Admins manage seller alerts" ON public.seller_notifications FOR ALL TO authenticated USING (auth.jwt() ->> 'role' = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 18. Cart Items
-CREATE POLICY "Users manage own carts" ON public.cart_items FOR ALL TO authenticated USING (user_id = auth.uid()::uuid) WITH CHECK (user_id = auth.uid()::uuid);
+CREATE POLICY "Users manage own carts" ON public.cart_items FOR ALL TO authenticated USING (user_id::text = auth.uid()::text) WITH CHECK (user_id::text = auth.uid()::text);
 
 -- 19. User Addresses
-CREATE POLICY "Users manage own addresses" ON public.user_addresses FOR ALL TO authenticated USING (user_id = auth.uid()::uuid) WITH CHECK (user_id = auth.uid()::uuid);
+CREATE POLICY "Users manage own addresses" ON public.user_addresses FOR ALL TO authenticated USING (user_id::text = auth.uid()::text) WITH CHECK (user_id::text = auth.uid()::text);
 
 -- 20. Store Settings
 CREATE POLICY "Public read store settings" ON public.store_settings FOR SELECT TO public USING (true);
