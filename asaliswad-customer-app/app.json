@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.asaliswad.customer",
       "adaptiveIcon": {
         "backgroundColor": "#020617",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
