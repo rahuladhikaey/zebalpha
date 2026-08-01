@@ -169,6 +169,8 @@ CREATE TABLE IF NOT EXISTS public.products (
     low_stock_limit INT DEFAULT 5 NOT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     status VARCHAR(50) DEFAULT 'AVAILABLE' NOT NULL,
+    is_approved BOOLEAN DEFAULT TRUE,
+    approval_status VARCHAR(50) DEFAULT 'approved',
     specifications JSONB DEFAULT '{}'::jsonb,
     offers JSONB DEFAULT '[]'::jsonb,
     packages JSONB DEFAULT '[]'::jsonb,
