@@ -29,6 +29,9 @@ export type Product = {
 	status?: string;
 	packages?: ProductPackage[];
 	seller_id?: string; // added to identify owner seller
+	virtual_tryon_image?: string;
+	virtual_tryon_category?: string;
+	is_vto_enabled?: boolean;
 };
 
 export type CartItem = Product & {

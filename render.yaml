@@ -1,11 +1,11 @@
 services:
   # 1. Main Customer Storefront (Next.js)
   - type: web
-    name: asaliswad-storefront
+    name: zebalpha-storefront
     runtime: node
     plan: free
     region: singapore
-    rootDir: asaliswad-customer
+    rootDir: zebalpha-customer
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
@@ -14,11 +14,11 @@ services:
 
   # 2. Seller Panel (Next.js)
   - type: web
-    name: asaliswad-seller-panel
+    name: zebalpha-seller-panel
     runtime: node
     plan: free
     region: singapore
-    rootDir: asaliswad-seller
+    rootDir: zebalpha-seller
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
@@ -27,11 +27,11 @@ services:
 
   # 3. Super Admin Panel (Next.js)
   - type: web
-    name: asaliswad-admin-panel
+    name: zebalpha-admin-panel
     runtime: node
     plan: free
     region: singapore
-    rootDir: asaliswad-superadmin
+    rootDir: zebalpha-superadmin
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
@@ -40,11 +40,11 @@ services:
 
   # 4. Express Backend API
   - type: web
-    name: asaliswad-backend
+    name: zebalpha-backend
     runtime: node
     plan: free
     region: singapore
-    rootDir: asaliswad-backend
+    rootDir: zebalpha-backend
     buildCommand: npm install
     startCommand: npm start
     envVars:
@@ -53,11 +53,11 @@ services:
 
   # 5. Daily Seller Purge Cron Job
   - type: cron
-    name: asaliswad-daily-purge-cron
+    name: zebalpha-daily-purge-cron
     runtime: node
     plan: free
     region: singapore
     schedule: "0 0 * * *"
-    rootDir: asaliswad-backend
+    rootDir: zebalpha-backend
     buildCommand: npm install
-    startCommand: node -e "fetch('https://api.asaliswad.com/api/v1/cron/seller/purge-expired', { method: 'POST' }).then(r=>r.json()).then(console.log)"
+    startCommand: node -e "fetch('https://api.zebalpha.com/api/v1/cron/seller/purge-expired', { method: 'POST' }).then(r=>r.json()).then(console.log)"

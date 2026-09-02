@@ -26,3 +26,11 @@ build/
 Thumbs.db
 .vscode/
 .idea/
+
+# Android & large binary builds (GitHub 100MB limit)
+*.apk
+*.aab
+
+# Git backups
+*.git_backup
+**/.git_backup/

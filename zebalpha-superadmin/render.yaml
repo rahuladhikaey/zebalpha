@@ -1,0 +1,18 @@
+# Render Account 2 Blueprint - Super Admin Control Panel
+# Target Domain: admin.asaliswad.com
+
+services:
+  - type: web
+    name: asaliswad-superadmin-panel
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.x
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://api.asaliswad.com
+      - key: NEXT_PUBLIC_API_URL
+        value: https://api.asaliswad.com

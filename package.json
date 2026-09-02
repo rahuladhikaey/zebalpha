@@ -1,14 +1,23 @@
 {
-  "name": "asaliswad-workspace",
+  "name": "zebalpha-workspace",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "customer-app",
-    "seller-panel",
-    "super-admin",
-    "backend",
+    "zebalpha-customer",
+    "zebalpha-seller",
+    "zebalpha-superadmin",
+    "zebalpha-backend",
     "shared"
   ],
+  "scripts": {
+    "dev": "npm --prefix zebalpha-customer run dev",
+    "dev:customer": "npm --prefix zebalpha-customer run dev",
+    "dev:seller": "npm --prefix zebalpha-seller run dev",
+    "dev:admin": "npm --prefix zebalpha-superadmin run dev",
+    "build:customer": "npm --prefix zebalpha-customer run build",
+    "build:seller": "npm --prefix zebalpha-seller run build",
+    "build:admin": "npm --prefix zebalpha-superadmin run build"
+  },
   "devDependencies": {
     "typescript": "^5.0.0"
   }

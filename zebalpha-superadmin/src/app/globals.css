@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+	--background: #050505;
+	--foreground: #ffffff;
+	--primary: #ffffff;
+	--secondary: #18181b;
+	--accent: #ffffff;
+	--background-fresh: #121216;
+	--text-primary: #ffffff;
+	--text-secondary: #a1a1aa;
+	--text-muted: #71717a;
+	--text-disabled: #3f3f46;
+	--royal-black: #000000;
+	--royal-surface: #0a0a0c;
+	--royal-surface-elevated: #141418;
+	--royal-border: #27272a;
+}
+
+@layer base {
+	* {
+		box-sizing: border-box;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	html {
+		scroll-behavior: smooth;
+		background-color: #050505;
+		color-scheme: dark;
+	}
+
+	body {
+		min-height: 100vh;
+		margin: 0;
+		background: #050505;
+		color: #ffffff;
+		-webkit-font-smoothing: antialiased;
+	}
+}
+
+@layer utilities {
+	.bg-page {
+		background-color: #050505;
+		background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+	}
+
+	.royal-card {
+		background: #0d0d10;
+		border: 1px solid #222228;
+		box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.7);
+	}
+
+	.royal-card-elevated {
+		background: #141418;
+		border: 1px solid #27272a;
+	}
+
+	.royal-btn-primary {
+		background: #ffffff;
+		color: #000000;
+		font-weight: 800;
+		transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+		box-shadow: 0 4px 15px rgba(255, 255, 255, 0.15);
+	}
+
+	.royal-btn-primary:hover {
+		background: #e4e4e7;
+		transform: translateY(-1px);
+		box-shadow: 0 8px 25px rgba(255, 255, 255, 0.25);
+	}
+
+	.royal-btn-secondary {
+		background: #18181b;
+		color: #ffffff;
+		border: 1px solid #27272a;
+		transition: all 0.2s ease;
+	}
+
+	.royal-btn-secondary:hover {
+		background: #27272a;
+		border-color: #52525b;
+	}
+}
+
+/* High contrast inputs */
+input, textarea, select {
+	color: #ffffff !important;
+	background-color: #0d0d11 !important;
+	border-color: #27272a !important;
+}
+
+input:focus, textarea:focus, select:focus {
+	border-color: #ffffff !important;
+	outline: none !important;
+}
+
+input::placeholder, textarea::placeholder {
+	color: #71717a !important;
+}

@@ -1,0 +1,19 @@
+# dependencies
+/node_modules
+
+# environment variables
+.env
+.env.local
+.env.*.local
+
+# logs
+logs/
+*.log
+
+# uploads
+src/uploads/*
+!src/uploads/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
