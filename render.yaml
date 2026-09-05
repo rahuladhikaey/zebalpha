@@ -123,20 +123,3 @@ services:
       - key: BREVO_API_KEY
         sync: false
 
-  # 5. Scheduled Maintenance & Purge Cron Job
-  - type: cron
-    name: zebalpha-scheduled-cron
-    runtime: node
-    plan: free
-    region: singapore
-    schedule: "0 0 * * *"
-    rootDir: zebalpha-backend
-    buildCommand: npm install
-    startCommand: node cron_runner.js
-    envVars:
-      - key: NODE_VERSION
-        value: 22.x
-      - key: BACKEND_URL
-        value: https://zebalpha-backend.onrender.com
-      - key: CRON_SECRET
-        sync: false
