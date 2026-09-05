@@ -1,7 +1,7 @@
 export async function sendOtpEmail(toEmail: string, otpCode: string): Promise<boolean> {
 	const apiKey = process.env.BREVO_API_KEY;
 	const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL || "noreply@asaliswad.com";
-	const senderName = process.env.BREVO_SENDER_NAME || "Asali Swad";
+	const senderName = process.env.BREVO_SENDER_NAME || "ZEB-ALPHA";
 
 	if (!apiKey) {
 		console.warn("[Brevo Warning] BREVO_API_KEY is not configured in .env.local.");

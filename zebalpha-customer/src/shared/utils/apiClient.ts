@@ -6,7 +6,7 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  'https://api.asaliswad.com';
+  'https://api.zebalpha.com';
 
 interface ApiFetchOptions extends RequestInit {
   timeoutMs?: number;

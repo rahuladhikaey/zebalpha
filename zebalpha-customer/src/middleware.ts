@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
 
   // 1. Redirect or block any /admin path on storefront to main admin domain
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    return NextResponse.redirect('https://admin.asaliswad.com', 301);
+    return NextResponse.redirect('https://admin.zebalpha.com', 301);
   }
 
   // 2. Refresh Supabase session and handle customer auth

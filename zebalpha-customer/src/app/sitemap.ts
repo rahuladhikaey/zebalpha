@@ -7,7 +7,7 @@ const supabase = createClient(
 );
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://www.asaliswad.com';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.zebalpha.com';
 
   // Fetch all products
   const { data: products } = await supabase

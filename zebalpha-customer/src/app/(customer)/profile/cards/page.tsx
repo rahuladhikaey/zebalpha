@@ -239,7 +239,7 @@ export default function CardsPage() {
     setIsSubmitting(true);
 
     try {
-      const applicantEmail = user?.email || (typeof window !== "undefined" ? localStorage.getItem("asali_swad_user_email") : null) || "guest@asaliswad.com";
+      const applicantEmail = user?.email || (typeof window !== "undefined" ? localStorage.getItem("zebalpha_user_email") : null) || "guest@zebalpha.com";
       
       const newAppPayload: any = {
         // Do NOT set id — let DB auto-generate a UUID

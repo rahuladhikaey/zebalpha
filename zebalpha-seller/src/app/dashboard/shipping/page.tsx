@@ -184,7 +184,7 @@ export default function SellerShipping() {
               <div className="rounded-2xl bg-foreground/[0.03] p-4 border border-foreground/[0.06] space-y-2 text-xs font-bold">
                 <div className="flex justify-between">
                   <span className="text-text-muted">Connected Account:</span>
-                  <span className="font-black">{shiprocketEmail || "merchant@asaliswad.com"}</span>
+                  <span className="font-black">{shiprocketEmail || "merchant@zebalpha.com"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-muted">API Status:</span>

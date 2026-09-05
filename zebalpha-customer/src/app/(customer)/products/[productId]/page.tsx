@@ -102,11 +102,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
     "description": product.description,
     "brand": {
       "@type": "Brand",
-      "name": "Asali Swad"
+      "name": "ZEB-ALPHA"
     },
     "offers": {
       "@type": "Offer",
-      "url": `https://www.asaliswad.com/products/${product.id}`,
+      "url": `https://www.zebalpha.com/products/${product.id}`,
       "priceCurrency": "INR",
       "price": product.price,
       "priceValidUntil": new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],

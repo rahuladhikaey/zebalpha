@@ -220,7 +220,7 @@ export const paySettlement = async (req, res, next) => {
           
           <div style="margin-top: 30px; padding: 15px; background-color: #f8fafc; border-radius: 6px; font-size: 12px; color: #64748b;">
             <p style="margin: 0 0 8px 0; font-weight: bold;">Support Details:</p>
-            <p style="margin: 0;">If you have any questions or require support, please contact us at <a href="mailto:support@asaliswad.com" style="color: #059669; text-decoration: none;">support@asaliswad.com</a>.</p>
+            <p style="margin: 0;">If you have any questions or require support, please contact us at <a href="mailto:support@zebalpha.com" style="color: #059669; text-decoration: none;">support@zebalpha.com</a>.</p>
           </div>
         </div>
       `;

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.BREVO_API_KEY;
     const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL || "payouts@asaliswad.com";
-    const senderName = process.env.BREVO_SENDER_NAME || "Asali Swad Payouts";
+    const senderName = process.env.BREVO_SENDER_NAME || "ZEB-ALPHA Payouts";
 
     if (!apiKey) {
       console.warn("[Payout Email Warning] BREVO_API_KEY is not set in environment variables.");
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         </div>
         <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #94a3b8;">
           <p>This payment confirmation receipt has been delivered to your account email (${toEmail}).</p>
-          <p>© Asali Swad Marketplace | Support Email: support@asaliswad.com</p>
+          <p>© ZEB-ALPHA Marketplace | Support Email: support@zebalpha.com</p>
         </div>
       </div>
     `;

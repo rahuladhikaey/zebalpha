@@ -24,8 +24,8 @@ export default function MarketplaceSettingsView() {
   const [statusMsg, setStatusMsg] = useState("");
 
   const [marketplaceConfig, setMarketplaceConfig] = useState({
-    marketplaceName: "Asali Swad Marketplace",
-    supportEmail: "support@asaliswad.com",
+    marketplaceName: "ZEB-ALPHA Clothing",
+    supportEmail: "support@zebalpha.com",
     supportPhone: "+91 9876543210",
     deliveryCharge: "40",
     freeShippingThreshold: "999",

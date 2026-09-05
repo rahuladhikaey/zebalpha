@@ -40,13 +40,11 @@ app.use(
 
 // 2. Strict CORS Configuration
 const ALLOWED_ORIGINS = [
-  'https://asaliswad.com',
-  'https://www.asaliswad.com',
-  'https://seller.asaliswad.com',
-  'https://admin.asaliswad.com',
-  'https://api.asaliswad.com',
   'https://zebalpha.com',
   'https://www.zebalpha.com',
+  'https://seller.zebalpha.com',
+  'https://admin.zebalpha.com',
+  'https://api.zebalpha.com',
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002'
