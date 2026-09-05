@@ -207,15 +207,6 @@ function LoginContent() {
             Google Sign In
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleLocalQuickLogin(email || "r.adhikary7777@gmail.com")}
-            disabled={loading}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-6 py-2.5 text-xs font-black uppercase tracking-wider text-amber-400 hover:bg-amber-500/20 transition-all cursor-pointer"
-          >
-            ⚡ Demo / Local Quick Login
-          </button>
-
           <div className="flex items-center justify-center text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
             <span className="h-px flex-1 bg-zinc-800"></span>
             <span className="mx-4">or seller email</span>

@@ -19,7 +19,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  User
+  User,
+  Sparkles
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -68,23 +69,6 @@ export default function DashboardLayout({
           )
           .subscribe();
       } else {
-        // Fallback for local testing / demo mode session
-        if (typeof window !== "undefined") {
-          const cachedSession = localStorage.getItem("zebalpha_seller_session");
-          if (cachedSession) {
-            try {
-              const parsed = JSON.parse(cachedSession);
-              if (parsed && parsed.email) {
-                setSellerName(parsed.full_name || "Rahul Adhikary");
-                setSellerEmail(parsed.email);
-                setIsSuspended(false);
-                return;
-              }
-            } catch (err) {
-              console.warn("Notice parsing local seller session:", err);
-            }
-          }
-        }
         window.location.href = "/";
         return;
       }
@@ -107,6 +91,7 @@ export default function DashboardLayout({
   const navItems = [
     { name: "Dashboard",     href: "/dashboard",               icon: LayoutDashboard },
     { name: "Products",      href: "/dashboard/products",      icon: ShoppingBag },
+    { name: "Collections",   href: "/dashboard/collections",   icon: Sparkles },
     { name: "Inventory",     href: "/dashboard/inventory",     icon: Package },
     { name: "Orders",        href: "/dashboard/orders",        icon: Receipt },
     { name: "Settlements",   href: "/dashboard/payments",      icon: IndianRupee, badge: "Soon" },
