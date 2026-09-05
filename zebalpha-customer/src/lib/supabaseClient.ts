@@ -4,7 +4,7 @@ import { createBrowserClient } from "@supabase/ssr";
 
 // Customer Application reads directly from Customer DB (qjpahzstldiatfbutvfc.supabase.co)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_A_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://qjpahzstldiatfbutvfc.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_W3vW-6g_CDVw57zEK-oF5A_Y3RzKCzR";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_Mm3pqD7ev-c76TXhkL0ajQ_ZHq325WW";
 
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
 export const supabaseStorage = supabase;
