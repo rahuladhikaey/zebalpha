@@ -100,6 +100,14 @@ export const register = async (req, res, next) => {
     const user = data.user;
     const session = data.session;
 
+    // Auto-confirm user email so no confirmation email link is ever required
+    try {
+      await supabase.rpc('confirm_user_email', { target_email: normalizedEmail });
+    } catch (rpcErr) {
+      console.warn('Auto-confirm notice:', rpcErr);
+    }
+
+
     // Upsert into public.profiles for customers
     if (role === ROLES.CUSTOMER && user?.id) {
       await supabase.from('profiles').upsert({

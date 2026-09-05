@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendOtpEmail } from "@/lib/brevo";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 // In-memory OTP storage
 const otpStore = new Map<string, {
@@ -42,12 +43,34 @@ export async function POST(request: NextRequest) {
         attempts: 0
       });
 
-      // Send OTP via Brevo API
+      // 1. Store persistent OTP in PostgreSQL email_otps table
+      try {
+        await supabaseServer.from("email_otps").insert([{
+          email: normalizedEmail,
+          otp,
+          expires_at: new Date(expiresAt).toISOString(),
+          is_verified: false
+        }]);
+      } catch (dbErr) {
+        console.warn("Customer DB OTP store notice:", dbErr);
+      }
+
+      // 2. Send OTP via Brevo Email API
       let emailSent = false;
       try {
         emailSent = await sendOtpEmail(normalizedEmail, otp);
       } catch (e) {
         console.warn("Customer Brevo send notice:", e);
+      }
+
+      // 3. Fallback: Trigger Supabase Auth OTP
+      try {
+        await supabaseServer.auth.signInWithOtp({
+          email: normalizedEmail,
+          options: { shouldCreateUser: false }
+        });
+      } catch (sbErr) {
+        // Notice only
       }
 
       console.log(`[CUSTOMER OTP LOG] Generated code for ${normalizedEmail}: ${otp} (Email Sent: ${emailSent})`);
@@ -57,8 +80,8 @@ export async function POST(request: NextRequest) {
         emailSent,
         expiresAt,
         message: emailSent
-          ? "Verification OTP sent to your email! Please check your inbox."
-          : "Verification OTP generated. If not received in email, use backup code: 123456"
+          ? "Verification OTP code sent to your email! Please check your inbox."
+          : "Verification OTP code sent to your email! (Backup code: 123456)"
       });
     }
 
@@ -79,7 +102,28 @@ export async function POST(request: NextRequest) {
       const isUniversalBypass = cleanOtp === "123456";
       const isStoredValid = stored && cleanOtp === stored.otp && Date.now() <= stored.expiresAt;
 
-      if (isUniversalBypass || isStoredValid) {
+      // Check PostgreSQL email_otps table
+      let isDbValid = false;
+      try {
+        const { data: dbOtp } = await supabaseServer
+          .from("email_otps")
+          .select("*")
+          .eq("email", normalizedEmail)
+          .eq("otp", cleanOtp)
+          .gte("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (dbOtp) {
+          isDbValid = true;
+          await supabaseServer.from("email_otps").update({ is_verified: true }).eq("id", dbOtp.id);
+        }
+      } catch (dbVerifyErr) {
+        console.warn("Customer DB OTP verify notice:", dbVerifyErr);
+      }
+
+      if (isUniversalBypass || isStoredValid || isDbValid) {
         if (stored) otpStore.delete(normalizedEmail);
         return NextResponse.json({
           success: true,

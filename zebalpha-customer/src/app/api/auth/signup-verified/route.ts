@@ -65,6 +65,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Auto-confirm user email directly so no confirmation email link is ever required
+    try {
+      await supabaseServer.rpc("confirm_user_email", { target_email: normalizedEmail });
+    } catch (rpcErr) {
+      console.warn("Auto-confirm notice:", rpcErr);
+    }
+
+
     // 3. Upsert customer profile in public.profiles table
     try {
       await supabaseServer.from("profiles").upsert({

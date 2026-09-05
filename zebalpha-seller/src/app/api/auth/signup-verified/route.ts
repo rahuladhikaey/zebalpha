@@ -94,6 +94,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Auto-confirm seller email directly so no confirmation email link is ever required
+    try {
+      await supabaseServer.rpc("confirm_user_email", { target_email: normalizedEmail });
+    } catch (rpcErr) {
+      console.warn("Auto-confirm notice:", rpcErr);
+    }
+
+
     // 4. Update role in public.profiles table
     try {
       await supabaseServer.from("profiles").upsert({
