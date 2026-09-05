@@ -17,36 +17,120 @@ function dataURLtoBlob(dataurl: string): Blob {
 }
 
 /**
- * Upload file or base64 string directly to Supabase Storage Bucket
+ * Automatically compress any image to ~100KB size using client-side Canvas
+ */
+export async function compressImageTo100KB(
+  fileOrBase64: File | Blob | string,
+  targetMaxBytes: number = 100 * 1024
+): Promise<{ blob: Blob; contentType: string; ext: string }> {
+  if (typeof window === "undefined") {
+    if (typeof fileOrBase64 === "string") {
+      const blob = dataURLtoBlob(fileOrBase64);
+      return { blob, contentType: blob.type || "image/webp", ext: "webp" };
+    }
+    return { blob: fileOrBase64 as Blob, contentType: (fileOrBase64 as Blob).type || "image/webp", ext: "webp" };
+  }
+
+  return new Promise((resolve) => {
+    let src = "";
+    if (typeof fileOrBase64 === "string") {
+      src = fileOrBase64;
+    } else {
+      src = URL.createObjectURL(fileOrBase64);
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    img.onload = () => {
+      if (typeof fileOrBase64 !== "string") {
+        URL.revokeObjectURL(src);
+      }
+
+      const maxDim = 1200;
+      let width = img.naturalWidth || img.width;
+      let height = img.naturalHeight || img.height;
+
+      if (width > height) {
+        if (width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        }
+      } else {
+        if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { alpha: true });
+
+      const attemptCompression = (q: number, scaleFactor: number = 1.0) => {
+        const curW = Math.max(300, Math.round(width * scaleFactor));
+        const curH = Math.max(300, Math.round(height * scaleFactor));
+        canvas.width = curW;
+        canvas.height = curH;
+
+        if (ctx) {
+          ctx.clearRect(0, 0, curW, curH);
+          ctx.drawImage(img, 0, 0, curW, curH);
+        }
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              const fallback = typeof fileOrBase64 === "string" ? dataURLtoBlob(fileOrBase64) : (fileOrBase64 as Blob);
+              resolve({ blob: fallback, contentType: "image/webp", ext: "webp" });
+              return;
+            }
+
+            if (blob.size <= targetMaxBytes || (q <= 0.4 && scaleFactor <= 0.5)) {
+              resolve({ blob, contentType: "image/webp", ext: "webp" });
+            } else if (q > 0.5) {
+              attemptCompression(q - 0.15, scaleFactor);
+            } else {
+              attemptCompression(0.75, scaleFactor * 0.8);
+            }
+          },
+          "image/webp",
+          q
+        );
+      };
+
+      attemptCompression(0.85, 1.0);
+    };
+
+    img.onerror = () => {
+      const fallback = typeof fileOrBase64 === "string" ? dataURLtoBlob(fileOrBase64) : (fileOrBase64 as Blob);
+      resolve({ blob: fallback, contentType: "image/webp", ext: "webp" });
+    };
+
+    img.src = src;
+  });
+}
+
+/**
+ * Upload file or base64 string directly to Supabase Storage Bucket in ~100KB size
  */
 export async function uploadToSupabaseBucket(
-  bucketName: string,
+  bucketName: string = "product-images",
   fileOrBase64: File | Blob | string,
   customFileName?: string
 ): Promise<string> {
   try {
-    let blob: Blob;
-    let contentType = "image/png";
-    let fileExt = "png";
-
-    if (typeof fileOrBase64 === "string") {
-      if (fileOrBase64.startsWith("http://") || fileOrBase64.startsWith("https://")) {
-        return fileOrBase64; // Already a URL
-      }
-      blob = dataURLtoBlob(fileOrBase64);
-      contentType = blob.type || "image/png";
-      fileExt = contentType.split("/")[1] || "png";
-    } else {
-      blob = fileOrBase64;
-      contentType = (fileOrBase64 as File).type || "image/png";
-      fileExt = (fileOrBase64 as File).name ? (fileOrBase64 as File).name.split(".").pop() || "png" : "png";
+    if (typeof fileOrBase64 === "string" && (fileOrBase64.startsWith("http://") || fileOrBase64.startsWith("https://"))) {
+      return fileOrBase64;
     }
 
-    const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const fileName = customFileName || `upload_${uniqueId}.${fileExt}`;
-    const filePath = `${fileName}`;
+    // Automatically compress to ~100KB size WebP
+    const { blob, contentType, ext } = await compressImageTo100KB(fileOrBase64, 100 * 1024);
 
-    // Upload to Supabase Storage
+    const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const fileName = customFileName || `product_${uniqueId}.${ext}`;
+    const filePath = fileName;
+
+    // Upload directly to Supabase Storage Bucket
     const { data, error } = await supabase.storage
       .from(bucketName)
       .upload(filePath, blob, {
@@ -71,38 +155,10 @@ export async function uploadToSupabaseBucket(
 }
 
 /**
- * Upload image to Cloudinary CDN
+ * Upload image (Directly saves to Supabase Storage 'product-images' bucket under 100KB)
  */
 export async function uploadToCloudinary(
   fileOrBase64: File | Blob | string
 ): Promise<string> {
-  try {
-    if (typeof fileOrBase64 === "string" && (fileOrBase64.startsWith("http://") || fileOrBase64.startsWith("https://"))) {
-      return fileOrBase64;
-    }
-
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "p1ish280";
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "asaliswad_products";
-
-    const formData = new FormData();
-    formData.append("file", fileOrBase64);
-    formData.append("upload_preset", uploadPreset);
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: "POST",
-      body: formData
-    });
-
-    const data = await res.json();
-
-    if (res.ok && data.secure_url) {
-      return data.secure_url;
-    }
-
-    console.warn("Cloudinary upload notice:", data.error?.message || "Using Supabase Storage fallback");
-    return await uploadToSupabaseBucket("product-images", fileOrBase64);
-  } catch (err: any) {
-    console.error("Cloudinary upload error, falling back to Supabase Bucket:", err);
-    return await uploadToSupabaseBucket("product-images", fileOrBase64);
-  }
+  return await uploadToSupabaseBucket("product-images", fileOrBase64);
 }
