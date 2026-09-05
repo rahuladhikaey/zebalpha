@@ -57,21 +57,35 @@ export const login = async (req, res, next) => {
 
 export const register = async (req, res, next) => {
   try {
-    const { email, password, fullName, phone, role = ROLES.CUSTOMER } = req.body;
+    const { email, password, fullName, phone, role } = req.body;
     if (!email || !password) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Email and password are required' });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const normalizedEmail = email.trim().toLowerCase();
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Invalid email address format' });
+    }
+
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'Password must be at least 8 characters in length'
+      });
+    }
+
+    // Role Enforcement: Never allow public registration to claim ADMIN or SUPER_ADMIN
+    const assignedRole = (role === ROLES.SELLER || role === 'seller') ? ROLES.SELLER : ROLES.CUSTOMER;
 
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
         data: {
-          full_name: fullName,
-          phone,
-          role,
+          full_name: (fullName || '').trim().slice(0, 100),
+          phone: (phone || '').trim().slice(0, 20),
+          role: assignedRole,
         },
       },
     });

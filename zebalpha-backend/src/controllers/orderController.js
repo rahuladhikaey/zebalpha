@@ -159,12 +159,35 @@ export const createOrder = async (req, res, next) => {
 export const updateOrderStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+
+    // Verify order existence and seller ownership
+    const { data: existingOrder, error: fetchErr } = await supabaseA
+      .from('orders')
+      .select('id, seller_id, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr || !existingOrder) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Order not found' });
+    }
+
+    if (!isSuperAdmin && String(existingOrder.seller_id) !== String(req.user?.id)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Forbidden: You do not have permission to update an order belonging to another merchant'
+      });
+    }
+
     const { order_status, payment_status, payment_method, tracking_number, courier_name, shipping_label_url } = req.body;
 
     const updateFields = { updated_at: new Date().toISOString() };
     if (order_status) updateFields.order_status = order_status;
-    if (payment_status) updateFields.payment_status = payment_status;
-    if (payment_method) updateFields.payment_method = payment_method;
+    // Only SUPER_ADMIN can manually overwrite payment_status or payment_method
+    if (isSuperAdmin) {
+      if (payment_status) updateFields.payment_status = payment_status;
+      if (payment_method) updateFields.payment_method = payment_method;
+    }
     if (tracking_number) updateFields.tracking_number = tracking_number;
     if (courier_name) updateFields.courier_name = courier_name;
     if (shipping_label_url) updateFields.shipping_label_url = shipping_label_url;

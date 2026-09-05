@@ -2,12 +2,12 @@ import { supabaseB } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
 
 /**
- * Seller Registration (No GST required)
- * Payload: fullName, phone, email, upiId, pickupLocation, category (Grocery/Snacks/Bakery), password
+ * Seller Registration (Enterprise Zero-Trust)
+ * Newly registered sellers enter 'pending' state awaiting Admin approval.
  */
 export const registerSeller = async (req, res, next) => {
   try {
-    const { fullName, phone, email, upiId, pickupLocation, category, password } = req.body;
+    const { fullName, phone, email, upiId, pickupLocation, category } = req.body;
 
     if (!fullName || !phone || !pickupLocation || !category) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
@@ -16,26 +16,30 @@ export const registerSeller = async (req, res, next) => {
       });
     }
 
-    const validCategories = ['Grocery', 'Snacks', 'Bakery'];
-    const formattedCategory = validCategories.find(c => c.toLowerCase() === category.toLowerCase()) || 'Grocery';
+    const validCategories = ['Grocery', 'Snacks', 'Bakery', 'Clothing', 'Fashion', 'Apparel'];
+    const formattedCategory = validCategories.find(c => c.toLowerCase() === category.toLowerCase()) || 'Clothing';
 
-    const sellerId = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
+    const sellerCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
+    const authenticatedUserId = req.user?.id || null;
 
     const sellerPayload = {
-      seller_id: sellerId,
-      full_name: fullName,
-      owner_name: fullName,
-      business_name: `${fullName} Store`,
-      phone_number: phone,
-      mobile_number: phone,
-      email: email || `${phone}@seller.asaliswad.com`,
-      upi_id: upiId || null,
-      phonepay_no: upiId || null,
-      pickup_location: pickupLocation,
-      city: pickupLocation,
+      user_id: authenticatedUserId,
+      seller_id: sellerCode,
+      full_name: fullName.trim(),
+      owner_name: fullName.trim(),
+      business_name: `${fullName.trim()} Store`,
+      phone_number: phone.trim(),
+      mobile_number: phone.trim(),
+      email: (email || `${phone}@seller.zebalpha.com`).trim().toLowerCase(),
+      upi_id: upiId ? upiId.trim() : null,
+      phonepay_no: upiId ? upiId.trim() : null,
+      pickup_location: pickupLocation.trim(),
+      city: pickupLocation.trim(),
       category: formattedCategory,
-      status: 'approved',
-      account_status: 'Active',
+      business_category: formattedCategory,
+      // Zero-Trust: Require admin approval before active seller operations
+      status: 'pending',
+      account_status: 'Pending Approval',
       delete_requested: false,
       created_at: new Date().toISOString()
     };
@@ -46,12 +50,12 @@ export const registerSeller = async (req, res, next) => {
     // Save default pickup location
     await supabaseB.from('seller_pickup_locations').insert([{
       seller_id: seller[0].id,
-      name: `${fullName} Warehouse`,
-      location_name: pickupLocation,
-      phone: phone,
-      email: email || `${phone}@seller.asaliswad.com`,
-      address: pickupLocation,
-      city: pickupLocation,
+      name: `${fullName.trim()} Warehouse`,
+      location_name: pickupLocation.trim(),
+      phone: phone.trim(),
+      email: (email || `${phone}@seller.zebalpha.com`).trim().toLowerCase(),
+      address: pickupLocation.trim(),
+      city: pickupLocation.trim(),
       state: 'Default State',
       pincode: '000000',
       is_default: true
@@ -59,7 +63,7 @@ export const registerSeller = async (req, res, next) => {
 
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
-      message: 'Seller account registered and verified successfully.',
+      message: 'Seller account registered successfully. Pending Administrator verification.',
       data: seller[0]
     });
   } catch (err) {
@@ -68,13 +72,33 @@ export const registerSeller = async (req, res, next) => {
 };
 
 /**
- * Request 15-Day Account Deletion
+ * Request 15-Day Account Deletion (IDOR Protected)
  */
 export const requestAccountDeletion = async (req, res, next) => {
   try {
     const { sellerId } = req.body;
     if (!sellerId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Seller ID is required.' });
+    }
+
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+
+    // Verify ownership
+    const { data: seller, error: fetchErr } = await supabaseB
+      .from('sellers')
+      .select('id, user_id')
+      .eq('id', sellerId)
+      .maybeSingle();
+
+    if (fetchErr || !seller) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Seller record not found.' });
+    }
+
+    if (!isSuperAdmin && String(seller.user_id) !== String(req.user?.id)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Forbidden: You can only request deletion for your own seller account.'
+      });
     }
 
     const targetDate = new Date();
@@ -104,13 +128,33 @@ export const requestAccountDeletion = async (req, res, next) => {
 };
 
 /**
- * Restore Seller Account during 15-day Grace Period
+ * Restore Seller Account during 15-day Grace Period (IDOR Protected)
  */
 export const restoreAccount = async (req, res, next) => {
   try {
     const { sellerId } = req.body;
     if (!sellerId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Seller ID is required.' });
+    }
+
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+
+    // Verify ownership
+    const { data: seller, error: fetchErr } = await supabaseB
+      .from('sellers')
+      .select('id, user_id')
+      .eq('id', sellerId)
+      .maybeSingle();
+
+    if (fetchErr || !seller) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Seller record not found.' });
+    }
+
+    if (!isSuperAdmin && String(seller.user_id) !== String(req.user?.id)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Forbidden: You can only restore your own seller account.'
+      });
     }
 
     const { data, error } = await supabaseB
@@ -139,13 +183,24 @@ export const restoreAccount = async (req, res, next) => {
 
 /**
  * Automated Cron Purge for expired seller accounts (Post 15 days)
- * Preserves completed orders for financial accounting and reporting.
+ * Requires Super Admin authorization or verified CRON_SECRET.
  */
 export const purgeExpiredDeletions = async (req, res, next) => {
   try {
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const cronSecret = process.env.CRON_SECRET;
+    const providedSecret = req.headers['authorization'] || req.headers['x-cron-secret'];
+    const isSecretValid = cronSecret && (providedSecret === cronSecret || providedSecret === `Bearer ${cronSecret}`);
+
+    if (!isSuperAdmin && !isSecretValid) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        message: 'Unauthorized access to seller purge maintenance service.'
+      });
+    }
+
     const nowIso = new Date().toISOString();
 
-    // Fetch sellers whose 15-day countdown has elapsed
     const { data: expiredSellers } = await supabaseB
       .from('sellers')
       .select('id, full_name')
@@ -157,20 +212,15 @@ export const purgeExpiredDeletions = async (req, res, next) => {
     }
 
     for (const seller of expiredSellers) {
-      // 1. Delete seller products from Supabase B
       await supabaseB.from('products').delete().eq('seller_id', seller.id);
-      // 2. Delete inventory records
       await supabaseB.from('inventory').delete().eq('seller_id', seller.id);
-      // 3. Delete pickup locations
       await supabaseB.from('seller_pickup_locations').delete().eq('seller_id', seller.id);
-      // 4. Delete seller record
       await supabaseB.from('sellers').delete().eq('id', seller.id);
-      // Note: Past completed orders in `orders` remain intact for audit/reporting!
     }
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: `Purged ${expiredSellers.length} expired seller account(s) while retaining historical order accounting records.`,
+      message: `Purged ${expiredSellers.length} expired seller account(s) securely.`,
       purgedSellers: expiredSellers.map(s => s.full_name)
     });
   } catch (err) {
@@ -179,14 +229,36 @@ export const purgeExpiredDeletions = async (req, res, next) => {
 };
 
 /**
- * Fetch Seller Pickup Locations
+ * Fetch Seller Pickup Locations (IDOR Protected)
  */
 export const getPickupLocations = async (req, res, next) => {
   try {
     const { sellerId } = req.params;
-    const { data, error } = await supabaseB.from('seller_pickup_locations').select('*').eq('seller_id', sellerId);
-    if (error) throw error;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
 
+    const { data: seller } = await supabaseB
+      .from('sellers')
+      .select('id, user_id')
+      .eq('id', sellerId)
+      .maybeSingle();
+
+    if (!seller) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Seller not found.' });
+    }
+
+    if (!isSuperAdmin && String(seller.user_id) !== String(req.user?.id)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Forbidden: Access denied to other merchant pickup locations.'
+      });
+    }
+
+    const { data, error } = await supabaseB
+      .from('seller_pickup_locations')
+      .select('*')
+      .eq('seller_id', sellerId);
+
+    if (error) throw error;
     res.status(HTTP_STATUS.OK).json({ success: true, data });
   } catch (err) {
     next(err);
@@ -194,11 +266,38 @@ export const getPickupLocations = async (req, res, next) => {
 };
 
 /**
- * Create Support Ticket
+ * Create Support Ticket (IDOR Protected)
  */
 export const createSupportTicket = async (req, res, next) => {
   try {
-    const ticketPayload = req.body;
+    const { subject, description, priority = 'medium', category = 'general' } = req.body;
+    
+    if (!subject || !description) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Subject and description are required.'
+      });
+    }
+
+    // Resolve seller ID for the authenticated user
+    const { data: seller } = await supabaseB
+      .from('sellers')
+      .select('id')
+      .eq('user_id', req.user?.id)
+      .maybeSingle();
+
+    const sellerId = seller?.id || req.user?.id;
+
+    const ticketPayload = {
+      seller_id: sellerId,
+      subject: String(subject).trim().slice(0, 255),
+      description: String(description).trim(),
+      category: String(category).trim().slice(0, 50),
+      priority: ['low', 'medium', 'high', 'urgent'].includes(priority.toLowerCase()) ? priority.toLowerCase() : 'medium',
+      status: 'open',
+      created_at: new Date().toISOString()
+    };
+
     const { data, error } = await supabaseB.from('seller_support_tickets').insert([ticketPayload]).select();
     if (error) throw error;
 
@@ -209,16 +308,36 @@ export const createSupportTicket = async (req, res, next) => {
 };
 
 /**
- * Update Seller Inventory
+ * Update Seller Inventory (IDOR Protected)
  */
 export const updateSellerInventory = async (req, res, next) => {
   try {
-    const { sellerId, productId, stockCount, imageUrl } = req.body;
+    const { productId, stockCount, imageUrl } = req.body;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+
+    // Verify product ownership
+    const { data: product } = await supabaseB
+      .from('products')
+      .select('id, seller_id')
+      .eq('id', productId)
+      .maybeSingle();
+
+    if (!product) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Product not found.' });
+    }
+
+    if (!isSuperAdmin && String(product.seller_id) !== String(req.user?.id)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Forbidden: You cannot modify inventory for another seller.'
+      });
+    }
+
     const inventoryPayload = {
-      seller_id: sellerId,
+      seller_id: product.seller_id,
       product_id: productId,
-      stock_count: stockCount,
-      image_url: imageUrl,
+      stock_count: Math.max(0, parseInt(stockCount, 10) || 0),
+      image_url: imageUrl || null,
       updated_at: new Date().toISOString()
     };
 

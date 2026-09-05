@@ -46,12 +46,25 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  // If storedHash is not in salt:hash format (e.g. plain string in env during initial setup)
+  if (!password || !storedHash) return false;
+
+  // If storedHash is not in salt:hash format (legacy fallback)
   if (!storedHash.includes(":")) {
-    return password === storedHash;
+    const enc = new TextEncoder();
+    const a = enc.encode(password);
+    const b = enc.encode(storedHash);
+    if (a.byteLength !== b.byteLength) return false;
+    // Constant time comparison
+    let diff = 0;
+    for (let i = 0; i < a.byteLength; i++) {
+      diff |= a[i] ^ b[i];
+    }
+    return diff === 0;
   }
 
   const [saltHex, originalHashHex] = storedHash.split(":");
+  if (!saltHex || !originalHashHex) return false;
+
   const salt = hexToArrayBuffer(saltHex);
   const enc = new TextEncoder();
 
@@ -75,5 +88,15 @@ export async function verifyPassword(password: string, storedHash: string): Prom
   );
 
   const newHashHex = arrayBufferToHex(derivedKey);
-  return newHashHex === originalHashHex;
+
+  const encHash = new TextEncoder();
+  const a = encHash.encode(newHashHex);
+  const b = encHash.encode(originalHashHex);
+  if (a.byteLength !== b.byteLength) return false;
+  let diff = 0;
+  for (let i = 0; i < a.byteLength; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
 }
+

@@ -21,27 +21,6 @@ function LoginContent() {
     }
   }, [searchParams]);
 
-  const handleLocalQuickLogin = (targetEmail?: string) => {
-    const loginEmail = (targetEmail || email || "r.adhikary7777@gmail.com").trim().toLowerCase();
-    const mockSellerSession = {
-      id: "seller-test-id-777",
-      user_id: "seller-test-id-777",
-      email: loginEmail,
-      full_name: "Rahul Adhikary (Demo Seller)",
-      business_name: "ZEBALPHA Apparel Merchant",
-      account_status: "Active",
-      status: "approved",
-      is_local_session: true,
-    };
-    if (typeof window !== "undefined") {
-      localStorage.setItem("zebalpha_seller_session", JSON.stringify(mockSellerSession));
-    }
-    setStatusMessage("⚡ Local Demo Access Granted! Redirecting to Seller Dashboard...");
-    setTimeout(() => {
-      window.location.href = "/dashboard";
-    }, 500);
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -52,51 +31,22 @@ function LoginContent() {
       let authRes: any = null;
       try {
         authRes = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           password: password,
         });
       } catch (fetchErr: any) {
-        console.warn("Supabase auth fetch exception, falling back to local demo login:", fetchErr);
-        handleLocalQuickLogin(email);
+        console.error("Supabase auth exception:", fetchErr);
+        setError("Network error connecting to authentication service. Please try again.");
+        setLoading(false);
         return;
       }
 
       let data = authRes?.data;
       let authError = authRes?.error;
 
-      if (authError) {
-        try {
-          const syncRes = await fetch("/api/auth/signup-verified", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: email.trim(),
-              password: password,
-            }),
-          });
-          const syncData = await syncRes.json();
-          if (syncData.success && syncData.user?.id) {
-            try {
-              const retryRes = await supabase.auth.signInWithPassword({
-                email: email.trim(),
-                password: password,
-              });
-              if (retryRes.data?.user) {
-                data = retryRes.data;
-                authError = null;
-              }
-            } catch (retryErr) {
-              console.warn("Notice on retry auth:", retryErr);
-            }
-          }
-        } catch (syncErr) {
-          console.warn("Auto-sync notice on seller login:", syncErr);
-        }
-      }
-
       if (authError || !data?.user) {
-        // Fallback to local test session so seller login never gets stuck during local testing
-        handleLocalQuickLogin(email);
+        setError(authError?.message || "Invalid merchant email or password.");
+        setLoading(false);
         return;
       }
 

@@ -11,14 +11,24 @@ export const config = {
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'x9#kL2!pQ8$vN5@mZ1*cJ4^yH7&tR0%bW3_refresh',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d'
   },
+  // PostgreSQL Direct Database Connection (Supabase Pooler)
+  databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres.qjpahzstldiatfbutvfc:zebalpha%402005@aws-0-ap-south-1.pooler.supabase.com:5432/postgres',
+  directUrl: process.env.DIRECT_URL || process.env.DATABASE_URL || 'postgresql://postgres.qjpahzstldiatfbutvfc:zebalpha%402005@aws-0-ap-south-1.pooler.supabase.com:5432/postgres',
+  db: {
+    host: process.env.DB_HOST || 'aws-0-ap-south-1.pooler.supabase.com',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    database: process.env.DB_NAME || process.env.DB_DATABASE || 'postgres',
+    user: process.env.DB_USER || 'postgres.qjpahzstldiatfbutvfc',
+    password: process.env.DB_PASSWORD || 'zebalpha@2005'
+  },
   // Unified Production Database (Single Data Source)
   supabaseA: {
-    url: process.env.SUPABASE_A_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bprkenwmheakcqryjupi.supabase.co',
+    url: process.env.SUPABASE_A_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qjpahzstldiatfbutvfc.supabase.co',
     serviceKey: process.env.SUPABASE_A_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_publishable_W3vW-6g_CDVw57zEK-oF5A_Y3RzKCzR',
     anonKey: process.env.SUPABASE_A_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_W3vW-6g_CDVw57zEK-oF5A_Y3RzKCzR'
   },
   supabaseB: {
-    url: process.env.SUPABASE_B_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bprkenwmheakcqryjupi.supabase.co',
+    url: process.env.SUPABASE_B_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qjpahzstldiatfbutvfc.supabase.co',
     serviceKey: process.env.SUPABASE_B_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_publishable_W3vW-6g_CDVw57zEK-oF5A_Y3RzKCzR',
     anonKey: process.env.SUPABASE_B_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_W3vW-6g_CDVw57zEK-oF5A_Y3RzKCzR'
   },

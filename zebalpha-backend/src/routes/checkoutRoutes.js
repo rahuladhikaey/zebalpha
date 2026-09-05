@@ -34,7 +34,7 @@ router.post('/cod', async (req, res, next) => {
       customer_name,
       phone,
       address,
-      items,
+      items: calculated.verifiedItems || items,
       discount_amount: calculated.productDiscount + calculated.asCardDiscount + calculated.couponDiscount,
       shipping_charge: calculated.shippingCharges,
       total_amount: calculated.grandTotal,
@@ -113,30 +113,38 @@ router.post('/verify-payment', async (req, res, next) => {
       couponCode
     } = req.body;
 
-    // Verify signature
+    // Cryptographic signature verification
     if (config.razorpay.keySecret) {
+      if (!razorpay_signature || !razorpay_order_id || !razorpay_payment_id) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Incomplete payment parameters' });
+      }
+
       const generatedSignature = crypto
         .createHmac('sha256', config.razorpay.keySecret)
         .update(`${razorpay_order_id}|${razorpay_payment_id}`)
         .digest('hex');
 
-      const isTestMode = (config.razorpay.keyId || '').includes('test');
-      if (generatedSignature !== razorpay_signature && razorpay_signature !== 'mock_signature' && !isTestMode && process.env.NODE_ENV === 'production') {
+      const expectedBuf = Buffer.from(generatedSignature);
+      const providedBuf = Buffer.from(String(razorpay_signature));
+
+      const isSignatureValid = expectedBuf.length === providedBuf.length &&
+                               crypto.timingSafeEqual(expectedBuf, providedBuf);
+
+      if (!isSignatureValid) {
+        console.warn(`[Security Alert] Payment signature mismatch on order ${razorpay_order_id}`);
         return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Invalid payment signature' });
-      } else if (generatedSignature !== razorpay_signature) {
-        console.warn(`[Razorpay Signature Warning] Signature mismatch bypassed in test/dev mode.`);
       }
     }
 
-    // Server-side calculation verification
+    // Server-side calculation verification against trusted database catalog
     const calculated = await calculateOrderAmounts({ items, paymentMethod: 'ONLINE', applyAsCard, couponCode });
 
-    // Map payload to order creation payload
+    // Map payload to order creation payload using verified database items
     req.body = {
       customer_name,
       phone,
       address,
-      items,
+      items: calculated.verifiedItems || items,
       discount_amount: calculated.productDiscount + calculated.asCardDiscount + calculated.couponDiscount,
       shipping_charge: calculated.shippingCharges,
       total_amount: calculated.grandTotal,

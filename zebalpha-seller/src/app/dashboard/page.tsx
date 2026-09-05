@@ -73,26 +73,19 @@ export default function SellerDashboard() {
   // Fetch all data
   async function fetchDashboardData() {
     try {
-      let currentUserId: string | null = null;
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        currentUserId = user.id;
-      } else if (typeof window !== "undefined") {
-        const cachedSession = localStorage.getItem("zebalpha_seller_session");
-        if (cachedSession) {
-          try {
-            const parsed = JSON.parse(cachedSession);
-            currentUserId = parsed.id || parsed.user_id || null;
-          } catch (e) {}
-        }
+      if (!user) {
+        window.location.href = "/";
+        return;
       }
+      const currentUserId = user.id;
 
       // 1. Fetch seller's products
-      let queryProducts = supabase.from("products").select("*");
-      if (currentUserId) {
-        queryProducts = queryProducts.eq("seller_id", currentUserId);
-      }
-      const { data: products } = await queryProducts;
+      const { data: products } = await supabase
+        .from("products")
+        .select("*")
+        .eq("seller_id", currentUserId);
+
       const productsList = (products || []) as Product[];
       setSellerProducts(productsList);
 
@@ -100,10 +93,11 @@ export default function SellerDashboard() {
       const lowStock = productsList.filter(p => (p.stock ?? 0) <= (p.low_stock_limit ?? 5)).length;
       setLowStockCount(lowStock);
 
-      // 2. Fetch orders
+      // 2. Fetch orders strictly filtered to this seller
       const { data: orders } = await supabase
         .from("orders")
         .select("*")
+        .eq("seller_id", currentUserId)
         .order("created_at", { ascending: false });
 
       const rawOrders = (orders || []) as Order[];
