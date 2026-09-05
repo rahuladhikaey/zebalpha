@@ -116,6 +116,15 @@ app.use('/api/v1/checkout', checkoutRateLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Root Keep-Alive & Health Ping endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    service: 'ZEB-ALPHA API Gateway',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // 5. API Routes (Supports both /api and /api/v1)
 app.use('/api', routes);
 app.use('/api/v1', routes);

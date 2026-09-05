@@ -4,9 +4,9 @@
 
 const getBackendUrl = (): string => {
   if (typeof window !== 'undefined') {
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    return process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://zebalpha-backend-hlk5.onrender.com' : 'http://localhost:5000');
   }
-  return process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL || 'http://localhost:5000';
+  return process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL || (process.env.NODE_ENV === 'production' ? 'https://zebalpha-backend-hlk5.onrender.com' : 'http://localhost:5000');
 };
 
 export const apiFetch = async <T = any>(

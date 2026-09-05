@@ -4,7 +4,7 @@
  */
 
 async function runCronJobs() {
-  const backendUrl = (process.env.BACKEND_URL || 'https://zebalpha-backend.onrender.com').replace(/\/$/, '');
+  const backendUrl = (process.env.BACKEND_URL || 'https://zebalpha-backend-hlk5.onrender.com').replace(/\/$/, '');
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {

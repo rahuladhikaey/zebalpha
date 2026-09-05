@@ -20,7 +20,9 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: NEXT_PUBLIC_API_URL
-        sync: false
+        value: https://zebalpha-backend-hlk5.onrender.com
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://zebalpha-backend-hlk5.onrender.com
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
@@ -47,7 +49,9 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: NEXT_PUBLIC_API_URL
-        sync: false
+        value: https://zebalpha-backend-hlk5.onrender.com
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://zebalpha-backend-hlk5.onrender.com
 
   # 3. Super Admin Management Portal (Next.js)
   - type: web
@@ -75,6 +79,10 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: NEXT_PUBLIC_API_URL
+        value: https://zebalpha-backend-hlk5.onrender.com
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://zebalpha-backend-hlk5.onrender.com
 
   # 4. Central Express API Gateway
   - type: web
@@ -92,6 +100,8 @@ services:
         value: 22.x
       - key: NODE_ENV
         value: production
+      - key: API_BASE_URL
+        value: https://zebalpha-backend-hlk5.onrender.com
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL

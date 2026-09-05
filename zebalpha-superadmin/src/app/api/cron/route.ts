@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://asaliswad-backend.onrender.com';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://zebalpha-backend-hlk5.onrender.com';
 
     // Fire background call to Express backend (non-blocking)
     fetch(`${backendUrl}/api/v1/cron/admin/analytics-rollup`, {
@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: true,
-        domain: 'admin.asaliswad.com',
+        domain: 'admin.zebalpha.com',
         service: 'Super Admin Panel Cron',
         timestamp: new Date().toISOString()
       },

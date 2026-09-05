@@ -21,15 +21,18 @@ export function Footer() {
 							Clothing crafted for those who move different. Timeless style, elevated in every stitch with 100% premium combed and Supima cottons.
 						</p>
 						
-						<div className="mt-6 flex flex-wrap items-center gap-2.5 text-xs text-neutral-300">
-							<span className="rounded-full border border-neutral-800 bg-neutral-900 px-3.5 py-1.5 font-bold uppercase tracking-wider">
+						<div className="mt-6 grid grid-cols-2 gap-2 sm:gap-2.5 max-w-md w-full text-neutral-300">
+							<span className="flex items-center justify-center text-center rounded-full border border-neutral-800 bg-neutral-900 px-2.5 sm:px-3.5 py-2 font-bold uppercase tracking-wider text-[10px] sm:text-xs">
 								✦ 100% Premium Cotton
 							</span>
-							<span className="rounded-full border border-neutral-800 bg-neutral-900 px-3.5 py-1.5 font-bold uppercase tracking-wider">
+							<span className="flex items-center justify-center text-center rounded-full border border-neutral-800 bg-neutral-900 px-2.5 sm:px-3.5 py-2 font-bold uppercase tracking-wider text-[10px] sm:text-xs">
 								✦ Relaxed Modern Fits
 							</span>
-							<span className="rounded-full border border-neutral-800 bg-neutral-900 px-3.5 py-1.5 font-bold uppercase tracking-wider">
+							<span className="flex items-center justify-center text-center rounded-full border border-neutral-800 bg-neutral-900 px-2.5 sm:px-3.5 py-2 font-bold uppercase tracking-wider text-[10px] sm:text-xs">
 								✦ Express Shipping
+							</span>
+							<span className="flex items-center justify-center text-center rounded-full border border-neutral-800 bg-neutral-900 px-2.5 sm:px-3.5 py-2 font-bold uppercase tracking-wider text-[10px] sm:text-xs">
+								✦ Easy Returns
 							</span>
 						</div>
 
