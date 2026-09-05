@@ -128,15 +128,16 @@ export default function SellerProducts() {
 
       if (finalCategories.length === 0) {
         finalCategories = [
-          { id: 1, name: "Premium Polos", main_category: "Polos & Tees" },
-          { id: 2, name: "Oversized Streetwear Tees", main_category: "Polos & Tees" },
-          { id: 3, name: "Heavyweight Hoodies", main_category: "Hoodies & Jackets" },
-          { id: 4, name: "Casual Collared Shirts", main_category: "Shirts" },
-          { id: 5, name: "Streetwear Cargo & Bottoms", main_category: "Bottoms" },
-          { id: 6, name: "Limited Edition Drops", main_category: "Limited" },
-          { id: 7, name: "Coming Soon Design Drop", main_category: "New Drops & Coming Soon" }
+          { id: "214a7fd0-1fde-49a9-8286-46be87dd8865", name: "Premium Polos", main_category: "Polos & Tees" },
+          { id: "7a59e13a-e19e-4759-9d37-98ae190f5627", name: "Oversized Streetwear Tees", main_category: "Polos & Tees" },
+          { id: "db87a094-76c8-41f4-81a6-8cf3e550a904", name: "Heavyweight Hoodies", main_category: "Hoodies & Jackets" },
+          { id: "d591540e-3381-4acf-9279-99a9d4b5d602", name: "Casual Collared Shirts", main_category: "Shirts" },
+          { id: "1b7c926c-f542-472c-b85c-7aae12b02bce", name: "Streetwear Cargo & Bottoms", main_category: "Bottoms" },
+          { id: "986c0ec4-bdc2-4bcd-a86c-8211306d522f", name: "Limited Edition Drops", main_category: "Limited" },
+          { id: "1513015e-249b-48f1-8282-6694ad3615bd", name: "Accessories & Headwear", main_category: "Accessories" }
         ];
       }
+
 
       setProducts(productsData || []);
       setCategories(finalCategories);
@@ -365,9 +366,14 @@ export default function SellerProducts() {
     const isValidUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
     const rawCatId = String(selectedSubcategoryId || form.category_id || "");
     const selectedCat = categories.find(c => String(c.id) === rawCatId);
-    const categoryId = selectedCat 
-      ? selectedCat.id 
-      : (isValidUuid(rawCatId) ? rawCatId : (!isNaN(Number(rawCatId)) ? Number(rawCatId) : null));
+    let categoryId: string | null = null;
+    if (selectedCat && isValidUuid(String(selectedCat.id))) {
+      categoryId = String(selectedCat.id);
+    } else if (isValidUuid(rawCatId)) {
+      categoryId = rawCatId;
+    } else if (categories.length > 0 && isValidUuid(String(categories[0].id))) {
+      categoryId = String(categories[0].id);
+    }
     const categoryName = selectedCat?.name || "General";
     const mainCategoryName = (selectedCat as any)?.main_category || (selectedCat as any)?.description || selectedMainCategory || "Apparel";
 
@@ -408,7 +414,7 @@ export default function SellerProducts() {
       is_active: true,
       is_approved: true,
       approval_status: "approved",
-      seller_id: userId
+      seller_id: isValidUuid(userId) ? userId : null
     };
 
     try {
