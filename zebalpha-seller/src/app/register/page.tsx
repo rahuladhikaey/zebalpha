@@ -8,11 +8,48 @@ import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { CheckCircle2, Store, User, Mail, Phone, Lock, Tag, Layers, ArrowRight, ShieldCheck } from "lucide-react";
 
 const CATEGORY_MAP: Record<string, string[]> = {
-  Grocery: ["Rice & Pulses", "Atta & Flour", "Spices & Seasoning", "Oils & Ghee", "Organic Specials"],
-  Snacks: ["Dry Fruits & Nuts", "Namkeen & Savories", "Biscuits & Cookies", "Mithai & Sweets", "Roasted Snacks"],
-  Bakery: ["Fresh Breads", "Rusk & Toast", "Cakes & Pastries", "Buns & Rolls"],
-  Beverages: ["Tea & Coffee", "Juices & Drinks", "Health Mixes"],
-  Spices: ["Whole Spices", "Powdered Spices", "Blended Masalas"]
+  "Polos & T-Shirts": [
+    "Premium Pique Polos",
+    "Zip-Neck Luxury Polos",
+    "Oversized Streetwear Tees",
+    "Heavyweight Graphic Tees",
+    "Supima Cotton Basics",
+  ],
+  "Hoodies & Sweatshirts": [
+    "380 GSM Heavyweight Hoodies",
+    "Plush Fleece Drop-Shoulders",
+    "Streetwear Zip-Up Hoodies",
+    "Minimal Crewneck Sweaters",
+  ],
+  "Casual Shirts": [
+    "Textured Linen Shirts",
+    "Resort Collar Shirts",
+    "Woven Oxford Button-Downs",
+    "Oversized Flannels",
+  ],
+  "Bottoms & Cargo": [
+    "Utility Cargo Trousers",
+    "Relaxed Tailored Pants",
+    "Heavyweight Fleece Joggers",
+    "Straight-Leg Streetwear Denim",
+  ],
+  "Outerwear & Jackets": [
+    "Varsity Bomber Jackets",
+    "Windbreaker Track Jackets",
+    "Denim Overshirts",
+    "Layering Streetwear Vests",
+  ],
+  "Accessories & Caps": [
+    "Embroidered Streetwear Caps",
+    "Beanie Hats",
+    "Chains & Minimal Jewelry",
+    "Crossbody Bags & Socks",
+  ],
+  "Limited Drops": [
+    "Exclusive Culture Releases",
+    "Collaboration Editions",
+    "Archive Special Drops",
+  ],
 };
 
 export default function SellerRegisterPage() {
@@ -22,8 +59,8 @@ export default function SellerRegisterPage() {
   // Required Fields
   const [sellerName, setSellerName] = useState("");
   const [shopName, setShopName] = useState("");
-  const [category, setCategory] = useState("Grocery");
-  const [subcategory, setSubcategory] = useState("Rice & Pulses");
+  const [category, setCategory] = useState("Polos & T-Shirts");
+  const [subcategory, setSubcategory] = useState("Premium Pique Polos");
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +75,7 @@ export default function SellerRegisterPage() {
 
   // Available Subcategories based on selected Category
   const subcategoryOptions = useMemo(() => {
-    return CATEGORY_MAP[category] || CATEGORY_MAP["Grocery"];
+    return CATEGORY_MAP[category] || CATEGORY_MAP["Polos & T-Shirts"];
   }, [category]);
 
   // Password Strength Calculation
@@ -262,7 +299,7 @@ export default function SellerRegisterPage() {
           {/* HEADER */}
           <div className="flex items-center justify-between mb-6">
             <span className="text-xs font-black uppercase tracking-[0.3em] text-zinc-400">
-              AsaliSwad Merchant Portal
+              ZEBALPHA MERCHANT PORTAL
             </span>
             <div className="flex gap-2">
               <span className={`h-2 w-8 rounded-full transition-all ${step === "info" ? "bg-white" : "bg-zinc-800"}`} />
@@ -277,7 +314,7 @@ export default function SellerRegisterPage() {
                 {step === "otp" && "Email OTP Verification"}
               </h1>
               <p className="text-xs font-semibold text-zinc-400 mt-1">
-                {step === "info" && "Register your merchant details & pantry product category."}
+                {step === "info" && "Register your merchant details & apparel clothing category."}
                 {step === "otp" && `Enter 6-digit verification code sent to ${email}`}
               </p>
             </div>
@@ -319,7 +356,7 @@ export default function SellerRegisterPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Asali Swad Spices & Pantry"
+                  placeholder="e.g. Zebalpha Streetwear & Studio"
                   value={shopName}
                   onChange={(e) => setShopName(e.target.value)}
                   className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white"
@@ -342,11 +379,11 @@ export default function SellerRegisterPage() {
                     }}
                     className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white cursor-pointer"
                   >
-                    <option value="Grocery">Grocery</option>
-                    <option value="Snacks">Snacks & Sweets</option>
-                    <option value="Bakery">Bakery</option>
-                    <option value="Beverages">Beverages</option>
-                    <option value="Spices">Spices & Masalas</option>
+                    {Object.keys(CATEGORY_MAP).map((catName) => (
+                      <option key={catName} value={catName}>
+                        {catName}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

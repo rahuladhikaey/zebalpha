@@ -9,7 +9,7 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, async () => {
-  console.log(`🚀 ASALISWAD Backend API running on port ${PORT}`);
+  console.log(`🚀 ZEBALPHA Backend API running on port ${PORT}`);
   await testDatabaseConnection();
   await ensureStorageBuckets();
   initCronJobs();

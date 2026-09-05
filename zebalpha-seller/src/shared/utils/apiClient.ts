@@ -1,6 +1,6 @@
 /**
- * Production-Ready API Client for ASALISWAD Marketplace Frontends
- * Interconnects Frontends with Express Backend API (https://api.asaliswad.com)
+ * Production-Ready API Client for ZEBALPHA Marketplace Frontends
+ * Interconnects Frontends with Express Backend API (https://zebalpha-backend-hlk5.onrender.com)
  */
 
 export const API_BASE_URL =
@@ -21,12 +21,12 @@ interface ApiResponse<T = any> {
 
 const getStoredToken = (type: 'access' | 'refresh'): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(`asaliswad_${type}_token`);
+  return localStorage.getItem(`zebalpha_${type}_token`) || localStorage.getItem(`asaliswad_${type}_token`);
 };
 
 const setStoredToken = (type: 'access' | 'refresh', token: string) => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(`asaliswad_${type}_token`, token);
+    localStorage.setItem(`zebalpha_${type}_token`, token);
   }
 };
 

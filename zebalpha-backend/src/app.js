@@ -75,6 +75,7 @@ const globalApiLimiter = rateLimit({
   max: 500, // Max 500 requests per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path === '/' || req.path === '/health' || req.path.endsWith('/health'),
   message: {
     success: false,
     error: 'Too many requests from this IP. Please try again after 15 minutes.'
@@ -116,11 +117,11 @@ app.use('/api/v1/checkout', checkoutRateLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Root Keep-Alive & Health Ping endpoint
-app.get('/', (req, res) => {
+// Root Keep-Alive & Health Ping endpoints for cron jobs and uptime monitors
+app.get(['/', '/health'], (req, res) => {
   res.status(200).json({
     status: 'online',
-    service: 'ZEB-ALPHA API Gateway',
+    service: 'ZEBALPHA API Gateway',
     timestamp: new Date().toISOString()
   });
 });

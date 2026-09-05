@@ -93,7 +93,7 @@ export default function SellerReports() {
     } else if (reportType === "product" || reportType === "inventory") {
       csvHeader = "Product Name,SKU,Brand,Price (INR),Stock Level,Low Stock Limit,Status\n";
       csvRows = products.map(p => 
-        `"${p.name}","${p.sku || 'N/A'}","${p.brand || 'asaliswad'}","${p.price}","${p.stock || 0}","${p.low_stock_limit || 5}","${(p.stock || 0) > 0 ? 'In Stock' : 'Out of Stock'}"`
+        `"${p.name}","${p.sku || 'N/A'}","${p.brand || 'ZEBALPHA'}","${p.price}","${p.stock || 0}","${p.low_stock_limit || 5}","${(p.stock || 0) > 0 ? 'In Stock' : 'Out of Stock'}"`
       );
     }
 
@@ -101,7 +101,7 @@ export default function SellerReports() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `asaliswad_seller_${reportType}_report.csv`);
+    link.setAttribute("download", `zebalpha_seller_${reportType}_report.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

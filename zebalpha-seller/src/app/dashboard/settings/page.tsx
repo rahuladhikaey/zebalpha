@@ -49,7 +49,7 @@ export default function SellerSettings() {
     mobile_number: "",
     email: "",
     email_verified: false,
-    business_category: "Grocery",
+    business_category: "Apparel & Streetwear",
     pickup_address: "",
     warehouse_address: "",
     city: "",
@@ -90,7 +90,7 @@ export default function SellerSettings() {
           mobile_number: seller.mobile_number || seller.phone_number || "",
           email: seller.email || user.email || "",
           email_verified: Boolean(seller.email_verified),
-          business_category: seller.business_category || seller.category || "Grocery",
+          business_category: seller.business_category || seller.category || "Apparel & Streetwear",
           pickup_address: seller.pickup_address || "",
           warehouse_address: seller.warehouse_address || "",
           city: seller.city || "",
@@ -355,7 +355,7 @@ export default function SellerSettings() {
                 <ShieldCheck className="h-4 w-4 text-emerald-400" />
                 <span>Automated Compliance</span>
               </div>
-              <p className="text-xs text-zinc-400 font-medium">Instant FSSAI & GSTIN validation with auto-document verification.</p>
+              <p className="text-xs text-zinc-400 font-medium">Instant GSTIN, Brand Authorization & Trade License validation.</p>
             </div>
 
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 space-y-2">

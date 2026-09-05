@@ -40,7 +40,7 @@ export default function SellerProducts() {
     description: "",
     category_id: "",
     image_url: "",
-    brand: "asaliswad",
+    brand: "zebalpha",
     stock: "0",
     low_stock_limit: "5",
     sku: "",
@@ -202,8 +202,8 @@ export default function SellerProducts() {
     setEditingProduct(null);
     setUploadedImages([]);
     setImageError("");
-    const firstMainCategory = Array.from(new Set(categories.map((c: any) => c.main_category || c.description || "Grocery")))[0] || "Grocery";
-    const firstSubcategory = categories.find((c: any) => (c.main_category || c.description || "Grocery") === firstMainCategory);
+    const firstMainCategory = Array.from(new Set(categories.map((c: any) => c.main_category || c.description || "Apparel")))[0] || "Apparel";
+    const firstSubcategory = categories.find((c: any) => (c.main_category || c.description || "Apparel") === firstMainCategory);
     setSelectedMainCategory(firstMainCategory);
     setSelectedSubcategoryId(firstSubcategory?.id?.toString() || "");
     setForm({
@@ -234,7 +234,7 @@ export default function SellerProducts() {
     setImageError("");
 
     const selectedCategory = categories.find((c: any) => String(c.id) === String(product.category_id));
-    const matchedMainCategory = (selectedCategory as any)?.main_category || (selectedCategory as any)?.description || (product as any).category || "Grocery";
+    const matchedMainCategory = (selectedCategory as any)?.main_category || (selectedCategory as any)?.description || (product as any).category || "Apparel";
     const matchedSubcategoryId = selectedCategory ? String(selectedCategory.id) : "";
     setSelectedMainCategory(matchedMainCategory);
     setSelectedSubcategoryId(matchedSubcategoryId);
@@ -263,7 +263,7 @@ export default function SellerProducts() {
       description: product.description || "",
       category_id: (product.category_id || "").toString(),
       image_url: product.image_url || "",
-      brand: product.brand || "asaliswad",
+      brand: product.brand || "zebalpha",
       stock: (product.stock || 0).toString(),
       low_stock_limit: (product.low_stock_limit || 5).toString(),
       sku: product.sku || "",
@@ -369,7 +369,7 @@ export default function SellerProducts() {
       ? selectedCat.id 
       : (isValidUuid(rawCatId) ? rawCatId : (!isNaN(Number(rawCatId)) ? Number(rawCatId) : null));
     const categoryName = selectedCat?.name || "General";
-    const mainCategoryName = (selectedCat as any)?.main_category || (selectedCat as any)?.description || selectedMainCategory || "Grocery";
+    const mainCategoryName = (selectedCat as any)?.main_category || (selectedCat as any)?.description || selectedMainCategory || "Apparel";
 
     // Upload product images directly to Cloudinary CDN
     let cloudinaryImages: string[] = [];
@@ -386,7 +386,7 @@ export default function SellerProducts() {
       console.warn("Cloudinary upload notice:", err);
     }
 
-    const finalMainImageUrl = cloudinaryImages[0] || form.image_url.trim() || "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&q=80&w=300";
+    const finalMainImageUrl = cloudinaryImages[0] || form.image_url.trim() || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800";
 
     const payload: any = {
       name: form.name.trim(),
@@ -397,7 +397,7 @@ export default function SellerProducts() {
       category_id: categoryId,
       image_url: finalMainImageUrl,
       images: cloudinaryImages.length > 0 ? cloudinaryImages : [finalMainImageUrl],
-      brand: form.brand.trim() || "asaliswad",
+      brand: form.brand.trim() || "ZEBALPHA",
       stock,
       low_stock_limit,
       sku: form.sku.trim() || null,
@@ -464,7 +464,7 @@ export default function SellerProducts() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Products</h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">Manage spices, grocery packages, and pricing.</p>
+          <p className="text-xs font-medium text-slate-500 mt-1">Manage apparel, streetwear collections, sizes, and pricing.</p>
         </div>
         <button
           onClick={openAddModal}
