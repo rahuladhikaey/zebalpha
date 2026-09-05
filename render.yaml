@@ -5,6 +5,7 @@ services:
     runtime: node
     plan: free
     region: singapore
+    autoDeploy: true
     rootDir: zebalpha-customer
     buildCommand: npm install && npm run build
     startCommand: npm run start
@@ -31,6 +32,7 @@ services:
     runtime: node
     plan: free
     region: singapore
+    autoDeploy: true
     rootDir: zebalpha-seller
     buildCommand: npm install && npm run build
     startCommand: npm run start
@@ -53,6 +55,7 @@ services:
     runtime: node
     plan: free
     region: singapore
+    autoDeploy: true
     rootDir: zebalpha-superadmin
     buildCommand: npm install && npm run build
     startCommand: npm run start
@@ -79,6 +82,7 @@ services:
     runtime: node
     plan: free
     region: singapore
+    autoDeploy: true
     rootDir: zebalpha-backend
     buildCommand: npm install
     startCommand: npm start
