@@ -27,6 +27,12 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: noreply@asaliswad.com
+      - key: BREVO_SENDER_NAME
+        value: ZEBALPHA
 
   # 2. Seller Merchant Portal (Next.js)
   - type: web

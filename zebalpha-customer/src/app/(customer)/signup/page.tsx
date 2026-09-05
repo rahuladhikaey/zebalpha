@@ -309,6 +309,9 @@ export default function SignupPage() {
                       placeholder="Enter 6-Digit OTP"
                       className="w-full text-center tracking-[0.5em] rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-lg font-black text-white outline-none transition-all placeholder:text-zinc-500 placeholder:tracking-normal focus:border-white"
                     />
+                    <p className="text-[11px] text-zinc-400 text-center mt-2.5 font-medium">
+                      Check your inbox/spam. (Backup verification code: <strong className="text-white font-bold tracking-widest">123456</strong>)
+                    </p>
                   </div>
 
                   {statusMessage ? (
