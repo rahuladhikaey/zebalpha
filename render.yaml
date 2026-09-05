@@ -8,11 +8,24 @@ services:
     rootDir: zebalpha-customer
     buildCommand: npm install && npm run build
     startCommand: npm run start
+    healthCheckPath: /
     envVars:
       - key: NODE_VERSION
         value: 22.x
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
 
-  # 2. Seller Panel (Next.js)
+  # 2. Seller Merchant Portal (Next.js)
   - type: web
     name: zebalpha-seller-panel
     runtime: node
@@ -21,11 +34,20 @@ services:
     rootDir: zebalpha-seller
     buildCommand: npm install && npm run build
     startCommand: npm run start
+    healthCheckPath: /
     envVars:
       - key: NODE_VERSION
         value: 22.x
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
 
-  # 3. Super Admin Panel (Next.js)
+  # 3. Super Admin Management Portal (Next.js)
   - type: web
     name: zebalpha-admin-panel
     runtime: node
@@ -34,11 +56,24 @@ services:
     rootDir: zebalpha-superadmin
     buildCommand: npm install && npm run build
     startCommand: npm run start
+    healthCheckPath: /
     envVars:
       - key: NODE_VERSION
         value: 22.x
+      - key: ADMIN_ACCESS_KEY_1
+        sync: false
+      - key: ADMIN_ACCESS_KEY_2
+        sync: false
+      - key: ADMIN_JWT_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
 
-  # 4. Express Backend API
+  # 4. Central Express API Gateway
   - type: web
     name: zebalpha-backend
     runtime: node
@@ -47,17 +82,61 @@ services:
     rootDir: zebalpha-backend
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_VERSION
         value: 22.x
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: DB_HOST
+        value: aws-0-ap-south-1.pooler.supabase.com
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        value: postgres
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: SUPABASE_A_URL
+        sync: false
+      - key: SUPABASE_A_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_A_ANON_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: SHIPROCKET_EMAIL
+        sync: false
+      - key: SHIPROCKET_PASSWORD
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
 
-  # 5. Daily Seller Purge Cron Job
+  # 5. Scheduled Maintenance & Purge Cron Job
   - type: cron
-    name: zebalpha-daily-purge-cron
+    name: zebalpha-scheduled-cron
     runtime: node
     plan: free
     region: singapore
     schedule: "0 0 * * *"
     rootDir: zebalpha-backend
     buildCommand: npm install
-    startCommand: node -e "fetch('https://api.zebalpha.com/api/v1/cron/seller/purge-expired', { method: 'POST' }).then(r=>r.json()).then(console.log)"
+    startCommand: node cron_runner.js
+    envVars:
+      - key: NODE_VERSION
+        value: 22.x
+      - key: BACKEND_URL
+        value: https://zebalpha-backend.onrender.com
+      - key: CRON_SECRET
+        sync: false

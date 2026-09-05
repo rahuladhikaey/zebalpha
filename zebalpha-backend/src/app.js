@@ -55,11 +55,11 @@ const ALLOWED_ORIGINS = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like server-to-server or curl) only outside production
-      if (!origin && process.env.NODE_ENV !== 'production') {
+      // Allow requests with no origin (like server-to-server, Render cron jobs, curl, health checks)
+      if (!origin) {
         return callback(null, true);
       }
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.onrender.com')) {
         return callback(null, true);
       }
       return callback(new Error(`CORS policy violation: Origin '${origin}' is not permitted.`));
