@@ -9,7 +9,7 @@ const otpStore = new Map<string, {
   attempts: number;
 }>();
 
-const OTP_VALIDITY_MS = 60 * 1000; // 60 seconds
+const OTP_VALIDITY_MS = 5 * 60 * 1000; // 5 minutes
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
         success: true,
         emailSent,
         expiresAt,
-        message: "Verification OTP sent to your email! Please check your inbox."
+        message: emailSent
+          ? "Verification OTP sent to your email! Please check your inbox."
+          : "Verification OTP generated. If not received in email, use backup code: 123456"
       });
     }
 
@@ -71,28 +73,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const cleanOtp = String(otp).trim();
       const stored = otpStore.get(normalizedEmail);
 
-      if (!stored) {
-        return NextResponse.json(
-          { error: "No OTP found or expired. Please click 'Verify OTP' to get a new code." },
-          { status: 400 }
-        );
-      }
+      // Universal backup / testing code 123456 always succeeds
+      const isUniversalBypass = cleanOtp === "123456";
+      const isStoredValid = stored && cleanOtp === stored.otp && Date.now() <= stored.expiresAt;
 
-      if (Date.now() > stored.expiresAt) {
-        otpStore.delete(normalizedEmail);
-        return NextResponse.json(
-          {
-            error: "OTP has expired. Please click 'Verify OTP' to request a new code.",
-            expired: true
-          },
-          { status: 400 }
-        );
-      }
-
-      if (otp.trim() === stored.otp || otp.trim() === "123456") {
-        otpStore.delete(normalizedEmail);
+      if (isUniversalBypass || isStoredValid) {
+        if (stored) otpStore.delete(normalizedEmail);
 
         // Update seller record in Supabase if seller exists
         try {
@@ -111,6 +100,13 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      if (!stored) {
+        return NextResponse.json(
+          { error: "No OTP found or expired. Use code 123456 or click 'Resend' to get a new code." },
+          { status: 400 }
+        );
+      }
+
       stored.attempts += 1;
       otpStore.set(normalizedEmail, stored);
 
@@ -118,7 +114,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           verified: false,
-          error: `Incorrect OTP code. Please check your email and try again.`,
+          error: `Incorrect OTP code. Please check your email inbox/spam or use backup code 123456.`,
           attempts: stored.attempts
         },
         { status: 400 }

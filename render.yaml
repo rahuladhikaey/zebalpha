@@ -52,6 +52,12 @@ services:
         value: https://zebalpha-backend-hlk5.onrender.com
       - key: NEXT_PUBLIC_API_BASE_URL
         value: https://zebalpha-backend-hlk5.onrender.com
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: noreply@asaliswad.com
+      - key: BREVO_SENDER_NAME
+        value: ZEBALPHA
 
   # 3. Super Admin Management Portal (Next.js)
   - type: web
@@ -136,4 +142,8 @@ services:
         sync: false
       - key: BREVO_API_KEY
         sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: noreply@asaliswad.com
+      - key: BREVO_SENDER_NAME
+        value: ZEBALPHA
 

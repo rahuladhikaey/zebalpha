@@ -10,7 +10,7 @@ import axios from 'axios';
 export async function sendSellerStatusEmail(toEmail, subject, messageHtml, attachmentUrl = null, attachmentName = 'receipt.pdf') {
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@asaliswad.com';
-  const senderName = process.env.BREVO_SENDER_NAME || 'ZEB-ALPHA';
+  const senderName = process.env.BREVO_SENDER_NAME || 'ZEBALPHA';
 
   if (!apiKey) {
     console.warn('[Brevo Warning] BREVO_API_KEY is not configured in environment.');
