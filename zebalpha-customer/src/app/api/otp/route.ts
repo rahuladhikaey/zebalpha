@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 
-// In-memory OTP storage
+// In-memory OTP storage cache
 const otpStore = new Map<string, {
   otp: string;
   expiresAt: number;
   attempts: number;
 }>();
 
-const OTP_VALIDITY_MS = 5 * 60 * 1000; // 5 minutes
+const OTP_VALIDITY_MS = 15 * 60 * 1000; // 15 minutes validity
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -23,6 +23,13 @@ async function sendEmailJsOtp(email: string, otp: string): Promise<boolean> {
     const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
     const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
     const userId = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
+
+    const timeStr = new Date().toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
 
     const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
@@ -39,7 +46,7 @@ async function sendEmailJsOtp(email: string, otp: string): Promise<boolean> {
           email: email,
           to_email: email,
           passcode: otp,
-          time: "15 minutes",
+          time: `${timeStr} IST`,
         },
       }),
     });
@@ -119,10 +126,10 @@ export async function POST(request: NextRequest) {
       const cleanOtp = String(otp).trim();
       const stored = otpStore.get(normalizedEmail);
       
-      const isUniversalBypass = cleanOtp === "123456" || cleanOtp === "000000";
-      const isStoredValid = stored && (cleanOtp === stored.otp || isUniversalBypass) && Date.now() <= stored.expiresAt;
+      // 1. Check in-memory store
+      const isStoredValid = Boolean(stored && cleanOtp === stored.otp && Date.now() <= stored.expiresAt);
 
-      // Check PostgreSQL email_otps table
+      // 2. Check PostgreSQL email_otps table for active unverified OTP
       let isDbValid = false;
       try {
         const { data: dbOtp } = await supabaseServer
@@ -130,6 +137,7 @@ export async function POST(request: NextRequest) {
           .select("*")
           .eq("email", normalizedEmail)
           .eq("otp", cleanOtp)
+          .eq("is_verified", false)
           .gte("expires_at", new Date().toISOString())
           .order("created_at", { ascending: false })
           .limit(1)
@@ -143,24 +151,8 @@ export async function POST(request: NextRequest) {
         console.warn("Customer DB OTP verify notice:", dbVerifyErr);
       }
 
-      // Check Supabase Auth verifyOtp fallback
-      let isSupabaseValid = false;
-      if (!isStoredValid && !isDbValid && !isUniversalBypass) {
-        try {
-          const { data: sbData, error: sbError } = await supabaseServer.auth.verifyOtp({
-            email: normalizedEmail,
-            token: cleanOtp,
-            type: "email"
-          });
-          if (!sbError && sbData?.user) {
-            isSupabaseValid = true;
-          }
-        } catch (sbVerifyErr) {
-          // ignore
-        }
-      }
-
-      if (isUniversalBypass || isStoredValid || isDbValid || isSupabaseValid) {
+      // If valid, accept verification
+      if (isStoredValid || isDbValid) {
         if (stored) otpStore.delete(normalizedEmail);
         return NextResponse.json({
           success: true,
@@ -169,33 +161,48 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      if (!stored) {
-        return NextResponse.json(
-          { error: "No OTP found or expired. Please click 'Resend' to get a new code (or use backup code 123456)." },
-          { status: 400 }
-        );
+      // Diagnostic check: Did the user submit an older/previous code?
+      try {
+        const { data: oldOtp } = await supabaseServer
+          .from("email_otps")
+          .select("id, created_at, is_verified")
+          .eq("email", normalizedEmail)
+          .eq("otp", cleanOtp)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (oldOtp) {
+          return NextResponse.json({
+            success: false,
+            verified: false,
+            error: "This is an older verification code. Please check your inbox for the latest email with the newest 6-digit code.",
+          }, { status: 400 });
+        }
+      } catch (checkOldErr) {
+        // ignore
       }
 
-      stored.attempts += 1;
-      otpStore.set(normalizedEmail, stored);
+      if (stored) {
+        stored.attempts += 1;
+        otpStore.set(normalizedEmail, stored);
+      }
 
       return NextResponse.json({
         success: false,
         verified: false,
-        error: `Incorrect OTP. Please check your email or enter backup code 123456. (Attempt ${stored.attempts})`,
-        attempts: stored.attempts
-      });
+        error: "Incorrect OTP code. Please enter the 6-digit code received in your latest email.",
+      }, { status: 400 });
     }
 
     if (action === "resend") {
-      const existing = otpStore.get(normalizedEmail);
       const otp = generateOTP();
       const expiresAt = generateExpiry();
       
       otpStore.set(normalizedEmail, {
         otp,
         expiresAt,
-        attempts: existing?.attempts || 0
+        attempts: 0
       });
 
       // 1. Store persistent OTP in PostgreSQL email_otps table

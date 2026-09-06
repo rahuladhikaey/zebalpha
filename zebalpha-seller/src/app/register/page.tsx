@@ -176,7 +176,7 @@ export default function SellerRegisterPage() {
         return;
       }
 
-      if (data.otp) {
+      if (!data.emailSent && data.otp) {
         sendEmailJsDirect(normalizedEmail, data.otp);
       }
 
@@ -203,7 +203,7 @@ export default function SellerRegisterPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        if (data.otp) {
+        if (!data.emailSent && data.otp) {
           sendEmailJsDirect(normalizedEmail, data.otp);
         }
         setResendCooldown(60);
@@ -613,16 +613,9 @@ export default function SellerRegisterPage() {
                   className="w-full text-center tracking-[0.6em] font-mono text-3xl font-black rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-5 py-4 text-white outline-none transition-all placeholder:text-zinc-600 focus:border-white focus:ring-4 focus:ring-white/10"
                 />
                 <div className="flex items-center justify-between mt-3 px-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOtpInput("123456");
-                      setTimeout(() => handleRegisterSubmit(undefined, "123456"), 100);
-                    }}
-                    className="text-[11px] font-bold text-amber-400 hover:underline"
-                  >
-                    Email delayed? Use backup code: 123456
-                  </button>
+                  <span className="text-[11px] text-zinc-400 font-medium">
+                    Please enter the latest 6-digit code received
+                  </span>
                   <button
                     type="button"
                     onClick={handleResendOtp}

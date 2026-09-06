@@ -208,7 +208,7 @@ export default function SignupPage() {
       const verifyData = await verifyRes.json();
 
       if (!verifyRes.ok || !verifyData.verified) {
-        showStatus(verifyData.error || "Incorrect verification code. Please check your email or enter backup code 123456.", "error");
+        showStatus(verifyData.error || "Incorrect verification code. Please check your latest email.", "error");
         setLoading(false);
         return;
       }
@@ -417,13 +417,12 @@ export default function SignupPage() {
 
                     {statusMessage ? (
                       <div
-                        className={`flex items-center gap-3 rounded-2xl p-4 border ${
-                          statusType === "success"
+                        className={`flex items-center gap-3 rounded-2xl p-4 border ${statusType === "success"
                             ? "bg-emerald-950/60 border-emerald-800/80 text-emerald-300"
                             : statusType === "error"
-                            ? "bg-rose-950/60 border-rose-800/80 text-rose-300"
-                            : "bg-zinc-900 border-zinc-700 text-white"
-                        }`}
+                              ? "bg-rose-950/60 border-rose-800/80 text-rose-300"
+                              : "bg-zinc-900 border-zinc-700 text-white"
+                          }`}
                       >
                         <p className="text-xs font-bold leading-snug">{statusMessage}</p>
                       </div>
@@ -486,30 +485,19 @@ export default function SignupPage() {
                         placeholder="• • • • • •"
                         className="w-full text-center tracking-[0.6em] font-mono text-3xl font-black rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-6 py-5 text-white outline-none transition-all placeholder:text-zinc-600 focus:border-white focus:ring-4 focus:ring-white/10"
                       />
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-[11px] text-zinc-500 font-bold">Check your Inbox or Spam folder</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOtp("123456");
-                            setTimeout(() => handleVerifyAndCreate(undefined, "123456"), 100);
-                          }}
-                          className="text-[11px] font-bold text-amber-400 hover:underline"
-                        >
-                          Use backup: 123456
-                        </button>
+                      <div className="pt-2 text-center">
+                        <span className="text-[11px] text-zinc-400 font-medium">Please enter the latest 6-digit code received in your email</span>
                       </div>
                     </div>
 
                     {statusMessage ? (
                       <div
-                        className={`flex items-center gap-3 rounded-2xl p-4 border ${
-                          statusType === "success"
+                        className={`flex items-center gap-3 rounded-2xl p-4 border ${statusType === "success"
                             ? "bg-emerald-950/60 border-emerald-800/80 text-emerald-300"
                             : statusType === "error"
-                            ? "bg-rose-950/60 border-rose-800/80 text-rose-300"
-                            : "bg-zinc-900 border-zinc-700 text-white"
-                        }`}
+                              ? "bg-rose-950/60 border-rose-800/80 text-rose-300"
+                              : "bg-zinc-900 border-zinc-700 text-white"
+                          }`}
                       >
                         <p className="text-xs font-bold leading-snug">{statusMessage}</p>
                       </div>
@@ -584,3 +572,4 @@ export default function SignupPage() {
     </main>
   );
 }
+
