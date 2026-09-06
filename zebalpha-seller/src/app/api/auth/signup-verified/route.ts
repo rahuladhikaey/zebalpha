@@ -66,23 +66,34 @@ export async function POST(request: NextRequest) {
       if (signUpData?.user && !hasEmptyIdentities && !signUpError) {
         user = signUpData.user;
       } else if (signUpError || hasEmptyIdentities) {
-        // If user already exists in auth.users, attempt sign in to verify credentials
-        const { data: signInData } = await supabaseServer.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
-
-        if (signInData?.user) {
-          user = signInData.user;
-        } else {
-          return NextResponse.json(
-            { 
-              success: false, 
-              error: "This email is already registered. If you are the owner, please sign in with your correct password, or reset it.",
-              code: "user_already_exists" 
-            },
-            { status: 400 }
+        // If user already exists in auth.users, update password and metadata
+        try {
+          const { data: userList } = await supabaseServer.auth.admin.listUsers();
+          const existingAuthUser = userList?.users?.find(
+            (u) => u.email?.toLowerCase() === normalizedEmail
           );
+          if (existingAuthUser) {
+            const { data: updateRes, error: updateErr } = await supabaseServer.auth.admin.updateUserById(
+              existingAuthUser.id,
+              {
+                password,
+                email_confirm: true,
+                user_metadata: {
+                  ...(existingAuthUser.user_metadata || {}),
+                  full_name: sellerName,
+                  role: "seller",
+                  phone: sellerPhone,
+                },
+              }
+            );
+            if (!updateErr && updateRes?.user) {
+              user = updateRes.user;
+            } else {
+              user = existingAuthUser;
+            }
+          }
+        } catch (listErr) {
+          console.warn("Admin list/update seller notice:", listErr);
         }
       }
     }

@@ -35,7 +35,40 @@ export async function POST(request: NextRequest) {
       console.warn("Admin create customer notice:", adminErr);
     }
 
-    // 2. Fallback to standard supabaseServer.auth.signUp
+    // 2. If user already exists (e.g. registered via OAuth or existing auth account), update password & confirm email
+    if (!user) {
+      try {
+        const { data: userList } = await supabaseServer.auth.admin.listUsers();
+        const existingUser = userList?.users?.find(
+          (u) => u.email?.toLowerCase() === normalizedEmail
+        );
+
+        if (existingUser) {
+          const { data: updateRes, error: updateErr } = await supabaseServer.auth.admin.updateUserById(
+            existingUser.id,
+            {
+              password,
+              email_confirm: true,
+              user_metadata: {
+                ...(existingUser.user_metadata || {}),
+                full_name: fullName || existingUser.user_metadata?.full_name || "Customer",
+                role: "customer",
+              },
+            }
+          );
+
+          if (!updateErr && updateRes?.user) {
+            user = updateRes.user;
+          } else {
+            user = existingUser;
+          }
+        }
+      } catch (listErr) {
+        console.warn("Admin list/update customer notice:", listErr);
+      }
+    }
+
+    // 3. Fallback to standard supabaseServer.auth.signUp
     if (!user) {
       const signUpRes = await supabaseServer.auth.signUp({
         email: normalizedEmail,
