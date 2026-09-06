@@ -168,11 +168,17 @@ function PreOrderContent() {
         return;
       }
 
+      const activeRazorpayKey = 
+        orderData.key || 
+        orderData.keyId || 
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 
+        "rzp_test_ShRpqbs6hVT6Ie";
+
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: activeRazorpayKey,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "Asali Swad",
+        name: "ZEB-ALPHA",
         description: "Pre-Order Booking",
         order_id: orderData.id,
         handler: async function (response: any) {

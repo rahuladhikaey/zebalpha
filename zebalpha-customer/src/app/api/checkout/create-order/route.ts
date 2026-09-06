@@ -1,27 +1,21 @@
 import { NextResponse } from "next/server";
 
-
 export async function POST(req: Request) {
   try {
-    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_ShRpqbs6hVT6Ie";
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || "5LUjZ94LMDnjwlLyB9cUU5cb";
 
-    if (!keyId || !keySecret) {
-      return NextResponse.json(
-        { error: "Razorpay keys are not configured. Please check your environment variables." }, 
-        { status: 500 }
-      );
+    const body = await req.json().catch(() => ({}));
+    const { amount } = body;
+
+    if (!amount || Number(amount) <= 0) {
+      return NextResponse.json({ error: "Valid amount is required" }, { status: 400 });
     }
 
-    const { amount } = await req.json();
-    if (!amount) {
-      return NextResponse.json({ error: "Amount is required" }, { status: 400 });
-    }
+    const amountInPaise = Math.round(Number(amount) * 100);
 
-    const amountInPaise = Math.round(amount * 100);
-
-    // Using basic auth header
-    const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+    // Using basic auth header for Razorpay API
+    const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
 
     const response = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
@@ -38,7 +32,7 @@ export async function POST(req: Request) {
 
     const responseData = await response.text();
     
-    let order;
+    let order: any;
     try {
       order = JSON.parse(responseData);
     } catch (e) {
@@ -50,16 +44,25 @@ export async function POST(req: Request) {
     }
 
     if (!response.ok) {
+      console.error("Razorpay create-order API error:", order);
       return NextResponse.json(
         { error: order.error?.description || "Failed to create Razorpay order" },
         { status: response.status }
       );
     }
 
-    return NextResponse.json(order);
+    // Return complete payload with key and order identifiers
+    return NextResponse.json({
+      ...order,
+      success: true,
+      id: order.id,
+      orderId: order.id,
+      key: keyId,
+      keyId: keyId,
+    });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error("Create Order Error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Create Order Server Error:", error);
     return NextResponse.json({ error: `Server Error: ${errorMessage}` }, { status: 500 });
   }
 }

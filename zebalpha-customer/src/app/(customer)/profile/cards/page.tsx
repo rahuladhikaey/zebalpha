@@ -445,12 +445,18 @@ export default function CardsPage() {
         return;
       }
 
+      const activeRazorpayKey = 
+        orderData.key || 
+        orderData.keyId || 
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 
+        "rzp_test_ShRpqbs6hVT6Ie";
+
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: activeRazorpayKey,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "Asali Swad",
-        description: "AS-Card 27-Days Renewal Fee",
+        name: "ZEB-ALPHA",
+        description: "Alpha Card 27-Days Renewal Fee",
         order_id: orderData.id,
         handler: async function (paymentResponse: any) {
           try {

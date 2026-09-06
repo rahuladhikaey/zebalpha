@@ -87,6 +87,8 @@ router.post('/create-order', async (req, res, next) => {
     res.json = function (body) {
       if (body && body.success && body.orderId) {
         body.id = body.orderId;
+        body.key = body.key || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie';
+        body.keyId = body.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie';
       }
       return originalJson.call(this, body);
     };

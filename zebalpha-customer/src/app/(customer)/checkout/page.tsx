@@ -314,6 +314,19 @@ function CheckoutContent() {
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
+      if (typeof window === "undefined") {
+        resolve(false);
+        return;
+      }
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (existingScript) {
+        resolve(true);
+        return;
+      }
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
@@ -435,83 +448,138 @@ function CheckoutContent() {
         }
       } else {
         // Handle Online Flow (Razorpay)
-        const res = await loadRazorpay();
-        if (!res) {
-          setMessage("Razorpay SDK failed to load. Please check your connection.");
+        const sdkLoaded = await loadRazorpay();
+        if (!sdkLoaded) {
+          setMessage("Razorpay SDK failed to load. Please check your internet connection.");
           setSaving(false);
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/checkout/create-order`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: grandTotal }),
-        });
-
+        // 1. Create Order: try local Next.js API first (fast & reliable), then remote backend URL
         let orderData: any = null;
-        const rawText = await response.text();
+        let createOrderError = "";
+
         try {
-          orderData = JSON.parse(rawText);
-        } catch (err) {
-          console.error('Create-order returned non-JSON response:', rawText);
-          setMessage(response.ok
-            ? "Server error: Received an invalid response from the payment gateway. Check console for details."
-            : `Payment gateway error (${response.status}): ${rawText.substring(0, 200)}`);
+          const localRes = await fetch("/api/checkout/create-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount: grandTotal }),
+          });
+          if (localRes.ok) {
+            orderData = await localRes.json();
+          } else {
+            const errJson = await localRes.json().catch(() => null);
+            createOrderError = errJson?.error || `HTTP ${localRes.status}`;
+          }
+        } catch (e: any) {
+          console.warn("Local create-order fetch notice, falling back:", e?.message);
+        }
+
+        if (!orderData?.id && process.env.NEXT_PUBLIC_API_URL) {
+          try {
+            const remoteRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/checkout/create-order`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ amount: grandTotal }),
+            });
+            if (remoteRes.ok) {
+              orderData = await remoteRes.json();
+            } else {
+              const errJson = await remoteRes.json().catch(() => null);
+              createOrderError = errJson?.error || `HTTP ${remoteRes.status}`;
+            }
+          } catch (e: any) {
+            console.error("Remote create-order fetch error:", e?.message);
+          }
+        }
+
+        const razorpayOrderId = orderData?.id || orderData?.orderId;
+
+        if (!orderData || !razorpayOrderId) {
+          setMessage(`Could not initialize online payment: ${createOrderError || "Please check your network and try again."}`);
           setSaving(false);
           return;
         }
 
-        if (!response.ok || !orderData?.id) {
-          setMessage(orderData?.error ? `Could not create Razorpay order: ${orderData.error}` : `Could not create Razorpay order. (${response.status})`);
-          setSaving(false);
-          return;
-        }
+        // Active Razorpay key with multi-layer fallback
+        const activeRazorpayKey = 
+          orderData.key || 
+          orderData.keyId || 
+          process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 
+          "rzp_test_ShRpqbs6hVT6Ie";
 
         const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          key: activeRazorpayKey,
           amount: orderData.amount,
-          currency: orderData.currency,
-          name: "Asali Swad",
-          description: "Premium Food Order",
-          order_id: orderData.id,
+          currency: orderData.currency || "INR",
+          name: "ZEB-ALPHA",
+          description: "Online Food & Grocery Order",
+          order_id: razorpayOrderId,
           handler: async function (response: any) {
             try {
-              const verifyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/checkout/verify-payment`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  customer_name: name,
-                  phone: phone,
-                  address: fullAddress,
-                  items: cart,
-                  total: grandTotal,
-                  user_id: userId,
-                  applyAsCard: cardValidated,
-                  couponCode: "",
-                }),
-              });
+              const verifyPayload = {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                customer_name: name,
+                phone: phone,
+                address: fullAddress,
+                items: cart,
+                total: grandTotal,
+                user_id: userId,
+                applyAsCard: cardValidated,
+                couponCode: "",
+              };
 
-              const verifyData = await verifyRes.json();
-              if (verifyData.success) {
+              let verifyData: any = null;
+
+              // 1. Try local verify-payment
+              try {
+                const localVerify = await fetch("/api/checkout/verify-payment", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(verifyPayload),
+                });
+                if (localVerify.ok) {
+                  verifyData = await localVerify.json();
+                }
+              } catch (e) {
+                console.warn("Local verify notice, trying remote:", e);
+              }
+
+              // 2. Fallback to remote backend if local wasn't successful
+              if (!verifyData?.success && process.env.NEXT_PUBLIC_API_URL) {
+                try {
+                  const remoteVerify = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/checkout/verify-payment`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(verifyPayload),
+                  });
+                  if (remoteVerify.ok) {
+                    verifyData = await remoteVerify.json();
+                  }
+                } catch (e) {
+                  console.error("Remote verify error:", e);
+                }
+              }
+
+              if (verifyData?.success) {
                 orderPlacedRef.current = true;
                 await saveUserAddress();
                 if (!isBuyNow) clearCart();
-                router.push(`/order-success?order_id=${verifyData.orderId}`);
+                router.push(`/order-success?order_id=${verifyData.orderId || verifyData.orderNumber}`);
               } else {
-                setMessage("Payment verification failed. Please contact support.");
+                setMessage("Payment verification failed. Please contact support with payment ID: " + response.razorpay_payment_id);
                 setSaving(false);
               }
             } catch (err) {
-              console.error(err);
+              console.error("Payment verification exception:", err);
               setMessage("Error verifying payment. Please contact support.");
               setSaving(false);
             }
           },
           prefill: { name, contact: phone },
-          theme: { color: "#059669" },
+          theme: { color: "#000000" },
           modal: {
             ondismiss: function () {
               setSaving(false);
@@ -519,8 +587,19 @@ function CheckoutContent() {
           }
         };
 
-        const Razorpay = (window as any).Razorpay;
-        const paymentObject = new Razorpay(options);
+        const RazorpayClass = (window as any).Razorpay;
+        if (!RazorpayClass) {
+          setMessage("Razorpay checkout could not be opened. Please refresh and try again.");
+          setSaving(false);
+          return;
+        }
+
+        const paymentObject = new RazorpayClass(options);
+        paymentObject.on("payment.failed", function (response: any) {
+          console.error("Razorpay payment failed:", response.error);
+          setMessage(`Payment failed: ${response.error?.description || "Transaction declined"}`);
+          setSaving(false);
+        });
         paymentObject.open();
       }
     } catch (err: unknown) {

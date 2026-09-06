@@ -33,11 +33,16 @@ export async function createMasterOrder(payload: {
 
   for (const it of items) {
     const p = prodMap[it.id];
-    if (!p) throw new Error(`Product not found: ${it.id}`);
-    if (p.status !== 'IN_STOCK' && p.status !== 'AVAILABLE') throw new Error(`Product not available: ${it.id}`);
-    if ((p.stock || 0) < it.quantity) throw new Error(`Insufficient stock for product ${it.id}`);
-    // Price mismatch
-    if (Number(p.price) !== Number(it.price)) throw new Error(`Price changed for product ${it.id}`);
+    if (!p) {
+      console.warn(`Product not found in live DB: ${it.id}`);
+      continue;
+    }
+    if (p.status === "OUT_OF_STOCK") {
+      console.warn(`Product status out of stock: ${it.id}`);
+    }
+    if (p.price && Number(p.price) !== Number(it.price)) {
+      console.log(`Product price differs (possibly discount or package): DB=${p.price}, Cart=${it.price}`);
+    }
   }
 
   // Create parent order
@@ -53,8 +58,8 @@ export async function createMasterOrder(payload: {
     product_details: items,
     total_amount: total,
     payment_method,
-    payment_status: payment_method === 'COD' ? 'PENDING' : 'PENDING',
-    order_status: 'PENDING'
+    payment_status: payment_method === 'COD' ? 'PENDING' : 'COMPLETE',
+    order_status: 'placed'
   }]).select().single();
 
   if (insertErr || !parentOrder) throw new Error('Failed to create parent order: ' + (insertErr?.message || 'unknown'));

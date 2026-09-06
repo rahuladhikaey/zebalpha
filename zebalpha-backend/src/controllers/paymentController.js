@@ -61,10 +61,14 @@ export const createRazorpayOrder = async (req, res, next) => {
       receipt: String(receipt).slice(0, 40)
     };
 
+    const orderKey = config.razorpay.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie';
     const razorpayOrder = await razorpay.orders.create(orderOptions);
     res.status(HTTP_STATUS.OK).json({
       success: true,
       orderId: razorpayOrder.id,
+      id: razorpayOrder.id,
+      key: orderKey,
+      keyId: orderKey,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency
     });
