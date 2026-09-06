@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/index.js';
 
 const defaultUrl = 'https://qjpahzstldiatfbutvfc.supabase.co';
-const defaultKey = 'sb_publishable_Mm3pqD7ev-c76TXhkL0ajQ_ZHq325WW';
+const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI';
 
 function getValidKey(key) {
   if (typeof key === 'string' && key.trim().length > 0 && key !== 'undefined' && key !== 'null' && key !== 'Enter value') {
