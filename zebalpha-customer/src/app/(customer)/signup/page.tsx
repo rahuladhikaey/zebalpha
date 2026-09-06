@@ -9,17 +9,34 @@ import Auth3dGraphic from "@/components/Auth3dGraphic";
 const SIGNUP_EMAIL_KEY = "signupEmail";
 
 const getFriendlySignUpMessage = (error: unknown) => {
-  const message = String((error as { message?: unknown })?.message ?? "").toLowerCase();
+  if (!error) return "Signup failed. Please try again.";
 
-  if ((error as { status?: number })?.status === 429 || message.includes("rate limit") || message.includes("email rate limit")) {
-    return "Too many signup attempts. Please wait a few minutes before trying again.";
+  let rawMessage = "";
+  if (typeof error === "string") {
+    rawMessage = error;
+  } else if (typeof error === "object") {
+    const err = error as Record<string, any>;
+    rawMessage = err.message || err.msg || err.error_description || err.error || "";
+    if (!rawMessage && err.toString && err.toString() !== "[object Object]") {
+      rawMessage = err.toString();
+    }
+  }
+
+  const message = (rawMessage || "Unable to complete signup.").toLowerCase();
+
+  if (message.includes("error sending confirmation email")) {
+    return "Supabase email delivery error: Supabase could not send the confirmation email. Please check your Supabase Email Template or SMTP settings in Supabase Dashboard.";
+  }
+
+  if (message.includes("rate limit") || message.includes("429") || message.includes("over_email_send_rate_limit")) {
+    return "Too many signup attempts. Supabase built-in email rate limit reached (3/hr). Please wait a while or configure Custom SMTP.";
   }
 
   if (message.includes("already registered") || message.includes("already exists") || message.includes("user already registered")) {
-    return "An account already exists for this email. Please sign in or use password recovery if needed.";
+    return "An account already exists for this email. Please sign in or use password recovery.";
   }
 
-  return (error as { message?: string })?.message ?? "Signup failed. Please try again.";
+  return rawMessage || "Signup failed. Please check your details and try again.";
 };
 
 export default function SignupPage() {
