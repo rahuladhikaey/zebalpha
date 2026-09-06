@@ -28,7 +28,7 @@ services:
       - key: NEXT_PUBLIC_RAZORPAY_KEY_ID
         value: rzp_test_ShRpqbs6hVT6Ie
       - key: RAZORPAY_KEY_SECRET
-        sync: false
+        value: 5LUjZ94LMDnjwlLyB9cUU5cb
       - key: NEXT_PUBLIC_EMAILJS_SERVICE_ID
         value: service_5apvm6b
       - key: NEXT_PUBLIC_EMAILJS_TEMPLATE_ID
@@ -141,9 +141,9 @@ services:
       - key: CRON_SECRET
         sync: false
       - key: RAZORPAY_KEY_ID
-        sync: false
+        value: rzp_test_ShRpqbs6hVT6Ie
       - key: RAZORPAY_KEY_SECRET
-        sync: false
+        value: 5LUjZ94LMDnjwlLyB9cUU5cb
       - key: SHIPROCKET_EMAIL
         sync: false
       - key: SHIPROCKET_PASSWORD
