@@ -44,15 +44,34 @@ export default function SignupPage() {
     }
   }, [email]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const errorParam = urlParams.get("error");
+    if (errorParam) {
+      const decoded = decodeURIComponent(errorParam);
+      if (decoded === "oauth_callback_failed" || decoded === "oauth_failed") {
+        setStatusMessage("Google sign-up could not be completed. Please try again or register with your email.");
+      } else if (decoded.toLowerCase().includes("access_denied")) {
+        setStatusMessage("Google sign-up was cancelled or access was denied.");
+      } else {
+        setStatusMessage(`Sign-up notice: ${decoded}`);
+      }
+    }
+  }, []);
+
   const handleGoogleAuth = async () => {
     if (typeof window === "undefined") return;
     setStatusMessage("");
     setLoading(true);
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectParam = urlParams.get("redirect") || "/";
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectParam)}`,
       },
     });
 
