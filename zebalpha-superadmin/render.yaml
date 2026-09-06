@@ -1,9 +1,9 @@
-# Render Account 2 Blueprint - Super Admin Control Panel
-# Target Domain: admin.asaliswad.com
+# Render Blueprint - Super Admin Control Panel
+# Service: zebalpha-superadmin
 
 services:
   - type: web
-    name: asaliswad-superadmin-panel
+    name: zebalpha-superadmin
     runtime: node
     plan: free
     region: singapore
@@ -13,6 +13,6 @@ services:
       - key: NODE_VERSION
         value: 22.x
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://api.asaliswad.com
+        value: https://zebalpha-backend-hlk5.onrender.com
       - key: NEXT_PUBLIC_API_URL
-        value: https://api.asaliswad.com
+        value: https://zebalpha-backend-hlk5.onrender.com

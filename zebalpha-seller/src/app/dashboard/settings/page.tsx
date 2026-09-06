@@ -170,7 +170,7 @@ export default function SellerSettings() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send OTP");
       setOtpSent(true);
-      alert("Verification OTP sent to your email via Brevo!");
+      alert("Verification OTP sent to your email!");
     } catch (err: any) {
       setOtpError(err.message || "Failed to send OTP.");
     } finally {

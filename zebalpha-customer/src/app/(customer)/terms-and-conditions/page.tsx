@@ -34,7 +34,7 @@ export default function TermsAndConditionsPage() {
                 Acceptance
               </h2>
               <p className="mt-4 pl-11 text-sm leading-7 text-zinc-300">
-                By accessing or using AsaliSwad, you agree to these Terms and Conditions.
+                By accessing or using ZEBALPHA, you agree to these Terms and Conditions.
               </p>
             </div>
 
@@ -47,7 +47,7 @@ export default function TermsAndConditionsPage() {
                 Products
               </h2>
               <p className="mt-4 pl-11 text-sm leading-7 text-zinc-300">
-                AsaliSwad sells food and organic products. Product images are for illustration purposes and actual products may vary slightly.
+                ZEBALPHA offers premium apparel, street fashion, and essentials. Product images are for representation purposes and actual products may vary slightly.
               </p>
             </div>
 
@@ -73,7 +73,7 @@ export default function TermsAndConditionsPage() {
                 Orders
               </h2>
               <div className="mt-6 pl-11">
-                <p className="text-sm text-zinc-300 mb-3">AsaliSwad reserves the right to:</p>
+                <p className="text-sm text-zinc-300 mb-3">ZEBALPHA reserves the right to:</p>
                 <ul className="list-disc list-inside space-y-2 text-sm leading-7 text-zinc-400">
                   <li>Accept or reject orders</li>
                   <li>Cancel suspicious or fraudulent orders</li>
@@ -117,7 +117,7 @@ export default function TermsAndConditionsPage() {
                 Intellectual Property
               </h2>
               <p className="mt-4 pl-11 text-sm leading-7 text-zinc-300">
-                All content, logos, trademarks, graphics, product descriptions, and website materials belong to AsaliSwad and may not be copied without permission.
+                All content, logos, trademarks, graphics, product descriptions, and website materials belong to ZEBALPHA and may not be copied without permission.
               </p>
             </div>
 
@@ -149,7 +149,7 @@ export default function TermsAndConditionsPage() {
                 Limitation of Liability
               </h2>
               <p className="mt-4 pl-11 text-sm leading-7 text-zinc-300">
-                AsaliSwad shall not be liable for indirect, incidental, or consequential damages arising from use of the platform.
+                ZEBALPHA shall not be liable for indirect, incidental, or consequential damages arising from use of the platform.
               </p>
             </div>
 

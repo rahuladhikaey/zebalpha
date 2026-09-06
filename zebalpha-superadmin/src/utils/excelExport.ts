@@ -121,7 +121,7 @@ export function exportDashboardExcel(
 	autoFitColumns(ws, dashboardData);
 	XLSX.utils.book_append_sheet(wb, ws, "Dashboard Summary");
 
-	saveWorkbook(wb, "AsaliSwad_Dashboard_Analytics");
+	saveWorkbook(wb, "Zebalpha_Dashboard_Analytics");
 }
 
 // 2. ORDERS EXPORT
@@ -194,7 +194,7 @@ export function exportOrdersExcel(orders: Order[], isPreOrder = false) {
 	const ws = createStandardSheet(title, headers, finalRows);
 	XLSX.utils.book_append_sheet(wb, ws, isPreOrder ? "Pre-Orders" : "Orders");
 
-	saveWorkbook(wb, isPreOrder ? "AsaliSwad_PreOrders" : "AsaliSwad_Orders");
+	saveWorkbook(wb, isPreOrder ? "Zebalpha_PreOrders" : "Zebalpha_Orders");
 }
 
 // 3. CUSTOMERS EXPORT
@@ -269,7 +269,7 @@ export function exportCustomersExcel(customers: any[], orders: Order[]) {
 	const ws = createStandardSheet("Customers Spending Report", headers, finalRows);
 	XLSX.utils.book_append_sheet(wb, ws, "Customers Profiles");
 
-	saveWorkbook(wb, "AsaliSwad_Customers");
+	saveWorkbook(wb, "Zebalpha_Customers");
 }
 
 // 4. PRODUCTS & INVENTORY EXPORT
@@ -325,7 +325,7 @@ export function exportProductsExcel(products: Product[], orders: Order[]) {
 			unitsSold,
 			revenue,
 			p.status || "active",
-			p.brand || "asaliswad",
+			p.brand || "zebalpha",
 			p.description || "N/A",
 		];
 	});
@@ -354,7 +354,7 @@ export function exportProductsExcel(products: Product[], orders: Order[]) {
 	const ws = createStandardSheet("Inventory Catalog Report", headers, finalRows);
 	XLSX.utils.book_append_sheet(wb, ws, "Products Catalog");
 
-	saveWorkbook(wb, "AsaliSwad_Products_Inventory");
+	saveWorkbook(wb, "Zebalpha_Products_Inventory");
 }
 
 // 5. REVENUE REPORT EXPORT
@@ -415,7 +415,7 @@ export function exportRevenueReportExcel(orders: Order[], filterRange: string) {
 	const ws = createStandardSheet("Sales Revenue Performance", headers, finalRows, statsInfo);
 	XLSX.utils.book_append_sheet(wb, ws, "Revenue Report");
 
-	saveWorkbook(wb, "AsaliSwad_Revenue_Report");
+	saveWorkbook(wb, "Zebalpha_Revenue_Report");
 }
 
 // 6. PAYMENTS EXPORT
@@ -464,7 +464,7 @@ export function exportPaymentsExcel(orders: Order[]) {
 	const ws = createStandardSheet("Payments Transaction Ledger", headers, finalRows);
 	XLSX.utils.book_append_sheet(wb, ws, "Payments History");
 
-	saveWorkbook(wb, "AsaliSwad_Payments_Report");
+	saveWorkbook(wb, "Zebalpha_Payments_Report");
 }
 
 // 7. DELIVERY LOGISTICS EXPORT
@@ -518,7 +518,7 @@ export function exportDeliveryExcel(orders: Order[]) {
 	const ws = createStandardSheet("Delivery Shipping Manifests", headers, finalRows);
 	XLSX.utils.book_append_sheet(wb, ws, "Delivery Shipments");
 
-	saveWorkbook(wb, "AsaliSwad_Delivery_Logistics");
+	saveWorkbook(wb, "Zebalpha_Delivery_Logistics");
 }
 
 // 8. CATEGORIES EXPORT
@@ -543,7 +543,7 @@ export function exportCategoriesExcel(categories: Category[], products: Product[
 	const ws = createStandardSheet("Shelves & Categories", headers, rows);
 	XLSX.utils.book_append_sheet(wb, ws, "Categories");
 
-	saveWorkbook(wb, "AsaliSwad_Categories");
+	saveWorkbook(wb, "Zebalpha_Categories");
 }
 
 

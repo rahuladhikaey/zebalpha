@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const apiKey = process.env.BREVO_API_KEY;
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL || "payouts@asaliswad.com";
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL || "payouts@zebalpha.com";
     const senderName = process.env.BREVO_SENDER_NAME || "ZEB-ALPHA Payouts";
 
     if (!apiKey) {

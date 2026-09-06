@@ -46,7 +46,18 @@ export default function MyOrdersPage() {
       if (error) {
         console.error("Error fetching orders:", error);
       } else {
-        setOrders(data || []);
+        const rawOrders = (data as Order[]) || [];
+        const seenOrderKeys = new Set<string>();
+        const uniqueOrders = rawOrders.filter((ord: any) => {
+          // Identify duplicate orders by razorpay_order_id, order_number, or primary id
+          const primaryKey = ord.razorpay_order_id || ord.order_number || ord.id;
+          if (seenOrderKeys.has(primaryKey)) {
+            return false;
+          }
+          seenOrderKeys.add(primaryKey);
+          return true;
+        });
+        setOrders(uniqueOrders);
       }
       setLoading(false);
     }

@@ -152,23 +152,6 @@ function LoginContent() {
     setLoading(false);
   };
 
-  const handleGoogleAuth = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined,
-        },
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      setError(err.message || "Google authentication failed.");
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-md">
       <div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-8 shadow-2xl flex flex-col items-center">
@@ -190,28 +173,6 @@ function LoginContent() {
           <p className="mt-2 text-xs text-zinc-400 font-medium">
             Manage your store, products, inventory & orders.
           </p>
-        </div>
-
-        <div className="w-full space-y-4 mb-4">
-          <button
-            type="button"
-            onClick={handleGoogleAuth}
-            disabled={loading}
-            className="flex h-13 w-full items-center justify-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-50 shadow-md cursor-pointer"
-          >
-            <img
-              src="/official-logo.png"
-              alt="ZEBALPHA Logo"
-              className="h-6 w-6 rounded-full object-cover border border-zinc-700 shadow-sm shrink-0"
-            />
-            Google Sign In
-          </button>
-
-          <div className="flex items-center justify-center text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
-            <span className="h-px flex-1 bg-zinc-800"></span>
-            <span className="mx-4">or seller email</span>
-            <span className="h-px flex-1 bg-zinc-800"></span>
-          </div>
         </div>
 
         <form className="w-full space-y-4" onSubmit={handleLogin}>

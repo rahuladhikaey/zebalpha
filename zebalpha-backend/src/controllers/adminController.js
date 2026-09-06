@@ -86,12 +86,12 @@ export const suspendSeller = async (req, res, next) => {
     });
 
     // 4. Send email notification
-    const emailSubject = 'Important Notice: Your ASALISWAD Seller Account has been Suspended';
+    const emailSubject = 'Important Notice: Your ZEBALPHA Seller Account has been Suspended';
     const emailHtml = `
       <div style="font-family: sans-serif; max-width: 600px; padding: 20px; border: 1px solid #f3f4f6; border-radius: 12px; background-color: #fcfcfc;">
         <h2 style="color: #dc2626;">Account Suspension Notice</h2>
         <p>Dear ${seller.full_name},</p>
-        <p>We regret to inform you that your seller account on ASALISWAD has been suspended by the platform administration.</p>
+        <p>We regret to inform you that your seller account on ZEBALPHA has been suspended by the platform administration.</p>
         <div style="padding: 15px; border-left: 4px solid #dc2626; background-color: #fef2f2; margin: 15px 0;">
           <strong>Reason for Suspension:</strong><br/>
           ${reason.trim()}
@@ -147,12 +147,12 @@ export const reactivateSeller = async (req, res, next) => {
     });
 
     // 4. Send email notification
-    const emailSubject = 'Good News: Your ASALISWAD Seller Account is Reactivated!';
+    const emailSubject = 'Good News: Your ZEBALPHA Seller Account is Reactivated!';
     const emailHtml = `
       <div style="font-family: sans-serif; max-width: 600px; padding: 20px; border: 1px solid #f3f4f6; border-radius: 12px; background-color: #fcfcfc;">
         <h2 style="color: #059669;">Account Reactivated</h2>
         <p>Dear ${seller.full_name},</p>
-        <p>We are pleased to inform you that your seller account on ASALISWAD has been reactivated by the platform administration.</p>
+        <p>We are pleased to inform you that your seller account on ZEBALPHA has been reactivated by the platform administration.</p>
         <p>Your products are now visible again, and your dashboard access has been restored.</p>
         <p>You can log in and manage your listings immediately.</p>
       </div>

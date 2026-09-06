@@ -1,9 +1,9 @@
-# Render Account 1 Blueprint - Customer Storefront
-# Target Domain: www.asaliswad.com
+# Render Blueprint - Customer Storefront
+# Service: zebalpha-customer
 
 services:
   - type: web
-    name: asaliswad-customer-storefront
+    name: zebalpha-customer
     runtime: node
     plan: free
     region: singapore
@@ -13,6 +13,6 @@ services:
       - key: NODE_VERSION
         value: 22.x
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://api.asaliswad.com
+        value: https://zebalpha-backend-hlk5.onrender.com
       - key: NEXT_PUBLIC_API_URL
-        value: https://api.asaliswad.com
+        value: https://zebalpha-backend-hlk5.onrender.com

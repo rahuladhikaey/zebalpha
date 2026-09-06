@@ -33,15 +33,12 @@ export const config = {
     anonKey: process.env.SUPABASE_B_ANON_KEY || process.env.SUPABASE_A_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI'
   },
   razorpay: {
-    keyId: process.env.RAZORPAY_KEY_ID || '',
-    keySecret: process.env.RAZORPAY_KEY_SECRET || ''
+    keyId: (process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie').trim(),
+    keySecret: (process.env.RAZORPAY_KEY_SECRET || '5LUjZ94LMDnjwlLyB9cUU5cb').trim()
   },
   shiprocket: {
     email: process.env.SHIPROCKET_EMAIL || '',
     password: process.env.SHIPROCKET_PASSWORD || ''
-  },
-  brevo: {
-    apiKey: process.env.BREVO_API_KEY || ''
   },
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',

@@ -72,7 +72,7 @@ export function VirtualTryOnResult({
   const handleDownload = () => {
     const link = document.createElement("a");
     link.href = generatedImage;
-    link.download = `asaliswad-vto-${product.name.toLowerCase().replace(/\s+/g, "-")}.jpg`;
+    link.download = `zebalpha-vto-${product.name.toLowerCase().replace(/\s+/g, "-")}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

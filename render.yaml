@@ -148,10 +148,4 @@ services:
         sync: false
       - key: SHIPROCKET_PASSWORD
         sync: false
-      - key: BREVO_API_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        value: noreply@asaliswad.com
-      - key: BREVO_SENDER_NAME
-        value: ZEBALPHA
 

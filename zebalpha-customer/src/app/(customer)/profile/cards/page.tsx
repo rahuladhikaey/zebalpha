@@ -833,7 +833,7 @@ export default function CardsPage() {
                   className="mt-1 rounded border-zinc-700 bg-zinc-900 text-white focus:ring-0"
                 />
                 <span className="text-[11px] font-bold text-zinc-400 leading-snug">
-                  I agree to the <Link href="/terms-and-conditions" target="_blank" className="text-white underline font-black hover:text-zinc-300">terms & conditions</Link> of the AsaliSwad VIP Premium Club membership.
+                  I agree to the <Link href="/terms-and-conditions" target="_blank" className="text-white underline font-black hover:text-zinc-300">terms & conditions</Link> of the ZEBALPHA VIP Premium Club membership.
                 </span>
               </label>
 

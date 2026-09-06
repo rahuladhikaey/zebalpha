@@ -85,7 +85,7 @@ export default function PrivacyPolicyPage() {
                 Payment Security
               </h2>
               <p className="mt-4 pl-11 text-sm leading-7 text-zinc-300">
-                AsaliSwad does not store complete credit/debit card information on its servers. Payments are processed through secure payment gateways.
+                ZEBALPHA does not store complete credit/debit card information on its servers. Payments are processed through secure payment gateways.
               </p>
             </div>
 
@@ -197,7 +197,7 @@ export default function PrivacyPolicyPage() {
                 Contact
               </h2>
               <div className="mt-6 pl-11 space-y-3 text-sm text-zinc-300">
-                <p><strong className="text-white">Business Name:</strong> AsaliSwad</p>
+                <p><strong className="text-white">Business Name:</strong> ZEBALPHA</p>
                 <p><strong className="text-white">Email:</strong> connect.asaliswad2026@gmail.com</p>
                 <p><strong className="text-white">Phone:</strong> Support Desk</p>
                 <p><strong className="text-white">Address:</strong> Head Office</p>

@@ -30,7 +30,7 @@ function getPublicOrigin(request: Request): string {
   // Render's internal port is 10000. Never redirect a public user's browser to localhost:10000
   if (origin.includes(':10000')) {
     if (process.env.NODE_ENV === 'production') {
-      return 'https://www.asaliswad.com';
+      return process.env.NEXT_PUBLIC_SITE_URL || 'https://zebalpha-customer.onrender.com';
     }
     return 'http://localhost:3000';
   }
