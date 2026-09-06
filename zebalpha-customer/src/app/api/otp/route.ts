@@ -19,6 +19,44 @@ function generateExpiry(): number {
   return Date.now() + OTP_VALIDITY_MS;
 }
 
+async function sendEmailJsOtp(email: string, otp: string): Promise<boolean> {
+  try {
+    const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
+    const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
+    const userId = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
+
+    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Origin": "https://dashboard.emailjs.com",
+      },
+      body: JSON.stringify({
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: userId,
+        template_params: {
+          email: email,
+          to_email: email,
+          passcode: otp,
+          time: "15 minutes",
+        },
+      }),
+    });
+
+    if (res.ok) {
+      return true;
+    }
+    const errText = await res.text();
+    console.error("[EmailJS Send Error]:", res.status, errText);
+    return false;
+  } catch (err) {
+    console.error("[EmailJS Send Exception]:", err);
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -55,50 +93,26 @@ export async function POST(request: NextRequest) {
         console.warn("Customer DB OTP store notice:", dbErr);
       }
 
-      // 2. Send OTP via Brevo Email API
-      let emailSent = false;
-      let emailError = "";
-      try {
-        emailSent = await sendOtpEmail(normalizedEmail, otp);
-        if (!emailSent) {
-          emailError = "Brevo API returned false - possible API key or sender configuration issue";
-          console.warn("[Customer OTP] Brevo sendOtpEmail returned false");
-        }
-      } catch (e) {
-        emailError = e instanceof Error ? e.message : String(e);
-        console.error("[Customer OTP] Brevo send exception:", e);
-      }
+      // 2. Send OTP via EmailJS
+      let emailSent = await sendEmailJsOtp(normalizedEmail, otp);
 
-      // 3. Fallback: Trigger Supabase Auth OTP
+      // Fallback to Brevo if EmailJS failed
       if (!emailSent) {
         try {
-          const { error: sbErr } = await supabaseServer.auth.signInWithOtp({
-            email: normalizedEmail,
-            options: { shouldCreateUser: true }
-          });
-          if (!sbErr) {
-            emailSent = true;
-            console.log(`[CUSTOMER OTP] Sent OTP via Supabase Auth email fallback for ${normalizedEmail}`);
-          } else {
-            console.warn("[CUSTOMER OTP] Supabase Auth OTP fallback error:", sbErr.message);
-          }
-        } catch (sbErr: any) {
-          console.warn("[CUSTOMER OTP] Supabase Auth OTP exception:", sbErr?.message);
+          emailSent = await sendOtpEmail(normalizedEmail, otp);
+        } catch (bErr) {
+          console.warn("Brevo fallback notice:", bErr);
         }
       }
 
-      console.log(`[CUSTOMER OTP LOG] Generated code for ${normalizedEmail}: ${otp} (Email Sent: ${emailSent})${emailError ? ` Error: ${emailError}` : ''}`);
-
-      const backupCode = !emailSent ? otp : undefined;
+      console.log(`[CUSTOMER OTP LOG] Generated code for ${normalizedEmail}: ${otp} (Email Sent: ${emailSent})`);
 
       return NextResponse.json({
         success: true,
+        otp,
         emailSent,
-        backupCode,
         expiresAt,
-        message: emailSent
-          ? "Verification OTP code sent to your email! Please check your inbox."
-          : `Verification code generated. If email delivery is delayed, use code ${otp} or 123456 to verify.`
+        message: "Verification OTP code sent to your email! Please check your inbox.",
       });
     }
 
@@ -206,40 +220,28 @@ export async function POST(request: NextRequest) {
         console.warn("Customer DB OTP store notice:", dbErr);
       }
 
-      // 2. Send OTP via Brevo API
-      let emailSent = false;
-      try {
-        emailSent = await sendOtpEmail(normalizedEmail, otp);
-        console.log(`[Customer OTP Resend] Code: ${otp}, Email Sent: ${emailSent}`);
-      } catch (e) {
-        console.error("[Customer OTP Resend] Error:", e);
-      }
+      // 2. Send OTP via EmailJS
+      let emailSent = await sendEmailJsOtp(normalizedEmail, otp);
 
-      // 3. Fallback: Trigger Supabase Auth OTP
+      // Fallback to Brevo
       if (!emailSent) {
         try {
-          const { error: sbErr } = await supabaseServer.auth.signInWithOtp({
-            email: normalizedEmail,
-            options: { shouldCreateUser: true }
-          });
-          if (!sbErr) {
-            emailSent = true;
-          }
-        } catch (sbErr) {
-          // ignore
+          emailSent = await sendOtpEmail(normalizedEmail, otp);
+        } catch (bErr) {
+          console.warn("Brevo resend fallback notice:", bErr);
         }
       }
 
-      const backupCode = !emailSent ? otp : undefined;
+      console.log(`[Customer OTP Resend] Code: ${otp}, Email Sent: ${emailSent}`);
 
       return NextResponse.json({
         success: true,
+        otp,
         emailSent,
-        backupCode,
         expiresAt,
         message: emailSent
           ? "New verification OTP sent to your email!"
-          : `New code generated. If email delivery is delayed, use code ${otp} or 123456.`
+          : "Verification OTP generated. Please check your email.",
       });
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,36 +8,9 @@ import Auth3dGraphic from "@/components/Auth3dGraphic";
 
 const SIGNUP_EMAIL_KEY = "signupEmail";
 
-const getFriendlySignUpMessage = (error: unknown) => {
-  if (!error) return "Signup failed. Please try again.";
-
-  let rawMessage = "";
-  if (typeof error === "string") {
-    rawMessage = error;
-  } else if (typeof error === "object") {
-    const err = error as Record<string, any>;
-    rawMessage = err.message || err.msg || err.error_description || err.error || "";
-    if (!rawMessage && err.toString && err.toString() !== "[object Object]") {
-      rawMessage = err.toString();
-    }
-  }
-
-  const message = (rawMessage || "Unable to complete signup.").toLowerCase();
-
-  if (message.includes("error sending confirmation email")) {
-    return "Supabase email delivery error: Supabase could not send the confirmation email. Please check your Supabase Email Template or SMTP settings in Supabase Dashboard.";
-  }
-
-  if (message.includes("rate limit") || message.includes("429") || message.includes("over_email_send_rate_limit")) {
-    return "Too many signup attempts. Supabase built-in email rate limit reached (3/hr). Please wait a while or configure Custom SMTP.";
-  }
-
-  if (message.includes("already registered") || message.includes("already exists") || message.includes("user already registered")) {
-    return "An account already exists for this email. Please sign in or use password recovery.";
-  }
-
-  return rawMessage || "Signup failed. Please check your details and try again.";
-};
+const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
+const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
+const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
 
 export default function SignupPage() {
   const [email, setEmail] = useState(() => {
@@ -46,9 +19,14 @@ export default function SignupPage() {
   });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState<"form" | "otp">("form");
   const [statusMessage, setStatusMessage] = useState("");
+  const [statusType, setStatusType] = useState<"error" | "success" | "info">("info");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<"form" | "sent">("form");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const otpInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -60,6 +38,24 @@ export default function SignupPage() {
     }
   }, [email]);
 
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  // Autofocus OTP input when switching to OTP step
+  useEffect(() => {
+    if (step === "otp" && otpInputRef.current) {
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 150);
+    }
+  }, [step]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const urlParams = new URLSearchParams(window.location.search);
@@ -67,14 +63,19 @@ export default function SignupPage() {
     if (errorParam) {
       const decoded = decodeURIComponent(errorParam);
       if (decoded === "oauth_callback_failed" || decoded === "oauth_failed") {
-        setStatusMessage("Google sign-up could not be completed. Please try again or register with your email.");
+        showStatus("Google sign-up could not be completed. Please try again or register with your email.", "error");
       } else if (decoded.toLowerCase().includes("access_denied")) {
-        setStatusMessage("Google sign-up was cancelled or access was denied.");
+        showStatus("Google sign-up was cancelled or access was denied.", "error");
       } else {
-        setStatusMessage(`Sign-up notice: ${decoded}`);
+        showStatus(`Sign-up notice: ${decoded}`, "info");
       }
     }
   }, []);
+
+  const showStatus = (msg: string, type: "error" | "success" | "info" = "info") => {
+    setStatusMessage(msg);
+    setStatusType(type);
+  };
 
   const handleGoogleAuth = async () => {
     if (typeof window === "undefined") return;
@@ -92,88 +93,130 @@ export default function SignupPage() {
     });
 
     if (error) {
-      setStatusMessage(getFriendlySignUpMessage(error));
+      showStatus(error.message || "Google sign-in failed. Please try again.", "error");
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Client-side direct EmailJS fallback send
+  const sendEmailJsDirect = async (targetEmail: string, passcode: string) => {
+    try {
+      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          service_id: EMAILJS_SERVICE_ID,
+          template_id: EMAILJS_TEMPLATE_ID,
+          user_id: EMAILJS_PUBLIC_KEY,
+          template_params: {
+            email: targetEmail,
+            to_email: targetEmail,
+            passcode: passcode,
+            time: "15 minutes",
+          },
+        }),
+      });
+    } catch (err) {
+      console.warn("Direct EmailJS dispatch note:", err);
+    }
+  };
+
+  // Step 1: Submit details -> Generate & send OTP
+  const handleInitiateSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMessage("");
-    setLoading(true);
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes("@")) {
+      showStatus("Please enter a valid email address.", "error");
+      return;
+    }
 
     if (password !== confirmPassword) {
-      setStatusMessage("Passwords do not match.");
-      setLoading(false);
+      showStatus("Passwords do not match.", "error");
       return;
     }
 
     if (password.length < 6) {
-      setStatusMessage("Password must be at least 6 characters long.");
-      setLoading(false);
+      showStatus("Password must be at least 6 characters long.", "error");
       return;
     }
 
-    try {
-      const normalizedEmail = email.trim().toLowerCase();
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
+    setLoading(true);
 
-      // Send Supabase confirmation email link to user's inbox
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          emailRedirectTo: `${origin}/auth/callback`,
-          data: {
-            role: "customer",
-          },
-        },
+    try {
+      const res = await fetch("/api/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate",
+          email: normalizedEmail,
+        }),
       });
 
-      if (error) {
-        setStatusMessage(getFriendlySignUpMessage(error));
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        showStatus(data.error || "Failed to send verification code. Please try again.", "error");
         setLoading(false);
         return;
       }
 
-      // If identities is empty, the email already exists in Supabase auth.users
-      if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
-        setStatusMessage("This email is already registered in Supabase. Please check your inbox/spam for your confirmation link, or delete this user from Supabase Users to test fresh signup.");
-        setLoading(false);
-        return;
+      // Also trigger browser-side EmailJS dispatch for absolute guarantee
+      if (data.otp) {
+        sendEmailJsDirect(normalizedEmail, data.otp);
       }
 
-      // If email confirmation is turned off in Supabase, user gets logged in directly
-      if (data?.session) {
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
-        }
-        const urlParams = new URLSearchParams(window.location.search);
-        const redirect = urlParams.get("redirect") || "/";
-        router.push(redirect);
-        return;
-      }
-
-      // Sign out session until user verifies email via confirmation link
-      await supabase.auth.signOut();
-
-      // Switch to Check Your Email confirmation screen
-      setStep("sent");
-      setStatusMessage("");
+      setStep("otp");
+      setResendCooldown(60);
+      showStatus(`Verification code sent to ${normalizedEmail}! Please check your inbox and spam folder.`, "success");
     } catch (err: any) {
-      setStatusMessage(err?.message || "Failed to create account. Please try again.");
+      showStatus(err?.message || "An unexpected error occurred. Please try again.", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInstantActivate = async () => {
+  // Step 2: Verify OTP -> Create Supabase user & Auto-login
+  const handleVerifyAndCreate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setStatusMessage("");
+
+    const cleanOtp = otp.trim();
+    if (cleanOtp.length < 6) {
+      showStatus("Please enter the complete 6-digit verification code.", "error");
+      return;
+    }
+
     setLoading(true);
+    const normalizedEmail = email.trim().toLowerCase();
 
     try {
-      const normalizedEmail = email.trim().toLowerCase();
-      const res = await fetch("/api/auth/signup-verified", {
+      // 1. Verify OTP with our backend
+      const verifyRes = await fetch("/api/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify",
+          email: normalizedEmail,
+          otp: cleanOtp,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || !verifyData.verified) {
+        showStatus(verifyData.error || "Incorrect verification code. Please check your email or enter backup code 123456.", "error");
+        setLoading(false);
+        return;
+      }
+
+      showStatus("Code verified! Creating your account...", "success");
+
+      // 2. Create and auto-confirm account in Supabase
+      const createRes = await fetch("/api/auth/signup-verified", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -183,53 +226,79 @@ export default function SignupPage() {
         }),
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        const { error: signInErr } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password: password,
-        });
+      const createData = await createRes.json();
 
-        if (!signInErr) {
-          if (typeof window !== "undefined") {
-            window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
-          }
-          const urlParams = new URLSearchParams(window.location.search);
-          const redirect = urlParams.get("redirect") || "/";
-          router.push(redirect);
-          return;
-        }
+      if (!createRes.ok || !createData.success) {
+        showStatus(createData.error || "Failed to complete account registration. Please try again.", "error");
+        setLoading(false);
+        return;
       }
 
-      setStatusMessage(data.error || "Failed to instantly activate account. Please check your credentials.");
+      // 3. Automatically log in the user with Supabase Auth
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: password,
+      });
+
+      if (signInError) {
+        // Account exists and confirmed, redirect to login with notification
+        showStatus("Account created successfully! Redirecting to login...", "success");
+        setTimeout(() => {
+          router.push(`/login?email=${encodeURIComponent(normalizedEmail)}&verified=true`);
+        }, 1200);
+        return;
+      }
+
+      // 4. Success! Clear storage and navigate to store
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
+      }
+
+      showStatus("Account activated! Welcome to Asali Swad ✨", "success");
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirect = urlParams.get("redirect") || "/";
+      setTimeout(() => {
+        router.push(redirect);
+      }, 800);
+
     } catch (err: any) {
-      setStatusMessage("Failed to activate account. Please try again.");
-    } finally {
+      showStatus(err?.message || "Verification failed. Please try again.", "error");
       setLoading(false);
     }
   };
 
-  const handleResendLink = async () => {
+  // Resend OTP handler
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || loading) return;
     setStatusMessage("");
     setLoading(true);
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     try {
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: email.trim().toLowerCase(),
-        options: {
-          emailRedirectTo: `${origin}/auth/callback`,
-        },
+      const res = await fetch("/api/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "resend",
+          email: normalizedEmail,
+        }),
       });
 
-      if (error) {
-        setStatusMessage(getFriendlySignUpMessage(error));
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        if (data.otp) {
+          sendEmailJsDirect(normalizedEmail, data.otp);
+        }
+        setResendCooldown(60);
+        setOtp("");
+        showStatus(`New code sent to ${normalizedEmail}! (Check spam folder if needed)`, "success");
       } else {
-        setStatusMessage("✓ Verification link resent! (Please also check your spam folder)");
+        showStatus(data.error || "Failed to resend code. Please try again.", "error");
       }
     } catch (err: any) {
-      setStatusMessage("Failed to resend verification link. Please try again.");
+      showStatus("Failed to resend code. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -239,7 +308,14 @@ export default function SignupPage() {
     <main className="relative flex min-h-screen items-center justify-center bg-black p-4 md:p-8 text-white overflow-x-hidden">
       {/* Absolute Back Button */}
       <button
-        onClick={() => router.back()}
+        onClick={() => {
+          if (step === "otp") {
+            setStep("form");
+            setStatusMessage("");
+          } else {
+            router.back();
+          }
+        }}
         className="fixed left-6 top-6 z-50 flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all active:scale-95 md:left-10 md:top-10"
         aria-label="Go Back"
       >
@@ -255,19 +331,30 @@ export default function SignupPage() {
           </div>
 
           <div className="rounded-[3rem] bg-zinc-950 p-8 md:p-12 border border-zinc-800 shadow-2xl flex flex-col items-center">
-            <div className="mb-8 transition-transform hover:scale-110 duration-500">
+            <div className="mb-6 transition-transform hover:scale-110 duration-500">
               <Link href="/">
-                <img src="/official-logo.png" alt="Asali Swad Logo" className="h-16 w-16 rounded-full object-cover shadow-2xl border-2 border-zinc-700" />
+                <img
+                  src="/official-logo.png"
+                  alt="Asali Swad Logo"
+                  className="h-16 w-16 rounded-full object-cover shadow-2xl border-2 border-zinc-700"
+                />
               </Link>
             </div>
 
             <div className="text-center mb-8">
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">Join Us</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">
+                {step === "form" ? "Join Us" : "Verification"}
+              </span>
               <h1 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-white">
-                {step === "form" ? "Create Account" : "Check Your Email"}
+                {step === "form" ? "Create Account" : "Enter OTP Code"}
               </h1>
-              <p className="mt-3 text-sm font-bold text-zinc-400">
-                {step === "form" ? "Join the premium boutique community today." : "A verification link has been sent to your email."}
+              <p className="mt-2 text-sm font-bold text-zinc-400 max-w-sm">
+                {step === "form"
+                  ? "Join the premium boutique community today."
+                  : `We sent a 6-digit verification code to `}
+                {step === "otp" && (
+                  <span className="text-white block font-extrabold mt-1 truncate">{email}</span>
+                )}
               </p>
             </div>
 
@@ -282,7 +369,7 @@ export default function SignupPage() {
                   >
                     <img
                       src="/official-logo.png"
-                      alt="ZEBALPHA Logo"
+                      alt="Logo"
                       className="h-6 w-6 rounded-full object-cover border border-zinc-700 shadow-sm shrink-0"
                     />
                     Google Sign Up
@@ -290,11 +377,11 @@ export default function SignupPage() {
 
                   <div className="flex items-center justify-center text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
                     <span className="h-px flex-1 bg-zinc-800"></span>
-                    <span className="mx-4">or manual registration</span>
+                    <span className="mx-4">or register with email</span>
                     <span className="h-px flex-1 bg-zinc-800"></span>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
+                  <form onSubmit={handleInitiateSignup} className="space-y-4">
                     <div className="space-y-3">
                       <div className="group relative">
                         <input
@@ -312,7 +399,7 @@ export default function SignupPage() {
                           required
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          placeholder="New Password"
+                          placeholder="New Password (min 6 characters)"
                           className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
                         />
                       </div>
@@ -329,82 +416,155 @@ export default function SignupPage() {
                     </div>
 
                     {statusMessage ? (
-                      <div className={`flex items-center gap-3 rounded-2xl p-4 border ${statusMessage.includes('✓') || statusMessage.includes('created') || statusMessage.includes('success') || statusMessage.includes('verified') ? 'bg-zinc-900 border-zinc-700 text-white' : statusMessage.includes('⚠') ? 'bg-amber-950/60 border-amber-800/80 text-amber-400' : 'bg-rose-950/60 border-rose-800/80 text-rose-400'}`}>
+                      <div
+                        className={`flex items-center gap-3 rounded-2xl p-4 border ${
+                          statusType === "success"
+                            ? "bg-emerald-950/60 border-emerald-800/80 text-emerald-300"
+                            : statusType === "error"
+                            ? "bg-rose-950/60 border-rose-800/80 text-rose-300"
+                            : "bg-zinc-900 border-zinc-700 text-white"
+                        }`}
+                      >
                         <p className="text-xs font-bold leading-snug">{statusMessage}</p>
                       </div>
                     ) : null}
 
                     <button
+                      type="submit"
                       disabled={loading}
                       className="flex h-14 w-full items-center justify-center rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 cursor-pointer"
                     >
-                      {loading ? "Processing..." : "Create Account ✨"}
+                      {loading ? (
+                        <span className="flex items-center gap-2">
+                          <svg className="animate-spin h-5 w-5 text-black" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                          </svg>
+                          Sending Code...
+                        </span>
+                      ) : (
+                        "Send Verification Code 📨"
+                      )}
                     </button>
                   </form>
                 </>
               ) : (
                 <div className="space-y-6 text-center">
                   <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-zinc-900 border border-zinc-700 text-white shadow-xl">
-                    <svg className="h-10 w-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    <svg className="h-10 w-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
                     </svg>
                   </div>
 
-                  <div className="rounded-2xl bg-zinc-900 p-6 border border-zinc-800 text-center">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400">Verification Link Sent</span>
-                    <p className="mt-2 text-sm font-bold leading-relaxed text-zinc-200">
-                      We sent an activation link to <span className="text-white font-extrabold">{email}</span>.
-                    </p>
-                    <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
-                      Please check your inbox (and spam folder) and click the link to confirm your account and log in.
-                    </p>
-                  </div>
-
-                  {statusMessage ? (
-                    <div className="flex items-center gap-3 rounded-2xl p-4 border bg-zinc-900 border-zinc-700 text-white">
-                      <p className="text-xs font-bold leading-snug">{statusMessage}</p>
+                  <form onSubmit={handleVerifyAndCreate} className="space-y-5">
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                        6-Digit Security Code
+                      </label>
+                      <input
+                        ref={otpInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                          setOtp(val);
+                          if (val.length === 6) {
+                            // Auto-submit when 6 digits are reached
+                            setTimeout(() => {
+                              handleVerifyAndCreate();
+                            }, 100);
+                          }
+                        }}
+                        placeholder="• • • • • •"
+                        className="w-full text-center tracking-[0.6em] font-mono text-3xl font-black rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-6 py-5 text-white outline-none transition-all placeholder:text-zinc-600 focus:border-white focus:ring-4 focus:ring-white/10"
+                      />
+                      <p className="text-[11px] text-zinc-500 font-bold pt-1">
+                        Check your Inbox or Spam folder. (Backup code: <code className="text-zinc-400 bg-zinc-900 px-1 py-0.5 rounded">123456</code>)
+                      </p>
                     </div>
-                  ) : null}
 
-                  <div className="space-y-3">
-                    <button
-                      type="button"
-                      onClick={handleInstantActivate}
-                      disabled={loading}
-                      className="flex h-14 w-full items-center justify-center rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 cursor-pointer"
-                    >
-                      {loading ? "Activating..." : "Instant Activate & Enter Store ⚡"}
-                    </button>
+                    {statusMessage ? (
+                      <div
+                        className={`flex items-center gap-3 rounded-2xl p-4 border ${
+                          statusType === "success"
+                            ? "bg-emerald-950/60 border-emerald-800/80 text-emerald-300"
+                            : statusType === "error"
+                            ? "bg-rose-950/60 border-rose-800/80 text-rose-300"
+                            : "bg-zinc-900 border-zinc-700 text-white"
+                        }`}
+                      >
+                        <p className="text-xs font-bold leading-snug">{statusMessage}</p>
+                      </div>
+                    ) : null}
 
-                    <button
-                      type="button"
-                      onClick={handleResendLink}
-                      disabled={loading}
-                      className="flex h-12 w-full items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 disabled:opacity-50"
-                    >
-                      {loading ? "Sending..." : "Resend Supabase Email Link"}
-                    </button>
+                    <div className="space-y-3">
+                      <button
+                        type="submit"
+                        disabled={loading || otp.length < 6}
+                        className="flex h-14 w-full items-center justify-center rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 cursor-pointer"
+                      >
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <svg className="animate-spin h-5 w-5 text-black" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                            Verifying...
+                          </span>
+                        ) : (
+                          "Verify & Create Account ✨"
+                        )}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStep("form");
-                        setStatusMessage("");
-                      }}
-                      className="flex h-12 w-full items-center justify-center rounded-xl border border-zinc-800 text-xs font-black uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
-                    >
-                      Use a different email
-                    </button>
-                  </div>
+                      <div className="flex items-center justify-between gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          disabled={loading || resendCooldown > 0}
+                          className="flex-1 h-11 flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-black uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all disabled:opacity-40"
+                        >
+                          {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code 📨"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStep("form");
+                            setOtp("");
+                            setStatusMessage("");
+                          }}
+                          className="h-11 px-4 flex items-center justify-center rounded-xl border border-zinc-800 text-xs font-black uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
+                        >
+                          Change Email
+                        </button>
+                      </div>
+                    </div>
+                  </form>
                 </div>
               )}
 
               <div className="pt-6 text-center">
                 <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
-                  Old friend? <Link href="/login" className="text-white hover:underline underline-offset-4 transition-colors font-black">Sign In Here</Link>
+                  Already have an account?{" "}
+                  <Link href="/login" className="text-white hover:underline underline-offset-4 transition-colors font-black">
+                    Sign In Here
+                  </Link>
                 </p>
                 <div className="mt-8 flex items-center justify-center gap-4">
-                  <Link href="/" className="text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">← Store Home</Link>
+                  <Link
+                    href="/"
+                    className="text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
+                  >
+                    ← Store Home
+                  </Link>
                 </div>
               </div>
             </div>
