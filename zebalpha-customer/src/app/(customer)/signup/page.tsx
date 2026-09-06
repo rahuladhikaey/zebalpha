@@ -320,9 +320,12 @@ export default function SignupPage() {
               ) : (
                 <form onSubmit={handleOtpSubmit} className="space-y-6">
                   <div className="rounded-2xl bg-zinc-900 p-6 border border-zinc-800 text-center">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Verification Code Sent</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Verification Sent</span>
                     <p className="mt-2 text-xs font-bold leading-relaxed text-zinc-300">
-                      We sent a 6-digit verification code to <span className="text-white font-extrabold">{email}</span>. Please check your email inbox.
+                      We sent a verification link & code to <span className="text-white font-extrabold">{email}</span>.
+                    </p>
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      You can click the link in your email to verify directly, or enter the code below:
                     </p>
                   </div>
 

@@ -41,6 +41,8 @@ function getPublicOrigin(request: Request): string {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
+  const token_hash = searchParams.get('token_hash');
+  const type = searchParams.get('type') as any;
   const next = searchParams.get('next') ?? '/';
   const origin = getPublicOrigin(request);
 
@@ -51,37 +53,38 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(providerError)}`);
   }
 
-  if (code) {
-    const cookieStore = await cookies();
-    const cookiesToSetOnResponse: Array<{ name: string; value: string; options?: any }> = [];
+  const cookieStore = await cookies();
+  const cookiesToSetOnResponse: Array<{ name: string; value: string; options?: any }> = [];
 
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      process.env.NEXT_PUBLIC_SUPABASE_A_URL ||
-      'https://qjpahzstldiatfbutvfc.supabase.co';
-    const supabaseAnonKey =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY ||
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI';
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_A_URL ||
+    'https://qjpahzstldiatfbutvfc.supabase.co';
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI';
 
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            try {
-              cookieStore.set(name, value, options);
-            } catch {
-              // Ignore if headers are already committed
-            }
-            cookiesToSetOnResponse.push({ name, value, options });
-          });
-        },
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
       },
-    });
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          try {
+            cookieStore.set(name, value, options);
+          } catch {
+            // Ignore if headers are already committed
+          }
+          cookiesToSetOnResponse.push({ name, value, options });
+        });
+      },
+    },
+  });
 
+  // 1. Handle OAuth & PKCE code exchange
+  if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const safeNext = next.startsWith('/') ? next : `/${next}`;
@@ -97,5 +100,21 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  return NextResponse.redirect(`${origin}/login?error=oauth_callback_failed`);
+  // 2. Handle Supabase Email Confirmation / Magic Link with token_hash & type
+  if (token_hash && type) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+    if (!error) {
+      const safeNext = next.startsWith('/') ? next : `/${next}`;
+      const response = NextResponse.redirect(`${origin}${safeNext}`);
+      cookiesToSetOnResponse.forEach(({ name, value, options }) => {
+        response.cookies.set(name, value, options);
+      });
+      return response;
+    }
+
+    console.error('[Email Link Callback Error]:', error.message);
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`);
+  }
+
+  return NextResponse.redirect(`${origin}/login?error=verification_callback_failed`);
 }
