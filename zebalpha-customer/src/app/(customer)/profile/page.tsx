@@ -16,13 +16,14 @@ export default function ProfileDashboard() {
 
     const checkCardStatus = async () => {
       try {
+        const userEmail = (user.email || "").trim().toLowerCase();
         const { data } = await supabase
           .from("card_applications")
           .select("status")
-          .eq("user_email", user.email)
+          .or(`user_email.ilike.${userEmail},email.ilike.${userEmail}`)
           .order("applied_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
           
         if (data && data.status === "APPROVED") {
           setHasApprovedCard(true);

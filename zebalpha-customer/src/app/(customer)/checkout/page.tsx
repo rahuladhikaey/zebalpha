@@ -540,10 +540,11 @@ function CheckoutContent() {
 
         // Auto-check for card if user is logged in
         if (data.session?.user?.email) {
+          const sessEmail = data.session.user.email.trim().toLowerCase();
           const { data: applications, error } = await supabase
             .from('card_applications')
             .select('*')
-            .eq('user_email', data.session.user.email)
+            .or(`user_email.ilike.${sessEmail},email.ilike.${sessEmail}`)
             .eq('status', 'APPROVED')
             .maybeSingle();
 

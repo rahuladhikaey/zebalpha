@@ -168,7 +168,19 @@ function DigitalCard({ name, cardNumber, type, expiresAt }: { name: string; card
 
 export default function CardsPage() {
   const { user, loading } = useAuth();
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("zebalpha-card-applications") || localStorage.getItem("asali-swad-card-applications");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) return parsed.map(normalizeCardApplication);
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [dataLoading, setDataLoading] = useState(true);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [cardType, setCardType] = useState<"Silver" | "Gold">("Silver");
   const [fullName, setFullName] = useState("");
@@ -188,30 +200,91 @@ export default function CardsPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !user) return;
+    if (typeof window === "undefined" || !user) {
+      setDataLoading(false);
+      return;
+    }
     if (user.user_metadata?.full_name) {
       setFullName(user.user_metadata.full_name);
     }
 
+    const userEmail = (user.email || "").trim().toLowerCase();
+
     const fetchProfileData = async () => {
       try {
-        const { data: apps, error: appsErr } = await supabase
-          .from("card_applications")
-          .select("*")
-          .eq("user_email", user.email)
-          .order("applied_at", { ascending: false });
+        // 1. Try our server-side API endpoint first (service_role, zero RLS issues)
+        let fetchedApps: any[] | null = null;
+        try {
+          const apiRes = await fetch(`/api/cards?email=${encodeURIComponent(userEmail)}`);
+          if (apiRes.ok) {
+            const json = await apiRes.json();
+            if (json.success && Array.isArray(json.applications) && json.applications.length > 0) {
+              fetchedApps = json.applications;
+            }
+          }
+        } catch (apiErr) {
+          console.warn("API cards fetch fallback:", apiErr);
+        }
 
-        if (apps && !appsErr) {
-          setApplications(apps.map(normalizeCardApplication));
-        } else if (appsErr) {
-          console.error("Error fetching card applications:", appsErr);
+        // 2. Supabase client fallback
+        if (!fetchedApps || fetchedApps.length === 0) {
+          const { data: apps, error: appsErr } = await supabase
+            .from("card_applications")
+            .select("*")
+            .or(`user_email.ilike.${userEmail},email.ilike.${userEmail}`)
+            .order("applied_at", { ascending: false });
+
+          if (apps && !appsErr && apps.length > 0) {
+            fetchedApps = apps;
+          }
+        }
+
+        if (fetchedApps && fetchedApps.length > 0) {
+          const normalized = fetchedApps.map(normalizeCardApplication);
+          setApplications(normalized);
+          try {
+            window.localStorage.setItem("zebalpha-card-applications", JSON.stringify(normalized));
+            window.localStorage.setItem("asali-swad-card-applications", JSON.stringify(normalized));
+          } catch (e) {}
+        } else {
+          // Re-check local cache for current user before clearing
+          const cached = localStorage.getItem("zebalpha-card-applications") || localStorage.getItem("asali-swad-card-applications");
+          if (cached) {
+            try {
+              const parsed = JSON.parse(cached);
+              const matching = parsed?.filter((a: any) => ((a.email || a.user_email) || "").toLowerCase() === userEmail);
+              if (matching && matching.length > 0) {
+                setApplications(matching.map(normalizeCardApplication));
+              } else {
+                setApplications([]);
+              }
+            } catch (e) {
+              setApplications([]);
+            }
+          } else {
+            setApplications([]);
+          }
         }
       } catch (e) {
         console.error("Profile data load error:", e);
+      } finally {
+        setDataLoading(false);
       }
     };
 
     fetchProfileData();
+
+    // Supabase Realtime Subscription for zero-delay card updates (e.g. when Admin approves)
+    const channel = supabase
+      .channel(`customer-card-realtime-${userEmail}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "card_applications" }, () => {
+        fetchProfileData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const userApplication = user ? applications.find(
@@ -239,11 +312,10 @@ export default function CardsPage() {
     setIsSubmitting(true);
 
     try {
-      const applicantEmail = user?.email || (typeof window !== "undefined" ? localStorage.getItem("zebalpha_user_email") : null) || "guest@zebalpha.com";
+      const applicantEmail = (user?.email || (typeof window !== "undefined" ? localStorage.getItem("zebalpha_user_email") : null) || "guest@zebalpha.com").trim().toLowerCase();
       
       const newAppPayload: any = {
-        // Do NOT set id — let DB auto-generate a UUID
-        user_id: user?.id || null,          // ← critical: needed for RLS SELECT policy
+        user_id: user?.id || null,
         user_email: applicantEmail,
         email: applicantEmail,
         name: fullName.trim(),
@@ -253,32 +325,51 @@ export default function CardsPage() {
         applied_at: new Date().toISOString()
       };
 
-      // 1. Try Supabase DB insert
-      let insertedData: any[] | null = null;
-      try {
-        const { data: inserted, error } = await supabase
-          .from("card_applications")
-          .insert(newAppPayload)
-          .select();
+      let savedApp: any = null;
 
-        if (error) {
-          console.error("Card application DB insert error:", error);
-        } else if (inserted) {
-          insertedData = inserted;
+      // 1. Post to reliable server API endpoint
+      try {
+        const res = await fetch("/api/cards", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newAppPayload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.application) {
+            savedApp = data.application;
+          }
         }
-      } catch (dbErr) {
-        console.error("Card application DB insert exception:", dbErr);
+      } catch (apiErr) {
+        console.warn("Apply card via API error, falling back to direct Supabase:", apiErr);
       }
 
-      // 2. Always maintain local state & LocalStorage cache
-      const normalizedInserted = insertedData ? insertedData.map(normalizeCardApplication) : [normalizeCardApplication(newAppPayload)];
+      // 2. Fallback to Supabase client if needed
+      if (!savedApp) {
+        try {
+          const { data: inserted, error } = await supabase
+            .from("card_applications")
+            .insert(newAppPayload)
+            .select();
+
+          if (!error && inserted && inserted.length > 0) {
+            savedApp = inserted[0];
+          }
+        } catch (dbErr) {
+          console.error("Card application DB insert exception:", dbErr);
+        }
+      }
+
+      // 3. Always maintain state & LocalStorage cache
+      const finalApp = normalizeCardApplication(savedApp || newAppPayload);
       const updatedApps = [
-        ...applications.filter(a => (a.user_email || a.email)?.toLowerCase() !== applicantEmail.toLowerCase()),
-        ...normalizedInserted
+        ...applications.filter(a => ((a.user_email || a.email) || "").toLowerCase() !== applicantEmail),
+        finalApp
       ];
       setApplications(updatedApps as any[]);
 
       try {
+        window.localStorage.setItem("zebalpha-card-applications", JSON.stringify(updatedApps));
         window.localStorage.setItem("asali-swad-card-applications", JSON.stringify(updatedApps));
       } catch (e) {
         // ignore
@@ -501,7 +592,27 @@ export default function CardsPage() {
             <h3 className="text-lg font-black text-white">Alpha Membership Card</h3>
           </div>
 
-          {!userApplication ? (
+          {dataLoading && applications.length === 0 ? (
+            <div className="space-y-6 animate-pulse">
+              <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-zinc-900 to-black p-8 text-white border border-zinc-800 opacity-60 flex flex-col justify-between h-52">
+                <div className="flex justify-between items-start opacity-50">
+                  <div className="flex items-center gap-2">
+                    <img src="/official-logo.png" alt="Asali Swad Logo" className="h-6 w-6 rounded-full bg-white object-cover" />
+                    <p className="text-[8px] font-black tracking-widest text-white">ZEB-ALPHA</p>
+                  </div>
+                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                </div>
+                <div className="flex items-center gap-3 my-auto">
+                  <span className="text-xs font-mono font-bold tracking-widest text-zinc-400">CHECKING CARD STATUS...</span>
+                </div>
+                <div className="flex justify-between items-end opacity-50">
+                  <div className="h-3 w-24 bg-zinc-800 rounded" />
+                  <div className="h-3 w-16 bg-zinc-800 rounded" />
+                </div>
+              </div>
+              <div className="h-12 w-full bg-zinc-900/50 rounded-2xl animate-pulse" />
+            </div>
+          ) : !userApplication ? (
             <div className="space-y-6">
               <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-zinc-900 to-black p-8 text-white border border-zinc-800 opacity-70">
                 <div className="absolute inset-0 bg-white/5 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '16px 16px' }} />
