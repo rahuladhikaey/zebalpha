@@ -124,14 +124,19 @@ export default function SellerRegisterPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setError(data.error || "Failed to send OTP to email.");
+        setError(data.error || "Failed to send OTP to email. Please try again.");
         setLoading(false);
         return;
       }
-      setInfoMessage(`Verification OTP code sent to ${normalizedEmail}! Please check your email inbox.`);
       setStep("otp");
+      // Show detailed message about email status
+      if (data.emailSent) {
+        setInfoMessage(`✓ Verification OTP sent to ${normalizedEmail}! Please check your email inbox.`);
+      } else {
+        setInfoMessage(`⚠ Email service temporarily unavailable. Please try again or check your inbox.`);
+      }
     } catch (err: any) {
-      setError(parseErrorMsg(err) || "Failed to send OTP.");
+      setError("Network error: Failed to connect to verification service. Please try again.");
     }
     setLoading(false);
   };
@@ -157,7 +162,7 @@ export default function SellerRegisterPage() {
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok || !verifyData.success) {
-        setError(verifyData.error || "Invalid OTP code. Please check your email and try again.");
+        setError(verifyData.error || "❌ Invalid OTP. Please check your email and try again.");
         setLoading(false);
         return;
       }
@@ -502,10 +507,7 @@ export default function SellerRegisterPage() {
                   onChange={(e) => setOtpInput(e.target.value)}
                   className="w-full text-center tracking-[0.6em] rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-4 text-2xl font-black text-white outline-none focus:border-white"
                 />
-                <div className="flex items-center justify-between mt-2.5 px-1">
-                  <span className="text-[11px] text-zinc-500 font-medium">
-                    Backup verification code: <strong className="text-zinc-300 font-bold tracking-widest">123456</strong>
-                  </span>
+                <div className="flex items-center justify-end mt-2.5 px-1">
                   <button
                     type="button"
                     onClick={handleSendOtp}

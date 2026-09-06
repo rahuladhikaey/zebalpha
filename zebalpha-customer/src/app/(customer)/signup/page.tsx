@@ -82,15 +82,20 @@ export default function SignupPage() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setStatusMessage(data.error || "Failed to generate verification OTP.");
+        setStatusMessage(data.error || "Failed to generate verification OTP. Please try again.");
         setLoading(false);
         return;
       }
 
       setStep("otp");
-      setStatusMessage("Verification OTP sent to your email! Please check your inbox.");
+      // Show detailed message about email status
+      if (data.emailSent) {
+        setStatusMessage("✓ Verification OTP sent to your email! Please check your inbox.");
+      } else {
+        setStatusMessage("⚠ Email service temporarily unavailable. Please try again or check your inbox.");
+      }
     } catch (err) {
-      setStatusMessage("Failed to connect to the verification service. Please try again.");
+      setStatusMessage("Network error: Failed to connect to verification service. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -110,7 +115,7 @@ export default function SignupPage() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setStatusMessage(data.error || "Incorrect OTP. Please try again.");
+        setStatusMessage(data.error || "❌ Invalid OTP. Please check your email and try again.");
         setLoading(false);
         return;
       }
@@ -278,7 +283,7 @@ export default function SignupPage() {
                   </div>
 
                   {statusMessage ? (
-                    <div className={`flex items-center gap-3 rounded-2xl p-4 border ${statusMessage.includes('created') || statusMessage.includes('check your email') || statusMessage.includes('Verification OTP') ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-rose-950/60 border-rose-800/80 text-rose-400'}`}>
+                    <div className={`flex items-center gap-3 rounded-2xl p-4 border ${statusMessage.includes('✓') || statusMessage.includes('created') || statusMessage.includes('success') || statusMessage.includes('verified') ? 'bg-zinc-900 border-zinc-700 text-white' : statusMessage.includes('⚠') ? 'bg-amber-950/60 border-amber-800/80 text-amber-400' : 'bg-rose-950/60 border-rose-800/80 text-rose-400'}`}>
                       <p className="text-xs font-bold leading-snug">{statusMessage}</p>
                     </div>
                   ) : null}
@@ -310,7 +315,7 @@ export default function SignupPage() {
                       className="w-full text-center tracking-[0.5em] rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-lg font-black text-white outline-none transition-all placeholder:text-zinc-500 placeholder:tracking-normal focus:border-white"
                     />
                     <p className="text-[11px] text-zinc-400 text-center mt-2.5 font-medium">
-                      Check your inbox/spam. (Backup verification code: <strong className="text-white font-bold tracking-widest">123456</strong>)
+                      Check your inbox/spam folder for the verification code.
                     </p>
                   </div>
 

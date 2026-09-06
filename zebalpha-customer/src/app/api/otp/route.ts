@@ -57,10 +57,16 @@ export async function POST(request: NextRequest) {
 
       // 2. Send OTP via Brevo Email API
       let emailSent = false;
+      let emailError = "";
       try {
         emailSent = await sendOtpEmail(normalizedEmail, otp);
+        if (!emailSent) {
+          emailError = "Brevo API returned false - possible API key or sender configuration issue";
+          console.warn("[Customer OTP] Brevo sendOtpEmail returned false");
+        }
       } catch (e) {
-        console.warn("Customer Brevo send notice:", e);
+        emailError = e instanceof Error ? e.message : String(e);
+        console.error("[Customer OTP] Brevo send exception:", e);
       }
 
       // 3. Fallback: Trigger Supabase Auth OTP
@@ -73,7 +79,7 @@ export async function POST(request: NextRequest) {
         // Notice only
       }
 
-      console.log(`[CUSTOMER OTP LOG] Generated code for ${normalizedEmail}: ${otp} (Email Sent: ${emailSent})`);
+      console.log(`[CUSTOMER OTP LOG] Generated code for ${normalizedEmail}: ${otp} (Email Sent: ${emailSent})${emailError ? ` Error: ${emailError}` : ''}`);
 
       return NextResponse.json({
         success: true,
@@ -81,7 +87,7 @@ export async function POST(request: NextRequest) {
         expiresAt,
         message: emailSent
           ? "Verification OTP code sent to your email! Please check your inbox."
-          : "Verification OTP code sent to your email! (Backup code: 123456)"
+          : `Verification code generated. Please check your email inbox.${emailError ? ` (Email service unavailable: ${emailError})` : ''}`
       });
     }
 
@@ -98,8 +104,6 @@ export async function POST(request: NextRequest) {
       const cleanOtp = String(otp).trim();
       const stored = otpStore.get(normalizedEmail);
       
-      // Universal bypass / testing code 123456 always succeeds
-      const isUniversalBypass = cleanOtp === "123456";
       const isStoredValid = stored && cleanOtp === stored.otp && Date.now() <= stored.expiresAt;
 
       // Check PostgreSQL email_otps table
@@ -123,7 +127,7 @@ export async function POST(request: NextRequest) {
         console.warn("Customer DB OTP verify notice:", dbVerifyErr);
       }
 
-      if (isUniversalBypass || isStoredValid || isDbValid) {
+      if (isStoredValid || isDbValid) {
         if (stored) otpStore.delete(normalizedEmail);
         return NextResponse.json({
           success: true,
@@ -134,7 +138,7 @@ export async function POST(request: NextRequest) {
 
       if (!stored) {
         return NextResponse.json(
-          { error: "No OTP found or expired. Use code 123456 or click 'Resend' to get a new code." },
+          { error: "No OTP found or expired. Please click 'Resend' to get a new code." },
           { status: 400 }
         );
       }
@@ -145,7 +149,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         verified: false,
-        error: `Incorrect OTP. Please check your email or use backup code 123456. (Attempt ${stored.attempts})`,
+        error: `Incorrect OTP. Please check your email and try again. (Attempt ${stored.attempts})`,
         attempts: stored.attempts
       });
     }
@@ -162,7 +166,13 @@ export async function POST(request: NextRequest) {
       });
 
       // Send OTP via Brevo API
-      const emailSent = await sendOtpEmail(normalizedEmail, otp);
+      let emailSent = false;
+      try {
+        emailSent = await sendOtpEmail(normalizedEmail, otp);
+        console.log(`[Customer OTP Resend] Code: ${otp}, Email Sent: ${emailSent}`);
+      } catch (e) {
+        console.error("[Customer OTP Resend] Error:", e);
+      }
 
       return NextResponse.json({
         success: true,
@@ -170,7 +180,7 @@ export async function POST(request: NextRequest) {
         expiresAt,
         message: emailSent
           ? "New verification OTP sent to your email!"
-          : "New OTP sent! Please check your inbox."
+          : "New code generated! Please check your email inbox."
       });
     }
 
