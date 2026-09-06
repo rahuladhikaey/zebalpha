@@ -27,12 +27,12 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
-      - key: BREVO_API_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        value: noreply@asaliswad.com
-      - key: BREVO_SENDER_NAME
-        value: ZEBALPHA
+      - key: NEXT_PUBLIC_EMAILJS_SERVICE_ID
+        value: service_5apvm6b
+      - key: NEXT_PUBLIC_EMAILJS_TEMPLATE_ID
+        value: template_hhuloji
+      - key: NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+        value: ZR5LIJWz_4EsCSc_a
 
   # 2. Seller Merchant Portal (Next.js)
   - type: web
@@ -58,12 +58,12 @@ services:
         value: https://zebalpha-backend-hlk5.onrender.com
       - key: NEXT_PUBLIC_API_BASE_URL
         value: https://zebalpha-backend-hlk5.onrender.com
-      - key: BREVO_API_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        value: noreply@asaliswad.com
-      - key: BREVO_SENDER_NAME
-        value: ZEBALPHA
+      - key: NEXT_PUBLIC_EMAILJS_SERVICE_ID
+        value: service_5apvm6b
+      - key: NEXT_PUBLIC_EMAILJS_TEMPLATE_ID
+        value: template_hhuloji
+      - key: NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+        value: ZR5LIJWz_4EsCSc_a
 
   # 3. Super Admin Management Portal (Next.js)
   - type: web
