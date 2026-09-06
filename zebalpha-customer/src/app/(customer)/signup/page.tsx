@@ -101,46 +101,7 @@ export default function SignupPage() {
       const normalizedEmail = email.trim().toLowerCase();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-      // 1. Primary: Use Admin-verified signup API to bypass Supabase's rate-limited built-in mailer
-      try {
-        const res = await fetch("/api/auth/signup-verified", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: normalizedEmail,
-            password,
-            fullName: "Customer",
-          }),
-        });
-
-        const data = await res.json();
-
-        if (res.ok && data.success && data.user) {
-          // Instantly sign in since the account is confirmed
-          const { error: signInErr } = await supabase.auth.signInWithPassword({
-            email: normalizedEmail,
-            password,
-          });
-
-          if (!signInErr) {
-            if (typeof window !== "undefined") {
-              window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
-            }
-            const urlParams = new URLSearchParams(window.location.search);
-            const redirect = urlParams.get("redirect") || "/";
-            router.push(redirect);
-            return;
-          }
-        } else if (data.error && data.error.toLowerCase().includes("already exists")) {
-          setStatusMessage("An account already exists for this email. Please sign in or use password recovery.");
-          setLoading(false);
-          return;
-        }
-      } catch (apiErr) {
-        console.warn("API signup-verified notice:", apiErr);
-      }
-
-      // 2. Fallback: Standard client-side supabase.auth.signUp
+      // Send Supabase confirmation email link to user's inbox
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
@@ -158,14 +119,14 @@ export default function SignupPage() {
         return;
       }
 
-      // Detect if user already existed (Supabase returns empty identities array and sends NO email)
+      // If identities is empty, the email already exists in Supabase auth.users
       if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
-        setStatusMessage("An account already exists for this email. Please sign in or use password recovery.");
+        setStatusMessage("This email is already registered in Supabase. Please check your inbox/spam for your confirmation link, or delete this user from Supabase Users to test fresh signup.");
         setLoading(false);
         return;
       }
 
-      // If Supabase has email confirmation disabled, session is already active
+      // If email confirmation is turned off in Supabase, user gets logged in directly
       if (data?.session) {
         if (typeof window !== "undefined") {
           window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
@@ -175,6 +136,9 @@ export default function SignupPage() {
         router.push(redirect);
         return;
       }
+
+      // Sign out session until user verifies email via confirmation link
+      await supabase.auth.signOut();
 
       // Switch to Check Your Email confirmation screen
       setStep("sent");
