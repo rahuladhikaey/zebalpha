@@ -31,8 +31,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<"form" | "otp">("form");
-  const [otpCode, setOtpCode] = useState("");
+  const [step, setStep] = useState<"form" | "sent">("form");
   const router = useRouter();
 
   useEffect(() => {
@@ -92,120 +91,79 @@ export default function SignupPage() {
       return;
     }
 
-    try {
-      const response = await fetch("/api/otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate", email }),
-      });
-      const data = await response.json();
+    if (password.length < 6) {
+      setStatusMessage("Password must be at least 6 characters long.");
+      setLoading(false);
+      return;
+    }
 
-      if (!response.ok || !data.success) {
-        setStatusMessage(data.error || "Failed to generate verification OTP. Please try again.");
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          emailRedirectTo: `${origin}/auth/callback`,
+          data: {
+            role: "customer",
+          },
+        },
+      });
+
+      if (error) {
+        setStatusMessage(getFriendlySignUpMessage(error));
         setLoading(false);
         return;
       }
 
-      setStep("otp");
-      // Show detailed message about email status
-      if (data.emailSent) {
-        setStatusMessage("✓ Verification OTP sent to your email! Please check your inbox.");
-      } else if (data.backupCode) {
-        setOtpCode(data.backupCode);
-        setStatusMessage(`ℹ Verification code ${data.backupCode} auto-filled. Click Verify & Register below.`);
+      // If user session is returned immediately (email confirmation disabled in Supabase)
+      if (data?.session) {
+        setStatusMessage("✓ Account created successfully! Redirecting...");
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
+        }
+        setTimeout(() => {
+          router.push("/");
+        }, 1500);
+        return;
+      }
+
+      // If confirmation email link is sent by Supabase
+      setStep("sent");
+      setStatusMessage("");
+    } catch (err: any) {
+      setStatusMessage(err?.message || "Failed to create account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendLink = async () => {
+    setStatusMessage("");
+    setLoading(true);
+
+    try {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim().toLowerCase(),
+        options: {
+          emailRedirectTo: `${origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        setStatusMessage(getFriendlySignUpMessage(error));
       } else {
-        setStatusMessage("⚠ Enter instant code 123456 or check your inbox to complete verification.");
+        setStatusMessage("✓ A new verification link has been sent to your email!");
       }
-    } catch (err) {
-      setStatusMessage("Network error: Failed to connect to verification service. Please try again.");
+    } catch (err: any) {
+      setStatusMessage("Failed to resend verification link. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatusMessage("");
-    setLoading(true);
-
-    try {
-      const response = await fetch("/api/otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", email, otp: otpCode }),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setStatusMessage(data.error || "❌ Invalid OTP. Please check your email and try again.");
-        setLoading(false);
-        return;
-      }
-
-      const registerResponse = await fetch("/api/auth/signup-verified", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const registerData = await registerResponse.json();
-
-      if (!registerResponse.ok || !registerData.success) {
-        setStatusMessage(registerData.error || "Failed to create account.");
-        setLoading(false);
-        return;
-      }
-
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
-      }
-
-      setStatusMessage("Account created and verified successfully!");
-
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
-      setOtpCode("");
-
-      setTimeout(() => {
-        router.push("/login");
-      }, 2000);
-    } catch (err) {
-      setStatusMessage("Verification failed. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    setStatusMessage("");
-    setLoading(true);
-
-    try {
-      const response = await fetch("/api/otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "resend", email }),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setStatusMessage(data.error || "Failed to resend OTP.");
-        setLoading(false);
-        return;
-      }
-
-      setStatusMessage("A new verification OTP has been sent to your email!");
-    } catch (err) {
-      setStatusMessage("Failed to resend OTP. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBackToForm = () => {
-    setStep("form");
-    setOtpCode("");
-    setStatusMessage("");
   };
 
   return (
@@ -237,15 +195,15 @@ export default function SignupPage() {
             <div className="text-center mb-8">
               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">Join Us</span>
               <h1 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-white">
-                {step === "form" ? "Create Account" : "Verify Email"}
+                {step === "form" ? "Create Account" : "Check Your Email"}
               </h1>
               <p className="mt-3 text-sm font-bold text-zinc-400">
-                {step === "form" ? "Join the premium boutique community today." : "Enter the verification code below."}
+                {step === "form" ? "Join the premium boutique community today." : "A verification link has been sent to your email."}
               </p>
             </div>
 
             <div className="w-full space-y-6">
-              {step === "form" && (
+              {step === "form" ? (
                 <>
                   <button
                     type="button"
@@ -266,127 +224,101 @@ export default function SignupPage() {
                     <span className="mx-4">or manual registration</span>
                     <span className="h-px flex-1 bg-zinc-800"></span>
                   </div>
+
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="group relative">
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="Email Address"
+                          className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
+                        />
+                      </div>
+                      <div className="group relative">
+                        <input
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="New Password"
+                          className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
+                        />
+                      </div>
+                      <div className="group relative">
+                        <input
+                          type="password"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm Password"
+                          className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
+                        />
+                      </div>
+                    </div>
+
+                    {statusMessage ? (
+                      <div className={`flex items-center gap-3 rounded-2xl p-4 border ${statusMessage.includes('✓') || statusMessage.includes('created') || statusMessage.includes('success') || statusMessage.includes('verified') ? 'bg-zinc-900 border-zinc-700 text-white' : statusMessage.includes('⚠') ? 'bg-amber-950/60 border-amber-800/80 text-amber-400' : 'bg-rose-950/60 border-rose-800/80 text-rose-400'}`}>
+                        <p className="text-xs font-bold leading-snug">{statusMessage}</p>
+                      </div>
+                    ) : null}
+
+                    <button
+                      disabled={loading}
+                      className="flex h-14 w-full items-center justify-center rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 cursor-pointer"
+                    >
+                      {loading ? "Processing..." : "Create Account ✨"}
+                    </button>
+                  </form>
                 </>
-              )}
-
-              {step === "form" ? (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="group relative">
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Email Address"
-                        className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
-                      />
-                    </div>
-                    <div className="group relative">
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="New Password"
-                        className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
-                      />
-                    </div>
-                    <div className="group relative">
-                      <input
-                        type="password"
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm Password"
-                        className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
-                      />
-                    </div>
-                  </div>
-
-                  {statusMessage ? (
-                    <div className={`flex items-center gap-3 rounded-2xl p-4 border ${statusMessage.includes('✓') || statusMessage.includes('created') || statusMessage.includes('success') || statusMessage.includes('verified') ? 'bg-zinc-900 border-zinc-700 text-white' : statusMessage.includes('⚠') ? 'bg-amber-950/60 border-amber-800/80 text-amber-400' : 'bg-rose-950/60 border-rose-800/80 text-rose-400'}`}>
-                      <p className="text-xs font-bold leading-snug">{statusMessage}</p>
-                    </div>
-                  ) : null}
-
-                  <button
-                    disabled={loading}
-                    className="flex h-14 w-full items-center justify-center rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 cursor-pointer"
-                  >
-                    {loading ? "Processing..." : "Create Account ✨"}
-                  </button>
-                </form>
               ) : (
-                <form onSubmit={handleOtpSubmit} className="space-y-6">
-                  <div className="rounded-2xl bg-zinc-900 p-6 border border-zinc-800 text-center">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Verification Sent</span>
-                    <p className="mt-2 text-xs font-bold leading-relaxed text-zinc-300">
-                      We sent a verification link & code to <span className="text-white font-extrabold">{email}</span>.
-                    </p>
-                    <p className="mt-1 text-[11px] text-zinc-400">
-                      You can click the link in your email to verify directly, or enter the code below:
-                    </p>
+                <div className="space-y-6 text-center">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-zinc-900 border border-zinc-700 text-white shadow-xl">
+                    <svg className="h-10 w-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                   </div>
 
-                  <div className="group relative">
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="Enter 6-Digit OTP"
-                      className="w-full text-center tracking-[0.5em] rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-lg font-black text-white outline-none transition-all placeholder:text-zinc-500 placeholder:tracking-normal focus:border-white"
-                    />
-                    <p className="text-[11px] text-zinc-400 text-center mt-2.5 font-medium">
-                      Check your inbox/spam folder for the verification code.
+                  <div className="rounded-2xl bg-zinc-900 p-6 border border-zinc-800 text-center">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400">Verification Link Sent</span>
+                    <p className="mt-2 text-sm font-bold leading-relaxed text-zinc-200">
+                      We sent an activation link to <span className="text-white font-extrabold">{email}</span>.
                     </p>
-                    <div className="mt-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setOtpCode("123456")}
-                        className="text-[11px] text-amber-400/90 hover:text-amber-300 underline underline-offset-2 transition-colors cursor-pointer"
-                      >
-                        Email delayed? Click here to use instant code: 123456
-                      </button>
-                    </div>
+                    <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
+                      Please check your inbox (and spam folder) and click the link to confirm your account and log in.
+                    </p>
                   </div>
 
                   {statusMessage ? (
-                    <div className={`flex items-center gap-3 rounded-2xl p-4 border ${statusMessage.includes('✓') || statusMessage.includes('success') || statusMessage.includes('verified') || statusMessage.includes('ℹ') ? 'bg-zinc-900 border-zinc-700 text-white' : statusMessage.includes('⚠') ? 'bg-amber-950/60 border-amber-800/80 text-amber-400' : 'bg-rose-950/60 border-rose-800/80 text-rose-400'}`}>
+                    <div className="flex items-center gap-3 rounded-2xl p-4 border bg-zinc-900 border-zinc-700 text-white">
                       <p className="text-xs font-bold leading-snug">{statusMessage}</p>
                     </div>
                   ) : null}
 
                   <div className="space-y-3">
                     <button
-                      disabled={loading || otpCode.length !== 6}
-                      className="flex h-14 w-full items-center justify-center rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 cursor-pointer"
+                      type="button"
+                      onClick={handleResendLink}
+                      disabled={loading}
+                      className="flex h-14 w-full items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 disabled:opacity-50"
                     >
-                      {loading ? "Verifying..." : "Verify & Register ✨"}
+                      {loading ? "Sending..." : "Resend Verification Link"}
                     </button>
 
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={handleBackToForm}
-                        disabled={loading}
-                        className="flex-1 flex h-12 items-center justify-center rounded-xl border border-zinc-800 text-xs font-black uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all disabled:opacity-50"
-                      >
-                        Back
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleResendOtp}
-                        disabled={loading}
-                        className="flex-1 flex h-12 items-center justify-center rounded-xl border border-zinc-800 text-xs font-black uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all disabled:opacity-50"
-                      >
-                        Resend OTP
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep("form");
+                        setStatusMessage("");
+                      }}
+                      className="flex h-12 w-full items-center justify-center rounded-xl border border-zinc-800 text-xs font-black uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
+                    >
+                      Use a different email
+                    </button>
                   </div>
-                </form>
+                </div>
               )}
 
               <div className="pt-6 text-center">
