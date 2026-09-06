@@ -35,15 +35,25 @@ export async function POST(request: NextRequest) {
       console.warn("Admin create customer notice:", adminErr);
     }
 
-    // 2. If user already exists (e.g. registered via OAuth or existing auth account), update password & confirm email
+    // 2. If user already exists (e.g. registered earlier or stuck unconfirmed), check status
     if (!user) {
       try {
-        const { data: userList } = await supabaseServer.auth.admin.listUsers();
+        const { data: userList } = await supabaseServer.auth.admin.listUsers({ page: 1, perPage: 1000 });
         const existingUser = userList?.users?.find(
           (u) => u.email?.toLowerCase() === normalizedEmail
         );
 
         if (existingUser) {
+          // If the user is already confirmed, we must not overwrite their password silently
+          if (existingUser.email_confirmed_at) {
+            return NextResponse.json(
+              { success: false, error: "An account already exists for this email. Please sign in or reset your password." },
+              { status: 400 }
+            );
+          }
+
+          // If the user signed up previously but remained unconfirmed (e.g. Supabase email was never delivered),
+          // activate and confirm them now with the new password
           const { data: updateRes, error: updateErr } = await supabaseServer.auth.admin.updateUserById(
             existingUser.id,
             {

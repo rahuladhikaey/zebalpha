@@ -88,10 +88,36 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const normalizedEmail = email.trim().toLowerCase();
+      let { error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
         password,
       });
+
+      // If user is stuck in unconfirmed email state (due to missing Supabase email link), auto-confirm and retry
+      if (error && (error.message.toLowerCase().includes("not confirmed") || error.message.toLowerCase().includes("email not confirmed"))) {
+        try {
+          const verifyRes = await fetch("/api/auth/signup-verified", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: normalizedEmail,
+              password,
+              fullName: "Customer",
+            }),
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyRes.ok && verifyData.success) {
+            const retry = await supabase.auth.signInWithPassword({
+              email: normalizedEmail,
+              password,
+            });
+            error = retry.error;
+          }
+        } catch (autoErr) {
+          console.warn("Auto-confirm on login notice:", autoErr);
+        }
+      }
 
       if (error) {
         setStatusMessage(getFriendlyLoginMessage(error));

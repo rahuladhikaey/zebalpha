@@ -101,6 +101,46 @@ export default function SignupPage() {
       const normalizedEmail = email.trim().toLowerCase();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
 
+      // 1. Primary: Use Admin-verified signup API to bypass Supabase's rate-limited built-in mailer
+      try {
+        const res = await fetch("/api/auth/signup-verified", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: normalizedEmail,
+            password,
+            fullName: "Customer",
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success && data.user) {
+          // Instantly sign in since the account is confirmed
+          const { error: signInErr } = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
+
+          if (!signInErr) {
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
+            }
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirect = urlParams.get("redirect") || "/";
+            router.push(redirect);
+            return;
+          }
+        } else if (data.error && data.error.toLowerCase().includes("already exists")) {
+          setStatusMessage("An account already exists for this email. Please sign in or use password recovery.");
+          setLoading(false);
+          return;
+        }
+      } catch (apiErr) {
+        console.warn("API signup-verified notice:", apiErr);
+      }
+
+      // 2. Fallback: Standard client-side supabase.auth.signUp
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
@@ -118,14 +158,71 @@ export default function SignupPage() {
         return;
       }
 
-      // Always sign out so user cannot access the app before clicking the confirmation link
-      await supabase.auth.signOut();
+      // Detect if user already existed (Supabase returns empty identities array and sends NO email)
+      if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
+        setStatusMessage("An account already exists for this email. Please sign in or use password recovery.");
+        setLoading(false);
+        return;
+      }
+
+      // If Supabase has email confirmation disabled, session is already active
+      if (data?.session) {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
+        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirect = urlParams.get("redirect") || "/";
+        router.push(redirect);
+        return;
+      }
 
       // Switch to Check Your Email confirmation screen
       setStep("sent");
       setStatusMessage("");
     } catch (err: any) {
       setStatusMessage(err?.message || "Failed to create account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInstantActivate = async () => {
+    setStatusMessage("");
+    setLoading(true);
+
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const res = await fetch("/api/auth/signup-verified", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password: password,
+          fullName: "Customer",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password: password,
+        });
+
+        if (!signInErr) {
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
+          }
+          const urlParams = new URLSearchParams(window.location.search);
+          const redirect = urlParams.get("redirect") || "/";
+          router.push(redirect);
+          return;
+        }
+      }
+
+      setStatusMessage(data.error || "Failed to instantly activate account. Please check your credentials.");
+    } catch (err: any) {
+      setStatusMessage("Failed to activate account. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -148,7 +245,7 @@ export default function SignupPage() {
       if (error) {
         setStatusMessage(getFriendlySignUpMessage(error));
       } else {
-        setStatusMessage("✓ A new verification link has been sent to your email!");
+        setStatusMessage("✓ Verification link resent! (Please also check your spam folder)");
       }
     } catch (err: any) {
       setStatusMessage("Failed to resend verification link. Please try again.");
@@ -291,11 +388,20 @@ export default function SignupPage() {
                   <div className="space-y-3">
                     <button
                       type="button"
+                      onClick={handleInstantActivate}
+                      disabled={loading}
+                      className="flex h-14 w-full items-center justify-center rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 cursor-pointer"
+                    >
+                      {loading ? "Activating..." : "Instant Activate & Enter Store ⚡"}
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={handleResendLink}
                       disabled={loading}
-                      className="flex h-14 w-full items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 disabled:opacity-50"
+                      className="flex h-12 w-full items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 disabled:opacity-50"
                     >
-                      {loading ? "Sending..." : "Resend Verification Link"}
+                      {loading ? "Sending..." : "Resend Supabase Email Link"}
                     </button>
 
                     <button

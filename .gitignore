@@ -4,6 +4,9 @@
 !.env.example
 *.env
 env
+client_secret*.json
+*.pem
+*.key
 
 # Node dependencies
 node_modules/
