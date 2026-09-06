@@ -20,7 +20,7 @@ const getFriendlyLoginMessage = (error: unknown) => {
   }
 
   if (message.includes("email not confirmed") || message.includes("not confirmed")) {
-    return "Your email address has not been verified yet. Please use the Sign Up page to complete OTP verification.";
+    return "Your email address has not been confirmed yet. Please check your inbox and click the verification link sent to your email.";
   }
 
   return (error as { message?: string })?.message ?? "Login failed. Please try again.";

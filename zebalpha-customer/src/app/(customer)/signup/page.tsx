@@ -118,19 +118,10 @@ export default function SignupPage() {
         return;
       }
 
-      // If user session is returned immediately (email confirmation disabled in Supabase)
-      if (data?.session) {
-        setStatusMessage("✓ Account created successfully! Redirecting...");
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
-        }
-        setTimeout(() => {
-          router.push("/");
-        }, 1500);
-        return;
-      }
+      // Always sign out so user cannot access the app before clicking the confirmation link
+      await supabase.auth.signOut();
 
-      // If confirmation email link is sent by Supabase
+      // Switch to Check Your Email confirmation screen
       setStep("sent");
       setStatusMessage("");
     } catch (err: any) {
