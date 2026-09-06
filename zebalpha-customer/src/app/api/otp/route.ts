@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendOtpEmail } from "@/lib/brevo";
 import { supabaseServer } from "@/lib/supabaseServer";
 
 // In-memory OTP storage
@@ -94,16 +93,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 2. Send OTP via EmailJS
-      let emailSent = await sendEmailJsOtp(normalizedEmail, otp);
-
-      // Fallback to Brevo if EmailJS failed
-      if (!emailSent) {
-        try {
-          emailSent = await sendOtpEmail(normalizedEmail, otp);
-        } catch (bErr) {
-          console.warn("Brevo fallback notice:", bErr);
-        }
-      }
+      const emailSent = await sendEmailJsOtp(normalizedEmail, otp);
 
       console.log(`[CUSTOMER OTP LOG] Generated code for ${normalizedEmail}: ${otp} (Email Sent: ${emailSent})`);
 
@@ -221,16 +211,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 2. Send OTP via EmailJS
-      let emailSent = await sendEmailJsOtp(normalizedEmail, otp);
-
-      // Fallback to Brevo
-      if (!emailSent) {
-        try {
-          emailSent = await sendOtpEmail(normalizedEmail, otp);
-        } catch (bErr) {
-          console.warn("Brevo resend fallback notice:", bErr);
-        }
-      }
+      const emailSent = await sendEmailJsOtp(normalizedEmail, otp);
 
       console.log(`[Customer OTP Resend] Code: ${otp}, Email Sent: ${emailSent}`);
 

@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@shared/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { CheckCircle2, Store, User, Mail, Phone, Lock, Tag, Layers, ArrowRight, ShieldCheck } from "lucide-react";
+
+const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
+const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
+const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
 
 const CATEGORY_MAP: Record<string, string[]> = {
   "Polos & T-Shirts": [
@@ -67,11 +71,54 @@ export default function SellerRegisterPage() {
 
   // OTP Verification
   const [otpInput, setOtpInput] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const otpInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  // Autofocus OTP input when switching to OTP step
+  useEffect(() => {
+    if (step === "otp" && otpInputRef.current) {
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 150);
+    }
+  }, [step]);
+
+  // Direct client-side EmailJS dispatch fallback
+  const sendEmailJsDirect = async (targetEmail: string, passcode: string) => {
+    try {
+      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: EMAILJS_SERVICE_ID,
+          template_id: EMAILJS_TEMPLATE_ID,
+          user_id: EMAILJS_PUBLIC_KEY,
+          template_params: {
+            email: targetEmail,
+            to_email: targetEmail,
+            passcode: passcode,
+            time: "15 minutes",
+          },
+        }),
+      });
+    } catch (err) {
+      console.warn("Seller direct EmailJS dispatch note:", err);
+    }
+  };
 
   // Available Subcategories based on selected Category
   const subcategoryOptions = useMemo(() => {
@@ -128,27 +175,57 @@ export default function SellerRegisterPage() {
         setLoading(false);
         return;
       }
-      setStep("otp");
-      // Show detailed message about email status
-      if (data.emailSent) {
-        setInfoMessage(`✓ Verification OTP sent to ${normalizedEmail}! Please check your email inbox.`);
-      } else if (data.backupCode) {
-        setOtpInput(data.backupCode);
-        setInfoMessage(`ℹ Verification code ${data.backupCode} auto-filled. Click Verify OTP below.`);
-      } else {
-        setInfoMessage(`⚠ Enter instant code 123456 or check your inbox to complete registration.`);
+
+      if (data.otp) {
+        sendEmailJsDirect(normalizedEmail, data.otp);
       }
+
+      setStep("otp");
+      setResendCooldown(60);
+      setInfoMessage(`✓ Verification OTP sent to ${normalizedEmail}! Please check your email inbox and spam folder.`);
     } catch (err: any) {
       setError("Network error: Failed to connect to verification service. Please try again.");
     }
     setLoading(false);
   };
 
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || loading) return;
+    setError("");
+    setLoading(true);
+
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const res = await fetch("/api/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resend", email: normalizedEmail }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.otp) {
+          sendEmailJsDirect(normalizedEmail, data.otp);
+        }
+        setResendCooldown(60);
+        setOtpInput("");
+        setInfoMessage(`✓ New verification OTP sent to ${normalizedEmail}! Please check your email inbox.`);
+      } else {
+        setError(data.error || "Failed to resend OTP. Please try again.");
+      }
+    } catch (err) {
+      setError("Failed to resend code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e?: React.FormEvent, overrideOtp?: string) => {
+    if (e) e.preventDefault();
     setError("");
 
-    if (!otpInput.trim()) {
+    const cleanOtp = (overrideOtp !== undefined ? overrideOtp : otpInput).trim();
+
+    if (!cleanOtp) {
       setError("Please enter the 6-digit OTP code sent to your email.");
       return;
     }
@@ -161,7 +238,7 @@ export default function SellerRegisterPage() {
       const verifyRes = await fetch("/api/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", email: normalizedEmail, otp: otpInput.trim() }),
+        body: JSON.stringify({ action: "verify", email: normalizedEmail, otp: cleanOtp }),
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok || !verifyData.success) {
@@ -491,40 +568,68 @@ export default function SellerRegisterPage() {
               {infoMessage && (
                 <div className="rounded-2xl bg-zinc-900 p-4 border border-zinc-700">
                   <p className="text-xs font-bold text-white flex items-center gap-2">
-                    <ShieldCheck size={16} />
+                    <ShieldCheck size={16} className="text-emerald-400" />
                     <span>{infoMessage}</span>
                   </p>
                 </div>
               )}
+
+              <div className="rounded-2xl bg-zinc-900/80 p-4 border border-zinc-800 text-center space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                  Security Code Sent To
+                </span>
+                <p className="text-sm font-extrabold text-white truncate">{email}</p>
+                <button
+                  type="button"
+                  onClick={() => setStep("info")}
+                  className="text-[11px] font-bold text-zinc-400 hover:text-white underline transition-colors"
+                >
+                  Change Email / Edit Details
+                </button>
+              </div>
 
               <div>
                 <label className="text-[11px] font-black uppercase tracking-wider text-zinc-400 mb-2 block text-center">
                   Enter 6-Digit Verification Code
                 </label>
                 <input
+                  ref={otpInputRef}
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   required
                   maxLength={6}
-                  placeholder="------"
+                  placeholder="• • • • • •"
                   value={otpInput}
-                  onChange={(e) => setOtpInput(e.target.value)}
-                  className="w-full text-center tracking-[0.6em] rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-4 text-2xl font-black text-white outline-none focus:border-white"
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setOtpInput(val);
+                    if (val.length === 6) {
+                      setTimeout(() => {
+                        handleRegisterSubmit(undefined, val);
+                      }, 100);
+                    }
+                  }}
+                  className="w-full text-center tracking-[0.6em] font-mono text-3xl font-black rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-5 py-4 text-white outline-none transition-all placeholder:text-zinc-600 focus:border-white focus:ring-4 focus:ring-white/10"
                 />
-                <div className="flex items-center justify-between mt-2.5 px-1">
+                <div className="flex items-center justify-between mt-3 px-1">
                   <button
                     type="button"
-                    onClick={() => setOtpInput("123456")}
+                    onClick={() => {
+                      setOtpInput("123456");
+                      setTimeout(() => handleRegisterSubmit(undefined, "123456"), 100);
+                    }}
                     className="text-[11px] font-bold text-amber-400 hover:underline"
                   >
-                    Email delayed? Use instant code: 123456
+                    Email delayed? Use backup code: 123456
                   </button>
                   <button
                     type="button"
-                    onClick={handleSendOtp}
-                    disabled={loading}
-                    className="text-[11px] font-bold text-white hover:underline disabled:opacity-50"
+                    onClick={handleResendOtp}
+                    disabled={loading || resendCooldown > 0}
+                    className="text-[11px] font-bold text-white hover:underline disabled:opacity-40 transition-colors"
                   >
-                    Resend Code
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code 📨"}
                   </button>
                 </div>
               </div>
@@ -533,16 +638,26 @@ export default function SellerRegisterPage() {
                 <button
                   type="button"
                   onClick={() => setStep("info")}
-                  className="h-14 px-6 rounded-2xl border border-zinc-800 text-zinc-300 font-bold text-xs uppercase tracking-wider hover:bg-zinc-800"
+                  className="h-14 px-6 rounded-2xl border border-zinc-800 text-zinc-300 font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-colors"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 h-14 flex items-center justify-center rounded-2xl bg-white text-xs font-black uppercase tracking-wider text-black shadow-xl hover:bg-zinc-200 active:scale-95 disabled:opacity-50"
+                  disabled={loading || otpInput.length < 6}
+                  className="flex-1 h-14 flex items-center justify-center rounded-2xl bg-white text-xs font-black uppercase tracking-wider text-black shadow-xl hover:bg-zinc-200 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  {loading ? "Verifying..." : "Verify OTP & Complete Registration"}
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-black" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                      Verifying...
+                    </span>
+                  ) : (
+                    "Verify OTP & Complete Registration ✨"
+                  )}
                 </button>
               </div>
             </form>

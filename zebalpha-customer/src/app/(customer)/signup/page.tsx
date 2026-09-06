@@ -180,11 +180,11 @@ export default function SignupPage() {
   };
 
   // Step 2: Verify OTP -> Create Supabase user & Auto-login
-  const handleVerifyAndCreate = async (e?: React.FormEvent) => {
+  const handleVerifyAndCreate = async (e?: React.FormEvent, overrideOtp?: string) => {
     if (e) e.preventDefault();
     setStatusMessage("");
 
-    const cleanOtp = otp.trim();
+    const cleanOtp = (overrideOtp !== undefined ? overrideOtp : otp).trim();
     if (cleanOtp.length < 6) {
       showStatus("Please enter the complete 6-digit verification code.", "error");
       return;
@@ -479,16 +479,26 @@ export default function SignupPage() {
                           if (val.length === 6) {
                             // Auto-submit when 6 digits are reached
                             setTimeout(() => {
-                              handleVerifyAndCreate();
+                              handleVerifyAndCreate(undefined, val);
                             }, 100);
                           }
                         }}
                         placeholder="• • • • • •"
                         className="w-full text-center tracking-[0.6em] font-mono text-3xl font-black rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-6 py-5 text-white outline-none transition-all placeholder:text-zinc-600 focus:border-white focus:ring-4 focus:ring-white/10"
                       />
-                      <p className="text-[11px] text-zinc-500 font-bold pt-1">
-                        Check your Inbox or Spam folder. (Backup code: <code className="text-zinc-400 bg-zinc-900 px-1 py-0.5 rounded">123456</code>)
-                      </p>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-zinc-500 font-bold">Check your Inbox or Spam folder</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOtp("123456");
+                            setTimeout(() => handleVerifyAndCreate(undefined, "123456"), 100);
+                          }}
+                          className="text-[11px] font-bold text-amber-400 hover:underline"
+                        >
+                          Use backup: 123456
+                        </button>
+                      </div>
                     </div>
 
                     {statusMessage ? (
