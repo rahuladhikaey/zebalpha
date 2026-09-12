@@ -274,7 +274,7 @@ export default function SellerOrders() {
 
                   <button
                     onClick={() => setSelectedOrder(order)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-black shadow-md hover:opacity-90"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-black shadow-md transition-all cursor-pointer"
                   >
                     <Eye size={14} />
                     View Details
@@ -330,9 +330,9 @@ export default function SellerOrders() {
                   <button
                     key={statusKey}
                     onClick={() => handleUpdateStatus(selectedOrder.id, statusKey)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                       (selectedOrder.order_status || "placed").toLowerCase() === statusKey
-                        ? "bg-primary text-white shadow-md"
+                        ? "bg-white text-black shadow-md"
                         : "bg-foreground/[0.04] text-text-secondary hover:bg-foreground/[0.08]"
                     }`}
                   >

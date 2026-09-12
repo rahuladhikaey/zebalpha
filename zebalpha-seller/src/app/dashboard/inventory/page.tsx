@@ -271,7 +271,7 @@ export default function SellerInventory() {
                 <button
                   onClick={() => handleSaveStock(product)}
                   disabled={updatingId === product.id}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-xs font-black uppercase tracking-wider text-white hover:opacity-90 active:scale-95 disabled:opacity-50 transition-all"
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider active:scale-95 disabled:opacity-50 transition-all cursor-pointer shadow-md"
                 >
                   {updatingId === product.id ? (
                     <RefreshCw size={14} className="animate-spin" />

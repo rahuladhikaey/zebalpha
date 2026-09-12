@@ -692,3 +692,5 @@ export default function SellerRegisterPage() {
     </main>
   );
 }
+
+

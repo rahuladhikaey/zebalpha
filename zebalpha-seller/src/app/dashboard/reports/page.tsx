@@ -123,7 +123,7 @@ export default function SellerReports() {
         </div>
         <button
           onClick={handleExportCSV}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-wider shadow-lg hover:opacity-90"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer"
         >
           <Download size={16} />
           Export CSV Report
@@ -141,9 +141,9 @@ export default function SellerReports() {
           <button
             key={t.key}
             onClick={() => setReportType(t.key as any)}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all ${
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               reportType === t.key
-                ? "bg-primary text-white shadow-md"
+                ? "bg-white text-black shadow-md"
                 : "bg-foreground/[0.03] text-text-secondary hover:bg-foreground/[0.06]"
             }`}
           >

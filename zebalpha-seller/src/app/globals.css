@@ -91,6 +91,11 @@ input, textarea, select {
 	border-color: #27272a !important;
 }
 
+select option {
+	background-color: #121216 !important;
+	color: #ffffff !important;
+}
+
 input:focus, textarea:focus, select:focus {
 	border-color: #ffffff !important;
 	outline: none !important;

@@ -223,7 +223,7 @@ export default function SellerShipping() {
                 </div>
                 <button
                   type="submit"
-                  className="w-full h-12 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-wider shadow-lg hover:opacity-90"
+                  className="w-full h-12 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer"
                 >
                   Connect Shiprocket Account
                 </button>
@@ -278,7 +278,7 @@ export default function SellerShipping() {
             <button
               type="submit"
               disabled={generating}
-              className="w-full h-12 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-wider shadow-lg hover:opacity-90 disabled:opacity-50"
+              className="w-full h-12 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 cursor-pointer"
             >
               {generating ? "Assigning AWB..." : "Generate AWB & Printable Label"}
             </button>
@@ -318,7 +318,7 @@ export default function SellerShipping() {
           </div>
           <button
             onClick={() => setShowLocationModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary text-white text-xs font-black shadow-lg hover:opacity-90"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black shadow-lg transition-all cursor-pointer"
           >
             <Plus size={16} />
             Add Pickup Location
@@ -419,7 +419,7 @@ export default function SellerShipping() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 h-12 rounded-2xl bg-primary text-white text-xs font-black uppercase"
+                  className="flex-1 h-12 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase transition-all cursor-pointer"
                 >
                   Save Location
                 </button>
