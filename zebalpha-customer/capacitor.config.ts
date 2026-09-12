@@ -5,6 +5,7 @@ const config: CapacitorConfig = {
   appName: 'ZEBALPHA',
   webDir: 'public',
   server: {
+    url: 'https://zebalpha-customer.onrender.com',
     androidScheme: 'https'
   },
   plugins: {
