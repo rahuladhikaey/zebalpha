@@ -187,7 +187,7 @@ function LoginContent() {
               <input
                 type="email"
                 required
-                maxLength={15}
+                maxLength={25}
                 placeholder="seller@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

@@ -392,7 +392,7 @@ export default function SignupPage() {
                         <input
                           type="email"
                           required
-                          maxLength={15}
+                          maxLength={25}
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="Email Address"
