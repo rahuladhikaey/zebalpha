@@ -37,3 +37,5 @@ Thumbs.db
 # Git backups
 *.git_backup
 **/.git_backup/
+gradle-home/
+**/gradle-home/
