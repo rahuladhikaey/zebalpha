@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ["razorpay"],
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
