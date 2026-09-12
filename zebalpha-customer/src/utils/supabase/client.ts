@@ -6,6 +6,13 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || process.e
 export function createClient() {
   return createBrowserClient(
     supabaseUrl!,
-    supabaseAnonKey!
+    supabaseAnonKey!,
+    {
+      cookieOptions: {
+        path: '/',
+        sameSite: 'lax',
+        secure: true,
+      },
+    }
   )
 }

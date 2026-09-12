@@ -67,6 +67,8 @@ export default function SignupPage() {
       const decoded = decodeURIComponent(errorParam);
       if (decoded === "oauth_callback_failed" || decoded === "oauth_failed") {
         showStatus("Google sign-up could not be completed. Please try again or register with your email.", "error");
+      } else if (decoded === "oauth_session_expired" || decoded.toLowerCase().includes("code verifier") || decoded.toLowerCase().includes("pkce")) {
+        showStatus("Google sign-up session expired. Please tap 'Google Sign Up' again.", "error");
       } else if (decoded.toLowerCase().includes("access_denied")) {
         showStatus("Google sign-up was cancelled or access was denied.", "error");
       } else {

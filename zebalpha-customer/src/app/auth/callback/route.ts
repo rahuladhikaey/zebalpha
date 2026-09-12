@@ -66,18 +66,24 @@ export async function GET(request: Request) {
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI';
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: {
+      path: '/',
+      sameSite: 'lax',
+      secure: true,
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value, options }) => {
+          const cookieOpts = { ...options, path: '/', sameSite: 'lax', secure: true };
           try {
-            cookieStore.set(name, value, options);
+            cookieStore.set(name, value, cookieOpts);
           } catch {
             // Ignore if headers are already committed
           }
-          cookiesToSetOnResponse.push({ name, value, options });
+          cookiesToSetOnResponse.push({ name, value, options: cookieOpts });
         });
       },
     },
@@ -97,7 +103,10 @@ export async function GET(request: Request) {
     }
 
     console.error('[OAuth Callback Error]:', error.message);
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`);
+    const errMsg = error.message.toLowerCase().includes('code verifier') || error.message.toLowerCase().includes('pkce')
+      ? 'oauth_session_expired'
+      : error.message;
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errMsg)}`);
   }
 
   // 2. Handle Supabase Email Confirmation / Magic Link with token_hash & type

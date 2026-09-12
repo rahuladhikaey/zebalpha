@@ -55,6 +55,8 @@ export default function LoginPage() {
       const decoded = decodeURIComponent(errorParam);
       if (decoded === "oauth_callback_failed" || decoded === "oauth_failed") {
         setStatusMessage("Google sign-in could not be completed. Please try again or log in with your email.");
+      } else if (decoded === "oauth_session_expired" || decoded.toLowerCase().includes("code verifier") || decoded.toLowerCase().includes("pkce")) {
+        setStatusMessage("Google sign-in session expired. Please tap 'Google Sign In' again.");
       } else if (decoded.toLowerCase().includes("access_denied")) {
         setStatusMessage("Google sign-in was cancelled or access was denied.");
       } else {
