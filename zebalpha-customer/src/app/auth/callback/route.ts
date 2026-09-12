@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookieOptions: {
       path: '/',
-      sameSite: 'lax',
+      sameSite: 'lax' as const,
       secure: true,
     },
     cookies: {
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value, options }) => {
-          const cookieOpts = { ...options, path: '/', sameSite: 'lax', secure: true };
+          const cookieOpts = { ...options, path: '/', sameSite: 'lax' as const, secure: true };
           try {
             cookieStore.set(name, value, cookieOpts);
           } catch {
