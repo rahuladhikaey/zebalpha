@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState<"request" | "verify">("request");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -179,14 +180,24 @@ export default function ForgotPasswordPage() {
                 <label className="text-xs font-black uppercase tracking-wider text-zinc-400 mb-1 block">
                   New Password *
                 </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Enter new password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-4 text-sm font-bold text-white outline-none focus:border-white transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-4 text-sm font-bold text-white outline-none focus:border-white transition-all pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <button

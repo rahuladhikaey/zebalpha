@@ -3,11 +3,13 @@
 import { useState, type FormEvent } from "react";
 import Logo from "@/assets/images/official-logo.png";
 import Image from "next/image";
-import { ShieldCheck, Lock, KeyRound, AlertCircle } from "lucide-react";
+import { ShieldCheck, Lock, KeyRound, AlertCircle, Eye, EyeOff } from "lucide-react";
 
 export default function AdminLoginPage() {
 	const [adminKey1, setAdminKey1] = useState("");
 	const [adminKey2, setAdminKey2] = useState("");
+	const [showKey1, setShowKey1] = useState(false);
+	const [showKey2, setShowKey2] = useState(false);
 	const [authError, setAuthError] = useState("");
 	const [loading, setLoading] = useState(false);
 
@@ -74,15 +76,25 @@ export default function AdminLoginPage() {
 									<KeyRound size={13} className="text-zinc-400" />
 									Security Factor 1 (Primary Key)
 								</label>
-								<input
-									type="password"
-									required
-									autoComplete="off"
-									value={adminKey1}
-									onChange={(event) => setAdminKey1(event.target.value)}
-									placeholder="Enter primary administrative key"
-									className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-sm font-mono text-white outline-none placeholder:text-zinc-500 placeholder:font-sans focus:border-white focus:bg-zinc-900 transition-all"
-								/>
+								<div className="relative">
+									<input
+										type={showKey1 ? "text" : "password"}
+										required
+										autoComplete="off"
+										value={adminKey1}
+										onChange={(event) => setAdminKey1(event.target.value)}
+										placeholder="Enter primary administrative key"
+										className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-sm font-mono text-white outline-none placeholder:text-zinc-500 placeholder:font-sans focus:border-white focus:bg-zinc-900 transition-all pr-11"
+									/>
+									<button
+										type="button"
+										onClick={() => setShowKey1(!showKey1)}
+										className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
+										tabIndex={-1}
+									>
+										{showKey1 ? <EyeOff size={16} /> : <Eye size={16} />}
+									</button>
+								</div>
 							</div>
 
 							<div className="space-y-1 text-left">
@@ -90,15 +102,25 @@ export default function AdminLoginPage() {
 									<Lock size={13} className="text-zinc-400" />
 									Security Factor 2 (Secondary Passcode)
 								</label>
-								<input
-									type="password"
-									required
-									autoComplete="off"
-									value={adminKey2}
-									onChange={(event) => setAdminKey2(event.target.value)}
-									placeholder="Enter secondary security key"
-									className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-sm font-mono text-white outline-none placeholder:text-zinc-500 placeholder:font-sans focus:border-white focus:bg-zinc-900 transition-all"
-								/>
+								<div className="relative">
+									<input
+										type={showKey2 ? "text" : "password"}
+										required
+										autoComplete="off"
+										value={adminKey2}
+										onChange={(event) => setAdminKey2(event.target.value)}
+										placeholder="Enter secondary security key"
+										className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-sm font-mono text-white outline-none placeholder:text-zinc-500 placeholder:font-sans focus:border-white focus:bg-zinc-900 transition-all pr-11"
+									/>
+									<button
+										type="button"
+										onClick={() => setShowKey2(!showKey2)}
+										className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
+										tabIndex={-1}
+									>
+										{showKey2 ? <EyeOff size={16} /> : <Eye size={16} />}
+									</button>
+								</div>
 							</div>
 						</div>
 

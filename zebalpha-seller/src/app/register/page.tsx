@@ -5,7 +5,7 @@ import { supabase } from "@shared/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
-import { CheckCircle2, Store, User, Mail, Phone, Lock, Tag, Layers, ArrowRight, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Store, User, Mail, Phone, Lock, Tag, Layers, ArrowRight, ShieldCheck, Eye, EyeOff } from "lucide-react";
 
 const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
 const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
@@ -68,6 +68,7 @@ export default function SellerRegisterPage() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // OTP Verification
   const [otpInput, setOtpInput] = useState("");
@@ -535,15 +536,25 @@ export default function SellerRegisterPage() {
                     </span>
                   )}
                 </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="Min 6 characters (Letters, Numbers, Symbols)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={6}
+                    placeholder="Min 6 characters (Letters, Numbers, Symbols)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
                 {password && (
                   <div className="mt-2 h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full bg-white transition-all duration-300" style={{ width: `${passwordStrength.score}%` }} />

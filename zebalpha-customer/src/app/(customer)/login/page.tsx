@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Auth3dGraphic from "@/components/Auth3dGraphic";
+import { Eye, EyeOff } from "lucide-react";
 
 const LOGIN_EMAIL_KEY = "loginEmail";
 
@@ -32,6 +33,7 @@ export default function LoginPage() {
     return window.localStorage.getItem(LOGIN_EMAIL_KEY) ?? "";
   });
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -207,13 +209,21 @@ export default function LoginPage() {
                   </div>
                   <div className="group relative">
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Password"
-                      className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
+                      className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white pr-12"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
                 </div>
 

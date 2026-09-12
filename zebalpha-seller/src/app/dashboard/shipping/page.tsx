@@ -11,7 +11,9 @@ import {
   RefreshCw, 
   Search,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 export default function SellerShipping() {
@@ -20,6 +22,7 @@ export default function SellerShipping() {
   const [shiprocketConnected, setShiprocketConnected] = useState(false);
   const [shiprocketEmail, setShiprocketEmail] = useState("");
   const [shiprocketPassword, setShiprocketPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   
   // AWB / Label generation inputs
   const [orderIdInput, setOrderIdInput] = useState("");
@@ -212,14 +215,24 @@ export default function SellerShipping() {
                   <label className="text-xs font-black uppercase tracking-wider text-text-muted block mb-1">
                     API Key / Password
                   </label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="••••••••••••"
-                    value={shiprocketPassword}
-                    onChange={(e) => setShiprocketPassword(e.target.value)}
-                    className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none focus:border-primary"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder="••••••••••••"
+                      value={shiprocketPassword}
+                      onChange={(e) => setShiprocketPassword(e.target.value)}
+                      className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none focus:border-primary pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="submit"

@@ -5,11 +5,14 @@ import { supabase } from "@shared/utils/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+import { Eye, EyeOff } from "lucide-react";
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -195,14 +198,24 @@ function LoginContent() {
               <label className="block text-xs font-bold text-zinc-300">
                 Password
               </label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-sm font-medium text-white outline-none placeholder:text-zinc-500 focus:border-white transition-all"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  placeholder="••••••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-sm font-medium text-white outline-none placeholder:text-zinc-500 focus:border-white transition-all pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
           </div>
 
