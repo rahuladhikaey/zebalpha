@@ -144,6 +144,7 @@ export default function ForgotPasswordPage() {
                 <input
                   type="email"
                   required
+                  maxLength={15}
                   placeholder="seller@business.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -184,7 +185,8 @@ export default function ForgotPasswordPage() {
                   <input
                     type={showPassword ? "text" : "password"}
                     required
-                    placeholder="Enter new password"
+                    maxLength={12}
+                    placeholder="Enter new password (max 12 chars)"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-4 text-sm font-bold text-white outline-none focus:border-white transition-all pr-12"

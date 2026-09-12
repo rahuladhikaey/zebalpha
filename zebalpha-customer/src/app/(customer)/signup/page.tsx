@@ -390,6 +390,7 @@ export default function SignupPage() {
                         <input
                           type="email"
                           required
+                          maxLength={15}
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="Email Address"
@@ -400,9 +401,10 @@ export default function SignupPage() {
                         <input
                           type={showPassword ? "text" : "password"}
                           required
+                          maxLength={12}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          placeholder="New Password (min 6 characters)"
+                          placeholder="New Password (max 12 characters)"
                           className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white pr-12"
                         />
                         <button
@@ -418,6 +420,7 @@ export default function SignupPage() {
                         <input
                           type={showConfirmPassword ? "text" : "password"}
                           required
+                          maxLength={12}
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder="Confirm Password"

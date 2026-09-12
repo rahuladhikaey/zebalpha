@@ -187,6 +187,7 @@ function LoginContent() {
               <input
                 type="email"
                 required
+                maxLength={15}
                 placeholder="seller@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -202,6 +203,7 @@ function LoginContent() {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
+                  maxLength={12}
                   placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

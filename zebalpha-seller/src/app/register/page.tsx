@@ -500,9 +500,10 @@ export default function SellerRegisterPage() {
                   <input
                     type="tel"
                     required
-                    placeholder="+91 9876543210"
+                    maxLength={10}
+                    placeholder="9876543210"
                     value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value)}
+                    onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
                     className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white"
                   />
                 </div>
@@ -515,6 +516,7 @@ export default function SellerRegisterPage() {
                   <input
                     type="email"
                     required
+                    maxLength={15}
                     placeholder="seller@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -541,7 +543,8 @@ export default function SellerRegisterPage() {
                     type={showPassword ? "text" : "password"}
                     required
                     minLength={6}
-                    placeholder="Min 6 characters (Letters, Numbers, Symbols)"
+                    maxLength={12}
+                    placeholder="Min 6, Max 12 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white pr-12"

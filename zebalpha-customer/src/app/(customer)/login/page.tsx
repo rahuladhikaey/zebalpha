@@ -201,6 +201,7 @@ export default function LoginPage() {
                     <input
                       type="email"
                       required
+                      maxLength={15}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Email Address"
@@ -211,6 +212,7 @@ export default function LoginPage() {
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      maxLength={12}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Password"
