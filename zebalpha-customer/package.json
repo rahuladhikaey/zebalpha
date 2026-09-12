@@ -9,7 +9,9 @@
     "lint": "eslint",
     "cap:sync": "next build --webpack && cap sync",
     "cap:open": "cap open android",
-    "build:apk": "next build --webpack && cap sync android && cd android && ./gradlew assembleDebug"
+    "build:apk": "next build --webpack && cap sync android && cd android && ./gradlew assembleDebug",
+    "build:aab": "next build --webpack && cap sync android && cd android && ./gradlew bundleRelease",
+    "build:release-apk": "next build --webpack && cap sync android && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",
