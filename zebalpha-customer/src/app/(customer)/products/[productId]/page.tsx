@@ -29,6 +29,26 @@ const getProduct = async (productId: string) => {
     return null;
   }
 
+  // Fetch seller details if seller_id exists
+  if (data.seller_id) {
+    try {
+      const { data: sellerData } = await supabase
+        .from("sellers")
+        .select("business_name, owner_name, city, state, business_logo_url")
+        .eq("id", data.seller_id)
+        .maybeSingle();
+
+      if (sellerData) {
+        data.seller_name = sellerData.business_name || sellerData.owner_name;
+        data.business_name = sellerData.business_name;
+        data.seller_city = sellerData.city;
+        data.seller_logo = sellerData.business_logo_url;
+      }
+    } catch (e) {
+      console.warn("Could not fetch seller info for product:", e);
+    }
+  }
+
   return data as Product;
 };
 
@@ -58,10 +78,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
+  const sellerName = product.seller_name || product.brand || "ZEBALPHA";
+
   return {
-    title: `${product.name} | Asali Swad`,
-    description: product.description || `Buy ${product.name} online at Asali Swad. Authentic taste and premium quality.`,
-    keywords: [product.name, "asaliswad", "asli swad", product.category_name || "", "buy online"],
+    title: `${product.name} | ${sellerName}`,
+    description: product.description || `Buy ${product.name} online at ZEBALPHA. Premium quality apparel, streetwear & lifestyle.`,
+    keywords: [product.name, "zebalpha", "zeb-alpha", sellerName, product.category_name || "", "buy online"],
     openGraph: {
       title: product.name,
       description: product.description,
@@ -94,6 +116,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
     );
   }
 
+  const sellerDisplayName = product.seller_name || product.business_name || product.brand || "ZEBALPHA Official Store";
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -102,7 +126,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
     "description": product.description,
     "brand": {
       "@type": "Brand",
-      "name": "ZEB-ALPHA"
+      "name": product.brand || "ZEB-ALPHA"
     },
     "offers": {
       "@type": "Offer",
@@ -114,7 +138,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       "availability": "https://schema.org/InStock",
       "seller": {
         "@type": "Organization",
-        "name": "Asali Swad"
+        "name": sellerDisplayName
       }
     }
   };

@@ -65,7 +65,7 @@ export default function WishlistPage() {
                       <Link href={`/products/${item.id}`}>
                         <h3 className="text-base font-black text-white line-clamp-1 hover:text-zinc-300 transition-colors">{item.name}</h3>
                       </Link>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1 mb-2">Asali Swad Premium</p>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1 mb-2">ZEBALPHA Premium</p>
                       <div className="flex items-center gap-3">
                         <span className="text-lg font-black text-white">₹{item.price}</span>
                         {item.mrp && (

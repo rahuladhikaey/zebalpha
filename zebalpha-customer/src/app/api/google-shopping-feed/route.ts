@@ -14,14 +14,14 @@ export async function GET() {
     return new NextResponse('Error fetching products', { status: 500 });
   }
 
-  const baseUrl = 'https://www.asaliswad.shop';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.zebalpha.com';
 
   let xml = `<?xml version="1.0"?>
 <rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
   <channel>
-    <title>Asali Swad Products</title>
+    <title>ZEBALPHA Products</title>
     <link>${baseUrl}</link>
-    <description>Authentic Indian Sweets, Namkeen &amp; Dry Fruits from Asali Swad.</description>
+    <description>Exclusive Streetwear, Apparel &amp; Fashion from ZEBALPHA.</description>
 `;
 
   products.forEach((product: Product) => {
@@ -32,13 +32,14 @@ export async function GET() {
     const imageUrl = rawImage.startsWith('http') ? rawImage : `${baseUrl}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`;
     
     // Clean strings to prevent XML errors
-    const cleanDescription = (product.description || 'Premium product from Asali Swad')
+    const cleanDescription = (product.description || 'Premium streetwear from ZEBALPHA')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
     const cleanTitle = product.name
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
     // Price must have 2 decimal places
     const formattedPrice = Number(product.price).toFixed(2);
+    const brandName = product.brand || 'ZEB-ALPHA';
 
     xml += `
     <item>
@@ -50,8 +51,8 @@ export async function GET() {
       <g:condition>new</g:condition>
       <g:availability>in_stock</g:availability>
       <g:price>${formattedPrice} INR</g:price>
-      <g:brand>Asali Swad</g:brand>
-      <!-- We use identifier_exists: no because you likely do not have GTIN/UPC codes for homemade goods -->
+      <g:brand>${brandName}</g:brand>
+      <!-- We use identifier_exists: no because you likely do not have GTIN/UPC codes for boutique goods -->
       <g:identifier_exists>no</g:identifier_exists>
     </item>`;
   });

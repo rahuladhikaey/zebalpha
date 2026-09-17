@@ -166,7 +166,7 @@ export default function LoginPage() {
           <div className="rounded-[3rem] bg-zinc-950 p-8 md:p-12 border border-zinc-800 shadow-2xl flex flex-col items-center">
             <div className="mb-10 transition-transform hover:scale-110 duration-500">
               <Link href="/">
-                <img src="/official-logo.png" alt="Asali Swad Logo" className="h-20 w-20 rounded-full object-cover shadow-2xl border-2 border-zinc-700" />
+                <img src="/official-logo.png" alt="ZEBALPHA Logo" className="h-20 w-20 rounded-full object-cover shadow-2xl border-2 border-zinc-700" />
               </Link>
             </div>
             

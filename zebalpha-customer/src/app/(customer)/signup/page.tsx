@@ -259,7 +259,7 @@ export default function SignupPage() {
         window.localStorage.removeItem(SIGNUP_EMAIL_KEY);
       }
 
-      showStatus("Account activated! Welcome to Asali Swad ✨", "success");
+      showStatus("Account activated! Welcome to ZEBALPHA ✨", "success");
       const urlParams = new URLSearchParams(window.location.search);
       const redirect = urlParams.get("redirect") || "/";
       setTimeout(() => {
@@ -340,7 +340,7 @@ export default function SignupPage() {
               <Link href="/">
                 <img
                   src="/official-logo.png"
-                  alt="Asali Swad Logo"
+                  alt="ZEBALPHA Logo"
                   className="h-16 w-16 rounded-full object-cover shadow-2xl border-2 border-zinc-700"
                 />
               </Link>

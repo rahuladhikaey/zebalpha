@@ -208,26 +208,37 @@ export default function ProductDetailTemplate({
               <div className="space-y-4">
                 <h3 className="text-base font-black text-white border-b border-zinc-800 pb-2">Highlights</h3>
                 <ul className="space-y-2 list-disc list-inside text-sm font-medium text-zinc-300">
-                  <li>Original & Pure Quality</li>
-                  <li>Directly from Sources</li>
-                  <li>Premium Packaging</li>
-                  <li>Best for Daily Use</li>
+                  <li>100% Genuine & Certified Quality</li>
+                  <li>Exclusive Drop & Contemporary Fit</li>
+                  <li>Premium Durable Stitching & Fabric</li>
+                  <li>Dispatched in Tamper-Proof Packaging</li>
                 </ul>
               </div>
             </div>
 
-            {/* Seller Info */}
+            {/* Seller / Retailer Info */}
             <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between shadow-xl">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-zinc-900 flex items-center justify-center border border-zinc-800 text-white" aria-hidden="true">
-                  <ShieldCheck />
+                <div className="h-12 w-12 rounded-full bg-zinc-900 flex items-center justify-center border border-zinc-800 text-white overflow-hidden" aria-hidden="true">
+                  {product.seller_logo ? (
+                    <img src={product.seller_logo} alt={product.seller_name || product.brand || "ZEBALPHA"} className="h-full w-full object-cover" />
+                  ) : (
+                    <ShieldCheck className="h-6 w-6 text-white" />
+                  )}
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-white">Asali Swad Store</h4>
-                  <p className="text-xs font-bold text-zinc-400">24Hr. Return Policy</p>
+                  <h4 className="text-sm font-black text-white">
+                    {product.seller_name || product.business_name || product.brand || "ZEBALPHA Official Store"}
+                  </h4>
+                  <p className="text-xs font-bold text-zinc-400">
+                    {product.seller_city ? `Verified Merchant • ${product.seller_city}` : 'Verified Partner • 24Hr. Return Policy'}
+                  </p>
                 </div>
               </div>
-              <button className="text-white text-sm font-black hover:underline cursor-pointer" aria-label="View Retailer details">View Retailer</button>
+              <span className="text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                Verified
+              </span>
             </div>
 
             {/* Features (Bottom Icons) */}

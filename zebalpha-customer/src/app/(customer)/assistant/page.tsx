@@ -20,7 +20,7 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
-      content: "Hello! I'm your Asali Swad Assistant. I'm an expert on our premium Urad Dal Bori, and can also help with returns, refunds, bulk orders, or delivery questions. How can I help you today? 🤖",
+      content: "Hello! I'm your ZEBALPHA AI Assistant. I can help you with styling, product sizing, returns, orders, or delivery questions. How can I help you today? 🤖",
     },
   ]);
   const [prompt, setPrompt] = useState("");
@@ -83,7 +83,7 @@ export default function AssistantPage() {
                 <div className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-zinc-900 border border-zinc-800 text-3xl shadow-xl mb-4">
                   🤖
                 </div>
-                <h1 className="text-2xl font-black text-white font-outfit">Asali Swad Assistant</h1>
+                <h1 className="text-2xl font-black text-white font-outfit">ZEBALPHA Assistant</h1>
                 <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mt-2">Always Active • Powered by AI</p>
               </div>
 

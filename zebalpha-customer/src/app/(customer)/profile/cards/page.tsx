@@ -109,7 +109,7 @@ function DigitalCard({ name, cardNumber, type, expiresAt }: { name: string; card
 
       <div className="flex items-center justify-between z-10">
         <div className="flex items-center gap-2 sm:gap-3">
-          <img src="/official-logo.png" alt="Asali Swad Logo" className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover border border-white/30 shadow-md bg-white" />
+          <img src="/official-logo.png" alt="ZEBALPHA Logo" className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover border border-white/30 shadow-md bg-white" />
           <div className="text-left whitespace-nowrap">
             <h4 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] leading-none text-white drop-shadow-sm whitespace-nowrap">ZEB-ALPHA</h4>
             <span className="text-[7px] font-black uppercase tracking-widest text-zinc-300 block mt-0.5 whitespace-nowrap">Privilege Card</span>
@@ -603,7 +603,7 @@ export default function CardsPage() {
               <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-zinc-900 to-black p-8 text-white border border-zinc-800 opacity-60 flex flex-col justify-between h-52">
                 <div className="flex justify-between items-start opacity-50">
                   <div className="flex items-center gap-2">
-                    <img src="/official-logo.png" alt="Asali Swad Logo" className="h-6 w-6 rounded-full bg-white object-cover" />
+                    <img src="/official-logo.png" alt="ZEBALPHA Logo" className="h-6 w-6 rounded-full bg-white object-cover" />
                     <p className="text-[8px] font-black tracking-widest text-white">ZEB-ALPHA</p>
                   </div>
                   <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
@@ -624,7 +624,7 @@ export default function CardsPage() {
                 <div className="absolute inset-0 bg-white/5 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '16px 16px' }} />
                 <div className="flex justify-between items-start opacity-50">
                   <div className="flex items-center gap-2">
-                    <img src="/official-logo.png" alt="Asali Swad Logo" className="h-6 w-6 rounded-full bg-white object-cover" />
+                    <img src="/official-logo.png" alt="ZEBALPHA Logo" className="h-6 w-6 rounded-full bg-white object-cover" />
                     <p className="text-[8px] font-black tracking-widest text-white">ZEB-ALPHA</p>
                   </div>
                   <span className="text-xs">🔒</span>
@@ -653,7 +653,7 @@ export default function CardsPage() {
               <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-zinc-900 to-black p-8 text-white border-2 border-dashed border-zinc-700">
                 <div className="flex justify-between items-start opacity-70">
                   <div className="flex items-center gap-2">
-                    <img src="/official-logo.png" alt="Asali Swad Logo" className="h-6 w-6 rounded-full bg-white object-cover" />
+                    <img src="/official-logo.png" alt="ZEBALPHA Logo" className="h-6 w-6 rounded-full bg-white object-cover" />
                     <p className="text-[8px] font-black tracking-widest text-white">ZEB-ALPHA</p>
                   </div>
                   <span className="text-xs animate-bounce">⏳</span>

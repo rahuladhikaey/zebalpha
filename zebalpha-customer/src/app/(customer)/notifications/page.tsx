@@ -87,7 +87,7 @@ export default function NotificationsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-black text-white tracking-tight">Notifications</h1>
-            <p className="text-sm font-semibold text-zinc-400">Latest updates from Asali Swad</p>
+            <p className="text-sm font-semibold text-zinc-400">Latest updates from ZEBALPHA</p>
           </div>
         </div>
 
@@ -104,7 +104,7 @@ export default function NotificationsPage() {
             {adminMessages.length > 0 && (
               <div className="space-y-3">
                 <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">
-                  📢 Messages from Asali Swad
+                  📢 Messages from ZEBALPHA
                 </h2>
                 {adminMessages.slice(0, 5).map((msg: any, i: number) => (
                   <div

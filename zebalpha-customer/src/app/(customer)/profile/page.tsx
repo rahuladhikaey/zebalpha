@@ -67,7 +67,7 @@ export default function ProfileDashboard() {
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-zinc-800 bg-black/80 px-4 py-3 backdrop-blur-xl md:px-8">
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center justify-center transition-transform hover:scale-105">
-            <img src="/official-logo.png" alt="Asali Swad Logo" className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover shadow-md border border-zinc-800" />
+            <img src="/official-logo.png" alt="ZEBALPHA Logo" className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover shadow-md border border-zinc-800" />
           </Link>
           <div className="hidden flex-col md:flex">
             <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">User Profile</span>
@@ -188,8 +188,8 @@ export default function ProfileDashboard() {
               try {
                 if (navigator.share) {
                   await navigator.share({
-                    title: 'Asali Swad - Premium Quality Spices',
-                    text: 'Check out Asali Swad for premium quality authentic spices and groceries! Get amazing discounts on your first order.',
+                    title: 'ZEBALPHA - Premium Streetwear & Fashion',
+                    text: 'Check out ZEBALPHA for exclusive premium streetwear and contemporary fashion! Discover the latest drops today.',
                     url: window.location.origin,
                   });
                 } else {

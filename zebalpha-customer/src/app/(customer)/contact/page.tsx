@@ -4,8 +4,8 @@ import qrImage from "./QR.png";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Contact Us | Asali Swad",
-  description: "Reach out to our friendly support team for orders, feedback, or wholesale inquiries. Connect with Asali Swad.",
+  title: "Contact Us | ZEBALPHA",
+  description: "Reach out to our customer experience and support team for orders, support, or merchant inquiries. Connect with ZEBALPHA.",
 };
 
 export default function ContactPage() {

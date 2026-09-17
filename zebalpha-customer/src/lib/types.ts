@@ -39,6 +39,10 @@ export type Product = {
   packages?: ProductPackage[];
   rating?: number;
   review_count?: number;
+  seller_id?: string;
+  seller_name?: string;
+  business_name?: string;
+  seller_city?: string;
   virtual_tryon_image?: string;
   virtual_tryon_category?: 'upper_body' | 'lower_body' | 'dresses' | 'outerwear' | string;
   is_vto_enabled?: boolean;
