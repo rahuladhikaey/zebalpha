@@ -70,18 +70,29 @@ export default function LoginPage() {
     setStatusMessage("");
     setLoading(true);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectParam = urlParams.get("redirect") || "/";
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectParam = urlParams.get("redirect") || "/";
+      const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectParam)}`;
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectParam)}`,
-      },
-    });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
 
-    if (error) {
-      setStatusMessage(getFriendlyLoginMessage(error));
+      if (error) {
+        setStatusMessage(getFriendlyLoginMessage(error));
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error("[Google OAuth Error]:", err);
+      setStatusMessage(err?.message || "Google sign-in could not be initiated. Please try again.");
       setLoading(false);
     }
   };
