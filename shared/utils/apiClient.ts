@@ -1,12 +1,12 @@
 /**
  * Production-Ready API Client for ZEBALPHA Marketplace Frontends
- * Interconnects Frontends with Express Backend API (https://zebalpha-backend-hlk5.onrender.com)
+ * Interconnects Frontends with Express Backend API (https://zebalpha-backend.onrender.com)
  */
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  'https://zebalpha-backend-hlk5.onrender.com';
+  'https://zebalpha-backend.onrender.com';
 
 interface ApiFetchOptions extends RequestInit {
   timeoutMs?: number;
