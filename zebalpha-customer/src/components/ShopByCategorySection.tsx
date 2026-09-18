@@ -184,36 +184,36 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
               <Link
                 key={cat.id || idx}
                 href={`/products?category=${encodeURIComponent(cat.name)}`}
-                className="group relative flex-shrink-0 snap-start w-[145px] sm:w-[170px] md:w-[185px] flex flex-col items-center justify-between p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800/90 hover:border-white/40 hover:bg-neutral-850 shadow-lg hover:shadow-[0_8px_20px_rgba(255,255,255,0.06)] transition-all duration-300 transform hover:-translate-y-1 active:scale-95 text-center overflow-hidden cursor-pointer"
+                className="group relative flex-shrink-0 snap-start w-[130px] sm:w-[155px] md:w-[170px] flex flex-col items-center p-2 sm:p-2.5 rounded-2xl bg-neutral-900/90 border border-neutral-800/90 hover:border-white/40 hover:bg-neutral-850 shadow-lg hover:shadow-[0_8px_20px_rgba(255,255,255,0.06)] transition-all duration-300 transform hover:-translate-y-1 active:scale-95 text-center overflow-hidden cursor-pointer"
               >
                 {/* Clean Highlight Shimmer */}
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-white/5 to-transparent transition-opacity duration-300 pointer-events-none" />
 
-                {/* Cover Image / Icon Box */}
-                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-neutral-950 border border-neutral-800 flex items-center justify-center overflow-hidden group-hover:border-white/30 group-hover:scale-105 transition-all duration-300 shadow-inner mb-3">
+                {/* Cover Image / Icon Box - Maximized for bigger picture visibility */}
+                <div className="relative w-full aspect-square rounded-xl bg-neutral-950 border border-neutral-800/80 flex items-center justify-center overflow-hidden group-hover:border-white/30 transition-all duration-300 shadow-inner mb-2">
                   {imageSrc ? (
                     <Image
                       src={imageSrc}
                       alt={cat.name}
-                      width={80}
-                      height={80}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      fill
+                      sizes="(max-width: 640px) 130px, 170px"
+                      className="object-cover group-hover:scale-108 transition-transform duration-500"
                       unoptimized
                     />
                   ) : (
-                    <span className="text-2xl sm:text-3xl select-none group-hover:scale-115 transition-transform duration-300">
+                    <span className="text-3xl sm:text-4xl select-none group-hover:scale-110 transition-transform duration-300">
                       {cat.icon || "👕"}
                     </span>
                   )}
                 </div>
 
                 {/* Collection Title */}
-                <span className="text-xs sm:text-[13px] font-black text-neutral-200 group-hover:text-white uppercase tracking-wider line-clamp-1 transition-colors">
+                <span className="text-xs sm:text-[13px] font-black text-neutral-200 group-hover:text-white uppercase tracking-wider line-clamp-1 transition-colors px-1">
                   {cat.name}
                 </span>
 
                 {/* Action Prompt */}
-                <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-1.5 group-hover:text-neutral-300 transition-colors flex items-center gap-1">
+                <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-1 group-hover:text-neutral-300 transition-colors flex items-center gap-1">
                   <span>Explore</span>
                   <ArrowRight className="w-2.5 h-2.5 transform group-hover:translate-x-0.5 transition-transform" />
                 </span>

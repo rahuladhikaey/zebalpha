@@ -94,12 +94,6 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                 <p className="text-xs text-neutral-400 font-medium">Elevated fits engineered for timeless everyday wear</p>
               </div>
             </div>
-            <Link 
-              href="/products" 
-              className="rounded-full border border-neutral-800 bg-neutral-900 px-4 py-2 text-xs font-black uppercase tracking-wider text-neutral-300 hover:bg-white hover:text-black hover:border-white transition-all active:scale-95"
-            >
-              View All →
-            </Link>
           </div>
 
           <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-5">
@@ -179,13 +173,13 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
             })}
           </div>
 
-          {/* See All Products Button */}
+          {/* See All Collections Button */}
           <div className="mt-12 flex justify-center">
             <Link 
-              href="/products" 
+              href="/collections" 
               className="group relative flex w-fit items-center gap-3 overflow-hidden rounded-full bg-white px-8 py-4 text-xs font-black uppercase tracking-[0.25em] text-black shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all hover:bg-neutral-200 hover:shadow-[0_0_35px_rgba(255,255,255,0.4)] active:scale-95 mx-auto"
             >
-              <span>EXPLORE ALL DROPS</span>
+              <span>ALL COLLECTION</span>
               <span className="text-lg transition-transform group-hover:translate-x-1">→</span>
             </Link>
           </div>
