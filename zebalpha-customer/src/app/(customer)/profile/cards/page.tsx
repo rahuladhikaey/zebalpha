@@ -7,19 +7,26 @@ import Link from "next/link";
 import { CartHeaderLink } from "@/components/CartHeaderLink";
 import UserMenu from "@/components/UserMenu";
 
-const normalizeCardApplication = (app: any) => ({
-  id: app.id,
-  user_email: app.user_email || app.email,
-  name: app.name || "",
-  email: app.user_email || app.email || "",
-  phone: app.phone || "",
-  cardType: app.card_type || app.cardType || "Silver",
-  status: app.status || "PENDING",
-  appliedAt: app.applied_at || app.appliedAt || new Date().toISOString(),
-  updatedAt: app.updated_at || app.updatedAt,
-  cardNumber: app.card_number || app.cardNumber,
-  expiresAt: app.expires_at || app.expiresAt,
-});
+const normalizeCardApplication = (app: any) => {
+  const cType = app.card_type || app.cardType || "Silver";
+  const safeType = cType.includes("Gold") ? "Gold" : cType.includes("VIP") ? "VIP" : cType.includes("Bronze") ? "Bronze" : "Silver";
+  const st = (app.status || "APPROVED").toUpperCase();
+  return {
+    id: app.id || `card_${Date.now()}`,
+    user_id: app.user_id,
+    user_email: app.user_email || app.email,
+    name: app.name || "Privilege Member",
+    email: app.user_email || app.email || "",
+    phone: app.phone || "",
+    cardType: safeType,
+    status: st,
+    coins: app.coins || 250,
+    appliedAt: app.applied_at || app.appliedAt || new Date().toISOString(),
+    updatedAt: app.updated_at || app.updatedAt,
+    cardNumber: app.card_number || app.cardNumber || `ALP-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
+    expiresAt: app.expires_at || app.expiresAt || new Date(Date.now() + 27 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+};
 
 function LowPolyBackground({ type }: { type: "Silver" | "Gold" | "Bronze" | "VIP" }) {
   let gradient = "";
@@ -215,7 +222,7 @@ export default function CardsPage() {
         // 1. Try our server-side API endpoint first (service_role, zero RLS issues)
         let fetchedApps: any[] | null = null;
         try {
-          const apiRes = await fetch(`/api/cards?email=${encodeURIComponent(userEmail)}`);
+          const apiRes = await fetch(`/api/cards?email=${encodeURIComponent(userEmail)}&userId=${encodeURIComponent(user.id)}`);
           if (apiRes.ok) {
             const json = await apiRes.json();
             if (json.success && Array.isArray(json.applications) && json.applications.length > 0) {
@@ -231,7 +238,7 @@ export default function CardsPage() {
           const { data: apps, error: appsErr } = await supabase
             .from("card_applications")
             .select("*")
-            .or(`user_email.ilike.${userEmail},email.ilike.${userEmail}`)
+            .or(`user_email.ilike.${userEmail},email.ilike.${userEmail},user_id.eq.${user.id}`)
             .order("applied_at", { ascending: false });
 
           if (apps && !appsErr && apps.length > 0) {
@@ -252,17 +259,15 @@ export default function CardsPage() {
           if (cached) {
             try {
               const parsed = JSON.parse(cached);
-              const matching = parsed?.filter((a: any) => ((a.email || a.user_email) || "").toLowerCase() === userEmail);
+              const matching = parsed?.filter((a: any) => {
+                const emMatch = ((a.email || a.user_email) || "").toLowerCase() === userEmail;
+                const idMatch = a.user_id && user.id && String(a.user_id) === String(user.id);
+                return emMatch || idMatch;
+              });
               if (matching && matching.length > 0) {
                 setApplications(matching.map(normalizeCardApplication));
-              } else {
-                setApplications([]);
               }
-            } catch (e) {
-              setApplications([]);
-            }
-          } else {
-            setApplications([]);
+            } catch (e) {}
           }
         }
       } catch (e) {
@@ -288,7 +293,11 @@ export default function CardsPage() {
   }, [user]);
 
   const userApplication = user ? applications.find(
-    (app) => ((app.email || app.user_email) || "")?.toLowerCase() === user.email?.toLowerCase()
+    (app) => {
+      const emailMatch = ((app.email || app.user_email) || "")?.toLowerCase() === user.email?.toLowerCase();
+      const idMatch = app.user_id && user.id && String(app.user_id) === String(user.id);
+      return emailMatch || idMatch;
+    }
   ) : null;
 
   const handleApplyCard = async (e: React.FormEvent) => {
@@ -313,7 +322,9 @@ export default function CardsPage() {
 
     try {
       const applicantEmail = (user?.email || (typeof window !== "undefined" ? localStorage.getItem("zebalpha_user_email") : null) || "guest@zebalpha.com").trim().toLowerCase();
-      
+      const generatedCardNumber = `ALP-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const expiresAt = new Date(Date.now() + 27 * 24 * 60 * 60 * 1000).toISOString();
+
       const newAppPayload: any = {
         user_id: user?.id || null,
         user_email: applicantEmail,
@@ -321,7 +332,10 @@ export default function CardsPage() {
         name: fullName.trim(),
         phone: phoneNumber.trim(),
         card_type: cardType,
-        status: "PENDING",
+        status: "APPROVED",
+        coins: 250,
+        card_number: generatedCardNumber,
+        expires_at: expiresAt,
         applied_at: new Date().toISOString()
       };
 
@@ -332,7 +346,7 @@ export default function CardsPage() {
         const res = await fetch("/api/cards", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newAppPayload)
+          body: JSON.stringify({ ...newAppPayload, auto_approve: true })
         });
         if (res.ok) {
           const data = await res.json();
@@ -363,7 +377,7 @@ export default function CardsPage() {
       // 3. Always maintain state & LocalStorage cache
       const finalApp = normalizeCardApplication(savedApp || newAppPayload);
       const updatedApps = [
-        ...applications.filter(a => ((a.user_email || a.email) || "").toLowerCase() !== applicantEmail),
+        ...applications.filter(a => ((a.user_email || a.email) || "").toLowerCase() !== applicantEmail && (!user?.id || a.user_id !== user.id)),
         finalApp
       ];
       setApplications(updatedApps as any[]);
@@ -375,12 +389,12 @@ export default function CardsPage() {
         // ignore
       }
 
-      setFormSuccess("✅ Application submitted successfully!");
+      setFormSuccess("✅ Alpha Card activated successfully!");
       setShowApplyModal(false);
       setTimeout(() => setFormSuccess(""), 3000);
     } catch (err) {
       console.error("Apply card error:", err);
-      setFormSuccess("✅ Application submitted!");
+      setFormSuccess("✅ Alpha Card activated!");
       setShowApplyModal(false);
     } finally {
       setIsSubmitting(false);

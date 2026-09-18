@@ -14,6 +14,7 @@ const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "temp
 const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
 
 export default function SignupPage() {
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState(() => {
     if (typeof window === "undefined") return "";
     return window.localStorage.getItem(SIGNUP_EMAIL_KEY) ?? "";
@@ -144,6 +145,11 @@ export default function SignupPage() {
     e.preventDefault();
     setStatusMessage("");
 
+    if (!fullName.trim()) {
+      showStatus("Please enter your full name.", "error");
+      return;
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail || !normalizedEmail.includes("@")) {
       showStatus("Please enter a valid email address.", "error");
@@ -238,7 +244,7 @@ export default function SignupPage() {
         body: JSON.stringify({
           email: normalizedEmail,
           password: password,
-          fullName: "Customer",
+          fullName: fullName.trim() || "Customer",
         }),
       });
 
@@ -401,9 +407,20 @@ export default function SignupPage() {
                     <div className="space-y-3">
                       <div className="group relative">
                         <input
+                          type="text"
+                          required
+                          maxLength={50}
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Your Full Name"
+                          className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white"
+                        />
+                      </div>
+                      <div className="group relative">
+                        <input
                           type="email"
                           required
-                          maxLength={25}
+                          maxLength={35}
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="Email Address"

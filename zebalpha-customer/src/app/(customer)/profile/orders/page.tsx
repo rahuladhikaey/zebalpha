@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Header } from "@/components/Header";
@@ -22,53 +23,73 @@ interface Order {
 }
 
 export default function MyOrdersPage() {
+  const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setLoadingOrders(false);
+      return;
+    }
+
     async function fetchOrders() {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        setLoading(false);
-        return;
+      setLoadingOrders(true);
+      try {
+        const userEmail = (user?.email || "").trim().toLowerCase();
+        
+        let query = supabase
+          .from("orders")
+          .select("*");
+
+        if (user?.id && userEmail) {
+          query = query.or(`user_id.eq.${user.id},customer_email.ilike.${userEmail},email.ilike.${userEmail}`);
+        } else if (user?.id) {
+          query = query.eq("user_id", user.id);
+        }
+
+        const { data, error } = await query.order("created_at", { ascending: false });
+
+        if (error) {
+          // Fallback query by user_id only
+          const { data: fallbackData } = await supabase
+            .from("orders")
+            .select("*")
+            .eq("user_id", user?.id)
+            .order("created_at", { ascending: false });
+          
+          setOrders((fallbackData as Order[]) || []);
+        } else {
+          const rawOrders = (data as Order[]) || [];
+          const seenOrderKeys = new Set<string>();
+          const uniqueOrders = rawOrders.filter((ord: any) => {
+            const primaryKey = ord.razorpay_order_id || ord.order_number || ord.id;
+            if (seenOrderKeys.has(primaryKey)) return false;
+            seenOrderKeys.add(primaryKey);
+            return true;
+          });
+          setOrders(uniqueOrders);
+        }
+      } catch (err) {
+        console.error("Error fetching orders:", err);
+      } finally {
+        setLoadingOrders(false);
       }
-
-      setUser(sessionData.session.user);
-
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("user_id", sessionData.session.user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching orders:", error);
-      } else {
-        const rawOrders = (data as Order[]) || [];
-        const seenOrderKeys = new Set<string>();
-        const uniqueOrders = rawOrders.filter((ord: any) => {
-          // Identify duplicate orders by razorpay_order_id, order_number, or primary id
-          const primaryKey = ord.razorpay_order_id || ord.order_number || ord.id;
-          if (seenOrderKeys.has(primaryKey)) {
-            return false;
-          }
-          seenOrderKeys.add(primaryKey);
-          return true;
-        });
-        setOrders(uniqueOrders);
-      }
-      setLoading(false);
     }
 
     fetchOrders();
-  }, []);
+  }, [user, authLoading]);
 
-  if (loading) {
+  if (authLoading || (loadingOrders && user)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent" />
+          <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Loading Orders...</span>
+        </div>
       </main>
     );
   }
