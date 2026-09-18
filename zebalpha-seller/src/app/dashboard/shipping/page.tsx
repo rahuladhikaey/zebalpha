@@ -7,32 +7,23 @@ import {
   MapPin, 
   Plus, 
   CheckCircle2, 
-  FileText, 
-  RefreshCw, 
-  Search,
-  ExternalLink,
+  Building2,
   ShieldCheck,
-  Eye,
-  EyeOff
+  Phone,
+  ArrowRight,
+  PackageCheck,
+  Zap,
+  Info
 } from "lucide-react";
+import Link from "next/link";
 
 export default function SellerShipping() {
   const [loading, setLoading] = useState(true);
   const [pickupLocations, setPickupLocations] = useState<any[]>([]);
-  const [shiprocketConnected, setShiprocketConnected] = useState(false);
-  const [shiprocketEmail, setShiprocketEmail] = useState("");
-  const [shiprocketPassword, setShiprocketPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  
-  // AWB / Label generation inputs
-  const [orderIdInput, setOrderIdInput] = useState("");
-  const [selectedCourier, setSelectedCourier] = useState("Delhivery Surface");
-  const [awbOutput, setAwbOutput] = useState<{ awb: string; labelUrl: string } | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
 
-  // New location form
-  const [showLocationModal, setShowLocationModal] = useState(false);
+  // New location form state
   const [newLoc, setNewLoc] = useState({
     name: "",
     phone: "",
@@ -56,18 +47,6 @@ export default function SellerShipping() {
         .order("is_default", { ascending: false });
 
       setPickupLocations(locations || []);
-
-      // 2. Fetch seller shiprocket status from sellers table
-      const { data: seller } = await supabase
-        .from("sellers")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (seller?.shiprocket_email) {
-        setShiprocketConnected(true);
-        setShiprocketEmail(seller.shiprocket_email);
-      }
     } catch (e) {
       console.error("Error loading shipping data:", e);
     } finally {
@@ -90,12 +69,12 @@ export default function SellerShipping() {
         .from("sellers")
         .select("id")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (!seller) return;
+      const sellerId = seller?.id || user.id;
 
       const { error } = await supabase.from("seller_pickup_locations").insert({
-        seller_id: seller.id,
+        seller_id: sellerId,
         name: newLoc.name,
         phone: newLoc.phone,
         address_line1: newLoc.address_line1,
@@ -109,332 +88,244 @@ export default function SellerShipping() {
       
       setShowLocationModal(false);
       setNewLoc({ name: "", phone: "", address_line1: "", city: "", state: "", pincode: "" });
+      setStatusMsg("✓ Pickup Location Saved Successfully!");
+      setTimeout(() => setStatusMsg(""), 4000);
       loadShippingData();
     } catch (err: any) {
       alert(err.message || "Failed to add location.");
     }
   };
 
-  const handleConnectShiprocket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatusMsg("Connecting to Shiprocket API...");
-    setTimeout(() => {
-      setShiprocketConnected(true);
-      setStatusMsg("✅ Shiprocket API connected successfully!");
-    }, 1200);
-  };
-
-  const handleGenerateLabelAndAWB = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderIdInput.trim()) return;
-
-    setGenerating(true);
-    setAwbOutput(null);
-
-    // Simulate Shiprocket AWB generation & Label URL
-    setTimeout(() => {
-      const fakeAWB = `AWB-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-      const fakeLabelUrl = `https://shiprocket.in/labels/${fakeAWB}.pdf`;
-      
-      setAwbOutput({
-        awb: fakeAWB,
-        labelUrl: fakeLabelUrl,
-      });
-      setGenerating(false);
-    }, 1500);
-  };
-
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-black tracking-tight">Shipping & Logistics</h1>
-        <p className="text-xs font-bold text-text-secondary mt-1">
-          Manage pickup locations, Shiprocket integration, courier selection, and AWB label generation.
-        </p>
+    <div className="space-y-8 max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">
+            Pickup & Warehouse Hub
+          </h1>
+          <p className="text-xs sm:text-sm font-bold text-zinc-400 mt-1">
+            Manage registered warehouse locations where courier delivery riders will arrive to pick up packed orders.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowLocationModal(true)}
+          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider transition shadow-xl cursor-pointer"
+        >
+          <Plus size={16} />
+          Add Warehouse Location
+        </button>
       </div>
 
       {statusMsg && (
-        <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 p-4 border border-emerald-100 text-xs font-black text-emerald-700 dark:text-emerald-400">
+        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-4 text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+          <CheckCircle2 size={16} />
           {statusMsg}
         </div>
       )}
 
-      {/* Grid: Shiprocket Config & AWB Generation */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Shiprocket Integration Box */}
-        <div className="rounded-[2.5rem] bg-foreground/[0.03] border border-foreground/[0.06] p-6 backdrop-blur-xl flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                  <Truck size={20} />
-                </div>
-                <div>
-                  <h2 className="text-base font-black">Shiprocket Integration</h2>
-                  <span className="text-[10px] font-black uppercase text-text-muted">Automated Shipping API</span>
-                </div>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${shiprocketConnected ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600"}`}>
-                {shiprocketConnected ? "Active" : "Not Connected"}
+      {/* Central Logistics Status Banner */}
+      <div className="rounded-3xl bg-zinc-900/60 border border-zinc-800 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="flex items-start gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-purple-600/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+            <Truck size={24} />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-black text-white uppercase tracking-wider">
+                Central Logistics Gateway Active
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                Automated 3PL
               </span>
             </div>
-
-            <p className="text-xs font-bold text-text-secondary mb-6 leading-relaxed">
-              Connect your official Shiprocket merchant account to automatically sync orders, compare courier rates, assign AWBs, and print shipping labels directly from this panel.
+            <p className="text-xs font-medium text-zinc-400 max-w-2xl leading-relaxed">
+              Courier partners (<strong>Delhivery, Shadowfax, BlueDart, Xpressbees</strong>) are automatically assigned by the platform backend based on destination and lowest rate. When you pack an order on the <Link href="/dashboard/orders" className="text-purple-400 hover:underline font-bold">Orders Page</Link>, delivery riders receive instant pickup tasks at your registered warehouse address below.
             </p>
-
-            {shiprocketConnected ? (
-              <div className="rounded-2xl bg-foreground/[0.03] p-4 border border-foreground/[0.06] space-y-2 text-xs font-bold">
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Connected Account:</span>
-                  <span className="font-black">{shiprocketEmail || "merchant@zebalpha.com"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">API Status:</span>
-                  <span className="font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <ShieldCheck size={14} /> Ready for Dispatch
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleConnectShiprocket} className="space-y-4">
-                <div>
-                  <label className="text-xs font-black uppercase tracking-wider text-text-muted block mb-1">
-                    Shiprocket Account Email
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="email@shiprocket.in"
-                    value={shiprocketEmail}
-                    onChange={(e) => setShiprocketEmail(e.target.value)}
-                    className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-black uppercase tracking-wider text-text-muted block mb-1">
-                    API Key / Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      required
-                      placeholder="••••••••••••"
-                      value={shiprocketPassword}
-                      onChange={(e) => setShiprocketPassword(e.target.value)}
-                      className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none focus:border-primary pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  className="w-full h-12 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer"
-                >
-                  Connect Shiprocket Account
-                </button>
-              </form>
-            )}
           </div>
         </div>
 
-        {/* Generate AWB & Shipping Label Box */}
-        <div className="rounded-[2.5rem] bg-foreground/[0.03] border border-foreground/[0.06] p-6 backdrop-blur-xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-10 w-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
-              <FileText size={20} />
-            </div>
-            <div>
-              <h2 className="text-base font-black">Generate AWB & Label</h2>
-              <span className="text-[10px] font-black uppercase text-text-muted">Courier Dispatch Utility</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleGenerateLabelAndAWB} className="space-y-4">
-            <div>
-              <label className="text-xs font-black uppercase tracking-wider text-text-muted block mb-1">
-                Order ID / Number
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. ORD-10928"
-                value={orderIdInput}
-                onChange={(e) => setOrderIdInput(e.target.value)}
-                className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none focus:border-primary"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-black uppercase tracking-wider text-text-muted block mb-1">
-                Preferred Courier Partner
-              </label>
-              <select
-                value={selectedCourier}
-                onChange={(e) => setSelectedCourier(e.target.value)}
-                className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none focus:border-primary"
-              >
-                <option value="Delhivery Surface">Delhivery Surface (₹45)</option>
-                <option value="BlueDart Air">BlueDart Express Air (₹95)</option>
-                <option value="DTDC Express">DTDC Express (₹60)</option>
-                <option value="Shadowfax Local">Shadowfax Local (₹40)</option>
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              disabled={generating}
-              className="w-full h-12 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 cursor-pointer"
-            >
-              {generating ? "Assigning AWB..." : "Generate AWB & Printable Label"}
-            </button>
-          </form>
-
-          {awbOutput && (
-            <div className="mt-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 p-4 border border-emerald-100 dark:border-emerald-900/30 space-y-2">
-              <div className="flex justify-between text-xs font-bold">
-                <span className="text-text-muted">Generated AWB Code:</span>
-                <span className="font-black text-emerald-700 dark:text-emerald-400">{awbOutput.awb}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs font-bold pt-2">
-                <span className="text-text-muted">Label Document:</span>
-                <a
-                  href={awbOutput.labelUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-primary font-black hover:underline"
-                >
-                  <span>Download PDF Label</span>
-                  <ExternalLink size={12} />
-                </a>
-              </div>
-            </div>
-          )}
-        </div>
+        <Link
+          href="/dashboard/orders"
+          className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-black uppercase tracking-wider transition whitespace-nowrap flex items-center gap-1.5 shrink-0"
+        >
+          <span>Go to Orders Dispatch</span>
+          <ArrowRight size={14} />
+        </Link>
       </div>
 
       {/* Pickup Locations Management Section */}
-      <div className="rounded-[2.5rem] bg-foreground/[0.03] border border-foreground/[0.06] p-6 backdrop-blur-xl">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-lg font-black tracking-tight">Pickup & Warehouse Locations</h2>
-            <p className="text-xs font-bold text-text-secondary mt-0.5">
-              Addresses registered for courier order collection
-            </p>
+      <div className="rounded-3xl bg-zinc-900/40 border border-zinc-800 p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+              <Building2 size={16} />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-white uppercase tracking-wider">
+                Registered Warehouse Addresses ({pickupLocations.length})
+              </h2>
+              <p className="text-[11px] font-bold text-zinc-500">
+                Delivery boys use these locations to scan and collect packages
+              </p>
+            </div>
           </div>
-          <button
-            onClick={() => setShowLocationModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black shadow-lg transition-all cursor-pointer"
-          >
-            <Plus size={16} />
-            Add Pickup Location
-          </button>
         </div>
 
-        {pickupLocations.length === 0 ? (
-          <div className="py-8 text-center text-text-muted text-xs font-bold">
-            No pickup locations added yet. Add your warehouse or store pickup address.
+        {loading ? (
+          <div className="py-12 text-center text-zinc-500 text-xs font-bold">
+            Loading warehouse locations...
+          </div>
+        ) : pickupLocations.length === 0 ? (
+          <div className="py-12 text-center space-y-3 bg-zinc-900/30 rounded-2xl border border-zinc-800/60 p-6">
+            <MapPin size={32} className="text-zinc-600 mx-auto" />
+            <h3 className="text-sm font-black text-white uppercase tracking-wider">No Pickup Location Added Yet</h3>
+            <p className="text-xs font-medium text-zinc-400 max-w-md mx-auto">
+              Please add your shop or warehouse address with correct pincode so couriers can come to your doorstep for pickup.
+            </p>
+            <button
+              onClick={() => setShowLocationModal(true)}
+              className="mt-2 px-5 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider transition cursor-pointer"
+            >
+              + Add Primary Warehouse
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {pickupLocations.map((loc) => (
               <div
                 key={loc.id}
-                className="rounded-3xl bg-foreground/[0.03] border border-foreground/[0.06] p-5 relative space-y-2 text-xs font-bold"
+                className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-5 space-y-3 relative hover:border-zinc-700 transition"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-black text-sm">{loc.name}</span>
-                  {loc.is_default && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-primary/10 text-primary">
-                      Default Pickup
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-sm text-white">{loc.name}</span>
+                    {loc.is_default && (
+                      <span className="px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30 text-[9px] font-black uppercase tracking-wider">
+                        Default Pickup Point
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center gap-1">
+                    <ShieldCheck size={13} /> Active
+                  </span>
                 </div>
-                <p className="text-text-secondary">{loc.address_line1}, {loc.city}, {loc.state} - {loc.pincode}</p>
-                <p className="text-text-muted">Contact Phone: {loc.phone}</p>
+
+                <div className="space-y-1 text-xs">
+                  <p className="text-zinc-300 font-medium leading-relaxed">{loc.address_line1}</p>
+                  <p className="text-white font-black text-sm">{loc.city}, {loc.state} - {loc.pincode}</p>
+                  <p className="text-zinc-400 font-mono text-[11px] pt-1 flex items-center gap-1">
+                    <Phone size={12} className="text-zinc-500" /> Contact Phone: {loc.phone}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Location Modal */}
+      {/* Location Add Modal */}
       {showLocationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/20 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-[2.5rem] bg-background border border-foreground/[0.08] p-6 md:p-8 shadow-2xl space-y-4">
-            <h2 className="text-lg font-black">Add Pickup Location</h2>
-            <form onSubmit={handleAddLocation} className="space-y-3">
-              <input
-                type="text"
-                required
-                placeholder="Location Name (e.g. Main Warehouse)"
-                value={newLoc.name}
-                onChange={(e) => setNewLoc({ ...newLoc, name: e.target.value })}
-                className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none"
-              />
-              <input
-                type="tel"
-                required
-                placeholder="Contact Phone"
-                value={newLoc.phone}
-                onChange={(e) => setNewLoc({ ...newLoc, phone: e.target.value })}
-                className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none"
-              />
-              <textarea
-                required
-                rows={2}
-                placeholder="Address Line 1"
-                value={newLoc.address_line1}
-                onChange={(e) => setNewLoc({ ...newLoc, address_line1: e.target.value })}
-                className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-xs font-bold outline-none"
-              />
-              <div className="grid grid-cols-3 gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-zinc-950 border border-zinc-800 p-6 md:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+            <div>
+              <h2 className="text-base font-black text-white uppercase tracking-wider">Add Warehouse / Pickup Address</h2>
+              <p className="text-xs font-bold text-zinc-400 mt-0.5">Where delivery riders will arrive to collect parcels</p>
+            </div>
+
+            <form onSubmit={handleAddLocation} className="space-y-3.5">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">
+                  Location Name (e.g. Main Shop / Surat Warehouse)
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="City"
-                  value={newLoc.city}
-                  onChange={(e) => setNewLoc({ ...newLoc, city: e.target.value })}
-                  className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-3 py-2.5 text-xs font-bold outline-none"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="State"
-                  value={newLoc.state}
-                  onChange={(e) => setNewLoc({ ...newLoc, state: e.target.value })}
-                  className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-3 py-2.5 text-xs font-bold outline-none"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Pincode"
-                  value={newLoc.pincode}
-                  onChange={(e) => setNewLoc({ ...newLoc, pincode: e.target.value })}
-                  className="w-full rounded-2xl border-2 border-slate-200/50 bg-slate-50/50 dark:bg-slate-900/50 px-3 py-2.5 text-xs font-bold outline-none"
+                  placeholder="Main Warehouse Unit 1"
+                  value={newLoc.name}
+                  onChange={(e) => setNewLoc({ ...newLoc, name: e.target.value })}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-xs font-bold text-white placeholder-zinc-500 outline-none focus:border-purple-500"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">
+                  Contact Phone Number
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="9876543210"
+                  value={newLoc.phone}
+                  onChange={(e) => setNewLoc({ ...newLoc, phone: e.target.value })}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-xs font-bold text-white placeholder-zinc-500 outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">
+                  Street / Area Address
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  placeholder="Shop No. 12, Fashion Textile Market, Ring Road"
+                  value={newLoc.address_line1}
+                  onChange={(e) => setNewLoc({ ...newLoc, address_line1: e.target.value })}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-xs font-bold text-white placeholder-zinc-500 outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">City</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Surat"
+                    value={newLoc.city}
+                    onChange={(e) => setNewLoc({ ...newLoc, city: e.target.value })}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-xs font-bold text-white placeholder-zinc-500 outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">State</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Gujarat"
+                    value={newLoc.state}
+                    onChange={(e) => setNewLoc({ ...newLoc, state: e.target.value })}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-xs font-bold text-white placeholder-zinc-500 outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">Pincode</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="395002"
+                    value={newLoc.pincode}
+                    onChange={(e) => setNewLoc({ ...newLoc, pincode: e.target.value })}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-xs font-bold text-white placeholder-zinc-500 outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowLocationModal(false)}
-                  className="flex-1 h-12 rounded-2xl border border-slate-200 text-xs font-bold"
+                  className="flex-1 h-11 rounded-xl border border-zinc-700 text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-900 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 h-12 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase transition-all cursor-pointer"
+                  className="flex-1 h-11 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider transition cursor-pointer"
                 >
-                  Save Location
+                  Save Warehouse
                 </button>
               </div>
             </form>
