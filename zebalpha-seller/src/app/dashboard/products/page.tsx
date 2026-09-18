@@ -93,6 +93,8 @@ export default function SellerProducts() {
     setForm((f) => ({ ...f, image_url: updated[0] || "" }));
   };
 
+  const [activeTab, setActiveTab] = useState<"ALL" | "PREMIUM" | "NORMAL" | "DROPS">("ALL");
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -143,8 +145,23 @@ export default function SellerProducts() {
         ];
       }
 
+      const mappedProducts: Product[] = (productsData || []).map((p: any) => {
+        const specs = p.specifications || {};
+        const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium") || (p.name || "").toLowerCase().includes("supima");
+        const isDrop = p.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
+        const coll = p.collection || specs.collection || "";
+        const dropDate = p.target_drop_date || p.drop_date || specs.target_drop_date || "";
+        return {
+          ...p,
+          is_premium: isPrem,
+          is_new_drop: isDrop,
+          collection: coll,
+          target_drop_date: dropDate,
+          tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
+        };
+      });
 
-      setProducts(productsData || []);
+      setProducts(mappedProducts);
       setCategories(finalCategories);
     } catch (e) {
       console.error("Error loading products:", e);
@@ -254,7 +271,9 @@ export default function SellerProducts() {
     const specsArray: string[] = [];
     if (product.specifications) {
       Object.entries(product.specifications).forEach(([k, v]) => {
-        specsArray.push(`${k}: ${v}`);
+        if (!["tier", "is_premium", "is_new_drop", "collection", "target_drop_date"].includes(k)) {
+          specsArray.push(`${k}: ${v}`);
+        }
       });
     }
     const specificationsText = specsArray.join("\n");
@@ -266,6 +285,12 @@ export default function SellerProducts() {
       });
     }
     const packagesText = pkgsArray.join("\n");
+
+    const specs = product.specifications || {};
+    const isPrem = !!product.is_premium || product.tier === "PREMIUM" || (specs as any)?.is_premium === "true" || (specs as any)?.tier === "PREMIUM";
+    const isDrop = !!product.is_new_drop || (product as any).status === "COMING_SOON" || (specs as any)?.is_new_drop === "true";
+    const coll = product.collection || (specs as any)?.collection || (product as any).category_name || "";
+    const dropDate = product.target_drop_date || (product as any).drop_date || (specs as any)?.target_drop_date || "";
 
     setForm({
       name: product.name || "",
@@ -280,11 +305,11 @@ export default function SellerProducts() {
       sku: product.sku || "",
       specificationsText,
       packagesText,
-      is_premium: !!product.is_premium || product.tier === "PREMIUM",
-      is_new_drop: !!product.is_new_drop || (product as any).status === "COMING_SOON",
-      collection: product.collection || (product as any).category_name || "",
-      target_drop_date: product.target_drop_date || (product as any).drop_date || "",
-      tier: product.tier || (product.is_premium ? "PREMIUM" : "STANDARD"),
+      is_premium: isPrem,
+      is_new_drop: isDrop,
+      collection: coll,
+      target_drop_date: dropDate,
+      tier: isPrem ? "PREMIUM" : (product.tier || (specs as any)?.tier || "STANDARD"),
     });
     setStatusMessage("");
     setIsModalOpen(true);
@@ -447,25 +472,54 @@ export default function SellerProducts() {
     try {
       let savedProduct: any = null;
       if (editingProduct) {
-        const { data, error } = await supabase
+        let res = await supabase
           .from("products")
           .update(payload)
           .eq("id", editingProduct.id)
           .select();
 
-        if (error) throw error;
-        savedProduct = data?.[0] || { id: editingProduct.id, ...payload };
+        // Schema cache fallback: If Supabase table does not have new columns yet, retry with clean payload
+        if (res.error && (res.error.message?.includes("column") || res.error.message?.includes("schema cache"))) {
+          const cleanPayload = { ...payload };
+          delete cleanPayload.is_premium;
+          delete cleanPayload.is_new_drop;
+          delete cleanPayload.collection;
+          delete cleanPayload.target_drop_date;
+          delete cleanPayload.tier;
+          res = await supabase
+            .from("products")
+            .update(cleanPayload)
+            .eq("id", editingProduct.id)
+            .select();
+        }
+
+        if (res.error) throw res.error;
+        savedProduct = res.data?.[0] || { id: editingProduct.id, ...payload };
         setStatusMessage("✅ Product updated successfully!");
       } else {
-        const { data, error } = await supabase
+        let res = await supabase
           .from("products")
           .insert([payload])
           .select();
 
-        if (error) throw error;
+        // Schema cache fallback: If Supabase table does not have new columns yet, retry with clean payload
+        if (res.error && (res.error.message?.includes("column") || res.error.message?.includes("schema cache"))) {
+          const cleanPayload = { ...payload };
+          delete cleanPayload.is_premium;
+          delete cleanPayload.is_new_drop;
+          delete cleanPayload.collection;
+          delete cleanPayload.target_drop_date;
+          delete cleanPayload.tier;
+          res = await supabase
+            .from("products")
+            .insert([cleanPayload])
+            .select();
+        }
+
+        if (res.error) throw res.error;
         
-        if (data && data.length > 0) {
-          savedProduct = data[0];
+        if (res.data && res.data.length > 0) {
+          savedProduct = res.data[0];
         } else {
           // Fallback query to retrieve auto-generated ID for newly inserted product
           const { data: fetched } = await supabase
@@ -492,17 +546,29 @@ export default function SellerProducts() {
     }
   };
 
+  const premiumCount = products.filter(p => p.is_premium).length;
+  const normalCount = products.length - premiumCount;
+  const dropCount = products.filter(p => p.is_new_drop).length;
+
+  const filteredProducts = products.filter(p => {
+    if (activeTab === "PREMIUM") return p.is_premium;
+    if (activeTab === "NORMAL") return !p.is_premium;
+    if (activeTab === "DROPS") return p.is_new_drop;
+    return true;
+  });
+
   return (
     <div className="space-y-6">
+      {/* Header & Add Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Products</h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">Manage apparel, streetwear collections, sizes, and pricing.</p>
+          <h1 className="text-2xl font-bold tracking-tight">My Products Catalog</h1>
+          <p className="text-xs font-medium text-slate-500 mt-1">Manage standard streetwear and high-ticket 💎 Premium Store items.</p>
         </div>
         <button
           onClick={openAddModal}
           disabled={accountStatus.toLowerCase() === "suspended"}
-          className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={16} /> Add Product
         </button>
@@ -517,21 +583,107 @@ export default function SellerProducts() {
         </div>
       )}
 
+      {/* Quick Stream Metrics Breakdown Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div 
+          onClick={() => setActiveTab("ALL")}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+            activeTab === "ALL" 
+              ? "bg-zinc-900 border-white/40 shadow-md shadow-white/5" 
+              : "bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700"
+          }`}
+        >
+          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">All Products</span>
+          <p className="text-2xl font-black text-white mt-1">{products.length}</p>
+          <span className="text-[10px] font-semibold text-zinc-500">Total catalog items</span>
+        </div>
+
+        <div 
+          onClick={() => setActiveTab("PREMIUM")}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+            activeTab === "PREMIUM" 
+              ? "bg-amber-950/40 border-amber-500/60 shadow-md shadow-amber-500/10" 
+              : "bg-zinc-950/80 border-zinc-800/80 hover:border-amber-500/30"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">💎 Premium Store</span>
+            <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+          </div>
+          <p className="text-2xl font-black text-amber-400 mt-1">{premiumCount}</p>
+          <span className="text-[10px] font-semibold text-amber-500/80">Luxury atelier stream</span>
+        </div>
+
+        <div 
+          onClick={() => setActiveTab("NORMAL")}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+            activeTab === "NORMAL" 
+              ? "bg-sky-950/40 border-sky-500/60 shadow-md shadow-sky-500/10" 
+              : "bg-zinc-950/80 border-zinc-800/80 hover:border-sky-500/30"
+          }`}
+        >
+          <span className="text-[10px] font-black uppercase tracking-wider text-sky-400">🏷️ Normal Apparel</span>
+          <p className="text-2xl font-black text-white mt-1">{normalCount}</p>
+          <span className="text-[10px] font-semibold text-sky-500/80">Standard everyday items</span>
+        </div>
+
+        <div 
+          onClick={() => setActiveTab("DROPS")}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+            activeTab === "DROPS" 
+              ? "bg-orange-950/40 border-orange-500/60 shadow-md shadow-orange-500/10" 
+              : "bg-zinc-950/80 border-zinc-800/80 hover:border-orange-500/30"
+          }`}
+        >
+          <span className="text-[10px] font-black uppercase tracking-wider text-orange-400">⚡ New Drops</span>
+          <p className="text-2xl font-black text-white mt-1">{dropCount}</p>
+          <span className="text-[10px] font-semibold text-orange-500/80">Hype release catalog</span>
+        </div>
+      </div>
+
+      {/* Product Stream Filter Switcher Tabs */}
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 overflow-x-auto no-scrollbar">
+        {[
+          { key: "ALL", label: `🏷️ All Items (${products.length})` },
+          { key: "PREMIUM", label: `💎 Premium Store Items (${premiumCount})`, highlight: "text-amber-400 border-amber-500/40 bg-amber-500/10" },
+          { key: "NORMAL", label: `🏷️ Normal Apparel (${normalCount})`, highlight: "text-sky-400 border-sky-500/40 bg-sky-500/10" },
+          { key: "DROPS", label: `⚡ New Drops (${dropCount})`, highlight: "text-orange-400 border-orange-500/40 bg-orange-500/10" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as any)}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap border ${
+              activeTab === tab.key
+                ? tab.highlight || "bg-white border-white text-black shadow-md shadow-white/10"
+                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex h-64 items-center justify-center">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
           <span className="ml-3 text-sm font-bold text-text-muted">Loading products...</span>
         </div>
-      ) : products.length === 0 ? (
+      ) : filteredProducts.length === 0 ? (
         <div className="rounded-3xl border-2 border-dashed border-foreground/[0.08] p-12 text-center text-text-muted">
           <ShoppingBag size={48} className="mx-auto mb-4 opacity-40" />
-          <h3 className="text-lg font-black text-foreground">No Products Listed</h3>
-          <p className="text-xs font-bold mt-1 max-w-sm mx-auto">Get started by creating your first product listing for the ZEB-ALPHA storefront.</p>
+          <h3 className="text-lg font-black text-foreground">
+            {activeTab === "PREMIUM" ? "No 💎 Premium Store Products Found" : activeTab === "DROPS" ? "No ⚡ New Drops Found" : "No Products Listed"}
+          </h3>
+          <p className="text-xs font-bold mt-1 max-w-sm mx-auto">
+            {activeTab === "PREMIUM" 
+              ? "Check 'Flag as Premium Store Item' when creating/editing products to list them here." 
+              : "Get started by creating your product listing for the ZEB-ALPHA storefront."}
+          </p>
           <button 
             onClick={openAddModal}
             className="mt-6 rounded-2xl border border-primary/20 px-5 py-3 text-xs font-black text-primary hover:bg-primary/5 transition-all"
           >
-            Add First Product
+            Add Product Now
           </button>
         </div>
       ) : (
@@ -540,7 +692,7 @@ export default function SellerProducts() {
             <table className="w-full border-collapse text-left text-sm">
               <thead className="bg-foreground/[0.03] border-b border-foreground/[0.06] font-black">
                 <tr>
-                  <th className="px-6 py-4">Product Info</th>
+                  <th className="px-6 py-4">Product Info & Stream</th>
                   <th className="px-6 py-4">Category</th>
                   <th className="px-6 py-4">Price</th>
                   <th className="px-6 py-4">Stock Status</th>
@@ -548,33 +700,58 @@ export default function SellerProducts() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-foreground/[0.04]">
-                {products.map((product) => (
-                  <tr key={product.id} className="hover:bg-foreground/[0.01] transition-all">
+                {filteredProducts.map((product) => (
+                  <tr 
+                    key={product.id} 
+                    className={`transition-all ${
+                      product.is_premium 
+                        ? "bg-amber-500/[0.02] hover:bg-amber-500/[0.05]" 
+                        : "hover:bg-foreground/[0.01]"
+                    }`}
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
-                        <img 
-                          src={product.image_url} 
-                          alt={product.name} 
-                          className="h-12 w-12 rounded-xl object-cover border border-foreground/[0.08]"
-                        />
+                        <div className="relative">
+                          <img 
+                            src={product.image_url} 
+                            alt={product.name} 
+                            className={`h-14 w-14 rounded-2xl object-cover border ${
+                              product.is_premium 
+                                ? "border-amber-500/50 shadow-md shadow-amber-500/20" 
+                                : "border-foreground/[0.08]"
+                            }`}
+                          />
+                          {product.is_premium && (
+                            <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-amber-400 text-black flex items-center justify-center text-[10px] shadow font-black" title="Premium Product">
+                              💎
+                            </span>
+                          )}
+                        </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-black text-foreground text-sm">{product.name}</p>
-                            {(product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true") && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider">
-                                💎 PREMIUM
+                            
+                            {/* Prominent Stream Badge (Normal vs Premium) */}
+                            {product.is_premium ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 text-amber-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm">
+                                💎 PREMIUM STORE
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                                🏷️ NORMAL APPAREL
                               </span>
                             )}
-                            {(product.is_new_drop || (product as any).status === "COMING_SOON" || (product.specifications as any)?.is_new_drop === "true") && (
+
+                            {product.is_new_drop && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider">
                                 ⚡ NEW DROP
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-2 mt-1">
                             <p className="text-[10px] font-bold text-text-muted">SKU: {product.sku || "N/A"}</p>
                             {(product.collection || (product.specifications as any)?.collection) && (
-                              <span className="text-[10px] font-semibold text-zinc-400 bg-foreground/[0.05] border border-foreground/[0.08] px-1.5 py-0.5 rounded">
+                              <span className="text-[10px] font-semibold text-zinc-400 bg-foreground/[0.05] border border-foreground/[0.08] px-2 py-0.5 rounded-md">
                                 🏷️ {product.collection || (product.specifications as any)?.collection}
                               </span>
                             )}
@@ -586,7 +763,7 @@ export default function SellerProducts() {
                       {(product as any).categories?.name || "General"}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-black text-foreground">₹{product.price}</div>
+                      <div className="font-black text-foreground text-base">₹{product.price}</div>
                       {product.mrp && product.mrp > product.price && (
                         <div className="text-[11px] font-bold text-text-muted line-through">₹{product.mrp}</div>
                       )}
@@ -609,13 +786,15 @@ export default function SellerProducts() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEditModal(product)}
-                          className="rounded-xl border border-foreground/[0.08] p-2 text-text-secondary hover:bg-foreground/[0.04] hover:text-text-primary transition-all"
+                          className="rounded-xl border border-foreground/[0.08] p-2 text-text-secondary hover:bg-foreground/[0.04] hover:text-text-primary transition-all cursor-pointer"
+                          title="Edit Product"
                         >
                           <Edit size={16} />
                         </button>
                         <button
                           onClick={() => handleDelete(product.id)}
-                          className="rounded-xl border border-rose-500/10 p-2 text-rose-500 hover:bg-rose-500/5 transition-all"
+                          className="rounded-xl border border-rose-500/10 p-2 text-rose-500 hover:bg-rose-500/5 transition-all cursor-pointer"
+                          title="Delete Product"
                         >
                           <Trash2 size={16} />
                         </button>

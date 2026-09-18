@@ -261,6 +261,14 @@ function ProductsContent() {
                             </div>
                           )}
 
+                          {/* 💎 Premium Store Badge */}
+                          {(product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true") && (
+                            <div className="absolute bottom-2 left-2 z-10 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[9px] shadow-lg flex items-center gap-1">
+                              <span>💎</span>
+                              <span>PREMIUM</span>
+                            </div>
+                          )}
+
                           <div className="absolute right-2 top-2 z-10 sm:right-3 sm:top-3">
                             <WishlistButton product={product} />
                           </div>

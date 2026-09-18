@@ -124,6 +124,14 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                       </div>
                     )}
 
+                    {/* 💎 Premium Store Badge */}
+                    {(product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true") && (
+                      <div className="absolute top-2.5 right-2.5 z-10 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[9px] shadow-lg flex items-center gap-1">
+                        <span>💎</span>
+                        <span>PREMIUM</span>
+                      </div>
+                    )}
+
                     {/* Quick Size Pills Preview */}
                     <div className="absolute bottom-2 inset-x-2 z-10 flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       {["S", "M", "L", "XL"].map((sz) => (
