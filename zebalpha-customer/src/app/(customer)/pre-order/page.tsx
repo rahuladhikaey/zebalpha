@@ -5,13 +5,29 @@ export const dynamic = "force-dynamic";
 import { FormEvent, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import Image from "next/image";
 
+const normalizeAddressFromRecord = (record: any) => {
+  const addressLine = record?.address_line || record?.address_line1 || record?.address_line2 || "";
+  const lineParts = (addressLine || "").split(",").map((part: string) => part.trim()).filter(Boolean);
+
+  return {
+    name: record?.name || record?.recipient_name || record?.full_name || "",
+    phone: record?.phone || record?.contact_number || record?.mobile || "",
+    village: record?.city || record?.village || record?.town || lineParts[0] || "",
+    postOffice: record?.post_office || record?.state || record?.address_line2 || lineParts[1] || "",
+    pincode: record?.pincode || record?.pin_code || record?.postal_code || "",
+    state: record?.state || record?.post_office || "",
+  };
+};
+
 function PreOrderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
 
   const [product, setProduct] = useState<any>(null);
   const [isLoadingProduct, setIsLoadingProduct] = useState(true);
@@ -23,8 +39,6 @@ function PreOrderContent() {
   const [state, setState] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>("UPI");
   const [billingSettings, setBillingSettings] = useState({ deliveryFee: 0, packagingFee: 0, tax: 0, freeDeliveryThreshold: 499 });
 
@@ -48,7 +62,7 @@ function PreOrderContent() {
             setMessage("Could not load product details.");
           }
         } catch (err) {
-          console.error(err);
+          console.error("Error fetching pre-order product:", err);
         } finally {
           setIsLoadingProduct(false);
         }
@@ -73,36 +87,60 @@ function PreOrderContent() {
     fetchSettings();
   }, []);
 
+  // Reactive address fetching
   useEffect(() => {
-    let isMounted = true;
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (isMounted) {
-        setIsAuthenticated(!!data.session);
-        setIsCheckingAuth(false);
+    if (authLoading) return;
 
-        if (data.session?.user?.email) {
-          const { data: address } = await supabase
-            .from('user_addresses')
-            .select('*')
-            .eq('user_email', data.session.user.email)
-            .order('saved_at', { ascending: false })
+    const fetchSavedAddress = async () => {
+      try {
+        let addressRecord: any = null;
+
+        if (user) {
+          const userEmail = (user?.email || "").trim().toLowerCase();
+          let query = supabase.from("user_addresses").select("*");
+
+          if (user.id && userEmail) {
+            query = query.or(`user_id.eq.${user.id},user_email.ilike.${userEmail}`);
+          } else if (user.id) {
+            query = query.eq("user_id", user.id);
+          } else if (userEmail) {
+            query = query.ilike("user_email", userEmail);
+          }
+
+          const { data, error } = await query
+            .order("saved_at", { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
-          if (address) {
-            if (address.name) setName(address.name);
-            if (address.phone) setPhone(address.phone);
-            if (address.village) setVillage(address.village);
-            if (address.post_office) setPostOffice(address.post_office);
-            if (address.pincode) setPincode(address.pincode);
+          if (data && !error) {
+            addressRecord = data;
           }
         }
+
+        if (addressRecord) {
+          const saved = normalizeAddressFromRecord(addressRecord);
+          const resolvedName = saved.name || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+          const resolvedPhone = saved.phone || user?.user_metadata?.phone || "";
+
+          if (resolvedName) setName(resolvedName);
+          if (resolvedPhone) setPhone(resolvedPhone);
+          if (saved.village) setVillage(saved.village);
+          if (saved.postOffice) setPostOffice(saved.postOffice);
+          if (saved.pincode) setPincode(saved.pincode);
+          if (saved.state) setState(saved.state);
+        } else if (user) {
+          const defaultName = user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+          const defaultPhone = user?.user_metadata?.phone || "";
+          if (defaultName) setName(defaultName);
+          if (defaultPhone) setPhone(defaultPhone);
+        }
+      } catch (err) {
+        console.error("Error fetching address in pre-order:", err);
       }
     };
-    checkAuth();
-    return () => { isMounted = false; };
-  }, []);
+
+    fetchSavedAddress();
+  }, [user, authLoading]);
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
@@ -235,7 +273,7 @@ function PreOrderContent() {
     }
   };
 
-  if (isCheckingAuth || isLoadingProduct) {
+  if (authLoading || isLoadingProduct) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black">
         <div className="flex flex-col items-center gap-4">
@@ -246,7 +284,7 @@ function PreOrderContent() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-black px-6 text-center">
         <div className="max-w-md w-full rounded-[2.5rem] bg-zinc-950 p-10 border border-zinc-800 shadow-2xl">

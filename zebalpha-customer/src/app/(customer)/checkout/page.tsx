@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { FormEvent, useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import { Header } from "@/components/Header";
@@ -14,12 +15,12 @@ const normalizeAddressFromRecord = (record: any) => {
   const lineParts = (addressLine || "").split(",").map((part: string) => part.trim()).filter(Boolean);
 
   return {
-    name: record?.name || "",
-    phone: record?.phone || "",
-    village: record?.city || record?.village || lineParts[0] || "",
-    postOffice: record?.post_office || record?.address_line2 || lineParts[1] || "",
-    pincode: record?.pincode || "",
-    addressDetail: record?.landmark || record?.address_detail || record?.addressDetail || "",
+    name: record?.name || record?.recipient_name || record?.full_name || "",
+    phone: record?.phone || record?.contact_number || record?.mobile || "",
+    village: record?.city || record?.village || record?.town || lineParts[0] || "",
+    postOffice: record?.post_office || record?.state || record?.address_line2 || lineParts[1] || "",
+    pincode: record?.pincode || record?.pin_code || record?.postal_code || "",
+    addressDetail: record?.landmark || record?.address_detail || record?.addressDetail || record?.extra_details || "",
   };
 };
 
@@ -43,6 +44,8 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const initialMethod = searchParams.get("method")?.toUpperCase() === "COD" ? "COD" : "ONLINE";
 
+  const { user, loading: authLoading } = useAuth();
+
   const isBuyNow = searchParams.get("buyNow") === "true";
   const { cart: contextCart, totalValue: contextTotalValue, clearCart } = useCart();
   const [buyNowItem, setBuyNowItem] = useState<any>(null);
@@ -56,8 +59,6 @@ function CheckoutContent() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const orderPlacedRef = useRef(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "COD">(initialMethod);
 
   // Saved Address UI state
@@ -89,8 +90,8 @@ function CheckoutContent() {
   const productId = searchParams.get("productId");
   const quantity = parseInt(searchParams.get("quantity") || "1");
 
+  // 1. Fetch products & Store Settings
   useEffect(() => {
-    // Fetch products
     const fetchAllProducts = async () => {
       try {
         const { data } = await supabase.from("products").select("*");
@@ -101,7 +102,6 @@ function CheckoutContent() {
     };
     fetchAllProducts();
 
-    // Fetch Billing Settings
     const fetchSettings = async () => {
       try {
         const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').single();
@@ -125,55 +125,110 @@ function CheckoutContent() {
       }
     };
     fetchOffer();
+  }, []);
 
-    // Fetch saved address from Supabase and LocalStorage
+  // 2. Fetch saved address reactively whenever user is ready
+  useEffect(() => {
+    if (authLoading) return;
+
     const fetchSavedAddress = async () => {
-      let loadedFromDB = false;
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        let addressRecord: any = null;
 
-      if (session?.user?.email) {
-        const { data, error } = await supabase
-          .from('user_addresses')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('saved_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        if (user) {
+          const userEmail = (user?.email || "").trim().toLowerCase();
+          let query = supabase.from("user_addresses").select("*");
 
-        if (data) {
-          const saved = normalizeAddressFromRecord(data);
-          if (saved.name) setName(saved.name);
-          if (saved.phone) setPhone(saved.phone);
+          if (user.id && userEmail) {
+            query = query.or(`user_id.eq.${user.id},user_email.ilike.${userEmail}`);
+          } else if (user.id) {
+            query = query.eq("user_id", user.id);
+          } else if (userEmail) {
+            query = query.ilike("user_email", userEmail);
+          }
+
+          const { data, error } = await query
+            .order("saved_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (data && !error) {
+            addressRecord = data;
+          }
+        }
+
+        if (addressRecord) {
+          const saved = normalizeAddressFromRecord(addressRecord);
+          const resolvedName = saved.name || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+          const resolvedPhone = saved.phone || user?.user_metadata?.phone || "";
+
+          if (resolvedName) setName(resolvedName);
+          if (resolvedPhone) setPhone(resolvedPhone);
           if (saved.village) setVillage(saved.village);
           if (saved.postOffice) setPostOffice(saved.postOffice);
           if (saved.pincode) setPincode(saved.pincode);
           if (saved.addressDetail) setAddressDetail(saved.addressDetail);
           setUseSavedAddress(true);
-          loadedFromDB = true;
-        }
-      }
-
-      // Fallback to localStorage ONLY if user is NOT logged in (guest) to prevent cross-account leaks
-      if (!session?.user?.email && typeof window !== "undefined") {
-        const saved = window.localStorage.getItem("asali-swad-user-address");
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (parsed.name) setName(parsed.name);
-            if (parsed.phone) setPhone(parsed.phone);
-            if (parsed.village) setVillage(parsed.village);
-            if (parsed.postOffice || parsed.post_office) setPostOffice(parsed.postOffice || parsed.post_office);
-            if (parsed.pincode) setPincode(parsed.pincode);
-            if (parsed.addressDetail || parsed.address_detail) setAddressDetail(parsed.addressDetail || parsed.address_detail);
-            setUseSavedAddress(true);
-          } catch (e) {
-            console.error(e);
+        } else {
+          // Fallback to localStorage
+          if (typeof window !== "undefined") {
+            const savedLocal = window.localStorage.getItem("asali-swad-user-address");
+            if (savedLocal) {
+              try {
+                const parsed = JSON.parse(savedLocal);
+                if (parsed.name) setName(parsed.name);
+                if (parsed.phone) setPhone(parsed.phone);
+                if (parsed.village) setVillage(parsed.village);
+                if (parsed.postOffice || parsed.post_office) setPostOffice(parsed.postOffice || parsed.post_office);
+                if (parsed.pincode) setPincode(parsed.pincode);
+                if (parsed.addressDetail || parsed.address_detail) setAddressDetail(parsed.addressDetail || parsed.address_detail);
+                setUseSavedAddress(true);
+              } catch (e) {}
+            } else if (user) {
+              const defaultName = user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+              const defaultPhone = user?.user_metadata?.phone || "";
+              if (defaultName) setName(defaultName);
+              if (defaultPhone) setPhone(defaultPhone);
+            }
           }
         }
+      } catch (err) {
+        console.error("Error fetching saved address in checkout:", err);
       }
     };
+
     fetchSavedAddress();
-  }, []);
+  }, [user, authLoading]);
+
+  // 3. Auto-check for VIP / Alpha Membership card
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const checkCardMembership = async () => {
+      try {
+        const userEmail = (user?.email || "").trim().toLowerCase();
+        const { data: application } = await supabase
+          .from("card_applications")
+          .select("*")
+          .or(`user_email.ilike.${userEmail},email.ilike.${userEmail}${user.id ? `,user_id.eq.${user.id}` : ""}`)
+          .eq("status", "APPROVED")
+          .order("approved_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (application) {
+          setCardNumber(application.card_number);
+          setHasMembershipCard(true);
+          setCardValidated(true);
+          setAppliedCardType(application.card_type);
+        }
+      } catch (e) {
+        console.warn("Card membership auto-check notice:", e);
+      }
+    };
+
+    checkCardMembership();
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (isBuyNow && productId) {
@@ -609,38 +664,7 @@ function CheckoutContent() {
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (isMounted) {
-        setIsAuthenticated(!!data.session);
-        setIsCheckingAuth(false);
-
-        // Auto-check for card if user is logged in
-        if (data.session?.user?.email) {
-          const sessEmail = data.session.user.email.trim().toLowerCase();
-          const { data: applications, error } = await supabase
-            .from('card_applications')
-            .select('*')
-            .or(`user_email.ilike.${sessEmail},email.ilike.${sessEmail}`)
-            .eq('status', 'APPROVED')
-            .maybeSingle();
-
-          if (applications) {
-            setCardNumber(applications.card_number);
-            setHasMembershipCard(true);
-            setCardValidated(true);
-            setAppliedCardType(applications.card_type);
-          }
-        }
-      }
-    };
-    checkAuth();
-    return () => { isMounted = false; };
-  }, []);
-
-  if (isCheckingAuth || (isBuyNow && isLoadingProduct)) {
+  if (authLoading || (isBuyNow && isLoadingProduct)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
         <div className="flex flex-col items-center gap-4">
@@ -651,7 +675,7 @@ function CheckoutContent() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-black px-6 text-center text-white">
         <div className="max-w-md w-full rounded-[2.5rem] bg-zinc-950 p-10 border border-zinc-800 shadow-2xl">
@@ -716,28 +740,14 @@ function CheckoutContent() {
               ) : (
                 /* Address Inputs (Hidden when using saved address) */
                 <div className="space-y-6 animate-in fade-in duration-300">
-                  {!isAuthenticated && typeof window !== "undefined" && window.localStorage.getItem("asali-swad-user-address") && (
+                  {name && village && pincode && (
                     <div className="flex justify-end">
                       <button
                         type="button"
-                        onClick={() => {
-                          const saved = window.localStorage.getItem("asali-swad-user-address");
-                          if (saved) {
-                            try {
-                              const parsed = JSON.parse(saved);
-                              if (parsed.name) setName(parsed.name);
-                              if (parsed.phone) setPhone(parsed.phone);
-                              if (parsed.village) setVillage(parsed.village);
-                              if (parsed.postOffice || parsed.post_office) setPostOffice(parsed.postOffice || parsed.post_office);
-                              if (parsed.pincode) setPincode(parsed.pincode);
-                              if (parsed.addressDetail || parsed.address_detail) setAddressDetail(parsed.addressDetail || parsed.address_detail);
-                            } catch (e) { }
-                          }
-                          setUseSavedAddress(true);
-                        }}
-                        className="text-[10px] font-black text-white uppercase tracking-widest hover:underline flex items-center gap-1 cursor-pointer"
+                        onClick={() => setUseSavedAddress(true)}
+                        className="text-[10px] font-black text-purple-400 hover:text-purple-300 uppercase tracking-widest flex items-center gap-1 cursor-pointer"
                       >
-                        ⚡ Use default saved address
+                        ⚡ Use saved address
                       </button>
                     </div>
                   )}
