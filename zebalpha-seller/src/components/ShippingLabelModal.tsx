@@ -40,7 +40,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
   const customerPhone = order.phone || order.shipping_address?.phone || "9883637054";
 
   const sellerName = sellerInfo?.business_name || sellerInfo?.store_name || sellerInfo?.full_name || "SHANTI RANI BISWAS (Jaganath Super Market)";
-  const sellerAddress = sellerInfo?.pickup_address || sellerInfo?.pickup_location || "GHETUGACHHI, Bastra Niketan, 27 NO ROAD OSOKTALA NEAR KHARKATA BAZAR";
+  const sellerAddress = sellerInfo?.pickup_address || sellerInfo?.pickup_location || sellerInfo?.warehouse_address || sellerInfo?.address || "GHETUGACHHI, Bastra Niketan, 27 NO ROAD OSOKTALA NEAR KHARKATA BAZAR";
   const sellerCity = sellerInfo?.city || "Chakdaha";
   const sellerState = sellerInfo?.state || "West Bengal";
   const sellerPincode = sellerInfo?.pincode || "741222";

@@ -7,15 +7,16 @@ import {
   MapPin, 
   Plus, 
   CheckCircle2, 
-  Building2,
-  ShieldCheck,
-  Phone,
-  ArrowRight,
-  PackageCheck,
-  Zap,
-  Info
+  Building2, 
+  ShieldCheck, 
+  Phone, 
+  ArrowRight, 
+  Trash2, 
+  Zap 
 } from "lucide-react";
 import Link from "next/link";
+
+const STORAGE_KEY = "zebalpha-seller-pickup-locations";
 
 export default function SellerShipping() {
   const [loading, setLoading] = useState(true);
@@ -42,7 +43,7 @@ export default function SellerShipping() {
       // Fetch seller profile
       const { data: seller } = await supabase
         .from("sellers")
-        .select("id, pickup_address, pickup_location, city, state, pincode, phone_number, mobile_number, business_name, full_name")
+        .select("id, pickup_address, pickup_location, warehouse_address, city, state, pincode, phone_number, mobile_number, business_name, full_name")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -54,7 +55,7 @@ export default function SellerShipping() {
         const res = await fetch(`/api/shipping/pickup-location?userId=${user.id}&sellerId=${sellerId}`);
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.locations)) {
+          if (json.success && Array.isArray(json.locations) && json.locations.length > 0) {
             fetchedLocations = json.locations;
           }
         }
@@ -62,33 +63,72 @@ export default function SellerShipping() {
         console.warn("Shipping API fetch notice, checking direct database:", apiErr);
       }
 
-      // 2. Fallback to Supabase query
+      // 2. Fallback to Supabase query on seller_pickup_locations
       if (fetchedLocations.length === 0) {
-        const { data: locations } = await supabase
-          .from("seller_pickup_locations")
-          .select("*")
-          .or(`seller_id.eq.${user.id}${seller?.id ? `,seller_id.eq.${seller.id}` : ""}`)
-          .order("is_default", { ascending: false });
+        try {
+          const { data: locations } = await supabase
+            .from("seller_pickup_locations")
+            .select("*")
+            .in("seller_id", [sellerId, user.id])
+            .order("is_default", { ascending: false });
 
-        fetchedLocations = locations || [];
+          if (locations && locations.length > 0) {
+            fetchedLocations = locations.map(loc => ({
+              id: loc.id,
+              seller_id: loc.seller_id,
+              name: loc.name || loc.location_name || "Primary Warehouse",
+              phone: loc.phone || loc.contact_phone || "",
+              address_line1: loc.address_line1 || loc.address || "Warehouse Address",
+              city: loc.city || "City",
+              state: loc.state || "State",
+              pincode: loc.pincode || "700001",
+              is_default: Boolean(loc.is_default)
+            }));
+          }
+        } catch (dbErr) {
+          console.warn("seller_pickup_locations table direct query notice:", dbErr);
+        }
       }
 
       // 3. Fallback to seller profile address if no location rows exist
-      if (fetchedLocations.length === 0 && seller && (seller.pickup_address || seller.pickup_location || seller.city)) {
-        fetchedLocations = [{
-          id: `profile-${seller.id}`,
-          seller_id: seller.id,
-          name: `${seller.business_name || seller.full_name || "Primary"} Warehouse`,
-          phone: seller.phone_number || seller.mobile_number || "",
-          address_line1: seller.pickup_address || seller.pickup_location || "Warehouse Address",
-          city: seller.city || "City",
-          state: seller.state || "State",
-          pincode: seller.pincode || "700001",
-          is_default: true
-        }];
+      if (fetchedLocations.length === 0 && seller) {
+        const addr = seller.pickup_address || seller.pickup_location || seller.warehouse_address;
+        if (addr || seller.city || seller.pincode) {
+          fetchedLocations = [{
+            id: `profile-${seller.id || user.id}`,
+            seller_id: seller.id || user.id,
+            name: `${seller.business_name || seller.full_name || "Primary"} Warehouse`,
+            phone: seller.phone_number || seller.mobile_number || "",
+            address_line1: addr || "Warehouse Address",
+            city: seller.city || "City",
+            state: seller.state || "State",
+            pincode: seller.pincode || "700001",
+            is_default: true
+          }];
+        }
+      }
+
+      // 4. Fallback to localStorage cache
+      if (fetchedLocations.length === 0 && typeof window !== "undefined") {
+        try {
+          const cached = localStorage.getItem(`${STORAGE_KEY}-${user.id}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              fetchedLocations = parsed;
+            }
+          }
+        } catch (_) {}
       }
 
       setPickupLocations(fetchedLocations);
+
+      // Keep cache synchronized
+      if (fetchedLocations.length > 0 && typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`${STORAGE_KEY}-${user.id}`, JSON.stringify(fetchedLocations));
+        } catch (_) {}
+      }
     } catch (e) {
       console.error("Error loading shipping data:", e);
     } finally {
@@ -114,62 +154,75 @@ export default function SellerShipping() {
         .maybeSingle();
 
       const sellerId = seller?.id || user.id;
-      let saved = false;
+
+      const newLocationObj = {
+        id: `loc-${Date.now()}`,
+        seller_id: sellerId,
+        name: newLoc.name.trim() || "Primary Warehouse",
+        phone: newLoc.phone.trim(),
+        address_line1: newLoc.address_line1.trim(),
+        city: newLoc.city.trim() || "City",
+        state: newLoc.state.trim() || "State",
+        pincode: newLoc.pincode.trim() || "700001",
+        is_default: pickupLocations.length === 0
+      };
+
+      // Optimistic UI update so the user instantly sees the warehouse card
+      const updatedList = [newLocationObj, ...pickupLocations];
+      setPickupLocations(updatedList);
+
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`${STORAGE_KEY}-${user.id}`, JSON.stringify(updatedList));
+        } catch (_) {}
+      }
+
+      setShowLocationModal(false);
+      setNewLoc({ name: "", phone: "", address_line1: "", city: "", state: "", pincode: "" });
+      setStatusMsg("✓ Warehouse Pickup Address Saved Successfully!");
+      setTimeout(() => setStatusMsg(""), 4000);
 
       // 1. Save via secure Server API (bypasses RLS)
       try {
-        const res = await fetch("/api/shipping/pickup-location", {
+        await fetch("/api/shipping/pickup-location", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: user.id,
             sellerId: sellerId,
-            name: newLoc.name,
-            phone: newLoc.phone,
-            address_line1: newLoc.address_line1,
-            city: newLoc.city,
-            state: newLoc.state,
-            pincode: newLoc.pincode,
-            is_default: pickupLocations.length === 0
+            name: newLocationObj.name,
+            phone: newLocationObj.phone,
+            address_line1: newLocationObj.address_line1,
+            city: newLocationObj.city,
+            state: newLocationObj.state,
+            pincode: newLocationObj.pincode,
+            is_default: newLocationObj.is_default
           })
         });
-
-        if (res.ok) {
-          const resData = await res.json();
-          if (resData.success) {
-            saved = true;
-          }
-        }
       } catch (apiErr) {
-        console.warn("API save notice, falling back to direct database:", apiErr);
+        console.warn("API save notice:", apiErr);
       }
 
-      // 2. Direct database update fallback on sellers table if API was unavailable
-      if (!saved) {
-        try {
-          await supabase
-            .from("sellers")
-            .update({
-              pickup_address: newLoc.address_line1,
-              pickup_location: newLoc.address_line1,
-              city: newLoc.city,
-              state: newLoc.state,
-              pincode: newLoc.pincode,
-              contact_phone: newLoc.phone,
-              phone_number: newLoc.phone
-            })
-            .eq("user_id", user.id);
-
-          saved = true;
-        } catch (sErr) {
-          console.warn("Seller table direct update notice:", sErr);
-        }
+      // 2. Direct database update fallback on sellers table
+      try {
+        await supabase
+          .from("sellers")
+          .update({
+            pickup_address: newLocationObj.address_line1,
+            pickup_location: newLocationObj.address_line1,
+            warehouse_address: newLocationObj.address_line1,
+            city: newLocationObj.city,
+            state: newLocationObj.state,
+            pincode: newLocationObj.pincode,
+            phone_number: newLocationObj.phone,
+            mobile_number: newLocationObj.phone
+          })
+          .eq("user_id", user.id);
+      } catch (sErr) {
+        console.warn("Seller table direct update notice:", sErr);
       }
-      
-      setShowLocationModal(false);
-      setNewLoc({ name: "", phone: "", address_line1: "", city: "", state: "", pincode: "" });
-      setStatusMsg("✓ Warehouse Pickup Address Saved Successfully!");
-      setTimeout(() => setStatusMsg(""), 4000);
+
+      // Reload to ensure full sync
       await loadShippingData();
     } catch (err: any) {
       alert(err.message || "Failed to add location.");
@@ -199,7 +252,7 @@ export default function SellerShipping() {
       </div>
 
       {statusMsg && (
-        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-4 text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-4 text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 size={16} />
           {statusMsg}
         </div>
@@ -276,7 +329,7 @@ export default function SellerShipping() {
             {pickupLocations.map((loc) => (
               <div
                 key={loc.id}
-                className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-5 space-y-3 relative hover:border-zinc-700 transition"
+                className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-5 space-y-3 relative hover:border-zinc-700 transition shadow-lg"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
