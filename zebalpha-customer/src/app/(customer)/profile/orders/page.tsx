@@ -188,9 +188,18 @@ export default function MyOrdersPage() {
 
                   {expandedOrderId === order.id && (
                     <div className="mt-6 pt-6 border-t border-zinc-800 space-y-6">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">Real-Time Process Manifest</span>
-                        <h4 className="text-xs font-black text-white">Shipment Delivery Progress</h4>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">Real-Time Process Manifest</span>
+                          <h4 className="text-xs font-black text-white">Shipment Delivery Progress</h4>
+                        </div>
+                        {order.tracking_number && (
+                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/60 border border-purple-500/30 text-purple-300 text-[10px] font-bold">
+                            <span>🚚 {order.courier_name || "Delhivery Express"}</span>
+                            <span className="text-zinc-500">•</span>
+                            <span className="font-mono font-black text-white">AWB: {order.tracking_number}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Timeline Graphic */}
