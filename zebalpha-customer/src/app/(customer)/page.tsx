@@ -10,6 +10,7 @@ import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
 import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { ShopByCategorySection } from "@/components/ShopByCategorySection";
+import { AdShowcaseSection } from "@/components/AdShowcaseSection";
 
 const fetchHomeData = async (brandFilter: boolean = false) => {
   let categories: Category[] = [];
@@ -184,11 +185,14 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
               href="/products" 
               className="group relative flex w-fit items-center gap-3 overflow-hidden rounded-full bg-white px-8 py-4 text-xs font-black uppercase tracking-[0.25em] text-black shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all hover:bg-neutral-200 hover:shadow-[0_0_35px_rgba(255,255,255,0.4)] active:scale-95 mx-auto"
             >
-              <span>EXPLORE</span>
+              <span>EXPLORE ALL DROPS</span>
               <span className="text-lg transition-transform group-hover:translate-x-1">→</span>
             </Link>
           </div>
         </section>
+
+        {/* 3-Slide Featured Campaign & Viral Ad Showcase Section (Before Footer) */}
+        <AdShowcaseSection />
 
       </div>
     </main>
