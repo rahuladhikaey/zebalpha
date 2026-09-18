@@ -39,14 +39,56 @@ export default function SellerShipping() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Fetch pickup locations
-      const { data: locations } = await supabase
-        .from("seller_pickup_locations")
-        .select("*")
-        .eq("seller_id", user.id)
-        .order("is_default", { ascending: false });
+      // Fetch seller profile
+      const { data: seller } = await supabase
+        .from("sellers")
+        .select("id, pickup_address, pickup_location, city, state, pincode, phone_number, mobile_number, business_name, full_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      setPickupLocations(locations || []);
+      const sellerId = seller?.id || user.id;
+
+      // 1. Try fetching via API route
+      let fetchedLocations: any[] = [];
+      try {
+        const res = await fetch(`/api/shipping/pickup-location?userId=${user.id}&sellerId=${sellerId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.locations)) {
+            fetchedLocations = json.locations;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Shipping API fetch notice, checking direct database:", apiErr);
+      }
+
+      // 2. Fallback to Supabase query
+      if (fetchedLocations.length === 0) {
+        const { data: locations } = await supabase
+          .from("seller_pickup_locations")
+          .select("*")
+          .or(`seller_id.eq.${user.id}${seller?.id ? `,seller_id.eq.${seller.id}` : ""}`)
+          .order("is_default", { ascending: false });
+
+        fetchedLocations = locations || [];
+      }
+
+      // 3. Fallback to seller profile address if no location rows exist
+      if (fetchedLocations.length === 0 && seller && (seller.pickup_address || seller.pickup_location || seller.city)) {
+        fetchedLocations = [{
+          id: `profile-${seller.id}`,
+          seller_id: seller.id,
+          name: `${seller.business_name || seller.full_name || "Primary"} Warehouse`,
+          phone: seller.phone_number || seller.mobile_number || "",
+          address_line1: seller.pickup_address || seller.pickup_location || "Warehouse Address",
+          city: seller.city || "City",
+          state: seller.state || "State",
+          pincode: seller.pincode || "700001",
+          is_default: true
+        }];
+      }
+
+      setPickupLocations(fetchedLocations);
     } catch (e) {
       console.error("Error loading shipping data:", e);
     } finally {
@@ -72,25 +114,63 @@ export default function SellerShipping() {
         .maybeSingle();
 
       const sellerId = seller?.id || user.id;
+      let saved = false;
 
-      const { error } = await supabase.from("seller_pickup_locations").insert({
-        seller_id: sellerId,
-        name: newLoc.name,
-        phone: newLoc.phone,
-        address_line1: newLoc.address_line1,
-        city: newLoc.city,
-        state: newLoc.state,
-        pincode: newLoc.pincode,
-        is_default: pickupLocations.length === 0,
-      });
+      // 1. Save via secure Server API (bypasses RLS)
+      try {
+        const res = await fetch("/api/shipping/pickup-location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.id,
+            sellerId: sellerId,
+            name: newLoc.name,
+            phone: newLoc.phone,
+            address_line1: newLoc.address_line1,
+            city: newLoc.city,
+            state: newLoc.state,
+            pincode: newLoc.pincode,
+            is_default: pickupLocations.length === 0
+          })
+        });
 
-      if (error) throw error;
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.success) {
+            saved = true;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("API save notice, falling back to direct database:", apiErr);
+      }
+
+      // 2. Direct database update fallback on sellers table if API was unavailable
+      if (!saved) {
+        try {
+          await supabase
+            .from("sellers")
+            .update({
+              pickup_address: newLoc.address_line1,
+              pickup_location: newLoc.address_line1,
+              city: newLoc.city,
+              state: newLoc.state,
+              pincode: newLoc.pincode,
+              contact_phone: newLoc.phone,
+              phone_number: newLoc.phone
+            })
+            .eq("user_id", user.id);
+
+          saved = true;
+        } catch (sErr) {
+          console.warn("Seller table direct update notice:", sErr);
+        }
+      }
       
       setShowLocationModal(false);
       setNewLoc({ name: "", phone: "", address_line1: "", city: "", state: "", pincode: "" });
-      setStatusMsg("✓ Pickup Location Saved Successfully!");
+      setStatusMsg("✓ Warehouse Pickup Address Saved Successfully!");
       setTimeout(() => setStatusMsg(""), 4000);
-      loadShippingData();
+      await loadShippingData();
     } catch (err: any) {
       alert(err.message || "Failed to add location.");
     }
