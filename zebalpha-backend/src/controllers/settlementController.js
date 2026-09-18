@@ -247,7 +247,7 @@ export const paySettlement = async (req, res, next) => {
 };
 
 /**
- * Fetch Revenue summary analytics for admin or seller
+ * Fetch Revenue summary analytics for admin or seller with separated Premium and Standard streams
  */
 export const getRevenueSummary = async (req, res, next) => {
   try {
@@ -259,32 +259,107 @@ export const getRevenueSummary = async (req, res, next) => {
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error && error.code !== 'PGRST116') {
+      console.warn("seller_revenue_summary query warning:", error.message);
+    }
+
+    // Dynamic stream calculation from orders
+    let ordersQuery = supabaseA
+      .from('orders')
+      .select('id, seller_id, total_amount, product_details, order_status, payment_status, created_at')
+      .neq('order_status', 'CANCELLED')
+      .neq('order_status', 'RETURNED');
 
     if (sellerId) {
+      ordersQuery = ordersQuery.eq('seller_id', sellerId);
+    }
+
+    const { data: ordersData } = await ordersQuery;
+    const orders = ordersData || [];
+
+    let totalGross = 0;
+    let premiumRevenue = 0;
+    let standardRevenue = 0;
+    let premiumOrdersCount = 0;
+    let standardOrdersCount = 0;
+
+    orders.forEach(o => {
+      totalGross += Number(o.total_amount) || 0;
+      let hasPremium = false;
+      let oPrem = 0;
+      let oStd = 0;
+      try {
+        const items = typeof o.product_details === 'string' ? JSON.parse(o.product_details) : o.product_details;
+        if (Array.isArray(items) && items.length > 0) {
+          items.forEach(item => {
+            const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+            const isPrem = item.is_premium === true || item.tier === 'PREMIUM' || 
+              (item.name || item.product_name || '').toLowerCase().includes('premium') ||
+              (item.name || item.product_name || '').toLowerCase().includes('supima') ||
+              (item.name || item.product_name || '').toLowerCase().includes('luxe');
+            if (isPrem) {
+              oPrem += itemTotal;
+              hasPremium = true;
+            } else {
+              oStd += itemTotal;
+            }
+          });
+        } else {
+          oStd = Number(o.total_amount) || 0;
+        }
+      } catch {
+        oStd = Number(o.total_amount) || 0;
+      }
+      if (oPrem === 0 && oStd === 0) oStd = Number(o.total_amount) || 0;
+      premiumRevenue += oPrem;
+      standardRevenue += oStd;
+      if (hasPremium) premiumOrdersCount++;
+      else standardOrdersCount++;
+    });
+
+    const premiumPercentage = totalGross > 0 ? Math.round((premiumRevenue / totalGross) * 100) : 0;
+    const standardPercentage = 100 - premiumPercentage;
+
+    if (sellerId) {
+      const baseData = data?.[0] || {};
       return res.status(HTTP_STATUS.OK).json({
         success: true,
-        data: data?.[0] || {}
+        data: {
+          ...baseData,
+          totalRevenue: totalGross || Number(baseData.lifetime_revenue) || 0,
+          premiumRevenue,
+          standardRevenue,
+          premiumPercentage,
+          standardPercentage,
+          premiumOrdersCount,
+          standardOrdersCount,
+        }
       });
     }
 
     // Admin total summary aggregation
     const summary = {
-      todayRevenue: data.reduce((s, r) => s + Number(r.today_revenue), 0),
-      yesterdayRevenue: data.reduce((s, r) => s + Number(r.yesterday_revenue), 0),
-      thisWeekRevenue: data.reduce((s, r) => s + Number(r.this_week_revenue), 0),
-      lastWeekRevenue: data.reduce((s, r) => s + Number(r.last_week_revenue), 0),
-      thisMonthRevenue: data.reduce((s, r) => s + Number(r.this_month_revenue), 0),
-      lastMonthRevenue: data.reduce((s, r) => s + Number(r.last_month_revenue), 0),
-      thisYearRevenue: data.reduce((s, r) => s + Number(r.this_year_revenue), 0),
-      lifetimeRevenue: data.reduce((s, r) => s + Number(r.lifetime_revenue), 0),
-      pendingSettlement: data.reduce((s, r) => s + Number(r.pending_settlement), 0),
-      paidSettlement: data.reduce((s, r) => s + Number(r.paid_settlement), 0),
-      availableBalance: data.reduce((s, r) => s + Number(r.available_balance), 0),
-      ordersToday: data.reduce((s, r) => s + Number(r.orders_today), 0),
-      ordersThisWeek: data.reduce((s, r) => s + Number(r.orders_this_week), 0),
-      ordersThisMonth: data.reduce((s, r) => s + Number(r.orders_this_month), 0),
-      ordersThisYear: data.reduce((s, r) => s + Number(r.orders_this_year), 0),
+      todayRevenue: data?.reduce((s, r) => s + Number(r.today_revenue), 0) || 0,
+      yesterdayRevenue: data?.reduce((s, r) => s + Number(r.yesterday_revenue), 0) || 0,
+      thisWeekRevenue: data?.reduce((s, r) => s + Number(r.this_week_revenue), 0) || 0,
+      lastWeekRevenue: data?.reduce((s, r) => s + Number(r.last_week_revenue), 0) || 0,
+      thisMonthRevenue: data?.reduce((s, r) => s + Number(r.this_month_revenue), 0) || 0,
+      lastMonthRevenue: data?.reduce((s, r) => s + Number(r.last_month_revenue), 0) || 0,
+      thisYearRevenue: data?.reduce((s, r) => s + Number(r.this_year_revenue), 0) || 0,
+      lifetimeRevenue: totalGross || (data?.reduce((s, r) => s + Number(r.lifetime_revenue), 0) || 0),
+      premiumRevenue,
+      standardRevenue,
+      premiumPercentage,
+      standardPercentage,
+      premiumOrdersCount,
+      standardOrdersCount,
+      pendingSettlement: data?.reduce((s, r) => s + Number(r.pending_settlement), 0) || 0,
+      paidSettlement: data?.reduce((s, r) => s + Number(r.paid_settlement), 0) || 0,
+      availableBalance: data?.reduce((s, r) => s + Number(r.available_balance), 0) || 0,
+      ordersToday: data?.reduce((s, r) => s + Number(r.orders_today), 0) || 0,
+      ordersThisWeek: data?.reduce((s, r) => s + Number(r.orders_this_week), 0) || 0,
+      ordersThisMonth: data?.reduce((s, r) => s + Number(r.orders_this_month), 0) || 0,
+      ordersThisYear: data?.reduce((s, r) => s + Number(r.orders_this_year), 0) || 0,
     };
 
     res.status(HTTP_STATUS.OK).json({

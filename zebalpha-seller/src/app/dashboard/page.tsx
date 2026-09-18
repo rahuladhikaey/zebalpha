@@ -6,22 +6,26 @@ import type { Product, Order } from "@shared/types";
 import { 
   ShoppingBag, 
   Receipt, 
-  AlertTriangle,
-  ArrowRight,
-  Package,
-  TrendingUp,
-  Clock,
-  Truck,
-  IndianRupee,
-  CalendarDays,
-  Calendar,
-  BarChart3,
-  CalendarRange,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  CheckCircle2,
-  Boxes
+  AlertTriangle, 
+  ArrowRight, 
+  Package, 
+  TrendingUp, 
+  Clock, 
+  Truck, 
+  IndianRupee, 
+  CalendarDays, 
+  Calendar, 
+  BarChart3, 
+  CalendarRange, 
+  ChevronLeft, 
+  ChevronRight, 
+  Filter, 
+  CheckCircle2, 
+  Boxes,
+  Crown,
+  Shirt,
+  Sparkles,
+  Layers
 } from "lucide-react";
 import Link from "next/link";
 
@@ -38,6 +42,7 @@ const MONTH_NAMES = [
 ];
 
 type FilterType = "today" | "yesterday" | "this_week" | "this_month" | "specific_month" | "specific_day" | "custom" | "all";
+type StreamFilterType = "all" | "premium" | "standard";
 
 export default function SellerDashboard() {
   const [loading, setLoading] = useState(true);
@@ -49,6 +54,7 @@ export default function SellerDashboard() {
 
   // Filter controls state
   const [filterType, setFilterType] = useState<FilterType>("this_month");
+  const [streamFilter, setStreamFilter] = useState<StreamFilterType>("all");
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
@@ -59,15 +65,25 @@ export default function SellerDashboard() {
   });
   const [customEndDate, setCustomEndDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
 
-  // Overall quick stats
+  // Overall quick stats with Premium vs Standard separation
   const [quickKPIs, setQuickKPIs] = useState({
     todayRevenue: 0,
+    todayPremiumRevenue: 0,
+    todayStandardRevenue: 0,
     weeklyRevenue: 0,
+    weeklyPremiumRevenue: 0,
+    weeklyStandardRevenue: 0,
     monthlyRevenue: 0,
+    monthlyPremiumRevenue: 0,
+    monthlyStandardRevenue: 0,
     allTimeRevenue: 0,
+    allTimePremiumRevenue: 0,
+    allTimeStandardRevenue: 0,
     totalOrders: 0,
     todaysOrders: 0,
     pendingOrders: 0,
+    totalPremiumUnits: 0,
+    totalStandardUnits: 0
   });
 
   // Fetch all data
@@ -90,14 +106,19 @@ export default function SellerDashboard() {
       setSellerProducts(productsList);
 
       const pIds = productsList.map(p => p.id);
+      const premiumProductIdSet = new Set(
+        productsList
+          .filter(p => p.is_premium === true || p.tier === "PREMIUM" || (p.specifications as any)?.is_premium === "true" || (p.category && p.category.toLowerCase().includes("premium")))
+          .map(p => String(p.id))
+      );
+
       const lowStock = productsList.filter(p => (p.stock ?? 0) <= (p.low_stock_limit ?? 5)).length;
       setLowStockCount(lowStock);
 
-      // 2. Fetch orders strictly filtered to this seller
+      // 2. Fetch all orders
       const { data: orders } = await supabase
         .from("orders")
         .select("*")
-        .eq("seller_id", currentUserId)
         .order("created_at", { ascending: false });
 
       const rawOrders = (orders || []) as Order[];
@@ -128,18 +149,45 @@ export default function SellerDashboard() {
           }
 
           if (isDirectSellerOrder || sellerItems.length > 0 || !currentUserId) {
-            const itemsRevenue = sellerItems.reduce((sum: number, item: any) =>
-              sum + (item.subtotal || (item.price * item.quantity) || 0), 0);
-            const orderRevenue = itemsRevenue > 0 ? itemsRevenue : (Number(order.total_amount) || 0);
+            let premRev = 0;
+            let stdRev = 0;
+            let premUnits = 0;
+            let stdUnits = 0;
 
-            const totalUnits = sellerItems.reduce((sum: number, item: any) =>
-              sum + (Number(item.quantity) || 1), 0) || 1;
+            sellerItems.forEach((item: any) => {
+              const itemId = String(item.product_id || item.id || "");
+              const itemTotal = item.subtotal || (item.price * item.quantity) || 0;
+              const qty = Number(item.quantity) || 1;
+              const isPrem = 
+                item.is_premium === true || 
+                item.tier === "PREMIUM" || 
+                premiumProductIdSet.has(itemId) ||
+                (item.name && item.name.toLowerCase().includes("premium")) ||
+                (item.name && item.name.toLowerCase().includes("supima"));
+
+              if (isPrem) {
+                premRev += itemTotal;
+                premUnits += qty;
+              } else {
+                stdRev += itemTotal;
+                stdUnits += qty;
+              }
+            });
+
+            const itemsRevenue = premRev + stdRev;
+            const orderRevenue = itemsRevenue > 0 ? itemsRevenue : (Number(order.total_amount) || 0);
+            const totalUnits = premUnits + stdUnits || 1;
 
             processedSellerOrders.push({
               ...order,
               _revenue: orderRevenue,
+              _premiumRevenue: premRev,
+              _standardRevenue: stdRev > 0 ? stdRev : (premRev > 0 ? 0 : orderRevenue),
               _units: totalUnits,
-              _sellerItems: sellerItems
+              _premiumUnits: premUnits,
+              _standardUnits: stdUnits,
+              _sellerItems: sellerItems,
+              _isPremiumOrder: premRev > 0
             });
           }
         } catch (e) {
@@ -149,7 +197,7 @@ export default function SellerDashboard() {
 
       setAllSellerOrders(processedSellerOrders);
 
-      // 3. Compute Quick KPIs
+      // 3. Compute Quick KPIs with Premium vs Standard
       const now = new Date();
       const todayStart = startOfDay(now);
       const todayEnd = endOfDay(now);
@@ -157,27 +205,43 @@ export default function SellerDashboard() {
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
 
-      let todayRev = 0;
-      let weekRev = 0;
-      let monthRev = 0;
-      let allRev = 0;
+      let todayRev = 0, todayPrem = 0, todayStd = 0;
+      let weekRev = 0, weekPrem = 0, weekStd = 0;
+      let monthRev = 0, monthPrem = 0, monthStd = 0;
+      let allRev = 0, allPrem = 0, allStd = 0;
+      let totalPremUnits = 0, totalStdUnits = 0;
       let todayCount = 0;
       let pendingCount = 0;
 
       processedSellerOrders.forEach(o => {
         const d = new Date(o.created_at);
         const rev = Number(o._revenue) || 0;
+        const pRev = Number(o._premiumRevenue) || 0;
+        const sRev = Number(o._standardRevenue) || 0;
+        const pU = Number(o._premiumUnits) || 0;
+        const sU = Number(o._standardUnits) || 0;
+
         allRev += rev;
+        allPrem += pRev;
+        allStd += sRev;
+        totalPremUnits += pU;
+        totalStdUnits += sU;
 
         if (d >= todayStart && d <= todayEnd) {
           todayRev += rev;
+          todayPrem += pRev;
+          todayStd += sRev;
           todayCount++;
         }
         if (d >= weekStart && d <= todayEnd) {
           weekRev += rev;
+          weekPrem += pRev;
+          weekStd += sRev;
         }
         if (d >= monthStart && d <= monthEnd) {
           monthRev += rev;
+          monthPrem += pRev;
+          monthStd += sRev;
         }
         if (["placed", "pending", "processing", "PLACED", "PENDING", "PROCESSING"].includes(o.order_status || "")) {
           pendingCount++;
@@ -186,12 +250,22 @@ export default function SellerDashboard() {
 
       setQuickKPIs({
         todayRevenue: todayRev,
+        todayPremiumRevenue: todayPrem,
+        todayStandardRevenue: todayStd,
         weeklyRevenue: weekRev,
+        weeklyPremiumRevenue: weekPrem,
+        weeklyStandardRevenue: weekStd,
         monthlyRevenue: monthRev,
+        monthlyPremiumRevenue: monthPrem,
+        monthlyStandardRevenue: monthStd,
         allTimeRevenue: allRev,
+        allTimePremiumRevenue: allPrem,
+        allTimeStandardRevenue: allStd,
         totalOrders: processedSellerOrders.length,
         todaysOrders: todayCount,
         pendingOrders: pendingCount,
+        totalPremiumUnits: totalPremUnits,
+        totalStandardUnits: totalStdUnits
       });
 
     } catch (error) {
@@ -203,49 +277,42 @@ export default function SellerDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-
-    const channel = supabase
-      .channel("seller-dashboard-realtime-enhanced")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchDashboardData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchDashboardData())
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // ── Calculate selected filtered range & metrics ──────────────────────────────
-  const { dateRange, periodLabel, filteredOrders, periodStats, timeBreakdown } = useMemo(() => {
+  // ── FILTERING & GROUPING ENGINE ────────────────────────────────────────────────
+  const selectedPeriodData = useMemo(() => {
     const now = new Date();
-    let start = new Date(0);
-    let end = new Date(3000, 0, 1);
-    let label = "All Time";
+    let start = new Date();
+    let end = new Date();
+    let label = "";
     let groupMode: "hourly" | "daily" | "monthly" = "daily";
 
     if (filterType === "today") {
       start = startOfDay(now);
       end = endOfDay(now);
-      label = `Today (${now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })})`;
+      label = `Today (${now.toLocaleDateString("en-IN", { day: "numeric", month: "short" })})`;
       groupMode = "hourly";
     } else if (filterType === "yesterday") {
       const y = new Date(now);
       y.setDate(y.getDate() - 1);
       start = startOfDay(y);
       end = endOfDay(y);
-      label = `Yesterday (${y.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })})`;
+      label = `Yesterday (${y.toLocaleDateString("en-IN", { day: "numeric", month: "short" })})`;
       groupMode = "hourly";
     } else if (filterType === "this_week") {
       start = startOfWeek(now);
       end = endOfDay(now);
-      label = `This Week (${start.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - Today)`;
+      label = `This Week (Sun - Sat)`;
       groupMode = "daily";
     } else if (filterType === "this_month") {
       start = startOfMonth(now);
       end = endOfMonth(now);
-      label = `${now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}`;
+      label = `This Month (${now.toLocaleString("en-IN", { month: "long" })})`;
       groupMode = "daily";
     } else if (filterType === "specific_month") {
-      start = new Date(selectedYear, selectedMonth, 1, 0, 0, 0, 0);
-      end = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999);
+      const targetM = new Date(selectedYear, selectedMonth, 1);
+      start = startOfMonth(targetM);
+      end = endOfMonth(targetM);
       label = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
       groupMode = "daily";
     } else if (filterType === "specific_day") {
@@ -277,20 +344,57 @@ export default function SellerDashboard() {
       groupMode = "monthly";
     }
 
-    // Filter orders
+    // Filter orders by Date & Stream
     const matched = allSellerOrders.filter(o => {
       const d = new Date(o.created_at);
-      return d >= start && d <= end;
+      const matchesDate = d >= start && d <= end;
+      if (!matchesDate) return false;
+
+      if (streamFilter === "premium") {
+        return (Number(o._premiumRevenue) || 0) > 0;
+      }
+      if (streamFilter === "standard") {
+        return (Number(o._standardRevenue) || 0) > 0;
+      }
+      return true;
     });
 
     // Compute stats
-    const totalRev = matched.reduce((s, o) => s + (Number(o._revenue) || 0), 0);
-    const totalUnits = matched.reduce((s, o) => s + (Number(o._units) || 1), 0);
+    let totalRev = 0;
+    let totalPremRev = 0;
+    let totalStdRev = 0;
+    let totalUnits = 0;
+    let totalPremUnits = 0;
+    let totalStdUnits = 0;
+
+    matched.forEach(o => {
+      const pRev = Number(o._premiumRevenue) || 0;
+      const sRev = Number(o._standardRevenue) || 0;
+      const pU = Number(o._premiumUnits) || 0;
+      const sU = Number(o._standardUnits) || 0;
+
+      if (streamFilter === "premium") {
+        totalRev += pRev;
+        totalUnits += pU;
+      } else if (streamFilter === "standard") {
+        totalRev += sRev;
+        totalUnits += sU;
+      } else {
+        totalRev += (pRev + sRev) || (Number(o._revenue) || 0);
+        totalUnits += (pU + sU) || (Number(o._units) || 1);
+      }
+
+      totalPremRev += pRev;
+      totalStdRev += sRev;
+      totalPremUnits += pU;
+      totalStdUnits += sU;
+    });
+
     const orderCount = matched.length;
     const aov = orderCount > 0 ? totalRev / orderCount : 0;
 
     // Time-series breakdown grouping
-    const groupMap: Record<string, { label: string; dateObj: Date; revenue: number; ordersCount: number; units: number }> = {};
+    const groupMap: Record<string, { label: string; dateObj: Date; revenue: number; premiumRevenue: number; standardRevenue: number; ordersCount: number; units: number }> = {};
 
     matched.forEach(o => {
       const d = new Date(o.created_at);
@@ -307,15 +411,18 @@ export default function SellerDashboard() {
         key = d.toISOString().split("T")[0];
         groupLabel = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
       } else {
-        // monthly
         key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         groupLabel = d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
       }
 
       if (!groupMap[key]) {
-        groupMap[key] = { label: groupLabel, dateObj: d, revenue: 0, ordersCount: 0, units: 0 };
+        groupMap[key] = { label: groupLabel, dateObj: d, revenue: 0, premiumRevenue: 0, standardRevenue: 0, ordersCount: 0, units: 0 };
       }
-      groupMap[key].revenue += Number(o._revenue) || 0;
+
+      const revToAdd = streamFilter === "premium" ? (o._premiumRevenue || 0) : streamFilter === "standard" ? (o._standardRevenue || 0) : (o._revenue || 0);
+      groupMap[key].revenue += Number(revToAdd);
+      groupMap[key].premiumRevenue += Number(o._premiumRevenue) || 0;
+      groupMap[key].standardRevenue += Number(o._standardRevenue) || 0;
       groupMap[key].ordersCount += 1;
       groupMap[key].units += Number(o._units) || 1;
     });
@@ -329,9 +436,13 @@ export default function SellerDashboard() {
       filteredOrders: matched,
       periodStats: {
         totalRevenue: totalRev,
+        totalPremRevenue: totalPremRev,
+        totalStdRevenue: totalStdRev,
         orderCount,
         aov,
         totalUnits,
+        totalPremUnits,
+        totalStdUnits
       },
       timeBreakdown: {
         items: breakdownList,
@@ -339,18 +450,16 @@ export default function SellerDashboard() {
         mode: groupMode
       }
     };
-  }, [allSellerOrders, filterType, selectedDate, selectedMonth, selectedYear, customStartDate, customEndDate]);
+  }, [allSellerOrders, filterType, streamFilter, selectedDate, selectedMonth, selectedYear, customStartDate, customEndDate]);
 
   const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Quick navigation helpers for day picker
   const handleShiftDay = (delta: number) => {
     const current = selectedDate ? new Date(selectedDate) : new Date();
     current.setDate(current.getDate() + delta);
     setSelectedDate(current.toISOString().split("T")[0]);
   };
 
-  // Quick navigation helpers for month picker
   const handleShiftMonth = (delta: number) => {
     let newM = selectedMonth + delta;
     let newY = selectedYear;
@@ -365,12 +474,15 @@ export default function SellerDashboard() {
     setSelectedYear(newY);
   };
 
+  const allTimeTotal = quickKPIs.allTimeRevenue || 1;
+  const premiumSharePct = Math.round((quickKPIs.allTimePremiumRevenue / allTimeTotal) * 100) || 0;
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary" />
-          <span className="text-xs font-bold text-text-muted">Loading metrics & income breakdown...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-white" />
+          <span className="text-xs text-zinc-400 font-bold">Loading seller revenue metrics...</span>
         </div>
       </div>
     );
@@ -380,22 +492,92 @@ export default function SellerDashboard() {
     <div className="space-y-8">
       {/* Welcome Banner */}
       <div className="rounded-[2.5rem] bg-gradient-to-r from-zinc-900 via-black to-zinc-950 p-8 text-white shadow-2xl border border-zinc-800 relative overflow-hidden">
-        <div className="absolute -top-8 -right-8 h-40 w-40 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-        <div className="relative z-10">
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Overview</span>
-          <h1 className="text-3xl font-black tracking-tight mt-1 text-white">Merchant Performance</h1>
-          <p className="mt-2 text-xs font-bold text-zinc-400 max-w-xl">
-            Track real-time revenue across custom dates, days, weeks, months, or all time with detailed earnings breakdowns.
-          </p>
+        <div className="absolute -top-8 -right-8 h-40 w-40 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Overview & Ledger</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 text-[9px] font-black uppercase">
+                <Crown size={10} /> 💎 Premium Revenue Engine
+              </span>
+            </div>
+            <h1 className="text-3xl font-black tracking-tight mt-1 text-white">Merchant Performance</h1>
+            <p className="mt-2 text-xs font-bold text-zinc-400 max-w-xl">
+              Track real-time earnings with separated calculations for Premium Store vs. Standard collections.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/collections"
+              className="px-4 py-2.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-black uppercase text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all flex items-center gap-2"
+            >
+              <Sparkles size={14} className="text-amber-400" />
+              <span>Collections & Drops</span>
+            </Link>
+            <Link
+              href="/dashboard/reports"
+              className="px-4 py-2.5 rounded-2xl bg-white text-black text-xs font-black uppercase hover:bg-zinc-200 transition-all shadow-md flex items-center gap-2"
+            >
+              <Receipt size={14} />
+              <span>Export Ledger</span>
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* ── Quick KPI Summary Cards ── */}
+      {/* ── Revenue Stream Switcher ── */}
+      <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 p-2 rounded-2xl w-fit flex-wrap">
+        <span className="text-[10px] font-black uppercase text-zinc-400 px-2">Filter Stream:</span>
+        <button
+          onClick={() => setStreamFilter("all")}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+            streamFilter === "all"
+              ? "bg-white text-black shadow-md font-extrabold"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          <Layers size={13} />
+          <span>All Revenue</span>
+        </button>
+
+        <button
+          onClick={() => setStreamFilter("premium")}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+            streamFilter === "premium"
+              ? "bg-amber-500 text-black shadow-md font-extrabold"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          <Crown size={13} className={streamFilter === "premium" ? "text-black" : "text-amber-400"} />
+          <span>💎 Premium Store</span>
+        </button>
+
+        <button
+          onClick={() => setStreamFilter("standard")}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+            streamFilter === "standard"
+              ? "bg-blue-600 text-white shadow-md font-extrabold"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          <Shirt size={13} />
+          <span>👕 Standard Apparel</span>
+        </button>
+      </div>
+
+      {/* ── Quick KPI Summary Cards with Separated Revenue ── */}
       <div>
-        <div className="flex items-center gap-2 mb-4">
-          <IndianRupee size={16} className="text-white" />
-          <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Quick Revenue Overview</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <IndianRupee size={16} className="text-white" />
+            <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Quick Revenue Overview</h2>
+          </div>
+          <span className="text-xs font-black text-amber-400 flex items-center gap-1">
+            <Crown size={13} /> Premium Share: {premiumSharePct}%
+          </span>
         </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* Today */}
           <div 
@@ -412,10 +594,13 @@ export default function SellerDashboard() {
                 <Clock size={18} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black tracking-tight text-white">{fmt(quickKPIs.todayRevenue)}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-flex items-center gap-1">
-              <TrendingUp size={11} /> Fresh Today ({quickKPIs.todaysOrders} orders)
-            </span>
+            <p className="mt-3 text-2xl font-black tracking-tight text-white">
+              {fmt(streamFilter === "premium" ? quickKPIs.todayPremiumRevenue : streamFilter === "standard" ? quickKPIs.todayStandardRevenue : quickKPIs.todayRevenue)}
+            </p>
+            <div className="mt-2 text-[10px] font-bold text-zinc-400 pt-2 border-t border-zinc-900 flex items-center justify-between">
+              <span className="text-amber-400">💎 Prem: {fmt(quickKPIs.todayPremiumRevenue)}</span>
+              <span>👕 Std: {fmt(quickKPIs.todayStandardRevenue)}</span>
+            </div>
           </div>
 
           {/* This Week */}
@@ -433,10 +618,13 @@ export default function SellerDashboard() {
                 <CalendarDays size={18} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black tracking-tight text-white">{fmt(quickKPIs.weeklyRevenue)}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-flex items-center gap-1">
-              <TrendingUp size={11} /> Sun → Today
-            </span>
+            <p className="mt-3 text-2xl font-black tracking-tight text-white">
+              {fmt(streamFilter === "premium" ? quickKPIs.weeklyPremiumRevenue : streamFilter === "standard" ? quickKPIs.weeklyStandardRevenue : quickKPIs.weeklyRevenue)}
+            </p>
+            <div className="mt-2 text-[10px] font-bold text-zinc-400 pt-2 border-t border-zinc-900 flex items-center justify-between">
+              <span className="text-amber-400">💎 Prem: {fmt(quickKPIs.weeklyPremiumRevenue)}</span>
+              <span>👕 Std: {fmt(quickKPIs.weeklyStandardRevenue)}</span>
+            </div>
           </div>
 
           {/* This Month */}
@@ -454,10 +642,13 @@ export default function SellerDashboard() {
                 <Calendar size={18} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black tracking-tight text-white">{fmt(quickKPIs.monthlyRevenue)}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-flex items-center gap-1">
-              <TrendingUp size={11} /> {new Date().toLocaleString("en-IN", { month: "long" })}
-            </span>
+            <p className="mt-3 text-2xl font-black tracking-tight text-white">
+              {fmt(streamFilter === "premium" ? quickKPIs.monthlyPremiumRevenue : streamFilter === "standard" ? quickKPIs.monthlyStandardRevenue : quickKPIs.monthlyRevenue)}
+            </p>
+            <div className="mt-2 text-[10px] font-bold text-zinc-400 pt-2 border-t border-zinc-900 flex items-center justify-between">
+              <span className="text-amber-400">💎 Prem: {fmt(quickKPIs.monthlyPremiumRevenue)}</span>
+              <span>👕 Std: {fmt(quickKPIs.monthlyStandardRevenue)}</span>
+            </div>
           </div>
 
           {/* All Time */}
@@ -475,8 +666,13 @@ export default function SellerDashboard() {
                 <BarChart3 size={18} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black tracking-tight text-white">{fmt(quickKPIs.allTimeRevenue)}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Total Cumulative</span>
+            <p className="mt-3 text-2xl font-black tracking-tight text-white">
+              {fmt(streamFilter === "premium" ? quickKPIs.allTimePremiumRevenue : streamFilter === "standard" ? quickKPIs.allTimeStandardRevenue : quickKPIs.allTimeRevenue)}
+            </p>
+            <div className="mt-2 text-[10px] font-bold text-zinc-400 pt-2 border-t border-zinc-900 flex items-center justify-between">
+              <span className="text-amber-400">💎 Prem: {fmt(quickKPIs.allTimePremiumRevenue)}</span>
+              <span>👕 Std: {fmt(quickKPIs.allTimeStandardRevenue)}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -488,10 +684,10 @@ export default function SellerDashboard() {
           <div>
             <div className="flex items-center gap-2">
               <Filter size={16} className="text-primary" />
-              <h2 className="text-lg font-black tracking-tight text-white">Custom Income & Date Breakdown</h2>
+              <h2 className="text-lg font-black tracking-tight text-white">Income & Tier Period Analytics</h2>
             </div>
             <p className="text-xs font-bold text-zinc-400 mt-1">
-              Filter by specific days, months, weeks, custom ranges, or inspect all-time revenue trends.
+              Showing {streamFilter === "premium" ? "💎 Premium Store" : streamFilter === "standard" ? "👕 Standard Apparel" : "All Marketplace"} earnings for {selectedPeriodData.periodLabel}.
             </p>
           </div>
 
@@ -510,7 +706,7 @@ export default function SellerDashboard() {
               <button
                 key={t.key}
                 onClick={() => setFilterType(t.key as FilterType)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                   filterType === t.key
                     ? "bg-white text-black shadow-md shadow-white/10"
                     : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
@@ -522,13 +718,13 @@ export default function SellerDashboard() {
           </div>
         </div>
 
-        {/* ── Sub-selector Controls depending on active filter ── */}
+        {/* ── Sub-selector Controls ── */}
         {filterType === "specific_month" && (
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => handleShiftMonth(-1)}
-                className="h-10 w-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white hover:bg-zinc-700 transition-all"
+                className="h-10 w-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white hover:bg-zinc-700 transition-all cursor-pointer"
                 title="Previous Month"
               >
                 <ChevronLeft size={18} />
@@ -537,7 +733,7 @@ export default function SellerDashboard() {
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                  className="bg-zinc-950 border border-zinc-700 text-white rounded-2xl px-4 py-2 text-xs font-black focus:outline-none focus:border-primary"
+                  className="bg-zinc-950 border border-zinc-700 text-white rounded-2xl px-4 py-2 text-xs font-black focus:outline-none focus:border-primary cursor-pointer"
                 >
                   {MONTH_NAMES.map((m, idx) => (
                     <option key={m} value={idx}>{m}</option>
@@ -546,7 +742,7 @@ export default function SellerDashboard() {
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="bg-zinc-950 border border-zinc-700 text-white rounded-2xl px-4 py-2 text-xs font-black focus:outline-none focus:border-primary"
+                  className="bg-zinc-950 border border-zinc-700 text-white rounded-2xl px-4 py-2 text-xs font-black focus:outline-none focus:border-primary cursor-pointer"
                 >
                   {[2024, 2025, 2026, 2027].map(y => (
                     <option key={y} value={y}>{y}</option>
@@ -555,7 +751,7 @@ export default function SellerDashboard() {
               </div>
               <button 
                 onClick={() => handleShiftMonth(1)}
-                className="h-10 w-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white hover:bg-zinc-700 transition-all"
+                className="h-10 w-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white hover:bg-zinc-700 transition-all cursor-pointer"
                 title="Next Month"
               >
                 <ChevronRight size={18} />
@@ -572,7 +768,7 @@ export default function SellerDashboard() {
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => handleShiftDay(-1)}
-                className="h-10 w-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white hover:bg-zinc-700 transition-all"
+                className="h-10 w-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white hover:bg-zinc-700 transition-all cursor-pointer"
                 title="Previous Day"
               >
                 <ChevronLeft size={18} />
@@ -585,14 +781,14 @@ export default function SellerDashboard() {
               />
               <button 
                 onClick={() => handleShiftDay(1)}
-                className="h-10 w-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white hover:bg-zinc-700 transition-all"
+                className="h-10 w-10 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white hover:bg-zinc-700 transition-all cursor-pointer"
                 title="Next Day"
               >
                 <ChevronRight size={18} />
               </button>
               <button
                 onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
-                className="text-[11px] font-black text-primary hover:underline px-2"
+                className="text-[11px] font-black text-primary hover:underline px-2 cursor-pointer"
               >
                 Today
               </button>
@@ -634,27 +830,33 @@ export default function SellerDashboard() {
         {/* ── SELECTED PERIOD PERFORMANCE METRICS ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5 relative overflow-hidden">
-            <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Total Income ({periodLabel})</span>
-            <p className="text-3xl font-black mt-2 text-emerald-400">{fmt(periodStats.totalRevenue)}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">Net merchant volume</span>
+            <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">
+              {streamFilter === "premium" ? "💎 Premium Income" : streamFilter === "standard" ? "👕 Standard Income" : "Period Gross Income"}
+            </span>
+            <p className="text-3xl font-black mt-2 text-emerald-400">{fmt(selectedPeriodData.periodStats.totalRevenue)}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">
+              {streamFilter === "all" ? `💎 ${fmt(selectedPeriodData.periodStats.totalPremRevenue)} Prem • 👕 ${fmt(selectedPeriodData.periodStats.totalStdRevenue)} Std` : "Net period volume"}
+            </span>
           </div>
 
           <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
             <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Orders in Period</span>
-            <p className="text-3xl font-black mt-2 text-white">{periodStats.orderCount}</p>
+            <p className="text-3xl font-black mt-2 text-white">{selectedPeriodData.periodStats.orderCount}</p>
             <span className="text-[10px] font-bold text-zinc-400 mt-1 block">Placed customer checkouts</span>
           </div>
 
           <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
             <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Average Order Value (AOV)</span>
-            <p className="text-3xl font-black mt-2 text-amber-400">{fmt(periodStats.aov)}</p>
+            <p className="text-3xl font-black mt-2 text-amber-400">{fmt(selectedPeriodData.periodStats.aov)}</p>
             <span className="text-[10px] font-bold text-zinc-400 mt-1 block">Avg revenue per purchase</span>
           </div>
 
           <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
             <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Units Sold</span>
-            <p className="text-3xl font-black mt-2 text-blue-400">{periodStats.totalUnits}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">Individual product items</span>
+            <p className="text-3xl font-black mt-2 text-blue-400">{selectedPeriodData.periodStats.totalUnits}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">
+              {selectedPeriodData.periodStats.totalPremUnits} 💎 Premium • {selectedPeriodData.periodStats.totalStdUnits} 👕 Std
+            </span>
           </div>
         </div>
 
@@ -662,21 +864,21 @@ export default function SellerDashboard() {
         <div className="space-y-4 pt-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-300">
-              {timeBreakdown.mode === "hourly" ? "Hourly Breakdown" : timeBreakdown.mode === "daily" ? "Daily Income Breakdown" : "Monthly Breakdown"}
+              {selectedPeriodData.timeBreakdown.mode === "hourly" ? "Hourly Income Breakdown" : selectedPeriodData.timeBreakdown.mode === "daily" ? "Daily Income Breakdown" : "Monthly Breakdown"}
             </h3>
             <span className="text-[11px] font-bold text-zinc-400">
-              {timeBreakdown.items.length} {timeBreakdown.items.length === 1 ? "entry" : "entries"} recorded
+              {selectedPeriodData.timeBreakdown.items.length} entries recorded
             </span>
           </div>
 
-          {timeBreakdown.items.length === 0 ? (
+          {selectedPeriodData.timeBreakdown.items.length === 0 ? (
             <div className="py-10 text-center text-xs font-bold text-zinc-500 bg-zinc-900/30 rounded-3xl border border-zinc-800/80">
-              No revenue transactions recorded for the selected period ({periodLabel}).
+              No revenue transactions recorded for the selected period ({selectedPeriodData.periodLabel}).
             </div>
           ) : (
             <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-              {timeBreakdown.items.map((item, idx) => {
-                const percentage = Math.round((item.revenue / timeBreakdown.maxRevenue) * 100);
+              {selectedPeriodData.timeBreakdown.items.map((item, idx) => {
+                const percentage = Math.round((item.revenue / selectedPeriodData.timeBreakdown.maxRevenue) * 100);
                 return (
                   <div 
                     key={idx}
@@ -689,7 +891,7 @@ export default function SellerDashboard() {
                       <div>
                         <p className="text-xs font-black text-white">{item.label}</p>
                         <p className="text-[10px] font-bold text-zinc-400">
-                          {item.ordersCount} {item.ordersCount === 1 ? "order" : "orders"} • {item.units} units
+                          {item.ordersCount} orders • 💎 ₹{item.premiumRevenue} Prem | 👕 ₹{item.standardRevenue} Std
                         </p>
                       </div>
                     </div>
@@ -709,7 +911,7 @@ export default function SellerDashboard() {
                         {fmt(item.revenue)}
                       </span>
                       <span className="text-[10px] font-bold text-zinc-400">
-                        {periodStats.totalRevenue > 0 ? `${Math.round((item.revenue / periodStats.totalRevenue) * 100)}% of period` : "0%"}
+                        {selectedPeriodData.periodStats.totalRevenue > 0 ? `${Math.round((item.revenue / selectedPeriodData.periodStats.totalRevenue) * 100)}% of period` : "0%"}
                       </span>
                     </div>
                   </div>
@@ -724,140 +926,59 @@ export default function SellerDashboard() {
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Package size={16} className="text-primary" />
-          <h2 className="text-sm font-black uppercase tracking-widest text-text-muted">Operations</h2>
+          <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Operations Overview</h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
           {/* Total Orders */}
-          <div className="rounded-3xl bg-foreground/[0.03] p-5 border border-foreground/[0.06] backdrop-blur-xl">
+          <div className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-text-muted">Total Orders</span>
-              <div className="h-8 w-8 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600">
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Total Orders</span>
+              <div className="h-8 w-8 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400">
                 <Receipt size={16} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black tracking-tight">{quickKPIs.totalOrders}</p>
-            <span className="text-[10px] font-bold text-text-muted mt-1 inline-block">All Time</span>
+            <p className="mt-4 text-2xl font-black text-white">{quickKPIs.totalOrders}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">All Time</span>
           </div>
 
           {/* Today's Orders */}
-          <div className="rounded-3xl bg-foreground/[0.03] p-5 border border-foreground/[0.06] backdrop-blur-xl">
+          <div className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-text-muted">Today</span>
-              <div className="h-8 w-8 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600">
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Today</span>
+              <div className="h-8 w-8 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400">
                 <Clock size={16} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black tracking-tight">{quickKPIs.todaysOrders}</p>
-            <span className="text-[10px] font-bold text-purple-600 mt-1 inline-block">Fresh Placed</span>
+            <p className="mt-4 text-2xl font-black text-white">{quickKPIs.todaysOrders}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Active Today</span>
           </div>
 
-          {/* Pending Orders */}
-          <div className="rounded-3xl bg-foreground/[0.03] p-5 border border-foreground/[0.06] backdrop-blur-xl">
+          {/* Low Stock Warning */}
+          <div className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-text-muted">Pending</span>
-              <div className="h-8 w-8 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-                <Truck size={16} />
-              </div>
-            </div>
-            <p className="mt-4 text-2xl font-black tracking-tight">{quickKPIs.pendingOrders}</p>
-            <span className="text-[10px] font-bold text-amber-600 mt-1 inline-block">Needs Action</span>
-          </div>
-
-          {/* Products */}
-          <div className="rounded-3xl bg-foreground/[0.03] p-5 border border-foreground/[0.06] backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-text-muted">Products</span>
-              <div className="h-8 w-8 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                <ShoppingBag size={16} />
-              </div>
-            </div>
-            <p className="mt-4 text-2xl font-black tracking-tight">{sellerProducts.length}</p>
-            <span className="text-[10px] font-bold text-text-muted mt-1 inline-block">Active Listings</span>
-          </div>
-
-          {/* Low Stock */}
-          <div className="rounded-3xl bg-foreground/[0.03] p-5 border border-foreground/[0.06] backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-text-muted">Low Stock</span>
-              <div className="h-8 w-8 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-600">
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Low Stock Alert</span>
+              <div className="h-8 w-8 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-400">
                 <AlertTriangle size={16} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black tracking-tight">{lowStockCount}</p>
-            <span className="text-[10px] font-bold text-rose-600 mt-1 inline-block">Action Required</span>
+            <p className="mt-4 text-2xl font-black text-rose-400">{lowStockCount}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Need Restock</span>
           </div>
-        </div>
-      </div>
 
-      {/* Orders within Selected Filter Period Table */}
-      <div className="rounded-[2.5rem] bg-foreground/[0.03] border border-foreground/[0.06] p-6 backdrop-blur-xl">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-lg font-black tracking-tight">Orders in Period ({periodLabel})</h2>
-            <p className="text-xs font-bold text-text-secondary mt-0.5">
-              Showing {filteredOrders.length} {filteredOrders.length === 1 ? "order" : "orders"} matching your selected date filter
-            </p>
-          </div>
-          <Link
-            href="/dashboard/orders"
-            className="inline-flex items-center gap-1.5 text-xs font-black text-primary hover:underline"
-          >
-            <span>Full Order Management</span>
-            <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        {filteredOrders.length === 0 ? (
-          <div className="py-12 text-center text-text-muted text-xs font-bold">
-            No orders found for this selected period ({periodLabel}). Choose another date or range above.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-foreground/[0.06] text-[10px] font-black uppercase tracking-wider text-text-muted">
-                  <th className="pb-3">Order #</th>
-                  <th className="pb-3">Customer</th>
-                  <th className="pb-3">Date & Time</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3 text-right">Income (Amount)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-foreground/[0.04] text-xs font-bold">
-                {filteredOrders.slice(0, 10).map((ord) => (
-                  <tr key={ord.id} className="hover:bg-foreground/[0.02]">
-                    <td className="py-4 font-black">{ord.order_number || String(ord.id).slice(0, 8)}</td>
-                    <td className="py-4">{ord.customer_name || "Customer"}</td>
-                    <td className="py-4 text-text-muted">
-                      {new Date(ord.created_at).toLocaleString("en-IN", { 
-                        day: "numeric", 
-                        month: "short", 
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      })}
-                    </td>
-                    <td className="py-4">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                        {ord.order_status || "Processing"}
-                      </span>
-                    </td>
-                    <td className="py-4 text-right font-black text-emerald-500">
-                      {fmt(Number(ord._revenue) || 0)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredOrders.length > 10 && (
-              <div className="mt-4 text-center border-t border-foreground/[0.04] pt-3">
-                <Link href="/dashboard/orders" className="text-xs font-black text-primary hover:underline">
-                  + View {filteredOrders.length - 10} more orders in orders tab
-                </Link>
+          {/* Products Listed */}
+          <div className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Active Products</span>
+              <div className="h-8 w-8 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                <Boxes size={16} />
               </div>
-            )}
+            </div>
+            <p className="mt-4 text-2xl font-black text-white">{sellerProducts.length}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">
+              {sellerProducts.filter(p => p.is_premium).length} 💎 Premium Items
+            </span>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -22,6 +22,7 @@ import { exportCategoriesExcel } from "@/utils/excelExport";
 import { uploadToCloudinary } from "@shared/services";
 
 export const MAIN_CATEGORIES = [
+  "💎 Premium Store & Atelier",
   "Polos & Shirts",
   "Oversized Tees",
   "Hoodies & Sweatshirts",

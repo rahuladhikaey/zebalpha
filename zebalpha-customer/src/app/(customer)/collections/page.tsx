@@ -21,13 +21,23 @@ interface CollectionItem {
 
 const FEATURED_COLLECTIONS: CollectionItem[] = [
   {
+    id: "premium-store",
+    title: "💎 Luxury & Premium Store",
+    subtitle: "Atelier Couture • 400+ GSM & Supima",
+    description: "Exclusive luxury cuts, 100% long-staple California Supima®, bespoke quarter-zips, and limited numbered artisan drops.",
+    badge: "👑 VIP Vault",
+    categoryFilter: "premium-store",
+    image: "/banner-premium-polo.png",
+    itemCount: 24,
+  },
+  {
     id: "polos-tees",
-    title: "Polos & Streetwear Tees",
-    subtitle: "Signature 100% Supima & Combed Cotton",
+    title: "Streetwear Polos & Heavy Tees",
+    subtitle: "Signature 100% Combed Heavy Cotton",
     description: "Relaxed modern fits, tailored zip collars, and heavyweight minimal streetwear tees crafted for everyday luxury.",
     badge: "Bestsellers",
     categoryFilter: "Polos",
-    image: "/banner-premium-polo.png",
+    image: "/banner-retro-cream.png",
     itemCount: 18,
   },
   {
@@ -140,7 +150,12 @@ export default function CollectionsPage() {
             const totalDisplayCount = matchedProductsCount > 0 ? matchedProductsCount : col.itemCount;
 
             const isNewDropsCard = col.categoryFilter === "new-drops";
-            const targetHref = isNewDropsCard ? "/new-drops" : `/products?category=${col.categoryFilter}`;
+            const isPremiumStoreCard = col.categoryFilter === "premium-store";
+            const targetHref = isPremiumStoreCard 
+              ? "/premium-store" 
+              : isNewDropsCard 
+                ? "/new-drops" 
+                : `/products?category=${col.categoryFilter}`;
 
             return (
               <div

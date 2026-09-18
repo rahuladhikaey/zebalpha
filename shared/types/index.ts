@@ -32,6 +32,12 @@ export type Product = {
 	virtual_tryon_image?: string;
 	virtual_tryon_category?: string;
 	is_vto_enabled?: boolean;
+	is_premium?: boolean;
+	is_new_drop?: boolean;
+	collection?: string;
+	drop_date?: string;
+	target_drop_date?: string;
+	tier?: 'STANDARD' | 'PREMIUM' | 'LIMITED' | string;
 };
 
 export type CartItem = Product & {

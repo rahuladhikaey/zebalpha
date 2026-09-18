@@ -126,8 +126,8 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {[
                   { name: "Store Home", href: "/" },
                   { name: "New Drops & Hype", href: "/new-drops" },
+                  { name: "💎 Premium Store", href: "/premium-store" },
                   { name: "Curated Collections", href: "/collections" },
-                  { name: "Polos & Tees", href: "/products?category=Polos" },
                   { name: "All Apparel", href: "/products" },
                   { name: "Your Cart", href: "/cart" },
                   { name: "Track Order", href: "/profile/orders" },

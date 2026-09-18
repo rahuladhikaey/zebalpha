@@ -46,6 +46,11 @@ export default function SellerProducts() {
     sku: "",
     specificationsText: "",
     packagesText: "",
+    is_premium: false,
+    is_new_drop: false,
+    collection: "",
+    target_drop_date: "",
+    tier: "STANDARD",
   });
 
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -220,6 +225,11 @@ export default function SellerProducts() {
       sku: "",
       specificationsText: "",
       packagesText: "",
+      is_premium: false,
+      is_new_drop: false,
+      collection: "",
+      target_drop_date: "",
+      tier: "STANDARD",
     });
     setStatusMessage("");
     setIsModalOpen(true);
@@ -264,18 +274,23 @@ export default function SellerProducts() {
       description: product.description || "",
       category_id: (product.category_id || "").toString(),
       image_url: product.image_url || "",
-      brand: product.brand || "zebalpha",
+      brand: product.brand || "ZEBALPHA",
       stock: (product.stock || 0).toString(),
       low_stock_limit: (product.low_stock_limit || 5).toString(),
       sku: product.sku || "",
       specificationsText,
       packagesText,
+      is_premium: !!product.is_premium || product.tier === "PREMIUM",
+      is_new_drop: !!product.is_new_drop || (product as any).status === "COMING_SOON",
+      collection: product.collection || (product as any).category_name || "",
+      target_drop_date: product.target_drop_date || (product as any).drop_date || "",
+      tier: product.tier || (product.is_premium ? "PREMIUM" : "STANDARD"),
     });
     setStatusMessage("");
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (productId: number) => {
+  const handleDelete = async (productId: number | string) => {
     if (accountStatus.toLowerCase() === "suspended") {
       alert("🚫 Account Suspended: Deleting products is disabled.");
       return;
@@ -408,13 +423,25 @@ export default function SellerProducts() {
       low_stock_limit,
       sku: form.sku.trim() || null,
       offers: [],
-      specifications,
+      specifications: {
+        ...specifications,
+        tier: form.is_premium ? "PREMIUM" : (form.tier || "STANDARD"),
+        is_premium: form.is_premium ? "true" : "false",
+        is_new_drop: form.is_new_drop ? "true" : "false",
+        collection: form.collection.trim() || "",
+        target_drop_date: form.target_drop_date.trim() || ""
+      },
       packages,
-      status: stock > 0 ? "IN_STOCK" : "OUT_OF_STOCK",
+      status: form.is_new_drop ? "COMING_SOON" : (stock > 0 ? "IN_STOCK" : "OUT_OF_STOCK"),
       is_active: true,
       is_approved: true,
       approval_status: "approved",
-      seller_id: isValidUuid(userId) ? userId : null
+      seller_id: isValidUuid(userId) ? userId : null,
+      is_premium: form.is_premium,
+      is_new_drop: form.is_new_drop,
+      collection: form.collection.trim() || null,
+      target_drop_date: form.target_drop_date.trim() || null,
+      tier: form.is_premium ? "PREMIUM" : (form.tier || "STANDARD")
     };
 
     try {
@@ -531,8 +558,27 @@ export default function SellerProducts() {
                           className="h-12 w-12 rounded-xl object-cover border border-foreground/[0.08]"
                         />
                         <div>
-                          <p className="font-black text-foreground text-sm">{product.name}</p>
-                          <p className="text-[10px] font-bold text-text-muted mt-0.5">SKU: {product.sku || "N/A"}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-black text-foreground text-sm">{product.name}</p>
+                            {(product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true") && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                                💎 PREMIUM
+                              </span>
+                            )}
+                            {(product.is_new_drop || (product as any).status === "COMING_SOON" || (product.specifications as any)?.is_new_drop === "true") && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                                ⚡ NEW DROP
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[10px] font-bold text-text-muted">SKU: {product.sku || "N/A"}</p>
+                            {(product.collection || (product.specifications as any)?.collection) && (
+                              <span className="text-[10px] font-semibold text-zinc-400 bg-foreground/[0.05] border border-foreground/[0.08] px-1.5 py-0.5 rounded">
+                                🏷️ {product.collection || (product.specifications as any)?.collection}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -816,6 +862,89 @@ export default function SellerProducts() {
                   placeholder="Fabric: 100% Combed Cotton&#10;Fit: Oversized Streetwear&#10;GSM: 240 GSM&#10;Care: Machine Wash Cold"
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all resize-none"
                 />
+              </div>
+
+              {/* Collection, Premium Store & New Drop Tier Controls */}
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.04] p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">💎</span>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                      Premium Store & Drops Marketplace Setup
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    Store Placement
+                  </span>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Is Premium Toggle */}
+                  <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-amber-500/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={form.is_premium}
+                      onChange={e => setForm({...form, is_premium: e.target.checked, tier: e.target.checked ? "PREMIUM" : "STANDARD"})}
+                      className="mt-0.5 h-4 w-4 rounded text-amber-500 focus:ring-amber-400"
+                    />
+                    <div>
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 block">
+                        💎 Flag as Premium Store Item
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                        List in luxury /premium-store & separate revenue under Premium earnings.
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Is New Drop Toggle */}
+                  <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-orange-500/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={form.is_new_drop}
+                      onChange={e => setForm({...form, is_new_drop: e.target.checked})}
+                      className="mt-0.5 h-4 w-4 rounded text-orange-500 focus:ring-orange-400"
+                    />
+                    <div>
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 block">
+                        ⚡ Flag as New Drop (Upcoming Release)
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                        Display on /new-drops hype calendar with customer voting & drop alert.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Collection Selection / Input */}
+                  <div>
+                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">
+                      Curated Collection Name
+                    </label>
+                    <input
+                      type="text"
+                      value={form.collection}
+                      onChange={e => setForm({...form, collection: e.target.value})}
+                      placeholder="e.g. Heavyweight Hoodies, Luxury Polos, Summer Edits"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-amber-500 transition-all"
+                    />
+                  </div>
+
+                  {/* Target Drop Date */}
+                  <div>
+                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">
+                      Target Drop Date / Tagline
+                    </label>
+                    <input
+                      type="text"
+                      value={form.target_drop_date}
+                      onChange={e => setForm({...form, target_drop_date: e.target.value})}
+                      placeholder="e.g. Releasing Oct 2026 or 400 GSM Limited Drop"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-amber-500 transition-all"
+                    />
+                  </div>
+                </div>
               </div>
 
               {statusMessage && (
