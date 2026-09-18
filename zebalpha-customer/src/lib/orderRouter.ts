@@ -48,9 +48,24 @@ export async function createMasterOrder(payload: {
   // Create parent order
   const orderNumber = `AS${new Date().toISOString().slice(0,10).replace(/-/g,'')}${Math.floor(1000+Math.random()*9000)}`;
 
+  // Group items by seller (only if seller_id exists)
+  const bySeller: Record<string, OrderItem[]> = {};
+  for (const it of items) {
+    const rawSeller = (prodMap[it.id] && prodMap[it.id].seller_id) || it.seller_id;
+    const seller = (rawSeller && rawSeller !== 'null' && rawSeller !== 'undefined') ? rawSeller : null;
+    if (seller) {
+      if (!bySeller[seller]) bySeller[seller] = [];
+      bySeller[seller].push(it);
+    }
+  }
+
+  const sellerList = Object.keys(bySeller);
+  const primarySellerId = sellerList.length === 1 ? sellerList[0] : null;
+
   const { data: parentOrder, error: insertErr } = await supabaseServer.from('orders').insert([{
     order_number: orderNumber,
     user_id: user_id || null,
+    seller_id: primarySellerId || undefined,
     customer_name,
     phone,
     address,
@@ -65,17 +80,6 @@ export async function createMasterOrder(payload: {
   if (insertErr || !parentOrder) throw new Error('Failed to create parent order: ' + (insertErr?.message || 'unknown'));
 
   const parentOrderId = parentOrder.id;
-
-  // Group items by seller (only if seller_id exists)
-  const bySeller: Record<string, OrderItem[]> = {};
-  for (const it of items) {
-    const rawSeller = (prodMap[it.id] && prodMap[it.id].seller_id) || it.seller_id;
-    const seller = (rawSeller && rawSeller !== 'null' && rawSeller !== 'undefined') ? rawSeller : null;
-    if (seller) {
-      if (!bySeller[seller]) bySeller[seller] = [];
-      bySeller[seller].push(it);
-    }
-  }
 
   // Create seller orders and order items
   const sellerOrderRecords: any[] = [];

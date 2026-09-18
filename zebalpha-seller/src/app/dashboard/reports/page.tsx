@@ -34,15 +34,32 @@ export default function SellerReports() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Products
-      const { data: productsData } = await supabase
-        .from("products")
+      // Seller Profile
+      const { data: sProfile } = await supabase
+        .from("sellers")
         .select("*")
-        .eq("seller_id", user.id);
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      // Products
+      let productsData: any[] = [];
+      try {
+        const { data: pData } = await supabase
+          .from("products")
+          .select("*")
+          .or(`seller_id.eq.${user.id}${sProfile?.id ? `,seller_id.eq.${sProfile.id}` : ""}`);
+        productsData = pData || [];
+      } catch (_) {
+        const { data: pFallback } = await supabase
+          .from("products")
+          .select("*")
+          .eq("seller_id", user.id);
+        productsData = pFallback || [];
+      }
 
       const sProducts = (productsData || []) as Product[];
       setProducts(sProducts);
-      const pIds = sProducts.map(p => p.id);
+      const pIdSet = new Set(sProducts.map(p => String(p.id)));
       const premiumProductIdSet = new Set(
         sProducts
           .filter(p => p.is_premium === true || p.tier === "PREMIUM" || (p.specifications as any)?.is_premium === "true" || (p.category && p.category.toLowerCase().includes("premium")))
@@ -59,27 +76,33 @@ export default function SellerReports() {
       const filteredOrders: any[] = [];
 
       allOrders.forEach(ord => {
-        const isDirect = ord.seller_id === user.id;
+        const isDirect = ord.seller_id === user.id || (sProfile?.id && ord.seller_id === sProfile.id);
         let sellerItems: any[] = [];
 
         if (ord.items && Array.isArray(ord.items)) {
-          sellerItems = ord.items.filter((i: any) => pIds.includes(i.product_id || i.id));
+          sellerItems = pIdSet.size > 0 
+            ? ord.items.filter((i: any) => pIdSet.has(String(i.product_id || i.id || "")))
+            : ord.items;
         } else if (ord.product_details) {
           try {
-            const parsed = JSON.parse(ord.product_details || "[]");
-            sellerItems = parsed.filter((i: any) => pIds.includes(i.id));
+            const parsed = typeof ord.product_details === "string" ? JSON.parse(ord.product_details || "[]") : ord.product_details;
+            sellerItems = pIdSet.size > 0
+              ? parsed.filter((i: any) => pIdSet.has(String(i.id || i.product_id || "")))
+              : parsed;
           } catch (e) {}
         }
 
-        if (isDirect || sellerItems.length > 0) {
+        if (isDirect || sellerItems.length > 0 || pIdSet.size === 0) {
           let premTotal = 0;
           let stdTotal = 0;
           let premUnits = 0;
           let stdUnits = 0;
 
-          sellerItems.forEach((item: any) => {
+          const itemsToCalc = sellerItems.length > 0 ? sellerItems : (ord.items || []);
+
+          itemsToCalc.forEach((item: any) => {
             const itemId = String(item.product_id || item.id || "");
-            const itemTotal = item.subtotal || (item.price * item.quantity) || 0;
+            const itemTotal = item.subtotal || ((Number(item.price) || 0) * (Number(item.quantity) || 1)) || 0;
             const qty = Number(item.quantity) || 1;
             const isPrem = 
               item.is_premium === true || 
@@ -103,7 +126,7 @@ export default function SellerReports() {
 
           filteredOrders.push({
             ...ord,
-            seller_items: sellerItems,
+            seller_items: itemsToCalc,
             seller_total: sellerTotal,
             premium_total: premTotal,
             standard_total: stdTotal > 0 ? stdTotal : (premTotal > 0 ? 0 : sellerTotal),
