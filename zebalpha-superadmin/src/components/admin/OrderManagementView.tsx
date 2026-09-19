@@ -82,7 +82,20 @@ export default function OrderManagementView() {
         ordersList = directOrders || [];
       }
 
-      setOrders(ordersList);
+      // Deduplicate: Hide master order containers if seller sub-orders exist to prevent duplicate table rows
+      const deduplicated = ordersList.filter((ord: any) => {
+        const num = String(ord.order_number || ord.id || "").trim();
+        if (!/-S\d+$/i.test(num) && !/-SO\d+$/i.test(num)) {
+          const hasSubOrder = ordersList.some((other: any) => {
+            const otherNum = String(other.order_number || other.id || "").trim();
+            return (otherNum.startsWith(num + "-S") || otherNum.startsWith(num + "-SO")) && otherNum !== num;
+          });
+          if (hasSubOrder) return false;
+        }
+        return true;
+      });
+
+      setOrders(deduplicated);
       setSellers(sellersRes.data || []);
       setProducts(productsRes.data || []);
     } catch (e: any) {

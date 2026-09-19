@@ -181,7 +181,20 @@ export default function SellerOrders() {
         });
       }
 
-      setOrders(filteredOrders);
+      // Deduplicate master order containers when actionable sub-orders exist
+      const deduplicatedSellerOrders = filteredOrders.filter((ord: any) => {
+        const num = String(ord.order_number || ord.id || "").trim();
+        if (!/-S\d+$/i.test(num) && !/-SO\d+$/i.test(num)) {
+          const hasSubOrder = filteredOrders.some((other: any) => {
+            const otherNum = String(other.order_number || other.id || "").trim();
+            return (otherNum.startsWith(num + "-S") || otherNum.startsWith(num + "-SO")) && otherNum !== num;
+          });
+          if (hasSubOrder) return false;
+        }
+        return true;
+      });
+
+      setOrders(deduplicatedSellerOrders);
     } catch (e) {
       console.error("Error loading orders:", e);
     } finally {

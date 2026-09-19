@@ -72,13 +72,25 @@ export default function AdminPage() {
         fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] }))
       ]);
 
-      const loadedOrders = oRes.data || [];
+      let loadedOrders = oRes.data || [];
       if (loadedOrders.length === 0) {
         const { data: directOrders } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
-        setOrders(directOrders || []);
-      } else {
-        setOrders(loadedOrders);
+        loadedOrders = directOrders || [];
       }
+
+      const deduplicatedOrders = loadedOrders.filter((ord: any) => {
+        const num = String(ord.order_number || ord.id || "").trim();
+        if (!/-S\d+$/i.test(num) && !/-SO\d+$/i.test(num)) {
+          const hasSubOrder = loadedOrders.some((other: any) => {
+            const otherNum = String(other.order_number || other.id || "").trim();
+            return (otherNum.startsWith(num + "-S") || otherNum.startsWith(num + "-SO")) && otherNum !== num;
+          });
+          if (hasSubOrder) return false;
+        }
+        return true;
+      });
+
+      setOrders(deduplicatedOrders);
 
       setProducts(pRes.data || []);
       setCategories(cRes.data || []);

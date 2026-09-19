@@ -73,13 +73,26 @@ export default function ShippingLogisticsView() {
         supabaseA.from("shipments").select("*").order("created_at", { ascending: false })
       ]);
 
-      const loadedDispatches = ordersRes.data || [];
+      let loadedDispatches = ordersRes.data || [];
       if (loadedDispatches.length === 0) {
         const { data: directOrders } = await supabaseA.from("orders").select("*").order("created_at", { ascending: false });
-        setDispatches(directOrders || []);
-      } else {
-        setDispatches(loadedDispatches);
+        loadedDispatches = directOrders || [];
       }
+
+      // Deduplicate master order containers when seller sub-orders exist
+      const deduplicatedDispatches = loadedDispatches.filter((ord: any) => {
+        const num = String(ord.order_number || ord.id || "").trim();
+        if (!/-S\d+$/i.test(num) && !/-SO\d+$/i.test(num)) {
+          const hasSubOrder = loadedDispatches.some((other: any) => {
+            const otherNum = String(other.order_number || other.id || "").trim();
+            return (otherNum.startsWith(num + "-S") || otherNum.startsWith(num + "-SO")) && otherNum !== num;
+          });
+          if (hasSubOrder) return false;
+        }
+        return true;
+      });
+
+      setDispatches(deduplicatedDispatches);
 
       setPickupLocations(locRes.data || []);
       setSellers(sellersList);
