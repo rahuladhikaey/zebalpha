@@ -5,56 +5,11 @@ import { supabase } from "@shared/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
-import { CheckCircle2, Store, User, Mail, Phone, Lock, Tag, Layers, ArrowRight, ShieldCheck, Eye, EyeOff, CreditCard } from "lucide-react";
+import { CheckCircle2, Store, User, Mail, Phone, Lock, ArrowRight, ShieldCheck, Eye, EyeOff, CreditCard } from "lucide-react";
 
 const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
 const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
 const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
-
-const CATEGORY_MAP: Record<string, string[]> = {
-  "Polos & T-Shirts": [
-    "Premium Pique Polos",
-    "Zip-Neck Luxury Polos",
-    "Oversized Streetwear Tees",
-    "Heavyweight Graphic Tees",
-    "Supima Cotton Basics",
-  ],
-  "Hoodies & Sweatshirts": [
-    "380 GSM Heavyweight Hoodies",
-    "Plush Fleece Drop-Shoulders",
-    "Streetwear Zip-Up Hoodies",
-    "Minimal Crewneck Sweaters",
-  ],
-  "Casual Shirts": [
-    "Textured Linen Shirts",
-    "Resort Collar Shirts",
-    "Woven Oxford Button-Downs",
-    "Oversized Flannels",
-  ],
-  "Bottoms & Cargo": [
-    "Utility Cargo Trousers",
-    "Relaxed Tailored Pants",
-    "Heavyweight Fleece Joggers",
-    "Straight-Leg Streetwear Denim",
-  ],
-  "Outerwear & Jackets": [
-    "Varsity Bomber Jackets",
-    "Windbreaker Track Jackets",
-    "Denim Overshirts",
-    "Layering Streetwear Vests",
-  ],
-  "Accessories & Caps": [
-    "Embroidered Streetwear Caps",
-    "Beanie Hats",
-    "Chains & Minimal Jewelry",
-    "Crossbody Bags & Socks",
-  ],
-  "Limited Drops": [
-    "Exclusive Culture Releases",
-    "Collaboration Editions",
-    "Archive Special Drops",
-  ],
-};
 
 export default function SellerRegisterPage() {
   const router = useRouter();
@@ -126,11 +81,6 @@ export default function SellerRegisterPage() {
       console.warn("Seller direct EmailJS dispatch note:", err);
     }
   };
-
-  // Available Subcategories based on selected Category
-  const subcategoryOptions = useMemo(() => {
-    return CATEGORY_MAP[category] || CATEGORY_MAP["Polos & T-Shirts"];
-  }, [category]);
 
   // Password Strength Calculation
   const passwordStrength = useMemo(() => {
