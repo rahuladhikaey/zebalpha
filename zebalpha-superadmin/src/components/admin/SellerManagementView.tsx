@@ -56,6 +56,13 @@ const APPAREL_CATEGORIES = [
   { key: "drops", label: "Limited Drops" }
 ];
 
+export const cleanCategory = (cat?: string | null) => {
+  if (!cat) return "Clothing & Apparel";
+  const lower = cat.toLowerCase().trim();
+  if (lower === "grocery" || lower.includes("grocery")) return "Clothing & Apparel";
+  return cat;
+};
+
 export default function SellerManagementView() {
   const [loading, setLoading] = useState(true);
   const [sellers, setSellers] = useState<any[]>([]);
@@ -89,7 +96,7 @@ export default function SellerManagementView() {
   const [newSellerForm, setNewSellerForm] = useState({
     full_name: "",
     business_name: "",
-    category: "Polos & T-Shirts",
+    category: "Clothing & Apparel",
     phone_number: "",
     email: "",
     upi_id: "",
@@ -319,7 +326,7 @@ export default function SellerManagementView() {
   const filteredSellers = useMemo(() => {
     return sellersWithMetrics.filter((s) => {
       const statusVal = (s.account_status || s.status || "active").toLowerCase();
-      const catVal = (s.category || s.business_category || "").toLowerCase();
+      const catVal = cleanCategory(s.category || s.business_category).toLowerCase();
       const isSusp = s.is_suspended || statusVal === "suspended";
 
       const matchesStatus = 
@@ -789,7 +796,7 @@ export default function SellerManagementView() {
                   const sName = seller.business_name || seller.full_name || "ZEBALPHA Store";
                   const sOwner = seller.owner_name || seller.full_name || "Rahul Adhikary";
                   const sUpi = seller.phonepay_no || seller.phonepay_number || seller.upi_id || (seller.mobile_number ? `${seller.mobile_number}@phonepe` : "Not provided");
-                  const sCategory = seller.category || seller.business_category || "Luxury Clothing";
+                  const sCategory = cleanCategory(seller.category || seller.business_category);
                   const isPrimary = seller.is_primary_brand;
                   const isSuspended = seller.is_suspended || (seller.account_status || "").toLowerCase() === "suspended";
 
@@ -923,7 +930,7 @@ export default function SellerManagementView() {
                               email: seller.email || "",
                               phone_number: seller.phone_number || seller.mobile_number || "",
                               upi_id: seller.upi_id || seller.phonepay_no || seller.phonepay_number || "",
-                              category: seller.category || seller.business_category || "Polos & T-Shirts",
+                              category: cleanCategory(seller.category || seller.business_category),
                               city: seller.city || seller.pickup_location || "",
                               pickup_location: seller.pickup_location || seller.city || "",
                               warehouse_address: seller.warehouse_address || seller.pickup_address || "",
@@ -1130,7 +1137,7 @@ export default function SellerManagementView() {
                     </div>
                     <div>
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">Business Category</span>
-                      <span className="text-white">{selectedSeller.category || selectedSeller.business_category || "Apparel"}</span>
+                      <span className="text-white">{cleanCategory(selectedSeller.category || selectedSeller.business_category)}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">GSTIN / Registration</span>

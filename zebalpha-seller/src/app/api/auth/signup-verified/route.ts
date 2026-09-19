@@ -162,7 +162,13 @@ export async function POST(request: NextRequest) {
         if (city) updateData.city = city;
         if (state) updateData.state = state;
         if (pincode) updateData.pincode = pincode;
-        if (category) updateData.category = category;
+        if (category) {
+          updateData.category = category;
+          updateData.business_category = category;
+        } else if (!existingSeller.category || existingSeller.category.toLowerCase().includes("grocery")) {
+          updateData.category = "Clothing & Apparel";
+          updateData.business_category = "Clothing & Apparel";
+        }
 
         await supabaseServer
           .from("sellers")
@@ -190,7 +196,8 @@ export async function POST(request: NextRequest) {
             city: city || "Kolkata",
             state: state || "West Bengal",
             pincode: pincode || "700001",
-            category: category || "Polos & T-Shirts",
+            category: category || "Clothing & Apparel",
+            business_category: category || "Clothing & Apparel",
             status: "approved",
             account_status: "Active",
             email_verified: true,

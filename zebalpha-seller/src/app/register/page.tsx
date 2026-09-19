@@ -63,8 +63,6 @@ export default function SellerRegisterPage() {
   // Required Fields
   const [sellerName, setSellerName] = useState("");
   const [shopName, setShopName] = useState("");
-  const [category, setCategory] = useState("Polos & T-Shirts");
-  const [subcategory, setSubcategory] = useState("Premium Pique Polos");
   const [mobileNumber, setMobileNumber] = useState("");
   const [upiId, setUpiId] = useState("");
   const [email, setEmail] = useState("");
@@ -280,7 +278,7 @@ export default function SellerRegisterPage() {
             city: city.trim(),
             state: state.trim(),
             pincode: pincode.trim(),
-            category: category
+            category: "Clothing & Apparel"
           }),
         });
         const signupData = await signupRes.json();
@@ -348,8 +346,8 @@ export default function SellerRegisterPage() {
         mobile_number: mobileNumber.trim(),
         phone_number: mobileNumber.trim(),
         email: normalizedEmail,
-        category: category,
-        business_category: `${category} - ${subcategory}`,
+        category: "Clothing & Apparel",
+        business_category: "Clothing & Apparel",
         upi_id: finalUpi,
         phonepay_no: finalUpi,
         phonepay_number: finalUpi,
@@ -539,47 +537,6 @@ export default function SellerRegisterPage() {
                   onChange={(e) => setShopName(e.target.value)}
                   className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white"
                 />
-              </div>
-
-              {/* Category & Subcategory Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[11px] font-black uppercase tracking-wider text-zinc-400 mb-1.5 flex items-center gap-1.5">
-                    <Tag size={14} className="text-white" />
-                    <span>Sell by Category *</span>
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => {
-                      const newCat = e.target.value;
-                      setCategory(newCat);
-                      setSubcategory(CATEGORY_MAP[newCat]?.[0] || "");
-                    }}
-                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white cursor-pointer"
-                  >
-                    {Object.keys(CATEGORY_MAP).map((catName) => (
-                      <option key={catName} value={catName}>
-                        {catName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-black uppercase tracking-wider text-zinc-400 mb-1.5 flex items-center gap-1.5">
-                    <Layers size={14} className="text-white" />
-                    <span>Subcategory *</span>
-                  </label>
-                  <select
-                    value={subcategory}
-                    onChange={(e) => setSubcategory(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white cursor-pointer"
-                  >
-                    {subcategoryOptions.map((sub) => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
               {/* Phone & Email */}
@@ -848,7 +805,7 @@ export default function SellerRegisterPage() {
                 Seller Account Active & Approved!
               </h2>
               <p className="text-xs font-bold text-zinc-400 max-w-md mx-auto leading-relaxed">
-                Welcome to ZEBALPHA Marketplace! <span className="text-white font-bold">{shopName}</span> is registered under category <span className="text-white font-black">{category} ({subcategory})</span>. Payouts will route directly to <span className="text-emerald-400 font-mono font-bold">{upiId || `${mobileNumber}@phonepe`}</span>.
+                Welcome to ZEBALPHA Marketplace! <span className="text-white font-bold">{shopName}</span> is registered under category <span className="text-white font-black">Clothing & Apparel</span>. Payouts will route directly to <span className="text-emerald-400 font-mono font-bold">{upiId || `${mobileNumber}@phonepe`}</span>.
               </p>
               <div className="pt-4">
                 <Link

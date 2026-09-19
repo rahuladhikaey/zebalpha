@@ -24,15 +24,23 @@ import {
 } from "lucide-react";
 
 const APPAREL_CATEGORIES = [
+  "Clothing & Apparel",
+  "Luxury Clothing & Streetwear",
   "Polos & T-Shirts",
   "Hoodies & Sweatshirts",
   "Casual Shirts",
   "Bottoms & Cargo",
   "Outerwear & Jackets",
   "Accessories & Caps",
-  "Limited Drops",
-  "Luxury Clothing & Streetwear"
+  "Limited Drops"
 ];
+
+const cleanCategory = (cat?: string | null) => {
+  if (!cat) return "Clothing & Apparel";
+  const lower = cat.toLowerCase().trim();
+  if (lower === "grocery" || lower.includes("grocery")) return "Clothing & Apparel";
+  return cat;
+};
 
 export default function SellerSettings() {
   const [loading, setLoading] = useState(true);
@@ -54,8 +62,8 @@ export default function SellerSettings() {
     mobile_number: "",
     email: "",
     email_verified: true,
-    category: "Polos & T-Shirts",
-    business_category: "Polos & T-Shirts",
+    category: "Clothing & Apparel",
+    business_category: "Clothing & Apparel",
     upi_id: "",
     phonepay_number: "",
     pickup_address: "",
@@ -85,7 +93,7 @@ export default function SellerSettings() {
       if (seller) {
         setSellerId(seller.id);
         const resolvedUpi = seller.phonepay_no || seller.phonepay_number || seller.upi_id || "";
-        const resolvedCategory = seller.category || seller.business_category || "Polos & T-Shirts";
+        const resolvedCategory = cleanCategory(seller.category || seller.business_category);
 
         setForm({
           business_name: seller.business_name || seller.shop_name || "",
