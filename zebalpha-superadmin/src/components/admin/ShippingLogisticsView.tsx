@@ -43,6 +43,7 @@ export default function ShippingLogisticsView() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [sellerFilter, setSellerFilter] = useState("ALL");
   const [addressStatusFilter, setAddressStatusFilter] = useState("ALL");
+  const [addressSellerFilter, setAddressSellerFilter] = useState("ALL");
 
   // Modals & Forms
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
@@ -242,18 +243,46 @@ export default function ShippingLogisticsView() {
     return matchesStatus && matchesSeller && matchesSearch;
   });
 
-  // Filtered Addresses
+  // Filtered Addresses with complete Seller and Location search
   const filteredAddresses = pickupLocations.filter(loc => {
+    // Robust seller matching
+    const matchedSeller = sellers.find(s => 
+      s.id === loc.seller_id || 
+      (s.user_id && s.user_id === loc.seller_id) || 
+      (s.id && s.id === loc.user_id) || 
+      (s.user_id && loc.user_id && s.user_id === loc.user_id) ||
+      (loc.contact_email && s.email && loc.contact_email.toLowerCase() === s.email.toLowerCase()) ||
+      (loc.contact_phone && (s.mobile_number === loc.contact_phone || s.phone_number === loc.contact_phone))
+    );
+
     const matchesStatus = addressStatusFilter === "ALL" || (loc.approval_status || "approved").toUpperCase() === addressStatusFilter.toUpperCase();
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = 
+    const matchesSeller = addressSellerFilter === "ALL" || 
+      loc.seller_id === addressSellerFilter || 
+      (matchedSeller && (matchedSeller.id === addressSellerFilter || matchedSeller.user_id === addressSellerFilter));
+
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch = !query || (
       (loc.location_name || "").toLowerCase().includes(query) ||
+      (loc.name || "").toLowerCase().includes(query) ||
+      (loc.address_line1 || loc.address || "").toLowerCase().includes(query) ||
+      (loc.address_line2 || "").toLowerCase().includes(query) ||
+      (loc.landmark || "").toLowerCase().includes(query) ||
       (loc.city || "").toLowerCase().includes(query) ||
+      (loc.state || "").toLowerCase().includes(query) ||
       (loc.pincode || "").includes(query) ||
       (loc.contact_name || "").toLowerCase().includes(query) ||
-      (loc.contact_phone || "").includes(query);
+      (loc.contact_phone || "").includes(query) ||
+      (loc.contact_email || "").toLowerCase().includes(query) ||
+      (matchedSeller?.business_name || "").toLowerCase().includes(query) ||
+      (matchedSeller?.owner_name || "").toLowerCase().includes(query) ||
+      (matchedSeller?.full_name || "").toLowerCase().includes(query) ||
+      (matchedSeller?.email || "").toLowerCase().includes(query) ||
+      (matchedSeller?.mobile_number || "").includes(query) ||
+      (matchedSeller?.phone_number || "").includes(query) ||
+      (matchedSeller?.upi_id || "").toLowerCase().includes(query)
+    );
 
-    return matchesStatus && matchesSearch;
+    return matchesStatus && matchesSeller && matchesSearch;
   });
 
   return (
@@ -571,7 +600,20 @@ export default function ShippingLogisticsView() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={addressSellerFilter}
+                onChange={(e) => setAddressSellerFilter(e.target.value)}
+                className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-bold text-white outline-none focus:border-purple-500 cursor-pointer"
+              >
+                <option value="ALL">All Merchants ({sellers.length})</option>
+                {sellers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.business_name || s.owner_name || s.email}
+                  </option>
+                ))}
+              </select>
+
               <select
                 value={addressStatusFilter}
                 onChange={(e) => setAddressStatusFilter(e.target.value)}
@@ -592,32 +634,57 @@ export default function ShippingLogisticsView() {
               </div>
             ) : (
               filteredAddresses.map((loc) => {
-                const matchedSeller = sellers.find(s => s.id === loc.seller_id || s.user_id === loc.user_id);
+                const matchedSeller = sellers.find(s => 
+                  s.id === loc.seller_id || 
+                  (s.user_id && s.user_id === loc.seller_id) || 
+                  (s.id && s.id === loc.user_id) || 
+                  (s.user_id && loc.user_id && s.user_id === loc.user_id) ||
+                  (loc.contact_email && s.email && loc.contact_email.toLowerCase() === s.email.toLowerCase()) ||
+                  (loc.contact_phone && (s.mobile_number === loc.contact_phone || s.phone_number === loc.contact_phone))
+                );
                 const isApproved = (loc.approval_status || "approved") === "approved";
                 const isSynced = loc.shiprocket_sync_status === "synced";
+                const sellerDisplayName = matchedSeller?.business_name || matchedSeller?.owner_name || "Merchant Store";
+                const warehouseHubName = loc.location_name || loc.name || "Primary Warehouse";
 
                 return (
                   <div 
                     key={loc.id} 
                     className="p-5 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 space-y-3 relative overflow-hidden"
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-black text-white text-sm">{loc.location_name || "Merchant Hub"}</h4>
+                        {/* Merchant Identity Heading */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md bg-white/10 text-white font-black text-[10px] uppercase tracking-wider">
+                            Merchant
+                          </span>
+                          <h4 className="font-black text-white text-sm sm:text-base tracking-tight">
+                            {sellerDisplayName}
+                          </h4>
                           {loc.is_default && (
-                            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/30 text-[9px] font-black uppercase">
+                            <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[9px] font-black uppercase">
                               Primary Hub
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] font-bold text-zinc-400 mt-0.5">
-                          Merchant: <span className="text-white">{matchedSeller?.business_name || matchedSeller?.owner_name || "Seller Store"}</span>
-                        </p>
+
+                        {/* Warehouse Hub Name and Owner Contact */}
+                        <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 mt-1.5 flex-wrap">
+                          <span className="text-zinc-300">Hub: <strong className="text-white">{warehouseHubName}</strong></span>
+                          <span>•</span>
+                          <span>Owner: <span className="text-white">{matchedSeller?.owner_name || matchedSeller?.full_name || loc.contact_name || "Merchant"}</span></span>
+                          {(matchedSeller?.email || loc.contact_email) && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono text-zinc-400 text-[11px]">{matchedSeller?.email || loc.contact_email}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       {/* Sync Badge */}
-                      <div className="flex flex-col items-end gap-1">
+                      <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border ${
                           isApproved
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
@@ -631,19 +698,25 @@ export default function ShippingLogisticsView() {
                       </div>
                     </div>
 
-                    {/* Address Text */}
-                    <div className="text-xs text-zinc-300 font-medium leading-relaxed bg-zinc-950/60 p-3 rounded-2xl border border-zinc-800">
-                      <p className="font-bold text-white">{loc.address_line1}</p>
-                      {loc.address_line2 && <p className="text-zinc-400">{loc.address_line2}</p>}
-                      <p className="text-zinc-400 mt-0.5">
-                        {loc.city}, {loc.state} — <span className="font-mono font-bold text-white">{loc.pincode}</span>
+                    {/* Clean Deduplicated Address Box */}
+                    <div className="text-xs text-zinc-300 font-medium leading-relaxed bg-zinc-950/70 p-3.5 rounded-2xl border border-zinc-800 space-y-1">
+                      <p className="font-bold text-white">{loc.address_line1 || loc.address}</p>
+                      {loc.address_line2 && loc.address_line2.trim().toLowerCase() !== (loc.address_line1 || "").trim().toLowerCase() && (
+                        <p className="text-zinc-400">{loc.address_line2}</p>
+                      )}
+                      {loc.landmark && <p className="text-zinc-500 text-[11px]">Landmark: {loc.landmark}</p>}
+                      <p className="text-zinc-300 pt-0.5 font-bold">
+                        {loc.city}, {loc.state} — <span className="font-mono font-black text-white">{loc.pincode}</span>
                       </p>
                     </div>
 
-                    {/* Contact & Phone */}
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                      <span>👤 {loc.contact_name || "Merchant"}</span>
-                      <span>📞 {loc.contact_phone || "Phone"}</span>
+                    {/* Contact & Phone & UPI */}
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono flex-wrap gap-2 pt-0.5">
+                      <span>👤 {loc.contact_name || matchedSeller?.owner_name || "Merchant"}</span>
+                      <span>📞 {loc.contact_phone || loc.phone || matchedSeller?.mobile_number || "Phone"}</span>
+                      {matchedSeller?.upi_id && (
+                        <span className="text-emerald-400">💳 {matchedSeller.upi_id}</span>
+                      )}
                     </div>
 
                     {/* Action Bar */}

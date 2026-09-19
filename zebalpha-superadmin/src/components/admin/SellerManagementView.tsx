@@ -60,6 +60,7 @@ export default function SellerManagementView() {
   const [sellers, setSellers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [pickupLocations, setPickupLocations] = useState<any[]>([]);
 
   // Filtering & Search
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -108,14 +109,16 @@ export default function SellerManagementView() {
         console.warn("Supabase sellers fetch notice:", sellersErr.message);
       }
 
-      // 2. Fetch real products and orders
-      const [pRes, oRes] = await Promise.all([
+      // 2. Fetch real products, orders, and pickup locations
+      const [pRes, oRes, locRes] = await Promise.all([
         supabase.from("products").select("*").order("created_at", { ascending: false }),
-        supabase.from("orders").select("*").order("created_at", { ascending: false })
+        supabase.from("orders").select("*").order("created_at", { ascending: false }),
+        supabase.from("seller_pickup_locations").select("*").order("created_at", { ascending: false })
       ]);
 
       const allProducts = pRes.data || [];
       const allOrders = oRes.data || [];
+      const allLocations = locRes.data || [];
       let dbSellers = sellersData || [];
 
       // If no sellers exist in DB yet, add the primary 1st-party brand record seamlessly
@@ -152,6 +155,7 @@ export default function SellerManagementView() {
       setSellers(dbSellers);
       setProducts(allProducts);
       setOrders(allOrders);
+      setPickupLocations(allLocations);
     } catch (e: any) {
       console.error("Error loading merchant data:", e);
     } finally {
@@ -168,6 +172,7 @@ export default function SellerManagementView() {
       .on("postgres_changes", { event: "*", schema: "public", table: "sellers" }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "seller_pickup_locations" }, () => loadData())
       .subscribe();
 
     return () => {
@@ -248,6 +253,16 @@ export default function SellerManagementView() {
       const inTransitCount = matchingOrders.filter(o => ["shipped", "in_transit", "picked_up", "dispatched", "out_for_delivery"].includes(o.order_status)).length;
       const pendingCount = matchingOrders.filter(o => ["placed", "confirmed", "processing", "ready_to_ship"].includes(o.order_status)).length;
 
+      // Find all pickup locations belonging to this seller
+      const sellerLocations = pickupLocations.filter((loc: any) => 
+        loc.seller_id === sId || 
+        (sUserId && loc.seller_id === sUserId) ||
+        (loc.user_id && (loc.user_id === sId || loc.user_id === sUserId)) ||
+        (loc.contact_email && seller.email && loc.contact_email.toLowerCase() === seller.email.toLowerCase()) ||
+        (loc.contact_phone && (seller.mobile_number === loc.contact_phone || seller.phone_number === loc.contact_phone))
+      );
+      const primaryLoc = sellerLocations.find((l: any) => l.is_default) || sellerLocations[0] || null;
+
       return {
         ...seller,
         is_primary_brand: isPrimary,
@@ -261,10 +276,12 @@ export default function SellerManagementView() {
         totalUnitsSold: totalUnits,
         productsCount: sellerProds.length,
         sellerProducts: sellerProds,
-        sellerOrders: matchingOrders
+        sellerOrders: matchingOrders,
+        pickupLocations: sellerLocations,
+        primaryLoc
       };
     });
-  }, [sellers, products, orders]);
+  }, [sellers, products, orders, pickupLocations]);
 
   // ── Compute Platform-Wide Total Income & Revenue ──────────────────────────
   const platformSummary = useMemo(() => {
@@ -324,7 +341,21 @@ export default function SellerManagementView() {
         (s.phone_number || s.mobile_number || "").includes(query) ||
         (s.upi_id || s.phonepay_no || s.phonepay_number || "").toLowerCase().includes(query) ||
         (s.city || s.pickup_location || "").toLowerCase().includes(query) ||
-        (s.seller_id || s.id || "").toString().toLowerCase().includes(query);
+        (s.state || "").toLowerCase().includes(query) ||
+        (s.pincode || "").includes(query) ||
+        (s.warehouse_address || "").toLowerCase().includes(query) ||
+        (s.pickup_address || "").toLowerCase().includes(query) ||
+        (s.seller_id || s.id || "").toString().toLowerCase().includes(query) ||
+        (s.pickupLocations || []).some((loc: any) => 
+          (loc.location_name || "").toLowerCase().includes(query) ||
+          (loc.name || "").toLowerCase().includes(query) ||
+          (loc.address_line1 || loc.address || "").toLowerCase().includes(query) ||
+          (loc.city || "").toLowerCase().includes(query) ||
+          (loc.state || "").toLowerCase().includes(query) ||
+          (loc.pincode || "").includes(query) ||
+          (loc.contact_name || "").toLowerCase().includes(query) ||
+          (loc.contact_phone || "").includes(query)
+        );
 
       return matchesStatus && matchesCategory && matchesSearch;
     });
@@ -785,10 +816,12 @@ export default function SellerManagementView() {
                                   3rd-Party
                                 </span>
                               )}
+                            <div className="text-[10px] font-bold text-zinc-400 block mt-0.5 max-w-xs space-y-0.5">
+                              <div>{sCategory} • 📍 {seller.primaryLoc?.city || seller.city || "—"} ({seller.primaryLoc?.pincode || seller.pincode || "—"})</div>
+                              <div className="text-zinc-500 font-mono text-[9px] truncate">
+                                Hub: {seller.primaryLoc?.location_name || seller.primaryLoc?.name || seller.pickup_location || "Main Warehouse"}
+                              </div>
                             </div>
-                            <span className="text-[10px] font-bold text-zinc-400 block mt-0.5 truncate max-w-xs">
-                              {sCategory} • {seller.city || "Kolkata"}
-                            </span>
                           </div>
                         </div>
                       </td>
@@ -1055,18 +1088,116 @@ export default function SellerManagementView() {
                   </div>
                 </div>
 
-                {/* Contact & Warehouse Address */}
-                <div className="p-4 bg-zinc-900/60 rounded-2xl border border-zinc-800 space-y-3 font-bold">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                    <MapPin size={13} className="text-emerald-400" /> Dispatch & Warehouse Address
-                  </p>
-                  <p className="text-white text-xs leading-relaxed">
-                    {selectedSeller.warehouse_address || selectedSeller.pickup_address || "Central Fashion Complex, Kolkata, West Bengal, 700001"}
-                  </p>
-                  <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
-                    <span>Email: <span className="text-white font-mono">{selectedSeller.email || "—"}</span></span>
-                    <span>Phone: <span className="text-white font-mono">{selectedSeller.mobile_number || selectedSeller.phone_number || "—"}</span></span>
+                {/* Comprehensive Merchant Profile Information */}
+                <div className="p-4 bg-zinc-900/70 rounded-2xl border border-zinc-800 space-y-3 font-bold">
+                  <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+                    <p className="text-[10px] uppercase tracking-wider text-purple-400 flex items-center gap-1.5 font-black">
+                      <Store size={13} className="text-purple-400" /> Merchant Identity & Registration
+                    </p>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
+                      (selectedSeller.account_status || "Active").toLowerCase() === "active"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : "bg-red-500/10 text-red-400 border-red-500/30"
+                    }`}>
+                      {selectedSeller.account_status || "Active"}
+                    </span>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">Store / Business Name</span>
+                      <span className="text-white font-black">{selectedSeller.business_name || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">Owner / Full Name</span>
+                      <span className="text-white font-bold">{selectedSeller.owner_name || selectedSeller.full_name || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">Registered Email</span>
+                      <span className="text-white font-mono flex items-center gap-1">
+                        {selectedSeller.email || "—"}
+                        <span className="text-emerald-400 text-[9px]">✓ Verified</span>
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">Contact Phone Number</span>
+                      <span className="text-white font-mono">{selectedSeller.mobile_number || selectedSeller.phone_number || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">Business Category</span>
+                      <span className="text-white">{selectedSeller.category || selectedSeller.business_category || "Apparel"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">GSTIN / Registration</span>
+                      <span className="text-zinc-300 font-mono text-[11px]">{selectedSeller.gstin || "Unregistered / Composition"}</span>
+                    </div>
+                  </div>
+
+                  {selectedSeller.created_at && (
+                    <div className="pt-2 border-t border-zinc-800/80 text-[10px] text-zinc-500 font-mono">
+                      Joined: {new Date(selectedSeller.created_at).toLocaleString("en-IN")}
+                    </div>
+                  )}
+                </div>
+
+                {/* All Registered Warehouse & Pickup Hubs */}
+                <div className="p-4 bg-zinc-900/70 rounded-2xl border border-zinc-800 space-y-3 font-bold">
+                  <p className="text-[10px] uppercase tracking-wider text-emerald-400 flex items-center gap-1.5 font-black">
+                    <MapPin size={13} className="text-emerald-400" /> Registered Pickup Hubs ({selectedSeller.pickupLocations?.length || 1})
+                  </p>
+
+                  {selectedSeller.pickupLocations && selectedSeller.pickupLocations.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedSeller.pickupLocations.map((loc: any, idx: number) => (
+                        <div key={loc.id || idx} className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-white">{loc.location_name || loc.name || `Warehouse Hub #${idx + 1}`}</span>
+                              {loc.is_default && (
+                                <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-black uppercase">
+                                  Default Hub
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[9px] font-black uppercase text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                              {loc.approval_status || "Approved"}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-zinc-300 leading-relaxed space-y-0.5">
+                            <p className="text-white font-bold">{loc.address_line1 || loc.address}</p>
+                            {loc.address_line2 && loc.address_line2.trim().toLowerCase() !== (loc.address_line1 || "").trim().toLowerCase() && (
+                              <p className="text-zinc-400">{loc.address_line2}</p>
+                            )}
+                            {loc.landmark && <p className="text-zinc-500 text-[11px]">Landmark: {loc.landmark}</p>}
+                            <p className="text-zinc-300 font-bold">
+                              {loc.city}, {loc.state} — <span className="font-mono text-white font-black">{loc.pincode}</span>
+                            </p>
+                          </div>
+
+                          <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                            <span>👤 {loc.contact_name || selectedSeller.owner_name || "Merchant"}</span>
+                            <span>📞 {loc.contact_phone || loc.phone || selectedSeller.mobile_number}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
+                      <div className="text-xs text-zinc-300 leading-relaxed space-y-1">
+                        <p className="text-white font-bold">
+                          {selectedSeller.warehouse_address || selectedSeller.pickup_address || "No address on file"}
+                        </p>
+                        <p className="text-zinc-300 font-bold">
+                          {selectedSeller.city || "City"}, {selectedSeller.state || "State"} — <span className="font-mono text-white font-black">{selectedSeller.pincode || "—"}</span>
+                        </p>
+                      </div>
+                      <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                        <span>👤 {selectedSeller.owner_name || "Merchant"}</span>
+                        <span>📞 {selectedSeller.mobile_number || selectedSeller.phone_number || "—"}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

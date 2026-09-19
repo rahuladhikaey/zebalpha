@@ -281,6 +281,52 @@ export default function SellerSettings() {
         };
         const { error } = await supabase.from("sellers").insert([insertPayload]);
         if (error) throw error;
+      // Synchronize default warehouse pickup location with the updated shop & contact info
+      try {
+        const resolvedSellerId = existingSeller?.id || user.id;
+        const { data: defaultLoc } = await supabase
+          .from("seller_pickup_locations")
+          .select("id")
+          .in("seller_id", [resolvedSellerId, user.id])
+          .order("is_default", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const locPayload = {
+          name: `${form.business_name.trim()} Warehouse`,
+          location_name: `${form.business_name.trim()} Warehouse`,
+          contact_name: form.owner_name.trim(),
+          contact_phone: form.mobile_number.trim(),
+          phone: form.mobile_number.trim(),
+          contact_email: form.email.trim().toLowerCase(),
+          address: form.pickup_address.trim(),
+          address_line1: form.pickup_address.trim(),
+          city: form.city.trim(),
+          state: form.state.trim(),
+          pincode: form.pincode.trim(),
+          updated_at: new Date().toISOString()
+        };
+
+        if (defaultLoc?.id) {
+          await supabase
+            .from("seller_pickup_locations")
+            .update(locPayload)
+            .eq("id", defaultLoc.id);
+        } else if (form.pickup_address.trim()) {
+          await supabase
+            .from("seller_pickup_locations")
+            .insert([{
+              ...locPayload,
+              seller_id: resolvedSellerId,
+              is_default: true,
+              is_active: true,
+              approval_status: "approved",
+              shiprocket_sync_status: "synced",
+              created_at: new Date().toISOString()
+            }]);
+        }
+      } catch (locSyncErr) {
+        console.warn("Notice syncing pickup location with settings:", locSyncErr);
       }
 
       setStatusMsg("✨ Merchant settings & Payout details updated successfully!");

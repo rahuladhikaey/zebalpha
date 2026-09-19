@@ -248,13 +248,13 @@ export default function SellerAddressesPage() {
       }
 
       // 2. Synchronize main sellers table
-      if (targetSellerId) {
+      if (targetSellerId || user.id) {
         try {
           await supabase
             .from("sellers")
             .update({
               pickup_address: formData.address_line1.trim(),
-              pickup_location: formData.location_name.trim() || "Main Warehouse",
+              pickup_location: formData.location_name.trim() || `${targetSeller?.business_name || "Primary"} Warehouse`,
               warehouse_address: formData.address_line1.trim(),
               city: formData.city.trim(),
               state: formData.state.trim(),
@@ -263,7 +263,7 @@ export default function SellerAddressesPage() {
               phone_number: formData.contact_phone.trim(),
               updated_at: new Date().toISOString()
             })
-            .eq("id", targetSellerId);
+            .or(`id.eq.${targetSellerId || user.id},user_id.eq.${user.id}`);
         } catch (selUpdateErr) {
           console.warn("Sellers table sync notice:", selUpdateErr);
         }
@@ -281,8 +281,8 @@ export default function SellerAddressesPage() {
 
       const payload: any = {
         seller_id: targetSellerId,
-        name: formData.location_name.trim() || `Hub_${formData.pincode.trim()}`,
-        location_name: formData.location_name.trim() || `Hub_${formData.pincode.trim()}`,
+        name: formData.location_name.trim() || `${targetSeller?.business_name || "Primary"} Warehouse`,
+        location_name: formData.location_name.trim() || `${targetSeller?.business_name || "Primary"} Warehouse`,
         contact_name: formData.contact_name.trim() || targetSeller?.owner_name || targetSeller?.full_name || "Merchant",
         contact_phone: formData.contact_phone.trim().replace(/\D/g, "").slice(0, 10),
         phone: formData.contact_phone.trim().replace(/\D/g, "").slice(0, 10),

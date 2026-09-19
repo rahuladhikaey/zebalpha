@@ -403,8 +403,8 @@ export default function SellerRegisterPage() {
       try {
         await supabase.from("seller_pickup_locations").insert([{
           seller_id: resolvedSellerId,
-          name: `${shopName.trim()} Hub`,
-          location_name: `${shopName.trim()} Hub`,
+          name: `${shopName.trim()} Warehouse`,
+          location_name: `${shopName.trim()} Warehouse`,
           address: finalPickupAddress,
           address_line1: finalPickupAddress,
           city: finalCity,
