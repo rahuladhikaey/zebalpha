@@ -21,6 +21,7 @@ export default function SellerProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [userId, setUserId] = useState<string>("");
+  const [sellerId, setSellerId] = useState<string>("");
   const [isSettingsComplete, setIsSettingsComplete] = useState<boolean>(false);
   const [settingsCompletionPct, setSettingsCompletionPct] = useState<number>(0);
   const [fssaiStatus, setFssaiStatus] = useState<string>("Not Submitted");
@@ -102,20 +103,28 @@ export default function SellerProducts() {
       if (!user) return;
       setUserId(user.id);
 
-      // Fetch seller settings status
+      // Fetch seller settings status and real primary key ID
       const { data: seller } = await supabase
         .from("sellers")
-        .select("settings_completion_pct, fssai_status, account_status, status")
-        .eq("user_id", user.id)
+        .select("id, user_id, settings_completion_pct, fssai_status, account_status, status")
+        .or(`user_id.eq.${user.id},id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
         .maybeSingle();
+
+      const resolvedSellerId = seller?.id || "";
+      if (resolvedSellerId) {
+        setSellerId(resolvedSellerId);
+      }
 
       setIsSettingsComplete(true);
 
-      // Fetch products for this seller
+      const sellerIdsToQuery = [user.id];
+      if (resolvedSellerId) sellerIdsToQuery.push(resolvedSellerId);
+
+      // Fetch products for this seller (matching either seller primary key or auth user ID)
       const { data: productsData } = await supabase
         .from("products")
         .select("*, categories(name)")
-        .eq("seller_id", user.id)
+        .in("seller_id", sellerIdsToQuery)
         .order("created_at", { ascending: false });
 
       // Fetch categories for dropdown without restrictive filters + fallback list
@@ -434,6 +443,26 @@ export default function SellerProducts() {
 
     const finalMainImageUrl = cloudinaryImages[0] || form.image_url.trim() || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800";
 
+    // Resolve valid seller table primary key ID to satisfy products_seller_id_fkey
+    let validSellerId = sellerId;
+    if (!validSellerId && userId) {
+      try {
+        const { data: s } = await supabase
+          .from("sellers")
+          .select("id")
+          .or(`user_id.eq.${userId},id.eq.${userId}`)
+          .maybeSingle();
+        if (s?.id) {
+          validSellerId = s.id;
+          setSellerId(s.id);
+        }
+      } catch (err) {
+        console.warn("Seller ID resolution notice:", err);
+      }
+    }
+
+    const finalSellerId = isValidUuid(validSellerId) ? validSellerId : null;
+
     const payload: any = {
       name: form.name.trim(),
       slug,
@@ -461,7 +490,7 @@ export default function SellerProducts() {
       is_active: true,
       is_approved: true,
       approval_status: "approved",
-      seller_id: isValidUuid(userId) ? userId : null,
+      seller_id: finalSellerId,
       is_premium: form.is_premium,
       is_new_drop: form.is_new_drop,
       collection: form.collection.trim() || null,
@@ -477,6 +506,15 @@ export default function SellerProducts() {
           .update(payload)
           .eq("id", editingProduct.id)
           .select();
+
+        // Foreign key constraint fallback: if seller_id fkey fails, retry with resolved seller id or null
+        if (res.error && (res.error.message?.includes("foreign key") || res.error.message?.includes("products_seller_id_fkey"))) {
+          res = await supabase
+            .from("products")
+            .update({ ...payload, seller_id: finalSellerId || null })
+            .eq("id", editingProduct.id)
+            .select();
+        }
 
         // Schema cache fallback: If Supabase table does not have new columns yet, retry with clean payload
         if (res.error && (res.error.message?.includes("column") || res.error.message?.includes("schema cache"))) {
@@ -502,6 +540,14 @@ export default function SellerProducts() {
           .insert([payload])
           .select();
 
+        // Foreign key constraint fallback: if seller_id fkey fails, retry with resolved seller id or null
+        if (res.error && (res.error.message?.includes("foreign key") || res.error.message?.includes("products_seller_id_fkey"))) {
+          res = await supabase
+            .from("products")
+            .insert([{ ...payload, seller_id: finalSellerId || null }])
+            .select();
+        }
+
         // Schema cache fallback: If Supabase table does not have new columns yet, retry with clean payload
         if (res.error && (res.error.message?.includes("column") || res.error.message?.includes("schema cache"))) {
           const cleanPayload = { ...payload };
@@ -522,11 +568,12 @@ export default function SellerProducts() {
           savedProduct = res.data[0];
         } else {
           // Fallback query to retrieve auto-generated ID for newly inserted product
+          const querySellerIds = [finalSellerId, userId].filter((id): id is string => Boolean(id));
           const { data: fetched } = await supabase
             .from("products")
             .select("*")
             .eq("slug", slug)
-            .eq("seller_id", userId)
+            .in("seller_id", querySellerIds.length > 0 ? querySellerIds : [userId])
             .order("created_at", { ascending: false })
             .limit(1);
           

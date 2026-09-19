@@ -33,11 +33,13 @@ export default function SellerInventory() {
 
       const { data: seller } = await supabase
         .from("sellers")
-        .select("account_status, status")
-        .eq("user_id", user.id)
+        .select("id, user_id, account_status, status")
+        .or(`user_id.eq.${user.id},id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
         .maybeSingle();
 
-      if (seller) {
+      const sellerIdsToQuery = [user.id];
+      if (seller?.id) {
+        sellerIdsToQuery.push(seller.id);
         const accStatus = seller.account_status || seller.status || "Active";
         setIsSuspended(accStatus.toLowerCase() === "suspended");
       }
@@ -46,7 +48,7 @@ export default function SellerInventory() {
       const { data: productsData } = await supabase
         .from("products")
         .select("*")
-        .eq("seller_id", user.id)
+        .in("seller_id", sellerIdsToQuery)
         .order("name", { ascending: true });
 
       const sProducts = (productsData || []) as Product[];
