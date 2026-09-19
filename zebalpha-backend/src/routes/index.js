@@ -13,6 +13,7 @@ import cronRoutes from './cronRoutes.js';
 import checkoutRoutes from './checkoutRoutes.js';
 import settlementRoutes from './settlementRoutes.js';
 import virtualTryOnRoutes from './virtualTryOnRoutes.js';
+import pickupAddressRoutes from './pickupAddressRoutes.js';
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.use('/products', productRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/shipments', shipmentRoutes);
+router.use('/pickup-addresses', pickupAddressRoutes);
 router.use('/sellers', sellerRoutes);
 router.use('/admin', adminRoutes);
 router.use('/notifications', notificationRoutes);

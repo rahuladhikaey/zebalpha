@@ -20,7 +20,8 @@ import {
   Menu, 
   X,
   User,
-  Sparkles
+  Sparkles,
+  MapPin
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -94,11 +95,12 @@ export default function DashboardLayout({
     { name: "Collections",   href: "/dashboard/collections",   icon: Sparkles },
     { name: "Inventory",     href: "/dashboard/inventory",     icon: Package },
     { name: "Orders",        href: "/dashboard/orders",        icon: Receipt },
+    { name: "Pickup Hubs",   href: "/dashboard/addresses",     icon: MapPin },
     { name: "Settlements",   href: "/dashboard/payments",      icon: IndianRupee, badge: "Soon" },
     { name: "Shipping",      href: "/dashboard/shipping",      icon: Truck },
     { name: "Reports",       href: "/dashboard/reports",       icon: BarChart3 },
     { name: "Notifications", href: "/dashboard/notifications", icon: Bell },
-    { name: "Settings",      href: "/dashboard/settings",      icon: Settings, badge: "Soon" },
+    { name: "Settings",      href: "/dashboard/settings",      icon: Settings },
     { name: "Support",       href: "/dashboard/support",       icon: HelpCircle },
   ];
 

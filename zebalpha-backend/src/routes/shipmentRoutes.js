@@ -1,25 +1,30 @@
 import { Router } from 'express';
 import { 
-  createShipment, 
+  acceptOrderAndCreateShipment,
   handleShiprocketWebhook, 
   scanPickup, 
-  getShippingLabel 
+  getShippingLabel,
+  trackShipment
 } from '../controllers/shipmentController.js';
 import { authenticateJWT, requireRole } from '../middleware/auth.js';
 import { ROLES } from '../constants/index.js';
 
 const router = Router();
 
-// Create AWB & Manifest
-router.post('/create-shipment', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), createShipment);
+// Seller Accepts Order & Creates Shiprocket Manifest / AWB
+router.post('/accept-order', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), acceptOrderAndCreateShipment);
+router.post('/create-shipment', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), acceptOrderAndCreateShipment);
 
-// Delivery Boy / Rider Pickup Scan (Simulated or Live Rider App)
+// Delivery Boy / Rider Pickup Scan (Courier Handover)
 router.post('/scan-pickup', scanPickup);
 
-// Get structured printable label payload
+// Get Verified 2-in-1 Printable Shipping Label Data
 router.get('/label/:orderId', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), getShippingLabel);
 
-// Courier & Shiprocket Live Webhook
+// Live Shipment Tracking Timeline
+router.get('/track/:orderId', trackShipment);
+
+// Shiprocket Realtime Webhook Receiver
 router.post('/webhook', handleShiprocketWebhook);
 
 export default router;
