@@ -53,47 +53,96 @@ export default function SellerAddressesPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: seller } = await supabase
+      // 1. Fetch seller profile by user_id or email
+      let { data: seller } = await supabase
         .from("sellers")
         .select("*")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
         .maybeSingle();
+
+      // If user_id is missing on seller row, link it now
+      if (seller && !seller.user_id) {
+        await supabase
+          .from("sellers")
+          .update({ user_id: user.id })
+          .eq("id", seller.id);
+      }
+
+      // If no seller record exists at all, auto-create one
+      if (!seller) {
+        const generatedCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
+        const { data: newSeller } = await supabase
+          .from("sellers")
+          .insert([{
+            id: user.id,
+            user_id: user.id,
+            seller_id: generatedCode,
+            full_name: user.user_metadata?.full_name || "Seller",
+            email: user.email?.toLowerCase().trim(),
+            status: "approved",
+            account_status: "Active",
+            created_at: new Date().toISOString()
+          }])
+          .select()
+          .maybeSingle();
+        seller = newSeller;
+      }
 
       const activeSellerId = seller?.id || user.id;
       setSellerId(activeSellerId);
       setSellerProfile(seller);
 
-      // Fetch pickup locations
-      const { data: locs, error: locsErr } = await supabase
+      const idsToQuery = [seller?.id, user.id].filter(Boolean) as string[];
+
+      // 2. Fetch pickup locations
+      const { data: locs } = await supabase
         .from("seller_pickup_locations")
         .select("*")
-        .eq("seller_id", activeSellerId)
-        .eq("is_active", true)
+        .in("seller_id", idsToQuery)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
 
       if (locs && locs.length > 0) {
         setAddresses(locs);
       } else {
-        // Fallback: If no pickup locations table record yet, create one from seller table
-        if (seller && (seller.pickup_address || seller.warehouse_address)) {
-          const autoLoc = {
-            id: `loc-default-${Date.now()}`,
+        // 3. If no pickup locations exist, seed one directly from seller profile
+        const addr = seller?.pickup_address || seller?.warehouse_address || seller?.pickup_location;
+        if (seller && (addr || seller.city || seller.pincode)) {
+          const autoLocPayload = {
             seller_id: activeSellerId,
-            location_name: `${seller.business_name || "Main"} Hub`,
+            location_name: `${seller.business_name || "Main"} Warehouse`,
+            name: `${seller.business_name || "Main"} Warehouse`,
             contact_name: seller.owner_name || seller.full_name || "Merchant",
             contact_phone: seller.phone_number || seller.mobile_number || "9999999999",
+            phone: seller.phone_number || seller.mobile_number || "9999999999",
             contact_email: seller.email || user.email,
-            address_line1: seller.pickup_address || seller.warehouse_address || "Merchant Dispatch Hub",
+            address_line1: addr || "Merchant Dispatch Hub",
+            address: addr || "Merchant Dispatch Hub",
             city: seller.city || "Kolkata",
             state: seller.state || "West Bengal",
             pincode: seller.pincode || "700001",
             is_default: true,
             is_active: true,
             approval_status: "approved",
-            shiprocket_sync_status: "synced"
+            shiprocket_sync_status: "synced",
+            created_at: new Date().toISOString()
           };
-          setAddresses([autoLoc]);
+
+          try {
+            const { data: insertedLoc } = await supabase
+              .from("seller_pickup_locations")
+              .insert([autoLocPayload])
+              .select()
+              .maybeSingle();
+
+            if (insertedLoc) {
+              setAddresses([insertedLoc]);
+            } else {
+              setAddresses([{ ...autoLocPayload, id: `profile-${activeSellerId}` }]);
+            }
+          } catch (_) {
+            setAddresses([{ ...autoLocPayload, id: `profile-${activeSellerId}` }]);
+          }
         } else {
           setAddresses([]);
         }
@@ -116,7 +165,7 @@ export default function SellerAddressesPage() {
       contact_name: sellerProfile?.owner_name || sellerProfile?.full_name || "",
       contact_phone: sellerProfile?.mobile_number || sellerProfile?.phone_number || "",
       contact_email: sellerProfile?.email || "",
-      address_line1: "",
+      address_line1: sellerProfile?.pickup_address || sellerProfile?.warehouse_address || "",
       address_line2: "",
       landmark: "",
       city: sellerProfile?.city || "Kolkata",
@@ -131,15 +180,15 @@ export default function SellerAddressesPage() {
     setEditingAddress(addr);
     setFormData({
       location_name: addr.location_name || addr.name || "",
-      contact_name: addr.contact_name || "",
-      contact_phone: addr.contact_phone || addr.phone || "",
-      contact_email: addr.contact_email || addr.email || "",
+      contact_name: addr.contact_name || sellerProfile?.owner_name || sellerProfile?.full_name || "",
+      contact_phone: addr.contact_phone || addr.phone || sellerProfile?.mobile_number || "",
+      contact_email: addr.contact_email || addr.email || sellerProfile?.email || "",
       address_line1: addr.address_line1 || addr.address || "",
       address_line2: addr.address_line2 || "",
       landmark: addr.landmark || "",
-      city: addr.city || "",
-      state: addr.state || "West Bengal",
-      pincode: addr.pincode || "",
+      city: addr.city || sellerProfile?.city || "",
+      state: addr.state || sellerProfile?.state || "West Bengal",
+      pincode: addr.pincode || sellerProfile?.pincode || "",
       is_default: Boolean(addr.is_default)
     });
     setShowModal(true);
@@ -164,7 +213,7 @@ export default function SellerAddressesPage() {
       await loadAddresses();
       setTimeout(() => setStatusMessage(""), 3000);
     } catch (e: any) {
-      alert(e.message || "Failed to set default address.");
+      console.warn("Set default notice:", e);
     }
   };
 
@@ -177,22 +226,71 @@ export default function SellerAddressesPage() {
 
     setSaving(true);
     try {
-      if (formData.is_default && sellerId) {
-        await supabase
-          .from("seller_pickup_locations")
-          .update({ is_default: false })
-          .eq("seller_id", sellerId);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Please sign in first.");
+        return;
       }
 
-      const payload = {
-        seller_id: sellerId,
+      // 1. Resolve true seller profile in database
+      let targetSeller = sellerProfile;
+      let targetSellerId = sellerId;
+
+      if (!targetSeller || !targetSellerId) {
+        const { data: s } = await supabase
+          .from("sellers")
+          .select("*")
+          .or(`user_id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
+          .maybeSingle();
+
+        targetSeller = s;
+        targetSellerId = s?.id || user.id;
+      }
+
+      // 2. Synchronize main sellers table
+      if (targetSellerId) {
+        try {
+          await supabase
+            .from("sellers")
+            .update({
+              pickup_address: formData.address_line1.trim(),
+              pickup_location: formData.location_name.trim() || "Main Warehouse",
+              warehouse_address: formData.address_line1.trim(),
+              city: formData.city.trim(),
+              state: formData.state.trim(),
+              pincode: formData.pincode.trim(),
+              mobile_number: formData.contact_phone.trim(),
+              phone_number: formData.contact_phone.trim(),
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", targetSellerId);
+        } catch (selUpdateErr) {
+          console.warn("Sellers table sync notice:", selUpdateErr);
+        }
+      }
+
+      // 3. Clear other defaults if setting this one as default
+      if (formData.is_default && targetSellerId) {
+        try {
+          await supabase
+            .from("seller_pickup_locations")
+            .update({ is_default: false })
+            .eq("seller_id", targetSellerId);
+        } catch (_) {}
+      }
+
+      const payload: any = {
+        seller_id: targetSellerId,
+        name: formData.location_name.trim() || `Hub_${formData.pincode.trim()}`,
         location_name: formData.location_name.trim() || `Hub_${formData.pincode.trim()}`,
-        contact_name: formData.contact_name.trim() || sellerProfile?.owner_name || "Merchant",
+        contact_name: formData.contact_name.trim() || targetSeller?.owner_name || targetSeller?.full_name || "Merchant",
         contact_phone: formData.contact_phone.trim().replace(/\D/g, "").slice(0, 10),
-        contact_email: formData.contact_email.trim().toLowerCase(),
+        phone: formData.contact_phone.trim().replace(/\D/g, "").slice(0, 10),
+        contact_email: formData.contact_email.trim().toLowerCase() || user.email,
+        address: formData.address_line1.trim(),
         address_line1: formData.address_line1.trim(),
-        address_line2: formData.address_line2.trim(),
-        landmark: formData.landmark.trim(),
+        address_line2: formData.address_line2.trim() || null,
+        landmark: formData.landmark.trim() || null,
         city: formData.city.trim(),
         state: formData.state.trim(),
         pincode: formData.pincode.trim(),
@@ -203,26 +301,29 @@ export default function SellerAddressesPage() {
         updated_at: new Date().toISOString()
       };
 
-      if (editingAddress) {
-        const { error } = await supabase
+      const isVirtualId = editingAddress && (String(editingAddress.id).startsWith("profile-") || String(editingAddress.id).startsWith("loc-"));
+
+      if (editingAddress && !isVirtualId) {
+        const { error: updateErr } = await supabase
           .from("seller_pickup_locations")
           .update(payload)
           .eq("id", editingAddress.id);
-        if (error) throw error;
-        setStatusMessage("✨ Pickup location updated successfully!");
+        if (updateErr) throw updateErr;
+        setStatusMessage("✨ Pickup warehouse updated successfully!");
       } else {
-        const { error } = await supabase
+        const { error: insertErr } = await supabase
           .from("seller_pickup_locations")
           .insert([{ ...payload, created_at: new Date().toISOString() }]);
-        if (error) throw error;
-        setStatusMessage("✨ New pickup warehouse added!");
+        if (insertErr) throw insertErr;
+        setStatusMessage("✨ New pickup warehouse registered successfully!");
       }
 
       setShowModal(false);
       await loadAddresses();
       setTimeout(() => setStatusMessage(""), 3500);
     } catch (err: any) {
-      alert(err.message || "Failed to save address.");
+      console.error("Save address error:", err);
+      alert(err.message || "Failed to save warehouse address.");
     } finally {
       setSaving(false);
     }
@@ -273,7 +374,7 @@ export default function SellerAddressesPage() {
         </div>
       )}
 
-      {/* Meesho Standard Logistics Banner */}
+      {/* Logistics Banner */}
       <div className="p-4 rounded-3xl bg-zinc-950 border border-emerald-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3.5">
           <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
@@ -319,7 +420,6 @@ export default function SellerAddressesPage() {
           {addresses.map((addr) => {
             const isDefault = Boolean(addr.is_default);
             const isApproved = addr.approval_status === "approved" || !addr.approval_status;
-            const isSynced = addr.shiprocket_sync_status === "synced" || !addr.shiprocket_sync_status;
 
             return (
               <div 
@@ -431,7 +531,7 @@ export default function SellerAddressesPage() {
                   {editingAddress ? "Edit Pickup Warehouse" : "Register New Pickup Hub"}
                 </h3>
               </div>
-              <button onClick={() => setShowModal(false)} className="p-1 text-zinc-400 hover:text-white">
+              <button onClick={() => setShowModal(false)} className="p-1 text-zinc-400 hover:text-white cursor-pointer">
                 <X size={20} />
               </button>
             </div>
@@ -567,7 +667,7 @@ export default function SellerAddressesPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 rounded-2xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all font-bold"
+                  className="flex-1 py-3 rounded-2xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all font-bold cursor-pointer"
                 >
                   Cancel
                 </button>

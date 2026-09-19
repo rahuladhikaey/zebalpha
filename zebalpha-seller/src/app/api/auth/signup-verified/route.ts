@@ -139,6 +139,26 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString(),
           })
           .eq("email", normalizedEmail);
+      } else {
+        const generatedCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
+        await supabaseServer
+          .from("sellers")
+          .insert([{
+            id: user.id,
+            user_id: user.id,
+            seller_id: generatedCode,
+            full_name: sellerName,
+            owner_name: sellerName,
+            business_name: `${sellerName}'s Store`,
+            mobile_number: sellerPhone,
+            phone_number: sellerPhone,
+            email: normalizedEmail,
+            status: "approved",
+            account_status: "Active",
+            email_verified: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }]);
       }
     } catch (selErr) {
       console.warn("Sellers update user_id notice:", selErr);

@@ -359,43 +359,67 @@ export default function SellerRegisterPage() {
         created_at: new Date().toISOString(),
       };
 
-      // Check if seller already exists by email
+      // Check if seller already exists by email or user_id
+      let resolvedSellerId = validUserId;
       const { data: existingSeller } = await supabase
         .from("sellers")
         .select("id")
-        .eq("email", normalizedEmail)
+        .or(`user_id.eq.${validUserId},email.eq.${normalizedEmail}`)
         .maybeSingle();
 
-      if (existingSeller) {
+      if (existingSeller?.id) {
+        resolvedSellerId = existingSeller.id;
         // Update existing seller row
         await supabase
           .from("sellers")
-          .update(sellerPayload)
-          .eq("email", normalizedEmail);
+          .update({
+            ...sellerPayload,
+            id: existingSeller.id,
+            user_id: validUserId,
+          })
+          .eq("id", existingSeller.id);
       } else {
         // Insert new seller row
-        const { error: sellerError } = await supabase
+        const { data: newSeller, error: sellerError } = await supabase
           .from("sellers")
-          .insert([sellerPayload]);
+          .insert([sellerPayload])
+          .select("id")
+          .maybeSingle();
 
-        if (sellerError && sellerPayload.id) {
-          // If insert with primary key id failed, retry without id column but keep user_id
+        if (newSeller?.id) {
+          resolvedSellerId = newSeller.id;
+        } else if (sellerError && sellerPayload.id) {
           delete sellerPayload.id;
-          await supabase.from("sellers").insert([sellerPayload]);
+          const { data: retrySeller } = await supabase
+            .from("sellers")
+            .insert([sellerPayload])
+            .select("id")
+            .maybeSingle();
+          if (retrySeller?.id) resolvedSellerId = retrySeller.id;
         }
       }
 
       // Also create dedicated pickup location row in seller_pickup_locations
       try {
         await supabase.from("seller_pickup_locations").insert([{
-          seller_id: validUserId,
+          seller_id: resolvedSellerId,
+          name: `${shopName.trim()} Hub`,
           location_name: `${shopName.trim()} Hub`,
+          address: finalPickupAddress,
           address_line1: finalPickupAddress,
           city: finalCity,
           state: finalState,
           pincode: finalPincode,
           phone: mobileNumber.trim(),
-          is_default: true
+          contact_phone: mobileNumber.trim(),
+          contact_name: sellerName.trim(),
+          contact_email: normalizedEmail,
+          is_default: true,
+          is_active: true,
+          approval_status: "approved",
+          shiprocket_sync_status: "synced",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }]);
       } catch (locErr) {
         console.warn("seller_pickup_locations insert notice:", locErr);

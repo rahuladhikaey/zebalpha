@@ -2,29 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@shared/utils/supabaseClient";
+import Link from "next/link";
 import { 
   Truck, 
   MapPin, 
-  Plus, 
   CheckCircle2, 
+  Plus, 
   Building2, 
-  ShieldCheck, 
   Phone, 
-  ArrowRight, 
-  Trash2, 
-  Zap 
+  ShieldCheck, 
+  ArrowRight,
+  ExternalLink,
+  Edit3
 } from "lucide-react";
-import Link from "next/link";
 
-const STORAGE_KEY = "zebalpha-seller-pickup-locations";
+const STORAGE_KEY = "zebalpha_seller_pickup_locations";
 
-export default function SellerShipping() {
+export default function ShippingLogisticsPage() {
   const [loading, setLoading] = useState(true);
   const [pickupLocations, setPickupLocations] = useState<any[]>([]);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
 
-  // New location form state
   const [newLoc, setNewLoc] = useState({
     name: "",
     phone: "",
@@ -40,11 +39,11 @@ export default function SellerShipping() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch seller profile
-      const { data: seller } = await supabase
+      // Fetch seller profile by user_id or email
+      let { data: seller } = await supabase
         .from("sellers")
-        .select("id, pickup_address, pickup_location, warehouse_address, city, state, pincode, phone_number, mobile_number, business_name, full_name")
-        .eq("user_id", user.id)
+        .select("id, user_id, pickup_address, pickup_location, warehouse_address, city, state, pincode, phone_number, mobile_number, business_name, full_name, owner_name, email")
+        .or(`user_id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
         .maybeSingle();
 
       const sellerId = seller?.id || user.id;
@@ -63,7 +62,7 @@ export default function SellerShipping() {
         console.warn("Shipping API fetch notice, checking direct database:", apiErr);
       }
 
-      // 2. Fallback to Supabase query on seller_pickup_locations
+      // 2. Direct database query on seller_pickup_locations
       if (fetchedLocations.length === 0) {
         try {
           const { data: locations } = await supabase
@@ -108,22 +107,8 @@ export default function SellerShipping() {
         }
       }
 
-      // 4. Fallback to localStorage cache
-      if (fetchedLocations.length === 0 && typeof window !== "undefined") {
-        try {
-          const cached = localStorage.getItem(`${STORAGE_KEY}-${user.id}`);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              fetchedLocations = parsed;
-            }
-          }
-        } catch (_) {}
-      }
-
       setPickupLocations(fetchedLocations);
 
-      // Keep cache synchronized
       if (fetchedLocations.length > 0 && typeof window !== "undefined") {
         try {
           localStorage.setItem(`${STORAGE_KEY}-${user.id}`, JSON.stringify(fetchedLocations));
@@ -147,10 +132,10 @@ export default function SellerShipping() {
       if (!user) return;
 
       // Fetch seller ID
-      const { data: seller } = await supabase
+      let { data: seller } = await supabase
         .from("sellers")
-        .select("id")
-        .eq("user_id", user.id)
+        .select("id, user_id, email, business_name, owner_name, full_name")
+        .or(`user_id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
         .maybeSingle();
 
       const sellerId = seller?.id || user.id;
@@ -167,15 +152,9 @@ export default function SellerShipping() {
         is_default: pickupLocations.length === 0
       };
 
-      // Optimistic UI update so the user instantly sees the warehouse card
+      // Optimistic UI update
       const updatedList = [newLocationObj, ...pickupLocations];
       setPickupLocations(updatedList);
-
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem(`${STORAGE_KEY}-${user.id}`, JSON.stringify(updatedList));
-        } catch (_) {}
-      }
 
       setShowLocationModal(false);
       setNewLoc({ name: "", phone: "", address_line1: "", city: "", state: "", pincode: "" });
@@ -205,19 +184,22 @@ export default function SellerShipping() {
 
       // 2. Direct database update fallback on sellers table
       try {
-        await supabase
-          .from("sellers")
-          .update({
-            pickup_address: newLocationObj.address_line1,
-            pickup_location: newLocationObj.address_line1,
-            warehouse_address: newLocationObj.address_line1,
-            city: newLocationObj.city,
-            state: newLocationObj.state,
-            pincode: newLocationObj.pincode,
-            phone_number: newLocationObj.phone,
-            mobile_number: newLocationObj.phone
-          })
-          .eq("user_id", user.id);
+        if (seller?.id) {
+          await supabase
+            .from("sellers")
+            .update({
+              pickup_address: newLocationObj.address_line1,
+              pickup_location: newLocationObj.name,
+              warehouse_address: newLocationObj.address_line1,
+              city: newLocationObj.city,
+              state: newLocationObj.state,
+              pincode: newLocationObj.pincode,
+              phone_number: newLocationObj.phone,
+              mobile_number: newLocationObj.phone,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", seller.id);
+        }
       } catch (sErr) {
         console.warn("Seller table direct update notice:", sErr);
       }
@@ -242,13 +224,22 @@ export default function SellerShipping() {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowLocationModal(true)}
-          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider transition shadow-xl cursor-pointer"
-        >
-          <Plus size={16} />
-          Add Warehouse Location
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/addresses"
+            className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-black uppercase tracking-wider transition cursor-pointer"
+          >
+            <Edit3 size={15} />
+            <span>Manage Hubs</span>
+          </Link>
+          <button
+            onClick={() => setShowLocationModal(true)}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider transition shadow-xl cursor-pointer"
+          >
+            <Plus size={16} />
+            <span>Add Warehouse</span>
+          </button>
+        </div>
       </div>
 
       {statusMsg && (
@@ -304,6 +295,13 @@ export default function SellerShipping() {
               </p>
             </div>
           </div>
+          <Link
+            href="/dashboard/addresses"
+            className="text-xs font-bold text-zinc-400 hover:text-white underline flex items-center gap-1"
+          >
+            <span>Full Address Manager</span>
+            <ExternalLink size={12} />
+          </Link>
         </div>
 
         {loading ? (
@@ -351,6 +349,16 @@ export default function SellerShipping() {
                   <p className="text-zinc-400 font-mono text-[11px] pt-1 flex items-center gap-1">
                     <Phone size={12} className="text-zinc-500" /> Contact Phone: {loc.phone}
                   </p>
+                </div>
+
+                <div className="pt-2 border-t border-zinc-800/80 flex justify-end">
+                  <Link
+                    href="/dashboard/addresses"
+                    className="text-[11px] font-bold text-zinc-400 hover:text-white inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Edit3 size={13} />
+                    <span>Edit Warehouse Details</span>
+                  </Link>
                 </div>
               </div>
             ))}
