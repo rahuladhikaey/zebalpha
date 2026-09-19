@@ -192,7 +192,7 @@ export default function SellerProducts() {
               setFssaiStatus(fStatus);
               setSettingsCompletionPct(pct);
               setAccountStatus(accStatus);
-              setIsSettingsComplete(pct === 100 && fStatus === 'Verified' && !isSuspended);
+              setIsSettingsComplete(!isSuspended);
             }
           }
         )

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { apiService } from "@/services/apiService";
 import { 
   Building2, 
   CheckCircle2, 
@@ -35,45 +34,25 @@ import {
   Shirt,
   Layers,
   Truck,
-  ExternalLink
+  ExternalLink,
+  Plus,
+  Copy,
+  Check,
+  DollarSign,
+  ArrowUpRight,
+  Boxes
 } from "lucide-react";
 import { exportCustomDataExcel } from "@/utils/excelExport";
 
-// Default Primary 1st-Party ZEBALPHA In-House Brand Merchant
-const DEFAULT_PRIMARY_BRAND_MERCHANT = {
-  id: "primary-zebalpha-merchant",
-  seller_id: "ZEB-BRAND-01",
-  full_name: "Rahul Adhikary",
-  business_name: "ZEBALPHA Official Brand Store",
-  owner_name: "Rahul Adhikary",
-  email: "r.adhikary7777@gmail.com",
-  phone_number: "+91 98765 43210",
-  mobile_number: "+91 98765 43210",
-  category: "Luxury Clothing & Streetwear",
-  business_category: "Clothing & Apparel",
-  upi_id: "rahuladhikary@phonepe",
-  phonepay_no: "rahuladhikary@phonepe",
-  pickup_location: "ZEBALPHA Central Apparel Hub, Kolkata",
-  city: "Kolkata",
-  state: "West Bengal",
-  pincode: "700001",
-  warehouse_address: "Plot 42, Central Fashion & Garment Complex, Kolkata, West Bengal, 700001",
-  pickup_address: "Plot 42, Central Fashion & Garment Complex, Kolkata, West Bengal, 700001",
-  gstin: "19ABCDE1234F1Z5",
-  brand_trademark_no: "TM-ZEBALPHA-2026",
-  account_status: "Active",
-  status: "approved",
-  is_primary_brand: true,
-  created_at: new Date().toISOString()
-};
-
 const APPAREL_CATEGORIES = [
   { key: "all", label: "All Clothing" },
-  { key: "polos", label: "Polos & Shirts" },
-  { key: "oversized", label: "Oversized Tees" },
+  { key: "polos", label: "Polos & T-Shirts" },
   { key: "hoodies", label: "Hoodies & Sweatshirts" },
-  { key: "streetwear", label: "Streetwear & Bottoms" },
-  { key: "drops", label: "New Drops & Exclusives" }
+  { key: "shirts", label: "Casual Shirts" },
+  { key: "bottoms", label: "Bottoms & Cargo" },
+  { key: "outerwear", label: "Outerwear & Jackets" },
+  { key: "accessories", label: "Accessories & Caps" },
+  { key: "drops", label: "Limited Drops" }
 ];
 
 export default function SellerManagementView() {
@@ -82,92 +61,99 @@ export default function SellerManagementView() {
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
 
-  // Filtering States
+  // Filtering & Search
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Modals & Action States
+  // Modals & Drawers
   const [selectedSeller, setSelectedSeller] = useState<any | null>(null);
+  const [drawerTab, setDrawerTab] = useState<"overview" | "products" | "orders">("overview");
   const [selectedSellerProducts, setSelectedSellerProducts] = useState<any[] | null>(null);
-  const [showEditBrandModal, setShowEditBrandModal] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    business_name: "ZEBALPHA Official Brand Store",
-    owner_name: "Rahul Adhikary",
-    email: "r.adhikary7777@gmail.com",
-    phone_number: "+91 98765 43210",
-    upi_id: "rahuladhikary@phonepe",
-    pickup_location: "ZEBALPHA Central Apparel Hub, Kolkata",
-    warehouse_address: "Plot 42, Central Fashion & Garment Complex, Kolkata, West Bengal, 700001",
-    gstin: "19ABCDE1234F1Z5",
-    brand_trademark_no: "TM-ZEBALPHA-2026"
-  });
-
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showAddSellerModal, setShowAddSellerModal] = useState(false);
+  const [showEditSellerModal, setShowEditSellerModal] = useState(false);
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [targetSellerId, setTargetSellerId] = useState<string | null>(null);
-  const [actioningId, setActioningId] = useState<string | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState("");
+  
+  const [copiedUpi, setCopiedUpi] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
-  // Custom Admin Action Modal States
-  const [showSuspendModal, setShowSuspendModal] = useState(false);
-  const [showSoftDeleteModal, setShowSoftDeleteModal] = useState(false);
-  const [showPermanentDeleteModal, setShowPermanentDeleteModal] = useState(false);
-  const [adminPasswordConfirm, setAdminPasswordConfirm] = useState("");
-  const [confirmDeleteText, setConfirmDeleteText] = useState("");
-  const [suspensionReasonText, setSuspensionReasonText] = useState("");
-  const [deletionReasonText, setDeletionReasonText] = useState("");
+  // Edit Seller state
+  const [editingSellerData, setEditingSellerData] = useState<any | null>(null);
+
+  // New Seller Onboarding Form State
+  const [newSellerForm, setNewSellerForm] = useState({
+    full_name: "",
+    business_name: "",
+    category: "Polos & T-Shirts",
+    phone_number: "",
+    email: "",
+    upi_id: "",
+    city: "",
+    pickup_address: ""
+  });
 
   const loadData = async () => {
     setLoading(true);
     try {
-      let dbSellers: any[] = [];
-      try {
-        const res = await fetch("/api/admin/sellers");
-        const resJson = await res.json();
-        if (resJson.success && Array.isArray(resJson.data)) {
-          dbSellers = resJson.data;
-        }
-      } catch (_) {}
+      // 1. Fetch real sellers from Supabase
+      const { data: sellersData, error: sellersErr } = await supabase
+        .from("sellers")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-      const [pRes, oRes] = await Promise.all([
-        supabase.from("products").select("*"),
-        supabase.from("orders").select("*")
-      ]);
-      
-      // Combine database sellers with Primary 1st-Party Brand Merchant if not already present
-      const hasPrimary = dbSellers.some(s => 
-        s.email === DEFAULT_PRIMARY_BRAND_MERCHANT.email || 
-        s.business_name?.toLowerCase().includes("zebalpha")
-      );
-
-      if (hasPrimary) {
-        setSellers(dbSellers);
-        const primary = dbSellers.find(s => 
-          s.email === DEFAULT_PRIMARY_BRAND_MERCHANT.email || 
-          s.business_name?.toLowerCase().includes("zebalpha")
-        );
-        if (primary) {
-          setEditFormData({
-            business_name: primary.business_name || primary.full_name || "ZEBALPHA Official Brand Store",
-            owner_name: primary.owner_name || primary.full_name || "Rahul Adhikary",
-            email: primary.email || "r.adhikary7777@gmail.com",
-            phone_number: primary.phone_number || primary.mobile_number || "+91 98765 43210",
-            upi_id: primary.upi_id || primary.phonepay_no || "rahuladhikary@phonepe",
-            pickup_location: primary.pickup_location || primary.city || "ZEBALPHA Central Apparel Hub, Kolkata",
-            warehouse_address: primary.warehouse_address || primary.pickup_address || "Plot 42, Central Fashion & Garment Complex, Kolkata, West Bengal, 700001",
-            gstin: primary.gstin || "19ABCDE1234F1Z5",
-            brand_trademark_no: primary.brand_trademark_no || "TM-ZEBALPHA-2026"
-          });
-        }
-      } else {
-        setSellers([DEFAULT_PRIMARY_BRAND_MERCHANT, ...dbSellers]);
+      if (sellersErr) {
+        console.warn("Supabase sellers fetch notice:", sellersErr.message);
       }
 
-      setProducts(pRes.data || []);
-      setOrders(oRes.data || []);
+      // 2. Fetch real products and orders
+      const [pRes, oRes] = await Promise.all([
+        supabase.from("products").select("*").order("created_at", { ascending: false }),
+        supabase.from("orders").select("*").order("created_at", { ascending: false })
+      ]);
+
+      const allProducts = pRes.data || [];
+      const allOrders = oRes.data || [];
+      let dbSellers = sellersData || [];
+
+      // If no sellers exist in DB yet, add the primary 1st-party brand record seamlessly
+      if (dbSellers.length === 0) {
+        const defaultBrand = {
+          id: "primary-zebalpha-merchant",
+          seller_id: "ZEB-BRAND-01",
+          full_name: "Rahul Adhikary",
+          business_name: "ZEBALPHA Official Brand Store",
+          owner_name: "Rahul Adhikary",
+          email: "r.adhikary7777@gmail.com",
+          phone_number: "+91 98765 43210",
+          mobile_number: "+91 98765 43210",
+          category: "Luxury Clothing & Streetwear",
+          business_category: "Luxury Clothing & Streetwear",
+          upi_id: "rahuladhikary@phonepe",
+          phonepay_no: "rahuladhikary@phonepe",
+          phonepay_number: "rahuladhikary@phonepe",
+          pickup_location: "ZEBALPHA Central Apparel Hub, Kolkata",
+          city: "Kolkata",
+          state: "West Bengal",
+          pincode: "700001",
+          warehouse_address: "Plot 42, Central Fashion Complex, Kolkata, West Bengal, 700001",
+          pickup_address: "Plot 42, Central Fashion Complex, Kolkata, West Bengal, 700001",
+          gstin: "19ABCDE1234F1Z5",
+          account_status: "Active",
+          status: "approved",
+          is_primary_brand: true,
+          created_at: new Date().toISOString()
+        };
+        dbSellers = [defaultBrand];
+      }
+
+      setSellers(dbSellers);
+      setProducts(allProducts);
+      setOrders(allOrders);
     } catch (e: any) {
-      setSellers([DEFAULT_PRIMARY_BRAND_MERCHANT]);
+      console.error("Error loading merchant data:", e);
     } finally {
       setLoading(false);
     }
@@ -176,9 +162,9 @@ export default function SellerManagementView() {
   useEffect(() => {
     loadData();
 
-    // Supabase Realtime WebSockets
+    // Supabase Realtime WebSockets for zero-refresh updates
     const channel = supabase
-      .channel("admin-seller-changes-enhanced")
+      .channel("admin-seller-management-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "sellers" }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadData())
@@ -189,167 +175,408 @@ export default function SellerManagementView() {
     };
   }, []);
 
-  const handleUpdateStatus = async (sellerId: string, newStatus: string, reason?: string) => {
-    if (sellerId === "primary-zebalpha-merchant") {
-      setStatusMessage("ℹ️ Primary 1st-Party Brand Merchant is always active.");
+  // ── Compute Real Metrics for Each Seller ─────────────────────────────────
+  const sellersWithMetrics = useMemo(() => {
+    return sellers.map((seller) => {
+      const sId = seller.id;
+      const sUserId = seller.user_id;
+      const isPrimary = seller.is_primary_brand || seller.email === "r.adhikary7777@gmail.com";
+
+      // Match products for this seller
+      const sellerProds = products.filter((p) => 
+        p.seller_id === sId || 
+        (sUserId && p.seller_id === sUserId) || 
+        (isPrimary && (!p.seller_id || p.seller_id === sId || p.brand?.toLowerCase() === "zebalpha"))
+      );
+
+      const sellerProdIds = new Set(sellerProds.map((p) => String(p.id)));
+
+      // Find matching orders and line items
+      let totalGrossRev = 0;
+      let totalUnits = 0;
+      let matchingOrders: any[] = [];
+
+      orders.forEach((ord) => {
+        let rawItems: any[] = [];
+        if (Array.isArray(ord.items)) {
+          rawItems = ord.items;
+        } else if (ord.product_details) {
+          try {
+            rawItems = typeof ord.product_details === "string" ? JSON.parse(ord.product_details) : ord.product_details;
+          } catch (_) {
+            rawItems = [];
+          }
+        }
+
+        const matchingItems = rawItems.filter((item: any) => {
+          const itProdId = String(item.product_id || item.id || "");
+          const itSellerId = item.seller_id;
+          return sellerProdIds.has(itProdId) || itSellerId === sId || (sUserId && itSellerId === sUserId);
+        });
+
+        const isDirectOrder = ord.seller_id === sId || (sUserId && ord.seller_id === sUserId) || (isPrimary && (!ord.seller_id || ord.seller_id === sId));
+
+        if (matchingItems.length > 0 || isDirectOrder) {
+          const itemsToCount = matchingItems.length > 0 ? matchingItems : rawItems;
+          const orderItemsSum = itemsToCount.reduce((sum: number, it: any) => 
+            sum + (Number(it.subtotal) || ((Number(it.price) || 0) * (Number(it.quantity) || 1))), 0);
+          
+          const orderTotal = orderItemsSum > 0 ? orderItemsSum : (Number(ord.total_amount) || 0);
+          const orderQty = itemsToCount.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 1), 0);
+
+          const isCancelled = ord.order_status === "cancelled" || ord.order_status === "returned";
+          if (!isCancelled) {
+            totalGrossRev += orderTotal;
+            totalUnits += orderQty;
+          }
+
+          matchingOrders.push({
+            ...ord,
+            seller_items: itemsToCount,
+            seller_order_amount: orderTotal
+          });
+        }
+      });
+
+      // Calculate Seller Net Payout vs Admin Commission
+      // 1st-Party Brand = 100% revenue retained; 3rd-Party Merchants = 90% payout, 10% marketplace commission
+      const commissionRate = isPrimary ? 0 : 0.10;
+      const adminCommission = Math.round(totalGrossRev * commissionRate);
+      const netSellerPayout = totalGrossRev - adminCommission;
+
+      const deliveredCount = matchingOrders.filter(o => o.order_status === "delivered").length;
+      const inTransitCount = matchingOrders.filter(o => ["shipped", "in_transit", "picked_up", "dispatched", "out_for_delivery"].includes(o.order_status)).length;
+      const pendingCount = matchingOrders.filter(o => ["placed", "confirmed", "processing", "ready_to_ship"].includes(o.order_status)).length;
+
+      return {
+        ...seller,
+        is_primary_brand: isPrimary,
+        grossRevenue: totalGrossRev,
+        netPayout: netSellerPayout,
+        adminCommission: adminCommission,
+        totalOrdersCount: matchingOrders.length,
+        deliveredCount,
+        inTransitCount,
+        pendingCount,
+        totalUnitsSold: totalUnits,
+        productsCount: sellerProds.length,
+        sellerProducts: sellerProds,
+        sellerOrders: matchingOrders
+      };
+    });
+  }, [sellers, products, orders]);
+
+  // ── Compute Platform-Wide Total Income & Revenue ──────────────────────────
+  const platformSummary = useMemo(() => {
+    let totalPlatformGross = 0;
+    let totalAdminComm = 0;
+    let totalSellerPayouts = 0;
+    let totalActiveMerchants = 0;
+    let totalSuspendedMerchants = 0;
+
+    sellersWithMetrics.forEach((s) => {
+      totalPlatformGross += s.grossRevenue;
+      totalAdminComm += s.adminCommission;
+      totalSellerPayouts += s.netPayout;
+      if (s.account_status === "Active" || s.status === "approved") {
+        totalActiveMerchants++;
+      } else if (s.account_status === "Suspended" || s.is_suspended) {
+        totalSuspendedMerchants++;
+      }
+    });
+
+    return {
+      totalPlatformGross,
+      totalAdminCommission: totalAdminComm,
+      totalSellerPayouts,
+      totalActiveMerchants,
+      totalSuspendedMerchants,
+      totalMerchants: sellersWithMetrics.length,
+      totalCatalogSKUs: products.length,
+      totalOrdersPlaced: orders.length
+    };
+  }, [sellersWithMetrics, products, orders]);
+
+  // ── Filtered Sellers List ────────────────────────────────────────────────
+  const filteredSellers = useMemo(() => {
+    return sellersWithMetrics.filter((s) => {
+      const statusVal = (s.account_status || s.status || "active").toLowerCase();
+      const catVal = (s.category || s.business_category || "").toLowerCase();
+      const isSusp = s.is_suspended || statusVal === "suspended";
+
+      const matchesStatus = 
+        filterStatus === "all" || 
+        (filterStatus === "active" && !isSusp && (statusVal === "active" || statusVal === "approved" || s.is_primary_brand)) ||
+        (filterStatus === "suspended" && isSusp) ||
+        (filterStatus === "pending" && statusVal === "pending");
+
+      const matchesCategory = 
+        filterCategory === "all" || 
+        catVal.includes(filterCategory.toLowerCase()) || 
+        s.is_primary_brand;
+
+      const query = searchQuery.toLowerCase().trim();
+      const matchesSearch = 
+        !query ||
+        (s.business_name || "").toLowerCase().includes(query) ||
+        (s.owner_name || s.full_name || "").toLowerCase().includes(query) ||
+        (s.email || "").toLowerCase().includes(query) ||
+        (s.phone_number || s.mobile_number || "").includes(query) ||
+        (s.upi_id || s.phonepay_no || s.phonepay_number || "").toLowerCase().includes(query) ||
+        (s.city || s.pickup_location || "").toLowerCase().includes(query) ||
+        (s.seller_id || s.id || "").toString().toLowerCase().includes(query);
+
+      return matchesStatus && matchesCategory && matchesSearch;
+    });
+  }, [sellersWithMetrics, filterStatus, filterCategory, searchQuery]);
+
+  // ── Action Handlers ─────────────────────────────────────────────────────
+  const handleCopyUpi = (upi: string) => {
+    navigator.clipboard.writeText(upi);
+    setCopiedUpi(upi);
+    setTimeout(() => setCopiedUpi(null), 2500);
+  };
+
+  const handleCopyOnboardingLink = () => {
+    const link = typeof window !== "undefined" 
+      ? `${window.location.origin.replace("admin", "seller")}/register` 
+      : "https://seller.zebalpha.com/register";
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setStatusMessage("✅ Merchant registration link copied to clipboard!");
+    setTimeout(() => setCopiedLink(false), 3000);
+  };
+
+  // Suspend Seller Action
+  const handleConfirmSuspend = async () => {
+    if (!targetSellerId) return;
+    try {
+      const updates = {
+        account_status: "Suspended",
+        status: "suspended",
+        is_suspended: true,
+        suspension_reason: suspensionReason || "Administrative review / Policy compliance",
+        suspended_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from("sellers")
+        .update(updates)
+        .eq("id", targetSellerId);
+
+      if (error) throw error;
+
+      setStatusMessage(`🚫 Merchant suspended successfully. Seller cannot add/modify products.`);
+      setShowSuspendModal(false);
+      setTargetSellerId(null);
+      setSuspensionReason("");
+      if (selectedSeller?.id === targetSellerId) {
+        setSelectedSeller((prev: any) => ({ ...prev, ...updates }));
+      }
+      await loadData();
+    } catch (err: any) {
+      console.error("Suspend error:", err);
+      alert(err.message || "Failed to suspend merchant.");
+    }
+  };
+
+  // Reactivate Seller Action
+  const handleReactivateSeller = async (sellerId: string) => {
+    try {
+      const updates = {
+        account_status: "Active",
+        status: "approved",
+        is_suspended: false,
+        suspension_reason: null,
+        approved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from("sellers")
+        .update(updates)
+        .eq("id", sellerId);
+
+      if (error) throw error;
+
+      setStatusMessage(`✅ Merchant reactivated successfully. Store operations are now active.`);
+      if (selectedSeller?.id === sellerId) {
+        setSelectedSeller((prev: any) => ({ ...prev, ...updates }));
+      }
+      await loadData();
+    } catch (err: any) {
+      console.error("Reactivate error:", err);
+      alert(err.message || "Failed to reactivate merchant.");
+    }
+  };
+
+  // Create New Merchant Action
+  const handleCreateSeller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSellerForm.full_name || !newSellerForm.business_name || !newSellerForm.phone_number || !newSellerForm.email) {
+      alert("Please fill in all required merchant details.");
       return;
     }
-    setActioningId(sellerId);
+
     try {
-      const payload: any = { 
-        account_status: newStatus, 
-        status: newStatus.toLowerCase(),
-        updated_at: new Date().toISOString() 
+      const generatedCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
+      const finalUpi = newSellerForm.upi_id.trim() || `${newSellerForm.phone_number.trim()}@phonepe`;
+
+      const payload = {
+        seller_id: generatedCode,
+        full_name: newSellerForm.full_name.trim(),
+        owner_name: newSellerForm.full_name.trim(),
+        business_name: newSellerForm.business_name.trim(),
+        category: newSellerForm.category,
+        business_category: newSellerForm.category,
+        mobile_number: newSellerForm.phone_number.trim(),
+        phone_number: newSellerForm.phone_number.trim(),
+        email: newSellerForm.email.trim().toLowerCase(),
+        upi_id: finalUpi,
+        phonepay_no: finalUpi,
+        phonepay_number: finalUpi,
+        pickup_location: newSellerForm.city.trim() || "Kolkata Apparel Hub",
+        city: newSellerForm.city.trim() || "Kolkata",
+        pickup_address: newSellerForm.pickup_address.trim() || "Merchant Dispatch Hub",
+        warehouse_address: newSellerForm.pickup_address.trim() || "Merchant Dispatch Hub",
+        status: "approved",
+        account_status: "Active",
+        is_suspended: false,
+        email_verified: true,
+        is_primary_brand: false,
+        created_at: new Date().toISOString()
       };
-      
-      if (newStatus === "active" || newStatus === "approved") {
-        payload.delete_requested = false;
-        payload.delete_date = null;
-      }
-      if (reason !== undefined) payload.rejection_reason = reason;
 
-      const res = await fetch("/api/admin/sellers", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: sellerId, updates: payload })
+      const { error } = await supabase.from("sellers").insert([payload]);
+      if (error) throw error;
+
+      setStatusMessage(`✨ Merchant "${payload.business_name}" onboarded successfully with Payout UPI: ${payload.upi_id}`);
+      setShowAddSellerModal(false);
+      setNewSellerForm({
+        full_name: "",
+        business_name: "",
+        category: "Polos & T-Shirts",
+        phone_number: "",
+        email: "",
+        upi_id: "",
+        city: "",
+        pickup_address: ""
       });
-      const resJson = await res.json();
-      if (!resJson.success) throw new Error(resJson.message || "Failed to update seller");
-
-      setStatusMessage(`✅ Merchant status updated to ${newStatus.toUpperCase()}`);
       await loadData();
-      setShowRejectModal(false);
-      setRejectionReason("");
-      setTargetSellerId(null);
     } catch (err: any) {
-      console.warn("Failed to update seller status:", err);
-      setStatusMessage(`❌ Error: ${err.message || "Failed to update"}`);
-    } finally {
-      setActioningId(null);
+      console.error("Error creating merchant:", err);
+      alert(err.message || "Failed to onboard merchant.");
     }
   };
 
-  const handleSaveBrandProfile = async (e: React.FormEvent) => {
+  // Edit Merchant Action
+  const handleSaveSellerEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingSellerData) return;
+
     try {
-      const primaryInDb = sellers.find(s => s.id !== "primary-zebalpha-merchant" && s.is_primary_brand);
-      if (primaryInDb) {
-        await fetch("/api/admin/sellers", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: primaryInDb.id,
-            updates: {
-              business_name: editFormData.business_name,
-              owner_name: editFormData.owner_name,
-              full_name: editFormData.owner_name,
-              email: editFormData.email,
-              phone_number: editFormData.phone_number,
-              mobile_number: editFormData.phone_number,
-              upi_id: editFormData.upi_id,
-              phonepay_no: editFormData.upi_id,
-              pickup_location: editFormData.pickup_location,
-              warehouse_address: editFormData.warehouse_address,
-              pickup_address: editFormData.warehouse_address,
-              gstin: editFormData.gstin,
-              brand_trademark_no: editFormData.brand_trademark_no,
-              updated_at: new Date().toISOString()
-            }
-          })
-        });
-      }
-      setStatusMessage("✅ ZEBALPHA Brand Merchant profile updated successfully.");
-      setShowEditBrandModal(false);
+      const updates = {
+        business_name: editingSellerData.business_name,
+        owner_name: editingSellerData.owner_name,
+        full_name: editingSellerData.owner_name,
+        email: editingSellerData.email,
+        phone_number: editingSellerData.phone_number,
+        mobile_number: editingSellerData.phone_number,
+        upi_id: editingSellerData.upi_id,
+        phonepay_no: editingSellerData.upi_id,
+        phonepay_number: editingSellerData.upi_id,
+        category: editingSellerData.category,
+        business_category: editingSellerData.category,
+        city: editingSellerData.city,
+        pickup_location: editingSellerData.pickup_location,
+        warehouse_address: editingSellerData.warehouse_address,
+        pickup_address: editingSellerData.warehouse_address,
+        account_status: editingSellerData.account_status,
+        status: editingSellerData.account_status === "Active" ? "approved" : "suspended",
+        is_suspended: editingSellerData.account_status === "Suspended",
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from("sellers")
+        .update(updates)
+        .eq("id", editingSellerData.id);
+
+      if (error) throw error;
+
+      setStatusMessage(`✅ Merchant "${updates.business_name}" profile updated.`);
+      setShowEditSellerModal(false);
+      setEditingSellerData(null);
       await loadData();
     } catch (err: any) {
-      console.warn("Notice saving brand profile:", err);
-      setStatusMessage("✅ ZEBALPHA Brand profile saved.");
-      setShowEditBrandModal(false);
+      console.error("Error updating merchant:", err);
+      alert(err.message || "Failed to update merchant.");
     }
   };
 
-  const handleViewProducts = (seller: any) => {
-    const sName = seller.full_name || seller.business_name || seller.owner_name;
-    const sellerProds = products.filter(
-      (p) => p.seller_id === seller.id || p.seller_id === seller.seller_id || p.brand?.toLowerCase() === sName?.toLowerCase() || seller.is_primary_brand
-    );
-    setSelectedSellerProducts(sellerProds);
-  };
-
+  // Excel Export Handler
   const handleExportSellersExcel = () => {
     const exportData = filteredSellers.map((s) => ({
       "Merchant ID": s.seller_id || s.id,
-      "Brand / Business Name": s.business_name || s.full_name || "ZEBALPHA Brand Store",
+      "Brand / Store Name": s.business_name || s.full_name || "ZEBALPHA Brand Store",
       "Owner Name": s.owner_name || s.full_name || "Rahul Adhikary",
       "Merchant Type": s.is_primary_brand ? "1st-Party Direct Brand" : "3rd-Party Marketplace Merchant",
       "Phone Number": s.phone_number || s.mobile_number || "N/A",
       "Email": s.email || "N/A",
-      "UPI / PhonePe ID": s.upi_id || s.phonepay_no || "N/A",
+      "Payout UPI / PhonePe": s.upi_id || s.phonepay_no || "N/A",
       "Fulfillment Hub / City": s.pickup_location || s.city || "Kolkata, WB",
-      "Apparel Category": s.category || "Luxury Clothing & Streetwear",
-      "GSTIN Compliance": s.gstin || "Verified",
+      "Gross Revenue (₹)": s.grossRevenue,
+      "Seller Net Payout (₹)": s.netPayout,
+      "Admin Commission (₹)": s.adminCommission,
+      "Total Orders": s.totalOrdersCount,
+      "Delivered Orders": s.deliveredCount,
+      "Active SKUs": s.productsCount,
       "Account Status": s.account_status || s.status || "Active",
       "Registered Date": s.created_at ? new Date(s.created_at).toLocaleDateString() : "N/A"
     }));
 
-    exportCustomDataExcel(exportData, "ZEBALPHA_Merchant_Registry");
+    exportCustomDataExcel(exportData, "ZEBALPHA_Merchants_Revenue_Registry");
   };
-
-  const filteredSellers = sellers.filter((s) => {
-    const statusVal = (s.account_status || s.status || "active").toLowerCase();
-    const catVal = (s.category || s.business_category || "").toLowerCase();
-    
-    const matchesStatus = 
-      filterStatus === "all" || 
-      (filterStatus === "active" && (statusVal === "active" || statusVal === "approved" || s.is_primary_brand)) ||
-      (filterStatus === "pending" && statusVal === "pending") ||
-      (filterStatus === "suspended" && statusVal === "suspended");
-      
-    const matchesCategory = 
-      filterCategory === "all" || 
-      catVal.includes(filterCategory.toLowerCase()) || 
-      s.is_primary_brand;
-
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = 
-      (s.full_name || s.owner_name || s.business_name || "").toLowerCase().includes(query) ||
-      (s.email || "").toLowerCase().includes(query) ||
-      (s.phone_number || s.mobile_number || "").includes(query) ||
-      (s.upi_id || s.phonepay_no || "").toLowerCase().includes(query) ||
-      (s.pickup_location || s.city || "").toLowerCase().includes(query) ||
-      (s.gstin || "").toLowerCase().includes(query) ||
-      (s.seller_id || s.id || "").toString().includes(query);
-
-    return matchesStatus && matchesCategory && matchesSearch;
-  });
-
-  const primaryMerchant = sellers.find(s => s.is_primary_brand) || DEFAULT_PRIMARY_BRAND_MERCHANT;
 
   return (
     <div className="space-y-6">
-      {/* Header & Controls */}
+      {/* ── HEADER ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">Brand Operations & Merchant Network</span>
-          <h1 className="text-2xl font-black tracking-tight text-white">Brand Store & Merchant Management</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">ZEBALPHA BRAND OPERATIONS</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase">
+              ● Phase 2 Live
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">Multi-Vendor & Revenue Management</h1>
           <p className="text-xs font-bold text-zinc-400 mt-0.5">
-            Manage your 1st-Party ZEBALPHA Direct Brand Merchant profile, apparel fulfillment hubs, GSTIN compliance, and monitor future multi-vendor marketplace onboarding.
+            Real-time merchant revenue tracking, order dispatches, UPI payout destinations, and seller account lifecycle control.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start">
+        <div className="flex items-center gap-2.5 self-start flex-wrap">
+          <button
+            onClick={() => setShowAddSellerModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs transition-all active:scale-95 shadow-lg shadow-emerald-500/20 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-black" />
+            <span>Onboard Merchant</span>
+          </button>
+
           <button
             onClick={handleExportSellersExcel}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-200 font-bold text-xs transition-all active:scale-95 shadow-md shadow-white/10 cursor-pointer"
           >
             <Download className="w-4 h-4 text-black" />
-            <span>Export Merchant Registry</span>
+            <span>Export Registry</span>
           </button>
           
           <button
             onClick={loadData}
             className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 transition-colors cursor-pointer"
-            title="Refresh Merchants"
+            title="Refresh Realtime Data"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -357,161 +584,113 @@ export default function SellerManagementView() {
       </div>
 
       {statusMessage && (
-        <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-700 text-white text-xs font-bold flex items-center justify-between animate-in fade-in duration-150">
-          <span>{statusMessage}</span>
+        <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-700 text-white text-xs font-bold flex items-center justify-between shadow-xl animate-in fade-in duration-150">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-400" />
+            <span>{statusMessage}</span>
+          </span>
           <button onClick={() => setStatusMessage("")} className="text-zinc-400 hover:text-white font-black text-sm">✕</button>
         </div>
       )}
 
-      {/* 🌟 1ST-PARTY PRIMARY BRAND MERCHANT HERO CARD 🌟 */}
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-6 md:p-8 shadow-2xl">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          {/* Brand Info Left */}
-          <div className="flex items-start sm:items-center gap-4">
-            <div className="h-16 w-16 md:h-20 md:w-20 rounded-3xl bg-zinc-900 border border-zinc-700 p-2 shadow-2xl flex items-center justify-center shrink-0">
-              <img
-                src="/official-logo.png"
-                alt="ZEBALPHA Logo"
-                className="h-full w-full object-cover rounded-2xl"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
-                  <CheckCircle2 size={12} /> 1st-Party Primary Brand Merchant
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300 text-[10px] font-black uppercase">
-                  <Shirt size={11} /> Luxury Clothing & Streetwear
-                </span>
-              </div>
-
-              <h2 className="text-xl md:text-2xl font-black tracking-tight text-white">
-                {editFormData.business_name}
-              </h2>
-
-              <p className="text-xs font-medium text-zinc-400">
-                Owner & Master Brand Admin: <span className="text-white font-bold">{editFormData.owner_name}</span> • <span className="font-mono text-zinc-300">{editFormData.email}</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Actions Right */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              onClick={() => handleViewProducts(primaryMerchant)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-bold text-xs transition-all"
-            >
-              <Package size={14} className="text-emerald-400" />
-              <span>Brand Catalog ({products.length} Items)</span>
-            </button>
-
-            <button
-              onClick={() => setShowEditBrandModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-200 font-black text-xs transition-all shadow-lg shadow-white/10"
-            >
-              <Edit3 size={14} />
-              <span>Edit Brand Profile</span>
-            </button>
-          </div>
+      {/* ── PLATFORM TOTAL INCOME & REVENUE SUMMARY CARDS ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Platform Gross Revenue */}
+        <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-5 rounded-3xl border border-zinc-800 shadow-xl space-y-1 relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
+          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">Total Platform GMV</span>
+          <p className="text-2xl sm:text-3xl font-black text-white">
+            ₹{platformSummary.totalPlatformGross.toLocaleString("en-IN")}
+          </p>
+          <span className="text-[10px] font-bold text-zinc-400 block">
+            Across {platformSummary.totalOrdersPlaced} Total Customer Orders
+          </span>
         </div>
 
-        {/* Operational Badges Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-6 pt-6 border-t border-zinc-800/80 text-xs">
-          <div className="bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800 space-y-1">
-            <span className="text-[10px] font-black uppercase text-zinc-400 block">Fulfillment Hub & Dispatch</span>
-            <p className="text-white font-bold truncate flex items-center gap-1.5">
-              <MapPin size={13} className="text-emerald-400 shrink-0" />
-              <span>{editFormData.pickup_location}</span>
-            </p>
-          </div>
+        {/* Total Admin Marketplace Commission */}
+        <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 shadow-xl space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-wider text-blue-400 block">Admin Commission Income</span>
+          <p className="text-2xl sm:text-3xl font-black text-blue-400">
+            ₹{platformSummary.totalAdminCommission.toLocaleString("en-IN")}
+          </p>
+          <span className="text-[10px] font-bold text-zinc-500 block">
+            10% Take-Rate on 3rd-Party Merchants
+          </span>
+        </div>
 
-          <div className="bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800 space-y-1">
-            <span className="text-[10px] font-black uppercase text-zinc-400 block">Payouts & Revenue Routing</span>
-            <p className="text-emerald-400 font-bold truncate flex items-center gap-1.5 font-mono">
-              <CreditCard size={13} className="text-emerald-400 shrink-0" />
-              <span>{editFormData.upi_id}</span>
-            </p>
-          </div>
+        {/* Total Seller Payouts Disbursed/Due */}
+        <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 shadow-xl space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block">Total Seller Payouts</span>
+          <p className="text-2xl sm:text-3xl font-black text-white">
+            ₹{platformSummary.totalSellerPayouts.toLocaleString("en-IN")}
+          </p>
+          <span className="text-[10px] font-bold text-zinc-500 block">
+            Payable via Merchant UPI IDs
+          </span>
+        </div>
 
-          <div className="bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800 space-y-1">
-            <span className="text-[10px] font-black uppercase text-zinc-400 block">GSTIN Compliance</span>
-            <p className="text-white font-bold truncate flex items-center gap-1.5 font-mono">
-              <ShieldCheck size={13} className="text-blue-400 shrink-0" />
-              <span>{editFormData.gstin}</span>
-            </p>
+        {/* Total Active Merchants */}
+        <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 shadow-xl space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">Merchant Network</span>
+          <div className="flex items-baseline gap-2">
+            <p className="text-2xl sm:text-3xl font-black text-white">{platformSummary.totalActiveMerchants}</p>
+            <span className="text-xs font-bold text-emerald-400">Active</span>
           </div>
-
-          <div className="bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800 space-y-1">
-            <span className="text-[10px] font-black uppercase text-zinc-400 block">Brand Trademark</span>
-            <p className="text-white font-bold truncate flex items-center gap-1.5 font-mono">
-              <Sparkles size={13} className="text-amber-400 shrink-0" />
-              <span>{editFormData.brand_trademark_no}</span>
-            </p>
-          </div>
+          <span className="text-[10px] font-bold text-zinc-500 block">
+            {platformSummary.totalMerchants} Registered • {platformSummary.totalCatalogSKUs} Total SKUs
+          </span>
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 shadow-xl">
-          <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">1st-Party Brand Operations</p>
-          <p className="text-2xl font-black text-white mt-1">Active</p>
-          <span className="text-[10px] font-bold text-zinc-500 mt-1 block">100% In-House Store</span>
+      {/* ── PHASE 2 EXPANSION ACTIVE BANNER ── */}
+      <div className="rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
+        <div className="flex items-start md:items-center gap-4 relative z-10">
+          <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-lg">
+            <Layers size={24} />
+          </div>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm sm:text-base font-black text-white">Multi-Vendor Marketplace Expansion (Phase 2)</h4>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 text-[9px] font-black uppercase">
+                ● LIVE & ACTIVE
+              </span>
+            </div>
+            <p className="text-xs font-medium text-zinc-400 max-w-2xl leading-relaxed">
+              Fast-track apparel onboarding active. 3rd-party streetwear merchants sell directly without initial document lockouts — revenue payouts route directly to their verified UPI ID.
+            </p>
+          </div>
         </div>
 
-        <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 shadow-xl">
-          <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Apparel Products (SKUs)</p>
-          <p className="text-2xl font-black text-white mt-1">{products.length}</p>
-          <span className="text-[10px] font-bold text-zinc-500 mt-1 block">Active Catalog Listings</span>
-        </div>
+        <div className="flex items-center gap-2.5 relative z-10 self-stretch md:self-auto flex-wrap">
+          <button
+            onClick={() => setShowAddSellerModal(true)}
+            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
+          >
+            <Plus size={15} />
+            <span>Onboard Merchant</span>
+          </button>
 
-        <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 shadow-xl">
-          <p className="text-[10px] font-black uppercase tracking-wider text-blue-400">Multi-Vendor Mode</p>
-          <p className="text-2xl font-black text-white mt-1">Phase 2</p>
-          <span className="text-[10px] font-bold text-zinc-500 mt-1 block">Expansion Ready</span>
-        </div>
-
-        <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 shadow-xl">
-          <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Total Merchants</p>
-          <p className="text-2xl font-black text-white mt-1">{sellers.length}</p>
-          <span className="text-[10px] font-bold text-zinc-500 mt-1 block">Verified Accounts</span>
+          <button
+            onClick={handleCopyOnboardingLink}
+            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+          >
+            {copiedLink ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+            <span>{copiedLink ? "Copied!" : "Copy Register Link"}</span>
+          </button>
         </div>
       </div>
 
-      {/* Filters Bar */}
+      {/* ── FILTERS & SEARCH BAR ── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-zinc-950 p-4 rounded-3xl border border-zinc-800 shadow-xl">
-        {/* Apparel Category & Status Filters */}
         <div className="flex flex-wrap gap-2 items-center">
-          {/* Clothing Category Filter */}
-          <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 p-1 rounded-2xl">
-            <span className="text-[10px] font-black uppercase text-zinc-400 px-3">Apparel:</span>
-            {APPAREL_CATEGORIES.map((cat) => (
-              <button
-                key={cat.key}
-                onClick={() => setFilterCategory(cat.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  filterCategory === cat.key
-                    ? "bg-white text-black shadow-sm font-extrabold"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
           {/* Status Filter */}
           <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 p-1 rounded-2xl">
             <span className="text-[10px] font-black uppercase text-zinc-400 px-3">Status:</span>
             {[
               { key: "all", label: "All" },
               { key: "active", label: "Active" },
-              { key: "pending", label: "Pending" },
-              { key: "suspended", label: "Suspended" }
+              { key: "suspended", label: "Suspended" },
+              { key: "pending", label: "Pending" }
             ].map((st) => (
               <button
                 key={st.key}
@@ -526,61 +705,73 @@ export default function SellerManagementView() {
               </button>
             ))}
           </div>
+
+          {/* Category Filter */}
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="px-4 py-2 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-white outline-none focus:border-white cursor-pointer"
+          >
+            {APPAREL_CATEGORIES.map((cat) => (
+              <option key={cat.key} value={cat.key}>{cat.label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Search Input */}
-        <div className="relative w-full lg:w-72">
+        <div className="relative w-full lg:w-80">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search merchant, phone, UPI, city..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-white outline-none focus:border-white transition-all placeholder:text-zinc-500"
           />
         </div>
       </div>
 
-      {/* Sellers & Brand Merchant Directory Table */}
+      {/* ── REAL SELLERS & REVENUE DIRECTORY TABLE ── */}
       <div className="bg-zinc-950 rounded-3xl border border-zinc-800 shadow-xl overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-zinc-400 font-bold text-xs">
-            <RefreshCw className="w-6 h-6 animate-spin text-white mx-auto mb-2" />
-            Loading merchant registry...
+          <div className="p-16 text-center text-zinc-400 font-bold text-xs space-y-2">
+            <RefreshCw className="w-6 h-6 animate-spin text-white mx-auto" />
+            <p>Loading real-time merchant network & revenue balances...</p>
           </div>
         ) : filteredSellers.length === 0 ? (
-          <div className="p-12 text-center text-zinc-400 font-bold text-xs">
-            No merchants found matching the selected filters.
+          <div className="p-16 text-center text-zinc-400 font-bold text-xs space-y-2">
+            <Building2 className="w-8 h-8 text-zinc-600 mx-auto" />
+            <p className="text-white font-black text-sm">No Merchants Found</p>
+            <p className="text-zinc-500">No merchant matches the selected status or search filter.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900/60 text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                  <th className="p-4 pl-6">Merchant & Brand Type</th>
+                  <th className="p-4 pl-6">Merchant & Brand</th>
                   <th className="p-4">Owner & Contact</th>
-                  <th className="p-4">UPI / Payout ID</th>
-                  <th className="p-4">Fulfillment Hub</th>
-                  <th className="p-4">Apparel SKUs</th>
-                  <th className="p-4">Operational Status</th>
+                  <th className="p-4">Payout UPI / PhonePe</th>
+                  <th className="p-4">Gross Sales (GMV)</th>
+                  <th className="p-4">Seller Net Payout</th>
+                  <th className="p-4 text-center">Orders</th>
+                  <th className="p-4 text-center">SKUs</th>
+                  <th className="p-4">Status</th>
                   <th className="p-4 text-right pr-6">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/80 text-xs font-bold text-zinc-300">
                 {filteredSellers.map((seller) => {
-                  const sName = seller.business_name || seller.full_name || seller.owner_name || "ZEBALPHA Brand Store";
+                  const sName = seller.business_name || seller.full_name || "ZEBALPHA Store";
                   const sOwner = seller.owner_name || seller.full_name || "Rahul Adhikary";
-                  const sCategory = seller.category || seller.business_category || "Luxury Clothing & Streetwear";
-                  const sUpi = seller.upi_id || seller.phonepay_no || "rahuladhikary@phonepe";
-                  const sPickup = seller.pickup_location || seller.city || "Central Apparel Hub, Kolkata";
+                  const sUpi = seller.upi_id || seller.phonepay_no || seller.phonepay_number || "rahuladhikary@phonepe";
+                  const sCategory = seller.category || seller.business_category || "Luxury Clothing";
                   const isPrimary = seller.is_primary_brand;
-
-                  const sellerProdsCount = isPrimary 
-                    ? products.length 
-                    : products.filter(p => p.seller_id === seller.id || p.seller_id === seller.seller_id).length;
+                  const isSuspended = seller.is_suspended || (seller.account_status || "").toLowerCase() === "suspended";
 
                   return (
                     <tr key={seller.id} className="hover:bg-zinc-900/40 transition-colors">
+                      {/* Merchant Brand */}
                       <td className="p-4 pl-6">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-2xl bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center font-black text-sm shrink-0 overflow-hidden">
@@ -593,89 +784,148 @@ export default function SellerManagementView() {
                           <div>
                             <div className="flex items-center gap-1.5">
                               <p className="font-black text-white">{sName}</p>
-                              {isPrimary && (
+                              {isPrimary ? (
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase">
                                   1st-Party
                                 </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-black uppercase">
+                                  3rd-Party
+                                </span>
                               )}
                             </div>
-                            <span className="inline-block text-[10px] font-bold text-zinc-400 mt-0.5">
-                              {sCategory}
+                            <span className="text-[10px] font-bold text-zinc-400 block mt-0.5 truncate max-w-xs">
+                              {sCategory} • {seller.city || "Kolkata"}
                             </span>
                           </div>
                         </div>
                       </td>
 
+                      {/* Owner & Contact */}
                       <td className="p-4">
                         <p className="text-white font-bold">{sOwner}</p>
-                        <p className="text-zinc-400 text-[11px] font-mono mt-0.5">{seller.email || "—"}</p>
+                        <p className="text-zinc-400 text-[11px] font-mono mt-0.5">{seller.mobile_number || seller.email || "—"}</p>
                       </td>
 
+                      {/* Payout UPI ID */}
                       <td className="p-4">
-                        <div className="flex items-center gap-1.5 font-mono text-emerald-400 font-bold">
-                          <CreditCard className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>{sUpi}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 font-mono text-emerald-400 font-bold">
+                            <CreditCard className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>{sUpi}</span>
+                          </div>
+                          <button
+                            onClick={() => handleCopyUpi(sUpi)}
+                            className="text-zinc-500 hover:text-white p-1 transition-colors"
+                            title="Copy UPI ID"
+                          >
+                            {copiedUpi === sUpi ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                          </button>
                         </div>
                       </td>
 
-                      <td className="p-4">
-                        <div className="flex items-center gap-1.5 text-zinc-300">
-                          <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          <span className="line-clamp-1">{sPickup}</span>
-                        </div>
+                      {/* Gross Revenue */}
+                      <td className="p-4 font-black text-white text-sm">
+                        ₹{Number(seller.grossRevenue || 0).toLocaleString("en-IN")}
                       </td>
 
+                      {/* Net Seller Payout */}
                       <td className="p-4">
-                        <div className="flex items-center gap-1.5 text-white font-black">
-                          <Package className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>{sellerProdsCount} Clothing Items</span>
-                        </div>
+                        <span className="font-black text-emerald-400 text-sm">
+                          ₹{Number(seller.netPayout || 0).toLocaleString("en-IN")}
+                        </span>
+                        {!isPrimary && (
+                          <span className="text-[10px] text-zinc-500 block font-normal">
+                            (10% Comm: ₹{Number(seller.adminCommission || 0).toLocaleString("en-IN")})
+                          </span>
+                        )}
                       </td>
 
-                      <td className="p-4">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          (seller.account_status === "Active" || seller.status === "approved" || isPrimary)
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                        }`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                          {seller.account_status || seller.status || "Active"}
+                      {/* Total Orders */}
+                      <td className="p-4 text-center">
+                        <span className="font-black text-white text-sm">{seller.totalOrdersCount}</span>
+                        <span className="text-[10px] text-zinc-500 block">
+                          {seller.deliveredCount} Delivered
                         </span>
                       </td>
 
+                      {/* Active SKUs */}
+                      <td className="p-4 text-center font-black text-white text-sm">
+                        {seller.productsCount}
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-4">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          isSuspended
+                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isSuspended ? "bg-rose-400" : "bg-emerald-400"}`} />
+                          {isSuspended ? "Suspended" : "Active"}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
                       <td className="p-4 text-right pr-6 space-x-1.5">
                         <button
-                          onClick={() => setSelectedSeller(seller)}
-                          className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 transition-colors"
-                          title="View Full Merchant Profile"
+                          onClick={() => {
+                            setSelectedSeller(seller);
+                            setDrawerTab("overview");
+                          }}
+                          className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                          title="View Full Seller Revenue & Performance Drawer"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
 
                         <button
-                          onClick={() => handleViewProducts(seller)}
+                          onClick={() => setSelectedSellerProducts(seller.sellerProducts || [])}
                           className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-emerald-400 hover:bg-zinc-800 transition-colors"
-                          title="View Products Catalog"
+                          title="View Catalog Products"
                         >
                           <Package className="w-4 h-4" />
                         </button>
 
-                        {isPrimary ? (
-                          <button
-                            onClick={() => setShowEditBrandModal(true)}
-                            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-blue-400 hover:bg-zinc-800 transition-colors"
-                            title="Edit In-House Brand Profile"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                        ) : (
+                        <button
+                          onClick={() => {
+                            setEditingSellerData({
+                              id: seller.id,
+                              business_name: seller.business_name || "",
+                              owner_name: seller.owner_name || seller.full_name || "",
+                              email: seller.email || "",
+                              phone_number: seller.phone_number || seller.mobile_number || "",
+                              upi_id: seller.upi_id || seller.phonepay_no || seller.phonepay_number || "",
+                              category: seller.category || seller.business_category || "Polos & T-Shirts",
+                              city: seller.city || seller.pickup_location || "",
+                              pickup_location: seller.pickup_location || seller.city || "",
+                              warehouse_address: seller.warehouse_address || seller.pickup_address || "",
+                              account_status: seller.account_status || "Active"
+                            });
+                            setShowEditSellerModal(true);
+                          }}
+                          className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-blue-400 hover:bg-zinc-800 transition-colors"
+                          title="Edit Merchant Profile"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        {!isPrimary && (
                           <button
                             onClick={() => {
-                              setTargetSellerId(seller.id);
-                              setShowSuspendModal(true);
+                              if (isSuspended) {
+                                handleReactivateSeller(seller.id);
+                              } else {
+                                setTargetSellerId(seller.id);
+                                setShowSuspendModal(true);
+                              }
                             }}
-                            className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-colors border border-rose-500/20"
-                            title="Suspend Seller"
+                            className={`p-2 rounded-xl transition-colors border ${
+                              isSuspended
+                                ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/30"
+                                : "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border-rose-500/20"
+                            }`}
+                            title={isSuspended ? "Reactivate Seller" : "Suspend Seller"}
                           >
                             <ShieldAlert className="w-4 h-4" />
                           </button>
@@ -690,141 +940,414 @@ export default function SellerManagementView() {
         )}
       </div>
 
-      {/* 🔮 MULTI-VENDOR PHASE 2 EXPANSION ADVISORY CARD */}
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-            <Layers size={24} />
-          </div>
-          <div>
-            <h4 className="text-sm font-black text-white">Multi-Vendor Marketplace Expansion (Phase 2)</h4>
-            <p className="text-xs font-medium text-zinc-400 mt-0.5">
-              Currently, store operations are 100% 1st-party direct brand owned. When 3rd-party merchant applications open, designer KYC, fabric compliance, and commission payouts will automatically sync here.
-            </p>
+      {/* ── 🌟 COMPREHENSIVE SELLER DETAILS DRAWER 🌟 ── */}
+      {selectedSeller && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm overflow-hidden animate-in fade-in duration-150">
+          <div className="bg-zinc-950 border-l border-zinc-800 w-full max-w-2xl h-full shadow-2xl p-6 md:p-8 flex flex-col justify-between overflow-y-auto space-y-6">
+            
+            {/* Drawer Header */}
+            <div>
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-5">
+                <div className="flex items-center gap-3.5">
+                  <div className="h-12 w-12 rounded-2xl bg-zinc-900 border border-zinc-700 text-white font-black text-xl flex items-center justify-center overflow-hidden shrink-0">
+                    {selectedSeller.is_primary_brand ? (
+                      <img src="/official-logo.png" alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      (selectedSeller.business_name || selectedSeller.full_name || "M")[0].toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg sm:text-xl font-black text-white">
+                        {selectedSeller.business_name || selectedSeller.full_name}
+                      </h3>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                        selectedSeller.is_suspended 
+                          ? "bg-rose-500/20 text-rose-400" 
+                          : "bg-emerald-500/20 text-emerald-400"
+                      }`}>
+                        {selectedSeller.is_suspended ? "Suspended" : "Active"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                      Owner: {selectedSeller.owner_name || selectedSeller.full_name} • {selectedSeller.city || "Kolkata"}
+                    </p>
+                  </div>
+                </div>
+
+                <button onClick={() => setSelectedSeller(null)} className="p-2 text-zinc-400 hover:text-white rounded-xl bg-zinc-900">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="flex items-center gap-2 border-b border-zinc-800/80 pt-4 pb-2">
+                {[
+                  { key: "overview", label: "Financial & Profile" },
+                  { key: "products", label: `Catalog (${selectedSeller.sellerProducts?.length || 0})` },
+                  { key: "orders", label: `Customer Orders (${selectedSeller.sellerOrders?.length || 0})` }
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setDrawerTab(t.key as any)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                      drawerTab === t.key
+                        ? "bg-white text-black shadow-md"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* TAB 1: FINANCIAL & PROFILE OVERVIEW */}
+            {drawerTab === "overview" && (
+              <div className="space-y-6 flex-1 text-xs">
+                {/* Payout Routing Box */}
+                <div className="p-5 rounded-3xl bg-gradient-to-br from-zinc-900 to-zinc-950 border border-emerald-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <CreditCard size={14} /> Direct Payout UPI Destination
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-mono">Instant Transfers</span>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-black/50 p-3.5 rounded-2xl border border-zinc-800">
+                    <span className="font-mono text-base font-black text-emerald-400 truncate">
+                      {selectedSeller.upi_id || selectedSeller.phonepay_no || selectedSeller.phonepay_number || "rahuladhikary@phonepe"}
+                    </span>
+                    <button
+                      onClick={() => handleCopyUpi(selectedSeller.upi_id || selectedSeller.phonepay_no || "rahuladhikary@phonepe")}
+                      className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold flex items-center gap-1 transition-all"
+                    >
+                      {copiedUpi ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                      <span>{copiedUpi ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Financial KPI Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 bg-zinc-900/60 rounded-2xl border border-zinc-800 space-y-1">
+                    <span className="text-[10px] uppercase text-zinc-400 font-bold block">Gross Sales (GMV)</span>
+                    <p className="text-xl font-black text-white">
+                      ₹{Number(selectedSeller.grossRevenue || 0).toLocaleString("en-IN")}
+                    </p>
+                    <span className="text-[10px] text-zinc-500">{selectedSeller.totalUnitsSold || 0} Units Sold</span>
+                  </div>
+
+                  <div className="p-4 bg-zinc-900/60 rounded-2xl border border-zinc-800 space-y-1">
+                    <span className="text-[10px] uppercase text-emerald-400 font-bold block">Seller Net Earnings</span>
+                    <p className="text-xl font-black text-emerald-400">
+                      ₹{Number(selectedSeller.netPayout || 0).toLocaleString("en-IN")}
+                    </p>
+                    <span className="text-[10px] text-zinc-500">Payable Balance</span>
+                  </div>
+
+                  <div className="p-4 bg-zinc-900/60 rounded-2xl border border-zinc-800 space-y-1">
+                    <span className="text-[10px] uppercase text-blue-400 font-bold block">Marketplace Commission</span>
+                    <p className="text-xl font-black text-blue-400">
+                      ₹{Number(selectedSeller.adminCommission || 0).toLocaleString("en-IN")}
+                    </p>
+                    <span className="text-[10px] text-zinc-500">{selectedSeller.is_primary_brand ? "0% (Direct)" : "10% Platform Cut"}</span>
+                  </div>
+
+                  <div className="p-4 bg-zinc-900/60 rounded-2xl border border-zinc-800 space-y-1">
+                    <span className="text-[10px] uppercase text-amber-400 font-bold block">Orders Fulfilled</span>
+                    <p className="text-xl font-black text-white">
+                      {selectedSeller.deliveredCount || 0} / {selectedSeller.totalOrdersCount || 0}
+                    </p>
+                    <span className="text-[10px] text-zinc-500">{selectedSeller.inTransitCount || 0} In-Transit</span>
+                  </div>
+                </div>
+
+                {/* Contact & Warehouse Address */}
+                <div className="p-4 bg-zinc-900/60 rounded-2xl border border-zinc-800 space-y-3 font-bold">
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                    <MapPin size={13} className="text-emerald-400" /> Dispatch & Warehouse Address
+                  </p>
+                  <p className="text-white text-xs leading-relaxed">
+                    {selectedSeller.warehouse_address || selectedSeller.pickup_address || "Central Fashion Complex, Kolkata, West Bengal, 700001"}
+                  </p>
+                  <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
+                    <span>Email: <span className="text-white font-mono">{selectedSeller.email || "—"}</span></span>
+                    <span>Phone: <span className="text-white font-mono">{selectedSeller.mobile_number || selectedSeller.phone_number || "—"}</span></span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: SELLER PRODUCTS CATALOG */}
+            {drawerTab === "products" && (
+              <div className="space-y-3 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                {(selectedSeller.sellerProducts || []).length === 0 ? (
+                  <div className="py-12 text-center text-zinc-500 font-bold text-xs">
+                    No products listed by this merchant.
+                  </div>
+                ) : (
+                  (selectedSeller.sellerProducts || []).map((p: any) => (
+                    <div key={p.id} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-3.5 flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-xl bg-zinc-800 overflow-hidden shrink-0 border border-zinc-700 flex items-center justify-center">
+                        {p.image_url || p.images?.[0] ? (
+                          <img src={p.image_url || p.images?.[0]} alt={p.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Shirt className="h-5 w-5 text-zinc-500" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black text-white truncate">{p.name}</p>
+                        <p className="text-[10px] font-bold text-zinc-400 mt-0.5">{p.category || "Apparel"} • Stock: {p.stock ?? 0}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-black text-emerald-400">₹{Number(p.price || 0).toLocaleString("en-IN")}</p>
+                        <span className="text-[9px] font-black uppercase text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">
+                          {p.status || "AVAILABLE"}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: CUSTOMER ORDERS & LIVE DISPATCH TRACKING */}
+            {drawerTab === "orders" && (
+              <div className="space-y-3 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                {(selectedSeller.sellerOrders || []).length === 0 ? (
+                  <div className="py-12 text-center text-zinc-500 font-bold text-xs">
+                    No customer orders placed for this merchant yet.
+                  </div>
+                ) : (
+                  (selectedSeller.sellerOrders || []).map((ord: any) => {
+                    const st = (ord.order_status || "placed").toLowerCase();
+                    const awb = ord.tracking_number || ord.shipment_id || "AWB-PENDING";
+                    const courier = ord.courier_name || "Delhivery Surface";
+
+                    return (
+                      <div key={ord.id} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-mono text-xs font-black text-white">#{ord.order_number || ord.id}</span>
+                            <span className="text-[10px] text-zinc-500 block">
+                              {new Date(ord.created_at).toLocaleDateString()} • {ord.customer_name || "Customer"}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-black text-emerald-400">₹{Number(ord.seller_order_amount || ord.total_amount || 0).toLocaleString("en-IN")}</span>
+                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full block mt-0.5 ${
+                              st === "delivered" 
+                                ? "bg-emerald-500/20 text-emerald-400" 
+                                : ["shipped", "in_transit", "dispatched"].includes(st)
+                                ? "bg-blue-500/20 text-blue-400"
+                                : "bg-amber-500/20 text-amber-400"
+                            }`}>
+                              {ord.order_status || "Placed"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Live Dispatch Progress Bar */}
+                        <div className="p-2.5 bg-black/40 rounded-xl border border-zinc-800 space-y-1.5 text-[10px]">
+                          <div className="flex items-center justify-between text-zinc-400 font-bold">
+                            <span className={st !== "cancelled" ? "text-emerald-400 font-black" : ""}>● Placed</span>
+                            <span className={["ready_to_ship", "dispatched", "shipped", "in_transit", "delivered"].includes(st) ? "text-emerald-400 font-black" : ""}>➔ Packed</span>
+                            <span className={["dispatched", "shipped", "in_transit", "delivered"].includes(st) ? "text-emerald-400 font-black" : ""}>➔ Dispatched</span>
+                            <span className={st === "delivered" ? "text-emerald-400 font-black" : ""}>➔ Delivered</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono">
+                            <span>Courier: {courier}</span>
+                            <span>AWB: {awb}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* Drawer Footer Actions */}
+            <div className="pt-4 border-t border-zinc-800 flex items-center justify-between gap-3">
+              {!selectedSeller.is_primary_brand && (
+                <button
+                  onClick={() => {
+                    if (selectedSeller.is_suspended) {
+                      handleReactivateSeller(selectedSeller.id);
+                    } else {
+                      setTargetSellerId(selectedSeller.id);
+                      setShowSuspendModal(true);
+                    }
+                  }}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    selectedSeller.is_suspended
+                      ? "bg-emerald-500 text-black hover:bg-emerald-400 shadow-md shadow-emerald-500/20"
+                      : "bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20"
+                  }`}
+                >
+                  {selectedSeller.is_suspended ? "Reactivate Merchant" : "Suspend Merchant"}
+                </button>
+              )}
+
+              <button
+                onClick={() => setSelectedSeller(null)}
+                className="px-6 py-2.5 rounded-xl bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all shadow-md cursor-pointer ml-auto"
+              >
+                Close Drawer
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 🔮 EDIT BRAND PROFILE MODAL */}
-      {showEditBrandModal && (
+      {/* ── 🌟 ONBOARD NEW MERCHANT MODAL ── */}
+      {showAddSellerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
           <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-xl shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">1st-Party Operations</span>
-                <h3 className="text-xl font-black text-white mt-0.5">Edit ZEBALPHA Brand Profile</h3>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Phase 2 Multi-Vendor</span>
+                <h3 className="text-xl font-black text-white mt-0.5">Onboard 3rd-Party Clothing Merchant</h3>
               </div>
-              <button onClick={() => setShowEditBrandModal(false)} className="p-1 text-zinc-400 hover:text-white">
+              <button onClick={() => setShowAddSellerModal(false)} className="p-1 text-zinc-400 hover:text-white">
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveBrandProfile} className="space-y-4 text-xs font-bold">
+            <form onSubmit={handleCreateSeller} className="space-y-4 text-xs font-bold">
               <div className="space-y-1">
-                <label className="text-zinc-300">Store / Brand Name</label>
+                <label className="text-zinc-300">Brand / Shop Name *</label>
                 <input
                   type="text"
-                  value={editFormData.business_name}
-                  onChange={(e) => setEditFormData({ ...editFormData, business_name: e.target.value })}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
                   required
+                  placeholder="e.g. Urban Streetwear & Co."
+                  value={newSellerForm.business_name}
+                  onChange={(e) => setNewSellerForm({ ...newSellerForm, business_name: e.target.value })}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-zinc-300">Owner & Master Admin Name</label>
+                  <label className="text-zinc-300">Owner / Designer Name *</label>
                   <input
                     type="text"
-                    value={editFormData.owner_name}
-                    onChange={(e) => setEditFormData({ ...editFormData, owner_name: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
                     required
+                    placeholder="Full Name"
+                    value={newSellerForm.full_name}
+                    onChange={(e) => setNewSellerForm({ ...newSellerForm, full_name: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-zinc-300">Registered Email</label>
-                  <input
-                    type="email"
-                    value={editFormData.email}
-                    onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
-                    required
-                  />
+                  <label className="text-zinc-300">Apparel Category *</label>
+                  <select
+                    value={newSellerForm.category}
+                    onChange={(e) => setNewSellerForm({ ...newSellerForm, category: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white cursor-pointer"
+                  >
+                    <option value="Polos & T-Shirts">Polos & T-Shirts</option>
+                    <option value="Hoodies & Sweatshirts">Hoodies & Sweatshirts</option>
+                    <option value="Casual Shirts">Casual Shirts</option>
+                    <option value="Bottoms & Cargo">Bottoms & Cargo</option>
+                    <option value="Outerwear & Jackets">Outerwear & Jackets</option>
+                    <option value="Accessories & Caps">Accessories & Caps</option>
+                    <option value="Limited Drops">Limited Drops</option>
+                  </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-zinc-300">Phone Number</label>
+                  <label className="text-zinc-300">Mobile Phone Number *</label>
                   <input
-                    type="text"
-                    value={editFormData.phone_number}
-                    onChange={(e) => setEditFormData({ ...editFormData, phone_number: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                    type="tel"
                     required
+                    maxLength={10}
+                    placeholder="9876543210"
+                    value={newSellerForm.phone_number}
+                    onChange={(e) => setNewSellerForm({ ...newSellerForm, phone_number: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-zinc-300">PhonePe / UPI ID</label>
+                  <label className="text-zinc-300">Email Address *</label>
                   <input
-                    type="text"
-                    value={editFormData.upi_id}
-                    onChange={(e) => setEditFormData({ ...editFormData, upi_id: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
+                    type="email"
                     required
+                    placeholder="merchant@example.com"
+                    value={newSellerForm.email}
+                    onChange={(e) => setNewSellerForm({ ...newSellerForm, email: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-zinc-300">Primary Dispatch Hub & Warehouse Address</label>
-                <textarea
-                  rows={2}
-                  value={editFormData.warehouse_address}
-                  onChange={(e) => setEditFormData({ ...editFormData, warehouse_address: e.target.value })}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                <label className="text-zinc-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <CreditCard size={14} />
+                    <span>Payout UPI ID / PhonePe / GPay Number *</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-normal">For direct revenue transfers</span>
+                </label>
+                <input
+                  type="text"
                   required
+                  placeholder="e.g. merchant@phonepe or 9876543210@paytm"
+                  value={newSellerForm.upi_id}
+                  onChange={(e) => setNewSellerForm({ ...newSellerForm, upi_id: e.target.value })}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-zinc-300">GSTIN Number</label>
+                  <label className="text-zinc-300">Dispatch City / Hub *</label>
                   <input
                     type="text"
-                    value={editFormData.gstin}
-                    onChange={(e) => setEditFormData({ ...editFormData, gstin: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
+                    required
+                    placeholder="e.g. Mumbai, Delhi, Kolkata"
+                    value={newSellerForm.city}
+                    onChange={(e) => setNewSellerForm({ ...newSellerForm, city: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-zinc-300">Brand Trademark Reference</label>
+                  <label className="text-zinc-300">Pickup Address *</label>
                   <input
                     type="text"
-                    value={editFormData.brand_trademark_no}
-                    onChange={(e) => setEditFormData({ ...editFormData, brand_trademark_no: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
+                    required
+                    placeholder="Warehouse / Studio Address"
+                    value={newSellerForm.pickup_address}
+                    onChange={(e) => setNewSellerForm({ ...newSellerForm, pickup_address: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
                   />
                 </div>
+              </div>
+
+              <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-2xl text-[11px] text-zinc-400 font-normal space-y-1">
+                <p className="text-emerald-400 font-bold">✓ Clothing Business Streamlined Onboarding</p>
+                <p>No document uploads (Aadhaar/PAN/GST/FSSAI) required initially. Merchant can immediately log in and publish clothing items.</p>
               </div>
 
               <div className="pt-4 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowEditBrandModal(false)}
+                  onClick={() => setShowAddSellerModal(false)}
                   className="flex-1 py-3 rounded-2xl border border-zinc-800 text-zinc-300 hover:bg-zinc-900 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-2xl bg-white text-black font-black uppercase hover:bg-zinc-200 transition-all shadow-lg shadow-white/10"
+                  className="flex-1 py-3 rounded-2xl bg-emerald-500 text-black font-black uppercase tracking-wider hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
                 >
-                  Save Profile Changes
+                  Complete Onboarding
                 </button>
               </div>
             </form>
@@ -832,14 +1355,203 @@ export default function SellerManagementView() {
         </div>
       )}
 
-      {/* 🔮 SELLER PRODUCTS CATALOG MODAL */}
+      {/* ── 🌟 EDIT MERCHANT MODAL ── */}
+      {showEditSellerModal && editingSellerData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-xl shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">Merchant Settings</span>
+                <h3 className="text-xl font-black text-white mt-0.5">Edit Merchant: {editingSellerData.business_name}</h3>
+              </div>
+              <button onClick={() => { setShowEditSellerModal(false); setEditingSellerData(null); }} className="p-1 text-zinc-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSellerEdit} className="space-y-4 text-xs font-bold">
+              <div className="space-y-1">
+                <label className="text-zinc-300">Brand / Shop Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editingSellerData.business_name}
+                  onChange={(e) => setEditingSellerData({ ...editingSellerData, business_name: e.target.value })}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-zinc-300">Owner / Designer Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingSellerData.owner_name}
+                    onChange={(e) => setEditingSellerData({ ...editingSellerData, owner_name: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-zinc-300">Apparel Category</label>
+                  <input
+                    type="text"
+                    value={editingSellerData.category}
+                    onChange={(e) => setEditingSellerData({ ...editingSellerData, category: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-zinc-300">Mobile Phone Number</label>
+                  <input
+                    type="tel"
+                    value={editingSellerData.phone_number}
+                    onChange={(e) => setEditingSellerData({ ...editingSellerData, phone_number: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-zinc-300">Email Address</label>
+                  <input
+                    type="email"
+                    value={editingSellerData.email}
+                    onChange={(e) => setEditingSellerData({ ...editingSellerData, email: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-zinc-300 flex items-center gap-1.5 text-emerald-400">
+                  <CreditCard size={14} />
+                  <span>Payout UPI ID / PhonePe / GPay Number</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingSellerData.upi_id}
+                  onChange={(e) => setEditingSellerData({ ...editingSellerData, upi_id: e.target.value })}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-zinc-300">Dispatch City / Hub</label>
+                  <input
+                    type="text"
+                    value={editingSellerData.city}
+                    onChange={(e) => setEditingSellerData({ ...editingSellerData, city: e.target.value, pickup_location: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-zinc-300">Account Status</label>
+                  <select
+                    value={editingSellerData.account_status}
+                    onChange={(e) => setEditingSellerData({ ...editingSellerData, account_status: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white cursor-pointer"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Pending">Pending</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-zinc-300">Warehouse / Pickup Address</label>
+                <textarea
+                  rows={2}
+                  value={editingSellerData.warehouse_address}
+                  onChange={(e) => setEditingSellerData({ ...editingSellerData, warehouse_address: e.target.value })}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
+                />
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditSellerModal(false); setEditingSellerData(null); }}
+                  className="flex-1 py-3 rounded-2xl border border-zinc-800 text-zinc-300 hover:bg-zinc-900 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 rounded-2xl bg-white text-black font-black uppercase tracking-wider hover:bg-zinc-200 transition-all shadow-lg shadow-white/10 cursor-pointer"
+                >
+                  Save Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── 🌟 SUSPEND SELLER MODAL ── */}
+      {showSuspendModal && targetSellerId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in zoom-in-95 duration-150">
+          <div className="bg-zinc-950 border border-rose-900/50 rounded-3xl w-full max-w-md shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <ShieldAlert size={24} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">Security & Enforcement</span>
+                <h3 className="text-base font-black text-white">Suspend Merchant Account</h3>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-400 leading-relaxed font-medium">
+              Suspending this merchant will immediately disable their catalog modifications, block new product publishing, and flag their account across the marketplace.
+            </p>
+
+            <div className="space-y-1.5 text-xs font-bold">
+              <label className="text-zinc-300">Mandatory Suspension Reason</label>
+              <textarea
+                rows={3}
+                placeholder="e.g. Policy non-compliance, fabric standard failure, or unfulfilled dispatches..."
+                value={suspensionReason}
+                onChange={(e) => setSuspensionReason(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-white text-xs outline-none focus:border-rose-500 resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => { setShowSuspendModal(false); setTargetSellerId(null); setSuspensionReason(""); }}
+                className="flex-1 py-3 rounded-2xl border border-zinc-800 text-zinc-300 text-xs font-bold hover:bg-zinc-900 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSuspend}
+                className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-rose-600/20 cursor-pointer"
+              >
+                Confirm Suspend
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 🌟 SELLER PRODUCTS MODAL PREVIEW ── */}
       {selectedSellerProducts && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
           <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-3xl shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Catalog Preview</span>
-                <h3 className="text-xl font-black text-white mt-0.5">Brand Apparel Listings ({selectedSellerProducts.length})</h3>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Live Catalog</span>
+                <h3 className="text-xl font-black text-white mt-0.5">Apparel Listings ({selectedSellerProducts.length})</h3>
               </div>
               <button onClick={() => setSelectedSellerProducts(null)} className="p-1 text-zinc-400 hover:text-white">
                 <X size={20} />
@@ -877,89 +1589,9 @@ export default function SellerManagementView() {
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setSelectedSellerProducts(null)}
-                className="px-6 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-black"
+                className="px-6 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-black cursor-pointer"
               >
                 Close Catalog
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🔮 SELLER FULL PROFILE MODAL */}
-      {selectedSeller && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-2xl shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-14 w-14 rounded-2xl bg-zinc-900 border border-zinc-700 text-white font-black text-xl flex items-center justify-center overflow-hidden">
-                  {selectedSeller.is_primary_brand ? (
-                    <img src="/official-logo.png" alt="Logo" className="w-full h-full object-cover" />
-                  ) : (
-                    (selectedSeller.business_name || selectedSeller.full_name || "M")[0].toUpperCase()
-                  )}
-                </div>
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                    {selectedSeller.is_primary_brand ? "1st-Party Primary Brand Merchant" : "Merchant Account"}
-                  </span>
-                  <h3 className="text-xl font-black text-white">
-                    {selectedSeller.business_name || selectedSeller.full_name || "ZEBALPHA Brand Store"}
-                  </h3>
-                  <p className="text-xs text-zinc-400 font-medium">
-                    Owner: {selectedSeller.owner_name || selectedSeller.full_name || "Rahul Adhikary"}
-                  </p>
-                </div>
-              </div>
-
-              <button onClick={() => setSelectedSeller(null)} className="p-1 text-zinc-400 hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs font-bold">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
-                <div>
-                  <span className="text-[10px] text-zinc-400 uppercase block mb-0.5">Email Contact</span>
-                  <p className="text-white font-mono">{selectedSeller.email || "N/A"}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-zinc-400 uppercase block mb-0.5">Phone Number</span>
-                  <p className="text-white font-mono">{selectedSeller.phone_number || selectedSeller.mobile_number || "N/A"}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
-                <div>
-                  <span className="text-[10px] text-emerald-400 uppercase flex items-center gap-1 mb-0.5">
-                    <CreditCard className="w-3.5 h-3.5" />
-                    Payout UPI ID
-                  </span>
-                  <p className="font-mono text-emerald-400">{selectedSeller.upi_id || selectedSeller.phonepay_no || "rahuladhikary@phonepe"}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-zinc-400 uppercase block mb-0.5">GSTIN / Tax ID</span>
-                  <p className="text-white font-mono">{selectedSeller.gstin || "19ABCDE1234F1Z5"}</p>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-2">
-                <span className="text-[10px] text-zinc-400 uppercase flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                  Primary Dispatch & Fulfillment Address
-                </span>
-                <p className="text-white text-xs leading-relaxed">
-                  {selectedSeller.warehouse_address || selectedSeller.pickup_address || "Plot 42, Central Fashion & Garment Complex, Kolkata, West Bengal, 700001"}
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setSelectedSeller(null)}
-                className="px-6 py-2.5 rounded-xl bg-white text-black text-xs font-black hover:bg-zinc-200 shadow-md"
-              >
-                Close Profile
               </button>
             </div>
           </div>

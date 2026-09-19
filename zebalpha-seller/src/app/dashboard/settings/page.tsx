@@ -7,63 +7,63 @@ import {
   MapPin, 
   Save, 
   CheckCircle2, 
-  AlertTriangle, 
-  FileText, 
   Phone, 
   Mail, 
   ShieldCheck, 
-  Upload, 
-  Clock, 
-  XCircle,
-  HelpCircle,
-  Percent,
-  Eye,
-  X,
-  Sparkles
+  CreditCard,
+  Shirt,
+  Sparkles,
+  Layers,
+  Copy,
+  Check,
+  Store,
+  User,
+  Tag,
+  FileText,
+  AlertCircle
 } from "lucide-react";
-import { activeFSSAIProvider, calculateMerchantCompletion } from "@shared/services/fssaiVerificationService";
-import { uploadToSupabaseBucket } from "@shared/services";
+
+const APPAREL_CATEGORIES = [
+  "Polos & T-Shirts",
+  "Hoodies & Sweatshirts",
+  "Casual Shirts",
+  "Bottoms & Cargo",
+  "Outerwear & Jackets",
+  "Accessories & Caps",
+  "Limited Drops",
+  "Luxury Clothing & Streetwear"
+];
 
 export default function SellerSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [sellerId, setSellerId] = useState<string | null>(null);
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
-  // OTP state
+  // OTP state for email verification if needed
   const [sendingOtp, setSendingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpError, setOtpError] = useState("");
 
-  // FSSAI document state
-  const [fssaiFile, setFssaiFile] = useState<File | null>(null);
-  const [fssaiUploadError, setFssaiUploadError] = useState("");
-  const [uploadingFssai, setUploadingFssai] = useState(false);
-  const [showFssaiModal, setShowFssaiModal] = useState(false);
-
   const [form, setForm] = useState({
     business_name: "",
     owner_name: "",
     mobile_number: "",
     email: "",
-    email_verified: false,
-    business_category: "Apparel & Streetwear",
+    email_verified: true,
+    category: "Polos & T-Shirts",
+    business_category: "Polos & T-Shirts",
+    upi_id: "",
+    phonepay_number: "",
     pickup_address: "",
     warehouse_address: "",
     city: "",
-    state: "",
+    state: "West Bengal",
     pincode: "",
-    gstin: "",
-    fssai_license_number: "",
-    fssai_certificate_url: "",
-    fssai_expiry_date: "",
-    fssai_status: "Not Submitted",
-    fssai_rejection_reason: "",
-    phonepay_number: "",
     business_logo_url: "",
-    profile_photo_url: "",
     business_description: "",
     account_status: "Active",
     created_at: "",
@@ -84,35 +84,42 @@ export default function SellerSettings() {
 
       if (seller) {
         setSellerId(seller.id);
+        const resolvedUpi = seller.upi_id || seller.phonepay_number || seller.phonepay_no || "";
+        const resolvedCategory = seller.category || seller.business_category || "Polos & T-Shirts";
+
         setForm({
-          business_name: seller.business_name || "",
+          business_name: seller.business_name || seller.shop_name || "",
           owner_name: seller.owner_name || seller.full_name || "",
           mobile_number: seller.mobile_number || seller.phone_number || "",
           email: seller.email || user.email || "",
-          email_verified: Boolean(seller.email_verified),
-          business_category: seller.business_category || seller.category || "Apparel & Streetwear",
-          pickup_address: seller.pickup_address || "",
-          warehouse_address: seller.warehouse_address || "",
-          city: seller.city || "",
-          state: seller.state || "",
+          email_verified: seller.email_verified !== undefined ? Boolean(seller.email_verified) : true,
+          category: resolvedCategory,
+          business_category: resolvedCategory,
+          upi_id: resolvedUpi,
+          phonepay_number: resolvedUpi,
+          pickup_address: seller.pickup_address || seller.warehouse_address || "",
+          warehouse_address: seller.warehouse_address || seller.pickup_address || "",
+          city: seller.city || seller.pickup_location || "",
+          state: seller.state || "West Bengal",
           pincode: seller.pincode || "",
-          gstin: seller.gstin || "",
-          fssai_license_number: seller.fssai_license_number || "",
-          fssai_certificate_url: seller.fssai_certificate_url || "",
-          fssai_expiry_date: seller.fssai_expiry_date || "",
-          fssai_status: seller.fssai_status || "Not Submitted",
-          fssai_rejection_reason: seller.fssai_rejection_reason || "",
-          phonepay_number: seller.phonepay_number || seller.phonepay_no || "",
           business_logo_url: seller.business_logo_url || seller.profile_photo || "",
-          profile_photo_url: seller.profile_photo_url || "",
           business_description: seller.business_description || "",
           account_status: seller.account_status || seller.status || "Active",
           created_at: seller.created_at || "",
           updated_at: seller.updated_at || ""
         });
+      } else {
+        // Pre-fill from Supabase Auth user metadata
+        setForm(prev => ({
+          ...prev,
+          email: user.email || "",
+          owner_name: user.user_metadata?.full_name || "",
+          mobile_number: user.user_metadata?.phone || "",
+          upi_id: user.user_metadata?.phone ? `${user.user_metadata.phone}@phonepe` : ""
+        }));
       }
     } catch (e) {
-      console.error(e);
+      console.error("Error loading seller profile:", e);
     } finally {
       setLoading(false);
     }
@@ -127,7 +134,7 @@ export default function SellerSettings() {
       if (!user) return;
 
       channel = supabase
-        .channel('settings-seller-changes')
+        .channel('settings-seller-profile-changes')
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'sellers', filter: `user_id=eq.${user.id}` },
@@ -135,9 +142,9 @@ export default function SellerSettings() {
             if (payload.new) {
               setForm(prev => ({
                 ...prev,
-                fssai_status: payload.new.fssai_status || "Not Submitted",
-                fssai_rejection_reason: payload.new.fssai_rejection_reason || "",
-                account_status: payload.new.account_status || payload.new.status || "Active"
+                account_status: payload.new.account_status || payload.new.status || prev.account_status,
+                business_name: payload.new.business_name || prev.business_name,
+                upi_id: payload.new.upi_id || payload.new.phonepay_number || prev.upi_id
               }));
             }
           }
@@ -152,7 +159,12 @@ export default function SellerSettings() {
     };
   }, []);
 
-  const completionPct = calculateMerchantCompletion(form);
+  const handleCopyUpi = () => {
+    if (!form.upi_id) return;
+    navigator.clipboard.writeText(form.upi_id);
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2500);
+  };
 
   const handleSendOtp = async () => {
     if (!form.email) {
@@ -165,7 +177,7 @@ export default function SellerSettings() {
       const res = await fetch("/api/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate", email: form.email }),
+        body: JSON.stringify({ action: "generate", email: form.email.trim().toLowerCase() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send OTP");
@@ -189,7 +201,7 @@ export default function SellerSettings() {
       const res = await fetch("/api/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", email: form.email, otp: otpCode }),
+        body: JSON.stringify({ action: "verify", email: form.email.trim().toLowerCase(), otp: otpCode }),
       });
       const data = await res.json();
       if (!res.ok || !data.verified) throw new Error(data.error || "Invalid OTP code.");
@@ -197,6 +209,7 @@ export default function SellerSettings() {
       setOtpSent(false);
       setOtpCode("");
       setStatusMsg("✅ Email verified successfully!");
+      setTimeout(() => setStatusMsg(""), 3000);
     } catch (err: any) {
       setOtpError(err.message || "Failed to verify OTP.");
     } finally {
@@ -204,112 +217,77 @@ export default function SellerSettings() {
     }
   };
 
-  const handleFssaiFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFssaiUploadError("");
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-
-    const validation = activeFSSAIProvider.validateDocument({ size: file.size, type: file.type });
-    if (!validation.valid) {
-      setFssaiUploadError(validation.message || "Invalid file format or size.");
-      setFssaiFile(null);
-      return;
-    }
-
-    setFssaiFile(file);
-    setUploadingFssai(true);
-
-    try {
-      // Upload directly to Supabase Storage Bucket 'fssai-licenses'
-      const publicUrl = await uploadToSupabaseBucket(
-        "fssai-licenses", 
-        file, 
-        `fssai_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-      );
-
-      setForm(prev => ({ 
-        ...prev, 
-        fssai_certificate_url: publicUrl,
-        fssai_status: "Verified"
-      }));
-      setStatusMsg("✨ FSSAI License Document uploaded to Supabase Bucket & Verified!");
-    } catch (err: any) {
-      console.error("FSSAI Supabase Upload Error:", err);
-      setFssaiUploadError(err.message || "Failed to upload FSSAI file to Supabase Storage bucket.");
-    } finally {
-      setUploadingFssai(false);
-    }
-  };
-
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setStatusMsg("");
-    setFssaiUploadError("");
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        alert("Session expired. Please log in again.");
+        return;
+      }
 
-      // Auto-approve FSSAI status when certificate document is uploaded
-      const newFssaiStatus = form.fssai_certificate_url ? "Verified" : "Not Submitted";
-
-      const updatedPct = calculateMerchantCompletion({ ...form, fssai_status: newFssaiStatus });
+      const finalUpi = form.upi_id.trim() || `${form.mobile_number.trim()}@phonepe`;
 
       const payload = {
-        business_name: form.business_name,
-        owner_name: form.owner_name,
-        full_name: form.owner_name,
-        mobile_number: form.mobile_number,
-        phone_number: form.mobile_number,
-        email: form.email,
+        business_name: form.business_name.trim(),
+        owner_name: form.owner_name.trim(),
+        full_name: form.owner_name.trim(),
+        mobile_number: form.mobile_number.trim(),
+        phone_number: form.mobile_number.trim(),
+        email: form.email.trim().toLowerCase(),
         email_verified: form.email_verified,
-        business_category: form.business_category,
-        category: form.business_category,
-        pickup_address: form.pickup_address,
-        warehouse_address: form.warehouse_address,
-        city: form.city,
-        state: form.state,
-        pincode: form.pincode,
-        gstin: form.gstin,
-        fssai_license_number: form.fssai_license_number || "UPLOADED",
-        fssai_certificate_url: form.fssai_certificate_url,
-        fssai_expiry_date: form.fssai_expiry_date || null,
-        fssai_status: newFssaiStatus,
-        phonepay_number: form.phonepay_number,
-        phonepay_no: form.phonepay_number,
-        business_logo_url: form.business_logo_url,
-        profile_photo: form.business_logo_url,
-        profile_photo_url: form.profile_photo_url,
-        business_description: form.business_description,
-        settings_completion_pct: updatedPct,
+        category: form.category,
+        business_category: form.category,
+        upi_id: finalUpi,
+        phonepay_no: finalUpi,
+        phonepay_number: finalUpi,
+        pickup_address: form.pickup_address.trim(),
+        warehouse_address: form.pickup_address.trim(),
+        pickup_location: form.city.trim() || form.pickup_address.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        pincode: form.pincode.trim(),
+        business_logo_url: form.business_logo_url.trim(),
+        profile_photo: form.business_logo_url.trim(),
+        business_description: form.business_description.trim(),
+        status: "approved",
+        account_status: "Active",
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      // Check if seller row exists
+      const { data: existingSeller } = await supabase
         .from("sellers")
-        .update(payload)
-        .eq("user_id", user.id);
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (error) throw error;
-
-      // Log verification audit action if FSSAI submitted
-      if (newFssaiStatus === "Verified" && sellerId) {
-        await supabase.from("merchant_verification_logs").insert({
-          seller_id: sellerId,
-          action: "AUTO_VERIFIED_FSSAI",
-          performed_by: user.id,
-          performer_role: "seller",
-          notes: "Original FSSAI License Document uploaded and automatically verified.",
-          metadata: { expiry: form.fssai_expiry_date }
-        });
+      if (existingSeller) {
+        const { error } = await supabase
+          .from("sellers")
+          .update(payload)
+          .eq("user_id", user.id);
+        if (error) throw error;
+      } else {
+        const insertPayload = {
+          ...payload,
+          id: user.id,
+          user_id: user.id,
+          seller_id: `SEL-${Math.floor(100000 + Math.random() * 900000)}`,
+          created_at: new Date().toISOString()
+        };
+        const { error } = await supabase.from("sellers").insert([insertPayload]);
+        if (error) throw error;
       }
 
-      setForm(prev => ({ ...prev, fssai_status: newFssaiStatus }));
-      setStatusMsg("✅ Merchant Settings saved successfully!");
-      setTimeout(() => setStatusMsg(""), 4000);
+      setStatusMsg("✨ Merchant settings & Payout details updated successfully!");
+      setTimeout(() => setStatusMsg(""), 4500);
     } catch (err: any) {
-      alert(err.message || "Failed to save Merchant Settings.");
+      console.error("Save settings error:", err);
+      alert(err.message || "Failed to save settings. Please verify details.");
     } finally {
       setSaving(false);
     }
@@ -318,73 +296,372 @@ export default function SellerSettings() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto py-8 px-4">
-      {/* Coming Soon Hero Card */}
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 p-8 md:p-12 shadow-2xl text-center">
-        {/* Glow backdrop effects */}
-        <div className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-amber-500/30 bg-amber-500/10 text-amber-400 shadow-xl shadow-amber-500/5">
-            <Clock className="h-10 w-10 animate-pulse" />
+    <div className="space-y-8 max-w-4xl mx-auto py-4 px-2 sm:px-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">ZEBALPHA MERCHANT PORTAL</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase">
+              ● Phase 2 Live
+            </span>
           </div>
-
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-amber-400 mb-4">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Coming Soon</span>
-          </div>
-
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white mb-3">
-            Merchant Settings & Compliance Portal
-          </h1>
-
-          <p className="max-w-xl text-sm font-medium text-zinc-400 leading-relaxed mb-8">
-            We are currently upgrading the merchant business verification, automated GSTIN verification, and multi-warehouse logistics routing system. This feature will be enabled in Phase 2 release.
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">Merchant Profile & Settings</h1>
+          <p className="text-xs font-bold text-zinc-400 mt-1">
+            Configure your brand identity, UPI payout destination, fulfillment hub, and streetwear catalog settings.
           </p>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full text-left">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 space-y-2">
-              <div className="flex items-center gap-2 text-white font-bold text-sm">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                <span>Automated Compliance</span>
+        <button
+          onClick={handleSaveSettings}
+          disabled={saving}
+          className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white text-black hover:bg-zinc-200 font-black text-xs uppercase tracking-wider transition-all shadow-xl shadow-white/10 active:scale-95 disabled:opacity-50 cursor-pointer self-start sm:self-auto"
+        >
+          {saving ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-black border-t-transparent" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              <span>Save Changes</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {statusMsg && (
+        <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-700 text-white text-xs font-bold flex items-center justify-between shadow-lg animate-in fade-in duration-150">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-400" />
+            <span>{statusMsg}</span>
+          </span>
+          <button onClick={() => setStatusMsg("")} className="text-zinc-400 hover:text-white font-black text-sm">✕</button>
+        </div>
+      )}
+
+      {/* 🌟 1. PAYOUT & REVENUE TRANSFERS (UPI / PHONEPE) CARD 🌟 */}
+      <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-6 sm:p-8 shadow-2xl">
+        <div className="absolute -top-20 -right-20 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-5">
+            <div className="flex items-center gap-3.5">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-lg">
+                <CreditCard size={24} />
               </div>
-              <p className="text-xs text-zinc-400 font-medium">Instant GSTIN, Brand Authorization & Trade License validation.</p>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Direct Payout Routing</span>
+                <h3 className="text-lg font-black text-white mt-0.5">Payout UPI ID / PhonePe Settlement</h3>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 space-y-2">
-              <div className="flex items-center gap-2 text-white font-bold text-sm">
-                <MapPin className="h-4 w-4 text-indigo-400" />
-                <span>Warehouse Logistics</span>
-              </div>
-              <p className="text-xs text-zinc-400 font-medium">Multi-location pickup points & automated courier manifest generation.</p>
-            </div>
-
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 space-y-2">
-              <div className="flex items-center gap-2 text-white font-bold text-sm">
-                <Building2 className="h-4 w-4 text-amber-400" />
-                <span>Merchant Branding</span>
-              </div>
-              <p className="text-xs text-zinc-400 font-medium">Custom seller logo, storefront banner & branded invoice customization.</p>
-            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase">
+              <CheckCircle2 size={14} /> Instant Revenue Transfer
+            </span>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-zinc-800/80 w-full flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-500">Status: In Active Development (Release Phase 2)</span>
-            <a
-              href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-black uppercase tracking-wider text-black hover:bg-neutral-200 transition-all shadow-md"
-            >
-              <span>Back to Dashboard</span>
-            </a>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-black uppercase tracking-wider text-zinc-300 mb-2 flex items-center justify-between">
+                <span>Merchant Payout UPI ID / PhonePe Number *</span>
+                <span className="text-[11px] text-zinc-500 font-normal">e.g. yourname@phonepe, 9876543210@paytm</span>
+              </label>
+              
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. rahuladhikary@phonepe or 9876543210@paytm"
+                  value={form.upi_id}
+                  onChange={(e) => setForm({ ...form, upi_id: e.target.value, phonepay_number: e.target.value })}
+                  className="w-full bg-zinc-900 border border-zinc-700/80 rounded-2xl px-5 py-4 text-sm font-mono font-bold text-white outline-none focus:border-white pr-28 transition-all"
+                />
+                
+                {form.upi_id && (
+                  <button
+                    type="button"
+                    onClick={handleCopyUpi}
+                    className="absolute right-3 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all"
+                  >
+                    {copiedUpi ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                    <span>{copiedUpi ? "Copied!" : "Copy"}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl text-xs text-zinc-400 space-y-1.5">
+              <p className="text-white font-bold flex items-center gap-1.5">
+                <Sparkles size={14} className="text-emerald-400" />
+                <span>Automated Merchant Settlement</span>
+              </p>
+              <p className="leading-relaxed">
+                When customers purchase your clothing items on ZEBALPHA, earnings and payouts are automatically calculated and transferred directly to this UPI ID or PhonePe account without manual paper delays.
+              </p>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* 🌟 2. BRAND & STOREFRONT IDENTITY CARD 🌟 */}
+      <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 shadow-xl space-y-6">
+        <div className="flex items-center gap-3.5 border-b border-zinc-800/80 pb-5">
+          <div className="h-12 w-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white shrink-0 shadow-lg">
+            <Store size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Store Profile</span>
+            <h3 className="text-lg font-black text-white mt-0.5">Brand & Merchant Identity</h3>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+              <Store size={14} className="text-white" />
+              <span>Shop / Brand Name *</span>
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Zebalpha Streetwear & Studio"
+              value={form.business_name}
+              onChange={(e) => setForm({ ...form, business_name: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+              <User size={14} className="text-white" />
+              <span>Owner / Designer Full Name *</span>
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="Full Name"
+              value={form.owner_name}
+              onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+              <Shirt size={14} className="text-white" />
+              <span>Primary Apparel Category *</span>
+            </label>
+            <select
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value, business_category: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all cursor-pointer"
+            >
+              {APPAREL_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+              <Tag size={14} className="text-white" />
+              <span>Brand Logo URL</span>
+            </label>
+            <input
+              type="text"
+              placeholder="https://... (Optional)"
+              value={form.business_logo_url}
+              onChange={(e) => setForm({ ...form, business_logo_url: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+            <FileText size={14} className="text-white" />
+            <span>Store Bio & Brand Story</span>
+          </label>
+          <textarea
+            rows={3}
+            placeholder="Tell customers about your streetwear aesthetics, fabric quality, and design philosophy..."
+            value={form.business_description}
+            onChange={(e) => setForm({ ...form, business_description: e.target.value })}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all resize-none"
+          />
+        </div>
+      </div>
+
+      {/* 🌟 3. CONTACT & FULFILLMENT HUB CARD 🌟 */}
+      <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 shadow-xl space-y-6">
+        <div className="flex items-center gap-3.5 border-b border-zinc-800/80 pb-5">
+          <div className="h-12 w-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white shrink-0 shadow-lg">
+            <MapPin size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Logistics & Contact</span>
+            <h3 className="text-lg font-black text-white mt-0.5">Fulfillment Hub & Dispatch Location</h3>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+              <Phone size={14} className="text-white" />
+              <span>Contact Mobile Number *</span>
+            </label>
+            <input
+              type="tel"
+              required
+              maxLength={10}
+              placeholder="9876543210"
+              value={form.mobile_number}
+              onChange={(e) => setForm({ ...form, mobile_number: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Mail size={14} className="text-white" />
+                <span>Email Address *</span>
+              </span>
+              {form.email_verified && (
+                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 size={12} /> Verified
+                </span>
+              )}
+            </label>
+            <input
+              type="email"
+              required
+              placeholder="merchant@example.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+            <MapPin size={14} className="text-white" />
+            <span>Pickup / Warehouse Address *</span>
+          </label>
+          <input
+            type="text"
+            required
+            placeholder="Studio / Dispatch Address for courier pickup"
+            value={form.pickup_address}
+            onChange={(e) => setForm({ ...form, pickup_address: e.target.value, warehouse_address: e.target.value })}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300">City / Dispatch Hub *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Kolkata, Mumbai"
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300">State *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. West Bengal"
+              value={form.state}
+              onChange={(e) => setForm({ ...form, state: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-300">Pincode *</label>
+            <input
+              type="text"
+              maxLength={6}
+              placeholder="700001"
+              value={form.pincode}
+              onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 🌟 4. FAST-TRACK CLOTHING COMPLIANCE CARD 🌟 */}
+      <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-white">Apparel Marketplace Authorization</h4>
+              <p className="text-[11px] text-zinc-400">ZEBALPHA Verified Merchant Status</p>
+            </div>
+          </div>
+
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase self-start sm:self-auto">
+            ● Active & Authorized
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl space-y-1">
+            <span className="text-[10px] font-black uppercase text-emerald-400 block">Fast-Track Onboarding</span>
+            <p className="text-white font-bold">No Document Uploads Required</p>
+            <p className="text-zinc-400 text-[11px]">
+              Initial onboarding for our clothing line does not require Aadhaar, PAN, GST, or FSSAI uploads. Your merchant account is immediately cleared for product publishing.
+            </p>
+          </div>
+
+          <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl space-y-1">
+            <span className="text-[10px] font-black uppercase text-blue-400 block">Apparel & Streetwear Scope</span>
+            <p className="text-white font-bold">Pure Clothing Operations</p>
+            <p className="text-zinc-400 text-[11px]">
+              All product lines (Polos, Tees, Hoodies, Shirts, Cargo, Outerwear) operate directly under ZEBALPHA apparel logistics.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Save Button Bottom */}
+      <div className="flex justify-end pt-4">
+        <button
+          onClick={handleSaveSettings}
+          disabled={saving}
+          className="flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white text-black hover:bg-zinc-200 font-black text-xs uppercase tracking-wider transition-all shadow-2xl shadow-white/20 active:scale-95 disabled:opacity-50 cursor-pointer w-full sm:w-auto"
+        >
+          {saving ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-black border-t-transparent" />
+              <span>Saving Changes...</span>
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              <span>Save Merchant Settings</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

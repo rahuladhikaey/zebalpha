@@ -96,13 +96,32 @@ export default function SellerDashboard() {
       }
       const currentUserId = user.id;
 
-      // 1. Fetch seller's products
-      const { data: products } = await supabase
-        .from("products")
-        .select("*")
-        .eq("seller_id", currentUserId);
+      // Fetch seller profile
+      const { data: sProfile } = await supabase
+        .from("sellers")
+        .select("id")
+        .eq("user_id", currentUserId)
+        .maybeSingle();
 
-      const productsList = (products || []) as Product[];
+      const sellerIdsToQuery = [currentUserId];
+      if (sProfile?.id) sellerIdsToQuery.push(sProfile.id);
+
+      // 1. Fetch seller's products
+      let productsList: Product[] = [];
+      try {
+        const { data: products } = await supabase
+          .from("products")
+          .select("*")
+          .in("seller_id", sellerIdsToQuery);
+        productsList = (products || []) as Product[];
+      } catch (_) {
+        const { data: fallbackProducts } = await supabase
+          .from("products")
+          .select("*")
+          .eq("seller_id", currentUserId);
+        productsList = (fallbackProducts || []) as Product[];
+      }
+
       setSellerProducts(productsList);
 
       const pIds = productsList.map(p => p.id);

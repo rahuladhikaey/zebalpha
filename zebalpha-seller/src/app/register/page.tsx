@@ -5,7 +5,7 @@ import { supabase } from "@shared/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
-import { CheckCircle2, Store, User, Mail, Phone, Lock, Tag, Layers, ArrowRight, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { CheckCircle2, Store, User, Mail, Phone, Lock, Tag, Layers, ArrowRight, ShieldCheck, Eye, EyeOff, CreditCard } from "lucide-react";
 
 const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
 const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
@@ -66,6 +66,7 @@ export default function SellerRegisterPage() {
   const [category, setCategory] = useState("Polos & T-Shirts");
   const [subcategory, setSubcategory] = useState("Premium Pique Polos");
   const [mobileNumber, setMobileNumber] = useState("");
+  const [upiId, setUpiId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -317,6 +318,7 @@ export default function SellerRegisterPage() {
       }
 
       const generatedSellerCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
+      const finalUpi = upiId.trim() || `${mobileNumber.trim()}@phonepe`;
 
       const sellerPayload: any = {
         id: validUserId,
@@ -330,6 +332,13 @@ export default function SellerRegisterPage() {
         email: normalizedEmail,
         category: category,
         business_category: `${category} - ${subcategory}`,
+        upi_id: finalUpi,
+        phonepay_no: finalUpi,
+        phonepay_number: finalUpi,
+        pickup_location: "Central Clothing Hub, Kolkata",
+        city: "Kolkata",
+        pickup_address: "Central Clothing Hub, Kolkata",
+        warehouse_address: "Central Clothing Hub, Kolkata",
         status: "approved",
         account_status: "Active",
         email_verified: true,
@@ -525,6 +534,25 @@ export default function SellerRegisterPage() {
                 </div>
               </div>
 
+              {/* Payout UPI ID / PhonePe Number */}
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-wider text-zinc-400 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <CreditCard size={14} />
+                    <span>Payout UPI ID / PhonePe Number *</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-normal">For direct revenue transfers</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. yourname@phonepe or 9876543210@paytm"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-mono font-bold text-white outline-none focus:border-white"
+                />
+              </div>
+
               {/* Strong Password Input */}
               <div>
                 <label className="text-[11px] font-black uppercase tracking-wider text-zinc-400 mb-1.5 flex items-center justify-between">
@@ -680,7 +708,7 @@ export default function SellerRegisterPage() {
                 Seller Account Active & Approved!
               </h2>
               <p className="text-xs font-bold text-zinc-400 max-w-md mx-auto leading-relaxed">
-                Welcome to Asali Swad! <span className="text-white font-bold">{shopName}</span> is registered under category <span className="text-white font-black">{category} ({subcategory})</span>.
+                Welcome to ZEBALPHA Marketplace! <span className="text-white font-bold">{shopName}</span> is registered under category <span className="text-white font-black">{category} ({subcategory})</span>. Payouts will route directly to <span className="text-emerald-400 font-mono font-bold">{upiId || `${mobileNumber}@phonepe`}</span>.
               </p>
               <div className="pt-4">
                 <Link

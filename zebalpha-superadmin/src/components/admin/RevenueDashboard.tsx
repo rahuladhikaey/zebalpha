@@ -200,14 +200,6 @@ export default function RevenueDashboard() {
         if (orderHasStandard) stdOrders++;
       });
 
-      // Default mock fallback revenue if fresh database without orders
-      if (premRev === 0 && stdRev === 0 && revenueData.lifetimeRevenue > 0) {
-        premRev = Math.round(revenueData.lifetimeRevenue * 0.42);
-        stdRev = revenueData.lifetimeRevenue - premRev;
-        premUnits = 45;
-        stdUnits = 92;
-      }
-
       setPremiumRevenueStats({
         totalPremiumRevenue: premRev,
         totalStandardRevenue: stdRev,
@@ -237,29 +229,31 @@ export default function RevenueDashboard() {
             name,
             percentage: Math.round((categoryCounts[name] / totalCats) * 100)
           })).sort((a, b) => b.percentage - a.percentage)
-        : [
-            { name: "💎 Premium Store Vault", percentage: 45 },
-            { name: "Heavyweight Hoodies", percentage: 25 },
-            { name: "Polos & Tees", percentage: 20 },
-            { name: "Streetwear Bottoms", percentage: 10 }
-          ];
+        : [];
 
       setTopCategories(sortedCategories);
 
-      // Trends
-      const totalCombinedRev = premRev + stdRev;
-      if (totalCombinedRev > 0) {
-        setRevenueTrend([
-          Math.round(totalCombinedRev * 0.12),
-          Math.round(totalCombinedRev * 0.22),
-          Math.round(totalCombinedRev * 0.18),
-          Math.round(totalCombinedRev * 0.38),
-          Math.round(totalCombinedRev * 0.55),
-          Math.round(totalCombinedRev * 0.75),
-          totalCombinedRev
-        ]);
-        setOrderTrend([12, 24, 18, 42, 58, 76, premOrders + stdOrders || 95]);
-      }
+      // Compute exact 7-day daily trend from real orders
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return d.toISOString().split("T")[0];
+      });
+
+      const dailyRevs = last7Days.map(dayStr => {
+        return fetchedOrders
+          .filter(o => o.created_at && o.created_at.startsWith(dayStr) && o.order_status !== "cancelled" && o.order_status !== "returned")
+          .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+      });
+
+      const dailyOrders = last7Days.map(dayStr => {
+        return fetchedOrders
+          .filter(o => o.created_at && o.created_at.startsWith(dayStr) && o.order_status !== "cancelled")
+          .length;
+      });
+
+      setRevenueTrend(dailyRevs);
+      setOrderTrend(dailyOrders);
 
     } catch (err) {
       console.error("Failed to load revenue summary:", err);

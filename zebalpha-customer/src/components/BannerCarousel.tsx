@@ -130,17 +130,28 @@ export function BannerCarousel() {
                 style={{ backgroundImage: `url(${banner.src})` }}
               />
 
-              {/* Main Banner Image with Actual Proportions and Clean Sizing */}
+              {/* Main Banner Image / Video with Actual Proportions and Clean Sizing */}
               <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                <Image
-                  src={banner.src}
-                  alt={banner.alt || "Zeb-alpha Banner"}
-                  fill
-                  priority={index === 0}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1400px) 100vw, 1400px"
-                  className="w-full h-full object-cover object-center rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] transition-transform duration-1000 ease-out group-hover:scale-[1.015]"
-                  unoptimized
-                />
+                {banner.src.endsWith(".mp4") ? (
+                  <video
+                    src={banner.src}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover object-center rounded-2xl sm:rounded-3xl md:rounded-[2.5rem]"
+                  />
+                ) : (
+                  <Image
+                    src={banner.src}
+                    alt={banner.alt || "Zeb-alpha Banner"}
+                    fill
+                    priority={index === 0}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1400px) 100vw, 1400px"
+                    className="w-full h-full object-cover object-center rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] transition-transform duration-1000 ease-out group-hover:scale-[1.015]"
+                    unoptimized
+                  />
+                )}
               </div>
 
               {/* Subtle High-End Royal Vignette Overlay */}
