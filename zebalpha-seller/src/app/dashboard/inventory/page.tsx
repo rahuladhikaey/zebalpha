@@ -16,9 +16,9 @@ import {
 export default function SellerInventory() {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
-  const [stockChanges, setStockChanges] = useState<Record<number, number>>({});
-  const [limits, setLimits] = useState<Record<number, number>>({});
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [stockChanges, setStockChanges] = useState<Record<string | number, number>>({});
+  const [limits, setLimits] = useState<Record<string | number, number>>({});
+  const [updatingId, setUpdatingId] = useState<string | number | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -55,8 +55,8 @@ export default function SellerInventory() {
       setProducts(sProducts);
 
       // Initialize inputs state
-      const initialStock: Record<number, number> = {};
-      const initialLimits: Record<number, number> = {};
+      const initialStock: Record<string | number, number> = {};
+      const initialLimits: Record<string | number, number> = {};
       sProducts.forEach(p => {
         initialStock[p.id] = p.stock || 0;
         initialLimits[p.id] = p.low_stock_limit || 5;
