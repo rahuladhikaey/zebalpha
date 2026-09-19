@@ -77,8 +77,8 @@ export default function RevenueDashboard() {
   });
 
   // Chart data states
-  const [revenueTrend, setRevenueTrend] = useState<number[]>([120, 240, 180, 360, 420, 310, 480]);
-  const [orderTrend, setOrderTrend] = useState<number[]>([15, 30, 22, 45, 52, 38, 58]);
+  const [revenueTrend, setRevenueTrend] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [orderTrend, setOrderTrend] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [topProducts, setTopProducts] = useState<{name: string, sales: number, revenue: number, isPremium: boolean}[]>([]);
   const [topCategories, setTopCategories] = useState<{name: string, percentage: number}[]>([]);
 
