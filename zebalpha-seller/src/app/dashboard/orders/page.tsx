@@ -20,7 +20,6 @@ import {
   Trash,
   Download,
   Printer,
-  Scan,
   AlertTriangle,
   Zap,
   Filter,
@@ -30,7 +29,6 @@ import {
   Check
 } from "lucide-react";
 import { ShippingLabelModal } from "@/components/ShippingLabelModal";
-import { RiderScanModal } from "@/components/RiderScanModal";
 
 export default function SellerOrders() {
   const [loading, setLoading] = useState(true);
@@ -50,7 +48,6 @@ export default function SellerOrders() {
 
   // Modals
   const [labelModalOrder, setLabelModalOrder] = useState<any | null>(null);
-  const [riderScanOrder, setRiderScanOrder] = useState<any | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -333,21 +330,14 @@ export default function SellerOrders() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">
-            Orders & Shipping Hub
+            Orders Hub
           </h1>
           <p className="text-xs sm:text-sm font-bold text-zinc-400 mt-1">
-            Meesho & Flipkart standard dispatch management with barcoded label printing and rider pickup.
+            Dispatch management with barcoded label printing and courier pickup.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setRiderScanOrder({})}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-lg shadow-amber-500/5"
-          >
-            <Scan className="h-4 w-4" />
-            Rider Scan Simulator
-          </button>
           <button
             onClick={() => loadData()}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800 text-xs font-black uppercase tracking-wider transition cursor-pointer"
@@ -661,13 +651,6 @@ export default function SellerOrders() {
                                   🚚 {courier.split(" ")[0]}
                                 </span>
                               </div>
-
-                              <button
-                                onClick={() => setRiderScanOrder(order)}
-                                className="text-[9px] font-black uppercase text-amber-400 hover:text-amber-300 flex items-center gap-1 mt-0.5 cursor-pointer underline"
-                              >
-                                <Scan className="h-2.5 w-2.5" /> Test Rider Scan
-                              </button>
                             </>
                           )}
 
@@ -729,21 +712,6 @@ export default function SellerOrders() {
           onClose={() => setLabelModalOrder(null)}
           order={labelModalOrder}
           sellerInfo={sellerProfile}
-        />
-      )}
-
-      {/* Rider Scan Modal */}
-      {riderScanOrder && (
-        <RiderScanModal
-          isOpen={!!riderScanOrder}
-          onClose={() => setRiderScanOrder(null)}
-          prefilledAwb={riderScanOrder.tracking_number || riderScanOrder.shipment_id || ""}
-          orderNumber={riderScanOrder.order_number || riderScanOrder.id || ""}
-          onScanSuccess={async () => {
-            setRiderScanOrder(null);
-            await loadData();
-            setActiveTab("shipped"); // Jump to Shipped tab
-          }}
         />
       )}
 
