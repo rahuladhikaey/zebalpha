@@ -17,16 +17,39 @@ function OrderSuccessContent() {
   useEffect(() => {
     if (orderId) {
       const fetchOrder = async () => {
-        const { data } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("id", orderId)
-          .single();
+        try {
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+          let query = supabase.from("orders").select("*");
 
-        if (data) setOrder(data);
-        setLoading(false);
+          if (isUuid) {
+            query = query.or(`id.eq.${orderId},order_number.eq.${orderId}`);
+          } else {
+            query = query.eq("order_number", orderId);
+          }
+
+          const { data, error } = await query.maybeSingle();
+
+          if (data && !error) {
+            setOrder(data);
+          } else {
+            // Fallback: search latest order if exact match not found
+            const { data: recent } = await supabase
+              .from("orders")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (recent) setOrder(recent);
+          }
+        } catch (err) {
+          console.error("Error fetching order in success page:", err);
+        } finally {
+          setLoading(false);
+        }
       };
       fetchOrder();
+    } else {
+      setLoading(false);
     }
   }, [orderId]);
 
@@ -41,9 +64,13 @@ function OrderSuccessContent() {
     );
   }
 
+  const rawMethod = String(order?.payment_method || "").toUpperCase();
+  const isCOD = rawMethod === "COD" || rawMethod.includes("CASH");
+  const displayOrderNum = (order?.order_number as string) || (orderId ? String(orderId) : "CONFIRMED");
+
   return (
     <main className="min-h-screen bg-black text-white">
-      <Header title="Order Confirmed" subtitle={order?.payment_method === "COD" ? "Order Placed Successfully" : "Payment Complete"} />
+      <Header title="Order Confirmed" subtitle={isCOD ? "Order Placed Successfully" : "Payment Complete"} />
 
       <section className="mx-auto max-w-3xl px-4 py-12">
         <div className="rounded-[3rem] bg-zinc-950 p-8 md:p-12 border border-zinc-800 shadow-2xl text-center">
@@ -52,7 +79,7 @@ function OrderSuccessContent() {
           </div>
 
           <h1 className="text-3xl font-black text-white">
-            {order?.payment_method === "COD" ? "Order Successful!" : "Payment Complete!"}
+            {isCOD ? "Order Successful!" : "Payment Complete!"}
           </h1>
           <p className="mt-4 text-zinc-400 font-bold uppercase tracking-widest text-sm">
             Waiting for Shipping by Seller
@@ -61,12 +88,12 @@ function OrderSuccessContent() {
           <div className="mt-10 p-6 rounded-3xl bg-zinc-900 border border-zinc-800 text-left space-y-4">
             <div className="flex justify-between items-center text-sm">
               <span className="font-bold text-zinc-400 uppercase tracking-widest">Order ID</span>
-              <span className="font-black text-white">#{String(orderId).slice(0, 8)}</span>
+              <span className="font-black text-white">{displayOrderNum.startsWith("#") ? displayOrderNum : `#${displayOrderNum}`}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="font-bold text-zinc-400 uppercase tracking-widest">Payment Method</span>
               <span className="px-3 py-1 rounded-full text-white bg-zinc-800 border border-zinc-700 text-[10px] font-black tracking-widest uppercase">
-                {order?.payment_method === "COD" ? "Cash on Delivery" : "Online - Complete"}
+                {isCOD ? "Cash on Delivery" : "Online - Complete"}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
@@ -77,7 +104,7 @@ function OrderSuccessContent() {
 
           <div className="mt-10 space-y-4">
             <p className="text-zinc-400 font-medium">
-              {order?.payment_method === "COD"
+              {isCOD
                 ? "Your COD order has been received. Please keep the exact amount ready for payment at the time of delivery."
                 : "We have received your payment. Our team is currently preparing your package for dispatch."}
               {" Our seller is preparing it for shipping. You will receive an update once it's shipped!"}
@@ -105,10 +132,10 @@ function OrderSuccessContent() {
               <div className="h-4 w-4 rounded-full bg-white mt-1 ring-8 ring-zinc-800" />
               <div>
                 <h4 className="font-black text-sm uppercase text-white">
-                  {order?.payment_method === "COD" ? "Order Confirmed" : "Order Placed & Paid"}
+                  {isCOD ? "Order Confirmed" : "Order Placed & Paid"}
                 </h4>
                 <p className="text-xs text-zinc-400 font-medium mt-1">
-                  {order?.payment_method === "COD" ? "Your COD order has been recorded." : "Order successfully created and payment verified."}
+                  {isCOD ? "Your COD order has been recorded." : "Order successfully created and payment verified."}
                 </p>
               </div>
             </div>

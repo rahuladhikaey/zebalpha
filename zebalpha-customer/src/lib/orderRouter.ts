@@ -62,6 +62,9 @@ export async function createMasterOrder(payload: {
   const sellerList = Object.keys(bySeller);
   const primarySellerId = sellerList.length === 1 ? sellerList[0] : null;
 
+  const normPaymentMethod = String(payment_method || 'COD').toUpperCase();
+  const isCodOrder = normPaymentMethod === 'COD' || normPaymentMethod.includes('CASH');
+
   const { data: parentOrder, error: insertErr } = await supabaseServer.from('orders').insert([{
     order_number: orderNumber,
     user_id: user_id || null,
@@ -72,8 +75,8 @@ export async function createMasterOrder(payload: {
     items: items,
     product_details: items,
     total_amount: total,
-    payment_method,
-    payment_status: payment_method === 'COD' ? 'PENDING' : 'COMPLETE',
+    payment_method: isCodOrder ? 'COD' : normPaymentMethod,
+    payment_status: isCodOrder ? 'PENDING' : 'COMPLETE',
     order_status: 'placed'
   }]).select().single();
 

@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       console.error("WhatsApp notification error:", waError);
     }
 
-    return NextResponse.json({ success: true, orderId: parentOrder.id });
+    return NextResponse.json({ success: true, orderId: parentOrder.id, orderNumber: parentOrder.order_number });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("COD Error:", error);

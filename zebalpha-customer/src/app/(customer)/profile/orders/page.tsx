@@ -282,7 +282,9 @@ export default function MyOrdersPage() {
 
                     <div className="flex flex-row md:flex-col justify-between items-center md:items-end border-t md:border-t-0 md:border-l border-zinc-800 pt-4 md:pt-0 md:pl-8 text-left md:text-right min-w-[150px]">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Total Paid</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                          {String(order.payment_method || '').toUpperCase() === 'COD' ? 'Total Payable (COD)' : 'Total Paid'}
+                        </p>
                         <p className="text-2xl font-black text-white">₹{order.total_amount}</p>
                       </div>
                       <div className="text-right">

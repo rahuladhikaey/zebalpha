@@ -66,7 +66,8 @@ router.post('/cod', async (req, res, next) => {
       if (body && body.success && body.data) {
         return originalJson.call(this, {
           success: true,
-          orderId: body.data.order_number
+          orderId: body.data.id || body.data.order_number,
+          orderNumber: body.data.order_number
         });
       }
       return originalJson.call(this, body);
