@@ -31,6 +31,8 @@ export async function POST(req: Request) {
     let routingHub = order.routing_hub || "CCU/EAST-HUB-01";
 
     let shiprocketError = "";
+    const email = (process.env.SHIPROCKET_EMAIL || "").trim();
+    const password = (process.env.SHIPROCKET_PASSWORD || "").trim();
 
     if (!email || !password) {
       shiprocketError = "Shiprocket credentials (SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD) missing in environment variables.";
