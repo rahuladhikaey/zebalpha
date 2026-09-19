@@ -144,6 +144,8 @@ export async function POST(req: Request) {
     let labelUrl = "";
     let routingHub = "CCU/EAST-HUB-01";
 
+    let shiprocketError = "";
+
     try {
       const token = await getShiprocketToken();
       if (token) {
@@ -242,28 +244,30 @@ export async function POST(req: Request) {
           } catch (_) {}
 
           liveSynced = true;
+        } else {
+          shiprocketError = "Shiprocket Order Creation failed: No shipment_id returned";
         }
       }
     } catch (srErr: any) {
-      console.warn("Live Shiprocket API execution notice:", srErr.message);
+      shiprocketError = `Live Shiprocket API Error: ${srErr.message}`;
+      console.warn(shiprocketError);
     }
 
-    // 7. Resilient Fallback if Live Shiprocket is not reachable or waiting for courier allocation
-    if (!awbNumber) {
-      const carriers = [
-        { name: "Delhivery Surface", prefix: "DEL", hub: "DEL/NCR-HUB-01" },
-        { name: "Shadowfax Express", prefix: "SFX", hub: "SFX/SOUTH-HUB-04" },
-        { name: "BlueDart Air", prefix: "BD", hub: "BD/AIR-EXP-02" },
-        { name: "Xpressbees Logistics", prefix: "XB", hub: "XB/WEST-HUB-03" },
-      ];
-      const selected = carriers[Math.floor(Math.random() * carriers.length)];
-      awbNumber = `${selected.prefix}-${Math.floor(100000000 + Math.random() * 900000000)}`;
-      if (!courierName || courierName === "Delhivery Surface") {
-        courierName = selected.name;
-        routingHub = selected.hub;
-      }
-      if (!shipmentId) shipmentId = `SR-${Date.now().toString().slice(-8)}`;
-      if (!shiprocketOrderId) shiprocketOrderId = `SRO-${Date.now().toString().slice(-8)}`;
+    if (!liveSynced) {
+      // Save error to database for diagnostic visibility
+      await supabaseServer
+        .from("orders")
+        .update({
+          shiprocket_error: shiprocketError || "Failed to sync with live Shiprocket API",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return NextResponse.json({
+        success: false,
+        liveSynced: false,
+        message: shiprocketError || "Could not push order to Shiprocket Live. Please verify SHIPROCKET_EMAIL & SHIPROCKET_PASSWORD in environment variables.",
+      }, { status: 400 });
     }
 
     const dispatchSla = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();

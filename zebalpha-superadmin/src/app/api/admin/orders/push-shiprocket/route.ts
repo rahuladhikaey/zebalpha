@@ -30,10 +30,11 @@ export async function POST(req: Request) {
     let labelUrl = order.label_url || "";
     let routingHub = order.routing_hub || "CCU/EAST-HUB-01";
 
-    const email = (process.env.SHIPROCKET_EMAIL || "").trim();
-    const password = (process.env.SHIPROCKET_PASSWORD || "").trim();
+    let shiprocketError = "";
 
-    if (email && password) {
+    if (!email || !password) {
+      shiprocketError = "Shiprocket credentials (SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD) missing in environment variables.";
+    } else {
       try {
         const authRes = await fetch(`${SHIPROCKET_API}/auth/login`, {
           method: "POST",
@@ -42,7 +43,10 @@ export async function POST(req: Request) {
         });
         const authData = await authRes.json();
 
-        if (authRes.ok && authData.token) {
+        if (!authRes.ok || !authData.token) {
+          shiprocketError = `Shiprocket Auth Failed (${authRes.status}): ${authData.message || "Invalid credentials"}`;
+          console.error(`[Shiprocket Auth Error]: ${shiprocketError}`);
+        } else {
           const token = authData.token;
 
           // Resolve seller's pickup address
@@ -220,21 +224,35 @@ export async function POST(req: Request) {
             }
 
             liveSynced = true;
+          } else {
+            shiprocketError = `Shiprocket Order Creation Failed (${srOrderRes.status}): ${srOrderData.message || JSON.stringify(srOrderData.errors || "Invalid payload")}`;
+            console.error(`[Shiprocket API Error]: ${shiprocketError}`);
           }
         }
-      } catch (err) {
-        console.warn("Shiprocket live push exception:", err);
+      } catch (err: any) {
+        shiprocketError = `Shiprocket live push exception: ${err.message}`;
+        console.warn(shiprocketError);
       }
     }
 
-    // Resilient fallback if live Shiprocket did not provide AWB
-    if (!awbNumber) {
-      awbNumber = `DEL-${Math.floor(100000000 + Math.random() * 900000000)}`;
-      if (!shipmentId) shipmentId = `SR-${Date.now().toString().slice(-8)}`;
-      if (!shiprocketOrderId) shiprocketOrderId = `SRO-${Date.now().toString().slice(-8)}`;
+    if (!liveSynced) {
+      // Save error to database for diagnostic visibility
+      await supabaseServer
+        .from("orders")
+        .update({
+          shiprocket_error: shiprocketError || "Failed to sync with live Shiprocket API",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      return NextResponse.json({
+        success: false,
+        liveSynced: false,
+        message: shiprocketError || "Could not push order to Shiprocket Live. Check API credentials or pickup location.",
+      }, { status: 400 });
     }
 
-    // Update orders table
+    // Update orders table with live values
     const updatePayload: any = {
       order_status: "ready_to_ship",
       tracking_number: awbNumber,
@@ -242,6 +260,7 @@ export async function POST(req: Request) {
       shipment_id: shipmentId,
       routing_hub: routingHub,
       shiprocket_order_id: shiprocketOrderId,
+      shiprocket_error: null,
       label_generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -261,9 +280,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      liveSynced,
+      liveSynced: true,
       data: updatedOrder,
-      message: liveSynced ? "Pushed to Shiprocket Live successfully!" : "AWB & Manifest generated successfully!",
+      message: "Pushed to Shiprocket Live successfully!",
     });
   } catch (error: any) {
     console.error("Push Shiprocket error:", error);
