@@ -18,10 +18,12 @@ import {
   HelpCircle,
   LogOut, 
   Menu, 
-  X,
+  X, 
   User,
   Sparkles,
-  MapPin
+  MapPin,
+  ShieldCheck,
+  Lock
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -35,55 +37,113 @@ export default function DashboardLayout({
   const [sellerName, setSellerName] = useState("Seller");
   const [sellerEmail, setSellerEmail] = useState("");
   const [isSuspended, setIsSuspended] = useState(false);
+  const [authStatus, setAuthStatus] = useState<"checking" | "authorized" | "unauthorized">("checking");
 
   useEffect(() => {
     let channel: any;
+    let authListener: any;
+    let isMounted = true;
 
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setSellerName(user.user_metadata?.full_name || user.email?.split("@")[0] || "Seller");
-        setSellerEmail(user.email || "");
+    async function verifyAndLoadSeller() {
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-        const { data: seller } = await supabase
-          .from("sellers")
-          .select("account_status, status")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        if (!isMounted) return;
 
-        if (seller) {
-          const accStatus = seller.account_status || seller.status || "Active";
-          setIsSuspended(accStatus.toLowerCase() === "suspended");
+        if (userError || !user) {
+          console.warn("[Security Guard] Unauthorized access attempt blocked. Redirecting to login.");
+          setAuthStatus("unauthorized");
+          window.location.href = `/?error=unauthorized&redirect=${encodeURIComponent(pathname)}`;
+          return;
         }
 
+        // Fetch seller details from database
+        const { data: seller, error: sellerError } = await supabase
+          .from("sellers")
+          .select("id, full_name, owner_name, email, status, account_status, rejection_reason")
+          .or(`user_id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
+          .maybeSingle();
+
+        if (!isMounted) return;
+
+        if (seller) {
+          const accStatus = (seller.account_status || seller.status || "Active").toLowerCase();
+
+          if (accStatus === "pending") {
+            setAuthStatus("unauthorized");
+            await supabase.auth.signOut();
+            window.location.href = "/?error=pending";
+            return;
+          }
+
+          if (accStatus === "rejected") {
+            setAuthStatus("unauthorized");
+            await supabase.auth.signOut();
+            window.location.href = `/?error=rejected&reason=${encodeURIComponent(seller.rejection_reason || "Registration rejected")}`;
+            return;
+          }
+
+          setIsSuspended(accStatus === "suspended");
+          setSellerName(seller.full_name || seller.owner_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Seller");
+          setSellerEmail(seller.email || user.email || "");
+        } else {
+          setSellerName(user.user_metadata?.full_name || user.email?.split("@")[0] || "Seller");
+          setSellerEmail(user.email || "");
+        }
+
+        setAuthStatus("authorized");
+
+        // Subscribe to real-time status updates for this seller
         channel = supabase
-          .channel("seller-layout-status")
+          .channel(`seller-status-${user.id}`)
           .on(
             "postgres_changes",
             { event: "UPDATE", schema: "public", table: "sellers", filter: `user_id=eq.${user.id}` },
             (payload) => {
               if (payload.new) {
-                const accStatus = payload.new.account_status || payload.new.status || "Active";
-                setIsSuspended(accStatus.toLowerCase() === "suspended");
+                const accStatus = (payload.new.account_status || payload.new.status || "Active").toLowerCase();
+                setIsSuspended(accStatus === "suspended");
+                if (accStatus === "rejected" || accStatus === "pending") {
+                  window.location.href = "/?error=unauthorized";
+                }
               }
             }
           )
           .subscribe();
-      } else {
-        window.location.href = "/";
-        return;
+
+      } catch (err) {
+        console.error("[Security Guard Exception]:", err);
+        if (isMounted) {
+          setAuthStatus("unauthorized");
+          window.location.href = "/?error=unauthorized";
+        }
       }
     }
-    loadUser();
+
+    verifyAndLoadSeller();
+
+    // Listen for Auth changes (sign out in another tab, token expiration, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        if (isMounted) {
+          setAuthStatus("unauthorized");
+          window.location.href = "/?error=unauthorized";
+        }
+      }
+    });
+    authListener = subscription;
 
     return () => {
+      isMounted = false;
       if (channel) supabase.removeChannel(channel);
+      if (authListener) authListener.unsubscribe();
     };
-  }, []);
+  }, [pathname]);
 
   const handleLogout = async () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("zebalpha_seller_session");
+      sessionStorage.clear();
     }
     await supabase.auth.signOut();
     window.location.href = "/";
@@ -115,6 +175,54 @@ export default function DashboardLayout({
     };
   }, [isSidebarOpen]);
 
+  // FULL-SCREEN SECURITY SHIELD WHILE VERIFYING CREDENTIALS
+  if (authStatus === "checking") {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-white select-none">
+        <div className="flex flex-col items-center gap-6 text-center max-w-sm">
+          <div className="relative flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full border-2 border-zinc-800 border-t-white animate-spin" />
+            <img
+              src="/official-logo.png"
+              alt="ZEBALPHA Logo"
+              className="w-10 h-10 rounded-full absolute object-cover border border-zinc-700 shadow-xl"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+              <Lock size={12} className="text-emerald-400" />
+              <span>Merchant Security Shield</span>
+            </div>
+            <h3 className="text-base font-black tracking-tight text-white">
+              Verifying Authorization
+            </h3>
+            <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+              Validating seller session credentials and encrypting channel access...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // IF UNAUTHORIZED, DO NOT RENDER SENSITIVE DASHBOARD CHILDREN
+  if (authStatus === "unauthorized") {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-white">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <div className="h-16 w-16 rounded-3xl bg-rose-950/80 border border-rose-800 flex items-center justify-center text-rose-400 shadow-xl">
+            <Lock size={28} />
+          </div>
+          <h2 className="text-xl font-black text-white">Access Denied</h2>
+          <p className="text-xs text-zinc-400">
+            A valid, authenticated merchant account is required to view this page. Redirecting to login...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Mobile Sidebar Overlay */}
@@ -139,7 +247,12 @@ export default function DashboardLayout({
               alt="ZEBALPHA Logo"
               className="h-9 w-9 rounded-full object-cover border border-zinc-700 shadow-md"
             />
-            <span className="text-lg font-black tracking-tight text-white">ZEB-ALPHA</span>
+            <div className="flex flex-col">
+              <span className="text-lg font-black tracking-tight text-white leading-none">ZEB-ALPHA</span>
+              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 mt-1 flex items-center gap-1">
+                <ShieldCheck size={10} /> Verified Seller
+              </span>
+            </div>
           </Link>
           <button 
             onClick={() => setIsSidebarOpen(false)}
@@ -197,7 +310,7 @@ export default function DashboardLayout({
 
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-4 rounded-2xl border border-rose-500/10 px-4 py-3 text-sm font-black text-rose-600 hover:bg-rose-500/5 transition-all"
+            className="flex w-full items-center gap-4 rounded-2xl border border-rose-500/10 px-4 py-3 text-sm font-black text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
           >
             <LogOut size={18} />
             Logout Portal

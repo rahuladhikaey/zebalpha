@@ -5,7 +5,7 @@ import { supabase } from "@shared/utils/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, Lock } from "lucide-react";
 
 function LoginContent() {
   const router = useRouter();
@@ -19,8 +19,16 @@ function LoginContent() {
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
+    const reasonParam = searchParams.get("reason");
+
     if (errorParam === "unauthorized") {
-      setError("Access Denied. Your account does not have seller privileges.");
+      setError("🔒 Protected Access: Please sign in with an authorized seller account to access the Merchant Dashboard.");
+    } else if (errorParam === "pending") {
+      setStatusMessage("⏳ Your seller account registration is currently pending Super Admin verification.");
+    } else if (errorParam === "rejected") {
+      setError(`❌ Your seller account registration was rejected${reasonParam ? `: ${reasonParam}` : "."}`);
+    } else if (errorParam === "session_expired") {
+      setError("⏰ Your login session has expired. Please sign in again.");
     }
   }, [searchParams]);
 
@@ -44,8 +52,8 @@ function LoginContent() {
         return;
       }
 
-      let data = authRes?.data;
-      let authError = authRes?.error;
+      const data = authRes?.data;
+      const authError = authRes?.error;
 
       if (authError || !data?.user) {
         setError(authError?.message || "Invalid merchant email or password.");
@@ -67,8 +75,8 @@ function LoginContent() {
 
       const { data: sellerData } = await supabase
         .from("sellers")
-        .select("status, rejection_reason")
-        .eq("email", email.trim().toLowerCase())
+        .select("status, account_status, rejection_reason")
+        .or(`user_id.eq.${user.id},email.eq.${email.trim().toLowerCase()}`)
         .maybeSingle();
 
       let activeSellerData = sellerData;
@@ -98,7 +106,7 @@ function LoginContent() {
         const { data: newSellerData, error: insertErr } = await supabase
           .from("sellers")
           .insert([sellerPayload])
-          .select("status, rejection_reason")
+          .select("status, account_status, rejection_reason")
           .maybeSingle();
 
         if (insertErr) {
@@ -109,7 +117,7 @@ function LoginContent() {
           return;
         }
 
-        activeSellerData = newSellerData || { status: "approved", rejection_reason: null };
+        activeSellerData = newSellerData || { status: "approved", account_status: "Active", rejection_reason: null };
 
         try {
           await supabase
@@ -128,19 +136,20 @@ function LoginContent() {
       }
 
       if (activeSellerData) {
-        if (activeSellerData.status === "pending") {
+        const accStatus = (activeSellerData.account_status || activeSellerData.status || "Active").toLowerCase();
+        if (accStatus === "pending") {
           setStatusMessage("⏳ Your seller account registration is currently pending Super Admin verification. You will be notified once approved.");
           await supabase.auth.signOut();
           setLoading(false);
           return;
         }
-        if (activeSellerData.status === "rejected") {
+        if (accStatus === "rejected") {
           setError(`❌ Your seller registration was rejected. Reason: ${activeSellerData.rejection_reason || "Not specified"}`);
           await supabase.auth.signOut();
           setLoading(false);
           return;
         }
-        if (activeSellerData.status === "suspended") {
+        if (accStatus === "suspended") {
           setError("⛔ Your seller account has been suspended by Administration. Please contact support.");
           await supabase.auth.signOut();
           setLoading(false);
@@ -148,7 +157,8 @@ function LoginContent() {
         }
       }
 
-      window.location.href = "/dashboard";
+      const redirectTarget = searchParams.get("redirect") || "/dashboard";
+      window.location.href = redirectTarget.startsWith("/dashboard") ? redirectTarget : "/dashboard";
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
     }
@@ -167,10 +177,11 @@ function LoginContent() {
         </div>
 
         <div className="text-center mb-8">
-          <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">
-            Merchant Portal
-          </span>
-          <h1 className="mt-1 text-3xl font-black tracking-tight text-white">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">
+            <Lock size={11} className="text-emerald-400" />
+            <span>Secure Merchant Portal</span>
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-white">
             Seller Login
           </h1>
           <p className="mt-2 text-xs text-zinc-400 font-medium">
@@ -182,12 +193,12 @@ function LoginContent() {
           <div className="space-y-4">
             <div className="space-y-1 text-left">
               <label className="block text-xs font-bold text-zinc-300">
-                Email Address
+                Merchant Email Address
               </label>
               <input
                 type="email"
                 required
-                maxLength={25}
+                maxLength={50}
                 placeholder="seller@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -203,7 +214,7 @@ function LoginContent() {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
-                  maxLength={12}
+                  maxLength={30}
                   placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -212,7 +223,7 @@ function LoginContent() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors p-1 cursor-pointer"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -231,13 +242,13 @@ function LoginContent() {
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-xs font-semibold text-rose-300">
+            <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-xs font-semibold text-rose-300 leading-relaxed">
               {error}
             </div>
           )}
 
           {statusMessage && (
-            <div className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-700 text-xs font-semibold text-zinc-200">
+            <div className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-700 text-xs font-semibold text-zinc-200 leading-relaxed">
               {statusMessage}
             </div>
           )}
@@ -247,7 +258,7 @@ function LoginContent() {
             disabled={loading}
             className="w-full py-3.5 rounded-2xl bg-white hover:bg-zinc-200 text-black text-sm font-black uppercase tracking-wider transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer shadow-lg shadow-white/10"
           >
-            {loading ? "Authenticating..." : "Sign In"}
+            {loading ? "Authenticating..." : "Sign In to Dashboard"}
           </button>
         </form>
 
@@ -260,7 +271,7 @@ function LoginContent() {
           </p>
           <div>
             <a
-              href="http://localhost:3000"
+              href="https://zebalpha.com"
               className="text-xs font-medium text-zinc-400 hover:text-white transition-colors"
             >
               ← Return to Storefront

@@ -398,6 +398,16 @@ export default function SellerRegisterPage() {
         console.warn("seller_pickup_locations insert notice:", locErr);
       }
 
+      // Automatically establish authenticated session cookies so user can enter dashboard seamlessly
+      try {
+        await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password: password,
+        });
+      } catch (loginErr) {
+        console.warn("Auto sign-in after registration notice:", loginErr);
+      }
+
       setStep("submitted");
     } catch (err: any) {
       console.error("Registration error:", err);

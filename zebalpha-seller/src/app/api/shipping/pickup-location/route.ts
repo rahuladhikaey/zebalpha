@@ -1,29 +1,42 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/shared/utils/supabaseServer";
+import { supabaseServer, createSupabaseServerClient } from "@/shared/utils/supabaseServer";
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-    const sellerId = searchParams.get("sellerId");
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
-    if (!userId && !sellerId) {
-      return NextResponse.json({ success: false, message: "Missing userId or sellerId" }, { status: 400 });
+    if (authErr || !user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: Valid merchant session required." },
+        { status: 401 }
+      );
     }
 
-    const idsToMatch = [sellerId, userId].filter(Boolean) as string[];
+    const { searchParams } = new URL(req.url);
+    const requestedUserId = searchParams.get("userId");
+    const requestedSellerId = searchParams.get("sellerId");
+
+    // Fetch caller's seller record
+    const { data: callerSeller } = await supabaseServer
+      .from("sellers")
+      .select("id, user_id, business_name, store_name, full_name, mobile_number, phone_number, phone, pickup_address, pickup_location, warehouse_address, city, state, pincode")
+      .or(`user_id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
+      .maybeSingle();
+
+    const idsToMatch = [user.id, callerSeller?.id].filter(Boolean) as string[];
     let locations: any[] = [];
 
-    // 1. Try fetching from seller_pickup_locations by seller_id
+    // 1. Fetch from seller_pickup_locations by caller's seller IDs
     try {
-      const { data: locData, error: locErr } = await supabaseServer
+      const { data: locData } = await supabaseServer
         .from("seller_pickup_locations")
         .select("*")
         .in("seller_id", idsToMatch)
         .order("is_default", { ascending: false });
 
       if (locData && locData.length > 0) {
-        locations = locData.map(loc => ({
+        locations = locData.map((loc) => ({
           id: loc.id,
           seller_id: loc.seller_id,
           name: loc.name || loc.location_name || "Primary Warehouse",
@@ -32,50 +45,28 @@ export async function GET(req: Request) {
           city: loc.city || "City",
           state: loc.state || "State",
           pincode: loc.pincode || "700001",
-          is_default: Boolean(loc.is_default)
+          is_default: Boolean(loc.is_default),
         }));
       }
     } catch (e) {
       console.warn("seller_pickup_locations table query notice:", e);
     }
 
-    // 2. If empty, check sellers profile table
-    if (locations.length === 0) {
-      let sProfile: any = null;
-
-      if (userId) {
-        const { data: byUser } = await supabaseServer
-          .from("sellers")
-          .select("*")
-          .eq("user_id", userId)
-          .maybeSingle();
-        sProfile = byUser;
-      }
-
-      if (!sProfile && sellerId) {
-        const { data: byId } = await supabaseServer
-          .from("sellers")
-          .select("*")
-          .eq("id", sellerId)
-          .maybeSingle();
-        sProfile = byId;
-      }
-
-      if (sProfile) {
-        const address = sProfile.pickup_address || sProfile.pickup_location || sProfile.warehouse_address;
-        if (address || sProfile.city || sProfile.pincode) {
-          locations = [{
-            id: `profile-${sProfile.id || userId}`,
-            seller_id: sProfile.id || userId,
-            name: `${sProfile.business_name || sProfile.store_name || sProfile.full_name || "Primary"} Warehouse`,
-            phone: sProfile.mobile_number || sProfile.phone_number || sProfile.phone || "",
-            address_line1: address || "Warehouse Address",
-            city: sProfile.city || "City",
-            state: sProfile.state || "State",
-            pincode: sProfile.pincode || "700001",
-            is_default: true
-          }];
-        }
+    // 2. If empty, construct fallback location from caller's seller profile
+    if (locations.length === 0 && callerSeller) {
+      const address = callerSeller.pickup_address || callerSeller.pickup_location || callerSeller.warehouse_address;
+      if (address || callerSeller.city || callerSeller.pincode) {
+        locations = [{
+          id: `profile-${callerSeller.id || user.id}`,
+          seller_id: callerSeller.id || user.id,
+          name: `${callerSeller.business_name || callerSeller.store_name || callerSeller.full_name || "Primary"} Warehouse`,
+          phone: callerSeller.mobile_number || callerSeller.phone_number || callerSeller.phone || "",
+          address_line1: address || "Warehouse Address",
+          city: callerSeller.city || "City",
+          state: callerSeller.state || "State",
+          pincode: callerSeller.pincode || "700001",
+          is_default: true,
+        }];
       }
     }
 
@@ -88,28 +79,33 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+
+    if (authErr || !user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: Valid merchant session required." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
-    const { userId, sellerId, name, phone, address_line1, city, state, pincode, is_default } = body;
+    const { name, phone, address_line1, city, state, pincode, is_default } = body;
 
     if (!address_line1 || !pincode || !phone) {
       return NextResponse.json({ success: false, message: "Address, Pincode, and Phone are required." }, { status: 400 });
     }
 
-    // 1. Resolve or Create seller profile in sellers table
-    let resolvedSellerId = sellerId;
-    let existingSeller: any = null;
+    // 1. Resolve caller's verified seller profile
+    const { data: existingSeller } = await supabaseServer
+      .from("sellers")
+      .select("*")
+      .or(`user_id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
+      .maybeSingle();
 
-    if (userId) {
-      const { data: sData } = await supabaseServer
-        .from("sellers")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-      existingSeller = sData;
-      if (existingSeller?.id) resolvedSellerId = existingSeller.id;
-    }
+    let resolvedSellerId = existingSeller?.id || user.id;
 
-    // 2. Synchronize sellers profile table with address details
+    // 2. Synchronize sellers profile table
     if (existingSeller) {
       await supabaseServer
         .from("sellers")
@@ -122,16 +118,16 @@ export async function POST(req: Request) {
           pincode: pincode ? pincode.trim() : existingSeller.pincode,
           mobile_number: phone.trim(),
           phone_number: phone.trim(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq("id", existingSeller.id);
-    } else if (userId) {
-      // Create seller profile row if not existing
+    } else {
       const newSellerPayload = {
-        user_id: userId,
+        user_id: user.id,
         seller_id: `SEL-${Math.floor(100000 + Math.random() * 900000)}`,
         business_name: name || "Zebalpha Merchant Store",
         full_name: name || "Zebalpha Merchant",
+        email: user.email?.toLowerCase().trim(),
         pickup_address: address_line1.trim(),
         pickup_location: address_line1.trim(),
         warehouse_address: address_line1.trim(),
@@ -140,9 +136,9 @@ export async function POST(req: Request) {
         pincode: pincode ? pincode.trim() : "700001",
         mobile_number: phone.trim(),
         phone_number: phone.trim(),
-        status: "Active",
+        status: "approved",
         account_status: "Active",
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
 
       const { data: insertedSeller } = await supabaseServer
@@ -156,56 +152,40 @@ export async function POST(req: Request) {
 
     const createdLocation = {
       id: `loc-${Date.now()}`,
-      seller_id: resolvedSellerId || userId,
+      seller_id: resolvedSellerId,
       name: name || "Primary Warehouse",
       phone: phone.trim(),
       address_line1: address_line1.trim(),
       city: city ? city.trim() : "City",
       state: state ? state.trim() : "State",
       pincode: pincode ? pincode.trim() : "700001",
-      is_default: is_default !== undefined ? is_default : true
+      is_default: is_default !== undefined ? is_default : true,
     };
 
-    // 3. Try inserting into seller_pickup_locations table
-    if (resolvedSellerId) {
-      try {
-        await supabaseServer
-          .from("seller_pickup_locations")
-          .insert([{
-            seller_id: resolvedSellerId,
-            name: name || "Primary Warehouse",
-            location_name: name || "Primary Warehouse",
-            phone: phone.trim(),
-            address: address_line1.trim(),
-            address_line1: address_line1.trim(),
-            city: city ? city.trim() : "City",
-            state: state ? state.trim() : "State",
-            pincode: pincode ? pincode.trim() : "700001",
-            is_default: true
-          }]);
-      } catch (insertErr: any) {
-        console.warn("seller_pickup_locations full insert notice (retrying minimal):", insertErr.message);
-        try {
-          await supabaseServer
-            .from("seller_pickup_locations")
-            .insert([{
-              seller_id: resolvedSellerId,
-              name: name || "Primary Warehouse",
-              phone: phone.trim(),
-              address: address_line1.trim(),
-              city: city || "City",
-              state: state || "State",
-              pincode: pincode || "700001",
-              is_default: true
-            }]);
-        } catch (_) {}
-      }
+    // 3. Insert into seller_pickup_locations table
+    try {
+      await supabaseServer
+        .from("seller_pickup_locations")
+        .insert([{
+          seller_id: resolvedSellerId,
+          name: name || "Primary Warehouse",
+          location_name: name || "Primary Warehouse",
+          phone: phone.trim(),
+          address: address_line1.trim(),
+          address_line1: address_line1.trim(),
+          city: city ? city.trim() : "City",
+          state: state ? state.trim() : "State",
+          pincode: pincode ? pincode.trim() : "700001",
+          is_default: true,
+        }]);
+    } catch (insertErr: any) {
+      console.warn("seller_pickup_locations insert notice:", insertErr.message);
     }
 
     return NextResponse.json({
       success: true,
       message: "Warehouse pickup address saved successfully.",
-      location: createdLocation
+      location: createdLocation,
     });
   } catch (err: any) {
     console.error("POST pickup-location API error:", err);
