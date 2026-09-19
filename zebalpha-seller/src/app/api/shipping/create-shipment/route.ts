@@ -147,30 +147,44 @@ export async function POST(req: Request) {
     try {
       const token = await getShiprocketToken();
       if (token) {
-        // A. Match or register pickup location in Shiprocket
-        let activePickupName = "Primary";
+        // A. Match or register distinct pickup location in Shiprocket for THIS specific seller
+        let activePickupName = "";
         const srLocations = await getShiprocketPickupLocations(token);
-        if (srLocations && srLocations.length > 0) {
-          // Use matching pickup location or the first active one
-          const match = srLocations.find((l: any) => 
-            String(l.pin_code) === String(pickupLocationData.pincode) ||
-            l.pickup_location?.toLowerCase() === (pickupLocationData.name || "").toLowerCase()
-          );
-          activePickupName = match ? match.pickup_location : srLocations[0].pickup_location;
+
+        const sellerPincodeStr = String(pickupLocationData.pincode || "741254").replace(/\D/g, "").slice(0, 6);
+        const sellerNameStr = String(pickupLocationData.name || "").toLowerCase().trim();
+        const sellerAddrStr = String(pickupLocationData.address_line1 || "").toLowerCase().trim();
+
+        // Check if THIS seller's address/pincode is already registered in Shiprocket
+        const match = (srLocations || []).find((l: any) => {
+          const srPin = String(l.pin_code || l.pincode || "").trim();
+          const srName = String(l.pickup_location || l.name || "").toLowerCase().trim();
+          const srAddr = String(l.address || l.address_line1 || "").toLowerCase().trim();
+          return srPin === sellerPincodeStr || (srName && srName === sellerNameStr) || (srAddr && sellerAddrStr && srAddr.includes(sellerAddrStr.slice(0, 15)));
+        });
+
+        if (match) {
+          activePickupName = match.pickup_location || match.name;
         } else {
-          // Register new pickup location
+          // Register THIS seller's unique address as a new Pickup Location in Shiprocket
+          const sanitizedNick = `Hub_${sellerId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10)}_${sellerPincodeStr}`.slice(0, 30);
           const regRes = await addShiprocketPickupLocation(token, {
-            pickup_location: String(pickupLocationData.name || "Main Hub").slice(0, 30).replace(/[^a-zA-Z0-9 ]/g, ""),
-            name: pickupLocationData.name || "Merchant Hub",
+            pickup_location: sanitizedNick,
+            name: (pickupLocationData.name || "Seller Hub").slice(0, 30),
             email: "seller@zebalpha.com",
-            phone: pickupLocationData.phone || "9883637054",
-            address: pickupLocationData.address_line1 || "Merchant Dispatch Hub",
-            city: pickupLocationData.city || "Kolkata",
-            state: pickupLocationData.state || "West Bengal",
-            pin_code: String(pickupLocationData.pincode || "741254").replace(/\D/g, "").slice(0, 6),
+            phone: String(pickupLocationData.phone || "9883637054").replace(/\D/g, "").slice(0, 10),
+            address: (pickupLocationData.address_line1 || "Merchant Dispatch Hub").slice(0, 80),
+            city: (pickupLocationData.city || "Kolkata").slice(0, 30),
+            state: (pickupLocationData.state || "West Bengal").slice(0, 30),
+            pin_code: sellerPincodeStr,
           });
+
           if (regRes.success && regRes.pickup_location) {
             activePickupName = regRes.pickup_location;
+          } else if (srLocations && srLocations.length > 0) {
+            activePickupName = srLocations[0].pickup_location;
+          } else {
+            activePickupName = "Primary";
           }
         }
 

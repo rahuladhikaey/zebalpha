@@ -45,14 +45,78 @@ export async function POST(req: Request) {
         if (authRes.ok && authData.token) {
           const token = authData.token;
 
-          // Check registered pickup locations
-          let activePickup = "Primary";
+          // Resolve seller's pickup address
+          const sellerId = order.seller_id || "default-seller";
+          let sellerPincode = "741254";
+          let sellerName = "Merchant Hub";
+          let sellerPhone = "9883637054";
+          let sellerAddress = "Merchant Central Hub";
+          let sellerCity = "Kolkata";
+          let sellerState = "West Bengal";
+
+          try {
+            const { data: sellerProf } = await supabaseServer
+              .from("sellers")
+              .select("*")
+              .or(`id.eq.${sellerId},user_id.eq.${sellerId}`)
+              .maybeSingle();
+
+            if (sellerProf) {
+              sellerPincode = String(sellerProf.pincode || "741254").replace(/\D/g, "").slice(0, 6);
+              sellerName = sellerProf.business_name || sellerProf.store_name || "Merchant Hub";
+              sellerPhone = String(sellerProf.mobile_number || sellerProf.phone_number || "9883637054").replace(/\D/g, "").slice(0, 10);
+              sellerAddress = sellerProf.pickup_address || sellerProf.warehouse_address || "Merchant Central Hub";
+              sellerCity = sellerProf.city || "Kolkata";
+              sellerState = sellerProf.state || "West Bengal";
+            }
+          } catch (_) {}
+
+          // Check registered pickup locations in Shiprocket
+          let activePickup = "";
           const pickupRes = await fetch(`${SHIPROCKET_API}/settings/company/pickup`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const pickupData = await pickupRes.json();
-          if (pickupData.data?.shipping_address?.length > 0) {
-            activePickup = pickupData.data.shipping_address[0].pickup_location;
+          const srLocations = pickupData.data?.shipping_address || [];
+
+          const match = srLocations.find((l: any) => {
+            const srPin = String(l.pin_code || l.pincode || "").trim();
+            const srName = String(l.pickup_location || l.name || "").toLowerCase().trim();
+            const srAddr = String(l.address || l.address_line1 || "").toLowerCase().trim();
+            return srPin === sellerPincode || (srName && srName === sellerName.toLowerCase()) || (srAddr && sellerAddress && srAddr.includes(sellerAddress.toLowerCase().slice(0, 15)));
+          });
+
+          if (match) {
+            activePickup = match.pickup_location || match.name;
+          } else {
+            // Auto-register seller's pickup location in Shiprocket
+            const nick = `Hub_${sellerId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10)}_${sellerPincode}`.slice(0, 30);
+            const regRes = await fetch(`${SHIPROCKET_API}/settings/company/addpickup`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                pickup_location: nick,
+                name: sellerName.slice(0, 30),
+                email: "seller@zebalpha.com",
+                phone: sellerPhone,
+                address: sellerAddress.slice(0, 80),
+                city: sellerCity.slice(0, 30),
+                state: sellerState.slice(0, 30),
+                country: "India",
+                pin_code: sellerPincode,
+              }),
+            });
+            const regData = await regRes.json();
+            if (regRes.ok && (regData?.pickup_location || regData?.address?.pickup_location)) {
+              activePickup = regData?.pickup_location || regData?.address?.pickup_location;
+            } else if (srLocations.length > 0) {
+              activePickup = srLocations[0].pickup_location;
+            } else {
+              activePickup = "Primary";
+            }
           }
 
           // Format items
