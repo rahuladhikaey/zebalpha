@@ -7,6 +7,9 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
+// Set trust proxy for Render reverse proxy rate limiting
+app.set('trust proxy', 1);
+
 // 1. Comprehensive Helmet Security Headers
 app.use(
   helmet({
@@ -53,7 +56,7 @@ const ALLOWED_ORIGINS = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like server-to-server, Render cron jobs, curl, health checks)
+      // Allow requests with no origin (like server-to-server, Render cron jobs, health checks)
       if (!origin) {
         return callback(null, true);
       }
@@ -114,8 +117,8 @@ app.use('/api/checkout', checkoutRateLimiter);
 app.use('/api/v1/checkout', checkoutRateLimiter);
 
 // 4. Request Body Parsers with strict size limits
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Root Keep-Alive & Health Ping endpoints for cron jobs and uptime monitors
 app.get(['/', '/health'], (req, res) => {

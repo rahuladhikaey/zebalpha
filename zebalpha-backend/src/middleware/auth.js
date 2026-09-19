@@ -26,7 +26,7 @@ export const authenticateJWT = async (req, res, next) => {
 
   // 1. Attempt verification with internal JWT Secret
   try {
-    const decoded = jwt.verify(token, config.jwt.secret);
+    const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
     req.user = {
       id: decoded.id || decoded.sub,
       email: decoded.email,
