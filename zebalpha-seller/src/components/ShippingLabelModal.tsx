@@ -81,6 +81,28 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible">
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #printable-meesho-label, #printable-meesho-label * {
+            visibility: visible !important;
+          }
+          #printable-meesho-label {
+            position: fixed !important;
+            left: 50% !important;
+            top: 10px !important;
+            transform: translateX(-50%) !important;
+            width: 380px !important;
+            max-width: 380px !important;
+            margin: 0 !important;
+            border: 2px solid black !important;
+            background: white !important;
+            color: black !important;
+          }
+        }
+      `}</style>
       
       {/* Modal Card */}
       <div className="relative w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl print:border-none print:shadow-none print:bg-white print:max-w-none print:w-full print:rounded-none">
