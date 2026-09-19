@@ -39,3 +39,8 @@ Thumbs.db
 **/.git_backup/
 gradle-home/
 **/gradle-home/
+
+# Scratch & temporary scripts
+scratch/
+**/scratch/
+
