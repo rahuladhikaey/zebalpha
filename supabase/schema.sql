@@ -376,9 +376,9 @@ CREATE TABLE IF NOT EXISTS public.card_applications (
     email VARCHAR(255),
     phone VARCHAR(20) NOT NULL,
     card_type VARCHAR(50) DEFAULT 'Silver Privilege',
-    status VARCHAR(50) DEFAULT 'APPROVED' NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING' NOT NULL,
     card_number VARCHAR(50),
-    coins INT DEFAULT 250 NOT NULL,
+    coins INT DEFAULT 0 NOT NULL,
     expires_at TIMESTAMPTZ,
     applied_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL

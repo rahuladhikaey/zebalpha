@@ -15,7 +15,8 @@ import {
   Sparkles, 
   RefreshCw,
   Plus,
-  Trash2
+  Trash2,
+  RotateCcw
 } from "lucide-react";
 
 export default function AsCardsLoyaltyView() {
@@ -23,6 +24,7 @@ export default function AsCardsLoyaltyView() {
   const [applications, setApplications] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED">("ALL");
   const [activeTab, setActiveTab] = useState<"cards" | "offers">("cards");
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -101,19 +103,18 @@ export default function AsCardsLoyaltyView() {
   const handleUpdateStatus = async (appId: string, status: string) => {
     try {
       const updates: any = { status, updated_at: new Date().toISOString() };
+      const existing = applications.find(a => a.id === appId);
+      const targetName = existing?.name || "Customer";
 
-      // Auto-assign card number and expiry when approving
+      // Auto-assign official card number, coins, and expiry when approving
       if (status === "APPROVED") {
-        const existing = applications.find(a => a.id === appId);
-        if (!existing?.card_number) {
-          updates.card_number = `ALP-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(100000 + Math.random() * 900000)}`;
-        }
-        if (!existing?.expires_at) {
-          updates.expires_at = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-        }
-        if (!existing?.coins || existing.coins === 0) {
-          updates.coins = 250;
-        }
+        updates.card_number = existing?.card_number || `ALP-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+        updates.expires_at = existing?.expires_at || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+        updates.coins = (!existing?.coins || existing.coins === 0) ? 250 : existing.coins;
+      } else if (status === "REJECTED") {
+        updates.card_number = null;
+      } else if (status === "PENDING") {
+        updates.card_number = null;
       }
 
       const response = await fetch("/api/admin/cards", {
@@ -125,7 +126,14 @@ export default function AsCardsLoyaltyView() {
       if (!resJson.success) throw new Error(resJson.message || "Failed to update status");
 
       setApplications(applications.map(app => app.id === appId ? { ...app, ...updates } : app));
-      setStatusMessage(`💳 Alpha Card application ${status === "APPROVED" ? `approved! Card No: ${updates.card_number || "existing"}` : `marked as ${status}`} in real-time database.`);
+
+      if (status === "APPROVED") {
+        setStatusMessage(`💳 Alpha Card approved! Official Card No: ${updates.card_number} issued to ${targetName}.`);
+      } else if (status === "PENDING") {
+        setStatusMessage(`⏳ Alpha Card application for ${targetName} set to Pending Review.`);
+      } else {
+        setStatusMessage(`❌ Alpha Card application for ${targetName} marked as Rejected.`);
+      }
     } catch (err: any) {
       alert(err.message || "Failed to update status in database.");
     }
@@ -238,14 +246,21 @@ export default function AsCardsLoyaltyView() {
     }
   };
 
+  const pendingCount = applications.filter((a) => (a.status || "PENDING").toUpperCase() === "PENDING").length;
+  const approvedCount = applications.filter((a) => (a.status || "").toUpperCase() === "APPROVED").length;
+  const rejectedCount = applications.filter((a) => (a.status || "").toUpperCase() === "REJECTED").length;
+
   const filteredApps = applications.filter((app) => {
     const query = searchQuery.toLowerCase();
-    return (
+    const appStatus = (app.status || "PENDING").toUpperCase();
+    const matchesStatus = filterStatus === "ALL" || appStatus === filterStatus;
+    const matchesSearch =
       (app.name || "").toLowerCase().includes(query) ||
       (app.email || "").toLowerCase().includes(query) ||
       (app.phone || "").toLowerCase().includes(query) ||
-      (app.card_number || app.cardNumber || "").toLowerCase().includes(query)
-    );
+      (app.card_number || app.cardNumber || "").toLowerCase().includes(query);
+
+    return matchesStatus && matchesSearch;
   });
 
   return (
@@ -300,24 +315,70 @@ export default function AsCardsLoyaltyView() {
 
       {activeTab === "cards" ? (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search member applications by Name, Email, Phone, or Alpha Card Number..."
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-4 py-3 text-xs text-white outline-none focus:border-white transition-colors"
-              />
+          {/* Status Filter Tabs & Search Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setFilterStatus("ALL")}
+                className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  filterStatus === "ALL" ? "bg-white text-black font-black shadow-lg" : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
+                }`}
+              >
+                All Cards ({applications.length})
+              </button>
+              <button
+                onClick={() => setFilterStatus("PENDING")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  filterStatus === "PENDING" ? "bg-amber-500 text-black font-black shadow-lg shadow-amber-500/20" : "bg-zinc-900 border border-zinc-800 text-amber-400 hover:text-amber-300"
+                }`}
+              >
+                <span>⏳ Pending Review</span>
+                {pendingCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black text-amber-300 font-mono font-bold">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setFilterStatus("APPROVED")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  filterStatus === "APPROVED" ? "bg-emerald-500 text-black font-black shadow-lg shadow-emerald-500/20" : "bg-zinc-900 border border-zinc-800 text-emerald-400 hover:text-emerald-300"
+                }`}
+              >
+                <span>✓ Approved</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/40 text-emerald-300 font-mono font-bold">
+                  {approvedCount}
+                </span>
+              </button>
+              <button
+                onClick={() => setFilterStatus("REJECTED")}
+                className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  filterStatus === "REJECTED" ? "bg-rose-500 text-white font-black shadow-lg shadow-rose-500/20" : "bg-zinc-900 border border-zinc-800 text-rose-400 hover:text-rose-300"
+                }`}
+              >
+                Rejected ({rejectedCount})
+              </button>
             </div>
-            <button
-              onClick={loadData}
-              className="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors cursor-pointer"
-              title="Refresh Real-time Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1 sm:w-80">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search Member, Email, Card No..."
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-4 py-2.5 text-xs text-white outline-none focus:border-white transition-colors"
+                />
+              </div>
+              <button
+                onClick={loadData}
+                className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-2xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors cursor-pointer"
+                title="Refresh Real-time Data"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
           </div>
 
           <div className="bg-zinc-950 rounded-3xl border border-zinc-800 overflow-hidden shadow-2xl">
@@ -343,7 +404,7 @@ export default function AsCardsLoyaltyView() {
                   ) : filteredApps.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-zinc-500 font-bold">
-                        No Alpha Card applications found in database.
+                        No Alpha Card applications found.
                       </td>
                     </tr>
                   ) : (
@@ -364,8 +425,12 @@ export default function AsCardsLoyaltyView() {
                           <span className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-white font-black text-[10px] uppercase">
                             {app.card_type || app.cardType || "Alpha Privilege"}
                           </span>
-                          <div className="text-[11px] text-zinc-400 font-mono mt-1">
-                            {app.card_number || app.cardNumber || "Pending Assignment"}
+                          <div className="text-[11px] font-mono mt-1">
+                            {app.card_number || app.cardNumber ? (
+                              <span className="text-white font-bold">{app.card_number || app.cardNumber}</span>
+                            ) : (
+                              <span className="text-amber-400 font-bold italic">Pending Admin Approval (No Card Issued)</span>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -393,29 +458,60 @@ export default function AsCardsLoyaltyView() {
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
                             app.status === "APPROVED" 
-                              ? "bg-white text-black font-extrabold"
+                              ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black"
                               : app.status === "REJECTED"
                               ? "bg-rose-950/80 border border-rose-800 text-rose-300"
-                              : "bg-zinc-900 border border-zinc-700 text-zinc-300"
+                              : "bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black animate-pulse"
                           }`}>
-                            {app.status}
+                            {app.status === "PENDING" ? "⏳ PENDING REVIEW" : app.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right space-x-2">
-                          <button
-                            onClick={() => handleUpdateStatus(app.id, "APPROVED")}
-                            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-white hover:bg-white hover:text-black transition-colors cursor-pointer"
-                            title="Approve Alpha Card"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleUpdateStatus(app.id, "REJECTED")}
-                            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-rose-950 hover:text-rose-400 transition-colors cursor-pointer"
-                            title="Reject Application"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
+                          {app.status === "PENDING" ? (
+                            <>
+                              <button
+                                onClick={() => handleUpdateStatus(app.id, "APPROVED")}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-95 cursor-pointer"
+                                title="Approve & Issue Alpha Card"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Approve & Issue</span>
+                              </button>
+                              <button
+                                onClick={() => handleUpdateStatus(app.id, "REJECTED")}
+                                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-rose-950 hover:text-rose-400 transition-colors cursor-pointer"
+                                title="Reject Application"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : app.status === "APPROVED" ? (
+                            <>
+                              <button
+                                onClick={() => handleUpdateStatus(app.id, "PENDING")}
+                                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-amber-400 hover:bg-amber-950/60 hover:text-amber-300 transition-colors cursor-pointer"
+                                title="Revert Card to Pending Review"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleUpdateStatus(app.id, "REJECTED")}
+                                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-rose-950 hover:text-rose-400 transition-colors cursor-pointer"
+                                title="Revoke / Reject Card"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleUpdateStatus(app.id, "APPROVED")}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-white hover:text-black text-zinc-300 font-bold text-xs transition-all cursor-pointer"
+                              title="Re-Approve & Issue Card"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Re-Approve</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

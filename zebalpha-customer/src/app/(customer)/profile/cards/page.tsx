@@ -322,8 +322,6 @@ export default function CardsPage() {
 
     try {
       const applicantEmail = (user?.email || (typeof window !== "undefined" ? localStorage.getItem("zebalpha_user_email") : null) || "guest@zebalpha.com").trim().toLowerCase();
-      const generatedCardNumber = `ALP-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const expiresAt = new Date(Date.now() + 27 * 24 * 60 * 60 * 1000).toISOString();
 
       const newAppPayload: any = {
         user_id: user?.id || null,
@@ -332,21 +330,21 @@ export default function CardsPage() {
         name: fullName.trim(),
         phone: phoneNumber.trim(),
         card_type: cardType,
-        status: "APPROVED",
-        coins: 250,
-        card_number: generatedCardNumber,
-        expires_at: expiresAt,
+        status: "PENDING",
+        coins: 0,
+        card_number: null,
+        expires_at: null,
         applied_at: new Date().toISOString()
       };
 
       let savedApp: any = null;
 
-      // 1. Post to reliable server API endpoint
+      // 1. Post to reliable server API endpoint (default auto_approve = false)
       try {
         const res = await fetch("/api/cards", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...newAppPayload, auto_approve: true })
+          body: JSON.stringify({ ...newAppPayload, auto_approve: false })
         });
         if (res.ok) {
           const data = await res.json();
@@ -389,12 +387,12 @@ export default function CardsPage() {
         // ignore
       }
 
-      setFormSuccess("✅ Alpha Card activated successfully!");
+      setFormSuccess("⏳ Application submitted! Waiting for Admin approval to issue your Alpha Card.");
       setShowApplyModal(false);
-      setTimeout(() => setFormSuccess(""), 3000);
+      setTimeout(() => setFormSuccess(""), 4500);
     } catch (err) {
       console.error("Apply card error:", err);
-      setFormSuccess("✅ Alpha Card activated!");
+      setFormSuccess("⏳ Application submitted! Waiting for Admin approval.");
       setShowApplyModal(false);
     } finally {
       setIsSubmitting(false);

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { user_id, user_email, email, name, phone, card_type, auto_approve = true } = body;
+    const { user_id, user_email, email, name, phone, card_type, auto_approve = false } = body;
 
     const applicantEmail = (user_email || email || "").trim().toLowerCase();
 
@@ -63,8 +63,19 @@ export async function POST(request: NextRequest) {
 
     const { data: existing } = await findQuery.limit(1);
 
-    const expiresAtDate = new Date(Date.now() + 27 * 24 * 60 * 60 * 1000).toISOString();
-    const cardNumber = existing?.[0]?.card_number || `ALP-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const isApproved = auto_approve === true;
+    const cardNumber = isApproved
+      ? `ALP-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`
+      : null;
+    const expiresAtDate = isApproved
+      ? new Date(Date.now() + 27 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    const existingStatus = existing?.[0]?.status;
+    const finalStatus = isApproved ? "APPROVED" : (existingStatus === "APPROVED" ? "APPROVED" : "PENDING");
+    const finalCardNumber = finalStatus === "APPROVED" 
+      ? (existing?.[0]?.card_number || cardNumber)
+      : null;
 
     const payload: any = {
       user_id: user_id || existing?.[0]?.user_id || null,
@@ -73,10 +84,10 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       phone: phone.trim(),
       card_type: card_type || existing?.[0]?.card_type || "Silver",
-      status: existing?.[0]?.status === "REJECTED" ? "APPROVED" : (existing?.[0]?.status || (auto_approve ? "APPROVED" : "PENDING")),
-      card_number: cardNumber,
-      coins: existing?.[0]?.coins || 250,
-      expires_at: existing?.[0]?.expires_at || expiresAtDate,
+      status: finalStatus,
+      card_number: finalCardNumber,
+      coins: finalStatus === "APPROVED" ? (existing?.[0]?.coins || 250) : 0,
+      expires_at: finalStatus === "APPROVED" ? (existing?.[0]?.expires_at || expiresAtDate) : null,
       applied_at: existing?.[0]?.applied_at || new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

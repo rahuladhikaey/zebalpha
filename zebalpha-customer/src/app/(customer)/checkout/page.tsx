@@ -355,15 +355,6 @@ function CheckoutContent() {
           }
         }
       } catch (e) {}
-    }
-
-    // 3. If test card entered (ALP-*, VIP-*, AS-*)
-    if (searchCard.startsWith("ALP-") || searchCard.startsWith("AS-") || searchCard.startsWith("VIP-")) {
-      setCardValidated(true);
-      setAppliedCardType("Alpha Gold");
-      return;
-    }
-
     setCardError("Invalid or unverified Alpha Card number. Please check your card number.");
   };
 
