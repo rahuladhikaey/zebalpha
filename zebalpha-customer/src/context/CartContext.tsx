@@ -85,12 +85,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = (product: Product, quantity = 1) => {
     setCart((prev) => {
+      const maxStock = product.stock ?? Infinity;
+      if (maxStock <= 0) return prev;
+
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
         const newQuantity = existing.quantity + quantity;
-        const maxStock = product.stock ?? Infinity;
-        if (newQuantity > maxStock) {
-          alert(`Only ${maxStock} items left in stock!`);
+        if (newQuantity > maxStock && maxStock > 0) {
+          console.warn(`Only ${maxStock} items left in stock`);
         }
         return prev.map((item) =>
           item.id === product.id
@@ -98,9 +100,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             : item
         );
       }
-      const maxStock = product.stock ?? Infinity;
-      if (quantity > maxStock) {
-        alert(`Only ${maxStock} items left in stock!`);
+      if (quantity > maxStock && maxStock > 0) {
+        console.warn(`Only ${maxStock} items left in stock`);
       }
       return [...prev, { ...product, quantity: Math.min(quantity, maxStock) }];
     });

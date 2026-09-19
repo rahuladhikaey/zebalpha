@@ -10,13 +10,37 @@ export function AddToCartButton({ product, className, compact }: { product: Prod
   const { session } = useAuth();
   const router = useRouter();
   
+  const isOutOfStock = (product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK";
+
   const handleAdd = () => {
+    if (isOutOfStock) return;
     if (!session) {
       router.push("/login");
       return;
     }
     addToCart(product, 1);
   };
+
+  if (isOutOfStock) {
+    if (compact) {
+      return (
+        <span 
+          className="flex h-8 sm:h-10 px-2.5 sm:px-3 items-center justify-center rounded-full sm:rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-500 font-bold text-[9px] sm:text-xs uppercase tracking-wider cursor-not-allowed select-none"
+          title="Out of stock"
+        >
+          Sold Out
+        </span>
+      );
+    }
+    return (
+      <span 
+        className={className || "flex h-10 px-4 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-500 font-bold text-xs uppercase tracking-widest cursor-not-allowed select-none"}
+        title="Out of stock"
+      >
+        Out of Stock
+      </span>
+    );
+  }
 
   const cartItem = cart.find(item => item.id === product.id);
   const quantity = cartItem?.quantity || 0;

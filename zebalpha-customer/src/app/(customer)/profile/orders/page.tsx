@@ -53,6 +53,7 @@ export default function MyOrdersPage() {
 
         const { data, error } = await query.order("created_at", { ascending: false });
 
+        let rawOrders: Order[] = [];
         if (error) {
           // Fallback query by user_id only
           const { data: fallbackData } = await supabase
@@ -61,18 +62,45 @@ export default function MyOrdersPage() {
             .eq("user_id", user?.id)
             .order("created_at", { ascending: false });
           
-          setOrders((fallbackData as Order[]) || []);
+          rawOrders = (fallbackData as Order[]) || [];
         } else {
-          const rawOrders = (data as Order[]) || [];
-          const seenOrderKeys = new Set<string>();
-          const uniqueOrders = rawOrders.filter((ord: any) => {
-            const primaryKey = ord.razorpay_order_id || ord.order_number || ord.id;
-            if (seenOrderKeys.has(primaryKey)) return false;
-            seenOrderKeys.add(primaryKey);
-            return true;
-          });
-          setOrders(uniqueOrders);
+          rawOrders = (data as Order[]) || [];
         }
+
+        // Deduplicate orders:
+        // Filter out seller split sub-orders (-S0, -S1, SO-...) so customer only sees their single consolidated order
+        const baseOrdersMap = new Map<string, any>();
+
+        for (const ord of rawOrders) {
+          const ordNum = String(ord.order_number || ord.id || "");
+          const isSub = (ord as any).is_sub_order === true ||
+                        Boolean((ord as any).parent_order_id && (ord as any).parent_order_id !== ord.id) ||
+                        /(-S\d+$)|^SO-/i.test(ordNum);
+
+          // Root order number (e.g. "AS-1789829867614-102" from "AS-1789829867614-102-S0")
+          const rootKey = (ord as any).razorpay_order_id || ordNum.replace(/-S\d+$/i, "") || ord.id;
+
+          if (!baseOrdersMap.has(rootKey)) {
+            baseOrdersMap.set(rootKey, ord);
+          } else {
+            // If already present, prefer the master parent order over sub-orders
+            const existing = baseOrdersMap.get(rootKey);
+            const existingIsSub = (existing as any).is_sub_order === true ||
+                                  Boolean((existing as any).parent_order_id && (existing as any).parent_order_id !== existing.id) ||
+                                  /(-S\d+$)|^SO-/i.test(String(existing.order_number || ""));
+            if (existingIsSub && !isSub) {
+              baseOrdersMap.set(rootKey, ord);
+            }
+          }
+        }
+
+        // Final list: ensure no standalone -S sub-orders remain if user has other orders
+        const finalOrders = Array.from(baseOrdersMap.values()).filter((ord: any) => {
+          if (ord.is_sub_order === true) return false;
+          return true;
+        });
+
+        setOrders(finalOrders);
       } catch (err) {
         console.error("Error fetching orders:", err);
       } finally {
@@ -111,7 +139,7 @@ export default function MyOrdersPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <Header title="My Orders" subtitle="Track your premium spices" />
+      <Header title="My Orders" subtitle="Track your orders" />
 
       <section className="mx-auto max-w-4xl px-4 py-12 md:px-8">
         <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -120,7 +148,7 @@ export default function MyOrdersPage() {
             <h1 className="mt-2 text-4xl font-black text-white">Your Orders</h1>
           </div>
           <Link href="/products" className="text-xs font-black uppercase tracking-widest text-white hover:text-zinc-300 transition-colors">
-            + Order More Spices
+            + Shop More
           </Link>
         </div>
 
@@ -128,7 +156,7 @@ export default function MyOrdersPage() {
           <div className="rounded-[2.5rem] bg-zinc-950 p-16 text-center border border-zinc-800 shadow-2xl">
             <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-4xl mb-6">📦</div>
             <h2 className="text-xl font-black text-white">No orders yet</h2>
-            <p className="mt-2 text-zinc-400 font-medium max-w-xs mx-auto">Your premium spice journey starts here. Place your first order today!</p>
+            <p className="mt-2 text-zinc-400 font-medium max-w-xs mx-auto">Your journey starts here. Place your first order today!</p>
             <Link href="/products" className="mt-10 inline-flex items-center justify-center rounded-2xl bg-white px-10 py-4 text-xs font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition hover:bg-zinc-200 active:scale-95">
               Start Shopping
             </Link>
@@ -136,14 +164,21 @@ export default function MyOrdersPage() {
         ) : (
           <div className="grid gap-6">
             {orders.map((order) => {
-              let items = [];
+              let items: any[] = [];
               try {
-                items = typeof order.product_details === "string"
-                  ? JSON.parse(order.product_details)
-                  : (order.product_details || []);
+                const raw = (order as any).items || order.product_details;
+                if (Array.isArray(raw)) {
+                  items = raw;
+                } else if (typeof raw === "string") {
+                  const parsed = JSON.parse(raw);
+                  items = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" ? [parsed] : []);
+                } else if (raw && typeof raw === "object") {
+                  items = [raw];
+                }
               } catch (e) {
                 console.error("Failed to parse items:", e);
               }
+
               return (
                 <div key={order.id} className="group relative overflow-hidden rounded-[2.5rem] bg-zinc-950 p-6 md:p-8 border border-zinc-800 shadow-2xl transition-all hover:border-zinc-700">
                   <div className="flex flex-col md:flex-row justify-between gap-6">
@@ -161,28 +196,91 @@ export default function MyOrdersPage() {
                         </span>
                       </div>
 
-                      <div className="space-y-4">
-                        {items.map((item: any, idx: number) => (
-                          <div key={idx} className="flex flex-col gap-2 p-3 bg-zinc-900 rounded-2xl border border-zinc-800">
-                            <div className="flex items-center gap-3 text-sm">
-                              <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                              <p className="font-bold text-white">
-                                {item.name} <span className="text-zinc-400 font-medium">x{item.quantity}</span>
-                              </p>
-                            </div>
-
-                            {/* Star Rating Widget for Bought Products */}
-                            <ProductRatingWidget
-                              productId={item.id}
-                              productName={item.name}
-                              user={user}
-                            />
+                      {/* Products in this order */}
+                      {items.length === 0 ? (
+                        <div className="flex items-center gap-4 p-4 bg-zinc-900/80 rounded-2xl border border-zinc-800">
+                          <div className="h-14 w-14 rounded-xl bg-zinc-800 flex items-center justify-center text-2xl shrink-0">
+                            📦
                           </div>
-                        ))}
-                      </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-white text-sm">Ordered Items</p>
+                            <p className="text-xs text-zinc-400">Order #{order.order_number || String(order.id).slice(0, 8)}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {items.map((item: any, idx: number) => {
+                            const prodId = item.product_id || item.id;
+                            const targetUrl = prodId ? `/products/${prodId}` : "#";
+                            const itemImg = item.image_url ||
+                                            item.image ||
+                                            (Array.isArray(item.images) && item.images[0]) ||
+                                            (item.product && (item.product.image_url || item.product.image || item.product.images?.[0])) ||
+                                            "";
+
+                            return (
+                              <div key={idx} className="flex flex-col gap-3 p-3.5 bg-zinc-900/90 rounded-2xl border border-zinc-800/80 hover:border-zinc-700 transition">
+                                <div className="flex items-center gap-3.5">
+                                  {/* Product Thumbnail - clickable */}
+                                  <Link
+                                    href={targetUrl}
+                                    className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-zinc-950 border border-zinc-800 overflow-hidden shrink-0 relative flex items-center justify-center group/thumb hover:border-zinc-500 transition-colors"
+                                  >
+                                    {itemImg ? (
+                                      <img
+                                        src={itemImg}
+                                        alt={item.name || "Product"}
+                                        className="h-full w-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                                        onError={(e) => {
+                                          const el = e.target as HTMLElement;
+                                          el.style.display = "none";
+                                          if (el.parentElement) {
+                                            el.parentElement.innerHTML = '<span class="text-2xl">🛍️</span>';
+                                          }
+                                        }}
+                                      />
+                                    ) : (
+                                      <span className="text-2xl">🛍️</span>
+                                    )}
+                                  </Link>
+
+                                  {/* Product Info & Clickable Link to Product Page */}
+                                  <div className="flex-1 min-w-0">
+                                    <Link href={targetUrl} className="group/link block">
+                                      <h4 className="font-bold text-white text-sm sm:text-base leading-tight group-hover/link:text-zinc-300 transition-colors line-clamp-2">
+                                        {item.name || "Ordered Product"}
+                                      </h4>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs font-black text-white">₹{item.price || item.subtotal || 0}</span>
+                                        <span className="text-xs text-zinc-400 font-semibold">• Qty: {item.quantity || 1}</span>
+                                      </div>
+                                      {prodId && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-zinc-400 group-hover/link:text-white transition-colors mt-1.5">
+                                          View Product →
+                                        </span>
+                                      )}
+                                    </Link>
+                                  </div>
+                                </div>
+
+                                {/* Star Rating Widget for Bought Products */}
+                                {item.id && (
+                                  <div className="pt-2 border-t border-zinc-800/60">
+                                    <ProductRatingWidget
+                                      productId={item.id}
+                                      productName={item.name}
+                                      user={user}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex flex-col justify-between items-end border-l border-zinc-800 pl-8 text-right min-w-[150px]">
+                    <div className="flex flex-row md:flex-col justify-between items-center md:items-end border-t md:border-t-0 md:border-l border-zinc-800 pt-4 md:pt-0 md:pl-8 text-left md:text-right min-w-[150px]">
                       <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Total Paid</p>
                         <p className="text-2xl font-black text-white">₹{order.total_amount}</p>

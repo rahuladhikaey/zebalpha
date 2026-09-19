@@ -47,8 +47,12 @@ export const createOrder = async (req, res, next) => {
     const orderData = req.body;
     const orderNumber = orderData.order_number || `AS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
+    const items = orderData.items || orderData.product_details || [];
+
     const customerOrderPayload = {
       ...orderData,
+      items: items,
+      product_details: items,
       order_number: orderNumber,
       created_at: new Date().toISOString()
     };
@@ -63,7 +67,6 @@ export const createOrder = async (req, res, next) => {
     const placedOrder = customerOrder[0];
 
     // 2. Identify sellers and process items for Supabase B
-    const items = orderData.items || orderData.product_details || [];
     const sellerItemMap = {};
 
     for (const item of items) {
@@ -102,6 +105,7 @@ export const createOrder = async (req, res, next) => {
         phone: placedOrder.phone || '',
         address: placedOrder.address || '',
         items: sellerItems,
+        product_details: sellerItems,
         total_amount: sellerSubtotal || placedOrder.total_amount,
         payment_method: placedOrder.payment_method || 'COD',
         payment_status: placedOrder.payment_status || 'PENDING',
