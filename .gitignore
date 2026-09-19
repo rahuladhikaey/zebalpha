@@ -43,4 +43,6 @@ gradle-home/
 # Scratch & temporary scripts
 scratch/
 **/scratch/
+test_sr.ps1
+implementation_plan*
 

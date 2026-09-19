@@ -102,6 +102,17 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {order.label_url && (
+              <a
+                href={order.label_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/30 text-purple-300 text-xs font-bold transition"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Shiprocket Slip
+              </a>
+            )}
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-wider transition shadow-lg shadow-purple-600/20 cursor-pointer active:scale-95"

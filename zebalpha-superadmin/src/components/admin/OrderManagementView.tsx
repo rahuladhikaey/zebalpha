@@ -35,11 +35,37 @@ export default function OrderManagementView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   
-  // Tracking edit state inside drawer
   const [editingTracking, setEditingTracking] = useState(false);
   const [courierInput, setCourierInput] = useState("");
   const [awbInput, setAwbInput] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
+  const [pushingShiprocket, setPushingShiprocket] = useState(false);
+
+  const handlePushShiprocket = async (orderId: string | number) => {
+    setPushingShiprocket(true);
+    try {
+      const res = await fetch("/api/admin/orders/push-shiprocket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setStatusMsg("✓ " + (result.message || "Pushed to Shiprocket successfully!"));
+        if (result.data) {
+          setSelectedOrder(result.data);
+        }
+        await loadData();
+      } else {
+        setStatusMsg("⚠️ " + (result.message || "Failed to push to Shiprocket"));
+      }
+    } catch (err: any) {
+      setStatusMsg("Error: " + err.message);
+    } finally {
+      setPushingShiprocket(false);
+      setTimeout(() => setStatusMsg(""), 4000);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -525,6 +551,59 @@ export default function OrderManagementView() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Shiprocket Direct Sync Box */}
+                <div className="p-3.5 bg-purple-950/20 border border-purple-500/30 rounded-2xl flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                      <Truck size={12} className="text-purple-400" />
+                      Shiprocket Live Gateway
+                    </span>
+                    {selectedOrder.shiprocket_order_id ? (
+                      <p className="text-white font-mono text-xs font-bold mt-0.5">
+                        Synced: #{selectedOrder.shiprocket_order_id}
+                      </p>
+                    ) : (
+                      <p className="text-zinc-400 text-[11px] mt-0.5">
+                        Push this order to your live app.shiprocket.in account
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {selectedOrder.label_url && (
+                      <a
+                        href={selectedOrder.label_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-purple-300 text-xs font-bold transition flex items-center gap-1"
+                      >
+                        <ExternalLink size={12} />
+                        Slip
+                      </a>
+                    )}
+                    {selectedOrder.shiprocket_order_id ? (
+                      <a
+                        href="https://app.shiprocket.in/orders"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center gap-1"
+                      >
+                        <ExternalLink size={12} />
+                        Open Shiprocket
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => handlePushShiprocket(selectedOrder.id)}
+                        disabled={pushingShiprocket}
+                        className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider transition shadow-lg shadow-purple-600/20 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Truck size={12} />
+                        {pushingShiprocket ? "Pushing..." : "Push to Shiprocket"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

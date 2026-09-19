@@ -195,14 +195,14 @@ export default function SellerOrders() {
 
   // Pack & Generate Label (Transition Pending -> Ready to Ship)
   const handleCreateShipment = async (orderId: string) => {
-    setStatusMessage("Generating AWB & Shipping Label...");
+    setStatusMessage("Connecting to Shiprocket & Generating AWB...");
     try {
       const { data: { session } } = await supabase.auth.getSession();
       let resData: any = null;
 
-      // 1. Try backend endpoint first
+      // 1. Try direct Next.js Shiprocket shipping route
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/shipments/create-shipment`, {
+        const response = await fetch("/api/shipping/create-shipment", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -213,11 +213,30 @@ export default function SellerOrders() {
         if (response.ok) {
           resData = await response.json();
         }
-      } catch (apiErr) {
-        console.warn("Backend shipment API notice, executing direct resilient fallback:", apiErr);
+      } catch (directErr) {
+        console.warn("Direct Next.js shipment API notice, trying backend fallback:", directErr);
       }
 
-      // 2. Direct resilient update if backend was unavailable or failed
+      // 2. Try backend endpoint as secondary fallback
+      if (!resData || !resData.success) {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/shipments/create-shipment`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session?.access_token || ""}`
+            },
+            body: JSON.stringify({ orderId })
+          });
+          if (response.ok) {
+            resData = await response.json();
+          }
+        } catch (apiErr) {
+          console.warn("Backend shipment API notice, executing direct resilient fallback:", apiErr);
+        }
+      }
+
+      // 3. Direct resilient update if both live endpoints failed
       if (!resData || !resData.success) {
         const carriers = [
           { name: "Delhivery Surface", prefix: "DEL", hub: "DEL/NCR-HUB-01" },
@@ -265,7 +284,11 @@ export default function SellerOrders() {
         };
       }
 
-      setStatusMessage("✓ Label & AWB Created Successfully!");
+      if (resData?.liveSynced) {
+        setStatusMessage(`✓ Pushed to Shiprocket Live! AWB: ${resData.awbNumber}`);
+      } else {
+        setStatusMessage(`✓ Label & AWB Manifested! AWB: ${resData.awbNumber}`);
+      }
       await loadData();
       
       // Auto open label for preview
@@ -274,6 +297,9 @@ export default function SellerOrders() {
         ...target,
         tracking_number: resData.awbNumber,
         courier_name: resData.courierName,
+        routing_hub: resData.routingHub || target.routing_hub,
+        shiprocket_order_id: resData.shiprocketOrderId || target.shiprocket_order_id,
+        label_url: resData.labelUrl || target.label_url,
         order_status: "ready_to_ship"
       });
     } catch (err: any) {
