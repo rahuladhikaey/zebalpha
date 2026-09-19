@@ -124,7 +124,7 @@ export default function SettlementDashboard() {
         netPayoutDue,
         orderCount,
         deliveredCount,
-        payoutUpi: seller.upi_id || seller.phonepay_no || seller.phonepay_number || "rahuladhikary@phonepe"
+        payoutUpi: seller.phonepay_no || seller.phonepay_number || seller.upi_id || (seller.mobile_number ? `${seller.mobile_number}@phonepe` : "Not provided")
       };
     });
   }, [sellers, orders, products]);

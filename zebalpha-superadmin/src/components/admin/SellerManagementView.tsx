@@ -788,7 +788,7 @@ export default function SellerManagementView() {
                 {filteredSellers.map((seller) => {
                   const sName = seller.business_name || seller.full_name || "ZEBALPHA Store";
                   const sOwner = seller.owner_name || seller.full_name || "Rahul Adhikary";
-                  const sUpi = seller.upi_id || seller.phonepay_no || seller.phonepay_number || "rahuladhikary@phonepe";
+                  const sUpi = seller.phonepay_no || seller.phonepay_number || seller.upi_id || (seller.mobile_number ? `${seller.mobile_number}@phonepe` : "Not provided");
                   const sCategory = seller.category || seller.business_category || "Luxury Clothing";
                   const isPrimary = seller.is_primary_brand;
                   const isSuspended = seller.is_suspended || (seller.account_status || "").toLowerCase() === "suspended";
@@ -1043,10 +1043,13 @@ export default function SellerManagementView() {
 
                   <div className="flex items-center justify-between bg-black/50 p-3.5 rounded-2xl border border-zinc-800">
                     <span className="font-mono text-base font-black text-emerald-400 truncate">
-                      {selectedSeller.upi_id || selectedSeller.phonepay_no || selectedSeller.phonepay_number || "rahuladhikary@phonepe"}
+                      {selectedSeller.phonepay_no || selectedSeller.phonepay_number || selectedSeller.upi_id || (selectedSeller.mobile_number ? `${selectedSeller.mobile_number}@phonepe` : "Not provided")}
                     </span>
                     <button
-                      onClick={() => handleCopyUpi(selectedSeller.upi_id || selectedSeller.phonepay_no || "rahuladhikary@phonepe")}
+                      onClick={() => {
+                        const target = selectedSeller.phonepay_no || selectedSeller.phonepay_number || selectedSeller.upi_id || (selectedSeller.mobile_number ? `${selectedSeller.mobile_number}@phonepe` : "");
+                        if (target) handleCopyUpi(target);
+                      }}
                       className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold flex items-center gap-1 transition-all"
                     >
                       {copiedUpi ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
@@ -1132,6 +1135,12 @@ export default function SellerManagementView() {
                     <div>
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">GSTIN / Registration</span>
                       <span className="text-zinc-300 font-mono text-[11px]">{selectedSeller.gstin || "Unregistered / Composition"}</span>
+                    </div>
+                    <div className="col-span-2 pt-1 border-t border-zinc-800/60">
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">Verified Payout UPI / PhonePe</span>
+                      <span className="text-emerald-400 font-mono text-xs font-bold">
+                        {selectedSeller.phonepay_no || selectedSeller.phonepay_number || selectedSeller.upi_id || (selectedSeller.mobile_number ? `${selectedSeller.mobile_number}@phonepe` : "Not provided")}
+                      </span>
                     </div>
                   </div>
 

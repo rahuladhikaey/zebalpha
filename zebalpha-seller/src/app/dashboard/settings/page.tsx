@@ -79,12 +79,12 @@ export default function SellerSettings() {
       const { data: seller } = await supabase
         .from("sellers")
         .select("*")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
         .maybeSingle();
 
       if (seller) {
         setSellerId(seller.id);
-        const resolvedUpi = seller.upi_id || seller.phonepay_number || seller.phonepay_no || "";
+        const resolvedUpi = seller.phonepay_no || seller.phonepay_number || seller.upi_id || "";
         const resolvedCategory = seller.category || seller.business_category || "Polos & T-Shirts";
 
         setForm({
@@ -258,19 +258,31 @@ export default function SellerSettings() {
         updated_at: new Date().toISOString()
       };
 
-      // Check if seller row exists
+      // Check if seller row exists by user_id, id, or email
       const { data: existingSeller } = await supabase
         .from("sellers")
         .select("id")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},id.eq.${sellerId || user.id},email.eq.${user.email?.toLowerCase().trim()}`)
         .maybeSingle();
 
       if (existingSeller) {
-        const { error } = await supabase
-          .from("sellers")
-          .update(payload)
-          .eq("user_id", user.id);
-        if (error) throw error;
+        let updateSuccess = false;
+        try {
+          const { error } = await supabase
+            .from("sellers")
+            .update(payload)
+            .eq("id", existingSeller.id);
+          if (!error) updateSuccess = true;
+        } catch (_) {}
+
+        if (!updateSuccess) {
+          const { upi_id, ...safePayload } = payload;
+          const { error } = await supabase
+            .from("sellers")
+            .update(safePayload)
+            .eq("id", existingSeller.id);
+          if (error) throw error;
+        }
       } else {
         const insertPayload = {
           ...payload,
@@ -279,8 +291,17 @@ export default function SellerSettings() {
           seller_id: `SEL-${Math.floor(100000 + Math.random() * 900000)}`,
           created_at: new Date().toISOString()
         };
-        const { error } = await supabase.from("sellers").insert([insertPayload]);
-        if (error) throw error;
+        let insertSuccess = false;
+        try {
+          const { error } = await supabase.from("sellers").insert([insertPayload]);
+          if (!error) insertSuccess = true;
+        } catch (_) {}
+
+        if (!insertSuccess) {
+          const { upi_id, ...safeInsert } = insertPayload;
+          const { error } = await supabase.from("sellers").insert([safeInsert]);
+          if (error) throw error;
+        }
       }
 
       // Synchronize default warehouse pickup location with the updated shop & contact info

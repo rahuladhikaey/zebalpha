@@ -4,7 +4,19 @@ import { supabaseServer } from "@shared/utils/supabaseServer";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, fullName, phone } = body;
+    const { 
+      email, 
+      password, 
+      fullName, 
+      phone,
+      shopName,
+      upiId,
+      pickupAddress,
+      city,
+      state,
+      pincode,
+      category
+    } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -25,6 +37,8 @@ export async function POST(request: NextRequest) {
 
     const sellerName = fullName || existingSeller?.full_name || existingSeller?.owner_name || "Seller";
     const sellerPhone = phone || existingSeller?.mobile_number || existingSeller?.phone_number || "";
+    const sellerShopName = shopName || existingSeller?.business_name || `${sellerName}'s Store`;
+    const finalUpi = (upiId || "").trim() || (existingSeller?.phonepay_no || existingSeller?.phonepay_number || (sellerPhone ? `${sellerPhone}@phonepe` : ""));
 
     // 2. Attempt admin creation first
     try {
@@ -112,7 +126,6 @@ export async function POST(request: NextRequest) {
       console.warn("Auto-confirm notice:", rpcErr);
     }
 
-
     // 4. Update role in public.profiles table
     try {
       await supabaseServer.from("profiles").upsert({
@@ -127,17 +140,33 @@ export async function POST(request: NextRequest) {
       console.warn("Profiles upsert notice:", profErr);
     }
 
-    // 5. Link user_id in public.sellers database table
+    // 5. Link user_id in public.sellers database table with complete data
     try {
       if (existingSeller) {
+        const updateData: any = {
+          user_id: user.id,
+          business_name: sellerShopName,
+          status: existingSeller.status || "approved",
+          account_status: existingSeller.account_status || "Active",
+          email_verified: true,
+          updated_at: new Date().toISOString(),
+        };
+        if (finalUpi) {
+          updateData.phonepay_no = finalUpi;
+          updateData.phonepay_number = finalUpi;
+        }
+        if (pickupAddress) {
+          updateData.pickup_address = pickupAddress;
+          updateData.warehouse_address = pickupAddress;
+        }
+        if (city) updateData.city = city;
+        if (state) updateData.state = state;
+        if (pincode) updateData.pincode = pincode;
+        if (category) updateData.category = category;
+
         await supabaseServer
           .from("sellers")
-          .update({
-            user_id: user.id,
-            status: existingSeller.status || "approved",
-            email_verified: true,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq("email", normalizedEmail);
       } else {
         const generatedCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -149,10 +178,19 @@ export async function POST(request: NextRequest) {
             seller_id: generatedCode,
             full_name: sellerName,
             owner_name: sellerName,
-            business_name: `${sellerName}'s Store`,
+            business_name: sellerShopName,
             mobile_number: sellerPhone,
             phone_number: sellerPhone,
             email: normalizedEmail,
+            phonepay_no: finalUpi,
+            phonepay_number: finalUpi,
+            pickup_address: pickupAddress || "",
+            warehouse_address: pickupAddress || "",
+            pickup_location: city || "Warehouse",
+            city: city || "Kolkata",
+            state: state || "West Bengal",
+            pincode: pincode || "700001",
+            category: category || "Polos & T-Shirts",
             status: "approved",
             account_status: "Active",
             email_verified: true,

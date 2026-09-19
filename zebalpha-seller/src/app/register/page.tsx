@@ -274,6 +274,13 @@ export default function SellerRegisterPage() {
             password: password,
             fullName: sellerName.trim(),
             phone: mobileNumber.trim(),
+            shopName: shopName.trim(),
+            upiId: upiId.trim(),
+            pickupAddress: pickupAddress.trim(),
+            city: city.trim(),
+            state: state.trim(),
+            pincode: pincode.trim(),
+            category: category
           }),
         });
         const signupData = await signupRes.json();
@@ -369,8 +376,8 @@ export default function SellerRegisterPage() {
 
       if (existingSeller?.id) {
         resolvedSellerId = existingSeller.id;
-        // Update existing seller row
-        await supabase
+        // Update existing seller row safely
+        const { error: updateErr } = await supabase
           .from("sellers")
           .update({
             ...sellerPayload,
@@ -378,8 +385,20 @@ export default function SellerRegisterPage() {
             user_id: validUserId,
           })
           .eq("id", existingSeller.id);
+
+        if (updateErr) {
+          const { upi_id, ...safePayload } = sellerPayload;
+          await supabase
+            .from("sellers")
+            .update({
+              ...safePayload,
+              id: existingSeller.id,
+              user_id: validUserId,
+            })
+            .eq("id", existingSeller.id);
+        }
       } else {
-        // Insert new seller row
+        // Insert new seller row safely
         const { data: newSeller, error: sellerError } = await supabase
           .from("sellers")
           .insert([sellerPayload])
@@ -388,11 +407,12 @@ export default function SellerRegisterPage() {
 
         if (newSeller?.id) {
           resolvedSellerId = newSeller.id;
-        } else if (sellerError && sellerPayload.id) {
-          delete sellerPayload.id;
+        } else if (sellerError) {
+          const { upi_id, ...safePayload } = sellerPayload;
+          if (safePayload.id) delete safePayload.id;
           const { data: retrySeller } = await supabase
             .from("sellers")
-            .insert([sellerPayload])
+            .insert([safePayload])
             .select("id")
             .maybeSingle();
           if (retrySeller?.id) resolvedSellerId = retrySeller.id;
