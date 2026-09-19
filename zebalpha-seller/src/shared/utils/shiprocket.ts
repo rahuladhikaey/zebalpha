@@ -1,7 +1,16 @@
 /**
  * Shiprocket Utility for Admin & Seller Panels
- * Supports live token retrieval, pickup location management,
- * adhoc order creation, AWB allocation, label generation, and real-time tracking.
+ * Implements all 11 official Shiprocket API Workflow Steps:
+ * 1. Auth Login (/v1/external/auth/login)
+ * 2. Serviceability (/v1/external/courier/serviceability/)
+ * 3. Create Adhoc Order (/v1/external/orders/create/adhoc)
+ * 4. Assign AWB (/v1/external/courier/assign/awb)
+ * 5. Request Pickup (/v1/external/courier/generate/pickup)
+ * 6. Generate Manifest (/v1/external/manifests/generate)
+ * 7. Print Manifest (/v1/external/manifests/print)
+ * 8. Generate Label (/v1/external/courier/generate/label)
+ * 9. Print Invoice (/v1/external/orders/print/invoice)
+ * 10. Track AWB (/v1/external/courier/track/awb/{awb_code})
  */
 
 const SHIPROCKET_API = "https://apiv2.shiprocket.in/v1/external";
@@ -10,7 +19,8 @@ let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
 /**
- * Obtain or refresh Shiprocket Bearer Auth Token (cached for 23 hours)
+ * Step 1: Obtain or refresh Shiprocket Bearer Auth Token (cached for 23 hours)
+ * POST /v1/external/auth/login
  */
 export async function getShiprocketToken(): Promise<string> {
   const now = Date.now();
@@ -22,7 +32,7 @@ export async function getShiprocketToken(): Promise<string> {
   const password = (process.env.SHIPROCKET_PASSWORD || "").trim();
 
   if (!email || !password) {
-    throw new Error("Shiprocket credentials missing in environment variables.");
+    throw new Error("Shiprocket credentials (SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD) missing in environment variables.");
   }
 
   const response = await fetch(`${SHIPROCKET_API}/auth/login`, {
@@ -33,7 +43,8 @@ export async function getShiprocketToken(): Promise<string> {
 
   const data = await response.json();
   if (!response.ok || !data.token) {
-    throw new Error(data.message || "Failed to authenticate with Shiprocket API");
+    const errorMsg = data.message || (typeof data.errors === "object" ? JSON.stringify(data.errors) : "Invalid API User credentials");
+    throw new Error(`Shiprocket Auth Error (${response.status}): ${errorMsg}`);
   }
 
   cachedToken = data.token;
@@ -120,8 +131,36 @@ export async function addShiprocketPickupLocation(token: string, locationData: {
 }
 
 /**
- * Create Adhoc Order in Shiprocket
- * POST /orders/create/adhoc
+ * Step 2: Check Courier Serviceability
+ * GET /v1/external/courier/serviceability/
+ */
+export async function checkCourierServiceability(token: string, params: {
+  pickup_postcode: string;
+  delivery_postcode: string;
+  weight: number;
+  cod?: number;
+}) {
+  const query = new URLSearchParams({
+    pickup_postcode: params.pickup_postcode,
+    delivery_postcode: params.delivery_postcode,
+    weight: String(params.weight || 0.5),
+    cod: String(params.cod || 0),
+  }).toString();
+
+  const response = await fetch(`${SHIPROCKET_API}/courier/serviceability/?${query}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Step 3: Create Adhoc Order in Shiprocket
+ * POST /v1/external/orders/create/adhoc
  */
 export async function createShiprocketOrder(token: string, orderData: any) {
   const response = await fetch(`${SHIPROCKET_API}/orders/create/adhoc`, {
@@ -143,8 +182,8 @@ export async function createShiprocketOrder(token: string, orderData: any) {
 }
 
 /**
- * Assign Courier & Generate Live AWB in Shiprocket
- * POST /courier/assign/awb
+ * Step 4: Assign Courier & Generate Live AWB in Shiprocket
+ * POST /v1/external/courier/assign/awb
  */
 export async function assignShiprocketAWB(token: string, shipmentId: string | number, courierId?: number | null) {
   const payload: any = { shipment_id: shipmentId };
@@ -178,8 +217,63 @@ export async function assignShiprocketAWB(token: string, shipmentId: string | nu
 }
 
 /**
- * Generate Carrier Label URL
- * POST /courier/generate/label
+ * Step 5: Generate Courier Pickup Request
+ * POST /v1/external/courier/generate/pickup
+ */
+export async function requestShiprocketPickup(token: string, shipmentId: string | number | (string | number)[]) {
+  const ids = Array.isArray(shipmentId) ? shipmentId : [shipmentId];
+  const response = await fetch(`${SHIPROCKET_API}/courier/generate/pickup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ shipment_id: ids }),
+  });
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Step 6: Generate Manifest
+ * POST /v1/external/manifests/generate
+ */
+export async function generateShiprocketManifest(token: string, shipmentId: (string | number)[]) {
+  const response = await fetch(`${SHIPROCKET_API}/manifests/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ shipment_id: shipmentId }),
+  });
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Step 7: Print Manifest PDF
+ * POST /v1/external/manifests/print
+ */
+export async function printShiprocketManifest(token: string, orderId: (string | number)[]) {
+  const response = await fetch(`${SHIPROCKET_API}/manifests/print`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ order_ids: orderId }),
+  });
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Step 8: Generate Carrier Label URL
+ * POST /v1/external/courier/generate/label
  */
 export async function generateShiprocketLabel(token: string, shipmentId: string | number) {
   const ids = Array.isArray(shipmentId) ? shipmentId : [shipmentId];
@@ -201,11 +295,29 @@ export async function generateShiprocketLabel(token: string, shipmentId: string 
 }
 
 /**
- * Track Shipment by AWB or Shipment ID
- * GET /courier/track/shipment/{shipmentId}
+ * Step 9: Print Invoice PDF
+ * POST /v1/external/orders/print/invoice
  */
-export async function trackShipment(token: string, shipmentId: string) {
-  const response = await fetch(`${SHIPROCKET_API}/courier/track/shipment/${shipmentId}`, {
+export async function printShiprocketInvoice(token: string, orderId: (string | number)[]) {
+  const response = await fetch(`${SHIPROCKET_API}/orders/print/invoice`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ids: orderId }),
+  });
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Step 10: Track Shipment by AWB Code
+ * GET /v1/external/courier/track/awb/{awb_code}
+ */
+export async function trackShipment(token: string, awbCode: string) {
+  const response = await fetch(`${SHIPROCKET_API}/courier/track/awb/${awbCode}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
