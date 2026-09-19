@@ -40,7 +40,8 @@ import {
   Check,
   DollarSign,
   ArrowUpRight,
-  Boxes
+  Boxes,
+  Store
 } from "lucide-react";
 import { exportCustomDataExcel } from "@/utils/excelExport";
 
@@ -816,6 +817,7 @@ export default function SellerManagementView() {
                                   3rd-Party
                                 </span>
                               )}
+                            </div>
                             <div className="text-[10px] font-bold text-zinc-400 block mt-0.5 max-w-xs space-y-0.5">
                               <div>{sCategory} • 📍 {seller.primaryLoc?.city || seller.city || "—"} ({seller.primaryLoc?.pincode || seller.pincode || "—"})</div>
                               <div className="text-zinc-500 font-mono text-[9px] truncate">

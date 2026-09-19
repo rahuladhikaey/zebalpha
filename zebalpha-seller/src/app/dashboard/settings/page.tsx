@@ -281,9 +281,11 @@ export default function SellerSettings() {
         };
         const { error } = await supabase.from("sellers").insert([insertPayload]);
         if (error) throw error;
+      }
+
       // Synchronize default warehouse pickup location with the updated shop & contact info
       try {
-        const resolvedSellerId = existingSeller?.id || user.id;
+        const resolvedSellerId = (existingSeller as any)?.id || user.id;
         const { data: defaultLoc } = await supabase
           .from("seller_pickup_locations")
           .select("id")
