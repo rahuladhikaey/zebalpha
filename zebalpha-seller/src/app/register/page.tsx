@@ -117,6 +117,9 @@ export default function SellerRegisterPage() {
             email: targetEmail,
             to_email: targetEmail,
             passcode: passcode,
+            otp: passcode,
+            code: passcode,
+            to_name: "Merchant",
             time: "15 minutes",
           },
         }),
@@ -182,7 +185,7 @@ export default function SellerRegisterPage() {
         return;
       }
 
-      if (!data.emailSent && data.otp) {
+      if (data.otp) {
         sendEmailJsDirect(normalizedEmail, data.otp);
       }
 
@@ -209,7 +212,7 @@ export default function SellerRegisterPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        if (!data.emailSent && data.otp) {
+        if (data.otp) {
           sendEmailJsDirect(normalizedEmail, data.otp);
         }
         setResendCooldown(60);
