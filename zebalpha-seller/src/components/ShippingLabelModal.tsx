@@ -102,7 +102,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {order.label_url && (
+            {order.label_url && typeof order.label_url === "string" && order.label_url.startsWith("http") && !order.label_url.includes("/SR-") && (
               <a
                 href={order.label_url}
                 target="_blank"
