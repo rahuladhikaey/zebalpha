@@ -125,16 +125,18 @@ export default function SellerOrders() {
             (order.order_number && linkedParentOrderIds.has(String(order.order_number)));
 
           let rawItems: any[] = [];
-          if (order.items && Array.isArray(order.items)) {
-            rawItems = order.items;
-          } else if (order.product_details) {
+          const sourceItems = order.items || order.product_details;
+          if (Array.isArray(sourceItems)) {
+            rawItems = sourceItems;
+          } else if (typeof sourceItems === "string") {
             try {
-              rawItems = typeof order.product_details === "string" 
-                ? JSON.parse(order.product_details || "[]")
-                : order.product_details;
+              const parsed = JSON.parse(sourceItems || "[]");
+              rawItems = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" ? [parsed] : []);
             } catch (_) {
               rawItems = [];
             }
+          } else if (sourceItems && typeof sourceItems === "object") {
+            rawItems = [sourceItems];
           }
 
           let sellerItems: any[] = [];
@@ -519,11 +521,30 @@ export default function SellerOrders() {
               <tbody className="divide-y divide-zinc-800/60">
                 {displayOrders.map((order) => {
                   const isSelected = selectedOrderIds.includes(order.id);
-                  const firstItem = Array.isArray(order.items) && order.items.length > 0
-                    ? order.items[0]
-                    : Array.isArray(order.seller_items) && order.seller_items.length > 0
-                    ? order.seller_items[0]
-                    : null;
+                  let parsedItems: any[] = [];
+                  const srcItems = order.items || order.product_details;
+                  if (Array.isArray(srcItems)) {
+                    parsedItems = srcItems;
+                  } else if (typeof srcItems === "string") {
+                    try {
+                      const p = JSON.parse(srcItems);
+                      parsedItems = Array.isArray(p) ? p : (p && typeof p === "object" ? [p] : []);
+                    } catch (_) {
+                      parsedItems = [];
+                    }
+                  } else if (srcItems && typeof srcItems === "object") {
+                    parsedItems = [srcItems];
+                  } else if (Array.isArray(order.seller_items) && order.seller_items.length > 0) {
+                    parsedItems = order.seller_items;
+                  }
+
+                  const firstItem = parsedItems.length > 0 ? parsedItems[0] : null;
+                  const prodFallback = sellerProducts.find(p => String(p.id) === String(firstItem?.product_id || firstItem?.id));
+                  const itemImage = firstItem?.image_url ||
+                                    firstItem?.image ||
+                                    (Array.isArray(firstItem?.images) ? firstItem.images[0] : null) ||
+                                    prodFallback?.image_url ||
+                                    (Array.isArray(prodFallback?.images) ? prodFallback.images[0] : null);
 
                   const orderIdShort = order.order_number || String(order.id).slice(0, 8).toUpperCase();
                   const subOrderId = `${orderIdShort}_1`;
@@ -556,15 +577,22 @@ export default function SellerOrders() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="h-12 w-12 rounded-xl bg-zinc-800 border border-zinc-700 overflow-hidden shrink-0 flex items-center justify-center">
-                            {firstItem?.image ? (
-                              <img src={firstItem.image} alt="Product" className="h-full w-full object-cover" />
+                            {itemImage ? (
+                              <img
+                                src={itemImage}
+                                alt={firstItem?.name || "Product"}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
                             ) : (
                               <Package className="h-6 w-6 text-zinc-500" />
                             )}
                           </div>
                           <div className="max-w-xs">
                             <p className="font-black text-white line-clamp-1">
-                              {firstItem?.name || firstItem?.title || "Premium Fashion Apparel Item"}
+                              {firstItem?.name || firstItem?.title || prodFallback?.name || "Premium Fashion Apparel Item"}
                             </p>
                             <p className="text-[10px] font-mono font-bold text-zinc-400 mt-0.5">
                               Order ID: {order.order_number || order.id}

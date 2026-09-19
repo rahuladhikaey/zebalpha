@@ -69,12 +69,19 @@ export default function AdminPage() {
       const [pRes, cRes, oRes] = await Promise.all([
         supabase.from("products").select("*").order("created_at", { ascending: false }),
         supabase.from("categories").select("*").order("name"),
-        supabase.from("orders").select("*").order("created_at", { ascending: false })
+        fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] }))
       ]);
+
+      const loadedOrders = oRes.data || [];
+      if (loadedOrders.length === 0) {
+        const { data: directOrders } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+        setOrders(directOrders || []);
+      } else {
+        setOrders(loadedOrders);
+      }
 
       setProducts(pRes.data || []);
       setCategories(cRes.data || []);
-      setOrders(oRes.data || []);
       setSellers(sellersData);
     } catch (e) {
       console.warn("Notice loading dashboard overview data:", e);

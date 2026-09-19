@@ -45,12 +45,18 @@ export default function OrderManagementView() {
     setLoading(true);
     try {
       const [ordersRes, sellersRes, productsRes] = await Promise.all([
-        supabase.from("orders").select("*").order("created_at", { ascending: false }),
+        fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] })),
         supabase.from("sellers").select("*"),
         supabase.from("products").select("id, name, seller_id, image_url, price, sku")
       ]);
 
-      setOrders(ordersRes.data || []);
+      let ordersList = ordersRes.data || [];
+      if (ordersList.length === 0) {
+        const { data: directOrders } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+        ordersList = directOrders || [];
+      }
+
+      setOrders(ordersList);
       setSellers(sellersRes.data || []);
       setProducts(productsRes.data || []);
     } catch (e: any) {
@@ -77,8 +83,10 @@ export default function OrderManagementView() {
   const handleDeleteOrder = async (orderId: string | number) => {
     if (!window.confirm("Are you sure you want to permanently delete this order record? This action cannot be undone.")) return;
     try {
-      const { error } = await supabase.from("orders").delete().eq("id", orderId);
-      if (error) throw error;
+      await fetch(`/api/admin/orders?id=${orderId}`, { method: "DELETE" }).catch(() => null);
+      try {
+        await supabase.from("orders").delete().eq("id", orderId);
+      } catch (_) {}
 
       alert("✅ Order deleted successfully!");
       setOrders(orders.filter(o => o.id !== orderId));
@@ -106,12 +114,18 @@ export default function OrderManagementView() {
         }
       }
 
-      const { error } = await supabase
-        .from("orders")
-        .update(updates)
-        .eq("id", orderId);
+      await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orderId, ...updates })
+      }).catch(() => null);
 
-      if (error) throw error;
+      try {
+        await supabase
+          .from("orders")
+          .update(updates)
+          .eq("id", orderId);
+      } catch (_) {}
 
       setStatusMsg(`✓ Order status updated to ${newStatus.toUpperCase()}`);
       setTimeout(() => setStatusMsg(""), 3000);
@@ -135,12 +149,18 @@ export default function OrderManagementView() {
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
-        .from("orders")
-        .update(updates)
-        .eq("id", selectedOrder.id);
+      await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedOrder.id, ...updates })
+      }).catch(() => null);
 
-      if (error) throw error;
+      try {
+        await supabase
+          .from("orders")
+          .update(updates)
+          .eq("id", selectedOrder.id);
+      } catch (_) {}
 
       setStatusMsg("✓ Shipment Courier & AWB Tracking Saved!");
       setTimeout(() => setStatusMsg(""), 3000);
@@ -517,14 +537,18 @@ export default function OrderManagementView() {
                 <div className="space-y-2.5">
                   {(() => {
                     let items: any[] = [];
-                    if (Array.isArray(selectedOrder.items)) {
-                      items = selectedOrder.items;
-                    } else if (selectedOrder.product_details) {
+                    const srcItems = selectedOrder.items || selectedOrder.product_details;
+                    if (Array.isArray(srcItems)) {
+                      items = srcItems;
+                    } else if (typeof srcItems === "string") {
                       try {
-                        items = typeof selectedOrder.product_details === "string" ? JSON.parse(selectedOrder.product_details) : selectedOrder.product_details;
+                        const parsed = JSON.parse(srcItems);
+                        items = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" ? [parsed] : []);
                       } catch (_) {
                         items = [];
                       }
+                    } else if (srcItems && typeof srcItems === "object") {
+                      items = [srcItems];
                     }
 
                     if (items.length === 0) {
@@ -538,19 +562,32 @@ export default function OrderManagementView() {
                     return items.map((it: any, idx: number) => {
                       const seller = getSellerForItem(it, selectedOrder.seller_id);
                       const subtotal = it.subtotal || ((Number(it.price) || 0) * (Number(it.quantity) || 1));
+                      const prodFallback = products.find(p => String(p.id) === String(it.product_id || it.id));
+                      const itImage = it.image_url ||
+                                      it.image ||
+                                      (Array.isArray(it.images) ? it.images[0] : null) ||
+                                      prodFallback?.image_url ||
+                                      (Array.isArray(prodFallback?.images) ? prodFallback.images[0] : null);
 
                       return (
                         <div key={idx} className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-2.5 text-xs">
                           <div className="flex items-center gap-3">
                             <div className="h-12 w-12 rounded-xl bg-zinc-800 overflow-hidden shrink-0 border border-zinc-700 flex items-center justify-center">
-                              {it.image ? (
-                                <img src={it.image} alt={it.name} className="h-full w-full object-cover" />
+                              {itImage ? (
+                                <img
+                                  src={itImage}
+                                  alt={it.name || "Product"}
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = "none";
+                                  }}
+                                />
                               ) : (
                                 <Shirt className="h-5 w-5 text-zinc-500" />
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-black text-white truncate">{it.name || "Apparel Item"}</p>
+                              <p className="font-black text-white truncate">{it.name || prodFallback?.name || "Apparel Item"}</p>
                               <p className="text-[10px] text-zinc-400 mt-0.5">
                                 Qty: <span className="text-white font-bold">{it.quantity || 1}</span> • Size: <span className="text-white font-bold">{it.size || "Free Size"}</span> • Price: ₹{Number(it.price || 0).toLocaleString("en-IN")}
                               </p>

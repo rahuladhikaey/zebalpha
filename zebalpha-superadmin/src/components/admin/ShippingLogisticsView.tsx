@@ -69,13 +69,20 @@ export default function ShippingLogisticsView() {
       // 2. Fetch Pickup Warehouses, Orders, and Shipments
       const [locRes, ordersRes, shipmentsRes] = await Promise.all([
         supabaseB.from("seller_pickup_locations").select("*").order("created_at", { ascending: false }),
-        supabaseA.from("orders").select("*").order("created_at", { ascending: false }),
+        fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] })),
         supabaseA.from("shipments").select("*").order("created_at", { ascending: false })
       ]);
 
+      const loadedDispatches = ordersRes.data || [];
+      if (loadedDispatches.length === 0) {
+        const { data: directOrders } = await supabaseA.from("orders").select("*").order("created_at", { ascending: false });
+        setDispatches(directOrders || []);
+      } else {
+        setDispatches(loadedDispatches);
+      }
+
       setPickupLocations(locRes.data || []);
       setSellers(sellersList);
-      setDispatches(ordersRes.data || []);
       setShipmentsList(shipmentsRes.data || []);
     } catch (e: any) {
       console.warn("Notice loading shipping logistics:", e);
