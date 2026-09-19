@@ -355,6 +355,8 @@ function CheckoutContent() {
           }
         }
       } catch (e) {}
+    }
+
     setCardError("Invalid or unverified Alpha Card number. Please check your card number.");
   };
 
