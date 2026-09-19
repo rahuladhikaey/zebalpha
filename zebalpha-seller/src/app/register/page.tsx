@@ -561,7 +561,7 @@ export default function SellerRegisterPage() {
                   <input
                     type="email"
                     required
-                    maxLength={25}
+                    maxLength={60}
                     placeholder="seller@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
