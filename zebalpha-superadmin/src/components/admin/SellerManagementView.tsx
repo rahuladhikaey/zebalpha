@@ -558,11 +558,11 @@ export default function SellerManagementView() {
 
         <div className="flex items-center gap-2.5 self-start flex-wrap">
           <button
-            onClick={() => setShowAddSellerModal(true)}
+            onClick={handleCopyOnboardingLink}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs transition-all active:scale-95 shadow-lg shadow-emerald-500/20 cursor-pointer"
           >
-            <Plus className="w-4 h-4 text-black" />
-            <span>Onboard Merchant</span>
+            {copiedLink ? <Check className="w-4 h-4 text-black" /> : <Copy className="w-4 h-4 text-black" />}
+            <span>{copiedLink ? "Link Copied!" : "Copy Register Link"}</span>
           </button>
 
           <button
@@ -661,21 +661,13 @@ export default function SellerManagementView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 relative z-10 self-stretch md:self-auto flex-wrap">
-          <button
-            onClick={() => setShowAddSellerModal(true)}
-            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
-          >
-            <Plus size={15} />
-            <span>Onboard Merchant</span>
-          </button>
-
+        <div className="flex items-center gap-2.5 relative z-10 self-stretch md:self-auto">
           <button
             onClick={handleCopyOnboardingLink}
-            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 active:scale-95 cursor-pointer"
           >
-            {copiedLink ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
-            <span>{copiedLink ? "Copied!" : "Copy Register Link"}</span>
+            {copiedLink ? <Check size={16} className="text-black" /> : <Copy size={16} className="text-black" />}
+            <span>{copiedLink ? "Link Copied to Clipboard!" : "Copy Merchant Registration Link"}</span>
           </button>
         </div>
       </div>
@@ -1197,160 +1189,6 @@ export default function SellerManagementView() {
                 Close Drawer
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 🌟 ONBOARD NEW MERCHANT MODAL ── */}
-      {showAddSellerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-xl shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Phase 2 Multi-Vendor</span>
-                <h3 className="text-xl font-black text-white mt-0.5">Onboard 3rd-Party Clothing Merchant</h3>
-              </div>
-              <button onClick={() => setShowAddSellerModal(false)} className="p-1 text-zinc-400 hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSeller} className="space-y-4 text-xs font-bold">
-              <div className="space-y-1">
-                <label className="text-zinc-300">Brand / Shop Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Urban Streetwear & Co."
-                  value={newSellerForm.business_name}
-                  onChange={(e) => setNewSellerForm({ ...newSellerForm, business_name: e.target.value })}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-zinc-300">Owner / Designer Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Full Name"
-                    value={newSellerForm.full_name}
-                    onChange={(e) => setNewSellerForm({ ...newSellerForm, full_name: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-zinc-300">Apparel Category *</label>
-                  <select
-                    value={newSellerForm.category}
-                    onChange={(e) => setNewSellerForm({ ...newSellerForm, category: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white cursor-pointer"
-                  >
-                    <option value="Polos & T-Shirts">Polos & T-Shirts</option>
-                    <option value="Hoodies & Sweatshirts">Hoodies & Sweatshirts</option>
-                    <option value="Casual Shirts">Casual Shirts</option>
-                    <option value="Bottoms & Cargo">Bottoms & Cargo</option>
-                    <option value="Outerwear & Jackets">Outerwear & Jackets</option>
-                    <option value="Accessories & Caps">Accessories & Caps</option>
-                    <option value="Limited Drops">Limited Drops</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-zinc-300">Mobile Phone Number *</label>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={10}
-                    placeholder="9876543210"
-                    value={newSellerForm.phone_number}
-                    onChange={(e) => setNewSellerForm({ ...newSellerForm, phone_number: e.target.value.replace(/\D/g, "").slice(0, 10) })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-zinc-300">Email Address *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="merchant@example.com"
-                    value={newSellerForm.email}
-                    onChange={(e) => setNewSellerForm({ ...newSellerForm, email: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-zinc-300 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-emerald-400">
-                    <CreditCard size={14} />
-                    <span>Payout UPI ID / PhonePe / GPay Number *</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-500 font-normal">For direct revenue transfers</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. merchant@phonepe or 9876543210@paytm"
-                  value={newSellerForm.upi_id}
-                  onChange={(e) => setNewSellerForm({ ...newSellerForm, upi_id: e.target.value })}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-zinc-300">Dispatch City / Hub *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Mumbai, Delhi, Kolkata"
-                    value={newSellerForm.city}
-                    onChange={(e) => setNewSellerForm({ ...newSellerForm, city: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-zinc-300">Pickup Address *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Warehouse / Studio Address"
-                    value={newSellerForm.pickup_address}
-                    onChange={(e) => setNewSellerForm({ ...newSellerForm, pickup_address: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white outline-none focus:border-white"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-2xl text-[11px] text-zinc-400 font-normal space-y-1">
-                <p className="text-emerald-400 font-bold">✓ Clothing Business Streamlined Onboarding</p>
-                <p>No document uploads (Aadhaar/PAN/GST/FSSAI) required initially. Merchant can immediately log in and publish clothing items.</p>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddSellerModal(false)}
-                  className="flex-1 py-3 rounded-2xl border border-zinc-800 text-zinc-300 hover:bg-zinc-900 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 rounded-2xl bg-emerald-500 text-black font-black uppercase tracking-wider hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
-                >
-                  Complete Onboarding
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

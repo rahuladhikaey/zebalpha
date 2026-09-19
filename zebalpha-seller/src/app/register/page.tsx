@@ -68,6 +68,10 @@ export default function SellerRegisterPage() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [upiId, setUpiId] = useState("");
   const [email, setEmail] = useState("");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("West Bengal");
+  const [pincode, setPincode] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -153,8 +157,8 @@ export default function SellerRegisterPage() {
     e.preventDefault();
     setError("");
 
-    if (!sellerName.trim() || !shopName.trim() || !mobileNumber.trim() || !email.trim() || !password) {
-      setError("Please fill in all required fields.");
+    if (!sellerName.trim() || !shopName.trim() || !mobileNumber.trim() || !email.trim() || !pickupAddress.trim() || !city.trim() || !pincode.trim() || !password) {
+      setError("Please fill in all required fields including your Pickup Address and Pincode.");
       return;
     }
 
@@ -319,6 +323,10 @@ export default function SellerRegisterPage() {
 
       const generatedSellerCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
       const finalUpi = upiId.trim() || `${mobileNumber.trim()}@phonepe`;
+      const finalPickupAddress = pickupAddress.trim() || "Merchant Dispatch Hub";
+      const finalCity = city.trim() || "Kolkata";
+      const finalState = state.trim() || "West Bengal";
+      const finalPincode = pincode.trim() || "700001";
 
       const sellerPayload: any = {
         id: validUserId,
@@ -335,10 +343,12 @@ export default function SellerRegisterPage() {
         upi_id: finalUpi,
         phonepay_no: finalUpi,
         phonepay_number: finalUpi,
-        pickup_location: "Central Clothing Hub, Kolkata",
-        city: "Kolkata",
-        pickup_address: "Central Clothing Hub, Kolkata",
-        warehouse_address: "Central Clothing Hub, Kolkata",
+        pickup_location: `${finalCity} Fulfillment Hub`,
+        city: finalCity,
+        state: finalState,
+        pincode: finalPincode,
+        pickup_address: finalPickupAddress,
+        warehouse_address: finalPickupAddress,
         status: "approved",
         account_status: "Active",
         email_verified: true,
@@ -370,6 +380,22 @@ export default function SellerRegisterPage() {
           delete sellerPayload.id;
           await supabase.from("sellers").insert([sellerPayload]);
         }
+      }
+
+      // Also create dedicated pickup location row in seller_pickup_locations
+      try {
+        await supabase.from("seller_pickup_locations").insert([{
+          seller_id: validUserId,
+          location_name: `${shopName.trim()} Hub`,
+          address_line1: finalPickupAddress,
+          city: finalCity,
+          state: finalState,
+          pincode: finalPincode,
+          phone: mobileNumber.trim(),
+          is_default: true
+        }]);
+      } catch (locErr) {
+        console.warn("seller_pickup_locations insert notice:", locErr);
       }
 
       setStep("submitted");
@@ -551,6 +577,63 @@ export default function SellerRegisterPage() {
                   onChange={(e) => setUpiId(e.target.value)}
                   className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-mono font-bold text-white outline-none focus:border-white"
                 />
+              </div>
+
+              {/* Pickup / Warehouse Location (Meesho Multi-Pickup Standard) */}
+              <div className="space-y-3 pt-1 border-t border-zinc-800/80">
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-wider text-zinc-400 mb-1.5 flex items-center justify-between">
+                    <span className="text-white flex items-center gap-1.5">
+                      <span>🚚 Pickup / Warehouse Address *</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-normal">Where couriers will collect parcels</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Shop/Studio address for courier pickup (e.g. Shop 4, Market Complex)"
+                    value={pickupAddress}
+                    onChange={(e) => setPickupAddress(e.target.value)}
+                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-5 py-3.5 text-sm font-bold text-white outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-zinc-400 mb-1 block">City / Hub *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Kolkata, Surat"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-xs font-bold text-white outline-none focus:border-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-zinc-400 mb-1 block">State *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. West Bengal"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-xs font-bold text-white outline-none focus:border-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-zinc-400 mb-1 block">Pincode *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      placeholder="700001"
+                      value={pincode}
+                      onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3 text-xs font-bold text-white outline-none focus:border-white"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Strong Password Input */}
