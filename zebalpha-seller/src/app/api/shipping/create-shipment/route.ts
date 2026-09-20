@@ -212,7 +212,7 @@ export async function POST(req: Request) {
           shipping_charges: Number(order.shipping_charge || 0),
           sub_total: subTotal,
           length: Number(dimensions?.length || 15),
-          width: Number(dimensions?.width || 15),
+          breadth: Number(dimensions?.breadth || dimensions?.width || 15),
           height: Number(dimensions?.height || 10),
           weight: Number(weightKg || 0.5),
         };
@@ -233,6 +233,7 @@ export async function POST(req: Request) {
             }
           } catch (awbErr: any) {
             console.warn("Shiprocket AWB assignment notice:", awbErr.message);
+            shiprocketError = awbErr.message;
           }
 
           // E. Generate Official Shiprocket Label Link

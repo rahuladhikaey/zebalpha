@@ -239,7 +239,7 @@ export const pushOrderToShiprocket = async (orderDetails) => {
       total_discount: parseFloat(orderDetails.total_discount || orderDetails.discount_amount || 0),
       sub_total: parseFloat(orderDetails.sub_total || orderDetails.subtotal || orderDetails.total_amount || 0),
       length: parseFloat(orderDetails.length || orderDetails.dimensions?.length || 15),
-      width: parseFloat(orderDetails.width || orderDetails.dimensions?.width || 15),
+      breadth: parseFloat(orderDetails.breadth || orderDetails.width || orderDetails.dimensions?.breadth || orderDetails.dimensions?.width || 15),
       height: parseFloat(orderDetails.height || orderDetails.dimensions?.height || 10),
       weight: parseFloat(orderDetails.weight || orderDetails.weight_kg || 0.5),
     };
