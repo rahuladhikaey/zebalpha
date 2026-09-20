@@ -6,6 +6,7 @@ import {
   addShiprocketPickupLocation,
   createShiprocketOrder,
   assignShiprocketAWB,
+  requestShiprocketPickup,
   generateShiprocketLabel,
 } from "@/shared/utils/shiprocket";
 
@@ -223,13 +224,20 @@ export async function POST(req: Request) {
           shipmentId = String(srOrder.shipment_id);
           shiprocketOrderId = String(srOrder.order_id);
 
-          // D. Assign Live AWB
+          // D. Assign Live AWB & Request Pickup
           try {
             const awbData = await assignShiprocketAWB(token, shipmentId);
             if (awbData && awbData.awb_code) {
               awbNumber = awbData.awb_code;
               courierName = awbData.courier_name || courierName;
               routingHub = awbData.routing_hub || routingHub;
+
+              // D2. Automatically Request Courier Pickup (No manual Ship Now required on Shiprocket)
+              try {
+                await requestShiprocketPickup(token, shipmentId);
+              } catch (pickupErr) {
+                console.warn("Shiprocket Pickup request notice:", pickupErr);
+              }
             }
           } catch (awbErr: any) {
             console.warn("Shiprocket AWB assignment notice:", awbErr.message);
