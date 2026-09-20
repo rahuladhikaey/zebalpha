@@ -8,6 +8,7 @@ import { Product, Category } from "@/lib/types";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
+import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { ShopByCategorySection } from "@/components/ShopByCategorySection";
 
 const fetchHomeData = async (brandFilter: boolean = false) => {
