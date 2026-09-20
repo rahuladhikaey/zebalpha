@@ -450,22 +450,38 @@ function CheckoutContent() {
         }
       };
 
-      if (paymentMethod === "COD") {
-        // Handle COD Flow
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/checkout/cod`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customer_name: name,
-            phone: phone,
-            address: fullAddress,
-            items: cart,
-            total: grandTotal,
-            user_id: userId,
-            applyAsCard: cardValidated,
-            couponCode: "",
-          }),
-        });
+        const shippingAddressObj = {
+          name: name,
+          phone: phone,
+          address: fullAddress,
+          address_line1: village || "City",
+          address_line2: postOffice || "Area",
+          city: village,
+          state: postOffice,
+          pincode: pincode,
+          landmark: addressDetail
+        };
+
+        if (paymentMethod === "COD") {
+          // Handle COD Flow
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/checkout/cod`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_name: name,
+              phone: phone,
+              address: fullAddress,
+              city: village,
+              state: postOffice,
+              pincode: pincode,
+              shipping_address: shippingAddressObj,
+              items: cart,
+              total: grandTotal,
+              user_id: userId,
+              applyAsCard: cardValidated,
+              couponCode: "",
+            }),
+          });
 
         let data: any = null;
         try {
@@ -574,6 +590,10 @@ function CheckoutContent() {
                 customer_name: name,
                 phone: phone,
                 address: fullAddress,
+                city: village,
+                state: postOffice,
+                pincode: pincode,
+                shipping_address: shippingAddressObj,
                 items: cart,
                 total: grandTotal,
                 user_id: userId,

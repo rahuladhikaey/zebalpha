@@ -32,20 +32,43 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
   const invoiceNumber = order.invoice_number || `wgvxz${Math.floor(1000 + Math.random() * 9000)}`;
   const isCOD = order.payment_method === "COD";
 
-  const customerName = order.customer_name || "Valued Customer";
-  const customerAddress = order.address || order.shipping_address?.address || "136H/11 Beliaghata Road";
-  const customerCity = order.shipping_address?.city || order.city || "Kolkata";
-  const customerState = order.shipping_address?.state || order.state || "West Bengal";
-  const customerPincode = order.shipping_address?.pincode || order.pincode || "700015";
-  const customerPhone = order.phone || order.shipping_address?.phone || "9883637054";
+  const customerName = order.customer_name || (typeof order.shipping_address === "object" ? order.shipping_address?.name : "") || "Customer";
+  
+  const rawAddrStr = typeof order.address === "string" 
+    ? order.address 
+    : (typeof order.shipping_address === "string" ? order.shipping_address : (order.shipping_address?.address || ""));
 
-  const sellerName = sellerInfo?.business_name || sellerInfo?.store_name || sellerInfo?.full_name || "SHANTI RANI BISWAS (Jaganath Super Market)";
-  const sellerAddress = sellerInfo?.pickup_address || sellerInfo?.pickup_location || sellerInfo?.warehouse_address || sellerInfo?.address || "GHETUGACHHI, Bastra Niketan, 27 NO ROAD OSOKTALA NEAR KHARKATA BAZAR";
-  const sellerCity = sellerInfo?.city || "Chakdaha";
-  const sellerState = sellerInfo?.state || "West Bengal";
-  const sellerPincode = sellerInfo?.pincode || "741222";
-  const returnCode = order.return_code || `${sellerPincode},4565457`;
-  const sellerGstin = sellerInfo?.gstin || sellerInfo?.enrolment_no || "192600187449ESM";
+  let parsedPin = order.pincode || (typeof order.shipping_address === "object" ? order.shipping_address?.pincode : null);
+  if (!parsedPin && rawAddrStr) {
+    const pinMatch = rawAddrStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || rawAddrStr.match(/\b(\d{6})\b/);
+    if (pinMatch) parsedPin = pinMatch[1];
+  }
+  const customerPincode = String(parsedPin || "").replace(/\D/g, "").slice(0, 6);
+
+  let parsedCity = order.city || (typeof order.shipping_address === "object" ? order.shipping_address?.city : null);
+  if (!parsedCity && rawAddrStr) {
+    const cityMatch = rawAddrStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
+    if (cityMatch) parsedCity = cityMatch[1].trim();
+  }
+  const customerCity = parsedCity || "";
+
+  let parsedState = order.state || (typeof order.shipping_address === "object" ? order.shipping_address?.state : null);
+  if (!parsedState && rawAddrStr) {
+    const stateMatch = rawAddrStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
+    if (stateMatch) parsedState = stateMatch[1].trim();
+  }
+  const customerState = parsedState || "";
+
+  const customerAddress = rawAddrStr || "";
+  const customerPhone = order.phone || (typeof order.shipping_address === "object" ? order.shipping_address?.phone : "") || "";
+
+  const sellerName = sellerInfo?.business_name || sellerInfo?.store_name || sellerInfo?.full_name || order.seller_name || "Merchant Store";
+  const sellerAddress = sellerInfo?.pickup_address || sellerInfo?.pickup_location || sellerInfo?.warehouse_address || sellerInfo?.address || order.seller_address || "";
+  const sellerCity = sellerInfo?.city || order.seller_city || "";
+  const sellerState = sellerInfo?.state || order.seller_state || "";
+  const sellerPincode = sellerInfo?.pincode || order.seller_pincode || "";
+  const returnCode = order.return_code || (sellerPincode ? `${sellerPincode},4565457` : "");
+  const sellerGstin = sellerInfo?.gstin || sellerInfo?.enrolment_no || sellerInfo?.gst_number || order.seller_gstin || "";
 
   const items: any[] = Array.isArray(order.items) && order.items.length > 0
     ? order.items

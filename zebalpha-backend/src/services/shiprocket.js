@@ -200,9 +200,36 @@ export const pushOrderToShiprocket = async (orderDetails) => {
       hsn: item.hsn ? String(item.hsn) : '',
     }));
 
-    // Extract Billing & Shipping Address details
+    // Extract Billing & Shipping Address details with intelligent regex parsing
+    const rawAddrStr = typeof orderDetails.address === 'string'
+      ? orderDetails.address
+      : (typeof orderDetails.shipping_address === 'string' ? orderDetails.shipping_address : '');
+
     const billing = orderDetails.billing_address || orderDetails.shipping_address || orderDetails;
     const shipping = orderDetails.shipping_address || billing;
+
+    let extractedPin = billing.pincode || billing.postcode || billing.zip || orderDetails.pincode;
+    if (!extractedPin && rawAddrStr) {
+      const pinMatch = rawAddrStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || rawAddrStr.match(/\b(\d{6})\b/);
+      if (pinMatch) extractedPin = pinMatch[1];
+    }
+    const finalPincode = String(extractedPin || '700001').replace(/\D/g, '').slice(0, 6);
+
+    let extractedCity = billing.city || orderDetails.city;
+    if (!extractedCity && rawAddrStr) {
+      const cityMatch = rawAddrStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
+      if (cityMatch) extractedCity = cityMatch[1].trim();
+    }
+    const finalCity = (extractedCity || 'Kolkata').substring(0, 100);
+
+    let extractedState = billing.state || orderDetails.state;
+    if (!extractedState && rawAddrStr) {
+      const stateMatch = rawAddrStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
+      if (stateMatch) extractedState = stateMatch[1].trim();
+    }
+    const finalState = (extractedState || 'West Bengal').substring(0, 100);
+
+    const fullAddrLine = (rawAddrStr || billing.address_line1 || billing.address || 'Street Address').substring(0, 255);
 
     const payload = {
       order_id: String(orderDetails.order_id || orderDetails.order_number || `ORD-${Date.now()}`),
@@ -212,22 +239,22 @@ export const pushOrderToShiprocket = async (orderDetails) => {
       comment: orderDetails.comment || 'E-commerce Website Order',
       billing_customer_name: (billing.first_name || billing.name || orderDetails.customer_name || 'Customer').substring(0, 100),
       billing_last_name: (billing.last_name || '').substring(0, 100),
-      billing_address: (billing.address_line1 || billing.address || 'Street Address').substring(0, 255),
+      billing_address: fullAddrLine,
       billing_address_2: (billing.address_line2 || billing.landmark || '').substring(0, 255),
-      billing_city: (billing.city || 'Kolkata').substring(0, 100),
-      billing_pincode: String(billing.pincode || billing.postcode || billing.zip || '700001').replace(/\D/g, '').slice(0, 6),
-      billing_state: (billing.state || 'West Bengal').substring(0, 100),
+      billing_city: finalCity,
+      billing_pincode: finalPincode,
+      billing_state: finalState,
       billing_country: (billing.country || 'India').substring(0, 100),
       billing_email: (billing.email || orderDetails.email || 'customer@example.com').substring(0, 100),
       billing_phone: String(billing.phone || orderDetails.phone || '9999999999').replace(/\D/g, '').slice(0, 10),
       shipping_is_billing: orderDetails.shipping_is_billing !== false ? 1 : 0,
       shipping_customer_name: (shipping.first_name || shipping.name || orderDetails.customer_name || 'Customer').substring(0, 100),
       shipping_last_name: (shipping.last_name || '').substring(0, 100),
-      shipping_address: (shipping.address_line1 || shipping.address || 'Street Address').substring(0, 255),
+      shipping_address: fullAddrLine,
       shipping_address_2: (shipping.address_line2 || shipping.landmark || '').substring(0, 255),
-      shipping_city: (shipping.city || 'Kolkata').substring(0, 100),
-      shipping_pincode: String(shipping.pincode || shipping.postcode || shipping.zip || '700001').replace(/\D/g, '').slice(0, 6),
-      shipping_state: (shipping.state || 'West Bengal').substring(0, 100),
+      shipping_city: finalCity,
+      shipping_pincode: finalPincode,
+      shipping_state: finalState,
       shipping_country: (shipping.country || 'India').substring(0, 100),
       shipping_email: (shipping.email || orderDetails.email || 'customer@example.com').substring(0, 100),
       shipping_phone: String(shipping.phone || orderDetails.phone || '9999999999').replace(/\D/g, '').slice(0, 10),

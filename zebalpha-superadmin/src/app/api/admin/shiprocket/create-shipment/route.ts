@@ -37,22 +37,43 @@ export async function POST(req: Request) {
       selling_price: item.price || 0,
     }));
 
-    const pincodeMatch = order.address ? order.address.match(/Pin:\s*(\d{6})/i) : null;
-    const pincode = pincodeMatch ? pincodeMatch[1] : "700001";
+    const rawAddressObj = typeof order.shipping_address === "object" ? (order.shipping_address || {}) : {};
+    const addressStr = order.address || (typeof order.shipping_address === "string" ? order.shipping_address : rawAddressObj.address || "");
+
+    let extractedPin = order.pincode || rawAddressObj.pincode;
+    if (!extractedPin && addressStr) {
+      const pincodeMatch = addressStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || addressStr.match(/\b(\d{6})\b/);
+      if (pincodeMatch) extractedPin = pincodeMatch[1];
+    }
+    const pincode = String(extractedPin || "700001").replace(/\D/g, "").slice(0, 6);
+
+    let extractedCity = order.city || rawAddressObj.city;
+    if (!extractedCity && addressStr) {
+      const cityMatch = addressStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
+      if (cityMatch) extractedCity = cityMatch[1].trim();
+    }
+    const city = extractedCity || "Kolkata";
+
+    let extractedState = order.state || rawAddressObj.state;
+    if (!extractedState && addressStr) {
+      const stateMatch = addressStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
+      if (stateMatch) extractedState = stateMatch[1].trim();
+    }
+    const state = extractedState || "West Bengal";
 
     const shiprocketPayload = {
       order_id: `AS-ORD-${order.id}`,
       order_date: new Date(order.created_at).toISOString().split('T')[0],
       pickup_location: "Primary",
-      billing_customer_name: order.customer_name || "Customer",
+      billing_customer_name: order.customer_name || rawAddressObj.name || "Customer",
       billing_last_name: ".",
-      billing_address: order.address || "Kolkata",
-      billing_city: "Kolkata",
+      billing_address: addressStr || "Kolkata",
+      billing_city: city,
       billing_pincode: pincode,
-      billing_state: "West Bengal",
+      billing_state: state,
       billing_country: "India",
-      billing_email: "customer@example.com",
-      billing_phone: order.phone || "0000000000",
+      billing_email: order.email || "customer@example.com",
+      billing_phone: String(order.phone || rawAddressObj.phone || "0000000000").replace(/\D/g, "").slice(0, 10),
       shipping_is_billing: true,
       order_items: orderItems,
       payment_method: order.payment_method === "COD" ? "COD" : "Prepaid",

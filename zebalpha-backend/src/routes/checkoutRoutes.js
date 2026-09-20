@@ -24,7 +24,7 @@ router.post('/preview', async (req, res, next) => {
 // The frontend calls POST /api/checkout/cod
 router.post('/cod', async (req, res, next) => {
   try {
-    const { customer_name, phone, address, items, user_id, applyAsCard, couponCode } = req.body;
+    const { customer_name, phone, address, city, state, pincode, shipping_address, items, user_id, applyAsCard, couponCode } = req.body;
     
     // Server-side calculation verification
     const calculated = await calculateOrderAmounts({ items, paymentMethod: 'COD', applyAsCard, couponCode });
@@ -34,6 +34,10 @@ router.post('/cod', async (req, res, next) => {
       customer_name,
       phone,
       address,
+      city: city || null,
+      state: state || null,
+      pincode: pincode || null,
+      shipping_address: shipping_address || null,
       items: calculated.verifiedItems || items,
       discount_amount: calculated.productDiscount + calculated.asCardDiscount + calculated.couponDiscount,
       shipping_charge: calculated.shippingCharges,
@@ -110,6 +114,10 @@ router.post('/verify-payment', async (req, res, next) => {
       customer_name, 
       phone, 
       address, 
+      city,
+      state,
+      pincode,
+      shipping_address,
       items, 
       user_id,
       applyAsCard,
@@ -146,6 +154,10 @@ router.post('/verify-payment', async (req, res, next) => {
       customer_name,
       phone,
       address,
+      city: city || null,
+      state: state || null,
+      pincode: pincode || null,
+      shipping_address: shipping_address || null,
       items: calculated.verifiedItems || items,
       discount_amount: calculated.productDiscount + calculated.asCardDiscount + calculated.couponDiscount,
       shipping_charge: calculated.shippingCharges,

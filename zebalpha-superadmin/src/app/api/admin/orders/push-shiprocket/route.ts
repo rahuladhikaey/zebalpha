@@ -53,12 +53,12 @@ export async function POST(req: Request) {
 
           // Resolve seller's pickup address
           const sellerId = order.seller_id || "default-seller";
-          let sellerPincode = "741254";
-          let sellerName = "Merchant Hub";
-          let sellerPhone = "9883637054";
-          let sellerAddress = "Merchant Central Hub";
-          let sellerCity = "Kolkata";
-          let sellerState = "West Bengal";
+          let sellerPincode = "";
+          let sellerName = "";
+          let sellerPhone = "";
+          let sellerAddress = "";
+          let sellerCity = "";
+          let sellerState = "";
 
           try {
             const { data: sellerProf } = await supabaseServer
@@ -68,12 +68,18 @@ export async function POST(req: Request) {
               .maybeSingle();
 
             if (sellerProf) {
-              sellerPincode = String(sellerProf.pincode || "741254").replace(/\D/g, "").slice(0, 6);
-              sellerName = sellerProf.business_name || sellerProf.store_name || "Merchant Hub";
-              sellerPhone = String(sellerProf.mobile_number || sellerProf.phone_number || "9883637054").replace(/\D/g, "").slice(0, 10);
-              sellerAddress = sellerProf.pickup_address || sellerProf.warehouse_address || "Merchant Central Hub";
-              sellerCity = sellerProf.city || "Kolkata";
-              sellerState = sellerProf.state || "West Bengal";
+              const sAddr = sellerProf.pickup_address || sellerProf.warehouse_address || sellerProf.address || "";
+              let sPin = sellerProf.pincode;
+              if (!sPin && sAddr) {
+                const m = sAddr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || sAddr.match(/\b(\d{6})\b/);
+                if (m) sPin = m[1];
+              }
+              sellerPincode = String(sPin || "").replace(/\D/g, "").slice(0, 6);
+              sellerName = sellerProf.business_name || sellerProf.store_name || sellerProf.full_name || "Merchant Hub";
+              sellerPhone = String(sellerProf.mobile_number || sellerProf.phone_number || sellerProf.phone || "").replace(/\D/g, "").slice(0, 10);
+              sellerAddress = sAddr;
+              sellerCity = sellerProf.city || "";
+              sellerState = sellerProf.state || "";
             }
           } catch (_) {}
 
@@ -148,13 +154,45 @@ export async function POST(req: Request) {
             hsn: 0,
           }));
 
-          const rawAddress = order.shipping_address || order.address || {};
-          const customerName = order.customer_name || (typeof rawAddress === "object" ? rawAddress.name : "") || "Customer";
-          const customerAddress = (typeof rawAddress === "object" ? rawAddress.address || rawAddress.address_line1 : rawAddress) || "Customer Address";
-          const city = (typeof rawAddress === "object" ? rawAddress.city : order.city) || "Kolkata";
-          const state = (typeof rawAddress === "object" ? rawAddress.state : order.state) || "West Bengal";
-          const pincode = String((typeof rawAddress === "object" ? rawAddress.pincode : order.pincode) || "700001").replace(/\D/g, "").slice(0, 6);
-          const phone = String(order.phone || (typeof rawAddress === "object" ? rawAddress.phone : "") || "9999999999").replace(/\D/g, "").slice(0, 10);
+          let rawAddressObj: any = {};
+          let addressStr = "";
+
+          if (typeof order.shipping_address === "object" && order.shipping_address !== null) {
+            rawAddressObj = order.shipping_address;
+            addressStr = order.shipping_address.address || order.address || "";
+          } else if (typeof order.shipping_address === "string") {
+            addressStr = order.shipping_address;
+          } else if (typeof order.address === "string") {
+            addressStr = order.address;
+          } else if (typeof order.address === "object" && order.address !== null) {
+            rawAddressObj = order.address;
+            addressStr = order.address.address || "";
+          }
+
+          let extractedPin = order.pincode || rawAddressObj.pincode || rawAddressObj.pin_code || rawAddressObj.postal_code;
+          if (!extractedPin && addressStr) {
+            const pinMatch = addressStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || addressStr.match(/\b(\d{6})\b/);
+            if (pinMatch) extractedPin = pinMatch[1];
+          }
+          const pincode = String(extractedPin || "700001").replace(/\D/g, "").slice(0, 6);
+
+          let extractedCity = order.city || rawAddressObj.city || rawAddressObj.village;
+          if (!extractedCity && addressStr) {
+            const cityMatch = addressStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
+            if (cityMatch) extractedCity = cityMatch[1].trim();
+          }
+          const city = extractedCity || "Kolkata";
+
+          let extractedState = order.state || rawAddressObj.state;
+          if (!extractedState && addressStr) {
+            const stateMatch = addressStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
+            if (stateMatch) extractedState = stateMatch[1].trim();
+          }
+          const state = extractedState || "West Bengal";
+
+          const customerName = order.customer_name || rawAddressObj.name || "Customer";
+          const customerAddress = addressStr || rawAddressObj.address_line1 || rawAddressObj.address || "Customer Address";
+          const phone = String(order.phone || rawAddressObj.phone || "9999999999").replace(/\D/g, "").slice(0, 10);
 
           const isCOD = (order.payment_method || "").toUpperCase() === "COD";
 

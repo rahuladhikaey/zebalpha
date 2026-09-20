@@ -108,27 +108,55 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
         .eq('id', sellerId)
         .maybeSingle();
 
+      const sAddr = sellerProfile?.pickup_address || sellerProfile?.warehouse_address || sellerProfile?.address || '';
+      let sPin = sellerProfile?.pincode;
+      if (!sPin && sAddr) {
+        const m = sAddr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || sAddr.match(/\b(\d{6})\b/);
+        if (m) sPin = m[1];
+      }
       pickupLocation = {
-        location_name: `${sellerProfile?.business_name || 'Seller'} Hub`,
-        contact_name: sellerProfile?.owner_name || sellerProfile?.full_name || 'Merchant',
-        contact_phone: sellerProfile?.phone_number || sellerProfile?.mobile_number || '9999999999',
-        contact_email: sellerProfile?.email || 'seller@zebalpha.com',
-        address_line1: sellerProfile?.pickup_address || sellerProfile?.warehouse_address || 'Merchant Central Hub',
-        city: sellerProfile?.city || 'Kolkata',
-        state: sellerProfile?.state || 'West Bengal',
-        pincode: sellerProfile?.pincode || '700001',
+        location_name: `${sellerProfile?.business_name || sellerProfile?.store_name || 'Seller'} Hub`,
+        contact_name: sellerProfile?.owner_name || sellerProfile?.full_name || sellerProfile?.business_name || 'Merchant',
+        contact_phone: String(sellerProfile?.phone_number || sellerProfile?.mobile_number || '').replace(/\D/g, '').slice(0, 10),
+        contact_email: sellerProfile?.email || '',
+        address_line1: sAddr || 'Seller Pickup Location',
+        city: sellerProfile?.city || '',
+        state: sellerProfile?.state || '',
+        pincode: String(sPin || '').replace(/\D/g, '').slice(0, 6),
         country: 'India'
       };
     }
 
-    // 3. Resolve Customer Delivery Address (Immutable Snapshot)
+    // 3. Resolve Customer Delivery Address with Regex Parser
+    const cAddrStr = typeof order.address === 'string' 
+      ? order.address 
+      : (typeof order.shipping_address === 'string' ? order.shipping_address : (order.shipping_address?.address || ''));
+
+    let cPin = order.pincode || (typeof order.shipping_address === 'object' ? order.shipping_address?.pincode : null);
+    if (!cPin && cAddrStr) {
+      const pinMatch = cAddrStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || cAddrStr.match(/\b(\d{6})\b/);
+      if (pinMatch) cPin = pinMatch[1];
+    }
+
+    let cCity = order.city || (typeof order.shipping_address === 'object' ? order.shipping_address?.city : null);
+    if (!cCity && cAddrStr) {
+      const cityMatch = cAddrStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
+      if (cityMatch) cCity = cityMatch[1].trim();
+    }
+
+    let cState = order.state || (typeof order.shipping_address === 'object' ? order.shipping_address?.state : null);
+    if (!cState && cAddrStr) {
+      const stateMatch = cAddrStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
+      if (stateMatch) cState = stateMatch[1].trim();
+    }
+
     const customerAddressSnapshot = {
-      name: order.customer_name || order.shipping_address?.name || 'Customer',
-      address_line1: order.address || order.shipping_address?.address || order.shipping_address?.address_line1 || 'Customer Delivery Address',
-      city: order.shipping_address?.city || order.city || 'Kolkata',
-      state: order.shipping_address?.state || order.state || 'West Bengal',
-      pincode: String(order.shipping_address?.pincode || order.pincode || '700001').replace(/\D/g, '').slice(0, 6),
-      phone: String(order.phone || order.shipping_address?.phone || '9999999999').replace(/\D/g, '').slice(0, 10),
+      name: order.customer_name || (typeof order.shipping_address === 'object' ? order.shipping_address?.name : '') || 'Customer',
+      address_line1: cAddrStr || (typeof order.shipping_address === 'object' ? order.shipping_address?.address_line1 : '') || 'Customer Address',
+      city: cCity || '',
+      state: cState || '',
+      pincode: String(cPin || '').replace(/\D/g, '').slice(0, 6),
+      phone: String(order.phone || (typeof order.shipping_address === 'object' ? order.shipping_address?.phone : '') || '').replace(/\D/g, '').slice(0, 10),
       country: 'India'
     };
 
@@ -339,24 +367,53 @@ export const getShippingLabel = async (req, res, next) => {
         .select('*')
         .eq('seller_id', order.seller_id)
         .maybeSingle();
+
+      const { data: sProf } = await supabaseB
+        .from('sellers')
+        .select('*')
+        .or(`id.eq.${order.seller_id},user_id.eq.${order.seller_id}`)
+        .maybeSingle();
+
       pickupAddress = pLoc || {
-        location_name: 'Merchant Warehouse',
-        address_line1: 'Industrial Complex, Unit 4',
-        city: 'Kolkata',
-        state: 'West Bengal',
-        pincode: '700001',
-        phone: '9988776655'
+        location_name: sProf?.business_name || sProf?.store_name || 'Seller Hub',
+        address_line1: sProf?.pickup_address || sProf?.warehouse_address || sProf?.address || '',
+        city: sProf?.city || '',
+        state: sProf?.state || '',
+        pincode: sProf?.pincode || '',
+        phone: sProf?.phone_number || sProf?.mobile_number || ''
       };
     }
 
     if (!customerAddress) {
+      const cAddrStr = typeof order.address === 'string' 
+        ? order.address 
+        : (typeof order.shipping_address === 'string' ? order.shipping_address : (order.shipping_address?.address || ''));
+
+      let cPin = order.pincode || (typeof order.shipping_address === 'object' ? order.shipping_address?.pincode : null);
+      if (!cPin && cAddrStr) {
+        const pinMatch = cAddrStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || cAddrStr.match(/\b(\d{6})\b/);
+        if (pinMatch) cPin = pinMatch[1];
+      }
+
+      let cCity = order.city || (typeof order.shipping_address === 'object' ? order.shipping_address?.city : null);
+      if (!cCity && cAddrStr) {
+        const cityMatch = cAddrStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
+        if (cityMatch) cCity = cityMatch[1].trim();
+      }
+
+      let cState = order.state || (typeof order.shipping_address === 'object' ? order.shipping_address?.state : null);
+      if (!cState && cAddrStr) {
+        const stateMatch = cAddrStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
+        if (stateMatch) cState = stateMatch[1].trim();
+      }
+
       customerAddress = {
-        name: order.customer_name || 'Customer',
-        address_line1: order.address || order.shipping_address?.address || 'Customer Delivery Address',
-        city: order.shipping_address?.city || 'Kolkata',
-        state: order.shipping_address?.state || 'West Bengal',
-        pincode: order.shipping_address?.pincode || '700001',
-        phone: order.phone || '9883637054'
+        name: order.customer_name || (typeof order.shipping_address === 'object' ? order.shipping_address?.name : '') || 'Customer',
+        address_line1: cAddrStr || (typeof order.shipping_address === 'object' ? order.shipping_address?.address_line1 : '') || '',
+        city: cCity || '',
+        state: cState || '',
+        pincode: String(cPin || '').replace(/\D/g, '').slice(0, 6),
+        phone: String(order.phone || (typeof order.shipping_address === 'object' ? order.shipping_address?.phone : '') || '').replace(/\D/g, '').slice(0, 10)
       };
     }
 
@@ -393,8 +450,8 @@ export const getShippingLabel = async (req, res, next) => {
         city: pickupAddress.city,
         state: pickupAddress.state,
         pincode: pickupAddress.pincode,
-        phone: pickupAddress.contact_phone || pickupAddress.phone || seller?.phone_number || '9883637054',
-        gstin: seller?.gstin || seller?.enrolment_no || '192600187449ESM'
+        phone: pickupAddress.contact_phone || pickupAddress.phone || seller?.phone_number || seller?.mobile_number || '',
+        gstin: seller?.gstin || seller?.enrolment_no || ''
       },
       items: Array.isArray(order.items) && order.items.length > 0 ? order.items : (shipment?.items || []),
       weight: `${shipment?.weight_kg || 0.5} KG`,

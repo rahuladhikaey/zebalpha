@@ -50,8 +50,37 @@ export const createOrder = async (req, res, next) => {
 
     const items = orderData.items || orderData.product_details || [];
 
+    // Parse address string for pincode/city/state if not explicitly provided
+    const addressStr = typeof orderData.address === 'string' ? orderData.address : '';
+    let parsedPincode = orderData.pincode;
+    if (!parsedPincode && addressStr) {
+      const pinMatch = addressStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || addressStr.match(/\b(\d{6})\b/);
+      if (pinMatch) parsedPincode = pinMatch[1];
+    }
+    let parsedCity = orderData.city;
+    if (!parsedCity && addressStr) {
+      const cityMatch = addressStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
+      if (cityMatch) parsedCity = cityMatch[1].trim();
+    }
+    let parsedState = orderData.state;
+    if (!parsedState && addressStr) {
+      const stateMatch = addressStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
+      if (stateMatch) parsedState = stateMatch[1].trim();
+    }
+
     const customerOrderPayload = {
       ...orderData,
+      city: parsedCity || orderData.city || null,
+      state: parsedState || orderData.state || null,
+      pincode: parsedPincode || orderData.pincode || null,
+      shipping_address: orderData.shipping_address || {
+        name: orderData.customer_name || 'Customer',
+        phone: orderData.phone || '',
+        address: orderData.address || '',
+        city: parsedCity || 'Kolkata',
+        state: parsedState || 'West Bengal',
+        pincode: parsedPincode || '700001'
+      },
       items: items,
       product_details: items,
       order_number: orderNumber,
@@ -144,6 +173,10 @@ export const createOrder = async (req, res, next) => {
         customer_name: placedOrder.customer_name || 'Customer',
         phone: placedOrder.phone || '',
         address: placedOrder.address || '',
+        city: placedOrder.city || parsedCity || null,
+        state: placedOrder.state || parsedState || null,
+        pincode: placedOrder.pincode || parsedPincode || null,
+        shipping_address: placedOrder.shipping_address || customerOrderPayload.shipping_address,
         items: sellerItems,
         product_details: sellerItems,
         total_amount: sellerSubtotal || placedOrder.total_amount,
