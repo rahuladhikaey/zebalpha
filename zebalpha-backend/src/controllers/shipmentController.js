@@ -356,7 +356,7 @@ export const getShippingLabel = async (req, res, next) => {
         city: order.shipping_address?.city || 'Kolkata',
         state: order.shipping_address?.state || 'West Bengal',
         pincode: order.shipping_address?.pincode || '700001',
-        phone: order.phone || '9876543210'
+        phone: order.phone || '9883637054'
       };
     }
 
@@ -393,7 +393,7 @@ export const getShippingLabel = async (req, res, next) => {
         city: pickupAddress.city,
         state: pickupAddress.state,
         pincode: pickupAddress.pincode,
-        phone: pickupAddress.contact_phone || pickupAddress.phone || seller?.phone_number || '9876543210',
+        phone: pickupAddress.contact_phone || pickupAddress.phone || seller?.phone_number || '9883637054',
         gstin: seller?.gstin || seller?.enrolment_no || '192600187449ESM'
       },
       items: Array.isArray(order.items) && order.items.length > 0 ? order.items : (shipment?.items || []),
