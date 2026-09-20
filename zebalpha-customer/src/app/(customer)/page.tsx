@@ -8,9 +8,7 @@ import { Product, Category } from "@/lib/types";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
-import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { ShopByCategorySection } from "@/components/ShopByCategorySection";
-import { AdShowcaseSection } from "@/components/AdShowcaseSection";
 
 const fetchHomeData = async (brandFilter: boolean = false) => {
   let categories: Category[] = [];
@@ -108,13 +106,13 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                   className="group relative flex flex-col overflow-hidden rounded-2xl md:rounded-3xl bg-neutral-900/90 border border-neutral-800 shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-white/40 hover:shadow-[0_12px_35px_rgba(255,255,255,0.08)]"
                 >
                   {/* Image Holder */}
-                  <Link href={`/products/${product.id}`} className="relative aspect-square w-full overflow-hidden bg-neutral-950 p-3 sm:p-4">
+                  <Link href={`/products/${product.id}`} className="relative aspect-square w-full overflow-hidden bg-neutral-950">
                     <Image
                       src={product.images?.[0] || product.image_url}
                       alt={product.name}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
-                      className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-108"
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-108"
                     />
                     
                     {/* 2D Animated Discount Badge */}
@@ -192,9 +190,6 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
             </Link>
           </div>
         </section>
-
-        {/* 3-Slide Featured Campaign & Viral Ad Showcase Section (Before Footer) */}
-        <AdShowcaseSection />
 
       </div>
     </main>

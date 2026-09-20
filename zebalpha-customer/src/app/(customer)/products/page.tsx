@@ -245,13 +245,13 @@ function ProductsContent() {
                     return (
                       <article key={product.id} className="group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800">
                         {/* Image Holder */}
-                        <Link href={`/products/${product.id}`} className="relative aspect-square w-full overflow-hidden bg-zinc-900 p-2 sm:p-4 flex items-center justify-center">
+                        <Link href={`/products/${product.id}`} className="relative aspect-square w-full overflow-hidden bg-zinc-900 flex items-center justify-center">
                           <Image
                             src={product.images?.[0] || product.image_url}
                             alt={product.name}
                             fill
                             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
-                            className="h-full w-full object-contain transition duration-500 group-hover:scale-110"
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
                           />
                           
                           {/* Discount Badge */}

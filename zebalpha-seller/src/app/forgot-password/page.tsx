@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      if (data.otp) {
+      if (data.otp && !data.emailSent) {
         sendEmailJsDirect(normalizedEmail, data.otp);
       }
 
@@ -110,7 +110,7 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        if (data.otp) {
+        if (data.otp && !data.emailSent) {
           sendEmailJsDirect(normalizedEmail, data.otp);
         }
         setResendCooldown(60);

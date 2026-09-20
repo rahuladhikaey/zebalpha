@@ -52,11 +52,11 @@ export default function WishlistPage() {
                 {wishlist.map((item) => (
                   <article key={item.id} className="group relative rounded-[2rem] bg-zinc-950 p-4 md:p-6 shadow-2xl border border-zinc-800 transition-all hover:border-zinc-700 flex gap-6 items-center">
                     {/* Item Image */}
-                    <Link href={`/products/${item.id}`} className="h-24 w-24 md:h-32 md:w-32 shrink-0 overflow-hidden rounded-2xl bg-zinc-900 p-2 border border-zinc-800 flex items-center justify-center">
+                    <Link href={`/products/${item.id}`} className="h-24 w-24 md:h-32 md:w-32 shrink-0 overflow-hidden rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
                       <img
                         src={item.images?.[0] || item.image_url}
                         alt={item.name}
-                        className="h-full w-full object-contain transition duration-500 group-hover:scale-110"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
                       />
                     </Link>
 

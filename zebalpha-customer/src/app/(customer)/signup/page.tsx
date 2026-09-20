@@ -186,8 +186,8 @@ export default function SignupPage() {
         return;
       }
 
-      // Also trigger browser-side EmailJS dispatch for absolute guarantee
-      if (data.otp) {
+      // Also trigger browser-side EmailJS dispatch for absolute guarantee if server email wasn't sent
+      if (data.otp && !data.emailSent) {
         sendEmailJsDirect(normalizedEmail, data.otp);
       }
 
@@ -310,7 +310,7 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        if (data.otp) {
+        if (data.otp && !data.emailSent) {
           sendEmailJsDirect(normalizedEmail, data.otp);
         }
         setResendCooldown(60);

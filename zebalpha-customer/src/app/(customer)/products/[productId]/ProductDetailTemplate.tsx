@@ -366,11 +366,11 @@ export default function ProductDetailTemplate({
                   href={`/products/${p.id}`}
                   className="group flex flex-col rounded-3xl bg-zinc-950 p-3 transition-all hover:shadow-2xl border border-zinc-800 hover:border-zinc-700"
                 >
-                  <div className="aspect-square w-full overflow-hidden rounded-2xl bg-zinc-900 p-3 mb-4 flex items-center justify-center">
+                  <div className="aspect-square w-full overflow-hidden rounded-2xl bg-zinc-900 mb-4 flex items-center justify-center">
                     <img
                       src={p.images?.[0] || p.image_url}
                       alt={p.name}
-                      className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-110"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                   </div>
                   <div className="flex-1 space-y-2">

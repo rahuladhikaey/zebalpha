@@ -451,8 +451,8 @@ function PreOrderContent() {
 
               {product && (
                 <div className="flex items-center gap-4 border-b border-zinc-800 pb-6 mb-6">
-                  <div className="h-20 w-20 bg-zinc-900 rounded-2xl overflow-hidden relative p-2 flex-shrink-0 border border-zinc-800">
-                    <Image src={product.images?.[0] || product.image_url} alt={product.name} fill className="object-contain" />
+                  <div className="h-20 w-20 bg-zinc-900 rounded-2xl overflow-hidden relative flex-shrink-0 border border-zinc-800">
+                    <Image src={product.images?.[0] || product.image_url} alt={product.name} fill className="object-cover" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold leading-tight line-clamp-2 text-white">{product.name}</h4>

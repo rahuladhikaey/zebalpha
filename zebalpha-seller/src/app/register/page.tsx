@@ -133,7 +133,7 @@ export default function SellerRegisterPage() {
         return;
       }
 
-      if (data.otp) {
+      if (data.otp && !data.emailSent) {
         sendEmailJsDirect(normalizedEmail, data.otp);
       }
 
@@ -160,7 +160,7 @@ export default function SellerRegisterPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        if (data.otp) {
+        if (data.otp && !data.emailSent) {
           sendEmailJsDirect(normalizedEmail, data.otp);
         }
         setResendCooldown(60);

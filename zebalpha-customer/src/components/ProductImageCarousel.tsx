@@ -137,7 +137,7 @@ export default function ProductImageCarousel({
                 <img
                   src={img || "/placeholder.jpg"}
                   alt={`${productName} - View ${idx + 1}`}
-                  className="h-full w-full object-contain p-4 transition-transform duration-500 rounded-[2.5rem]"
+                  className="h-full w-full object-cover transition-transform duration-500 rounded-[2.5rem]"
                 />
               </div>
             </div>
