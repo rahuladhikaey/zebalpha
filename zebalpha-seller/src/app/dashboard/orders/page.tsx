@@ -678,10 +678,10 @@ export default function SellerOrders() {
                           {isPending && (
                             <button
                               onClick={() => handleCreateShipment(order.id)}
-                              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-black text-xs uppercase tracking-wider transition shadow-lg cursor-pointer"
+                              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-95"
                             >
-                              <Box className="h-3 w-3" />
-                              Pack & Generate
+                              <CheckCircle2 className="h-3.5 w-3.5 text-black" />
+                              Accept Order
                             </button>
                           )}
 
