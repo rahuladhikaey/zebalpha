@@ -11,6 +11,7 @@ import { Header } from "@/components/Header";
 import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { ShopByCategorySection } from "@/components/ShopByCategorySection";
 import { Footer } from "@/components/Footer";
+import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 
 const fetchHomeData = async (brandFilter: boolean = false) => {
   let categories: Category[] = [];
@@ -108,30 +109,14 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                   key={product.id}
                   className="group relative flex flex-col overflow-hidden rounded-2xl md:rounded-3xl bg-neutral-900/90 border border-neutral-800 shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-white/40 hover:shadow-[0_12px_35px_rgba(255,255,255,0.08)]"
                 >
-                  {/* Image Holder */}
-                  <Link href={`/products/${product.id}`} className="relative aspect-square w-full overflow-hidden bg-neutral-950">
-                    <Image
-                      src={product.images?.[0] || product.image_url}
-                      alt={product.name}
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-108"
-                    />
-                    
-                    {/* 2D Animated Discount Badge */}
-                    {discountPercent > 0 && (
-                      <div className="absolute top-2.5 left-2.5 z-10 bg-white text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[10px] shadow-lg">
-                        {discountPercent}% OFF
-                      </div>
-                    )}
-
-                    {/* 💎 Premium Store Badge */}
-                    {(product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true") && (
-                      <div className="absolute top-2.5 right-2.5 z-10 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[9px] shadow-lg flex items-center gap-1">
-                        <span>💎</span>
-                        <span>PREMIUM</span>
-                      </div>
-                    )}
+                  {/* Auto-sliding Image Holder */}
+                  <ProductCardImageSlider
+                    images={product.images && product.images.length > 0 ? product.images : [product.image_url]}
+                    alt={product.name}
+                    href={`/products/${product.id}`}
+                    discountPercent={discountPercent}
+                    isPremium={product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true"}
+                  />
 
                     {/* Quick Size Pills Preview */}
                     <div className="absolute bottom-2 inset-x-2 z-10 flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">

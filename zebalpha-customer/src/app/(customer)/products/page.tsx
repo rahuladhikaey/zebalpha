@@ -11,6 +11,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 
 import { Header } from "@/components/Header";
 import { WishlistButton } from "@/components/WishlistButton";
+import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 
 const getCategoryEmojiOrIcon = (name: string) => {
   const lower = name.toLowerCase();
@@ -244,35 +245,19 @@ function ProductsContent() {
                     const reviewCount = product.review_count || 0;
                     return (
                       <article key={product.id} className="group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800">
-                        {/* Image Holder */}
-                        <Link href={`/products/${product.id}`} className="relative aspect-square w-full overflow-hidden bg-zinc-900 flex items-center justify-center">
-                          <Image
-                            src={product.images?.[0] || product.image_url}
+                        {/* Auto-sliding Image Holder */}
+                        <div className="relative">
+                          <ProductCardImageSlider
+                            images={product.images && product.images.length > 0 ? product.images : [product.image_url]}
                             alt={product.name}
-                            fill
-                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
-                            className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
+                            href={`/products/${product.id}`}
+                            discountPercent={discountPercent}
+                            isPremium={product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true"}
                           />
-                          
-                          {/* Discount Badge */}
-                          {discountPercent > 0 && (
-                            <div className="absolute top-2 left-2 z-10 bg-white text-black rounded-lg px-2 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md">
-                              {discountPercent}% OFF
-                            </div>
-                          )}
-
-                          {/* 💎 Premium Store Badge */}
-                          {(product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true") && (
-                            <div className="absolute bottom-2 left-2 z-10 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[9px] shadow-lg flex items-center gap-1">
-                              <span>💎</span>
-                              <span>PREMIUM</span>
-                            </div>
-                          )}
-
-                          <div className="absolute right-2 top-2 z-10 sm:right-3 sm:top-3">
+                          <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3">
                             <WishlistButton product={product} />
                           </div>
-                        </Link>
+                        </div>
                         
                         {/* Content */}
                         <div className="flex flex-1 flex-col p-2.5 sm:p-4 sm:pt-5">
