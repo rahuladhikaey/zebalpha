@@ -10,6 +10,7 @@ import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
 import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { ShopByCategorySection } from "@/components/ShopByCategorySection";
+import { Footer } from "@/components/Footer";
 
 const fetchHomeData = async (brandFilter: boolean = false) => {
   let categories: Category[] = [];
@@ -58,7 +59,8 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
   const { categories, products } = await fetchHomeData(brandFilter);
 
   return (
-    <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-hidden">
+    <>
+      <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-hidden">
       <Header title="ZEBALPHA" subtitle="CLOTHING FOR THE CULTURE ✦" />
       
       <MovingOfferBanner />
@@ -194,5 +196,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
 
       </div>
     </main>
+    <Footer />
+    </>
   );
 }

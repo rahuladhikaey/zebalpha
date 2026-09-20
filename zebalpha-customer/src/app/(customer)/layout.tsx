@@ -5,10 +5,6 @@ import { Providers } from "./providers";
 import { Header } from "@/components/Header";
 import dynamic from "next/dynamic";
 
-const Footer = dynamic(() => import("@/components/Footer").then(mod => mod.Footer), {
-  ssr: true,
-});
-
 const ClientAssistant = dynamic(() => import("@/components/ClientAssistant"));
 
 const geistSans = Geist({
@@ -157,7 +153,6 @@ export default function RootLayout({
         <main className="min-h-screen">
           {children}
         </main>
-        <Footer />
         <ClientAssistant />
       </Providers>
     </>
