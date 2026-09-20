@@ -91,9 +91,9 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
               <span className="h-6 w-1 bg-white rounded-full" />
               <div>
                 <h2 className="text-xl font-black text-white uppercase tracking-tight md:text-2xl">
-                  Latest Drops & Essentials
+                  Our Products
                 </h2>
-                <p className="text-xs text-neutral-400 font-medium">Elevated fits engineered for timeless everyday wear</p>
+                <p className="text-xs text-neutral-400 font-medium">Explore our complete streetwear, polos, hoodies & apparel collection</p>
               </div>
             </div>
           </div>
@@ -169,7 +169,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
           {/* See All Collections Button */}
           <div className="mt-12 flex justify-center">
             <Link 
-              href="/collections" 
+              href="/products" 
               className="group relative flex w-fit items-center gap-3 overflow-hidden rounded-full bg-white px-8 py-4 text-xs font-black uppercase tracking-[0.25em] text-black shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all hover:bg-neutral-200 hover:shadow-[0_0_35px_rgba(255,255,255,0.4)] active:scale-95 mx-auto"
             >
               <span>ALL COLLECTION</span>
