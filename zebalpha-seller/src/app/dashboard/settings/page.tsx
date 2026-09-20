@@ -247,6 +247,8 @@ export default function SellerSettings() {
         phone_number: form.mobile_number.trim(),
         email: form.email.trim().toLowerCase(),
         email_verified: form.email_verified,
+        owner_name: (form.owner_name || "").trim() || "Rahul Adhikary",
+        full_name: (form.owner_name || "").trim() || "Rahul Adhikary",
         category: form.category,
         business_category: form.category,
         upi_id: finalUpi,
