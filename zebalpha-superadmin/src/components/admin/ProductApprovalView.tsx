@@ -15,12 +15,15 @@ import {
   Crown,
   Flame,
   Layers,
-  Sparkles
+  Sparkles,
+  Store,
+  UserCheck
 } from "lucide-react";
 
 export default function ProductApprovalView() {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<any[]>([]);
+  const [sellersMap, setSellersMap] = useState<Record<string, any>>({});
   const [filterTab, setFilterTab] = useState<"all" | "premium" | "new_drops" | "approved" | "hidden">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -31,13 +34,25 @@ export default function ProductApprovalView() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const [{ data: productsData, error: prodErr }, { data: sellersData }] = await Promise.all([
+        supabase.from("products").select("*").order("created_at", { ascending: false }),
+        supabase.from("sellers").select("*")
+      ]);
 
-      if (error) throw error;
-      setProducts(data || []);
+      if (prodErr) throw prodErr;
+
+      const sMap: Record<string, any> = {};
+      if (sellersData && sellersData.length > 0) {
+        sellersData.forEach((s: any) => {
+          if (s.id) sMap[String(s.id)] = s;
+          if (s.user_id) sMap[String(s.user_id)] = s;
+          if (s.seller_id) sMap[String(s.seller_id)] = s;
+          if (s.seller_code) sMap[String(s.seller_code)] = s;
+        });
+      }
+
+      setSellersMap(sMap);
+      setProducts(productsData || []);
     } catch (e: any) {
       console.error("Error loading products:", e);
     } finally {
@@ -104,10 +119,19 @@ export default function ProductApprovalView() {
       matchesTab = p.is_active === false;
     }
 
-    const matchesSearch = 
-      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.collection?.toLowerCase().includes(searchQuery.toLowerCase());
+    const seller = p.seller_id ? sellersMap[String(p.seller_id)] : null;
+    const shopName = seller?.business_name || seller?.shop_name || seller?.name || p.brand || "Zebalpha Store";
+    const ownerName = seller?.full_name || seller?.owner_name || "";
+    const sellerCode = seller?.seller_id || seller?.seller_code || (seller?.id ? `SEL-${String(seller.id).slice(0, 6)}` : (p.seller_id ? `SEL-${String(p.seller_id).slice(0, 6)}` : "SEL-OFFICIAL"));
+
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch = !query ||
+      p.name?.toLowerCase().includes(query) || 
+      p.brand?.toLowerCase().includes(query) ||
+      p.collection?.toLowerCase().includes(query) ||
+      shopName.toLowerCase().includes(query) ||
+      ownerName.toLowerCase().includes(query) ||
+      sellerCode.toLowerCase().includes(query);
 
     return matchesTab && matchesSearch;
   });
@@ -119,7 +143,7 @@ export default function ProductApprovalView() {
           <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">Product Moderation</span>
           <h1 className="text-2xl font-black tracking-tight text-white uppercase">Product Catalog & Tier Moderation</h1>
           <p className="text-xs font-bold text-zinc-400 mt-0.5">
-            Manage approved marketplace products, assign to Premium Store or New Drops, configure curated collections, and moderate listings.
+            Manage approved marketplace products, inspect Seller Name & Seller ID, assign to Premium Store or New Drops, and moderate listings.
           </p>
         </div>
       </div>
@@ -148,11 +172,11 @@ export default function ProductApprovalView() {
           ))}
         </div>
 
-        <div className="relative w-full sm:w-72">
+        <div className="relative w-full sm:w-80">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             type="text"
-            placeholder="Search products, brand, collection..."
+            placeholder="Search product name, Seller ID, Shop Name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-white outline-none focus:border-white"
@@ -162,7 +186,7 @@ export default function ProductApprovalView() {
 
       {/* Products Grid */}
       {loading ? (
-        <div className="p-12 text-center text-zinc-500 font-bold text-xs">Loading products...</div>
+        <div className="p-12 text-center text-zinc-500 font-bold text-xs">Loading products & seller information...</div>
       ) : filteredProducts.length === 0 ? (
         <div className="p-12 text-center text-zinc-500 font-bold text-xs">No products found for selected criteria.</div>
       ) : (
@@ -171,9 +195,35 @@ export default function ProductApprovalView() {
             const isPremium = prod.is_premium === true || prod.tier === "PREMIUM" || (prod.specifications as any)?.is_premium === "true";
             const isNewDrop = prod.is_new_drop === true || prod.status === "COMING_SOON" || (prod.specifications as any)?.is_new_drop === "true";
 
+            const seller = prod.seller_id ? sellersMap[String(prod.seller_id)] : null;
+            const shopName = seller?.business_name || seller?.shop_name || seller?.name || prod.brand || "Zebalpha Store";
+            const ownerName = seller?.full_name || seller?.owner_name || "";
+            const sellerCode = seller?.seller_id || seller?.seller_code || (seller?.id ? `SEL-${String(seller.id).slice(0, 6).toUpperCase()}` : (prod.seller_id ? `SEL-${String(prod.seller_id).slice(0, 6).toUpperCase()}` : "SEL-OFFICIAL"));
+
             return (
               <div key={prod.id} className="bg-zinc-950 rounded-3xl p-5 border border-zinc-800 shadow-xl flex flex-col justify-between space-y-4">
                 <div className="space-y-3">
+                  
+                  {/* Seller Header Badge */}
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-2xl bg-zinc-900/90 border border-zinc-800/80">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="h-6 w-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-[10px] shrink-0">
+                        🏪
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase text-emerald-400 tracking-wider truncate">
+                          {shopName}
+                        </p>
+                        {ownerName && ownerName !== shopName && (
+                          <p className="text-[9px] font-semibold text-zinc-400 truncate">Owner: {ownerName}</p>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full shrink-0">
+                      ID: {sellerCode}
+                    </span>
+                  </div>
+
                   <div className="flex gap-4">
                     <div className="h-20 w-20 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden relative shrink-0">
                       {prod.image_url ? (
@@ -274,7 +324,9 @@ export default function ProductApprovalView() {
                 </div>
 
                 <div className="flex items-center justify-between border-t border-zinc-800/80 pt-3">
-                  <span className="text-[10px] text-zinc-500 font-semibold">ID: {prod.id}</span>
+                  <span className="text-[10px] text-zinc-500 font-semibold truncate max-w-[160px]">
+                    ID: {prod.id}
+                  </span>
 
                   <div className="flex items-center gap-1.5">
                     {/* Approve / Reject */}
