@@ -67,6 +67,45 @@ export const createOrder = async (req, res, next) => {
     if (customerErr) throw customerErr;
     const placedOrder = customerOrder[0];
 
+    // Automatically Sync/Save Customer Address into user_addresses table
+    if (placedOrder.user_id) {
+      try {
+        const rawAddr = placedOrder.address || placedOrder.shipping_address || {};
+        const addrStr = typeof rawAddr === 'string' ? rawAddr : (rawAddr.address || rawAddr.address_line || '');
+        const pincodeStr = String(placedOrder.pincode || (typeof rawAddr === 'object' ? rawAddr.pincode : '') || '').replace(/\D/g, '').slice(0, 6);
+
+        const { data: existingAddr } = await supabaseA
+          .from('user_addresses')
+          .select('id')
+          .eq('user_id', placedOrder.user_id)
+          .maybeSingle();
+
+        const addrPayload = {
+          user_id: placedOrder.user_id,
+          user_email: placedOrder.email || null,
+          name: placedOrder.customer_name || 'Customer',
+          phone: String(placedOrder.phone || '').replace(/\D/g, '').slice(0, 10),
+          address_line: addrStr,
+          address_line1: placedOrder.city || 'City',
+          address_line2: placedOrder.state || 'State',
+          city: placedOrder.city || 'Kolkata',
+          state: placedOrder.state || 'West Bengal',
+          pincode: pincodeStr || '700001',
+          landmark: typeof rawAddr === 'object' ? (rawAddr.landmark || rawAddr.addressDetail || '') : '',
+          is_default: true,
+          updated_at: new Date().toISOString()
+        };
+
+        if (existingAddr) {
+          await supabaseA.from('user_addresses').update(addrPayload).eq('id', existingAddr.id);
+        } else {
+          await supabaseA.from('user_addresses').insert([{ ...addrPayload, created_at: new Date().toISOString() }]);
+        }
+      } catch (addrSyncErr) {
+        console.warn('[user_addresses Sync Notice]:', addrSyncErr.message);
+      }
+    }
+
     // 2. Identify sellers and process items for Supabase B
     const sellerItemMap = {};
 
