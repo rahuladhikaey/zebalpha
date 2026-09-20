@@ -124,15 +124,15 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {order.label_url && typeof order.label_url === "string" && order.label_url.startsWith("http") && !order.label_url.includes("/SR-") && (
+            {(order.label_url || order.shiprocket_shipment_id || order.shipment_id) && (
               <a
-                href={order.label_url}
+                href={order.label_url || `https://apiv2.shiprocket.in/v1/external/shipments/print/label/${order.shiprocket_shipment_id || order.shipment_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/30 text-purple-300 text-xs font-bold transition"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition shadow-md"
               >
                 <Download className="h-3.5 w-3.5" />
-                Shiprocket Slip
+                Official Shiprocket Slip (PDF)
               </a>
             )}
             <button

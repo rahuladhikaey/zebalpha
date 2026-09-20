@@ -249,72 +249,25 @@ export default function SellerOrders() {
         }
       }
 
-      // 3. Direct resilient update if both live endpoints failed
-      if (!resData || !resData.success) {
-        const carriers = [
-          { name: "Delhivery Surface", prefix: "DEL", hub: "DEL/NCR-HUB-01" },
-          { name: "Shadowfax Express", prefix: "SFX", hub: "SFX/SOUTH-HUB-04" },
-          { name: "BlueDart Air", prefix: "BD", hub: "BD/AIR-EXP-02" },
-          { name: "Xpressbees Logistics", prefix: "XB", hub: "XB/WEST-HUB-03" }
-        ];
-        const carrier = carriers[Math.floor(Math.random() * carriers.length)];
-        const genAwb = `${carrier.prefix}-${Math.floor(100000000 + Math.random() * 900000000)}`;
-        const shipmentId = `SR-${Date.now().toString().slice(-8)}`;
-        const dispatchSla = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-        const { error: updErr } = await supabase
-          .from("orders")
-          .update({
-            order_status: "ready_to_ship",
-            tracking_number: genAwb,
-            courier_name: carrier.name,
-            shipment_id: shipmentId,
-            routing_hub: carrier.hub,
-            dispatch_sla: dispatchSla,
-            label_generated_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", orderId);
-
-        if (updErr) {
-          // Retry simple status update
-          await supabase
-            .from("orders")
-            .update({
-              order_status: "ready_to_ship",
-              tracking_number: genAwb,
-              courier_name: carrier.name
-            })
-            .eq("id", orderId);
-        }
-
-        resData = {
-          success: true,
-          awbNumber: genAwb,
-          courierName: carrier.name,
-          routingHub: carrier.hub,
-          dispatchSla
-        };
-      }
-
-      if (resData?.liveSynced) {
-        setStatusMessage(`✓ Pushed to Shiprocket Live! AWB: ${resData.awbNumber}`);
+      if (resData && resData.success) {
+        setStatusMessage(resData.message || `✓ Pushed to Shiprocket Live! AWB: ${resData.awbNumber || "Assigned"}`);
+        await loadData();
+        const target = orders.find(o => o.id === orderId) || { id: orderId };
+        setLabelModalOrder({
+          ...target,
+          order_status: "ready_to_ship",
+          tracking_number: resData.awbNumber || target.tracking_number,
+          courier_name: resData.courierName || target.courier_name,
+          shipment_id: resData.shipmentId || target.shipment_id,
+          routing_hub: resData.routingHub || target.routing_hub,
+          label_url: resData.labelUrl || target.label_url,
+        });
+        setIsLabelModalOpen(true);
       } else {
-        setStatusMessage(`✓ Label & AWB Manifested! AWB: ${resData.awbNumber}`);
+        const errorMsg = resData?.message || "Failed to create live shipment. Please ensure your Shiprocket account has active wallet balance (min ₹100).";
+        setStatusMessage(`Error: ${errorMsg}`);
+        alert(`Shiprocket Live Notice: ${errorMsg}`);
       }
-      await loadData();
-      
-      // Auto open label for preview
-      const target = orders.find(o => o.id === orderId) || { id: orderId };
-      setLabelModalOrder({
-        ...target,
-        tracking_number: resData.awbNumber,
-        courier_name: resData.courierName,
-        routing_hub: resData.routingHub || target.routing_hub,
-        shiprocket_order_id: resData.shiprocketOrderId || target.shiprocket_order_id,
-        label_url: resData.labelUrl || target.label_url,
-        order_status: "ready_to_ship"
-      });
     } catch (err: any) {
       setStatusMessage(`Error: ${err.message}`);
     } finally {
