@@ -1,5 +1,6 @@
 import { supabaseA, supabaseB } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
+import { pushOrderToShiprocket } from '../services/shiprocket.js';
 
 /**
  * Fetch orders for Customer (from Supabase A) or Seller (from Supabase B)
@@ -145,6 +146,26 @@ export const createOrder = async (req, res, next) => {
         message: `📦 New order #${orderNumber} received! Check orders dashboard to process dispatch.`,
         read_status: false
       }]);
+    }
+
+    // Instant Auto-Sync to Shiprocket on Checkout
+    try {
+      pushOrderToShiprocket(placedOrder)
+        .then(async (srRes) => {
+          console.log(`✓ [Auto-Shiprocket Instant Push] Order #${placedOrder.order_number} synced to Shiprocket. Order ID:`, srRes?.shiprocket_order_id || 'OK');
+          if (srRes?.shiprocket_order_id) {
+            await supabaseA.from('orders').update({
+              shiprocket_order_id: String(srRes.shiprocket_order_id),
+              shiprocket_shipment_id: String(srRes.shiprocket_shipment_id || ''),
+              updated_at: new Date().toISOString()
+            }).eq('id', placedOrder.id);
+          }
+        })
+        .catch((srErr) => {
+          console.warn(`[Auto-Shiprocket Push Notice] Order #${placedOrder.order_number} auto-push notice:`, srErr?.message || srErr);
+        });
+    } catch (e) {
+      console.warn('[Auto-Shiprocket Exception Notice]:', e);
     }
 
     res.status(HTTP_STATUS.CREATED).json({
