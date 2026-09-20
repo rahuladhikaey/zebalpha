@@ -20,59 +20,8 @@ interface ComingSoonDesign {
   demandPercentage: number;
 }
 
-const DEFAULT_COMING_SOON_DESIGNS: ComingSoonDesign[] = [
-  {
-    id: "cs-1",
-    name: "Apex Acid-Wash Oversized Hoodie",
-    tagline: "380 GSM Heavyweight French Terry Fleece",
-    description: "Custom vintage acid-wash finish with high-density minimalist chest branding, double-lined hood, and architectural drop-shoulder cut.",
-    image: "/banner-casual-green.png",
-    targetDropDate: "Releasing Sep 05, 2026",
-    category: "Heavyweight Hoodies",
-    initialRating: 4.9,
-    initialVotes: 1420,
-    demandPercentage: 98,
-  },
-  {
-    id: "cs-2",
-    name: "Supima Quarter-Zip Luxe Polo",
-    tagline: "100% Long-Staple Supima Cotton Knit",
-    description: "Tailored quarter-zip metal closure with custom engraved pulls, reinforced collar retention, and luxurious ultra-smooth handle.",
-    image: "/banner-premium-polo.png",
-    targetDropDate: "Releasing Sep 10, 2026",
-    category: "Premium Polos",
-    initialRating: 4.8,
-    initialVotes: 980,
-    demandPercentage: 94,
-  },
-  {
-    id: "cs-3",
-    name: "Cyberpunk Vintage Heavy Tee",
-    tagline: "260 GSM Heavy Combed Cotton",
-    description: "Relaxed boxy streetwear fit featuring vintage garment dye treatment and soft-touch screenprinted back graphics.",
-    image: "/banner-retro-cream.png",
-    targetDropDate: "Releasing Sep 15, 2026",
-    category: "Oversized Tees",
-    initialRating: 4.9,
-    initialVotes: 1650,
-    demandPercentage: 99,
-  },
-  {
-    id: "cs-4",
-    name: "Zebalpha Tactical Utility Cargo",
-    tagline: "3D Double Pocket Twill Construction",
-    description: "Heavy-duty 100% cotton twill cargo trousers with adjustable ankle toggles, reinforced knee panels, and 8 deep utility pockets.",
-    image: "/banner-casual-green.png",
-    targetDropDate: "Releasing Sep 22, 2026",
-    category: "Bottoms & Cargo",
-    initialRating: 4.7,
-    initialVotes: 810,
-    demandPercentage: 91,
-  },
-];
-
 export default function NewDropsPage() {
-  const [designs, setDesigns] = useState<ComingSoonDesign[]>(DEFAULT_COMING_SOON_DESIGNS);
+  const [designs, setDesigns] = useState<ComingSoonDesign[]>([]);
   const [userRatings, setUserRatings] = useState<Record<string, number>>({});
   const [notifiedItems, setNotifiedItems] = useState<Record<string, boolean>>({});
   const [notificationMsg, setNotificationMsg] = useState<string>("");
@@ -92,7 +41,7 @@ export default function NewDropsPage() {
             name: item.name,
             tagline: item.description ? item.description.slice(0, 50) + "..." : "Exclusive Upcoming Drop",
             description: item.description || "Upcoming premium design from seller store.",
-            image: item.image_url || item.images?.[0] || "/banner-premium-polo.png",
+            image: item.image_url || item.images?.[0] || "",
             targetDropDate: item.target_drop_date || (item.drop_date ? `Releasing ${new Date(item.drop_date).toLocaleDateString()}` : "Releasing Soon ⚡"),
             category: item.collection || item.category_name || item.category || "Apparel Drop",
             initialRating: 4.9,
@@ -100,14 +49,32 @@ export default function NewDropsPage() {
             demandPercentage: 95,
           }));
 
-          // Combine static curated designs with seller added coming soon designs
-          setDesigns((prev) => {
-            const existingIds = new Set(prev.map((d) => d.id));
-            const newFiltered = mappedFromDb.filter((d) => !existingIds.has(d.id));
-            return [...newFiltered, ...prev];
-          });
+          setDesigns(mappedFromDb);
+        } else {
+          setDesigns([]);
         }
       } catch (err) {
+        console.error("Notice loading coming soon drops:", err);
+        setDesigns([]);
+      }
+    }
+
+    loadSellerComingSoonProducts();
+
+    // Listen for realtime coming soon updates from sellers
+    const channel = supabase
+      .channel("new-drops-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => loadSellerComingSoonProducts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
         console.error("Notice loading seller coming soon products:", err);
       }
     }

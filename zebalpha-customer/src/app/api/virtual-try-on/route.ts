@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fallback: If express backend is not currently running in local dev, provide safe fallback
-    const resolvedGarment = garmentImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800';
+    const resolvedGarment = garmentImage || personImage;
 
     return NextResponse.json({
       success: true,

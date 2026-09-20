@@ -142,12 +142,16 @@ export default function CollectionsPage() {
       <section className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {FEATURED_COLLECTIONS.map((col) => {
-            const matchedProductsCount = products.filter((p) => {
+            const matchedProducts = products.filter((p) => {
+              if (col.categoryFilter === "premium-store") return p.is_premium || p.tier === "PREMIUM";
+              if (col.categoryFilter === "new-drops") return p.is_new_drop || p.status === "COMING_SOON";
               const catName = (p.category_name || p.category || "").toLowerCase();
               return catName.includes(col.categoryFilter.toLowerCase());
-            }).length;
+            });
 
-            const totalDisplayCount = matchedProductsCount > 0 ? matchedProductsCount : col.itemCount;
+            const totalDisplayCount = matchedProducts.length;
+            const productWithImage = matchedProducts.find((p) => p.image_url || (p.images && p.images.length > 0));
+            const cardImage = productWithImage ? (productWithImage.image_url || productWithImage.images?.[0]!) : col.image;
 
             const isNewDropsCard = col.categoryFilter === "new-drops";
             const isPremiumStoreCard = col.categoryFilter === "premium-store";
@@ -165,7 +169,7 @@ export default function CollectionsPage() {
                 {/* Background Image Container with Overlay */}
                 <div className="absolute inset-0 z-0 opacity-25 transition-transform duration-700 group-hover:scale-110">
                   <Image
-                    src={col.image}
+                    src={cardImage}
                     alt={col.title}
                     fill
                     className="object-cover"

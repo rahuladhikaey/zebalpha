@@ -21,138 +21,8 @@ import {
   ArrowRight
 } from "lucide-react";
 
-// Curated luxury fallback products with high-end imagery and specs
-const LUXURY_FALLBACK_PRODUCTS: Product[] = [
-  {
-    id: "luxe-101",
-    name: "Supima Imperial Zip Polo - Midnight Onyx",
-    price: 1899,
-    mrp: 2999,
-    description: "Constructed with 100% long-staple Supima® cotton yarn. Features a polished gunmetal quarter-zip, anti-curl collar, and bespoke tailored shoulder drop.",
-    image_url: "/banner-premium-polo.png",
-    category: "Premium Polos",
-    is_premium: true,
-    is_active: true,
-    rating: 4.95,
-    review_count: 142,
-    brand: "ZEBALPHA COUTURE",
-    stock: 25,
-    specifications: {
-      "Fabric": "100% California Supima Cotton",
-      "Knit Weight": "240 GSM Luxury Interlock",
-      "Hardware": "Gunmetal YKK Custom Puller",
-      "Fit": "Tailored Luxury Fit"
-    }
-  },
-  {
-    id: "luxe-102",
-    name: "Architectural Heavyweight Hoodie 420 GSM - Bone",
-    price: 2699,
-    mrp: 4499,
-    description: "Ultra-heavyweight 420 GSM French Terry with double-lined structural hood, hidden headphone pocket, and minimalist tonal puff chest branding.",
-    image_url: "/banner-retro-cream.png",
-    category: "Heavy Hoodies",
-    is_premium: true,
-    is_active: true,
-    rating: 4.98,
-    review_count: 210,
-    brand: "ZEBALPHA LUXE",
-    stock: 18,
-    specifications: {
-      "Fabric": "100% Combed Compact Cotton Terry",
-      "GSM": "420 GSM Ultra Heavyweight",
-      "Hood": "Double Lined Structured Hood",
-      "Treatment": "Pre-shrunk Enzyme Washed"
-    }
-  },
-  {
-    id: "luxe-103",
-    name: "Textured Ottoman Rib Polo - Sage Emerald",
-    price: 1749,
-    mrp: 2799,
-    description: "Horizontal ribbed Ottoman texture with breathable micro-knit structure. Styled with a spread collar and mother-of-pearl tonal buttons.",
-    image_url: "/banner-casual-green.png",
-    category: "Premium Polos",
-    is_premium: true,
-    is_active: true,
-    rating: 4.88,
-    review_count: 98,
-    brand: "ZEBALPHA COUTURE",
-    stock: 30,
-    specifications: {
-      "Fabric": "Ottoman Micro-Ribbed Cotton Blend",
-      "Buttons": "Mother-of-Pearl Tonal Hardware",
-      "Breathability": "High-Airflow Knit Matrix",
-      "Care": "Machine Wash Cold"
-    }
-  },
-  {
-    id: "luxe-104",
-    name: "Zebalpha Tactical Modular Cargo - Phantom",
-    price: 2499,
-    mrp: 3999,
-    description: "High-density twill weave with 8 geometric pockets, magnetic storm flaps, adjustable silhouette toggles at hem, and reinforced seat.",
-    image_url: "/banner-premium-polo.png",
-    category: "Luxury Bottoms",
-    is_premium: true,
-    is_active: true,
-    rating: 4.92,
-    review_count: 175,
-    brand: "ZEBALPHA LAB",
-    stock: 14,
-    specifications: {
-      "Fabric": "Heavyweight Cotton-Poly Twill",
-      "Closures": "Fidlock-Style Magnetic Snaps",
-      "Pocket Count": "8 Deep Utility Compartments",
-      "Hem": "Elastic Quick-Cinch Bungee"
-    }
-  },
-  {
-    id: "luxe-105",
-    name: "Acid-Wash Vintage Oversized Tee 280 GSM - Carbon",
-    price: 1299,
-    mrp: 2199,
-    description: "Hand-treated mineral wash finish giving each piece a distinct pattern. 280 GSM heavyweight jersey with a boxy drop-shoulder silhouette.",
-    image_url: "/banner-casual-green.png",
-    category: "Oversized Tees",
-    is_premium: true,
-    is_active: true,
-    rating: 4.91,
-    review_count: 312,
-    brand: "ZEBALPHA LUXE",
-    stock: 40,
-    specifications: {
-      "Fabric": "100% Combed Ring-Spun Cotton",
-      "GSM": "280 GSM Heavy Single Jersey",
-      "Dye": "Hand-Dyed Acid Mineral Wash",
-      "Collar": "1.25-inch Heavy Ribbed Collar"
-    }
-  },
-  {
-    id: "luxe-106",
-    name: "Limited Edition Cyberpunk Silk-Screen Overshirt",
-    price: 2899,
-    mrp: 4999,
-    description: "Numbered micro-capsule of only 150 pieces worldwide. Heavyweight brushed canvas with dual chest flap utility bellows and iridescent badge.",
-    image_url: "/banner-retro-cream.png",
-    category: "Capsule Drops",
-    is_premium: true,
-    is_active: true,
-    rating: 5.0,
-    review_count: 84,
-    brand: "ZEBALPHA LIMITED",
-    stock: 8,
-    specifications: {
-      "Edition": "Strictly Limited to 150 Units",
-      "Fabric": "12oz Brushed Cotton Duck Canvas",
-      "Branding": "Serial-Numbered Laser Cut Metal Plate",
-      "Fit": "Relaxed Layering Overshirt"
-    }
-  }
-];
-
 export default function PremiumStorePage() {
-  const [products, setProducts] = useState<Product[]>(LUXURY_FALLBACK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<string>("featured");
@@ -162,7 +32,7 @@ export default function PremiumStorePage() {
     async function loadPremiumProducts() {
       try {
         setLoading(true);
-        // Query products flagged as premium or tier=PREMIUM or category with Premium/Luxe
+        // Query products flagged as premium or tier=PREMIUM
         const { data, error } = await supabase
           .from("products")
           .select("*")
@@ -171,25 +41,33 @@ export default function PremiumStorePage() {
           .order("created_at", { ascending: false });
 
         if (data && data.length > 0) {
-          // Merge with fallback products ensuring no duplicates
-          const dbIds = new Set(data.map((p: any) => p.id?.toString()));
-          const combined = [
-            ...data,
-            ...LUXURY_FALLBACK_PRODUCTS.filter(fb => !dbIds.has(fb.id?.toString()))
-          ];
-          setProducts(combined as Product[]);
+          setProducts(data as Product[]);
         } else {
-          setProducts(LUXURY_FALLBACK_PRODUCTS);
+          setProducts([]);
         }
       } catch (err) {
-        console.warn("Notice loading premium products, using luxury default catalog:", err);
-        setProducts(LUXURY_FALLBACK_PRODUCTS);
+        console.error("Error fetching premium store products:", err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
     }
 
     loadPremiumProducts();
+
+    // Listen to real-time additions/updates by sellers
+    const channel = supabase
+      .channel("premium-store-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => loadPremiumProducts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const CATEGORY_TABS = [

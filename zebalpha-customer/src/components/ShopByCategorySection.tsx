@@ -10,14 +10,14 @@ import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
 const CLOTHING_TABS = ["ALL", "POLOS", "T-SHIRTS", "HOODIES", "SHIRTS", "BOTTOMS", "LIMITED"];
 
 const DEFAULT_CLOTHING_CATEGORIES: Category[] = [
-  { id: "1", name: "Premium Polos", icon: "👕", main_category: "POLOS", description: "100% Supima Pique", image_url: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=600&auto=format&fit=crop" },
-  { id: "2", name: "Oversized Tees", icon: "🛹", main_category: "T-SHIRTS", description: "240 GSM Heavyweight", image_url: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop" },
-  { id: "3", name: "Heavyweight Hoodies", icon: "🧥", main_category: "HOODIES", description: "380 GSM Plush Fleece", image_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=600&auto=format&fit=crop" },
-  { id: "4", name: "Casual Shirts", icon: "👔", main_category: "SHIRTS", description: "Woven Textured Cottons", image_url: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=600&auto=format&fit=crop" },
-  { id: "5", name: "Cargo & Trousers", icon: "👖", main_category: "BOTTOMS", description: "Tactical Utility Fits", image_url: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=600&auto=format&fit=crop" },
-  { id: "6", name: "Limited Drops", icon: "⚡", main_category: "LIMITED", description: "Exclusive Release Drops", image_url: "https://images.unsplash.com/photo-1509967419530-da38b4704bc6?q=80&w=600&auto=format&fit=crop" },
-  { id: "7", name: "Zebalpha Classics", icon: "👑", main_category: "ALL", description: "Monogram Signature Pieces", image_url: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600&auto=format&fit=crop" },
-  { id: "8", name: "Accessories & Caps", icon: "🧢", main_category: "ALL", description: "Caps, Chains & Extras", image_url: "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?q=80&w=600&auto=format&fit=crop" },
+  { id: "1", name: "Premium Polos", icon: "👕", main_category: "POLOS", description: "100% Supima Pique" },
+  { id: "2", name: "Oversized Tees", icon: "🛹", main_category: "T-SHIRTS", description: "240 GSM Heavyweight" },
+  { id: "3", name: "Heavyweight Hoodies", icon: "🧥", main_category: "HOODIES", description: "380 GSM Plush Fleece" },
+  { id: "4", name: "Casual Shirts", icon: "👔", main_category: "SHIRTS", description: "Woven Textured Cottons" },
+  { id: "5", name: "Cargo & Trousers", icon: "👖", main_category: "BOTTOMS", description: "Tactical Utility Fits" },
+  { id: "6", name: "Limited Drops", icon: "⚡", main_category: "LIMITED", description: "Exclusive Release Drops" },
+  { id: "7", name: "Zebalpha Classics", icon: "👑", main_category: "ALL", description: "Monogram Signature Pieces" },
+  { id: "8", name: "Accessories & Caps", icon: "🧢", main_category: "ALL", description: "Caps, Chains & Extras" },
 ];
 
 export function ShopByCategorySection({ initialCategories = [] }: { initialCategories?: Category[] }) {

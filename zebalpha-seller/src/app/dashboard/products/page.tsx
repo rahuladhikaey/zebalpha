@@ -441,7 +441,7 @@ export default function SellerProducts() {
       console.warn("Cloudinary upload notice:", err);
     }
 
-    const finalMainImageUrl = cloudinaryImages[0] || form.image_url.trim() || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800";
+    const finalMainImageUrl = cloudinaryImages[0] || form.image_url.trim() || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23171717'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23737373' font-family='sans-serif' font-size='16'%3ENo Image Provided%3C/text%3E%3C/svg%3E";
 
     // Resolve valid seller table primary key ID to satisfy products_seller_id_fkey
     let validSellerId = sellerId;
