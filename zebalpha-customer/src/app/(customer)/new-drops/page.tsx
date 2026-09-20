@@ -75,11 +75,6 @@ export default function NewDropsPage() {
       supabase.removeChannel(channel);
     };
   }, []);
-        console.error("Notice loading seller coming soon products:", err);
-      }
-    }
-    loadSellerComingSoonProducts();
-  }, []);
 
   const handleRate = (designId: string, ratingValue: number) => {
     setUserRatings((prev) => ({ ...prev, [designId]: ratingValue }));

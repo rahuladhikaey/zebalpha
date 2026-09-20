@@ -262,7 +262,6 @@ export default function SellerOrders() {
           routing_hub: resData.routingHub || target.routing_hub,
           label_url: resData.labelUrl || target.label_url,
         });
-        setIsLabelModalOpen(true);
       } else {
         const errorMsg = resData?.message || "Failed to create live shipment. Please ensure your Shiprocket account has active wallet balance (min ₹100).";
         setStatusMessage(`Error: ${errorMsg}`);
