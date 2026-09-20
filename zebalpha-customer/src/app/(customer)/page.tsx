@@ -126,7 +126,6 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                         </span>
                       ))}
                     </div>
-                  </Link>
 
                   {/* Content */}
                   <div className="flex flex-1 flex-col p-3.5 sm:p-4">
