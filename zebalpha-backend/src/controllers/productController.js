@@ -1,44 +1,114 @@
 import { supabaseA } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
+import { cacheService } from '../services/cacheService.js';
 
+/**
+ * Public Product Listing & Search Controller (Cache-Aside Pattern)
+ * Checks Redis / Memory cache first, populates on miss.
+ */
 export const getProducts = async (req, res, next) => {
   try {
-    const { category, activeOnly, limit } = req.query;
-    let query = supabaseA.from('products').select('*, categories(*)').order('id', { ascending: false });
+    const { category, activeOnly, limit, page, q, search, brand, sort } = req.query;
+    const queryParams = {
+      category: category || '',
+      activeOnly: activeOnly || 'false',
+      limit: limit || '',
+      page: page || '',
+      q: (q || search || '').trim().toLowerCase(),
+      brand: brand || '',
+      sort: sort || ''
+    };
 
-    if (activeOnly === 'true') {
-      query = query.eq('is_active', true);
-    }
-    if (category) {
-      query = query.eq('category_id', category);
-    }
-    if (limit) {
-      query = query.limit(parseInt(limit));
-    }
+    const cacheKey = cacheService.generateKey('products:list', queryParams);
 
-    const { data, error } = await query;
-    if (error) throw error;
+    const { data, source } = await cacheService.fetchOrCache(cacheKey, async () => {
+      let query = supabaseA.from('products').select('*, categories(*)');
 
-    res.status(HTTP_STATUS.OK).json({ success: true, data });
+      if (queryParams.activeOnly === 'true') {
+        query = query.eq('is_active', true);
+      }
+      if (queryParams.category) {
+        query = query.eq('category_id', queryParams.category);
+      }
+      if (queryParams.brand) {
+        query = query.ilike('brand', `%${queryParams.brand}%`);
+      }
+      if (queryParams.q) {
+        query = query.or(`name.ilike.%${queryParams.q}%,description.ilike.%${queryParams.q}%,brand.ilike.%${queryParams.q}%`);
+      }
+
+      if (queryParams.sort === 'price_asc') {
+        query = query.order('price', { ascending: true });
+      } else if (queryParams.sort === 'price_desc') {
+        query = query.order('price', { ascending: false });
+      } else {
+        query = query.order('id', { ascending: false });
+      }
+
+      if (queryParams.limit) {
+        const lim = parseInt(queryParams.limit, 10);
+        if (queryParams.page) {
+          const pg = Math.max(1, parseInt(queryParams.page, 10));
+          const from = (pg - 1) * lim;
+          const to = from + lim - 1;
+          query = query.range(from, to);
+        } else {
+          query = query.limit(lim);
+        }
+      }
+
+      const { data: dbData, error } = await query;
+      if (error) throw error;
+      return dbData || [];
+    }, cacheService.defaultTtl);
+
+    res.setHeader('X-Cache', source === 'cache' ? 'HIT' : 'MISS');
+    res.setHeader('X-Cache-Engine', cacheService.isUpstashEnabled ? 'Redis' : 'Memory');
+    res.status(HTTP_STATUS.OK).json({ success: true, data, cacheSource: source });
   } catch (err) {
     next(err);
   }
 };
 
+/**
+ * Public Product Detail Controller (Cache-Aside Pattern)
+ */
 export const getProductById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabaseA.from('products').select('*, categories(*)').eq('id', id).single();
-    if (error || !data) {
+    if (!id) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Product ID is required' });
+    }
+
+    const cacheKey = `product:detail:${id}`;
+
+    const { data, source } = await cacheService.fetchOrCache(cacheKey, async () => {
+      const { data: dbProduct, error } = await supabaseA
+        .from('products')
+        .select('*, categories(*)')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error || !dbProduct) {
+        return null;
+      }
+      return dbProduct;
+    }, cacheService.productDetailTtl);
+
+    if (!data) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Product not found' });
     }
 
-    res.status(HTTP_STATUS.OK).json({ success: true, data });
+    res.setHeader('X-Cache', source === 'cache' ? 'HIT' : 'MISS');
+    res.status(HTTP_STATUS.OK).json({ success: true, data, cacheSource: source });
   } catch (err) {
     next(err);
   }
 };
 
+/**
+ * Create Product Controller (Invalidates affected product & search cache)
+ */
 export const createProduct = async (req, res, next) => {
   try {
     const raw = req.body;
@@ -82,12 +152,19 @@ export const createProduct = async (req, res, next) => {
     if (error) throw error;
 
     const saved = data?.[0] || sanitizedPayload;
+
+    // Cache Invalidation after successful write
+    await cacheService.invalidateProductCache(saved.id);
+
     res.status(HTTP_STATUS.CREATED).json({ success: true, data: saved });
   } catch (err) {
     next(err);
   }
 };
 
+/**
+ * Update Product Controller (Invalidates affected product & search cache)
+ */
 export const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -137,12 +214,19 @@ export const updateProduct = async (req, res, next) => {
     if (error) throw error;
 
     const updated = data?.[0] || { id, ...allowedUpdates };
+
+    // Cache Invalidation after successful write
+    await cacheService.invalidateProductCache(id);
+
     res.status(HTTP_STATUS.OK).json({ success: true, data: updated });
   } catch (err) {
     next(err);
   }
 };
 
+/**
+ * Delete Product Controller (Invalidates affected product & search cache)
+ */
 export const deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -169,18 +253,34 @@ export const deleteProduct = async (req, res, next) => {
     const { error } = await supabaseA.from('products').delete().eq('id', id);
     if (error) throw error;
 
+    // Cache Invalidation
+    await cacheService.invalidateProductCache(id);
+
     res.status(HTTP_STATUS.OK).json({ success: true, message: 'Product deleted' });
   } catch (err) {
     next(err);
   }
 };
 
+/**
+ * Public Category Listing Controller (Cache-Aside Pattern)
+ */
 export const getCategories = async (req, res, next) => {
   try {
-    const { data, error } = await supabaseA.from('categories').select('*').order('name', { ascending: true });
-    if (error) throw error;
+    const cacheKey = 'categories:all';
 
-    res.status(HTTP_STATUS.OK).json({ success: true, data });
+    const { data, source } = await cacheService.fetchOrCache(cacheKey, async () => {
+      const { data: dbCategories, error } = await supabaseA
+        .from('categories')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      return dbCategories || [];
+    }, cacheService.categoriesTtl);
+
+    res.setHeader('X-Cache', source === 'cache' ? 'HIT' : 'MISS');
+    res.status(HTTP_STATUS.OK).json({ success: true, data, cacheSource: source });
   } catch (err) {
     next(err);
   }
@@ -193,6 +293,9 @@ export const createCategory = async (req, res, next) => {
     if (error) throw error;
 
     const saved = data?.[0] || { name: name?.trim() };
+
+    // Invalidate categories cache
+    await cacheService.invalidateCategoryCache();
 
     res.status(HTTP_STATUS.CREATED).json({ success: true, data: saved });
   } catch (err) {
@@ -209,6 +312,9 @@ export const updateCategory = async (req, res, next) => {
 
     const updated = data?.[0] || { id, name: name?.trim() };
 
+    // Invalidate categories cache
+    await cacheService.invalidateCategoryCache();
+
     res.status(HTTP_STATUS.OK).json({ success: true, data: updated });
   } catch (err) {
     next(err);
@@ -221,8 +327,22 @@ export const deleteCategory = async (req, res, next) => {
     const { error } = await supabaseA.from('categories').delete().eq('id', id);
     if (error) throw error;
 
+    // Invalidate categories cache
+    await cacheService.invalidateCategoryCache();
+
     res.status(HTTP_STATUS.OK).json({ success: true, message: 'Category deleted' });
   } catch (err) {
     next(err);
   }
 };
+
+/**
+ * Diagnostic Endpoint for Cache Monitoring
+ */
+export const getCacheDiagnostics = (req, res) => {
+  res.status(HTTP_STATUS.OK).json({
+    success: true,
+    cache: cacheService.getMetrics()
+  });
+};
+

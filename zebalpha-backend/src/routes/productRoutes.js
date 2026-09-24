@@ -8,7 +8,8 @@ import {
   getCategories,
   createCategory,
   updateCategory,
-  deleteCategory
+  deleteCategory,
+  getCacheDiagnostics
 } from '../controllers/productController.js';
 import { authenticateJWT, requireRole } from '../middleware/auth.js';
 import { ROLES } from '../constants/index.js';
@@ -18,6 +19,7 @@ const router = Router();
 // Public Product & Category routes
 router.get('/', getProducts);
 router.get('/categories', getCategories);
+router.get('/cache/metrics', getCacheDiagnostics);
 router.get('/:id', getProductById);
 
 // Admin / Seller protected routes

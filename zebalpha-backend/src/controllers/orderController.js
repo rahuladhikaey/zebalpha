@@ -2,6 +2,7 @@ import { supabaseA, supabaseB } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
 import { pushOrderToShiprocket, cancelShiprocketOrder } from '../services/shiprocket.js';
 import { initiateRazorpayRefund } from '../services/razorpayRefundService.js';
+import { cacheService } from '../services/cacheService.js';
 
 /**
  * Fetch orders for Customer (from Supabase A) or Seller (from Supabase B)
@@ -211,6 +212,9 @@ export const createOrder = async (req, res, next) => {
           change_type: 'ORDER_DEDUCTION',
           change_reason: `Stock deducted for Order #${orderNumber}`
         }]);
+
+        // Invalidate public cache for affected product
+        cacheService.invalidateProductCache(pId).catch(() => {});
       }
 
       // Notify seller instantly in Supabase B
@@ -496,6 +500,8 @@ export const cancelOrder = async (req, res, next) => {
                 new_stock: restoredStock,
                 change_reason: `Restocked ${qty} units due to cancellation of Order #${orderData.order_number}`
               }]);
+              // Invalidate cache
+              cacheService.invalidateProductCache(pId).catch(() => {});
             } catch (_) {}
           }
         } catch (restockErr) {
