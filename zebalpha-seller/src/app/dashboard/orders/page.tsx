@@ -48,6 +48,11 @@ export default function SellerOrders() {
 
   // Modals
   const [labelModalOrder, setLabelModalOrder] = useState<any | null>(null);
+  const [reviewReturnOrder, setReviewReturnOrder] = useState<any | null>(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState("");
+  const [showRejectBox, setShowRejectBox] = useState(false);
+  const [processingReturn, setProcessingReturn] = useState(false);
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -152,7 +157,6 @@ export default function SellerOrders() {
             sellerItems = rawItems;
           }
 
-          // If matched by direct seller, matching items, or general merchant view
           if (isDirectSellerOrder || sellerItems.length > 0 || sellerProductIdSet.size === 0) {
             const finalItems = sellerItems.length > 0 ? sellerItems : rawItems;
             const sellerTotal = finalItems.reduce((sum: number, item: any) => 
@@ -170,7 +174,6 @@ export default function SellerOrders() {
         }
       });
 
-      // Fallback: If no orders matched due to product filter, show all store orders so merchant is never blind
       if (filteredOrders.length === 0 && allOrders.length > 0) {
         allOrders.forEach(ord => {
           filteredOrders.push({
@@ -181,7 +184,6 @@ export default function SellerOrders() {
         });
       }
 
-      // Deduplicate master order containers when actionable sub-orders exist
       const deduplicatedSellerOrders = filteredOrders.filter((ord: any) => {
         const num = String(ord.order_number || ord.id || "").trim();
         if (!/-S\d+$/i.test(num) && !/-SO\d+$/i.test(num)) {
@@ -206,6 +208,38 @@ export default function SellerOrders() {
     loadData();
   }, []);
 
+  // Handle Seller Return Action (Approve, Reject, Pickup, Confirm Received)
+  const handleReturnAction = async (orderId: string, action: string, extraData: any = {}) => {
+    setProcessingReturn(true);
+    setStatusMessage(`Processing return action: ${action}...`);
+    try {
+      const res = await fetch("/api/orders/return-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          action,
+          ...extraData
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setStatusMessage(`✓ Return status updated successfully (${action})`);
+        setReviewReturnOrder(null);
+        setShowRejectBox(false);
+        setRejectionReasonInput("");
+        await loadData();
+      } else {
+        alert(json.message || "Failed to process return action");
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setProcessingReturn(false);
+      setTimeout(() => setStatusMessage(""), 4000);
+    }
+  };
+
   // Pack & Generate Label (Transition Pending -> Ready to Ship)
   const handleCreateShipment = async (orderId: string) => {
     setStatusMessage("Connecting to Shiprocket & Generating AWB...");
@@ -213,7 +247,6 @@ export default function SellerOrders() {
       const { data: { session } } = await supabase.auth.getSession();
       let resData: any = null;
 
-      // 1. Try direct Next.js Shiprocket shipping route
       try {
         const response = await fetch("/api/shipping/create-shipment", {
           method: "POST",
@@ -227,10 +260,9 @@ export default function SellerOrders() {
           resData = await response.json();
         }
       } catch (directErr) {
-        console.warn("Direct Next.js shipment API notice, trying backend fallback:", directErr);
+        console.warn("Direct Next.js shipment API notice:", directErr);
       }
 
-      // 2. Try backend endpoint as secondary fallback
       if (!resData || !resData.success) {
         try {
           const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/shipments/create-shipment`, {
@@ -245,7 +277,7 @@ export default function SellerOrders() {
             resData = await response.json();
           }
         } catch (apiErr) {
-          console.warn("Backend shipment API notice, executing direct resilient fallback:", apiErr);
+          console.warn("Backend shipment API notice:", apiErr);
         }
       }
 
@@ -263,7 +295,7 @@ export default function SellerOrders() {
           label_url: resData.labelUrl || target.label_url,
         });
       } else {
-        const errorMsg = resData?.message || "Failed to create live shipment. Please ensure your Shiprocket account has active wallet balance (min ₹100).";
+        const errorMsg = resData?.message || "Failed to create live shipment. Please ensure Shiprocket has active wallet balance.";
         setStatusMessage(`Error: ${errorMsg}`);
         alert(`Shiprocket Live Notice: ${errorMsg}`);
       }
@@ -294,16 +326,24 @@ export default function SellerOrders() {
   const readyToShipCount = orders.filter(o => o.order_status === "ready_to_ship").length;
   const shippedCount = orders.filter(o => o.order_status === "shipped" || o.order_status === "in_transit" || o.order_status === "picked_up").length;
   const deliveredCount = orders.filter(o => o.order_status === "delivered").length;
-  const cancelledCount = orders.filter(o => o.order_status === "cancelled" || o.order_status === "returned").length;
+  const returnsCount = orders.filter(o => {
+    const st = String(o.order_status || "").toLowerCase();
+    const retSt = String(o.return_status || "").toLowerCase();
+    return st.startsWith("return") || (retSt && retSt !== "none" && retSt !== "completed");
+  }).length;
+  const cancelledCount = orders.filter(o => String(o.order_status || "").toLowerCase() === "cancelled").length;
 
   // Filtered orders list
   const tabFilteredOrders = orders.filter(o => {
-    const st = (o.order_status || "placed").toLowerCase();
+    const st = String(o.order_status || "placed").toLowerCase();
+    const retSt = String(o.return_status || "").toLowerCase();
+
     if (activeTab === "pending") return st === "placed" || st === "confirmed" || st === "processing";
     if (activeTab === "ready_to_ship") return st === "ready_to_ship";
     if (activeTab === "shipped") return st === "shipped" || st === "in_transit" || st === "picked_up";
     if (activeTab === "delivered") return st === "delivered";
-    if (activeTab === "cancelled") return st === "cancelled" || st === "returned";
+    if (activeTab === "returns") return st.startsWith("return") || (retSt && retSt !== "none");
+    if (activeTab === "cancelled") return st === "cancelled";
     return true;
   });
 
@@ -326,7 +366,7 @@ export default function SellerOrders() {
             Orders Hub
           </h1>
           <p className="text-xs sm:text-sm font-bold text-zinc-400 mt-1">
-            Dispatch management with barcoded label printing and courier pickup.
+            Fulfillment lifecycle, label dispatch, return approvals, and inventory management.
           </p>
         </div>
 
@@ -340,24 +380,22 @@ export default function SellerOrders() {
         </div>
       </div>
 
-      {/* Meesho-Inspired Advisory Banners */}
+      {/* Advisory Banners */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-        {/* Banner 1: Label Auto-retry */}
         <div className="p-3.5 rounded-2xl bg-zinc-900/70 border border-zinc-800 flex items-start gap-3">
           <div className="h-9 w-9 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
             <Package className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-1.5 text-xs font-black text-white">
-              <span className="text-emerald-400">✓ Zebalpha Auto-Manifest Active</span>
+              <span className="text-emerald-400">✓ Zebalpha Automated Manifest Active</span>
             </div>
             <p className="text-[11px] font-medium text-zinc-400 mt-0.5">
-              AWB numbers and barcodes are generated instantaneously via Delhivery / Shiprocket logistics gateway.
+              Live AWB barcodes, courier dispatch labels, and reverse pickups are synchronized with delivery logistics.
             </p>
           </div>
         </div>
 
-        {/* Banner 2: Fast Pack SLA */}
         <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-start gap-3">
           <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0">
             <Zap className="h-5 w-5" />
@@ -365,16 +403,16 @@ export default function SellerOrders() {
           <div>
             <div className="flex items-center gap-1.5 text-xs font-black text-white">
               <span className="px-1.5 py-0.5 rounded bg-amber-500 text-black text-[9px] font-black uppercase">Fast</span>
-              <span>Next Day Dispatch Standard</span>
+              <span>Same-Day & Next-Day Dispatch Standard</span>
             </div>
             <p className="text-[11px] font-medium text-zinc-400 mt-0.5">
-              Pack & download labels before 12:00 P.M. for same-day courier pickup by delivery riders.
+              Process new orders and approve returns promptly to maintain superior merchant ratings.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Status Notice if any */}
+      {/* Status Notice */}
       {statusMessage && (
         <div className="p-4 rounded-2xl bg-purple-600/10 border border-purple-500/30 text-purple-300 text-xs font-black uppercase tracking-wider flex items-center gap-2 animate-in fade-in">
           <Truck className="h-4 w-4 animate-bounce text-purple-400" />
@@ -382,15 +420,16 @@ export default function SellerOrders() {
         </div>
       )}
 
-      {/* Orders Navigation Tabs (Matching Meesho Supplier Layout) */}
+      {/* Navigation Tabs (Matching Meesho / Flipkart Seller Layout) */}
       <div className="flex items-center gap-2 border-b border-zinc-800 overflow-x-auto pb-1 scrollbar-none">
         {[
           { key: "all", label: "All Orders", count: orders.length },
-          { key: "pending", label: "Pending (To Pack)", count: pendingCount },
+          { key: "pending", label: "To Pack (Pending)", count: pendingCount },
           { key: "ready_to_ship", label: "Ready to Ship", count: readyToShipCount, isPrimary: true },
           { key: "shipped", label: "Shipped", count: shippedCount },
           { key: "delivered", label: "Delivered", count: deliveredCount },
-          { key: "cancelled", label: "Cancelled", count: cancelledCount },
+          { key: "returns", label: "Return Requests", count: returnsCount, isReturn: true },
+          { key: "cancelled", label: "Cancelled", count: cancelledCount, isCancel: true },
         ].map((tab) => {
           const isActive = activeTab === tab.key;
           return (
@@ -410,8 +449,10 @@ export default function SellerOrders() {
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                 isActive 
                   ? "bg-purple-600 text-white" 
-                  : tab.count > 0 && tab.key === "ready_to_ship"
-                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                  : tab.isReturn && tab.count > 0
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                  : tab.isCancel && tab.count > 0
+                  ? "bg-red-500/20 text-red-300 border border-red-500/40"
                   : "bg-zinc-800 text-zinc-400"
               }`}>
                 {tab.count}
@@ -423,11 +464,9 @@ export default function SellerOrders() {
 
       {/* Filter & Search Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-zinc-900/40 p-4 rounded-3xl border border-zinc-800/80">
-        
-        {/* Left Filter Tags */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-400">
-            <Filter className="h-3.5 w-3.5" /> Filter by:
+            <Filter className="h-3.5 w-3.5" /> Filter:
           </div>
 
           <select
@@ -435,19 +474,9 @@ export default function SellerOrders() {
             onChange={(e) => setSlaFilter(e.target.value)}
             className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-bold text-white focus:outline-none"
           >
-            <option value="all">Delivery / SLA: All</option>
+            <option value="all">SLA: All</option>
             <option value="breaching">Breaching Soon ⚠️</option>
             <option value="ontime">On Time ⏱️</option>
-          </select>
-
-          <select
-            value={labelFilter}
-            onChange={(e) => setLabelFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-bold text-white focus:outline-none"
-          >
-            <option value="all">Label: All</option>
-            <option value="downloaded">Label Downloaded</option>
-            <option value="pending">Label Pending</option>
           </select>
 
           {selectedOrderIds.length > 0 && (
@@ -457,7 +486,6 @@ export default function SellerOrders() {
           )}
         </div>
 
-        {/* Right Search Input */}
         <div className="relative w-full lg:w-72">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <input
@@ -468,7 +496,6 @@ export default function SellerOrders() {
             className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-bold text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
           />
         </div>
-
       </div>
 
       {/* Orders Table */}
@@ -482,7 +509,7 @@ export default function SellerOrders() {
           <Package className="h-10 w-10 text-zinc-600 mx-auto" />
           <h3 className="text-sm font-black text-white uppercase tracking-wider">No Orders in this view</h3>
           <p className="text-xs font-bold text-zinc-400">
-            No orders match the selected tab "{activeTab}". Try switching tabs or clearing filters.
+            No orders match the selected tab "{activeTab}".
           </p>
         </div>
       ) : (
@@ -500,12 +527,11 @@ export default function SellerOrders() {
                     />
                   </th>
                   <th className="p-4">Product Details</th>
-                  <th className="p-4">Sub-Order ID</th>
-                  <th className="p-4">SKU ID</th>
-                  <th className="p-4">Zebalpha ID</th>
+                  <th className="p-4">Order / Sub-Order</th>
+                  <th className="p-4">SKU / Item</th>
                   <th className="p-4 text-center">Qty</th>
-                  <th className="p-4 text-center">Size</th>
-                  <th className="p-4">Dispatch SLA</th>
+                  <th className="p-4">Status & Reason</th>
+                  <th className="p-4">Date</th>
                   <th className="p-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -538,23 +564,19 @@ export default function SellerOrders() {
                                     (Array.isArray(prodFallback?.images) ? prodFallback.images[0] : null);
 
                   const orderIdShort = order.order_number || String(order.id).slice(0, 8).toUpperCase();
-                  const subOrderId = `${orderIdShort}_1`;
                   const skuId = firstItem?.sku || `SKU-${orderIdShort.slice(0, 5)}`;
-                  const zebalphaId = `ZEB${orderIdShort}`;
                   const quantity = firstItem?.quantity || 1;
-                  const size = firstItem?.size || "Free Size";
-                  const awb = order.tracking_number || order.shipment_id || "";
-                  const courier = order.courier_name || "Delhivery Surface";
                   const isReadyToShip = order.order_status === "ready_to_ship";
                   const isPending = !order.order_status || order.order_status === "placed" || order.order_status === "confirmed" || order.order_status === "processing";
                   const isShipped = order.order_status === "shipped" || order.order_status === "in_transit" || order.order_status === "picked_up";
+                  const isCancelled = order.order_status === "cancelled";
+                  const isReturnActive = String(order.order_status || "").startsWith("return") || (order.return_status && order.return_status !== "none");
 
                   return (
                     <tr 
                       key={order.id} 
                       className={`hover:bg-zinc-800/30 transition ${isSelected ? "bg-purple-900/10" : ""}`}
                     >
-                      {/* Checkbox */}
                       <td className="p-4">
                         <input
                           type="checkbox"
@@ -583,98 +605,97 @@ export default function SellerOrders() {
                           </div>
                           <div className="max-w-xs">
                             <p className="font-black text-white line-clamp-1">
-                              {firstItem?.name || firstItem?.title || prodFallback?.name || "Premium Fashion Apparel Item"}
+                              {firstItem?.name || firstItem?.title || prodFallback?.name || "Apparel Item"}
                             </p>
                             <p className="text-[10px] font-mono font-bold text-zinc-400 mt-0.5">
-                              Order ID: {order.order_number || order.id}
+                              Order: {order.order_number || order.id}
                             </p>
                             <p className="text-[10px] font-bold text-zinc-500">
-                              Customer: {order.customer_name || "Valued Buyer"} ({order.shipping_address?.city || order.city || "City"})
+                              Buyer: {order.customer_name || "Customer"} ({order.shipping_address?.city || order.city || "City"})
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      {/* Sub-order ID */}
+                      {/* Order number */}
                       <td className="p-4 font-mono font-bold text-zinc-300">
-                        {subOrderId}
+                        {order.order_number || order.id}
                       </td>
 
-                      {/* SKU ID */}
+                      {/* SKU */}
                       <td className="p-4 font-mono font-bold text-zinc-300">
                         {skuId}
                       </td>
 
-                      {/* Zebalpha ID */}
-                      <td className="p-4 font-mono font-bold text-purple-400">
-                        {zebalphaId}
-                      </td>
-
-                      {/* Quantity */}
+                      {/* Qty */}
                       <td className="p-4 text-center font-black text-white">
                         {quantity}
                       </td>
 
-                      {/* Size */}
-                      <td className="p-4 text-center font-bold text-zinc-300">
-                        {size}
-                      </td>
-
-                      {/* Dispatch SLA */}
+                      {/* Status / Reason */}
                       <td className="p-4">
-                        <div className="space-y-1">
-                          <span className="text-[11px] font-bold text-zinc-300 block">
-                            {new Date(order.created_at || Date.now()).toLocaleDateString("en-IN", {
-                              day: "numeric",
-                              month: "short"
-                            })}
+                        {isCancelled ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/30 text-[9px] font-black uppercase">
+                              🚫 Cancelled
+                            </span>
+                            {order.cancellation_reason && (
+                              <p className="text-[10px] text-zinc-400 line-clamp-1">Reason: {order.cancellation_reason}</p>
+                            )}
+                          </div>
+                        ) : isReturnActive ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[9px] font-black uppercase">
+                              🔄 {String(order.order_status).replace(/_/g, " ")}
+                            </span>
+                            {order.return_reason && (
+                              <p className="text-[10px] text-zinc-300 line-clamp-1 font-medium">{order.return_reason}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 text-[9px] font-black uppercase">
+                            {String(order.order_status || "PLACED").replace(/_/g, " ")}
                           </span>
-                          {isReadyToShip && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[9px] font-black uppercase">
-                              <Clock className="h-2.5 w-2.5" /> Breaching Soon
-                            </span>
-                          )}
-                          {isPending && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[9px] font-black uppercase">
-                              <AlertTriangle className="h-2.5 w-2.5" /> To Pack
-                            </span>
-                          )}
-                          {isShipped && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[9px] font-black uppercase">
-                              <CheckCircle2 className="h-2.5 w-2.5" /> Picked Up
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </td>
 
-                      {/* Action (Matching Meesho Action Column) */}
+                      {/* Date */}
+                      <td className="p-4 font-medium text-zinc-400">
+                        {new Date(order.created_at || Date.now()).toLocaleDateString()}
+                      </td>
+
+                      {/* Action Column */}
                       <td className="p-4 text-right">
                         <div className="flex flex-col items-end gap-1.5">
                           
-                          {/* When in Ready to Ship tab */}
-                          {isReadyToShip && (
-                            <>
-                              <button
-                                onClick={() => setLabelModalOrder(order)}
-                                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider transition shadow-lg shadow-purple-600/20 cursor-pointer"
-                              >
-                                <Download className="h-3 w-3" />
-                                Label
-                              </button>
-                              
-                              <div className="flex items-center gap-1">
-                                <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                                  ✓ Downloaded
-                                </span>
-                                <span className="text-[9px] font-black text-zinc-300 bg-zinc-800 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                  🚚 {courier.split(" ")[0]}
-                                </span>
-                              </div>
-                            </>
+                          {/* Return Active Action Button */}
+                          {isReturnActive && (
+                            <button
+                              onClick={() => {
+                                setReviewReturnOrder(order);
+                                setShowRejectBox(false);
+                                setRejectionReasonInput("");
+                              }}
+                              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/20 cursor-pointer active:scale-95 flex items-center gap-1.5"
+                            >
+                              <span>Review Return</span>
+                              <span>→</span>
+                            </button>
                           )}
 
-                          {/* When in Pending tab */}
-                          {isPending && (
+                          {/* When in Ready to Ship */}
+                          {isReadyToShip && !isReturnActive && !isCancelled && (
+                            <button
+                              onClick={() => setLabelModalOrder(order)}
+                              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider transition shadow-lg shadow-purple-600/20 cursor-pointer"
+                            >
+                              <Download className="h-3 w-3" />
+                              Label
+                            </button>
+                          )}
+
+                          {/* When in Pending */}
+                          {isPending && !isReturnActive && !isCancelled && (
                             <button
                               onClick={() => handleCreateShipment(order.id)}
                               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-95"
@@ -684,42 +705,220 @@ export default function SellerOrders() {
                             </button>
                           )}
 
-                          {/* When Shipped */}
-                          {isShipped && (
-                            <div className="space-y-1 text-right">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black text-[10px] uppercase">
-                                <Truck className="h-3 w-3" /> In Transit
-                              </span>
-                              <p className="text-[9px] font-mono font-bold text-zinc-400">
-                                AWB: {awb || "DEL-78291048"}
-                              </p>
-                              <button
-                                onClick={() => setLabelModalOrder(order)}
-                                className="text-[9px] font-black uppercase text-purple-400 hover:text-purple-300 flex items-center gap-1 justify-end cursor-pointer"
-                              >
-                                <Printer className="h-2.5 w-2.5" /> Re-print Label
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Delivered / Cancelled */}
-                          {!isReadyToShip && !isPending && !isShipped && (
+                          {/* General view details */}
+                          {!isReadyToShip && !isPending && !isReturnActive && (
                             <button
                               onClick={() => setLabelModalOrder(order)}
-                              className="px-3 py-1 rounded-xl bg-zinc-800 text-zinc-300 hover:text-white font-bold text-[10px] uppercase"
+                              className="px-3 py-1 rounded-xl bg-zinc-800 text-zinc-300 hover:text-white font-bold text-[10px] uppercase cursor-pointer"
                             >
-                              View Manifest
+                              View Details
                             </button>
                           )}
-
                         </div>
                       </td>
-
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Return Review & Action Drawer/Modal (Meesho/Flipkart Style) */}
+      {reviewReturnOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="max-w-xl w-full rounded-[2.5rem] bg-zinc-950 p-6 md:p-8 border border-zinc-800 shadow-2xl space-y-6 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-amber-500 text-black flex items-center justify-center text-lg font-black">
+                  🔄
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">
+                    Return / Exchange Request
+                  </h3>
+                  <p className="text-xs text-zinc-400">Order #{reviewReturnOrder.order_number || reviewReturnOrder.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReviewReturnOrder(null)}
+                className="h-8 w-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Return details card */}
+            <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Request Type</span>
+                <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                  {reviewReturnOrder.return_type || "RETURN"}
+                </span>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Customer Return Reason</p>
+                <p className="text-xs font-bold text-white mt-0.5">{reviewReturnOrder.return_reason || "Not specified"}</p>
+                {reviewReturnOrder.return_sub_reason && (
+                  <p className="text-xs text-zinc-400 mt-0.5">{reviewReturnOrder.return_sub_reason}</p>
+                )}
+              </div>
+              {reviewReturnOrder.return_description && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Detailed Description</p>
+                  <p className="text-xs text-zinc-300 italic mt-0.5">"{reviewReturnOrder.return_description}"</p>
+                </div>
+              )}
+            </div>
+
+            {/* Photo Proofs Gallery */}
+            {reviewReturnOrder.return_images && Array.isArray(reviewReturnOrder.return_images) && reviewReturnOrder.return_images.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-black uppercase tracking-wider text-zinc-300">Customer Photo Proofs</p>
+                <div className="flex flex-wrap gap-2.5">
+                  {reviewReturnOrder.return_images.map((img: string, idx: number) => (
+                    <a key={idx} href={img} target="_blank" rel="noopener noreferrer" className="h-20 w-20 rounded-2xl bg-zinc-900 border border-zinc-700 overflow-hidden block hover:opacity-80 transition">
+                      <img src={img} alt="Proof" className="h-full w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Customer Refund Info (Pure UPI ID for COD or Prepaid Source) */}
+            {reviewReturnOrder.return_type !== "EXCHANGE" && (
+              String(reviewReturnOrder.payment_method || "").toUpperCase() === "COD" ? (
+                <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <span>💳 Customer COD Refund UPI</span>
+                    </span>
+                    <span className="text-xs font-black text-white">
+                      Amount: ₹{reviewReturnOrder.refund_amount || reviewReturnOrder.total_amount}
+                    </span>
+                  </div>
+
+                  {reviewReturnOrder.upi_id || reviewReturnOrder.return_bank_details?.upi_id ? (
+                    <div className="flex items-center justify-between gap-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
+                      <span className="font-mono text-xs font-black text-white select-all">
+                        {reviewReturnOrder.upi_id || reviewReturnOrder.return_bank_details?.upi_id}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const idToCopy = reviewReturnOrder.upi_id || reviewReturnOrder.return_bank_details?.upi_id;
+                          if (idToCopy) {
+                            navigator.clipboard.writeText(idToCopy);
+                            setCopiedUpi(true);
+                            setTimeout(() => setCopiedUpi(false), 2500);
+                          }
+                        }}
+                        className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shrink-0 ${
+                          copiedUpi ? "bg-emerald-500 text-black font-black" : "bg-purple-600 hover:bg-purple-500 text-white"
+                        }`}
+                      >
+                        {copiedUpi ? "✓ Copied!" : "📋 Copy UPI"}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-zinc-500 italic">No UPI ID provided yet.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-1">
+                  <span className="font-black text-emerald-300 flex items-center gap-1.5">
+                    <span>✓ Prepaid Order — Automated Razorpay Refund</span>
+                  </span>
+                  <p className="text-[11px] text-emerald-200/70">
+                    Refund of ₹{reviewReturnOrder.refund_amount || reviewReturnOrder.total_amount} will be automatically sent to the customer's original payment source once verified.
+                  </p>
+                </div>
+              )
+            )}
+
+            {/* Reject Form Box */}
+            {showRejectBox ? (
+              <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 space-y-3">
+                <p className="text-xs font-black uppercase tracking-wider text-red-300">Enter Reason for Rejecting Return</p>
+                <textarea
+                  value={rejectionReasonInput}
+                  onChange={(e) => setRejectionReasonInput(e.target.value)}
+                  placeholder="Explain why this return does not meet return policy criteria (e.g. Item used/damaged by customer)..."
+                  rows={2}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-xs text-white placeholder-zinc-500 outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowRejectBox(false)}
+                    className="flex-1 py-2 rounded-xl bg-zinc-800 text-zinc-300 font-bold text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleReturnAction(reviewReturnOrder.id, "REJECT", { rejection_reason: rejectionReasonInput })}
+                    disabled={!rejectionReasonInput.trim() || processingReturn}
+                    className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase disabled:opacity-50"
+                  >
+                    Confirm Rejection
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Action Buttons */
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {/* Approve Return */}
+                  {reviewReturnOrder.order_status === "return_requested" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleReturnAction(reviewReturnOrder.id, "APPROVE")}
+                        disabled={processingReturn}
+                        className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 cursor-pointer"
+                      >
+                        ✓ Approve Return & Schedule Pickup
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowRejectBox(true)}
+                        disabled={processingReturn}
+                        className="px-4 py-3 rounded-2xl bg-red-950/60 border border-red-500/40 text-red-300 hover:bg-red-900 text-xs font-black uppercase cursor-pointer"
+                      >
+                        ✕ Reject
+                      </button>
+                    </>
+                  )}
+
+                  {/* Mark Picked Up */}
+                  {reviewReturnOrder.order_status === "return_approved" && (
+                    <button
+                      type="button"
+                      onClick={() => handleReturnAction(reviewReturnOrder.id, "PICKUP")}
+                      disabled={processingReturn}
+                      className="w-full py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider shadow-lg cursor-pointer"
+                    >
+                      🚚 Mark Picked Up by Courier
+                    </button>
+                  )}
+
+                  {/* Confirm Received & Restock */}
+                  {(reviewReturnOrder.order_status === "return_picked_up" || reviewReturnOrder.order_status === "return_approved") && (
+                    <button
+                      type="button"
+                      onClick={() => handleReturnAction(reviewReturnOrder.id, "CONFIRM_RECEIVED")}
+                      disabled={processingReturn}
+                      className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider shadow-xl shadow-emerald-500/20 cursor-pointer"
+                    >
+                      📦 Confirm Item Received & Restock Stock
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -737,3 +936,4 @@ export default function SellerOrders() {
     </div>
   );
 }
+

@@ -5,6 +5,8 @@ import {
   pushOrderToShiprocket,
   trackShiprocketShipment,
   parseShiprocketWebhookPayload,
+  cancelShiprocketOrder,
+  createShiprocketReturnOrder,
 } from './shiprocket.js';
 
 const SHIPROCKET_BASE_URL = 'https://apiv2.shiprocket.in/v1/external';
@@ -15,6 +17,8 @@ export {
   pushOrderToShiprocket,
   trackShiprocketShipment,
   parseShiprocketWebhookPayload,
+  cancelShiprocketOrder,
+  createShiprocketReturnOrder,
 };
 
 /**

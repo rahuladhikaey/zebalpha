@@ -417,3 +417,132 @@ export const parseShiprocketWebhookPayload = (payload) => {
     scans: scans || [],
   };
 };
+
+/**
+ * 5. Cancel Order in Shiprocket
+ * API: POST /v1/external/orders/cancel
+ *
+ * @param {string|number|Array} orderIds - Shiprocket order IDs or internal order IDs
+ */
+export const cancelShiprocketOrder = async (orderIds) => {
+  try {
+    const token = await getShiprocketToken();
+    const ids = Array.isArray(orderIds) ? orderIds : [orderIds];
+    
+    console.log('[Shiprocket Cancel] Requesting cancellation for order IDs:', ids);
+    const response = await axios.post(
+      `${SHIPROCKET_BASE_URL}/orders/cancel`,
+      { ids },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        timeout: 15000
+      }
+    );
+
+    return {
+      success: true,
+      data: response.data,
+      message: response.data?.message || 'Order cancelled in Shiprocket successfully.'
+    };
+  } catch (error) {
+    if (error.response?.status === 401) {
+      await getShiprocketToken(true);
+      return cancelShiprocketOrder(orderIds);
+    }
+    const errMsg = error.response?.data?.message || error.message;
+    console.warn('[Shiprocket Cancel Warning]:', errMsg);
+    return {
+      success: false,
+      error: errMsg
+    };
+  }
+};
+
+/**
+ * 6. Create Return / Reverse Pickup Order in Shiprocket
+ * API: POST /v1/external/orders/create/return
+ *
+ * @param {Object} returnData
+ */
+export const createShiprocketReturnOrder = async (returnData) => {
+  try {
+    const token = await getShiprocketToken();
+    console.log('[Shiprocket Return] Creating reverse pickup for order:', returnData.order_id || returnData.order_number);
+
+    const payload = {
+      order_id: String(returnData.order_id || returnData.order_number),
+      order_date: new Date().toISOString().split('T')[0],
+      channel_id: '',
+      pickup_customer_name: returnData.customer_name || 'Customer',
+      pickup_last_name: '',
+      pickup_address: returnData.pickup_address || returnData.address || 'Customer Address',
+      pickup_address_2: returnData.pickup_landmark || '',
+      pickup_city: returnData.pickup_city || returnData.city || 'Kolkata',
+      pickup_state: returnData.pickup_state || returnData.state || 'West Bengal',
+      pickup_country: 'India',
+      pickup_pincode: String(returnData.pickup_pincode || returnData.pincode || '700001').replace(/\D/g, '').slice(0, 6),
+      pickup_email: returnData.customer_email || 'customer@zebalpha.com',
+      pickup_phone: String(returnData.customer_phone || returnData.phone || '9999999999').replace(/\D/g, '').slice(0, 10),
+      shipping_customer_name: returnData.warehouse_name || 'ZEBALPHA Return Hub',
+      shipping_address: returnData.warehouse_address || 'Merchant Warehouse Hub',
+      shipping_city: returnData.warehouse_city || 'Kolkata',
+      shipping_state: returnData.warehouse_state || 'West Bengal',
+      shipping_country: 'India',
+      shipping_pincode: String(returnData.warehouse_pincode || '700001').replace(/\D/g, '').slice(0, 6),
+      shipping_phone: '9999999999',
+      order_items: (returnData.items || []).map((item, idx) => ({
+        name: item.name || 'Returned Item',
+        sku: item.sku || `RET-${idx}-${Date.now()}`,
+        units: Number(item.quantity) || 1,
+        selling_price: Number(item.price) || 0,
+        discount: 0,
+        qc_enable: true,
+        qc_size: item.size || 'Free',
+        qc_product_name: item.name || 'Product',
+      })),
+      payment_method: 'PREPAID',
+      sub_total: Number(returnData.refund_amount || returnData.total_amount || 0),
+      length: 15,
+      breadth: 15,
+      height: 10,
+      weight: 0.5
+    };
+
+    const response = await axios.post(
+      `${SHIPROCKET_BASE_URL}/orders/create/return`,
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        timeout: 15000
+      }
+    );
+
+    const respData = response.data?.response?.data || response.data;
+    return {
+      success: true,
+      shipment_id: respData?.shipment_id || respData?.order_id,
+      order_id: respData?.order_id,
+      awb_code: respData?.awb_code || null,
+      courier_name: respData?.courier_name || 'Reverse Logistics Express',
+      data: respData
+    };
+  } catch (error) {
+    if (error.response?.status === 401) {
+      await getShiprocketToken(true);
+      return createShiprocketReturnOrder(returnData);
+    }
+    const errMsg = error.response?.data?.message || error.response?.data?.errors || error.message;
+    console.warn('[Shiprocket Return Order Warning]:', errMsg);
+    return {
+      success: false,
+      error: typeof errMsg === 'object' ? JSON.stringify(errMsg) : String(errMsg)
+    };
+  }
+};
+

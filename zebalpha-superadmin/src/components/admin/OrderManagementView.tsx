@@ -40,6 +40,9 @@ export default function OrderManagementView() {
   const [awbInput, setAwbInput] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
   const [pushingShiprocket, setPushingShiprocket] = useState(false);
+  const [refundUtrInput, setRefundUtrInput] = useState("");
+  const [copiedAdminUpi, setCopiedAdminUpi] = useState(false);
+  const [processingRefund, setProcessingRefund] = useState(false);
 
   const handlePushShiprocket = async (orderId: string | number) => {
     setPushingShiprocket(true);
@@ -178,6 +181,52 @@ export default function OrderManagementView() {
     }
   };
 
+  const handleProcessRefund = async (order: any, utrNumber?: string) => {
+    setProcessingRefund(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const utr = utrNumber || refundUtrInput.trim() || `REF-${Date.now()}`;
+      const payload: any = {
+        id: order.id,
+        orderId: order.id,
+        refund_status: "COMPLETED",
+        refund_amount: order.refund_amount || order.total_amount,
+        refund_transaction_id: utr,
+        status: "COMPLETED",
+        admin_notes: `Refund processed by superadmin with reference ${utr}`
+      };
+
+      const res = await fetch("/api/admin/returns", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        setStatusMsg("✓ Refund recorded and marked as COMPLETED!");
+        setRefundUtrInput("");
+        const updated = {
+          ...order,
+          order_status: "returned",
+          return_status: "completed",
+          refund_status: "COMPLETED",
+          refund_transaction_id: utr,
+          refund_completed_at: nowIso
+        };
+        setSelectedOrder(updated);
+        setOrders(orders.map(o => o.id === order.id ? { ...o, ...updated } : o));
+      } else {
+        setStatusMsg("⚠️ " + (json.message || "Failed to record refund"));
+      }
+    } catch (e: any) {
+      setStatusMsg("Error: " + e.message);
+    } finally {
+      setProcessingRefund(false);
+      setTimeout(() => setStatusMsg(""), 4000);
+    }
+  };
+
   const handleSaveTracking = async () => {
     if (!selectedOrder) return;
     try {
@@ -241,12 +290,27 @@ export default function OrderManagementView() {
     "SHIPPED", 
     "IN_TRANSIT",
     "DELIVERED", 
+    "RETURN_REQUESTED",
+    "RETURNED",
     "CANCELLED"
   ];
 
   const filteredOrders = orders.filter(o => {
     const st = (o.order_status || "placed").toUpperCase();
-    const matchesStatus = statusFilter === "ALL" || st === statusFilter;
+    const retSt = (o.return_status || "").toUpperCase();
+
+    let matchesStatus = false;
+    if (statusFilter === "ALL") {
+      matchesStatus = true;
+    } else if (statusFilter === "RETURN_REQUESTED") {
+      matchesStatus = st.startsWith("RETURN") || (retSt !== "" && retSt !== "NONE");
+    } else if (statusFilter === "RETURNED") {
+      matchesStatus = st === "RETURNED" || retSt === "COMPLETED";
+    } else if (statusFilter === "CANCELLED") {
+      matchesStatus = st === "CANCELLED";
+    } else {
+      matchesStatus = st === statusFilter;
+    }
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch = 
       !query ||
@@ -709,6 +773,177 @@ export default function OrderManagementView() {
                   })()}
                 </div>
               </div>
+
+              {/* ── RETURN OR CANCELLATION DETAILS (IF APPLICABLE) ── */}
+              {(selectedOrder.return_status && selectedOrder.return_status !== "NONE") || String(selectedOrder.order_status || "").startsWith("return") ? (
+                <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                      <RefreshCw size={12} className="text-amber-400" />
+                      Customer Return / Exchange Request
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30 text-[9px] font-black uppercase">
+                      {selectedOrder.return_type || "RETURN"} • {selectedOrder.return_status || selectedOrder.order_status}
+                    </span>
+                  </div>
+
+                  <div className="text-xs space-y-1">
+                    <p className="text-white font-bold">Reason: {selectedOrder.return_reason || "Customer requested return"}</p>
+                    {selectedOrder.return_sub_reason && (
+                      <p className="text-zinc-400 text-[11px]">{selectedOrder.return_sub_reason}</p>
+                    )}
+                    {selectedOrder.return_description && (
+                      <p className="text-zinc-300 italic text-[11px]">"{selectedOrder.return_description}"</p>
+                    )}
+                  </div>
+
+                  {/* Photo Proofs */}
+                  {selectedOrder.return_images && Array.isArray(selectedOrder.return_images) && selectedOrder.return_images.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-zinc-400">Attached Photos:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedOrder.return_images.map((img: string, i: number) => (
+                          <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="h-16 w-16 rounded-xl bg-zinc-900 border border-zinc-700 overflow-hidden block hover:opacity-80">
+                            <img src={img} alt="Proof" className="h-full w-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Customer Refund Destination & Payout Processing */}
+                  <div className="p-3.5 bg-black/60 rounded-xl border border-zinc-800 space-y-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                        <CreditCard size={12} />
+                        Refund Management
+                      </span>
+                      <span className="text-white font-black">
+                        ₹{selectedOrder.refund_amount || selectedOrder.total_amount} ({selectedOrder.payment_method || "COD"})
+                      </span>
+                    </div>
+
+                    {String(selectedOrder.payment_method || "").toUpperCase() === "COD" ? (
+                      /* COD: Customer UPI ID + UTR Recording */
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 p-2.5 bg-zinc-900 rounded-xl border border-zinc-700">
+                          <div>
+                            <span className="text-[10px] font-bold text-zinc-400 block uppercase">Customer Refund UPI ID:</span>
+                            <span className="font-mono text-white text-xs font-black select-all">
+                              {selectedOrder.upi_id || selectedOrder.return_bank_details?.upi_id || "Not submitted"}
+                            </span>
+                          </div>
+                          {(selectedOrder.upi_id || selectedOrder.return_bank_details?.upi_id) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const idToCopy = selectedOrder.upi_id || selectedOrder.return_bank_details?.upi_id;
+                                if (idToCopy) {
+                                  navigator.clipboard.writeText(idToCopy);
+                                  setCopiedAdminUpi(true);
+                                  setTimeout(() => setCopiedAdminUpi(false), 2000);
+                                }
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1 ${
+                                copiedAdminUpi ? "bg-emerald-500 text-black font-black" : "bg-purple-600 hover:bg-purple-500 text-white"
+                              }`}
+                            >
+                              {copiedAdminUpi ? "✓ Copied" : "📋 Copy UPI"}
+                            </button>
+                          )}
+                        </div>
+
+                        {selectedOrder.refund_status === "COMPLETED" ? (
+                          <div className="p-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-emerald-300 text-[11px] font-bold flex items-center gap-1.5">
+                            <CheckCircle2 size={13} className="text-emerald-400" />
+                            <span>Refund Completed (UTR: {selectedOrder.refund_transaction_id || "Recorded"})</span>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Enter Bank / GPay UTR Number..."
+                              value={refundUtrInput}
+                              onChange={(e) => setRefundUtrInput(e.target.value)}
+                              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-zinc-500 font-mono outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleProcessRefund(selectedOrder, refundUtrInput)}
+                              disabled={processingRefund}
+                              className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                            >
+                              ✓ Confirm Paid
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Prepaid: Automated Razorpay Refund */
+                      <div className="space-y-2">
+                        <div className="p-2.5 bg-zinc-900 rounded-xl border border-zinc-700 space-y-1">
+                          <span className="text-[10px] font-bold text-zinc-400 block uppercase">Razorpay Online Payment Source</span>
+                          <p className="text-[11px] text-zinc-300">
+                            Payment ID: <span className="font-mono text-white font-bold">{selectedOrder.payment_id || selectedOrder.razorpay_payment_id || "ONLINE"}</span>
+                          </p>
+                        </div>
+
+                        {selectedOrder.refund_status === "COMPLETED" ? (
+                          <div className="p-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-emerald-300 text-[11px] font-bold flex items-center gap-1.5">
+                            <CheckCircle2 size={13} className="text-emerald-400" />
+                            <span>Razorpay Refund Processed (ID: {selectedOrder.razorpay_refund_id || selectedOrder.refund_transaction_id || "COMPLETED"})</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleProcessRefund(selectedOrder, `RZP-REF-${Date.now()}`)}
+                            disabled={processingRefund}
+                            className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                          >
+                            <Sparkles size={13} />
+                            <span>{processingRefund ? "Processing..." : "Trigger Razorpay Source Refund"}</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Admin Actions */}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      onClick={() => handleUpdateOrderStatus(selectedOrder.id, "return_approved")}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase cursor-pointer"
+                    >
+                      ✓ Approve Return
+                    </button>
+                    <button
+                      onClick={() => handleUpdateOrderStatus(selectedOrder.id, "return_rejected")}
+                      className="px-3 py-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 hover:bg-red-900 text-xs font-black uppercase cursor-pointer"
+                    >
+                      ✕ Reject
+                    </button>
+                    <button
+                      onClick={() => handleUpdateOrderStatus(selectedOrder.id, "returned")}
+                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase cursor-pointer"
+                    >
+                      📦 Mark Received
+                    </button>
+                  </div>
+                </div>
+              ) : selectedOrder.order_status === "cancelled" ? (
+                <div className="p-4 rounded-2xl bg-red-950/30 border border-red-500/40 space-y-1 text-xs text-red-200">
+                  <div className="flex items-center gap-2 font-black">
+                    <XCircle size={14} />
+                    <span>Order Cancelled</span>
+                  </div>
+                  {selectedOrder.cancellation_reason && (
+                    <p className="text-zinc-300"><span className="text-zinc-400">Reason:</span> {selectedOrder.cancellation_reason}</p>
+                  )}
+                  {selectedOrder.refund_status && (
+                    <p className="text-emerald-400 font-bold">Refund Status: {selectedOrder.refund_status}</p>
+                  )}
+                </div>
+              ) : null}
 
               {/* ── CUSTOMER & SHIPPING ADDRESS ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-bold">

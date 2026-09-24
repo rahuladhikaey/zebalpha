@@ -81,7 +81,7 @@ export async function POST(req: Request) {
               sellerCity = sellerProf.city || "";
               sellerState = sellerProf.state || "";
             }
-          } catch (_) {}
+          } catch (_) { }
 
           // Check registered pickup locations in Shiprocket
           let activePickup = "";

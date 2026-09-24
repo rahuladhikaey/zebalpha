@@ -251,6 +251,74 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS courier_name VARCHAR(100);
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_label_url TEXT;
 
+-- RETURN & CANCELLATION FIELDS FOR ORDERS
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS cancellation_comment TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS cancelled_by TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_status TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_type TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_reason TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_sub_reason TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_description TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_images JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_items JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_bank_details JSONB;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_exchange_details JSONB;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_requested_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_approved_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_rejected_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_rejection_reason TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_picked_up_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_completed_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_tracking_number TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS return_courier_name TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS refund_status TEXT DEFAULT 'NONE';
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS refund_amount NUMERIC(10,2) DEFAULT 0.00;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS refund_id TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS refund_transaction_id TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS refund_initiated_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS refund_completed_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS refund_notes TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+
+-- 15. ORDER RETURNS TABLE (Meesho/Flipkart Return Workflow)
+CREATE TABLE IF NOT EXISTS public.order_returns (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id TEXT NOT NULL,
+    order_number TEXT NOT NULL,
+    user_id UUID,
+    user_email TEXT,
+    seller_id TEXT,
+    return_type TEXT NOT NULL DEFAULT 'RETURN',
+    status TEXT NOT NULL DEFAULT 'REQUESTED',
+    items JSONB NOT NULL DEFAULT '[]'::jsonb,
+    reason TEXT NOT NULL,
+    sub_reason TEXT,
+    description TEXT,
+    images JSONB DEFAULT '[]'::jsonb,
+    refund_mode TEXT DEFAULT 'ORIGINAL_SOURCE',
+    bank_details JSONB,
+    exchange_details JSONB,
+    refund_amount NUMERIC(10,2) DEFAULT 0.00,
+    refund_status TEXT DEFAULT 'PENDING',
+    refund_transaction_id TEXT,
+    rejection_reason TEXT,
+    pickup_awb TEXT,
+    pickup_courier TEXT,
+    admin_notes TEXT,
+    seller_notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_returns_order_id ON public.order_returns(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_returns_order_number ON public.order_returns(order_number);
+CREATE INDEX IF NOT EXISTS idx_order_returns_user_id ON public.order_returns(user_id);
+CREATE INDEX IF NOT EXISTS idx_order_returns_seller_id ON public.order_returns(seller_id);
+CREATE INDEX IF NOT EXISTS idx_order_returns_status ON public.order_returns(status);
+CREATE TRIGGER trg_order_returns_updated_at BEFORE UPDATE ON public.order_returns FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
 -- TRIGGERS
 CREATE TRIGGER trg_sellers_updated_at BEFORE UPDATE ON public.sellers FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_seller_pickup_locations_updated_at BEFORE UPDATE ON public.seller_pickup_locations FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
