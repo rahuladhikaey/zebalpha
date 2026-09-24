@@ -44,16 +44,8 @@ export async function POST(request: NextRequest) {
         );
 
         if (existingUser) {
-          // If the user is already confirmed, we must not overwrite their password silently
-          if (existingUser.email_confirmed_at) {
-            return NextResponse.json(
-              { success: false, error: "An account already exists for this email. Please sign in or reset your password." },
-              { status: 400 }
-            );
-          }
-
-          // If the user signed up previously but remained unconfirmed (e.g. Supabase email was never delivered),
-          // activate and confirm them now with the new password
+          // The user has already verified the 6-digit OTP sent to this email address in Step 1.
+          // Update password and activate user directly.
           const { data: updateRes, error: updateErr } = await supabaseServer.auth.admin.updateUserById(
             existingUser.id,
             {

@@ -67,6 +67,15 @@ export const createSellerAddress = async (req, res, next) => {
       });
     }
 
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const currentSellerId = req.sellerId || req.user?.id;
+    if (!isSuperAdmin && String(sellerId) !== String(currentSellerId)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Forbidden: Cannot create pickup location for another merchant.'
+      });
+    }
+
     // Check if this is the first address, if so make it default
     const { count } = await supabaseB
       .from('seller_pickup_locations')
@@ -164,6 +173,15 @@ export const updateSellerAddress = async (req, res, next) => {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Pickup address not found.' });
     }
 
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const currentSellerId = req.sellerId || req.user?.id;
+    if (!isSuperAdmin && String(existing.seller_id) !== String(currentSellerId)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Forbidden: Access denied to modify other merchant pickup locations.'
+      });
+    }
+
     // Save previous state to address_change_history for audit trail
     await supabaseB.from('address_change_history').insert([{
       seller_id: existing.seller_id,
@@ -220,6 +238,15 @@ export const updateSellerAddress = async (req, res, next) => {
 export const setDefaultAddress = async (req, res, next) => {
   try {
     const { sellerId, id } = req.params;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const currentSellerId = req.sellerId || req.user?.id;
+
+    if (!isSuperAdmin && String(sellerId) !== String(currentSellerId)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Forbidden: Cannot alter default warehouse for another merchant.'
+      });
+    }
 
     // Clear previous defaults
     await supabaseB

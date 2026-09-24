@@ -95,7 +95,21 @@ CREATE INDEX IF NOT EXISTS idx_orders_cancelled_at ON public.orders(cancelled_at
 ALTER TABLE public.order_returns ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public access to order_returns" ON public.order_returns;
-CREATE POLICY "Public access to order_returns" ON public.order_returns FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Customers view own returns" ON public.order_returns;
+DROP POLICY IF EXISTS "Sellers view assigned returns" ON public.order_returns;
+DROP POLICY IF EXISTS "Service role manages order_returns" ON public.order_returns;
+
+CREATE POLICY "Customers view own returns" ON public.order_returns
+    FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Sellers view assigned returns" ON public.order_returns
+    FOR SELECT TO authenticated USING (
+        order_returns.seller_id = auth.uid()::text OR
+        EXISTS (SELECT 1 FROM public.sellers s WHERE s.id::text = order_returns.seller_id AND s.user_id = auth.uid())
+    );
+
+CREATE POLICY "Service role manages order_returns" ON public.order_returns
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- 5. Trigger for updated_at
 CREATE OR REPLACE FUNCTION public.set_order_returns_updated_at()

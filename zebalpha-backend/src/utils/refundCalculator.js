@@ -65,9 +65,13 @@ export const calculateAuthoritativeRefund = (params = {}) => {
 
   // 3. Proportionate discount adjustment
   let discountDeduction = 0;
-  if (couponDiscount > 0 && orderTotal > 0) {
-    const ratio = Math.min(1, itemsSubtotal / orderTotal);
-    discountDeduction = Math.round(couponDiscount * ratio * 100) / 100;
+  if (couponDiscount > 0) {
+    const originalSubtotal = items.reduce((sum, it) => sum + (Number(it.price || it.subtotal || 0) * Math.max(1, Number(it.quantity || 1))), 0);
+    const denominator = originalSubtotal > 0 ? originalSubtotal : ((Number(orderTotal) || 0) + couponDiscount);
+    if (denominator > 0) {
+      const ratio = Math.min(1, itemsSubtotal / denominator);
+      discountDeduction = Math.round(couponDiscount * ratio * 100) / 100;
+    }
   }
 
   // 4. Shipping refund policy (Full refund on Defective / Wrong item, or if configured)

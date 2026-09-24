@@ -112,36 +112,34 @@ export const verifyRazorpayPayment = async (req, res, next) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
 
-    if (!razorpay_payment_id) {
+    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        error: 'Missing required Razorpay payment identifier'
+        error: 'Missing required Razorpay payment identifiers (order_id, payment_id, signature required).'
       });
     }
 
-    const secret = (config.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || '5LUjZ94LMDnjwlLyB9cUU5cb').trim();
+    const secret = (config.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || '').trim();
 
-    let isSignatureValid = false;
-
-    // Direct checkout verification or test fallback
-    if (razorpay_signature === 'direct_checkout_verified' || String(razorpay_order_id).startsWith('order_')) {
-      isSignatureValid = true;
-    } else if (secret && razorpay_order_id && razorpay_signature) {
-      // Generate expected HMAC signature
-      const generatedSignature = crypto
-        .createHmac('sha256', secret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest('hex');
-
-      const expectedBuf = Buffer.from(generatedSignature);
-      const providedBuf = Buffer.from(String(razorpay_signature));
-
-      // Constant-time comparison
-      isSignatureValid = expectedBuf.length === providedBuf.length && 
-                         crypto.timingSafeEqual(expectedBuf, providedBuf);
-    } else {
-      isSignatureValid = true;
+    if (!secret) {
+      console.error('[Payment Security Alert] RAZORPAY_KEY_SECRET is not configured.');
+      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        error: 'Payment gateway configuration error.'
+      });
     }
+
+    // Generate expected HMAC-SHA256 signature
+    const generatedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    const expectedBuf = Buffer.from(generatedSignature);
+    const providedBuf = Buffer.from(String(razorpay_signature));
+
+    const isSignatureValid = expectedBuf.length === providedBuf.length && 
+                             crypto.timingSafeEqual(expectedBuf, providedBuf);
 
     if (!isSignatureValid) {
       console.warn(`[Security Alert] Payment signature mismatch for order ${razorpay_order_id}.`);
@@ -154,7 +152,14 @@ export const verifyRazorpayPayment = async (req, res, next) => {
     if (orderId) {
       await supabaseA
         .from('orders')
-        .update({ payment_status: 'COMPLETE', payment_id: razorpay_payment_id })
+        .update({ 
+          payment_status: 'COMPLETE', 
+          payment_id: razorpay_payment_id,
+          razorpay_payment_id: razorpay_payment_id,
+          razorpay_order_id: razorpay_order_id,
+          razorpay_signature: razorpay_signature,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', orderId);
     }
 

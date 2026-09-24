@@ -10,23 +10,56 @@ import { cacheService } from '../services/cacheService.js';
 export const getOrders = async (req, res, next) => {
   try {
     const { sellerId, customerId } = req.query;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const isSeller = (req.user?.role || '').toLowerCase() === 'seller' || Boolean(req.sellerId);
+    const currentUserId = req.user?.id;
+    const currentSellerId = req.sellerId || req.user?.id;
 
-    if (sellerId) {
-      // Query Supabase B for seller-specific orders
+    if (isSuperAdmin) {
+      if (sellerId) {
+        // Super Admin query Supabase B for specific seller orders
+        const { data, error } = await supabaseB
+          .from('orders')
+          .select('*')
+          .eq('seller_id', sellerId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return res.status(HTTP_STATUS.OK).json({ success: true, data });
+      }
+
+      // Super Admin query Supabase A for customer or all orders
+      let query = supabaseA.from('orders').select('*').order('created_at', { ascending: false });
+      if (customerId) {
+        query = query.eq('user_id', customerId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return res.status(HTTP_STATUS.OK).json({ success: true, data });
+    }
+
+    if (isSeller) {
+      // Sellers can ONLY view their own store orders
       const { data, error } = await supabaseB
         .from('orders')
         .select('*')
-        .eq('seller_id', sellerId)
+        .eq('seller_id', currentSellerId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return res.status(HTTP_STATUS.OK).json({ success: true, data });
     }
 
-    // Query Supabase A for customer-specific orders
+    // Customers can strictly ONLY view their own orders
+    const userEmail = (req.user?.email || '').trim().toLowerCase();
     let query = supabaseA.from('orders').select('*').order('created_at', { ascending: false });
-    if (customerId) {
-      query = query.eq('user_id', customerId);
+    if (currentUserId && userEmail) {
+      query = query.or(`user_id.eq.${currentUserId},customer_email.ilike.${userEmail},email.ilike.${userEmail}`);
+    } else if (currentUserId) {
+      query = query.eq('user_id', currentUserId);
+    } else {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, error: 'Authentication required' });
     }
 
     const { data, error } = await query;
@@ -374,6 +407,24 @@ export const cancelOrder = async (req, res, next) => {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Order not found' });
     }
 
+    // Zero-Trust BOLA / IDOR Authorization Check: Verify caller owns order or is Super Admin
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const isOrderOwner = req.user?.id && String(orderData.user_id) === String(req.user.id);
+    const userEmail = (req.user?.email || '').trim().toLowerCase();
+    const isOrderEmailOwner = userEmail && (
+      (orderData.email && orderData.email.toLowerCase() === userEmail) || 
+      (orderData.customer_email && orderData.customer_email.toLowerCase() === userEmail)
+    );
+    const isAuthorizedSeller = (req.sellerId && String(orderData.seller_id) === String(req.sellerId)) || 
+                               (req.user?.id && String(orderData.seller_id) === String(req.user.id));
+
+    if (!isSuperAdmin && !isOrderOwner && !isOrderEmailOwner && !isAuthorizedSeller) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Forbidden: You do not have permission to cancel this order.'
+      });
+    }
+
     const currentStatus = String(orderData.order_status || '').toLowerCase();
 
     // Check cancellation eligibility
@@ -589,6 +640,22 @@ export const requestReturn = async (req, res, next) => {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Order not found' });
     }
 
+    // Zero-Trust BOLA / IDOR Check: Caller must be owner of order or Super Admin
+    const isSuperAdminReq = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const isOrderOwnerReq = req.user?.id && String(orderData.user_id) === String(req.user.id);
+    const callerEmail = (req.user?.email || '').trim().toLowerCase();
+    const isOrderEmailOwnerReq = callerEmail && (
+      (orderData.email && orderData.email.toLowerCase() === callerEmail) || 
+      (orderData.customer_email && orderData.customer_email.toLowerCase() === callerEmail)
+    );
+
+    if (!isSuperAdminReq && !isOrderOwnerReq && !isOrderEmailOwnerReq) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Forbidden: You do not have permission to request a return for this order.'
+      });
+    }
+
     const currentStatus = String(orderData.order_status || '').toLowerCase();
     if (currentStatus !== 'delivered') {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
@@ -717,17 +784,30 @@ export const requestReturn = async (req, res, next) => {
 export const getOrderReturns = async (req, res, next) => {
   try {
     const { sellerId, userId, orderId, status } = req.query;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const isSeller = (req.user?.role || '').toLowerCase() === 'seller' || Boolean(req.sellerId);
+    const currentSellerId = req.sellerId || req.user?.id;
+    const currentUserId = req.user?.id;
 
     let query = supabaseA.from('order_returns').select('*').order('created_at', { ascending: false });
 
+    if (!isSuperAdmin) {
+      if (isSeller) {
+        query = query.eq('seller_id', currentSellerId);
+      } else {
+        query = query.eq('user_id', currentUserId);
+      }
+    } else {
+      if (sellerId) {
+        query = query.eq('seller_id', sellerId);
+      }
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+    }
+
     if (orderId) {
       query = query.or(`order_id.eq.${orderId},order_number.eq.${orderId}`);
-    }
-    if (sellerId) {
-      query = query.eq('seller_id', sellerId);
-    }
-    if (userId) {
-      query = query.eq('user_id', userId);
     }
     if (status) {
       query = query.eq('status', status.toUpperCase());
@@ -748,6 +828,10 @@ export const getOrderReturns = async (req, res, next) => {
 export const getReturnDetails = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const isSeller = (req.user?.role || '').toLowerCase() === 'seller' || Boolean(req.sellerId);
+    const currentSellerId = req.sellerId || req.user?.id;
+    const currentUserId = req.user?.id;
 
     let query = supabaseA.from('order_returns').select('*');
     const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
@@ -762,6 +846,15 @@ export const getReturnDetails = async (req, res, next) => {
 
     if (!data) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Return record not found' });
+    }
+
+    if (!isSuperAdmin) {
+      if (isSeller && String(data.seller_id) !== String(currentSellerId)) {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, error: 'Forbidden: You do not have access to this return record.' });
+      }
+      if (!isSeller && String(data.user_id) !== String(currentUserId)) {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, error: 'Forbidden: You do not have access to this return record.' });
+      }
     }
 
     res.status(HTTP_STATUS.OK).json({ success: true, data });

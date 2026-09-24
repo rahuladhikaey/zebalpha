@@ -159,5 +159,46 @@ CREATE POLICY "Sellers read own alerts" ON public.seller_notifications
 CREATE POLICY "Service role manages seller_notifications" ON public.seller_notifications
     FOR ALL TO service_role USING (true) WITH CHECK (true);
 
--- 10. REFRESH SCHEMA CACHE
+-- 10. ORDER RETURNS & EXCHANGES (Customer views own, seller views assigned, service_role manages all)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'order_returns') THEN
+        EXECUTE 'ALTER TABLE public.order_returns ENABLE ROW LEVEL SECURITY;';
+        EXECUTE 'DROP POLICY IF EXISTS "Public access to order_returns" ON public.order_returns;';
+        EXECUTE 'DROP POLICY IF EXISTS "Customers view own returns" ON public.order_returns;';
+        EXECUTE 'DROP POLICY IF EXISTS "Sellers view assigned returns" ON public.order_returns;';
+        EXECUTE 'DROP POLICY IF EXISTS "Service role manages order_returns" ON public.order_returns;';
+        
+        EXECUTE 'CREATE POLICY "Customers view own returns" ON public.order_returns
+            FOR SELECT TO authenticated USING (auth.uid() = user_id);';
+            
+        EXECUTE 'CREATE POLICY "Sellers view assigned returns" ON public.order_returns
+            FOR SELECT TO authenticated USING (
+                order_returns.seller_id = auth.uid()::text OR
+                EXISTS (SELECT 1 FROM public.sellers s WHERE s.id::text = order_returns.seller_id AND s.user_id = auth.uid())
+            );';
+            
+        EXECUTE 'CREATE POLICY "Service role manages order_returns" ON public.order_returns
+            FOR ALL TO service_role USING (true) WITH CHECK (true);';
+    END IF;
+END $$;
+
+-- 11. WISHLISTS (Users manage own wishlist items)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'wishlists') THEN
+        EXECUTE 'ALTER TABLE public.wishlists ENABLE ROW LEVEL SECURITY;';
+        EXECUTE 'DROP POLICY IF EXISTS "Users manage own wishlist" ON public.wishlists;';
+        EXECUTE 'DROP POLICY IF EXISTS "Service role manages wishlists" ON public.wishlists;';
+        
+        EXECUTE 'CREATE POLICY "Users manage own wishlist" ON public.wishlists
+            FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);';
+            
+        EXECUTE 'CREATE POLICY "Service role manages wishlists" ON public.wishlists
+            FOR ALL TO service_role USING (true) WITH CHECK (true);';
+    END IF;
+END $$;
+
+-- 12. REFRESH SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
+

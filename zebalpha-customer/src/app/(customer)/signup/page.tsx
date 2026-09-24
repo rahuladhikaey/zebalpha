@@ -280,8 +280,12 @@ export default function SignupPage() {
       const urlParams = new URLSearchParams(window.location.search);
       const redirect = urlParams.get("redirect") || "/";
       setTimeout(() => {
-        router.push(redirect);
-      }, 800);
+        if (typeof window !== "undefined") {
+          window.location.href = redirect;
+        } else {
+          router.push(redirect);
+        }
+      }, 600);
 
     } catch (err: any) {
       showStatus(err?.message || "Verification failed. Please try again.", "error");

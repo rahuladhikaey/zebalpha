@@ -11,7 +11,15 @@ const router = Router();
  * Accepts secret via Bearer token, x-cron-secret header, or ?secret= query parameter.
  */
 const verifyCronSecret = (req, res, next) => {
-  const cronSecret = process.env.CRON_SECRET || 'zebalpha_cron_secret_2025_prod';
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    console.error('[Cron Security Alert] CRON_SECRET environment variable is missing.');
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Cron service configuration error. CRON_SECRET is required.'
+    });
+  }
 
   const rawHeader = req.headers['authorization'] || req.headers['x-cron-secret'] || '';
   const querySecret = req.query?.secret || '';

@@ -152,7 +152,11 @@ export default function LoginPage() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const redirect = urlParams.get("redirect") || "/";
-    router.push(redirect);
+    if (typeof window !== "undefined") {
+      window.location.href = redirect;
+    } else {
+      router.push(redirect);
+    }
   };
 
   return (

@@ -24,11 +24,11 @@ services:
       - key: NEXT_PUBLIC_API_BASE_URL
         value: https://zebalpha-backend.onrender.com
       - key: RAZORPAY_KEY_ID
-        value: rzp_test_ShRpqbs6hVT6Ie
+        sync: false
       - key: NEXT_PUBLIC_RAZORPAY_KEY_ID
-        value: rzp_test_ShRpqbs6hVT6Ie
+        sync: false
       - key: RAZORPAY_KEY_SECRET
-        value: 5LUjZ94LMDnjwlLyB9cUU5cb
+        sync: false
       - key: NEXT_PUBLIC_EMAILJS_SERVICE_ID
         value: service_5apvm6b
       - key: NEXT_PUBLIC_EMAILJS_TEMPLATE_ID
@@ -141,9 +141,9 @@ services:
       - key: CRON_SECRET
         sync: false
       - key: RAZORPAY_KEY_ID
-        value: rzp_test_ShRpqbs6hVT6Ie
+        sync: false
       - key: RAZORPAY_KEY_SECRET
-        value: 5LUjZ94LMDnjwlLyB9cUU5cb
+        sync: false
       - key: SHIPROCKET_EMAIL
         sync: false
       - key: SHIPROCKET_PASSWORD

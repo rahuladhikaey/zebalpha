@@ -72,6 +72,15 @@ export const getSettlements = async (req, res, next) => {
 export const getSellerSettlements = async (req, res, next) => {
   try {
     const { sellerId } = req.params;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const currentSellerId = req.sellerId || req.user?.id;
+
+    if (!isSuperAdmin && String(sellerId) !== String(currentSellerId)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Forbidden: You do not have permission to view this merchant\'s settlement financial records.'
+      });
+    }
 
     // Call RPC to reconcile and generate any missing weeks in real-time
     const { data, error } = await supabaseA.rpc('get_or_create_seller_settlements', { p_seller_id: sellerId });
@@ -102,6 +111,16 @@ export const getSettlementDetails = async (req, res, next) => {
 
     if (sErr || !settlement) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Settlement not found' });
+    }
+
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const currentSellerId = req.sellerId || req.user?.id;
+
+    if (!isSuperAdmin && String(settlement.seller_id) !== String(currentSellerId)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Forbidden: You do not have permission to view this settlement statement.'
+      });
     }
 
     // Fetch orders associated with this week's settlement
@@ -251,11 +270,13 @@ export const paySettlement = async (req, res, next) => {
  */
 export const getRevenueSummary = async (req, res, next) => {
   try {
-    const { sellerId } = req.query;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const currentSellerId = req.sellerId || req.user?.id;
+    const targetSellerId = isSuperAdmin ? req.query.sellerId : currentSellerId;
     
     let query = supabaseA.from('seller_revenue_summary').select('*');
-    if (sellerId) {
-      query = query.eq('seller_id', sellerId);
+    if (targetSellerId) {
+      query = query.eq('seller_id', targetSellerId);
     }
 
     const { data, error } = await query;
@@ -270,8 +291,8 @@ export const getRevenueSummary = async (req, res, next) => {
       .neq('order_status', 'CANCELLED')
       .neq('order_status', 'RETURNED');
 
-    if (sellerId) {
-      ordersQuery = ordersQuery.eq('seller_id', sellerId);
+    if (targetSellerId) {
+      ordersQuery = ordersQuery.eq('seller_id', targetSellerId);
     }
 
     const { data: ordersData } = await ordersQuery;
