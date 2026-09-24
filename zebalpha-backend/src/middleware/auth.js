@@ -39,10 +39,27 @@ export const authenticateJWT = async (req, res, next) => {
     try {
       const { data, error } = await supabaseA.auth.getUser(token);
       if (!error && data?.user) {
+        let role = data.user.user_metadata?.role || 'customer';
+
+        // Check if user is an approved seller in database
+        try {
+          const { data: sellerRecord } = await supabaseA
+            .from('sellers')
+            .select('id, status')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
+
+          if (sellerRecord && sellerRecord.status === 'approved') {
+            role = 'seller';
+            req.sellerId = sellerRecord.id;
+          }
+        } catch (_) {}
+
         req.user = {
           id: data.user.id,
           email: data.user.email,
-          role: data.user.user_metadata?.role || 'customer'
+          role: role,
+          user_metadata: data.user.user_metadata
         };
         return next();
       }

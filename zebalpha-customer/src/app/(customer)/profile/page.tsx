@@ -8,7 +8,7 @@ import { CartHeaderLink } from "@/components/CartHeaderLink";
 import UserMenu from "@/components/UserMenu";
 
 export default function ProfileDashboard() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [hasApprovedCard, setHasApprovedCard] = useState(false);
 
   useEffect(() => {
@@ -62,6 +62,9 @@ export default function ProfileDashboard() {
     );
   }
 
+  const displayName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Customer";
+  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
+
   return (
     <main className="min-h-screen bg-black text-white overflow-x-hidden relative">
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-zinc-800 bg-black/80 px-4 py-3 backdrop-blur-xl md:px-8">
@@ -98,13 +101,17 @@ export default function ProfileDashboard() {
 
           <div className="px-6 pb-8 md:px-10">
             <div className="relative -mt-16 flex flex-col items-center sm:flex-row sm:items-end gap-5">
-              <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-8 border-black bg-zinc-900 text-5xl font-black text-white shadow-2xl z-10">
-                {user.user_metadata?.full_name?.[0]?.toUpperCase() || user.email?.[0].toUpperCase()}
+              <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-8 border-black bg-zinc-900 text-5xl font-black text-white shadow-2xl z-10 overflow-hidden">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                ) : (
+                  displayName[0]?.toUpperCase() || "U"
+                )}
               </div>
               <div className="mb-2 text-center sm:text-left min-w-0 flex-1">
                 <span className="inline-flex rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white mb-2">Verified Member 🌟</span>
                 <h1 className="text-2xl md:text-3xl font-black text-white leading-tight break-words">
-                  {user.user_metadata?.full_name || user.email?.split("@")[0]}
+                  {displayName}
                 </h1>
                 <p className="mt-1 text-sm font-bold text-zinc-400 truncate">{user.email}</p>
               </div>

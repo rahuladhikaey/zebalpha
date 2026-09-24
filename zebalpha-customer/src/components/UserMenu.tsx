@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 
 export default function UserMenu() {
-  const { user, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -34,11 +34,14 @@ export default function UserMenu() {
   }
 
   if (user) {
+    const displayName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User";
+    const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
+
     return (
       <div className="flex items-center gap-2 sm:gap-3" ref={menuRef}>
         <div className="hidden flex-col items-end md:flex">
-          <span className="text-xs font-black text-white">
-            {user.user_metadata?.full_name || user.email?.split("@")[0]}
+          <span className="text-xs font-black text-white truncate max-w-[120px]">
+            {displayName}
           </span>
           <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">VIP Member ✦</span>
         </div>
@@ -46,9 +49,13 @@ export default function UserMenu() {
           <button
             onClick={() => setIsOpen(!isOpen)}
             aria-label="User account menu"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black text-xs font-black shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:bg-neutral-200 transition-all active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black text-xs font-black shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:bg-neutral-200 transition-all active:scale-95 overflow-hidden"
           >
-            {user.email?.[0].toUpperCase()}
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              (displayName[0] || user.email?.[0] || "U").toUpperCase()
+            )}
           </button>
  
           {/* Dropdown Menu */}

@@ -357,6 +357,16 @@ CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_username ON public.admin_audit_logs(username);
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_action ON public.admin_audit_logs(action);
-CREATE TRIGGER trg_admin_users_updated_at BEFORE UPDATE ON public.admin_users FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+-- 16. WISHLISTS TABLE
+CREATE TABLE IF NOT EXISTS public.wishlists (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    UNIQUE(user_id, product_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wishlists_user ON public.wishlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_wishlists_product ON public.wishlists(product_id);
 
 

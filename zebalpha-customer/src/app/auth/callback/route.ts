@@ -91,8 +91,29 @@ export async function GET(request: Request) {
 
   // 1. Handle OAuth & PKCE code exchange
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const authUser = data?.session?.user;
+      if (authUser) {
+        try {
+          const metadata = authUser.user_metadata || {};
+          const fallbackName = metadata.full_name || metadata.name || metadata.user_name || authUser.email?.split('@')[0] || 'Customer';
+          const fallbackAvatar = metadata.avatar_url || metadata.picture || '';
+
+          await supabase.from('profiles').upsert({
+            id: authUser.id,
+            email: (authUser.email || '').toLowerCase().trim(),
+            full_name: fallbackName,
+            avatar_url: fallbackAvatar,
+            role: 'customer',
+            status: 'active',
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        } catch (profErr) {
+          console.warn('[OAuth Callback Profile Sync Notice]:', profErr);
+        }
+      }
+
       const safeNext = next.startsWith('/') ? next : `/${next}`;
       const response = NextResponse.redirect(`${origin}${safeNext}`);
       // Explicitly append session auth cookies to redirect response headers

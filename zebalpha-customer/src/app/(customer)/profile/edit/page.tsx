@@ -8,16 +8,18 @@ import { CartHeaderLink } from "@/components/CartHeaderLink";
 import UserMenu from "@/components/UserMenu";
 
 export default function EditProfilePage() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
   const [fullName, setFullName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
   useEffect(() => {
-    if (user?.user_metadata?.full_name) {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    } else if (user?.user_metadata?.full_name) {
       setFullName(user.user_metadata.full_name);
     }
-  }, [user]);
+  }, [profile, user]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,17 +32,30 @@ export default function EditProfilePage() {
     setMessage({ text: "", type: "" });
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      // 1. Update Supabase Auth user metadata
+      const { error: authErr } = await supabase.auth.updateUser({
         data: { full_name: fullName.trim() }
       });
 
-      if (error) {
-        setMessage({ text: error.message, type: "error" });
+      // 2. Authoritatively update public.profiles table
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: fullName.trim(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", user.id);
+      }
+
+      if (authErr) {
+        setMessage({ text: authErr.message, type: "error" });
       } else {
+        await refreshProfile();
         setMessage({ text: "Profile updated successfully!", type: "success" });
       }
-    } catch (err) {
-      setMessage({ text: "An unexpected error occurred.", type: "error" });
+    } catch (err: any) {
+      setMessage({ text: err?.message || "An unexpected error occurred.", type: "error" });
     } finally {
       setIsSubmitting(false);
     }
