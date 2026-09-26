@@ -4,13 +4,21 @@ import { useCart } from "@/context/CartContext";
 import { Product } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 
 export function BuyNowButton({ product, className, isPreOrder = false }: { product: Product, className?: string, isPreOrder?: boolean }) {
   const { cart, addToCart } = useCart();
   const { session } = useAuth();
   const router = useRouter();
   
+  const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
+
   const handleBuyNow = () => {
+    if (isUpcomingDrop) {
+      router.push(`/new-drops`);
+      return;
+    }
+
     const cartItem = cart.find(item => item.id === product.id);
     const quantity = cartItem?.quantity || 1;
 

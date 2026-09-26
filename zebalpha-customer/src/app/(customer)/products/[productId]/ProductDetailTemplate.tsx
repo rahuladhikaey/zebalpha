@@ -5,13 +5,14 @@ import { Product, ProductPackage } from "@/lib/types";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, Star } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, Star, Bell, CheckCircle2, Sparkles, Flame } from "lucide-react";
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
 import { normalizeProductImages } from "@/lib/productImageUtils";
 import { VirtualTryOnButton } from "@/components/vto/VirtualTryOnButton";
 import { VirtualTryOnModal } from "@/components/vto/VirtualTryOnModal";
+import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 export default function ProductDetailTemplate({
   product,
@@ -100,9 +101,28 @@ export default function ProductDetailTemplate({
     };
   }, [reviews]);
 
+  const [isDropNotified, setIsDropNotified] = useState(false);
+  const [dropToast, setDropToast] = useState("");
+
+  const isNewDrop = useMemo(() => isProductNewDrop(product), [product]);
+  const isLive = useMemo(() => isDropLive(product), [product]);
+  const isUpcomingDrop = isNewDrop && !isLive;
+  const dropStatusInfo = useMemo(() => getDropDisplayStatus(product), [product]);
+
+  const handleNotifyDrop = () => {
+    setIsDropNotified(true);
+    setDropToast(`🔔 VIP Launch Alert Registered! We'll notify you as soon as ${product.name} drops.`);
+    setTimeout(() => setDropToast(""), 4500);
+  };
 
   return (
     <div className="bg-black text-white">
+      {dropToast && (
+        <div className="sticky top-[68px] z-50 bg-emerald-950/90 border-b border-emerald-500/50 backdrop-blur-xl px-4 py-3 text-center text-xs font-black text-emerald-200 animate-in fade-in slide-in-from-top-2 duration-300">
+          {dropToast}
+        </div>
+      )}
+
       <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 lg:py-12">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-start">
 
@@ -119,7 +139,37 @@ export default function ProductDetailTemplate({
 
               {/* Action Buttons - Desktop */}
               <div className="hidden lg:grid grid-cols-2 gap-4 mt-2">
-                {product.stock && product.stock > 0 ? (
+                {isUpcomingDrop ? (
+                  <div className="col-span-2 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleNotifyDrop}
+                      className={`flex h-16 flex-1 items-center justify-center gap-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer shadow-xl ${
+                        isDropNotified
+                          ? "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
+                          : "bg-white text-black hover:bg-neutral-200 shadow-white/10"
+                      }`}
+                    >
+                      {isDropNotified ? (
+                        <>
+                          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                          Registered for Drop
+                        </>
+                      ) : (
+                        <>
+                          <Bell className="h-5 w-5" />
+                          Notify Me on Drop ⚡
+                        </>
+                      )}
+                    </button>
+                    <Link
+                      href="/new-drops"
+                      className="flex h-16 px-6 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-black uppercase tracking-wider text-white hover:bg-zinc-800 transition-all"
+                    >
+                      Explore All Drops
+                    </Link>
+                  </div>
+                ) : product.stock && product.stock > 0 ? (
                   <>
                     <AddToCartButton
                       product={computedProduct}
@@ -153,10 +203,38 @@ export default function ProductDetailTemplate({
             </nav>
 
             <div className="space-y-4">
+              {isNewDrop && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                    isLive 
+                      ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      : "border border-amber-500/30 bg-amber-500/10 text-amber-400"
+                  }`}>
+                    {isLive ? <Flame className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400" /> : <Sparkles className="h-3.5 w-3.5 text-amber-400" />}
+                    {dropStatusInfo.badgeLabel}
+                  </span>
+                  <span className="text-xs font-bold text-zinc-400">
+                    • {dropStatusInfo.dateText}
+                  </span>
+                </div>
+              )}
+
               <h1 className="text-2xl font-bold text-white md:text-3xl leading-tight">
                 {product.name}
               </h1>
             </div>
+
+            {isUpcomingDrop && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-wider">
+                  <Sparkles className="h-4 w-4" />
+                  ⚡ Upcoming Exclusive Drop • {dropStatusInfo.dateText}
+                </div>
+                <p className="text-xs text-zinc-300 font-medium leading-relaxed">
+                  This product is currently in upcoming preview stage and will be available for direct orders upon launch date. Click &quot;Notify Me on Drop&quot; to receive instant VIP launch alerts!
+                </p>
+              </div>
+            )}
 
             <div className="space-y-1">
               <div className="flex items-center gap-3">
@@ -168,7 +246,9 @@ export default function ProductDetailTemplate({
                   </>
                 )}
               </div>
-              <p className="text-xs font-bold text-zinc-400">Special Price including all taxes</p>
+              <p className="text-xs font-bold text-zinc-400">
+                {isUpcomingDrop ? "Preview Price (Inclusive of all taxes)" : "Special Price including all taxes"}
+              </p>
             </div>
 
             {normalizedPackages.length > 0 && (
@@ -408,7 +488,27 @@ export default function ProductDetailTemplate({
           onClick={() => setIsVtoOpen(true)}
           className="h-11 px-3 shrink-0"
         />
-        {product.stock && product.stock > 0 ? (
+        {isUpcomingDrop ? (
+          <div className="flex-1 flex gap-2 h-11">
+            <button
+              type="button"
+              onClick={handleNotifyDrop}
+              className={`flex-1 flex items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                isDropNotified
+                  ? "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
+                  : "bg-white text-black"
+              }`}
+            >
+              {isDropNotified ? "Registered 🔔" : "Notify Me on Drop ⚡"}
+            </button>
+            <Link
+              href="/new-drops"
+              className="px-3 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-[10px] font-black text-white"
+            >
+              Drops ⚡
+            </Link>
+          </div>
+        ) : product.stock && product.stock > 0 ? (
           <div className="grid grid-cols-2 h-11 flex-1 gap-2">
             <AddToCartButton
               product={computedProduct}

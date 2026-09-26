@@ -13,6 +13,7 @@ import { Header } from "@/components/Header";
 import { WishlistButton } from "@/components/WishlistButton";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 import { Search, ShoppingBag, Sparkles } from "lucide-react";
+import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 const getCategoryEmojiOrIcon = (name: string) => {
   const lower = (name || "").toLowerCase();
@@ -74,6 +75,7 @@ function ProductsContent() {
         supabase.from("categories").select("*").order("name", { ascending: true }),
       ]);
 
+
       const activeProducts = (productsData ?? []).filter((p: any) => 
         p.is_active !== false && p.is_approved !== false && p.approval_status !== 'rejected'
       );
@@ -107,6 +109,16 @@ function ProductsContent() {
 
   const filtered = useMemo(() => {
     return products.filter((product) => {
+      const isNewDrop = isProductNewDrop(product);
+      const isLive = isDropLive(product);
+      const isDropFilter = selectedCategory && String(selectedCategory).toLowerCase().includes("drop");
+
+      // Upcoming drops whose date is in the future should not be shown in standard purchasable catalog
+      // unless user is explicitly browsing the "New Drops" category
+      if (isNewDrop && !isLive && !isDropFilter) {
+        return false;
+      }
+
       let matchesCategory = true;
 
       if (selectedCategory !== null && selectedCategory !== undefined && selectedCategory !== "") {
@@ -128,7 +140,7 @@ function ProductsContent() {
         } else if (catStr.includes("bottom") || catStr.includes("cargo") || catStr.includes("pant") || catStr.includes("trouser")) {
           matchesCategory = prodCatNameStr.includes("cargo") || prodCatStr.includes("cargo") || prodNameStr.includes("pant") || prodNameStr.includes("trouser") || prodNameStr.includes("cargo");
         } else if (catStr.includes("drop") || catStr.includes("limited")) {
-          matchesCategory = product.is_new_drop || prodCatNameStr.includes("drop") || prodNameStr.includes("drop") || prodNameStr.includes("limited");
+          matchesCategory = isNewDrop || prodCatNameStr.includes("drop") || prodNameStr.includes("drop") || prodNameStr.includes("limited");
         } else {
           const foundCat = categories.find(c => String(c.id).toLowerCase() === catStr || c.name.toLowerCase().includes(catStr) || catStr.includes(c.name.toLowerCase()));
           const targetValues = foundCat 
@@ -307,7 +319,16 @@ function ProductsContent() {
                           </div>
 
                           <div className="pt-1 flex items-center justify-between gap-2">
-                            <AddToCartButton product={product} />
+                            {isProductNewDrop(product) && !isDropLive(product) ? (
+                              <Link
+                                href={`/products/${product.id}`}
+                                className="w-full flex h-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider hover:bg-amber-500/20 transition-all"
+                              >
+                                ⚡ Dropping Soon
+                              </Link>
+                            ) : (
+                              <AddToCartButton product={product} />
+                            )}
                           </div>
                         </div>
                       </div>

@@ -37,7 +37,7 @@ export async function calculateOrderAmounts({ items = [], paymentMethod = 'COD',
   if (productIds.length > 0) {
     const { data: dbProducts, error } = await supabaseA
       .from('products')
-      .select('id, name, price, mrp, is_active, is_approved, stock, seller_id')
+      .select('id, name, price, mrp, is_active, is_approved, stock, seller_id, is_new_drop, target_drop_date, status, specifications')
       .in('id', productIds);
 
     if (error) {
@@ -89,6 +89,30 @@ export async function calculateOrderAmounts({ items = [], paymentMethod = 'COD',
 
     if (dbProduct.is_active === false) {
       throw new Error(`Product ${dbProduct.name} is currently unavailable for purchase.`);
+    }
+
+    // Check if product is an unreleased New Drop
+    const isNewDrop = dbProduct.is_new_drop === true || dbProduct.is_new_drop === 'true' || dbProduct.status === 'COMING_SOON' || (dbProduct.specifications && (dbProduct.specifications.is_new_drop === 'true' || dbProduct.specifications.is_new_drop === true));
+    if (isNewDrop) {
+      const rawDropDate = dbProduct.target_drop_date || (dbProduct.specifications && dbProduct.specifications.target_drop_date);
+      let isLive = false;
+      if (rawDropDate) {
+        // Try parsing ISO or DD/MM/YYYY
+        let parsed = new Date(rawDropDate);
+        if (isNaN(parsed.getTime())) {
+          const dmy = String(rawDropDate).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+          if (dmy) {
+            parsed = new Date(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10));
+          }
+        }
+        if (!isNaN(parsed.getTime())) {
+          isLive = parsed.getTime() <= Date.now();
+        }
+      }
+
+      if (!isLive) {
+        throw new Error(`Product "${dbProduct.name}" is an upcoming drop and cannot be purchased before its launch date.`);
+      }
     }
 
     const qty = Math.max(1, parseInt(item.quantity || item.units, 10) || 1);

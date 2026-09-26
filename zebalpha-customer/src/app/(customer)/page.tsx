@@ -12,6 +12,7 @@ import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { ShopByCategorySection } from "@/components/ShopByCategorySection";
 import { Footer } from "@/components/Footer";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
+import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 
 const fetchHomeData = async (brandFilter: boolean = false) => {
   let categories: Category[] = [];
@@ -41,7 +42,12 @@ const fetchHomeData = async (brandFilter: boolean = false) => {
     const { data: prodData } = await query;
     if (prodData && prodData.length > 0) {
       products = (prodData as Product[])
-        .filter(p => p.is_active !== false && p.is_approved !== false && p.approval_status !== 'rejected')
+        .filter(p => {
+          if (p.is_active === false || p.is_approved === false || p.approval_status === 'rejected') return false;
+          // Hide unreleased upcoming drops from general purchasable home grid
+          if (isProductNewDrop(p) && !isDropLive(p)) return false;
+          return true;
+        })
         .slice(0, 24);
     }
   } catch (e) {

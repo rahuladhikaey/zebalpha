@@ -24,6 +24,7 @@ import {
   Package
 } from "lucide-react";
 import { uploadToCloudinary } from "@shared/services";
+import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 const TAXONOMY_OPTIONS = [
   "ALL",
@@ -470,17 +471,25 @@ export default function SellerCollectionsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {newDropProducts.map((p) => (
-                <div key={p.id} className="rounded-3xl border border-orange-500/30 bg-zinc-950 p-5 flex flex-col justify-between space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
-                        ⚡ DROPPING SOON
-                      </span>
-                      <span className="text-[10px] font-bold text-zinc-400">
-                        {p.target_drop_date || "Coming Soon"}
-                      </span>
-                    </div>
+              {newDropProducts.map((p) => {
+                const live = isDropLive(p);
+                const dropStatus = getDropDisplayStatus(p);
+
+                return (
+                  <div key={p.id} className="rounded-3xl border border-orange-500/30 bg-zinc-950 p-5 flex flex-col justify-between space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                          live
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            : "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                        }`}>
+                          {live ? "🔥 LIVE DROP" : "⚡ DROPPING SOON"}
+                        </span>
+                        <span className="text-[10px] font-bold text-zinc-400">
+                          {dropStatus.dateText}
+                        </span>
+                      </div>
 
                     <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-zinc-900 mb-3 border border-zinc-800">
                       <img src={p.image_url || "/banner-premium-polo.png"} alt={p.name} className="w-full h-full object-cover" />
@@ -501,8 +510,9 @@ export default function SellerCollectionsPage() {
                     </Link>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
           )}
         </div>
       )}

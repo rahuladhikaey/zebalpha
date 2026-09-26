@@ -15,6 +15,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { uploadToCloudinary } from "@shared/services";
+import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 export default function SellerProducts() {
   const [loading, setLoading] = useState(true);
@@ -789,14 +790,25 @@ export default function SellerProducts() {
                               </span>
                             )}
 
-                            {product.is_new_drop && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider">
-                                ⚡ NEW DROP
-                              </span>
+                            {isProductNewDrop(product) && (
+                              isDropLive(product) ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                                  🔥 DROP LIVE
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                                  ⚡ UPCOMING DROP
+                                </span>
+                              )
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <p className="text-[10px] font-bold text-text-muted">SKU: {product.sku || "N/A"}</p>
+                            {isProductNewDrop(product) && (
+                              <span className="text-[10px] font-semibold text-orange-400/90 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-md">
+                                📅 {getDropDisplayStatus(product).dateText}
+                              </span>
+                            )}
                             {(product.collection || (product.specifications as any)?.collection) && (
                               <span className="text-[10px] font-semibold text-zinc-400 bg-foreground/[0.05] border border-foreground/[0.08] px-2 py-0.5 rounded-md">
                                 🏷️ {product.collection || (product.specifications as any)?.collection}
@@ -1160,15 +1172,18 @@ export default function SellerProducts() {
                   {/* Target Drop Date */}
                   <div>
                     <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">
-                      Target Drop Date / Tagline
+                      Target Drop Date / Launch Date
                     </label>
                     <input
                       type="text"
                       value={form.target_drop_date}
                       onChange={e => setForm({...form, target_drop_date: e.target.value})}
-                      placeholder="e.g. Releasing Oct 2026 or 400 GSM Limited Drop"
+                      placeholder="e.g. 2026-09-25 or 25/09/2026"
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-amber-500 transition-all"
                     />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      💡 <strong>Launch Automation:</strong> Before this date, product shows exclusively on <code>/new-drops</code> with hype voting & launch alerts (no orders). On/after this date, it automatically goes live for customer purchases!
+                    </p>
                   </div>
                 </div>
               </div>

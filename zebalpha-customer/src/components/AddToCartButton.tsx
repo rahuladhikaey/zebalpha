@@ -4,15 +4,21 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { Product } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
+import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 export function AddToCartButton({ product, className, compact }: { product: Product; className?: string; compact?: boolean }) {
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
   const { session } = useAuth();
   const router = useRouter();
   
-  const isOutOfStock = (product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK";
+  const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
+  const isOutOfStock = !isUpcomingDrop && ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK");
 
   const handleAdd = () => {
+    if (isUpcomingDrop) {
+      router.push(`/new-drops`);
+      return;
+    }
     if (isOutOfStock) return;
     if (!session) {
       router.push("/login");
@@ -20,6 +26,29 @@ export function AddToCartButton({ product, className, compact }: { product: Prod
     }
     addToCart(product, 1);
   };
+
+  if (isUpcomingDrop) {
+    if (compact) {
+      return (
+        <span 
+          onClick={() => router.push('/new-drops')}
+          className="flex h-8 sm:h-10 px-2.5 sm:px-3 items-center justify-center rounded-full sm:rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 font-bold text-[9px] sm:text-xs uppercase tracking-wider cursor-pointer select-none"
+          title="Upcoming New Drop"
+        >
+          ⚡ Drop
+        </span>
+      );
+    }
+    return (
+      <span 
+        onClick={() => router.push('/new-drops')}
+        className={className || "flex h-10 px-4 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 font-bold text-xs uppercase tracking-widest cursor-pointer select-none"}
+        title="Upcoming New Drop"
+      >
+        ⚡ Dropping Soon
+      </span>
+    );
+  }
 
   if (isOutOfStock) {
     if (compact) {
