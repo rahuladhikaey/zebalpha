@@ -22,7 +22,7 @@ const protectedUserRoutes = [
   '/account',
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Handle CORS preflight requests
@@ -85,6 +85,9 @@ export async function middleware(request: NextRequest) {
 
   return response;
 }
+
+// Backward compatibility export
+export const middleware = proxy;
 
 export const config = {
   matcher: [

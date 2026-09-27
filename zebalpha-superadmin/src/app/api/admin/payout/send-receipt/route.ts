@@ -12,16 +12,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.BREVO_API_KEY;
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL || "payouts@zebalpha.com";
-    const senderName = process.env.BREVO_SENDER_NAME || "ZEB-ALPHA Payouts";
+    const serviceId = (process.env.EMAILJS_SERVICE_ID || process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b").trim();
+    const templateId = (process.env.EMAILJS_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji").trim();
+    const publicKey = (process.env.EMAILJS_PUBLIC_KEY || process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a").trim();
 
-    if (!apiKey) {
-      console.warn("[Payout Email Warning] BREVO_API_KEY is not set in environment variables.");
+    if (!serviceId || !templateId || !publicKey) {
+      console.warn("[Payout Email Warning] EMAILJS credentials are not set in environment variables.");
       return NextResponse.json({
         success: true,
         emailSent: false,
-        message: "Settlement recorded in database. (Email sending skipped: BREVO_API_KEY not configured)."
+        message: "Settlement recorded in database. (Email sending skipped: EmailJS not configured)."
       });
     }
 
@@ -76,28 +76,46 @@ export async function POST(request: NextRequest) {
       </div>
     `;
 
-    const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+    const timeStr = new Date().toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
+
+    const emailRes = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
       headers: {
-        "accept": "application/json",
-        "api-key": apiKey,
-        "content-type": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Origin": "https://dashboard.emailjs.com",
       },
       body: JSON.stringify({
-        sender: { name: senderName, email: senderEmail },
-        to: [{ email: toEmail, name: sellerName }],
-        subject: `Payment Receipt: ₹${amount} Settlement Transferred (UTR: ${utrNumber})`,
-        htmlContent: htmlContent,
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: publicKey,
+        template_params: {
+          to_email: toEmail,
+          email: toEmail,
+          recipient_email: toEmail,
+          seller_name: sellerName,
+          amount: amount,
+          utr_number: utrNumber,
+          subject: `Payment Receipt: ₹${amount} Settlement Transferred (UTR: ${utrNumber})`,
+          message: htmlContent,
+          message_html: htmlContent,
+          time: `${timeStr} IST`,
+        },
       }),
     });
 
-    if (!brevoRes.ok) {
-      const errData = await brevoRes.json();
-      console.error("[Payout Receipt Brevo Error]:", errData);
+    if (!emailRes.ok) {
+      const errText = await emailRes.text();
+      console.error("[Payout Receipt EmailJS Error]:", emailRes.status, errText);
       return NextResponse.json({
         success: true,
         emailSent: false,
-        message: "Settlement recorded, but receipt email sending failed. Please check Brevo API key configuration."
+        message: "Settlement recorded, but receipt email sending failed. Please check EmailJS configuration."
       });
     }
 

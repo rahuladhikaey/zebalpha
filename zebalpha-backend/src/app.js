@@ -48,6 +48,11 @@ const ALLOWED_ORIGINS = [
   'https://seller.zebalpha.com',
   'https://admin.zebalpha.com',
   'https://api.zebalpha.com',
+  // Vercel deployments
+  'https://zebalpha-zebalpha-customer.vercel.app',
+  'https://zebalpha-zebalpha-seller.vercel.app',
+  'https://zebalpha-zebalpha-superadmin.vercel.app',
+  // Local development
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002'
@@ -60,7 +65,7 @@ app.use(
       if (!origin) {
         return callback(null, true);
       }
-      if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.onrender.com')) {
+      if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) {
         return callback(null, true);
       }
       return callback(new Error(`CORS policy violation: Origin '${origin}' is not permitted.`));

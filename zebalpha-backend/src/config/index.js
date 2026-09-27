@@ -1,5 +1,32 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Prioritize back.env, with fallbacks
+const candidatePaths = [
+  path.resolve(__dirname, '../../back.env'),
+  path.resolve(process.cwd(), 'back.env'),
+  path.resolve(process.cwd(), 'zebalpha-backend/back.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), 'zebalpha-backend/.env')
+];
+
+let envLoaded = false;
+for (const p of candidatePaths) {
+  if (fs.existsSync(p)) {
+    dotenv.config({ path: p });
+    envLoaded = true;
+    break;
+  }
+}
+if (!envLoaded) {
+  dotenv.config();
+}
 
 export const config = {
   port: process.env.PORT || 5000,
@@ -37,8 +64,13 @@ export const config = {
     keySecret: (process.env.RAZORPAY_KEY_SECRET || '5LUjZ94LMDnjwlLyB9cUU5cb').trim()
   },
   shiprocket: {
-    email: process.env.SHIPROCKET_EMAIL || '',
-    password: process.env.SHIPROCKET_PASSWORD || ''
+    email: (process.env.SHIPROCKET_EMAIL || '').trim(),
+    password: (process.env.SHIPROCKET_PASSWORD || '').trim().replace(/^["']|["']$/g, '')
+  },
+  email: {
+    serviceId: (process.env.EMAILJS_SERVICE_ID || process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'service_5apvm6b').trim(),
+    templateId: (process.env.EMAILJS_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || 'template_hhuloji').trim(),
+    publicKey: (process.env.EMAILJS_PUBLIC_KEY || process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || 'ZR5LIJWz_4EsCSc_a').trim()
   },
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',

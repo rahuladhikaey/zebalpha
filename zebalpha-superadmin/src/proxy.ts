@@ -4,7 +4,7 @@ import { jwtVerify, SignJWT } from 'jose';
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isDashboardRoute = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
@@ -98,6 +98,9 @@ export async function middleware(request: NextRequest) {
 
   return NextResponse.next();
 }
+
+// Backward compatibility export
+export const middleware = proxy;
 
 export const config = {
   matcher: [

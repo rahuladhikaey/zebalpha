@@ -23,5 +23,13 @@
   },
   "dependencies": {
     "pg": "^8.23.0"
-  }
+  },
+  "allowScripts": {
+    "sharp": true,
+    "unrs-resolver": true
+  },
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
 }

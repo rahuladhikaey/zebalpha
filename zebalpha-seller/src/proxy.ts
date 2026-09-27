@@ -11,7 +11,7 @@ const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Handle CORS preflight requests
@@ -59,7 +59,7 @@ export async function middleware(request: NextRequest) {
 
     user = authUser;
   } catch (err) {
-    console.error("[Seller Middleware Auth Error]:", err);
+    console.error("[Seller Proxy Auth Error]:", err);
     user = null;
   }
 
@@ -98,6 +98,9 @@ export async function middleware(request: NextRequest) {
 
   return supabaseResponse;
 }
+
+// Backward compatibility export
+export const middleware = proxy;
 
 export const config = {
   matcher: [
