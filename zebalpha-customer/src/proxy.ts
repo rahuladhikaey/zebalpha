@@ -38,7 +38,8 @@ export async function proxy(request: NextRequest) {
 
   // 1. Redirect or block any /admin path on storefront to main admin domain
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    return NextResponse.redirect('https://admin.zebalpha.com', 301);
+    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'https://adm.in.zebalpha.shop';
+    return NextResponse.redirect(adminUrl, 301);
   }
 
   // 2. Rate limiting check for API endpoints to protect DB & backend from traffic spikes

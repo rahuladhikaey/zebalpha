@@ -13,6 +13,6 @@ services:
       - key: NODE_VERSION
         value: 22.x
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
       - key: NEXT_PUBLIC_API_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop

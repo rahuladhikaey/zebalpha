@@ -6,7 +6,7 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  'https://zebalpha-backend.onrender.com';
+  'https://api.zebalpha.shop';
 
 interface ApiFetchOptions extends RequestInit {
   timeoutMs?: number;

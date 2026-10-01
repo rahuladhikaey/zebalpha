@@ -43,6 +43,14 @@ app.use(
 
 // 2. Strict CORS Configuration
 const ALLOWED_ORIGINS = [
+  // Official Production Domains
+  'https://zebalpha.shop',
+  'https://www.zebalpha.shop',
+  'https://seller.zebalpha.shop',
+  'https://adm.in.zebalpha.shop',
+  'https://admin.zebalpha.shop',
+  'https://api.zebalpha.shop',
+  // Alternate & Legacy Domains
   'https://zebalpha.com',
   'https://www.zebalpha.com',
   'https://seller.zebalpha.com',
@@ -65,7 +73,14 @@ app.use(
       if (!origin) {
         return callback(null, true);
       }
-      if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) {
+      if (
+        ALLOWED_ORIGINS.includes(origin) ||
+        origin.endsWith('.zebalpha.shop') ||
+        origin === 'https://zebalpha.shop' ||
+        origin.endsWith('.onrender.com') ||
+        origin.endsWith('.vercel.app') ||
+        origin.endsWith('.zebalpha.com')
+      ) {
         return callback(null, true);
       }
       return callback(new Error(`CORS policy violation: Origin '${origin}' is not permitted.`));

@@ -14,7 +14,7 @@ export async function GET() {
     return new NextResponse('Error fetching products', { status: 500 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.zebalpha.com';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://zebalpha.shop';
 
   let xml = `<?xml version="1.0"?>
 <rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">

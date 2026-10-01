@@ -24,10 +24,10 @@ export default function SpicePurityGuide() {
     },
     "publisher": {
       "@type": "Organization",
-      "name": "Asali Swad",
+      "name": "ZEBALPHA",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://www.asaliswad.shop/og-image.jpg"
+        "url": "https://zebalpha.shop/official-logo.png"
       }
     },
     "datePublished": new Date().toISOString().split('T')[0],

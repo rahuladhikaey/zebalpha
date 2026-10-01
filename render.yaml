@@ -20,9 +20,9 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: NEXT_PUBLIC_API_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: NEXT_PUBLIC_RAZORPAY_KEY_ID
@@ -57,9 +57,9 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: NEXT_PUBLIC_API_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
       - key: NEXT_PUBLIC_EMAILJS_SERVICE_ID
         value: service_5apvm6b
       - key: NEXT_PUBLIC_EMAILJS_TEMPLATE_ID
@@ -94,9 +94,9 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: NEXT_PUBLIC_API_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
 
   # 4. Central Express API Gateway
   - type: web
@@ -115,7 +115,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: API_BASE_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL

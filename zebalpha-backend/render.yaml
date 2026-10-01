@@ -17,7 +17,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: API_BASE_URL
-        value: https://zebalpha-backend.onrender.com
+        value: https://api.zebalpha.shop
       - key: RAZORPAY_KEY_ID
         value: rzp_test_ShRpqbs6hVT6Ie
       - key: RAZORPAY_KEY_SECRET

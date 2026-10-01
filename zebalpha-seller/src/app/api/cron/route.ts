@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://zebalpha-backend.onrender.com';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://api.zebalpha.shop';
 
     // Fire background call to Express backend (non-blocking)
     fetch(`${backendUrl}/api/v1/cron/seller/purge-expired`, {
@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: true,
-        domain: 'seller.zebalpha.com',
+        domain: 'seller.zebalpha.shop',
         service: 'Seller Panel Cron',
         timestamp: new Date().toISOString()
       },

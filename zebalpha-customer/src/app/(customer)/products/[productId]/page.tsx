@@ -130,7 +130,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
     },
     "offers": {
       "@type": "Offer",
-      "url": `https://www.zebalpha.com/products/${product.id}`,
+      "url": `https://zebalpha.shop/products/${product.id}`,
       "priceCurrency": "INR",
       "price": product.price,
       "priceValidUntil": new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],

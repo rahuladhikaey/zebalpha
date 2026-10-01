@@ -133,9 +133,9 @@ export default function RootLayout({
             "@type": ["Organization", "Store"],
             "name": "ZEBALPHA",
             "alternateName": ["Zebalpha", "ZEBALPHA Clothing", "Zebalpha Apparel"],
-            "url": "https://www.zebalpha.com",
-            "logo": "https://www.zebalpha.com/icon.png",
-            "image": "https://www.zebalpha.com/banner-premium-polo.png",
+            "url": "https://zebalpha.shop",
+            "logo": "https://zebalpha.shop/icon.png",
+            "image": "https://zebalpha.shop/banner-premium-polo.png",
             "description": "Premium brand offering authentic luxury 2D animated streetwear, polo t-shirts, oversized tees, and designer apparel.",
             "sameAs": [
               "https://www.instagram.com/zebalpha.clothing"

@@ -377,9 +377,8 @@ export default function SellerManagementView() {
   };
 
   const handleCopyOnboardingLink = () => {
-    const link = typeof window !== "undefined" 
-      ? `${window.location.origin.replace("admin", "seller")}/register` 
-      : "https://seller.zebalpha.com/register";
+    const sellerUrl = process.env.NEXT_PUBLIC_SELLER_URL || "https://seller.zebalpha.shop";
+    const link = `${sellerUrl}/register`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setStatusMessage("✅ Merchant registration link copied to clipboard!");

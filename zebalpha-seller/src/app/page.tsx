@@ -271,7 +271,7 @@ function LoginContent() {
           </p>
           <div>
             <a
-              href="https://zebalpha.com"
+              href="https://zebalpha.shop"
               className="text-xs font-medium text-zinc-400 hover:text-white transition-colors"
             >
               ← Return to Storefront

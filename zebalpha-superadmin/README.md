@@ -1,8 +1,8 @@
-# Asali Swad — Admin Panel
+# ZEBALPHA — Super Admin Panel
 
-Admin dashboard for **Asali Swad**, an Indian e-commerce platform. Built with Next.js and a custom design system for managing products, orders, and platform operations.
+Super Admin dashboard for **ZEBALPHA** marketplace. Built with Next.js and a custom design system for managing products, sellers, orders, settlements, and platform operations.
 
-Live: [admin.asaliswad.com](https://admin.asaliswad.com)
+Live: [adm.in.zebalpha.shop](https://adm.in.zebalpha.shop)
 
 ## Tech Stack
 

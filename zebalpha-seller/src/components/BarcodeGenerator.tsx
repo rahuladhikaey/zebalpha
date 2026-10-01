@@ -99,7 +99,7 @@ export const QRCodeSVG: React.FC<{ value: string; size?: number; className?: str
   size = 85,
   className = ""
 }) => {
-  const safeVal = value || "https://zebalpha.com";
+  const safeVal = value || "https://zebalpha.shop";
 
   // Standard 21x21 QR Matrix with 3 finder patterns (Top-Left, Top-Right, Bottom-Left)
   const matrix: number[][] = Array(21).fill(0).map(() => Array(21).fill(0));
