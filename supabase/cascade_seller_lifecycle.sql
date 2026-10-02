@@ -52,23 +52,29 @@ FOR EACH ROW EXECUTE FUNCTION fn_handle_seller_status_change();
 CREATE OR REPLACE FUNCTION fn_handle_seller_hard_delete()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Remove cart items for seller's products
-    DELETE FROM public.cart 
-    WHERE product_id IN (
-        SELECT id FROM public.products 
-        WHERE seller_id = OLD.id::text OR seller_id = OLD.auth_id::text
-    );
+    -- Remove cart items for seller's products (if cart table exists)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'cart') THEN
+        DELETE FROM public.cart 
+        WHERE product_id IN (
+            SELECT id FROM public.products 
+            WHERE seller_id = OLD.id::text OR seller_id = OLD.auth_id::text
+        );
+    END IF;
 
-    -- Remove wishlist items for seller's products
-    DELETE FROM public.wishlist 
-    WHERE product_id IN (
-        SELECT id FROM public.products 
-        WHERE seller_id = OLD.id::text OR seller_id = OLD.auth_id::text
-    );
+    -- Remove wishlist items for seller's products (if wishlist table exists)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'wishlist') THEN
+        DELETE FROM public.wishlist 
+        WHERE product_id IN (
+            SELECT id FROM public.products 
+            WHERE seller_id = OLD.id::text OR seller_id = OLD.auth_id::text
+        );
+    END IF;
 
-    -- Clean stock history
-    DELETE FROM public.stock_history 
-    WHERE seller_id = OLD.id::text OR seller_id = OLD.auth_id::text;
+    -- Clean stock history (if stock_history table exists)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'stock_history') THEN
+        DELETE FROM public.stock_history 
+        WHERE seller_id = OLD.id::text OR seller_id = OLD.auth_id::text;
+    END IF;
 
     -- Delete all products listed by this seller
     DELETE FROM public.products 
