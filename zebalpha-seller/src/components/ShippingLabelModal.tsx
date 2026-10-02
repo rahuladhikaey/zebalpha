@@ -71,30 +71,53 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
   const returnCode = order.return_code || (sellerPincode ? `${sellerPincode},4565457` : "");
   const sellerGstin = sellerInfo?.gstin || sellerInfo?.enrolment_no || sellerInfo?.gst_number || order.seller_gstin || "";
 
-  const items: any[] = Array.isArray(order.items) && order.items.length > 0
+  const itemsList: any[] = Array.isArray(order.items) && order.items.length > 0
     ? order.items
     : Array.isArray(order.seller_items) && order.seller_items.length > 0
     ? order.seller_items
     : typeof order.product_details === "string"
     ? JSON.parse(order.product_details || "[]")
-    : [];
+    : [
+        {
+          name: order.product_name || order.title || "Apparel Item",
+          sku: order.sku || "PROD-SKU",
+          size: order.size || "Standard",
+          quantity: order.quantity || 1,
+          price: Number(order.item_price || order.product_price || order.price || order.subtotal || 0),
+          color: order.color || ""
+        }
+      ];
 
-  const firstItem = items[0] || {
-    name: "VARIATOR Astronaut Graphic Oversized T-Shirt",
-    sku: "P5krKHQN",
-    size: "Free Size",
-    quantity: 1,
-    price: 420,
-    color: "Teal"
-  };
+  // Calculate real totals across items
+  const itemsBreakdown = itemsList.map((item) => {
+    const qty = Number(item.quantity) || 1;
+    const unitPrice = Number(item.price || item.unit_price || item.sale_price || item.mrp || 0);
+    const itemDiscount = Number(item.discount || item.discount_amount || 0);
+    const gross = unitPrice * qty;
+    const net = Math.max(0, gross - itemDiscount);
+    return {
+      ...item,
+      qty,
+      unitPrice,
+      itemDiscount,
+      gross,
+      net,
+    };
+  });
 
-  const itemPrice = Number(firstItem.price || firstItem.subtotal) || 420;
-  const itemQty = Number(firstItem.quantity) || 1;
-  const discountAmount = Number(order.discount_amount) || 22;
-  const otherCharges = Number(order.shipping_charge || order.delivery_fee) || 24;
-  const grossAmount = itemPrice * itemQty;
-  const subTotalAfterDiscount = Math.max(0, grossAmount - discountAmount);
-  const totalInvoiceAmount = Number(order.total_amount) || (subTotalAfterDiscount + otherCharges);
+  const totalGrossAmount = itemsBreakdown.reduce((acc, it) => acc + it.gross, 0);
+  const totalItemDiscount = itemsBreakdown.reduce((acc, it) => acc + it.itemDiscount, 0);
+  const orderLevelDiscount = Number(order.discount_amount || order.coupon_discount || 0);
+  const effectiveDiscount = totalItemDiscount > 0 ? totalItemDiscount : orderLevelDiscount;
+  const netProductsTotal = Math.max(0, totalGrossAmount - effectiveDiscount);
+
+  // Real delivery & other fees from order
+  const deliveryCharge = Number(order.shipping_charge || order.delivery_charge || order.shipping_fee || order.delivery_fee || 0);
+  const packagingFee = Number(order.packaging_fee || order.other_charges || 0);
+  const totalOtherCharges = deliveryCharge + packagingFee;
+
+  // Final exact payable sum
+  const totalInvoiceAmount = netProductsTotal + totalOtherCharges;
 
   const orderDateFormatted = new Date(order.created_at || Date.now()).toLocaleDateString("en-GB");
   const invoiceDateFormatted = new Date(order.label_generated_at || order.created_at || Date.now()).toLocaleDateString("en-GB");
@@ -288,23 +311,25 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
                 <div className="p-1 font-black border-r border-black text-center">Color</div>
                 <div className="p-1 font-black text-right">Order No.</div>
               </div>
-              <div className="grid grid-cols-[1.2fr_0.8fr_0.5fr_0.8fr_1.7fr] text-[9px] text-black border-t border-black/30 font-medium">
-                <div className="p-1 font-mono font-bold border-r border-black truncate">
-                  {firstItem.sku || "P5krKHQN"}
+              {itemsBreakdown.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-[1.2fr_0.8fr_0.5fr_0.8fr_1.7fr] text-[9px] text-black border-t border-black/30 font-medium">
+                  <div className="p-1 font-mono font-bold border-r border-black truncate">
+                    {item.sku || order.sku || "PROD-SKU"}
+                  </div>
+                  <div className="p-1 border-r border-black text-center font-bold">
+                    {item.size || "Standard"}
+                  </div>
+                  <div className="p-1 border-r border-black text-center font-bold">
+                    {item.qty}
+                  </div>
+                  <div className="p-1 border-r border-black text-center truncate">
+                    {item.color || "—"}
+                  </div>
+                  <div className="p-1 font-mono text-[8px] font-bold text-right truncate">
+                    {subOrderNumber}
+                  </div>
                 </div>
-                <div className="p-1 border-r border-black text-center font-bold">
-                  {firstItem.size || "Free Size"}
-                </div>
-                <div className="p-1 border-r border-black text-center font-bold">
-                  {itemQty}
-                </div>
-                <div className="p-1 border-r border-black text-center">
-                  {firstItem.color || "Teal"}
-                </div>
-                <div className="p-1 font-mono text-[8px] font-bold text-right truncate">
-                  {subOrderNumber}
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* ════════════════════════════════════════════════════════════════════════
@@ -367,23 +392,35 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/20">
-                  <tr>
-                    <td className="p-1 font-bold text-black leading-tight">
-                      {firstItem.name || firstItem.title || "Premium Apparel Cotton Wear"} - {firstItem.size || "Free Size"}
-                    </td>
-                    <td className="p-1 text-center font-bold">{itemQty}</td>
-                    <td className="p-1 text-right font-mono">Rs.{grossAmount.toFixed(2)}</td>
-                    <td className="p-1 text-right font-mono text-emerald-700">Rs.{discountAmount.toFixed(2)}</td>
-                    <td className="p-1 text-right font-mono font-bold">Rs.{subTotalAfterDiscount.toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td className="p-1 font-medium text-zinc-700" colSpan={2}>
-                      Other Charges (Logistics / Packaging)
-                    </td>
-                    <td className="p-1 text-right font-mono">Rs.{otherCharges.toFixed(2)}</td>
-                    <td className="p-1 text-right font-mono">Rs.0.00</td>
-                    <td className="p-1 text-right font-mono font-bold">Rs.{otherCharges.toFixed(2)}</td>
-                  </tr>
+                  {itemsBreakdown.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="p-1 font-bold text-black leading-tight">
+                        {item.name || item.title || "Apparel Item"} {item.size ? `- ${item.size}` : ""}
+                      </td>
+                      <td className="p-1 text-center font-bold">{item.qty}</td>
+                      <td className="p-1 text-right font-mono">Rs.{item.gross.toFixed(2)}</td>
+                      <td className="p-1 text-right font-mono text-emerald-700">
+                        {item.itemDiscount > 0 ? `Rs.${item.itemDiscount.toFixed(2)}` : (idx === 0 && orderLevelDiscount > 0 ? `Rs.${orderLevelDiscount.toFixed(2)}` : "Rs.0.00")}
+                      </td>
+                      <td className="p-1 text-right font-mono font-bold">
+                        Rs.{(idx === 0 && orderLevelDiscount > 0 && item.itemDiscount === 0 ? Math.max(0, item.gross - orderLevelDiscount) : item.net).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                  {totalOtherCharges > 0 && (
+                    <tr>
+                      <td className="p-1 font-medium text-zinc-700" colSpan={2}>
+                        {deliveryCharge > 0 && packagingFee > 0
+                          ? `Delivery (Rs.${deliveryCharge}) + Packaging (Rs.${packagingFee})`
+                          : deliveryCharge > 0
+                          ? "Logistics / Delivery Fee"
+                          : "Handling / Packaging Fee"}
+                      </td>
+                      <td className="p-1 text-right font-mono">Rs.{totalOtherCharges.toFixed(2)}</td>
+                      <td className="p-1 text-right font-mono">Rs.0.00</td>
+                      <td className="p-1 text-right font-mono font-bold">Rs.{totalOtherCharges.toFixed(2)}</td>
+                    </tr>
+                  )}
                   <tr className="bg-zinc-50 border-t-2 border-black font-black text-[9.5px]">
                     <td className="p-1 uppercase" colSpan={4}>Total Payable Amount</td>
                     <td className="p-1 text-right font-mono text-black">Rs.{totalInvoiceAmount.toFixed(2)}</td>

@@ -55,6 +55,7 @@ export default function ReturnsAndRtoPage() {
   // Data states
   const [returns, setReturns] = useState<any[]>([]);
   const [claims, setClaims] = useState<any[]>([]);
+  const [sellerProducts, setSellerProducts] = useState<any[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -77,7 +78,7 @@ export default function ReturnsAndRtoPage() {
   });
   const [submittingClaim, setSubmittingClaim] = useState(false);
 
-  // Load Seller & Data
+  // Load Seller, Products & Returns Data
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -93,20 +94,40 @@ export default function ReturnsAndRtoPage() {
           const currentSellerId = seller?.id || user.id;
           setSellerId(currentSellerId);
 
-          // Fetch returns from order_returns table
-          const { data: returnsData, error: returnsError } = await supabase
+          const sellerIds = [user.id];
+          if (seller?.id) sellerIds.push(seller.id);
+
+          // 1. Fetch real clothing products for this seller
+          const { data: productsData } = await supabase
+            .from("products")
+            .select("*")
+            .in("seller_id", sellerIds)
+            .order("created_at", { ascending: false });
+
+          if (productsData && productsData.length > 0) {
+            setSellerProducts(productsData);
+          } else {
+            // Fetch any clothing products if seller has none uploaded yet
+            const { data: globalProducts } = await supabase
+              .from("products")
+              .select("*")
+              .limit(10);
+            setSellerProducts(globalProducts || []);
+          }
+
+          // 2. Fetch returns from order_returns table
+          const { data: returnsData } = await supabase
             .from("order_returns")
             .select("*")
             .order("created_at", { ascending: false });
 
-          if (!returnsError && returnsData && returnsData.length > 0) {
+          if (returnsData && returnsData.length > 0) {
             setReturns(returnsData);
           } else {
-            // Seed realistic demo returns if empty to match screenshots
-            setReturns(getInitialReturnsMock());
+            setReturns([]);
           }
 
-          // Fetch claims from seller_claims table
+          // 3. Fetch claims from seller_claims table
           const { data: claimsData } = await supabase
             .from("seller_claims")
             .select("*")
@@ -118,11 +139,19 @@ export default function ReturnsAndRtoPage() {
             setClaims([]);
           }
         } else {
-          setReturns(getInitialReturnsMock());
+          // Fetch public products if not authenticated
+          const { data: productsData } = await supabase
+            .from("products")
+            .select("*")
+            .limit(10);
+          setSellerProducts(productsData || []);
+          setReturns([]);
+          setClaims([]);
         }
       } catch (err) {
-        console.error("Error fetching returns:", err);
-        setReturns(getInitialReturnsMock());
+        console.error("Error fetching returns data:", err);
+        setReturns([]);
+        setClaims([]);
       } finally {
         setLoading(false);
       }
@@ -212,7 +241,7 @@ export default function ReturnsAndRtoPage() {
         itemDamageImageUrl: "",
         sellerComments: "",
       });
-      alert("✅ SPF Claim raised successfully! Meesho Support team will review evidence within 48 hours.");
+      alert("✅ SPF Claim raised successfully! Zebalpha Support team will review evidence within 48 hours.");
       setActiveMainTab("claims");
     } catch (err) {
       console.error("Error raising claim:", err);
@@ -351,30 +380,40 @@ export default function ReturnsAndRtoPage() {
                 <div className="grid grid-cols-2 gap-4 pt-1">
                   <div>
                     <div className="text-[11px] text-gray-500 font-medium">Return Rate</div>
-                    <div className="text-2xl font-black text-gray-900 tracking-tight mt-0.5">0.00%</div>
-                    <div className="text-[11px] text-gray-400 mt-1">0 orders returned out of 2 delivered</div>
+                    <div className="text-2xl font-black text-gray-900 tracking-tight mt-0.5">
+                      {returns.filter((r) => r.return_type === "CUSTOMER_RETURN").length > 0
+                        ? `${((returns.filter((r) => r.return_type === "CUSTOMER_RETURN").length / Math.max(1, sellerProducts.length)) * 100).toFixed(2)}%`
+                        : "0.00%"}
+                    </div>
+                    <div className="text-[11px] text-gray-400 mt-1">
+                      {returns.filter((r) => r.return_type === "CUSTOMER_RETURN").length} customer returns recorded
+                    </div>
                   </div>
 
                   <div className="border-l border-gray-100 pl-4">
                     <div className="text-[11px] text-gray-500 font-medium">Average Reverse Shipping Cost</div>
                     <div className="text-2xl font-black text-gray-900 tracking-tight mt-0.5">₹ 0</div>
-                    <div className="text-[11px] text-gray-400 mt-1">For 0 customer returned orders</div>
+                    <div className="text-[11px] text-gray-400 mt-1">Platform insured reverse transit</div>
                   </div>
                 </div>
 
                 {/* Sub-Metric: Dual Pricing */}
                 <div className="pt-3 border-t border-gray-100">
                   <div className="text-[11px] font-bold text-gray-600 uppercase tracking-wide mb-2">
-                    Dual Pricing - Customer Return Rate
+                    Return Policy Breakdown
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-[11px] text-gray-500">Wrong/Defective Return Price</div>
-                      <div className="text-base font-black text-rose-600 mt-0.5">0.00%</div>
+                      <div className="text-[11px] text-gray-500">Defective / Wrong Item</div>
+                      <div className="text-base font-black text-rose-600 mt-0.5">
+                        {returns.filter((r) => r.reason?.toLowerCase().includes("wrong") || r.reason?.toLowerCase().includes("defect")).length} Items
+                      </div>
                     </div>
                     <div>
-                      <div className="text-[11px] text-gray-500">Meesho Price</div>
-                      <div className="text-base font-black text-rose-600 mt-0.5">0.00%</div>
+                      <div className="text-[11px] text-gray-500">Size / Fit Issues</div>
+                      <div className="text-base font-black text-amber-600 mt-0.5">
+                        {returns.filter((r) => r.reason?.toLowerCase().includes("size") || r.reason?.toLowerCase().includes("fit")).length} Items
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -385,14 +424,20 @@ export default function ReturnsAndRtoPage() {
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Courier Return (RTO) Rate</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
-                      ▲ 33.33%
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                      ● Active Protection
                     </span>
                   </div>
 
                   <div className="pt-3">
-                    <div className="text-2xl font-black text-gray-900 tracking-tight">33.33%</div>
-                    <div className="text-[11px] text-gray-500 mt-1">1 RTO orders out of 3 dispatched</div>
+                    <div className="text-2xl font-black text-gray-900 tracking-tight">
+                      {returns.filter((r) => r.return_type === "RTO").length > 0
+                        ? `${((returns.filter((r) => r.return_type === "RTO").length / Math.max(1, returns.length)) * 100).toFixed(2)}%`
+                        : "0.00%"}
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1">
+                      {returns.filter((r) => r.return_type === "RTO").length} RTO orders out of {returns.length} processed
+                    </div>
                   </div>
                 </div>
 
@@ -400,18 +445,18 @@ export default function ReturnsAndRtoPage() {
                 <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-3.5 flex items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <div className="text-xs font-bold text-amber-900 flex items-center gap-1">
-                      <span>RTO Approved Claims (Branded Packet)</span>
+                      <span>Seller Protection Fund (SPF)</span>
                       <Info className="w-3.5 h-3.5 text-amber-700" />
                     </div>
                     <p className="text-[11px] text-amber-800 font-medium">
-                      Use Branded Packets & get up to 80% RTO claims approval
+                      Protected against wrong & damaged apparel returns with 100% financial reimbursement.
                     </p>
                   </div>
                   <button 
-                    onClick={() => alert("Meesho Branded Packaging Store opening soon.")}
+                    onClick={() => setShowHowItWorksModal(true)}
                     className="px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold text-xs rounded-md shadow-sm transition whitespace-nowrap"
                   >
-                    Buy Now
+                    SPF Guide
                   </button>
                 </div>
               </div>
@@ -422,31 +467,25 @@ export default function ReturnsAndRtoPage() {
             <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
               <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">Product Performance</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">12 Aug&apos;26 - 08 Sep&apos;26</p>
+                  <h3 className="text-sm font-bold text-gray-900">Clothing Inventory Performance</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Live returns & performance analysis</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 font-medium">Filter by:</span>
-                    <select className="text-xs font-semibold bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:outline-none">
-                      <option>Category</option>
-                      <option>Kitchen Utility</option>
-                      <option>Home Decor</option>
-                    </select>
-                    <select className="text-xs font-semibold bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:outline-none">
-                      <option>Performance</option>
-                      <option>High Return Rate</option>
-                      <option>Low Return Rate</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 font-medium">Sort by:</span>
-                    <select className="text-xs font-semibold bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:outline-none">
-                      <option>Most Recent Order</option>
-                      <option>Highest Return %</option>
-                      <option>Lowest Return %</option>
+                    <select 
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="text-xs font-semibold bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:outline-none"
+                    >
+                      <option value="All">All Categories</option>
+                      <option value="Men">Men&apos;s Wear</option>
+                      <option value="Women">Women&apos;s Wear</option>
+                      <option value="Kids">Kids Wear</option>
+                      <option value="Streetwear">Streetwear / Hoodies</option>
+                      <option value="T-Shirts">T-Shirts & Tops</option>
+                      <option value="Ethnic Wear">Ethnic Wear</option>
                     </select>
                   </div>
                 </div>
@@ -458,53 +497,80 @@ export default function ReturnsAndRtoPage() {
                   <thead className="bg-gray-50/80 text-gray-500 font-bold uppercase tracking-wider border-b border-gray-100">
                     <tr>
                       <th className="py-3 px-4">Product Details</th>
-                      <th className="py-3 px-4 text-center">Orders Delivered</th>
-                      <th className="py-3 px-4 text-center">Customer Return</th>
+                      <th className="py-3 px-4 text-center">Available Stock</th>
+                      <th className="py-3 px-4 text-center">Customer Returns</th>
+                      <th className="py-3 px-4 text-center">Price</th>
                       <th className="py-3 px-4 text-center">Action</th>
-                      <th className="py-3 px-4">What Changed <Info className="w-3 h-3 inline text-gray-400" /></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
-                    {getOverviewProductsMock().map((prod) => (
-                      <tr key={prod.id} className="hover:bg-gray-50/60 transition">
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={prod.image}
-                              alt={prod.name}
-                              className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0 bg-gray-100"
-                            />
-                            <div className="space-y-1">
-                              <p className="font-bold text-gray-900 line-clamp-1 max-w-sm">{prod.name}</p>
-                              <div className="flex items-center gap-2 text-[11px] text-gray-400 font-medium">
-                                <span>Product ID: {prod.pid}</span>
-                                <span>•</span>
-                                <span>Category: {prod.category}</span>
-                              </div>
-                              {prod.dualPricing && (
-                                <span className="inline-block px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-bold text-[9px] border border-purple-200">
-                                  Dual Pricing Enabled
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                    {sellerProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-gray-400 font-medium">
+                          No products found in catalogue. Add products from the Collections or Inventory tab.
                         </td>
-                        <td className="py-3.5 px-4 text-center font-bold text-gray-900">{prod.delivered}</td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="font-bold text-gray-900">{prod.returnRate}</div>
-                          <div className="text-[10px] text-gray-400">{prod.returnsCount} Returns</div>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <button 
-                            onClick={() => alert(`Showing analytics for ${prod.name}`)}
-                            className="px-3 py-1 bg-white border border-gray-200 hover:border-gray-400 text-gray-800 font-semibold rounded-md shadow-2xs hover:bg-gray-50 transition"
-                          >
-                            View Details
-                          </button>
-                        </td>
-                        <td className="py-3.5 px-4 text-gray-400 font-medium">{prod.whatChanged}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      sellerProducts
+                        .filter((prod) => categoryFilter === "All" || prod.category?.toLowerCase() === categoryFilter.toLowerCase() || prod.gender?.toLowerCase() === categoryFilter.toLowerCase())
+                        .map((prod) => {
+                          const productReturns = returns.filter((r) => r.product_id === prod.id || r.product_name === prod.name);
+                          return (
+                            <tr key={prod.id} className="hover:bg-gray-50/60 transition">
+                              <td className="py-3.5 px-4">
+                                <div className="flex items-center gap-3">
+                                  <img
+                                    src={prod.images?.[0] || prod.image || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500"}
+                                    alt={prod.name}
+                                    className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0 bg-gray-100"
+                                  />
+                                  <div className="space-y-1">
+                                    <p className="font-bold text-gray-900 line-clamp-1 max-w-sm">{prod.name}</p>
+                                    <div className="flex items-center gap-2 text-[11px] text-gray-400 font-medium">
+                                      <span>SKU: {prod.sku || `PROD-${prod.id}`}</span>
+                                      <span>•</span>
+                                      <span>Category: {prod.category || prod.gender || "Apparel"}</span>
+                                    </div>
+                                    {prod.sizes && prod.sizes.length > 0 && (
+                                      <div className="flex gap-1">
+                                        {prod.sizes.slice(0, 4).map((s: string) => (
+                                          <span key={s} className="px-1.5 py-0.2 rounded bg-gray-100 text-gray-600 font-mono text-[9px]">
+                                            {s}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-4 text-center font-bold text-gray-900">
+                                <span className={`px-2 py-0.5 rounded-full text-[11px] ${
+                                  (prod.stock || 0) > 5 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                                }`}>
+                                  {prod.stock || 0} pcs
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 text-center">
+                                <div className="font-bold text-gray-900">
+                                  {productReturns.length > 0 ? `${productReturns.length} Returns` : "0.00%"}
+                                </div>
+                                <div className="text-[10px] text-gray-400">{productReturns.length} return events</div>
+                              </td>
+                              <td className="py-3.5 px-4 text-center font-bold text-gray-900">
+                                ₹{prod.price || prod.sale_price || 0}
+                              </td>
+                              <td className="py-3.5 px-4 text-center">
+                                <Link 
+                                  href="/dashboard/inventory"
+                                  className="px-3 py-1 bg-white border border-gray-200 hover:border-gray-400 text-gray-800 font-semibold rounded-md shadow-2xs hover:bg-gray-50 transition inline-block text-[11px]"
+                                >
+                                  Manage Stock
+                                </Link>
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -578,8 +644,11 @@ export default function ReturnsAndRtoPage() {
                   className="text-xs font-medium bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none"
                 >
                   <option value="All">Category: All</option>
-                  <option value="Kitchen Utility">Kitchen Utility</option>
-                  <option value="Home & Kitchen">Home & Kitchen</option>
+                  <option value="Men">Men&apos;s Wear</option>
+                  <option value="Women">Women&apos;s Wear</option>
+                  <option value="Kids">Kids Wear</option>
+                  <option value="Streetwear">Streetwear & Hoodies</option>
+                  <option value="T-Shirts">T-Shirts</option>
                 </select>
 
                 {/* Courier Partner */}
@@ -897,7 +966,7 @@ export default function ReturnsAndRtoPage() {
                             {claim.approved_amount ? `₹${claim.approved_amount}` : "—"}
                           </td>
                           <td className="py-3.5 px-4 text-right text-gray-400 font-medium max-w-xs truncate">
-                            {claim.admin_remarks || claim.seller_comments || "Under review by Meesho Team"}
+                            {claim.admin_remarks || claim.seller_comments || "Under review by Zebalpha Support"}
                           </td>
                         </tr>
                       ))}
@@ -1052,7 +1121,7 @@ export default function ReturnsAndRtoPage() {
 
               {/* Terms Warning */}
               <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-medium leading-relaxed">
-                ⚠️ False claims or altered video evidence may lead to permanent suspension of your Meesho supplier account under SPF guidelines.
+                ⚠️ False claims or altered video evidence may lead to permanent suspension of your Zebalpha supplier account under SPF guidelines.
               </div>
 
               {/* Submit Buttons */}
@@ -1139,7 +1208,7 @@ export default function ReturnsAndRtoPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h3 className="text-sm font-bold text-gray-900">Meesho Reverse Shipping Rate Card</h3>
+              <h3 className="text-sm font-bold text-gray-900">Zebalpha Reverse Shipping Rate Card</h3>
               <button onClick={() => setShowRateCardModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
             </div>
             <div className="text-xs space-y-2 text-gray-600">
@@ -1162,9 +1231,9 @@ export default function ReturnsAndRtoPage() {
               <button onClick={() => setShowHowItWorksModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
             </div>
             <div className="text-xs space-y-2.5 text-gray-600 leading-relaxed">
-              <p>1. <strong>Doorstep Quality Check:</strong> Delivery partner verifies tags, packaging, and product condition before accepting return from customer.</p>
-              <p>2. <strong>Tracking:</strong> Track returns live from &apos;In Transit&apos; to &apos;Delivered&apos; at your pickup hub.</p>
-              <p>3. <strong>SPF Protection:</strong> If you receive wrong/damaged items, record a clear 360° unboxing video and raise an SPF claim within 72 hours to get up to 100% financial reimbursement.</p>
+              <p>1. <strong>Doorstep Quality Check:</strong> Delivery partner verifies apparel tags, polybags, and fabric condition before accepting return from customer.</p>
+              <p>2. <strong>Tracking:</strong> Track clothing returns live from &apos;In Transit&apos; to &apos;Delivered&apos; at your pickup hub.</p>
+              <p>3. <strong>SPF Protection:</strong> If you receive wrong/damaged apparel, record a clear 360° unboxing video and raise an SPF claim within 72 hours to get up to 100% financial reimbursement.</p>
             </div>
             <button onClick={() => setShowHowItWorksModal(false)} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl">
               Understand
@@ -1197,94 +1266,4 @@ export default function ReturnsAndRtoPage() {
 
     </div>
   );
-}
-
-// Initial Mock Returns to match the 5 Meesho screenshots
-function getInitialReturnsMock() {
-  return [
-    {
-      id: "ret_1",
-      order_id: "ORD-98214-A",
-      suborder_id: "324387803182751552_1",
-      product_name: "2100ml Insulated Hot Pot Casserole | Food Grade Thermal Serving Bowl | Hot & Cold Food Storage Container with Lid",
-      product_image: "https://images.unsplash.com/photo-1584905066893-7d5c142ba4e1?w=500",
-      sku: "sdRFNQga",
-      category: "Serving Casseroles & Tureens",
-      quantity: 1,
-      size: "Free Size",
-      return_type: "CUSTOMER_RETURN",
-      status: "delivered",
-      reason: "N/A",
-      return_shipping_fee: 0,
-      delivered_at_formatted: "26 Sept'26",
-      awb_number: "1490840421477175",
-      courier_partner: "Delhivery",
-    }
-  ];
-}
-
-// Mock Products for Overview Tab matching Screenshot 2
-function getOverviewProductsMock() {
-  return [
-    {
-      id: "p1",
-      name: "Premium Exclusive 7-Piece Glass Dry Fruit Serving Set with Leaf Tray | Gold Rim Dessert Bowl Set | Luxury Snack & Dry Fruit Serving Combo for Home, Kitchen & Gifting Box",
-      pid: "1059809223",
-      category: "Kitchen Utility",
-      dualPricing: true,
-      delivered: 1,
-      returnRate: "0.00%",
-      returnsCount: 0,
-      whatChanged: "N/A",
-      image: "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=500"
-    },
-    {
-      id: "p2",
-      name: "Premium Hybrid Papaya Seeds 50+ Pcs | High Germination Papaya Fruit Seeds | High Yielding Variety Hybrid Papaya Seeds for Home Garden, Terrace Garden & Farming",
-      pid: "1058536065",
-      category: "Home & Kitchen",
-      dualPricing: true,
-      delivered: 0,
-      returnRate: "0.00%",
-      returnsCount: 0,
-      whatChanged: "N/A",
-      image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500"
-    },
-    {
-      id: "p3",
-      name: "Premium Floral Printed Deep Kadhai with Glass Lid | Heavy Gauge Cookware for Gas Stove | Scratch Resistant Non Stick Style Kadhai | Easy Clean Multipurpose Fry Pan for Daily Cooking",
-      pid: "10585954531",
-      category: "Kitchen Utility",
-      dualPricing: true,
-      delivered: 0,
-      returnRate: "0.00%",
-      returnsCount: 0,
-      whatChanged: "N/A",
-      image: "https://images.unsplash.com/photo-1584905066893-7d5c142ba4e1?w=500"
-    },
-    {
-      id: "p4",
-      name: "Premium Non Stick Frying Pan | 22 cm Flat Tawa Style Fry Pan | PFOA-Free Nonstick Coating | Ergonomic Heat Resistant Handle | Multipurpose Cookware for Roti, Dosa, Omelette & Pancake | Red",
-      pid: "1041280793",
-      category: "Home & Kitchen",
-      dualPricing: true,
-      delivered: 1,
-      returnRate: "0.00%",
-      returnsCount: 0,
-      whatChanged: "N/A",
-      image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=500"
-    },
-    {
-      id: "p5",
-      name: "2100ml Insulated Hot Pot Casserole | Food Grade Thermal Serving Bowl | Hot & Cold Food Storage Container with Lid",
-      pid: "1058471918",
-      category: "Kitchen Utility",
-      dualPricing: true,
-      delivered: 0,
-      returnRate: "0.00%",
-      returnsCount: 0,
-      whatChanged: "N/A",
-      image: "https://images.unsplash.com/photo-1584905066893-7d5c142ba4e1?w=500"
-    }
-  ];
 }
