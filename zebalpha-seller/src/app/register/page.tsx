@@ -156,9 +156,6 @@ export default function SellerRegisterPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        if (data.otp && !data.emailSent) {
-          sendEmailJsDirect(normalizedEmail, data.otp);
-        }
         setResendCooldown(60);
         setOtpInput("");
         setInfoMessage(`✓ New verification OTP sent to ${normalizedEmail}! Please check your email inbox.`);
