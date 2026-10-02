@@ -759,9 +759,11 @@ export default function MyOrdersPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex flex-col gap-0.5">
                           <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">Real-Time Process Manifest</span>
-                          <h4 className="text-xs font-black text-white">Shipment Delivery Progress</h4>
+                          <h4 className={`text-xs font-black ${isCancelled ? "text-rose-400" : hasReturn ? "text-amber-400" : "text-white"}`}>
+                            {isCancelled ? "Order Cancellation Progress" : hasReturn ? "Return & Refund Progress" : "Shipment Delivery Progress"}
+                          </h4>
                         </div>
-                        {order.tracking_number && (
+                        {order.tracking_number && !isCancelled && (
                           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/60 border border-purple-500/30 text-purple-300 text-[10px] font-bold">
                             <span>🚚 {order.courier_name || "Express Logistics"}</span>
                             <span className="text-zinc-500">•</span>
@@ -771,74 +773,120 @@ export default function MyOrdersPage() {
                       </div>
 
                       {/* Timeline Graphic */}
-                      <div className="relative py-4 px-2">
-                        <div className="hidden md:block absolute top-[28px] left-[12%] right-[12%] h-[3px] bg-zinc-800 rounded">
-                          <div
-                            className="h-full bg-white rounded transition-all duration-1000"
-                            style={{
-                              width: isCancelled ? "0%" :
-                                order.order_status === "DELIVERED" ? "100%" :
-                                order.order_status === "SHIPPED" ? "66%" : "25%"
-                            }}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-4 relative z-10">
-                          {/* Node 1: Confirmed */}
-                          <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
-                            <div className="h-8 w-8 rounded-full bg-white text-black flex items-center justify-center font-black text-xs shadow-xl border-2 border-black shrink-0 z-20">
-                              ✓
-                            </div>
-                            <div className="flex flex-col md:items-center">
-                              <span className="text-xs font-black text-white">Order Placed</span>
-                              <span className="text-[9px] font-bold text-zinc-400 mt-0.5">
-                                {new Date(order.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
+                      {isCancelled ? (
+                        <div className="relative py-4 px-2">
+                          <div className="hidden md:block absolute top-[28px] left-[15%] right-[15%] h-[3px] bg-rose-950 border border-rose-800/60 rounded">
+                            <div className="h-full bg-rose-600 rounded transition-all duration-700 w-full" />
                           </div>
 
-                          {/* Node 2: Dispatched */}
-                          <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
-                            <div className={`h-8 w-8 rounded-full flex items-center justify-center font-black text-xs border-2 border-black shrink-0 z-20 transition-all ${
-                              statusLower === "shipped" || statusLower === "delivered" ? "bg-white text-black shadow-xl" : "bg-zinc-800 text-zinc-500"
-                            }`}>
-                              {statusLower === "shipped" || statusLower === "delivered" ? "✓" : "2"}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-4 relative z-10">
+                            {/* Node 1: Placed */}
+                            <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
+                              <div className="h-8 w-8 rounded-full bg-emerald-950 text-emerald-300 border-2 border-emerald-400 flex items-center justify-center font-black text-xs shrink-0 z-20 shadow-md">
+                                ✓
+                              </div>
+                              <div className="flex flex-col md:items-center">
+                                <span className="text-xs font-black text-white">Order Placed</span>
+                                <span className="text-[9px] font-bold text-zinc-400 mt-0.5">
+                                  {new Date(order.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex flex-col md:items-center">
-                              <span className={`text-xs font-black ${statusLower === "shipped" || statusLower === "delivered" ? "text-white" : "text-zinc-500"}`}>Packed & Dispatched</span>
-                              <span className="text-[9px] font-bold text-zinc-400 mt-0.5">Merchant Hub</span>
-                            </div>
-                          </div>
 
-                          {/* Node 3: Shipped in Transit */}
-                          <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
-                            <div className={`h-8 w-8 rounded-full flex items-center justify-center font-black text-xs border-2 border-black shrink-0 z-20 transition-all ${
-                              statusLower === "shipped" || statusLower === "delivered" ? "bg-white text-black shadow-xl" : "bg-zinc-800 text-zinc-500"
-                            }`}>
-                              {statusLower === "shipped" || statusLower === "delivered" ? "✓" : "3"}
+                            {/* Node 2: Confirmed */}
+                            <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
+                              <div className="h-8 w-8 rounded-full bg-emerald-950 text-emerald-300 border-2 border-emerald-400 flex items-center justify-center font-black text-xs shrink-0 z-20 shadow-md">
+                                ✓
+                              </div>
+                              <div className="flex flex-col md:items-center">
+                                <span className="text-xs font-black text-white">Confirmed</span>
+                                <span className="text-[9px] font-bold text-zinc-400 mt-0.5">Verified</span>
+                              </div>
                             </div>
-                            <div className="flex flex-col md:items-center">
-                              <span className={`text-xs font-black ${statusLower === "shipped" || statusLower === "delivered" ? "text-white" : "text-zinc-500"}`}>In Transit</span>
-                              <span className="text-[9px] font-bold text-zinc-400 mt-0.5">Courier Hub</span>
-                            </div>
-                          </div>
 
-                          {/* Node 4: Delivered */}
-                          <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
-                            <div className={`h-8 w-8 rounded-full flex items-center justify-center font-black text-xs border-2 border-black shrink-0 z-20 transition-all ${
-                              isDelivered ? "bg-white text-black shadow-xl" : "bg-zinc-800 text-zinc-500"
-                            }`}>
-                              {isDelivered ? "✓" : "4"}
-                            </div>
-                            <div className="flex flex-col md:items-center">
-                              <span className={`text-xs font-black ${isDelivered ? "text-white" : "text-zinc-500"}`}>Delivered</span>
-                              <span className="text-[9px] font-bold text-zinc-400 mt-0.5">
-                                {isDelivered ? "Package Received" : "Pending Arrival"}
-                              </span>
+                            {/* Node 3: Cancelled */}
+                            <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
+                              <div className="h-8 w-8 rounded-full bg-rose-950 text-rose-300 border-2 border-rose-500 flex items-center justify-center font-black text-xs shrink-0 z-20 shadow-[0_0_20px_rgba(244,63,94,0.4)] animate-pulse">
+                                🚫
+                              </div>
+                              <div className="flex flex-col md:items-center">
+                                <span className="text-xs font-black text-rose-400">Order Cancelled</span>
+                                <span className="text-[9px] font-bold text-rose-300 mt-0.5">
+                                  {order.cancelled_at ? new Date(order.cancelled_at).toLocaleDateString() : new Date(order.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="relative py-4 px-2">
+                          <div className="hidden md:block absolute top-[28px] left-[12%] right-[12%] h-[3px] bg-zinc-800 rounded">
+                            <div
+                              className="h-full bg-white rounded transition-all duration-1000"
+                              style={{
+                                width: order.order_status === "DELIVERED" ? "100%" :
+                                  order.order_status === "SHIPPED" ? "66%" : "25%"
+                              }}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-4 relative z-10">
+                            {/* Node 1: Confirmed */}
+                            <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
+                              <div className="h-8 w-8 rounded-full bg-white text-black flex items-center justify-center font-black text-xs shadow-xl border-2 border-black shrink-0 z-20">
+                                ✓
+                              </div>
+                              <div className="flex flex-col md:items-center">
+                                <span className="text-xs font-black text-white">Order Placed</span>
+                                <span className="text-[9px] font-bold text-zinc-400 mt-0.5">
+                                  {new Date(order.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Node 2: Dispatched */}
+                            <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
+                              <div className={`h-8 w-8 rounded-full flex items-center justify-center font-black text-xs border-2 border-black shrink-0 z-20 transition-all ${
+                                statusLower === "shipped" || statusLower === "delivered" ? "bg-white text-black shadow-xl" : "bg-zinc-800 text-zinc-500"
+                              }`}>
+                                {statusLower === "shipped" || statusLower === "delivered" ? "✓" : "2"}
+                              </div>
+                              <div className="flex flex-col md:items-center">
+                                <span className={`text-xs font-black ${statusLower === "shipped" || statusLower === "delivered" ? "text-white" : "text-zinc-500"}`}>Packed & Dispatched</span>
+                                <span className="text-[9px] font-bold text-zinc-400 mt-0.5">Merchant Hub</span>
+                              </div>
+                            </div>
+
+                            {/* Node 3: Shipped in Transit */}
+                            <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
+                              <div className={`h-8 w-8 rounded-full flex items-center justify-center font-black text-xs border-2 border-black shrink-0 z-20 transition-all ${
+                                statusLower === "shipped" || statusLower === "delivered" ? "bg-white text-black shadow-xl" : "bg-zinc-800 text-zinc-500"
+                              }`}>
+                                {statusLower === "shipped" || statusLower === "delivered" ? "✓" : "3"}
+                              </div>
+                              <div className="flex flex-col md:items-center">
+                                <span className={`text-xs font-black ${statusLower === "shipped" || statusLower === "delivered" ? "text-white" : "text-zinc-500"}`}>In Transit</span>
+                                <span className="text-[9px] font-bold text-zinc-400 mt-0.5">Courier Hub</span>
+                              </div>
+                            </div>
+
+                            {/* Node 4: Delivered */}
+                            <div className="flex md:flex-col items-center md:text-center gap-4 md:gap-2">
+                              <div className={`h-8 w-8 rounded-full flex items-center justify-center font-black text-xs border-2 border-black shrink-0 z-20 transition-all ${
+                                isDelivered ? "bg-white text-black shadow-xl" : "bg-zinc-800 text-zinc-500"
+                              }`}>
+                                {isDelivered ? "✓" : "4"}
+                              </div>
+                              <div className="flex flex-col md:items-center">
+                                <span className={`text-xs font-black ${isDelivered ? "text-white" : "text-zinc-500"}`}>Delivered</span>
+                                <span className="text-[9px] font-bold text-zinc-400 mt-0.5">
+                                  {isDelivered ? "Package Received" : "Pending Arrival"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Recipient info */}
                       <div className="grid md:grid-cols-2 gap-4 bg-zinc-900 p-4 rounded-2xl border border-zinc-800">
