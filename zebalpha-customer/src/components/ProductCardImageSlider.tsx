@@ -84,6 +84,12 @@ export function ProductCardImageSlider({
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
               loading={idx === 0 ? "eager" : "lazy"}
               decoding="async"
+              onError={(e: any) => {
+                // Fallback on broken image link
+                if (e.currentTarget?.src) {
+                  e.currentTarget.src = "/placeholder.jpg";
+                }
+              }}
               className="w-full h-full object-cover transition-transform duration-700 group-hover/slider:scale-108"
             />
           </div>
