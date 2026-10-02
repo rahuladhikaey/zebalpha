@@ -53,8 +53,9 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
  * Cached fetcher for Homepage Featured Drops Grid Section (Section 9)
  * Cache TTL: 20 minutes (1200s)
  */
-export async function getCachedHomeProducts(brandFilter: boolean = false, limit: number = 12): Promise<Product[]> {
-  const cacheKey = `homepage:section:featured:brand:${brandFilter ? 'asaliswad' : 'all'}:limit:${limit}`;
+export async function getCachedHomeProducts(brandFilter?: string, limit: number = 12): Promise<Product[]> {
+  const brandKey = brandFilter ? brandFilter.toLowerCase().trim() : 'all';
+  const cacheKey = `homepage:section:featured:v3:brand:${brandKey}:limit:${limit}`;
   return getCachedOrFetch<Product[]>(
     cacheKey,
     async () => {
@@ -67,7 +68,7 @@ export async function getCachedHomeProducts(brandFilter: boolean = false, limit:
         .order('created_at', { ascending: false });
 
       if (brandFilter) {
-        query = query.eq('brand', 'asaliswad');
+        query = query.ilike('brand', `%${brandFilter}%`);
       }
 
       query = query.limit(limit);

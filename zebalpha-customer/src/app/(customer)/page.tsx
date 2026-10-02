@@ -16,7 +16,7 @@ import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 
 import { getCachedHomeCategories, getCachedHomeProducts } from "@/lib/cachedQueries";
 
-const fetchHomeData = async (brandFilter: boolean = false) => {
+const fetchHomeData = async (brandFilter?: string) => {
   let categories: Category[] = [];
   let products: Product[] = [];
 
@@ -25,7 +25,28 @@ const fetchHomeData = async (brandFilter: boolean = false) => {
     categories = await getCachedHomeCategories(16);
 
     // 2. Fetch featured products via Redis L2 / in-memory cache
-    const rawProducts = await getCachedHomeProducts(brandFilter, 12);
+    let rawProducts = await getCachedHomeProducts(brandFilter, 12);
+
+    // Fallback: If cache returned empty, query supabaseServer directly
+    if (!rawProducts || rawProducts.length === 0) {
+      let fallbackQuery = supabaseServer
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(12);
+
+      if (brandFilter) {
+        fallbackQuery = fallbackQuery.ilike("brand", `%${brandFilter}%`);
+      }
+
+      const { data: dbProducts } = await fallbackQuery;
+      if (dbProducts && dbProducts.length > 0) {
+        rawProducts = dbProducts.filter((p: any) => 
+          p.is_active !== false && p.is_approved !== false && p.approval_status !== 'rejected'
+        ) as Product[];
+      }
+    }
+
     if (rawProducts && rawProducts.length > 0) {
       products = rawProducts
         .filter(p => {
@@ -49,8 +70,8 @@ const fetchHomeData = async (brandFilter: boolean = false) => {
 
 export default async function HomePage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const resolvedParams = await props.searchParams;
-  const brandFilter = resolvedParams?.brand === 'asaliswad';
-  const { categories, products } = await fetchHomeData(brandFilter);
+  const brandParam = typeof resolvedParams?.brand === 'string' ? resolvedParams.brand : undefined;
+  const { categories, products } = await fetchHomeData(brandParam);
 
   return (
     <>
