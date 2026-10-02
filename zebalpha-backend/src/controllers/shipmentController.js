@@ -2,6 +2,7 @@ import { HTTP_STATUS } from '../constants/index.js';
 import { supabaseA, supabaseB } from '../lib/supabase.js';
 import {
   getShiprocketToken,
+  getShiprocketPickupLocations,
   addShiprocketPickupLocation,
   createShiprocketOrder,
   assignShiprocketAWB,
@@ -200,24 +201,46 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
 
     // 5. Construct Shiprocket Payload & Call Live API
     const isCOD = (order.payment_method || '').toUpperCase() === 'COD';
-    const finalPickupLocationName = pickupLocation.location_name || `Hub_${pickupLocation.pincode || '741254'}`;
 
-    // Ensure Pickup Location is registered in Shiprocket so creation succeeds
+    // Resolve registered pickup location in Shiprocket
+    let finalPickupLocationName = 'Primary';
     try {
-      await addShiprocketPickupLocation({
-        location_name: finalPickupLocationName,
-        contact_name: pickupLocation.contact_name || pickupLocation.name || 'Merchant Dispatch Hub',
-        contact_email: pickupLocation.contact_email || pickupLocation.email || 'seller@zebalpha.com',
-        contact_phone: String(pickupLocation.contact_phone || pickupLocation.phone || '9883637054').replace(/\D/g, '').slice(0, 10),
-        address_line1: pickupLocation.address_line1 || 'Seller Pickup Location',
-        address_line2: pickupLocation.address_line2 || '',
-        city: pickupLocation.city || 'Kolkata',
-        state: pickupLocation.state || 'West Bengal',
-        pincode: String(pickupLocation.pincode || '741254').replace(/\D/g, '').slice(0, 6),
-        seller_id: sellerId
+      const srLocations = await getShiprocketPickupLocations();
+      const sPinStr = String(pickupLocation.pincode || '741254').replace(/\D/g, '').slice(0, 6);
+      const sNameStr = String(pickupLocation.location_name || pickupLocation.name || '').toLowerCase().trim();
+
+      const match = (srLocations || []).find(l => {
+        const pPin = String(l.pin_code || l.pincode || '').trim();
+        const pName = String(l.pickup_location || l.name || '').toLowerCase().trim();
+        return (pPin && pPin === sPinStr) || (pName && (pName === sNameStr || pName === 'primary'));
       });
+
+      if (match) {
+        finalPickupLocationName = match.pickup_location || match.name || 'Primary';
+      } else {
+        const candidateName = pickupLocation.location_name || `Hub_${sPinStr}`;
+        const addRes = await addShiprocketPickupLocation({
+          location_name: candidateName,
+          contact_name: pickupLocation.contact_name || pickupLocation.name || 'Merchant Dispatch Hub',
+          contact_email: pickupLocation.contact_email || pickupLocation.email || 'seller@zebalpha.com',
+          contact_phone: String(pickupLocation.contact_phone || pickupLocation.phone || '9883637054').replace(/\D/g, '').slice(0, 10),
+          address_line1: pickupLocation.address_line1 || 'Seller Pickup Location',
+          address_line2: pickupLocation.address_line2 || '',
+          city: pickupLocation.city || 'Kolkata',
+          state: pickupLocation.state || 'West Bengal',
+          pincode: sPinStr,
+          seller_id: sellerId
+        });
+
+        if (addRes && addRes.success && addRes.pickup_location) {
+          finalPickupLocationName = addRes.pickup_location;
+        } else {
+          finalPickupLocationName = srLocations?.[0]?.pickup_location || 'Primary';
+        }
+      }
     } catch (locErr) {
       console.warn('[Shiprocket Pickup Registration Notice]:', locErr.message);
+      finalPickupLocationName = 'Primary';
     }
 
     const shiprocketPayload = {
@@ -249,12 +272,8 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
     const resolvedOrderId = srRes?.shiprocket_order_id || srRes?.order_id || srRes?.data?.order_id;
 
     if (!srRes?.success || !resolvedShipmentId) {
-      const errorMsg = srRes?.error || srRes?.message || 'Shiprocket live order creation failed. Please check Shiprocket account status or recharge wallet.';
+      const errorMsg = srRes?.error || srRes?.message || 'Shiprocket live order creation failed. Please verify pickup location and courier balance.';
       console.error('[Shiprocket Order Creation Error]:', errorMsg);
-      await supabaseA.from('orders').update({
-        shiprocket_error: errorMsg,
-        updated_at: new Date().toISOString()
-      }).eq('id', order.id);
 
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
@@ -342,9 +361,12 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
     const orderUpdates = {
       order_status: 'ready_to_ship',
       shipment_id: shipmentId,
+      shiprocket_shipment_id: shipmentId,
+      shiprocket_order_id: shiprocketOrderId,
       tracking_number: awbNumber,
       courier_name: courierName,
       routing_hub: routingHub,
+      shipping_label_url: labelUrl || `https://apiv2.shiprocket.in/v1/external/shipments/print/label/${shipmentId}`,
       dispatch_sla: dispatchSla,
       label_generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString()

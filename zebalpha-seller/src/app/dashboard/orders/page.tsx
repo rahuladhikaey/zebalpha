@@ -276,9 +276,7 @@ export default function SellerOrders() {
           },
           body: JSON.stringify({ orderId })
         });
-        if (response.ok) {
-          resData = await response.json();
-        }
+        resData = await response.json().catch(() => null);
       } catch (directErr) {
         console.warn("Direct Next.js shipment API notice:", directErr);
       }
@@ -293,8 +291,11 @@ export default function SellerOrders() {
             },
             body: JSON.stringify({ orderId })
           });
-          if (response.ok) {
-            resData = await response.json();
+          const backendData = await response.json().catch(() => null);
+          if (backendData && backendData.success) {
+            resData = backendData;
+          } else if (!resData && backendData) {
+            resData = backendData;
           }
         } catch (apiErr) {
           console.warn("Backend shipment API notice:", apiErr);
@@ -312,12 +313,13 @@ export default function SellerOrders() {
           courier_name: resData.courierName || target.courier_name,
           shipment_id: resData.shipmentId || target.shipment_id,
           routing_hub: resData.routingHub || target.routing_hub,
-          label_url: resData.labelUrl || target.label_url,
+          label_url: resData.labelUrl || target.label_url || target.shipping_label_url,
+          shipping_label_url: resData.labelUrl || target.shipping_label_url || target.label_url,
         });
       } else {
-        const errorMsg = resData?.message || "Failed to create live shipment. Please ensure Shiprocket has active wallet balance.";
+        const errorMsg = resData?.message || "Shipment could not be manifested. Please verify pickup location in Settings and Shiprocket credentials.";
         setStatusMessage(`Error: ${errorMsg}`);
-        alert(`Shiprocket Live Notice: ${errorMsg}`);
+        alert(`Shiprocket Logistics Notice:\n\n${errorMsg}`);
       }
     } catch (err: any) {
       setStatusMessage(`Error: ${err.message}`);

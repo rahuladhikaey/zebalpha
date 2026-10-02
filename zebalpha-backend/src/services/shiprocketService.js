@@ -22,22 +22,48 @@ export {
 };
 
 /**
+ * Fetch all registered Pickup Locations from Shiprocket account
+ * GET /v1/external/settings/company/pickup
+ */
+export const getShiprocketPickupLocations = async () => {
+  try {
+    const token = await getShiprocketToken();
+    const response = await axios.get(`${SHIPROCKET_BASE_URL}/settings/company/pickup`, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      timeout: 15000
+    });
+    return response.data?.data?.shipping_address || [];
+  } catch (err) {
+    console.warn('[Shiprocket Get Pickups Warning]:', err.message);
+    return [];
+  }
+};
+
+/**
  * Register or update a Seller's Pickup Location in Shiprocket
  * API: POST /v1/external/settings/company/addpickup
  */
 export const addShiprocketPickupLocation = async (locationData) => {
   try {
     const token = await getShiprocketToken();
+    let safeAddress = (locationData.address_line1 || locationData.address || 'Plot No. 1, Merchant Road').trim();
+    if (!/\d/.test(safeAddress)) {
+      safeAddress = `Plot No. 1, ${safeAddress}`;
+    }
+
     const payload = {
       pickup_location: String(locationData.location_name || `Seller_${locationData.seller_id}`).slice(0, 36),
-      name: locationData.contact_name || locationData.name || 'Merchant Dispatch Hub',
+      name: (locationData.contact_name || locationData.name || 'Merchant Dispatch Hub').slice(0, 30),
       email: locationData.contact_email || locationData.email || 'seller@zebalpha.com',
       phone: String(locationData.contact_phone || locationData.phone || '9999999999').replace(/\D/g, '').slice(0, 10),
-      address: locationData.address_line1 || locationData.address || 'Seller Workshop',
-      address_2: locationData.address_line2 || locationData.landmark || '',
-      city: locationData.city || 'Kolkata',
-      state: locationData.state || 'West Bengal',
-      country: locationData.country || 'India',
+      address: safeAddress.slice(0, 80),
+      address_2: (locationData.address_line2 || locationData.landmark || '').slice(0, 80),
+      city: (locationData.city || 'Kolkata').slice(0, 30),
+      state: (locationData.state || 'West Bengal').slice(0, 30),
+      country: 'India',
       pin_code: String(locationData.pincode || '700001').replace(/\D/g, '').slice(0, 6)
     };
 

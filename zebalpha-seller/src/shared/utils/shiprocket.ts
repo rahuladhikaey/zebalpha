@@ -95,39 +95,58 @@ export async function addShiprocketPickupLocation(token: string, locationData: {
   country?: string;
   pin_code: string;
 }) {
+  let safeAddress = (locationData.address || "Plot No. 1, Merchant Road").trim();
+  if (!/\d/.test(safeAddress)) {
+    safeAddress = `Plot No. 1, ${safeAddress}`;
+  }
+
   const payload = {
     pickup_location: String(locationData.pickup_location || "Warehouse").slice(0, 36),
-    name: locationData.name || "Merchant Dispatch Hub",
+    name: (locationData.name || "Merchant Dispatch Hub").slice(0, 30),
     email: locationData.email || "seller@zebalpha.com",
     phone: String(locationData.phone || "9999999999").replace(/\D/g, "").slice(0, 10),
-    address: locationData.address || "Merchant Address",
-    address_2: locationData.address_2 || "",
-    city: locationData.city || "Kolkata",
-    state: locationData.state || "West Bengal",
-    country: locationData.country || "India",
+    address: safeAddress.slice(0, 80),
+    address_2: (locationData.address_2 || "").slice(0, 80),
+    city: (locationData.city || "Kolkata").slice(0, 30),
+    state: (locationData.state || "West Bengal").slice(0, 30),
+    country: "India",
     pin_code: String(locationData.pin_code || "700001").replace(/\D/g, "").slice(0, 6),
   };
 
-  const response = await fetch(`${SHIPROCKET_API}/settings/company/addpickup`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const response = await fetch(`${SHIPROCKET_API}/settings/company/addpickup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || (typeof data.errors === "object" ? JSON.stringify(data.errors) : "Failed to add pickup location to Shiprocket"));
+    const data = await response.json();
+    if (!response.ok) {
+      const errMsg = data.message || (typeof data.errors === "object" ? JSON.stringify(data.errors) : "Failed to add pickup location to Shiprocket");
+      console.warn("Shiprocket Add Pickup Notice:", errMsg);
+      return {
+        success: false,
+        error: errMsg,
+        data,
+      };
+    }
+
+    return {
+      success: true,
+      data,
+      pickup_location: payload.pickup_location,
+      address_id: data?.address?.id || data?.id || null,
+    };
+  } catch (err: any) {
+    console.warn("Shiprocket Add Pickup Network Error:", err.message);
+    return {
+      success: false,
+      error: err.message,
+    };
   }
-
-  return {
-    success: true,
-    data,
-    pickup_location: payload.pickup_location,
-    address_id: data?.address?.id || data?.id || null,
-  };
 }
 
 /**

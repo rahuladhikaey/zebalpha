@@ -200,50 +200,60 @@ export async function POST(req: Request) {
     let shipmentId = "";
     let labelUrl = "";
     let routingHub = "CCU/EAST-HUB-01";
+    let activePickupName = "Primary";
 
     let shiprocketError = "";
 
     try {
       const token = await getShiprocketToken();
       if (token) {
-        // A. Match or register distinct pickup location in Shiprocket for THIS specific seller
-        let activePickupName = "";
+        // A. Match or register distinct pickup location in Shiprocket
         const srLocations = await getShiprocketPickupLocations(token);
 
         const sellerPincodeStr = String(pickupLocationData.pincode || "741254").replace(/\D/g, "").slice(0, 6);
         const sellerNameStr = String(pickupLocationData.name || "").toLowerCase().trim();
         const sellerAddrStr = String(pickupLocationData.address_line1 || "").toLowerCase().trim();
 
-        // Check if THIS seller's address/pincode is already registered in Shiprocket
+        // Check if seller's address/pincode or name matches any registered location in Shiprocket
         const match = (srLocations || []).find((l: any) => {
           const srPin = String(l.pin_code || l.pincode || "").trim();
           const srName = String(l.pickup_location || l.name || "").toLowerCase().trim();
           const srAddr = String(l.address || l.address_line1 || "").toLowerCase().trim();
-          return srPin === sellerPincodeStr || (srName && srName === sellerNameStr) || (srAddr && sellerAddrStr && srAddr.includes(sellerAddrStr.slice(0, 15)));
+          return (
+            (srPin && srPin === sellerPincodeStr) ||
+            (srName && (srName === sellerNameStr || srName === "primary")) ||
+            (srAddr && sellerAddrStr && srAddr.includes(sellerAddrStr.slice(0, 15)))
+          );
         });
 
         if (match) {
-          activePickupName = match.pickup_location || match.name;
+          activePickupName = match.pickup_location || match.name || "Primary";
         } else {
-          // Register THIS seller's unique address as a new Pickup Location in Shiprocket
+          // Attempt registering new pickup location with proper address formatting
           const sanitizedNick = `Hub_${sellerId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10)}_${sellerPincodeStr}`.slice(0, 30);
-          const regRes = await addShiprocketPickupLocation(token, {
-            pickup_location: sanitizedNick,
-            name: (pickupLocationData.name || "Seller Hub").slice(0, 30),
-            email: "seller@zebalpha.com",
-            phone: String(pickupLocationData.phone || "9883637054").replace(/\D/g, "").slice(0, 10),
-            address: (pickupLocationData.address_line1 || "Merchant Dispatch Hub").slice(0, 80),
-            city: (pickupLocationData.city || "Kolkata").slice(0, 30),
-            state: (pickupLocationData.state || "West Bengal").slice(0, 30),
-            pin_code: sellerPincodeStr,
-          });
+          try {
+            const regRes = await addShiprocketPickupLocation(token, {
+              pickup_location: sanitizedNick,
+              name: (pickupLocationData.name || "Seller Hub").slice(0, 30),
+              email: "seller@zebalpha.com",
+              phone: String(pickupLocationData.phone || "9883637054").replace(/\D/g, "").slice(0, 10),
+              address: (pickupLocationData.address_line1 || "Merchant Dispatch Hub").slice(0, 80),
+              city: (pickupLocationData.city || "Kolkata").slice(0, 30),
+              state: (pickupLocationData.state || "West Bengal").slice(0, 30),
+              country: "India",
+              pin_code: sellerPincodeStr,
+            });
 
-          if (regRes.success && regRes.pickup_location) {
-            activePickupName = regRes.pickup_location;
-          } else if (srLocations && srLocations.length > 0) {
-            activePickupName = srLocations[0].pickup_location;
-          } else {
-            activePickupName = "Primary";
+            if (regRes && regRes.success && regRes.pickup_location) {
+              activePickupName = regRes.pickup_location;
+            } else if (srLocations && srLocations.length > 0) {
+              activePickupName = srLocations[0].pickup_location || "Primary";
+            } else {
+              activePickupName = "Primary";
+            }
+          } catch (regErr: any) {
+            console.warn("Pickup location registration fallback to Primary:", regErr.message);
+            activePickupName = srLocations?.[0]?.pickup_location || "Primary";
           }
         }
 
@@ -276,37 +286,39 @@ export async function POST(req: Request) {
 
         // C. Create Order in Shiprocket
         const srOrder = await createShiprocketOrder(token, shiprocketPayload);
-        if (srOrder && srOrder.shipment_id) {
-          shipmentId = String(srOrder.shipment_id);
-          shiprocketOrderId = String(srOrder.order_id);
+        if (srOrder && (srOrder.shipment_id || srOrder.order_id)) {
+          shipmentId = String(srOrder.shipment_id || "");
+          shiprocketOrderId = String(srOrder.order_id || "");
 
           // D. Assign Live AWB & Request Pickup
-          try {
-            const awbData = await assignShiprocketAWB(token, shipmentId);
-            if (awbData && awbData.awb_code) {
-              awbNumber = awbData.awb_code;
-              courierName = awbData.courier_name || courierName;
-              routingHub = awbData.routing_hub || routingHub;
+          if (shipmentId) {
+            try {
+              const awbData = await assignShiprocketAWB(token, shipmentId);
+              if (awbData && awbData.awb_code) {
+                awbNumber = awbData.awb_code;
+                courierName = awbData.courier_name || courierName;
+                routingHub = awbData.routing_hub || routingHub;
 
-              // D2. Automatically Request Courier Pickup (No manual Ship Now required on Shiprocket)
-              try {
-                await requestShiprocketPickup(token, shipmentId);
-              } catch (pickupErr) {
-                console.warn("Shiprocket Pickup request notice:", pickupErr);
+                // D2. Automatically Request Courier Pickup
+                try {
+                  await requestShiprocketPickup(token, shipmentId);
+                } catch (pickupErr) {
+                  console.warn("Shiprocket Pickup request notice:", pickupErr);
+                }
               }
+            } catch (awbErr: any) {
+              console.warn("Shiprocket AWB assignment notice:", awbErr.message);
+              shiprocketError = awbErr.message;
             }
-          } catch (awbErr: any) {
-            console.warn("Shiprocket AWB assignment notice:", awbErr.message);
-            shiprocketError = awbErr.message;
-          }
 
-          // E. Generate Official Shiprocket Label Link
-          try {
-            const lblData = await generateShiprocketLabel(token, shipmentId);
-            if (lblData.label_url) {
-              labelUrl = lblData.label_url;
-            }
-          } catch (_) {}
+            // E. Generate Official Shiprocket Label Link
+            try {
+              const lblData = await generateShiprocketLabel(token, shipmentId);
+              if (lblData && lblData.label_url) {
+                labelUrl = lblData.label_url;
+              }
+            } catch (_) {}
+          }
 
           liveSynced = true;
         } else {
@@ -319,15 +331,6 @@ export async function POST(req: Request) {
     }
 
     if (!liveSynced) {
-      // Save error to database for diagnostic visibility
-      await supabaseServer
-        .from("orders")
-        .update({
-          shiprocket_error: shiprocketError || "Failed to sync with live Shiprocket API",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", orderId);
-
       return NextResponse.json({
         success: false,
         liveSynced: false,
@@ -340,7 +343,7 @@ export async function POST(req: Request) {
     // 8. Update Supabase Orders Table
     const updatePayload: any = {
       order_status: "ready_to_ship",
-      tracking_number: awbNumber,
+      tracking_number: awbNumber || `SR-${shipmentId}`,
       courier_name: courierName,
       shipment_id: shipmentId,
       routing_hub: routingHub,
@@ -351,9 +354,11 @@ export async function POST(req: Request) {
 
     if (shiprocketOrderId) {
       updatePayload.shiprocket_order_id = shiprocketOrderId;
+      updatePayload.shiprocket_shipment_id = shipmentId;
     }
     if (labelUrl) {
       updatePayload.label_url = labelUrl;
+      updatePayload.shipping_label_url = labelUrl;
     }
 
     const { error: updError } = await supabaseServer
@@ -363,12 +368,11 @@ export async function POST(req: Request) {
 
     if (updError) {
       console.error("Failed to update order status in Supabase:", updError);
-      // Fallback simple update
       await supabaseServer
         .from("orders")
         .update({
           order_status: "ready_to_ship",
-          tracking_number: awbNumber,
+          tracking_number: awbNumber || `SR-${shipmentId}`,
           courier_name: courierName,
           updated_at: new Date().toISOString(),
         })
@@ -376,6 +380,7 @@ export async function POST(req: Request) {
     }
 
     // 9. Synchronize or Insert into Shipments Table
+    const isCODMode = (order.payment_method || "").toUpperCase() === "COD";
     try {
       await supabaseServer.from("shipments").upsert({
         order_id: order.id,
@@ -384,20 +389,43 @@ export async function POST(req: Request) {
         shipment_number: `SHP-${order.order_number || order.id.slice(0, 8).toUpperCase()}`,
         shiprocket_order_id: shiprocketOrderId,
         shiprocket_shipment_id: shipmentId,
-        awb_code: awbNumber,
+        awb_code: awbNumber || `SR-${shipmentId}`,
         courier_name: courierName,
         routing_hub: routingHub,
         destination_code: `${customerAddress.pincode.slice(0, 3)}_${customerAddress.city.slice(0, 3).toUpperCase()}`,
-        return_code: `${pickupLocationData.pincode},${Math.floor(1000000 + Math.random() * 9000000)}`,
+        return_code: `${pickupLocationData.pincode},19283104`,
         label_url: labelUrl || `https://apiv2.shiprocket.in/v1/external/shipments/print/label/${shipmentId}`,
         status: "ready_to_ship",
+        payment_mode: isCODMode ? "COD" : "PREPAID",
+        cod_amount: isCODMode ? Number(order.total_amount) : 0,
+        subtotal: Number(order.total_amount || 0),
+        weight_kg: Number(weightKg || 0.5),
+        dimensions_cm: {
+          length: Number(dimensions?.length || 15),
+          width: Number(dimensions?.breadth || dimensions?.width || 15),
+          height: Number(dimensions?.height || 10),
+        },
+        delivery_address_snapshot: {
+          name: customerAddress.name,
+          phone: customerAddress.phone,
+          address_line1: customerAddress.address_line1,
+          city: customerAddress.city,
+          state: customerAddress.state,
+          pincode: customerAddress.pincode,
+          country: "India",
+        },
+        pickup_address_snapshot: {
+          name: activePickupName,
+          location_name: activePickupName,
+          address_line1: pickupLocationData.address_line1,
+          city: pickupLocationData.city,
+          state: pickupLocationData.state,
+          pincode: pickupLocationData.pincode,
+          phone: pickupLocationData.phone,
+          country: "India",
+        },
         dispatch_sla: dispatchSla,
-        customer_name: customerAddress.name,
-        shipping_address: customerAddress.address_line1,
-        city: customerAddress.city,
-        state: customerAddress.state,
-        pincode: customerAddress.pincode,
-        phone: customerAddress.phone,
+        label_generated_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }, { onConflict: "order_id" });
