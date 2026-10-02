@@ -82,10 +82,6 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      if (data.otp && !data.emailSent) {
-        sendEmailJsDirect(normalizedEmail, data.otp);
-      }
-
       setStep("verify");
       setResendCooldown(60);
       setSuccessMsg(`✓ Verification OTP sent to ${normalizedEmail}! Please check your email inbox and spam folder.`);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@shared/utils/supabaseClient";
+import { supabaseServer } from "@shared/utils/supabaseServer";
 
 // In-memory temporary OTP storage cache
 const otpStore = new Map<string, {
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
       // 1. Store persistent OTP in PostgreSQL email_otps table
       try {
-        await supabase.from("email_otps").insert([{
+        await supabaseServer.from("email_otps").insert([{
           email: normalizedEmail,
           otp,
           expires_at: new Date(expiresAt).toISOString(),
@@ -109,7 +109,6 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        otp,
         emailSent,
         expiresAt,
         message: emailSent
@@ -137,7 +136,7 @@ export async function POST(request: NextRequest) {
       // 2. Check PostgreSQL email_otps table
       let isDbValid = false;
       try {
-        const { data: dbOtp } = await supabase
+        const { data: dbOtp } = await supabaseServer
           .from("email_otps")
           .select("*")
           .eq("email", normalizedEmail)
@@ -150,7 +149,7 @@ export async function POST(request: NextRequest) {
 
         if (dbOtp) {
           isDbValid = true;
-          await supabase.from("email_otps").update({ is_verified: true }).eq("id", dbOtp.id);
+          await supabaseServer.from("email_otps").update({ is_verified: true }).eq("id", dbOtp.id);
         }
       } catch (dbVerifyErr) {
         console.warn("Seller DB OTP verify notice:", dbVerifyErr);
@@ -161,7 +160,7 @@ export async function POST(request: NextRequest) {
 
         // Update seller record in Supabase if seller exists
         try {
-          await supabase
+          await supabaseServer
             .from("sellers")
             .update({ email_verified: true, updated_at: new Date().toISOString() })
             .eq("email", normalizedEmail);

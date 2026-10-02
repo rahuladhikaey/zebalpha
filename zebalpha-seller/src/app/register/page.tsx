@@ -133,10 +133,6 @@ export default function SellerRegisterPage() {
         return;
       }
 
-      if (data.otp && !data.emailSent) {
-        sendEmailJsDirect(normalizedEmail, data.otp);
-      }
-
       setStep("otp");
       setResendCooldown(60);
       setInfoMessage(`✓ Verification OTP sent to ${normalizedEmail}! Please check your email inbox and spam folder.`);
