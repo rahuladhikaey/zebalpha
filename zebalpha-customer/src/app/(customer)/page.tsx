@@ -125,7 +125,11 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                 >
                   {/* Auto-sliding Image Holder */}
                   <ProductCardImageSlider
-                    images={product.images && product.images.length > 0 ? product.images : [product.image_url]}
+                    images={
+                      product.images && product.images.length > 0 
+                        ? product.images 
+                        : [product.image_url || (product as any).main_image || "/placeholder.jpg"].filter(Boolean)
+                    }
                     alt={product.name}
                     href={`/products/${product.id}`}
                     discountPercent={discountPercent}
