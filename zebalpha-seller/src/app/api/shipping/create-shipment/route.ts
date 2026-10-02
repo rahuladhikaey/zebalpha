@@ -40,6 +40,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // 1-Hour Customer Cancellation Window Check
+    // Customer can cancel within 1 hour. No seller can accept the order during this 1-hour window.
+    const orderCreatedAt = new Date(order.created_at || Date.now()).getTime();
+    const elapsedMinutes = (Date.now() - orderCreatedAt) / (1000 * 60);
+    if (elapsedMinutes < 60) {
+      const remainingMins = Math.max(1, Math.ceil(60 - elapsedMinutes));
+      return NextResponse.json({
+        success: false,
+        cancellationWindowActive: true,
+        remainingMinutes: remainingMins,
+        message: `Order #${order.order_number || order.id} is in the 1-hour customer cancellation window (${remainingMins} mins remaining). Orders can only be accepted and processed 1 hour after placement.`
+      }, { status: 400 });
+    }
+
     // If order is already manifested with live AWB
     if (order.order_status === "ready_to_ship" && order.tracking_number) {
       return NextResponse.json({

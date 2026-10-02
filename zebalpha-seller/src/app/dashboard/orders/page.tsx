@@ -208,6 +208,15 @@ export default function SellerOrders() {
     loadData();
   }, []);
 
+  // Periodic re-render timer for real-time 1-hour cancellation countdowns
+  const [, setTimerTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimerTick(prev => prev + 1);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Handle Seller Return Action (Approve, Reject, Pickup, Confirm Received)
   const handleReturnAction = async (orderId: string, action: string, extraData: any = {}) => {
     setProcessingReturn(true);
@@ -242,6 +251,17 @@ export default function SellerOrders() {
 
   // Pack & Generate Label (Transition Pending -> Ready to Ship)
   const handleCreateShipment = async (orderId: string) => {
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder?.created_at) {
+      const orderCreatedAt = new Date(targetOrder.created_at).getTime();
+      const elapsedMins = (Date.now() - orderCreatedAt) / 60000;
+      if (elapsedMins < 60) {
+        const remaining = Math.max(1, Math.ceil(60 - elapsedMins));
+        alert(`⏱️ Order #${targetOrder.order_number || targetOrder.id} is in the 1-Hour Customer Cancellation Window.\n\nCustomers are allowed to cancel within 1 hour of placing the order. To prevent unnecessary courier fees and reverse logistics charges, orders can only be accepted after 1 hour has elapsed.\n\nTime remaining: ${remaining} minutes.`);
+        return;
+      }
+    }
+
     setStatusMessage("Connecting to Shiprocket & Generating AWB...");
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -695,15 +715,40 @@ export default function SellerOrders() {
                           )}
 
                           {/* When in Pending */}
-                          {isPending && !isReturnActive && !isCancelled && (
-                            <button
-                              onClick={() => handleCreateShipment(order.id)}
-                              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-95"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5 text-black" />
-                              Accept Order
-                            </button>
-                          )}
+                          {isPending && !isReturnActive && !isCancelled && (() => {
+                            const orderCreatedAt = new Date(order.created_at || Date.now()).getTime();
+                            const elapsedMins = (Date.now() - orderCreatedAt) / 60000;
+                            const isLocked = elapsedMins < 60;
+                            const remainingMins = Math.max(1, Math.ceil(60 - elapsedMins));
+
+                            if (isLocked) {
+                              return (
+                                <div className="flex flex-col items-end gap-1">
+                                  <button
+                                    disabled
+                                    title={`Customer can cancel within 1 hour of placing the order. Acceptance unlocks in ${remainingMins} minutes.`}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[11px] font-black uppercase tracking-wider cursor-not-allowed opacity-90 shadow-sm"
+                                  >
+                                    <Clock className="h-3.5 w-3.5 text-amber-400 animate-pulse" />
+                                    <span>Accept in {remainingMins}m</span>
+                                  </button>
+                                  <span className="text-[9px] text-amber-400/80 font-semibold whitespace-nowrap">
+                                    1-Hr Cancel Window Active
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <button
+                                onClick={() => handleCreateShipment(order.id)}
+                                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-95"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5 text-black" />
+                                Accept Order
+                              </button>
+                            );
+                          })()}
 
                           {/* General view details */}
                           {!isReadyToShip && !isPending && !isReturnActive && (

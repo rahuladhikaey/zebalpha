@@ -64,8 +64,8 @@ export const config = {
     keySecret: (process.env.RAZORPAY_KEY_SECRET || '5LUjZ94LMDnjwlLyB9cUU5cb').trim()
   },
   shiprocket: {
-    email: (process.env.SHIPROCKET_EMAIL || '').trim(),
-    password: (process.env.SHIPROCKET_PASSWORD || '').trim().replace(/^["']|["']$/g, '')
+    email: (process.env.SHIPROCKET_EMAIL || 'zebalpha7@gmail.com').trim(),
+    password: (process.env.SHIPROCKET_PASSWORD || 'BjI^X9AiKvlHj7*QQ^xoZAH%yRj9MjGo').trim().replace(/^["']|["']$/g, '')
   },
   email: {
     serviceId: (process.env.EMAILJS_SERVICE_ID || process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'service_5apvm6b').trim(),

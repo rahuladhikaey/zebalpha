@@ -357,7 +357,7 @@ export default function MyOrdersPage() {
     }
   };
 
-  // Check if order is eligible for cancellation (Only within 2 hours of order placement & unfulfilled status)
+  // Check if order is eligible for cancellation (Only within 1 hour of order placement & unfulfilled status)
   const getCancellationInfo = (order: Order | null) => {
     if (!order) return { eligible: false, remainingMins: 0, reason: "" };
     const status = String(order.order_status || "").toLowerCase();
@@ -368,18 +368,18 @@ export default function MyOrdersPage() {
     }
 
     if (!order.created_at) {
-      return { eligible: true, remainingMins: 120, reason: "" };
+      return { eligible: true, remainingMins: 60, reason: "" };
     }
 
     const orderTime = new Date(order.created_at).getTime();
     const elapsedMinutes = Math.floor((Date.now() - orderTime) / (1000 * 60));
-    const remainingMins = 120 - elapsedMinutes;
+    const remainingMins = 60 - elapsedMinutes;
 
     if (remainingMins <= 0) {
       return {
         eligible: false,
         remainingMins: 0,
-        reason: "Cancellation window closed (>2 hours since placed)."
+        reason: "Cancellation window closed (>1 hour since placed)."
       };
     }
 
@@ -701,7 +701,7 @@ export default function MyOrdersPage() {
                       ) : (
                         ["placed", "confirmed", "processing", "ready_to_ship", "pending"].includes(String(order.order_status || "").toLowerCase()) && (
                           <span className="text-[10px] text-zinc-500 font-semibold px-3 py-1.5 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex items-center gap-1.5 cursor-default">
-                            <span>🔒 Cancel closed (&gt;2h)</span>
+                            <span>🔒 Cancel closed (&gt;1h)</span>
                           </span>
                         )
                       )}
@@ -877,13 +877,13 @@ export default function MyOrdersPage() {
               </button>
             </div>
 
-            {/* 2-Hour Policy Banner */}
+            {/* 1-Hour Policy Banner */}
             <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-center gap-3">
               <span className="text-xl">⏱️</span>
               <div className="text-xs space-y-0.5">
-                <p className="font-black text-white">2-Hour Cancellation Window</p>
+                <p className="font-black text-white">1-Hour Cancellation Window</p>
                 <p className="text-[11px] text-zinc-400">
-                  Orders can only be cancelled within 2 hours of placement ({getCancellationInfo(cancelModalOrder).remainingMins}m remaining). Once confirmed, items will not be dispatched.
+                  Orders can only be cancelled within 1 hour of placement ({getCancellationInfo(cancelModalOrder).remainingMins}m remaining). Once confirmed, items will not be dispatched.
                 </p>
               </div>
             </div>

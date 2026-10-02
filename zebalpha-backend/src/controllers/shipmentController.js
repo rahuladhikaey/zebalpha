@@ -47,6 +47,20 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Order record not found.' });
     }
 
+    // 1-Hour Customer Cancellation Window Check
+    // Customer can cancel within 1 hour. No seller can accept the order during this 1-hour window.
+    const orderCreatedAt = new Date(order.created_at || Date.now()).getTime();
+    const elapsedMinutes = (Date.now() - orderCreatedAt) / (1000 * 60);
+    if (elapsedMinutes < 60) {
+      const remainingMins = Math.max(1, Math.ceil(60 - elapsedMinutes));
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        cancellationWindowActive: true,
+        remainingMinutes: remainingMins,
+        message: `Order #${order.order_number || order.id} is in the 1-hour customer cancellation window (${remainingMins} mins remaining). Orders can only be accepted and processed 1 hour after placement.`
+      });
+    }
+
     // Check seller authorization if not SuperAdmin
     if (!isSuperAdmin && userId) {
       const isOwner = order.seller_id === userId || (order.seller_id && order.seller_id.includes(userId));
@@ -193,18 +207,36 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
 
     // 5. Construct Shiprocket Payload & Call Live API
     const isCOD = (order.payment_method || '').toUpperCase() === 'COD';
-    const finalPickupLocationName = pickupLocation.location_name || `Hub_${pickupLocation.pincode}`;
+    const finalPickupLocationName = pickupLocation.location_name || `Hub_${pickupLocation.pincode || '741254'}`;
+
+    // Ensure Pickup Location is registered in Shiprocket so creation succeeds
+    try {
+      await addShiprocketPickupLocation({
+        location_name: finalPickupLocationName,
+        contact_name: pickupLocation.contact_name || pickupLocation.name || 'Merchant Dispatch Hub',
+        contact_email: pickupLocation.contact_email || pickupLocation.email || 'seller@zebalpha.com',
+        contact_phone: String(pickupLocation.contact_phone || pickupLocation.phone || '9883637054').replace(/\D/g, '').slice(0, 10),
+        address_line1: pickupLocation.address_line1 || 'Seller Pickup Location',
+        address_line2: pickupLocation.address_line2 || '',
+        city: pickupLocation.city || 'Kolkata',
+        state: pickupLocation.state || 'West Bengal',
+        pincode: String(pickupLocation.pincode || '741254').replace(/\D/g, '').slice(0, 6),
+        seller_id: sellerId
+      });
+    } catch (locErr) {
+      console.warn('[Shiprocket Pickup Registration Notice]:', locErr.message);
+    }
 
     const shiprocketPayload = {
-      order_id: order.order_number || order.id,
-      order_date: order.created_at || new Date().toISOString(),
+      order_id: String(order.order_number || order.id).slice(0, 45),
+      order_date: new Date(order.created_at || Date.now()).toISOString().slice(0, 19).replace('T', ' '),
       pickup_location: finalPickupLocationName,
-      billing_customer_name: customerAddressSnapshot.name,
+      billing_customer_name: customerAddressSnapshot.name.slice(0, 40),
       billing_last_name: '',
-      billing_address: customerAddressSnapshot.address_line1,
-      billing_city: customerAddressSnapshot.city,
+      billing_address: customerAddressSnapshot.address_line1.slice(0, 80),
+      billing_city: customerAddressSnapshot.city.slice(0, 30),
       billing_pincode: customerAddressSnapshot.pincode,
-      billing_state: customerAddressSnapshot.state,
+      billing_state: customerAddressSnapshot.state.slice(0, 30),
       billing_country: 'India',
       billing_phone: customerAddressSnapshot.phone,
       shipping_is_billing: true,
@@ -220,23 +252,58 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
 
     // Call Shiprocket Order Creation
     const srRes = await createShiprocketOrder(shiprocketPayload);
-    if (srRes.success && srRes.shipment_id) {
-      shipmentId = String(srRes.shipment_id);
-      shiprocketOrderId = String(srRes.order_id);
-      
-      // Assign AWB
+    const resolvedShipmentId = srRes?.shiprocket_shipment_id || srRes?.shipment_id || srRes?.data?.shipment_id;
+    const resolvedOrderId = srRes?.shiprocket_order_id || srRes?.order_id || srRes?.data?.order_id;
+
+    if (!srRes?.success || !resolvedShipmentId) {
+      const errorMsg = srRes?.error || srRes?.message || 'Shiprocket live order creation failed. Please check Shiprocket account status or recharge wallet.';
+      console.error('[Shiprocket Order Creation Error]:', errorMsg);
+      await supabaseA.from('orders').update({
+        shiprocket_error: errorMsg,
+        updated_at: new Date().toISOString()
+      }).eq('id', order.id);
+
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: `Shiprocket Error: ${errorMsg}`
+      });
+    }
+
+    let shipmentId = String(resolvedShipmentId);
+    let shiprocketOrderId = String(resolvedOrderId || '');
+    const carrierInfo = selectOptimalCarrier(destPincode);
+    let courierName = preferredCourier || carrierInfo.name;
+    let routingHub = carrierInfo.hub;
+    let awbNumber = srRes?.awb_code || '';
+    let labelUrl = '';
+
+    // Assign Live AWB
+    try {
       const awbRes = await assignShiprocketAWB(shipmentId);
-      if (awbRes.success && awbRes.awb_code) {
+      if (awbRes && awbRes.awb_code) {
         awbNumber = awbRes.awb_code;
         courierName = awbRes.courier_name || courierName;
         routingHub = awbRes.routing_hub || routingHub;
       }
+    } catch (awbErr) {
+      console.warn('[Shiprocket AWB Assignment Notice]:', awbErr.message);
+    }
 
-      // Generate Label URL
+    // Automatically request courier pickup so order moves to "Pickup Scheduled" in Shiprocket
+    try {
+      await requestShiprocketPickup(shipmentId);
+    } catch (puErr) {
+      console.warn('[Shiprocket Pickup Request Notice]:', puErr.message);
+    }
+
+    // Generate Label URL
+    try {
       const lblRes = await generateShiprocketLabel(shipmentId);
-      if (lblRes.success && lblRes.label_url) {
+      if (lblRes && lblRes.label_url) {
         labelUrl = lblRes.label_url;
       }
+    } catch (lblErr) {
+      console.warn('[Shiprocket Label URL Notice]:', lblErr.message);
     }
 
     const dispatchSla = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();

@@ -40,15 +40,15 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    // 2-Hour Cancellation Window Check (Meesho / Flipkart Standard)
+    // 1-Hour Cancellation Window Check
     if (cancelled_by === "customer" && orderData.created_at) {
       const orderCreatedAt = new Date(orderData.created_at).getTime();
-      const diffHours = (Date.now() - orderCreatedAt) / (1000 * 60 * 60);
+      const diffMinutes = (Date.now() - orderCreatedAt) / (1000 * 60);
 
-      if (diffHours > 2) {
+      if (diffMinutes > 60) {
         return NextResponse.json({
           success: false,
-          message: "Orders can only be cancelled within 2 hours of placement. As your order has passed this window and is in processing, cancellation is disabled. You may request a Return or Exchange after delivery."
+          message: "Orders can only be cancelled within 1 hour of placement. As your order has passed this window and is now confirmed for fulfillment, cancellation is closed. You may request a Return or Exchange after delivery."
         }, { status: 400 });
       }
     }

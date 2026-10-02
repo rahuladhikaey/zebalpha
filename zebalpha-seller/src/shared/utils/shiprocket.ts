@@ -28,8 +28,8 @@ export async function getShiprocketToken(): Promise<string> {
     return cachedToken;
   }
 
-  const email = (process.env.SHIPROCKET_EMAIL || "").trim();
-  const password = (process.env.SHIPROCKET_PASSWORD || "").trim();
+  const email = (process.env.SHIPROCKET_EMAIL || "zebalpha7@gmail.com").trim();
+  const password = (process.env.SHIPROCKET_PASSWORD || "BjI^X9AiKvlHj7*QQ^xoZAH%yRj9MjGo").trim().replace(/^["']|["']$/g, "");
 
   if (!email || !password) {
     throw new Error("Shiprocket credentials (SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD) missing in environment variables.");

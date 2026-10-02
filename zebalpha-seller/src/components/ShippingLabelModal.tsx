@@ -22,10 +22,9 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
 
   if (!isOpen || !order) return null;
 
-  const courier = order.courier_name || "Shadowfax";
-  const isShadowfax = courier.toLowerCase().includes("shadowfax");
-  const defaultAwbPrefix = isShadowfax ? "SF" : "DEL";
-  const awb = order.tracking_number || order.shipment_id || `${defaultAwbPrefix}${Math.floor(1000000000 + Math.random() * 9000000000)}FPL`;
+  const hasRealAwb = Boolean(order.tracking_number || order.shipment_id || order.shiprocket_shipment_id);
+  const awb = order.tracking_number || order.shipment_id || order.shiprocket_shipment_id || "AWB-PENDING-DISPATCH";
+  const courier = order.courier_name || (hasRealAwb ? "Shiprocket Partner" : "Awaiting Dispatch");
   
   const destinationCode = order.routing_hub || order.destination_code || "E31_CCU_Metr";
   const orderNumber = order.order_number || String(order.id).slice(0, 16).replace(/[^0-9A-Z]/gi, "").toUpperCase();
@@ -206,6 +205,12 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
             shippingStatus={order.shipping_status || ""}
             orderId={order.order_number || String(order.id)}
           />
+          {!hasRealAwb && (
+            <div className="mt-2.5 p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs font-bold flex items-center gap-2">
+              <span className="text-amber-400 text-base">⚠️</span>
+              <span>Live Shiprocket AWB is pending. Once the 1-hour cancellation window expires, click <strong>Accept Order</strong> to push directly to Shiprocket and schedule courier pickup.</span>
+            </div>
+          )}
         </div>
 
         {/* Printable 4x6" 2-in-1 Combined Shipping Label & Invoice Body */}
