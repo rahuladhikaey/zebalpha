@@ -22,7 +22,8 @@ import {
   Sparkles,
   MapPin,
   ShieldCheck,
-  Lock
+  Lock,
+  RotateCcw
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -154,6 +155,7 @@ export default function DashboardLayout({
     { name: "Collections",   href: "/dashboard/collections",   icon: Sparkles },
     { name: "Inventory",     href: "/dashboard/inventory",     icon: Package },
     { name: "Orders",        href: "/dashboard/orders",        icon: Receipt },
+    { name: "Return/RTO Orders", href: "/dashboard/returns",   icon: RotateCcw },
     { name: "Pickup Hubs",   href: "/dashboard/addresses",     icon: MapPin },
     { name: "Settlements",   href: "/dashboard/payments",      icon: IndianRupee, badge: "Soon" },
     { name: "Reports",       href: "/dashboard/reports",       icon: BarChart3 },

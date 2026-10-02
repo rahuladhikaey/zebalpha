@@ -441,15 +441,24 @@ export const cancelOrder = async (req, res, next) => {
     const cancelledByRole = String(cancelled_by || (req.user?.role ? req.user.role.toLowerCase() : 'customer')).toLowerCase();
     const isCustomerCancellation = cancelledByRole === 'customer';
 
-    // Strict 2-hour cancellation policy for customer cancellations (Meesho / Flipkart Standard)
+    // Check Courier Pickup Cutoff (Logistics lock)
+    const shipmentStatus = String(orderData.shipping_status || orderData.status || '').toLowerCase();
+    if (shipmentStatus === 'picked_up' || shipmentStatus === 'in_transit' || shipmentStatus === 'out_for_delivery') {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'Courier has already picked up the parcel. Cancellation is no longer available. You may refuse delivery at doorstep or request a Return after delivery.'
+      });
+    }
+
+    // Strict 60-minute cancellation policy for customer cancellations (Server-authoritative timestamp)
     if (isCustomerCancellation && orderData.created_at) {
       const orderCreatedAt = new Date(orderData.created_at).getTime();
-      const diffHours = (Date.now() - orderCreatedAt) / (1000 * 60 * 60);
+      const diffMinutes = (Date.now() - orderCreatedAt) / (1000 * 60);
 
-      if (diffHours > 2) {
+      if (diffMinutes > 60) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
-          error: 'Orders can only be cancelled within 2 hours of placement. As your order is now being processed for dispatch, cancellation is no longer available. You may request a Return or Exchange after delivery.'
+          error: 'The 60-minute customer cancellation window has expired. As your order is now being processed for dispatch, cancellation is no longer available. You may request a Return or Exchange after delivery.'
         });
       }
     }

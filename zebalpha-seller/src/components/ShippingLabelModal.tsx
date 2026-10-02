@@ -3,6 +3,7 @@
 import React, { useRef } from "react";
 import { BarcodeSVG, QRCodeSVG } from "./BarcodeGenerator";
 import { Printer, Download, X, Truck, Package, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { CancellationAlertCard } from "./CancellationAlertCard";
 
 interface ShippingLabelProps {
   isOpen: boolean;
@@ -172,6 +173,16 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
               <X className="h-5 w-5" />
             </button>
           </div>
+        </div>
+
+        {/* Mandatory Yellow Cancellation Alert Banner (Hidden on Print) */}
+        <div className="p-4 print:hidden border-b border-zinc-800/80">
+          <CancellationAlertCard
+            createdAt={order.created_at || Date.now()}
+            orderStatus={order.order_status || order.status || ""}
+            shippingStatus={order.shipping_status || ""}
+            orderId={order.order_number || String(order.id)}
+          />
         </div>
 
         {/* Printable 4x6" 2-in-1 Combined Shipping Label & Invoice Body */}
