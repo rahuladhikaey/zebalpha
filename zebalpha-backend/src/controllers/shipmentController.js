@@ -197,13 +197,6 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
     }));
 
     const destPincode = customerAddressSnapshot.pincode;
-    const carrierInfo = selectOptimalCarrier(destPincode);
-    let courierName = preferredCourier || carrierInfo.name;
-    let routingHub = carrierInfo.hub;
-    let awbNumber = `${carrierInfo.prefix}-${Math.floor(100000000 + Math.random() * 900000000)}`;
-    let shipmentId = `SR-${Date.now().toString().slice(-8)}`;
-    let shiprocketOrderId = `SRO-${Date.now().toString().slice(-8)}`;
-    let labelUrl = '';
 
     // 5. Construct Shiprocket Payload & Call Live API
     const isCOD = (order.payment_method || '').toUpperCase() === 'COD';
