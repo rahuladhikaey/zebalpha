@@ -30,7 +30,9 @@ import {
   TrendingUp,
   Camera,
   Video,
-  FileCheck
+  FileCheck,
+  Calendar,
+  Ban
 } from "lucide-react";
 
 export default function ReturnsAndRtoPage() {
@@ -47,7 +49,9 @@ export default function ReturnsAndRtoPage() {
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
-  const [dateFilter, setDateFilter] = useState("Last 1 Month");
+  const [dateFilter, setDateFilter] = useState("Today");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [courierFilter, setCourierFilter] = useState("All");
   const [returnTypeFilter, setReturnTypeFilter] = useState("All");
@@ -55,6 +59,7 @@ export default function ReturnsAndRtoPage() {
   // Data states
   const [returns, setReturns] = useState<any[]>([]);
   const [claims, setClaims] = useState<any[]>([]);
+  const [cancellations, setCancellations] = useState<any[]>([]);
   const [sellerProducts, setSellerProducts] = useState<any[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,23 +126,24 @@ export default function ReturnsAndRtoPage() {
             .select("*")
             .order("created_at", { ascending: false });
 
-          if (returnsData && returnsData.length > 0) {
-            setReturns(returnsData);
-          } else {
-            setReturns([]);
-          }
+          setReturns(returnsData || []);
 
-          // 3. Fetch claims from seller_claims table
+          // 3. Fetch cancellations from orders table (cancelled orders)
+          const { data: cancelledOrders } = await supabase
+            .from("orders")
+            .select("*")
+            .eq("status", "cancelled")
+            .order("created_at", { ascending: false });
+
+          setCancellations(cancelledOrders || []);
+
+          // 4. Fetch claims from seller_claims table
           const { data: claimsData } = await supabase
             .from("seller_claims")
             .select("*")
             .order("created_at", { ascending: false });
 
-          if (claimsData && claimsData.length > 0) {
-            setClaims(claimsData);
-          } else {
-            setClaims([]);
-          }
+          setClaims(claimsData || []);
         } else {
           // Fetch public products if not authenticated
           const { data: productsData } = await supabase
@@ -146,11 +152,13 @@ export default function ReturnsAndRtoPage() {
             .limit(10);
           setSellerProducts(productsData || []);
           setReturns([]);
+          setCancellations([]);
           setClaims([]);
         }
       } catch (err) {
         console.error("Error fetching returns data:", err);
         setReturns([]);
+        setCancellations([]);
         setClaims([]);
       } finally {
         setLoading(false);
@@ -159,6 +167,93 @@ export default function ReturnsAndRtoPage() {
 
     loadData();
   }, []);
+
+  // Helper for Date Filtering
+  const isWithinSelectedDate = (dateString?: string) => {
+    if (!dateString) return true;
+    const itemDate = new Date(dateString);
+    const now = new Date();
+    
+    // Normalize to start of today
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (dateFilter === "Today") {
+      return itemDate >= startOfToday;
+    }
+    if (dateFilter === "Yesterday") {
+      const startOfYesterday = new Date(startOfToday);
+      startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+      return itemDate >= startOfYesterday && itemDate < startOfToday;
+    }
+    if (dateFilter === "Last 7 Days") {
+      const past7 = new Date(startOfToday);
+      past7.setDate(past7.getDate() - 7);
+      return itemDate >= past7;
+    }
+    if (dateFilter === "This Month") {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return itemDate >= startOfMonth;
+    }
+    if (dateFilter === "Last 1 Month") {
+      const past30 = new Date(startOfToday);
+      past30.setDate(past30.getDate() - 30);
+      return itemDate >= past30;
+    }
+    if (dateFilter === "Last 3 Months") {
+      const past90 = new Date(startOfToday);
+      past90.setDate(past90.getDate() - 90);
+      return itemDate >= past90;
+    }
+    if (dateFilter === "Custom Date" && customStartDate && customEndDate) {
+      const start = new Date(customStartDate);
+      const end = new Date(customEndDate);
+      end.setHours(23, 59, 59, 999);
+      return itemDate >= start && itemDate <= end;
+    }
+    return true; // "All Time"
+  };
+
+  // Get current active date range label for UI display
+  const getDateRangeLabel = () => {
+    const now = new Date();
+    const formatDate = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
+
+    if (dateFilter === "Today") {
+      return `(${formatDate(now)} - Today)`;
+    }
+    if (dateFilter === "Yesterday") {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      return `(${formatDate(y)})`;
+    }
+    if (dateFilter === "Last 7 Days") {
+      const past7 = new Date(now);
+      past7.setDate(past7.getDate() - 7);
+      return `(${formatDate(past7)} - ${formatDate(now)})`;
+    }
+    if (dateFilter === "This Month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return `(${formatDate(start)} - ${formatDate(now)})`;
+    }
+    if (dateFilter === "Last 1 Month") {
+      const past30 = new Date(now);
+      past30.setDate(past30.getDate() - 30);
+      return `(${formatDate(past30)} - ${formatDate(now)})`;
+    }
+    if (dateFilter === "Last 3 Months") {
+      const past90 = new Date(now);
+      past90.setDate(past90.getDate() - 90);
+      return `(${formatDate(past90)} - ${formatDate(now)})`;
+    }
+    if (dateFilter === "Custom Date" && customStartDate && customEndDate) {
+      return `(${formatDate(new Date(customStartDate))} - ${formatDate(new Date(customEndDate))})`;
+    }
+    return "(All Time)";
+  };
+
+  // Time-filtered returns and cancellations for overview
+  const timeFilteredReturns = returns.filter((r) => isWithinSelectedDate(r.created_at));
+  const timeFilteredCancellations = cancellations.filter((c) => isWithinSelectedDate(c.created_at || c.updated_at));
 
   // Filtered Returns by Sub-Tab and Search
   const filteredReturns = returns.filter((item) => {
@@ -345,231 +440,301 @@ export default function ReturnsAndRtoPage() {
           <div className="space-y-6">
             
             {/* Header / Date selector */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Summary</span>
-                <span className="text-xs text-gray-400">(12 Aug&apos;26 - 08 Sep&apos;26)</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-gray-200/80 shadow-xs">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5 font-bold text-gray-700 text-xs">
+                  <Calendar className="w-4 h-4 text-indigo-600" />
+                  <span className="uppercase tracking-wider">Timeline:</span>
+                  <span className="text-gray-500 font-semibold">{getDateRangeLabel()}</span>
+                </div>
+                
                 <select 
                   value={dateFilter} 
                   onChange={(e) => setDateFilter(e.target.value)}
-                  className="text-xs font-semibold bg-white border border-gray-200 rounded-md px-2.5 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-sm"
+                  className="text-xs font-bold bg-gray-50 hover:bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs transition"
                 >
-                  <option>Last 1 Month</option>
-                  <option>Last 7 Days</option>
-                  <option>Last 3 Months</option>
-                  <option>All Time</option>
+                  <option value="Today">Today</option>
+                  <option value="Yesterday">Yesterday</option>
+                  <option value="Last 7 Days">Last 7 Days</option>
+                  <option value="This Month">This Month</option>
+                  <option value="Last 1 Month">Last 1 Month</option>
+                  <option value="Last 3 Months">Last 3 Months</option>
+                  <option value="All Time">All Time</option>
+                  <option value="Custom Date">Custom Date Range 📅</option>
                 </select>
+
+                {dateFilter === "Custom Date" && (
+                  <div className="flex items-center gap-2 animate-in fade-in duration-200">
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="text-xs font-medium bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1 text-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <span className="text-xs text-gray-400">to</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="text-xs font-medium bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1 text-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
               </div>
 
-              <button className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition self-start sm:self-auto">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>View Trend</span>
-              </button>
+              <div className="flex items-center gap-2 text-xs font-bold text-indigo-600">
+                <TrendingUp className="w-4 h-4" />
+                <span>Live Return & Cancellation Monitor</span>
+              </div>
             </div>
 
             {/* Metric KPI Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              
+              {/* Card 1: Customer Returns */}
+              <div className="bg-white rounded-xl border border-gray-200/80 p-5 shadow-xs space-y-3 hover:border-indigo-200 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
+                    Customer Returns
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                    Post-Delivery
+                  </span>
+                </div>
+
+                <div className="pt-1">
+                  <div className="text-2xl font-black text-gray-900 tracking-tight">
+                    {timeFilteredReturns.filter((r) => r.return_type === "CUSTOMER_RETURN").length}
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-0.5 font-medium">
+                    Total customer returns in this period
+                  </div>
+                </div>
+
+                <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                  <span className="text-gray-500">Reverse Transit Fee:</span>
+                  <span className="font-black text-emerald-600">₹0 (Waived)</span>
+                </div>
+              </div>
+
+              {/* Card 2: Courier Returns (RTO) */}
+              <div className="bg-white rounded-xl border border-gray-200/80 p-5 shadow-xs space-y-3 hover:border-rose-200 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-rose-600" />
+                    Courier Returns (RTO)
+                  </span>
+                  <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+                    Undelivered
+                  </span>
+                </div>
+
+                <div className="pt-1">
+                  <div className="text-2xl font-black text-rose-600 tracking-tight">
+                    {timeFilteredReturns.filter((r) => r.return_type === "RTO").length}
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-0.5 font-medium">
+                    Failed delivery / returned to origin
+                  </div>
+                </div>
+
+                <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                  <span className="text-gray-500">RTO Shipping Fee:</span>
+                  <span className="font-black text-emerald-600">₹0 (Free RTO)</span>
+                </div>
+              </div>
+
+              {/* Card 3: Order Cancellations */}
+              <div className="bg-white rounded-xl border border-gray-200/80 p-5 shadow-xs space-y-3 hover:border-amber-200 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <Ban className="w-3.5 h-3.5 text-amber-600" />
+                    Order Cancellations
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                    Pre-Dispatch
+                  </span>
+                </div>
+
+                <div className="pt-1">
+                  <div className="text-2xl font-black text-amber-700 tracking-tight">
+                    {timeFilteredCancellations.length}
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-0.5 font-medium">
+                    Cancelled within 60-min window
+                  </div>
+                </div>
+
+                <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                  <span className="text-gray-500">Loss Prevented:</span>
+                  <span className="font-black text-indigo-600">100% Protected</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Return Reasons & Protection Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
-              {/* Card 1: Customer Return */}
-              <div className="bg-white rounded-xl border border-gray-200/80 p-5 shadow-sm space-y-4 hover:border-gray-300 transition">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Customer Return</span>
-                  <span className="text-[11px] font-medium text-gray-400">Post-delivery returns</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 pt-1">
-                  <div>
-                    <div className="text-[11px] text-gray-500 font-medium">Return Rate</div>
-                    <div className="text-2xl font-black text-gray-900 tracking-tight mt-0.5">
-                      {returns.filter((r) => r.return_type === "CUSTOMER_RETURN").length > 0
-                        ? `${((returns.filter((r) => r.return_type === "CUSTOMER_RETURN").length / Math.max(1, sellerProducts.length)) * 100).toFixed(2)}%`
-                        : "0.00%"}
-                    </div>
-                    <div className="text-[11px] text-gray-400 mt-1">
-                      {returns.filter((r) => r.return_type === "CUSTOMER_RETURN").length} customer returns recorded
-                    </div>
+              {/* Return Reason Breakdown */}
+              <div className="bg-white rounded-xl border border-gray-200/80 p-5 shadow-xs space-y-3">
+                <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                  Return & Cancellation Root Causes
+                </h4>
+                <div className="space-y-2.5 pt-1 text-xs font-medium">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Size / Fit Issue</span>
+                    <span className="font-bold text-gray-900">
+                      {timeFilteredReturns.filter((r) => r.reason?.toLowerCase().includes("size") || r.reason?.toLowerCase().includes("fit")).length} cases
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${Math.min(100, (timeFilteredReturns.filter((r) => r.reason?.toLowerCase().includes("size") || r.reason?.toLowerCase().includes("fit")).length / Math.max(1, timeFilteredReturns.length)) * 100)}%` }}></div>
                   </div>
 
-                  <div className="border-l border-gray-100 pl-4">
-                    <div className="text-[11px] text-gray-500 font-medium">Average Reverse Shipping Cost</div>
-                    <div className="text-2xl font-black text-gray-900 tracking-tight mt-0.5">₹ 0</div>
-                    <div className="text-[11px] text-gray-400 mt-1">Platform insured reverse transit</div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-gray-600">Defective / Damaged Fabric</span>
+                    <span className="font-bold text-gray-900">
+                      {timeFilteredReturns.filter((r) => r.reason?.toLowerCase().includes("defect") || r.reason?.toLowerCase().includes("damage")).length} cases
+                    </span>
                   </div>
-                </div>
+                  <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-rose-500 h-full rounded-full" style={{ width: `${Math.min(100, (timeFilteredReturns.filter((r) => r.reason?.toLowerCase().includes("defect") || r.reason?.toLowerCase().includes("damage")).length / Math.max(1, timeFilteredReturns.length)) * 100)}%` }}></div>
+                  </div>
 
-                {/* Sub-Metric: Dual Pricing */}
-                <div className="pt-3 border-t border-gray-100">
-                  <div className="text-[11px] font-bold text-gray-600 uppercase tracking-wide mb-2">
-                    Return Policy Breakdown
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-gray-600">Customer Changed Mind (Pre-dispatch cancellation)</span>
+                    <span className="font-bold text-gray-900">
+                      {timeFilteredCancellations.length} cases
+                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-[11px] text-gray-500">Defective / Wrong Item</div>
-                      <div className="text-base font-black text-rose-600 mt-0.5">
-                        {returns.filter((r) => r.reason?.toLowerCase().includes("wrong") || r.reason?.toLowerCase().includes("defect")).length} Items
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] text-gray-500">Size / Fit Issues</div>
-                      <div className="text-base font-black text-amber-600 mt-0.5">
-                        {returns.filter((r) => r.reason?.toLowerCase().includes("size") || r.reason?.toLowerCase().includes("fit")).length} Items
-                      </div>
-                    </div>
+                  <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, (timeFilteredCancellations.length / Math.max(1, timeFilteredReturns.length + timeFilteredCancellations.length)) * 100)}%` }}></div>
                   </div>
                 </div>
               </div>
 
-              {/* Card 2: Courier Return (RTO) Rate */}
-              <div className="bg-white rounded-xl border border-gray-200/80 p-5 shadow-sm space-y-4 hover:border-gray-300 transition flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Courier Return (RTO) Rate</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                      ● Active Protection
-                    </span>
+              {/* SPF Seller Protection Fund Banner */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50/40 border border-amber-200/80 rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-amber-950 uppercase tracking-wider">
+                    <ShieldAlert className="w-4 h-4 text-amber-600" />
+                    <span>Seller Protection Fund (SPF)</span>
                   </div>
-
-                  <div className="pt-3">
-                    <div className="text-2xl font-black text-gray-900 tracking-tight">
-                      {returns.filter((r) => r.return_type === "RTO").length > 0
-                        ? `${((returns.filter((r) => r.return_type === "RTO").length / Math.max(1, returns.length)) * 100).toFixed(2)}%`
-                        : "0.00%"}
-                    </div>
-                    <div className="text-[11px] text-gray-500 mt-1">
-                      {returns.filter((r) => r.return_type === "RTO").length} RTO orders out of {returns.length} processed
-                    </div>
-                  </div>
+                  <p className="text-xs text-amber-900/80 leading-relaxed">
+                    Did you receive wrong, damaged, or empty packages from customer returns or courier RTOs? Raise an SPF claim within 72 hours with continuous 360° unboxing video evidence to get 100% financial reimbursement.
+                  </p>
                 </div>
 
-                {/* RTO Approved Claims (Branded Packet) Card */}
-                <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-3.5 flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-bold text-amber-900 flex items-center gap-1">
-                      <span>Seller Protection Fund (SPF)</span>
-                      <Info className="w-3.5 h-3.5 text-amber-700" />
-                    </div>
-                    <p className="text-[11px] text-amber-800 font-medium">
-                      Protected against wrong & damaged apparel returns with 100% financial reimbursement.
-                    </p>
+                <div className="flex items-center justify-between pt-2 border-t border-amber-200/60">
+                  <div className="text-xs text-amber-900 font-bold">
+                    Claims Status: {claims.filter(c => c.status === "APPROVED").length} Approved / {claims.length} Total
                   </div>
-                  <button 
-                    onClick={() => setShowHowItWorksModal(true)}
-                    className="px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold text-xs rounded-md shadow-sm transition whitespace-nowrap"
+                  <button
+                    onClick={() => setActiveMainTab("claims")}
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-gray-950 font-bold text-xs rounded-lg shadow-2xs transition"
                   >
-                    SPF Guide
+                    View Claims
                   </button>
                 </div>
               </div>
 
             </div>
 
-            {/* Product Performance Table */}
-            <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
-              <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Recent Return & Cancellation Events List */}
+            <div className="bg-white rounded-xl border border-gray-200/80 shadow-xs overflow-hidden">
+              <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">Clothing Inventory Performance</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Live returns & performance analysis</p>
+                  <h3 className="text-sm font-bold text-gray-900">Return & Cancellation Log</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Showing events filtered by timeline</p>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 font-medium">Filter by:</span>
-                    <select 
-                      value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
-                      className="text-xs font-semibold bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:outline-none"
-                    >
-                      <option value="All">All Categories</option>
-                      <option value="Men">Men&apos;s Wear</option>
-                      <option value="Women">Women&apos;s Wear</option>
-                      <option value="Kids">Kids Wear</option>
-                      <option value="Streetwear">Streetwear / Hoodies</option>
-                      <option value="T-Shirts">T-Shirts & Tops</option>
-                      <option value="Ethnic Wear">Ethnic Wear</option>
-                    </select>
-                  </div>
+                <div className="text-xs text-gray-500 font-bold">
+                  {timeFilteredReturns.length + timeFilteredCancellations.length} total events recorded
                 </div>
               </div>
 
-              {/* Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-gray-50/80 text-gray-500 font-bold uppercase tracking-wider border-b border-gray-100">
                     <tr>
-                      <th className="py-3 px-4">Product Details</th>
-                      <th className="py-3 px-4 text-center">Available Stock</th>
-                      <th className="py-3 px-4 text-center">Customer Returns</th>
-                      <th className="py-3 px-4 text-center">Price</th>
-                      <th className="py-3 px-4 text-center">Action</th>
+                      <th className="py-3 px-4">Event Type</th>
+                      <th className="py-3 px-4">Order / Suborder ID</th>
+                      <th className="py-3 px-4">Item Details</th>
+                      <th className="py-3 px-4">Reason</th>
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4 text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
-                    {sellerProducts.length === 0 ? (
+                    {timeFilteredReturns.length === 0 && timeFilteredCancellations.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-12 text-center text-gray-400 font-medium">
-                          No products found in catalogue. Add products from the Collections or Inventory tab.
+                        <td colSpan={6} className="py-12 text-center text-gray-400 font-medium">
+                          No returns or cancellations recorded for the selected timeline.
                         </td>
                       </tr>
                     ) : (
-                      sellerProducts
-                        .filter((prod) => categoryFilter === "All" || prod.category?.toLowerCase() === categoryFilter.toLowerCase() || prod.gender?.toLowerCase() === categoryFilter.toLowerCase())
-                        .map((prod) => {
-                          const productReturns = returns.filter((r) => r.product_id === prod.id || r.product_name === prod.name);
-                          return (
-                            <tr key={prod.id} className="hover:bg-gray-50/60 transition">
-                              <td className="py-3.5 px-4">
-                                <div className="flex items-center gap-3">
-                                  <img
-                                    src={prod.images?.[0] || prod.image || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500"}
-                                    alt={prod.name}
-                                    className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0 bg-gray-100"
-                                  />
-                                  <div className="space-y-1">
-                                    <p className="font-bold text-gray-900 line-clamp-1 max-w-sm">{prod.name}</p>
-                                    <div className="flex items-center gap-2 text-[11px] text-gray-400 font-medium">
-                                      <span>SKU: {prod.sku || `PROD-${prod.id}`}</span>
-                                      <span>•</span>
-                                      <span>Category: {prod.category || prod.gender || "Apparel"}</span>
-                                    </div>
-                                    {prod.sizes && prod.sizes.length > 0 && (
-                                      <div className="flex gap-1">
-                                        {prod.sizes.slice(0, 4).map((s: string) => (
-                                          <span key={s} className="px-1.5 py-0.2 rounded bg-gray-100 text-gray-600 font-mono text-[9px]">
-                                            {s}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4 text-center font-bold text-gray-900">
-                                <span className={`px-2 py-0.5 rounded-full text-[11px] ${
-                                  (prod.stock || 0) > 5 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                                }`}>
-                                  {prod.stock || 0} pcs
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-4 text-center">
-                                <div className="font-bold text-gray-900">
-                                  {productReturns.length > 0 ? `${productReturns.length} Returns` : "0.00%"}
-                                </div>
-                                <div className="text-[10px] text-gray-400">{productReturns.length} return events</div>
-                              </td>
-                              <td className="py-3.5 px-4 text-center font-bold text-gray-900">
-                                ₹{prod.price || prod.sale_price || 0}
-                              </td>
-                              <td className="py-3.5 px-4 text-center">
-                                <Link 
-                                  href="/dashboard/inventory"
-                                  className="px-3 py-1 bg-white border border-gray-200 hover:border-gray-400 text-gray-800 font-semibold rounded-md shadow-2xs hover:bg-gray-50 transition inline-block text-[11px]"
-                                >
-                                  Manage Stock
-                                </Link>
-                              </td>
-                            </tr>
-                          );
-                        })
+                      <>
+                        {timeFilteredReturns.map((item) => (
+                          <tr key={`ret-${item.id}`} className="hover:bg-gray-50/60 transition">
+                            <td className="py-3.5 px-4">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                item.return_type === "RTO" 
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200" 
+                                  : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                              }`}>
+                                {item.return_type === "RTO" ? "Courier RTO" : "Customer Return"}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-bold text-gray-800">
+                              {item.suborder_id || item.order_id}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <p className="font-bold text-gray-900 line-clamp-1">{item.product_name || "Apparel Item"}</p>
+                              <span className="text-[10px] text-gray-400 font-mono">SKU: {item.sku || "PROD-SKU"}</span>
+                            </td>
+                            <td className="py-3.5 px-4 text-gray-600 font-medium">
+                              {item.reason || "Defective / Size mismatch"}
+                            </td>
+                            <td className="py-3.5 px-4 text-gray-500 font-medium">
+                              {new Date(item.created_at || Date.now()).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
+                                {item.status || "In Transit"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+
+                        {timeFilteredCancellations.map((item) => (
+                          <tr key={`canc-${item.id}`} className="hover:bg-gray-50/60 transition bg-amber-50/20">
+                            <td className="py-3.5 px-4">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                                Pre-Dispatch Cancel
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-bold text-gray-800">
+                              {item.order_number || item.id}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <p className="font-bold text-gray-900 line-clamp-1">{item.product_name || item.title || "Ordered Item"}</p>
+                              <span className="text-[10px] text-gray-400">Qty: {item.quantity || 1}</span>
+                            </td>
+                            <td className="py-3.5 px-4 text-amber-800 font-medium">
+                              {item.cancel_reason || "Customer cancelled during 60-min window"}
+                            </td>
+                            <td className="py-3.5 px-4 text-gray-500 font-medium">
+                              {new Date(item.created_at || Date.now()).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700 uppercase">
+                                Cancelled
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
                     )}
                   </tbody>
                 </table>
