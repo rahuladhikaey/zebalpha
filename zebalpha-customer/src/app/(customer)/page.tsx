@@ -29,8 +29,10 @@ const fetchHomeData = async (brandFilter: boolean = false) => {
     if (rawProducts && rawProducts.length > 0) {
       products = rawProducts
         .filter(p => {
-          // Hide unreleased upcoming drops from general purchasable home grid
-          if (isProductNewDrop(p) && !isDropLive(p)) return false;
+          // Keep active products visible; only hide explicit upcoming drops with future dates
+          if (p.specifications && (p.specifications as any).is_new_drop === "true" && !isDropLive(p)) {
+            return false;
+          }
           return true;
         })
         .slice(0, 12);
