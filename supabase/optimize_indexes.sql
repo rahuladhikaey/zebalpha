@@ -13,6 +13,12 @@ ON public.products (seller_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_products_status_approval 
 ON public.products (status, approval_status) WHERE is_active = true;
 
+CREATE INDEX IF NOT EXISTS idx_products_price_active 
+ON public.products (price, is_active);
+
+CREATE INDEX IF NOT EXISTS idx_products_brand_active 
+ON public.products (brand, is_active);
+
 -- 2. Indexing Orders & Transactions for High-Concurrency Checkout & Dashboards
 CREATE INDEX IF NOT EXISTS idx_orders_customer_created 
 ON public.orders (customer_id, created_at DESC);
@@ -23,27 +29,46 @@ ON public.orders (seller_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id 
 ON public.order_items (order_id);
 
--- 3. GIN Trigram / Full Text Search Index for Product Names & Descriptions
+-- 3. Full Text Search Index (tsvector & GIN Trigram) for Instant Search
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE INDEX IF NOT EXISTS idx_products_name_trgm 
-ON public.products USING gin (name gin_trgm_ops);
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS search_vector tsvector;
 
--- 4. Cursor-Based (Keyset) Pagination RPC Function for Efficient Infinite Scrolling
--- Avoids expensive OFFSET queries on large tables
+CREATE OR REPLACE FUNCTION public.products_search_vector_update() RETURNS trigger AS $$
+BEGIN
+  NEW.search_vector :=
+    setweight(to_tsvector('english', coalesce(NEW.name, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(NEW.brand, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(NEW.description, '')), 'C');
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_products_search_vector ON public.products;
+CREATE TRIGGER trg_products_search_vector
+BEFORE INSERT OR UPDATE ON public.products
+FOR EACH ROW EXECUTE FUNCTION public.products_search_vector_update();
+
+CREATE INDEX IF NOT EXISTS idx_products_search_vector ON public.products USING gin(search_vector);
+CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON public.products USING gin (name gin_trgm_ops);
+
+-- 4. Keyset/Cursor-Based Pagination RPC Function (Slim Card DTO)
+-- Prevents expensive OFFSET queries on 100,000+ dataset
 CREATE OR REPLACE FUNCTION get_products_paginated_cursor(
     p_category_id UUID DEFAULT NULL,
     p_last_created_at TIMESTAMPTZ DEFAULT NULL,
     p_last_id UUID DEFAULT NULL,
-    p_limit INT DEFAULT 20
+    p_limit INT DEFAULT 12
 )
 RETURNS TABLE (
     id UUID,
     name TEXT,
+    slug TEXT,
     price NUMERIC,
-    main_image TEXT,
-    category_id UUID,
-    seller_id UUID,
+    mrp NUMERIC,
+    thumbnail_url TEXT,
+    card_image_url TEXT,
+    brand TEXT,
     stock INT,
     created_at TIMESTAMPTZ
 )
@@ -54,10 +79,12 @@ BEGIN
     SELECT 
         p.id,
         p.name,
+        COALESCE(p.slug, p.id::text) AS slug,
         p.price,
-        p.main_image,
-        p.category_id,
-        p.seller_id,
+        COALESCE(p.mrp, p.price) AS mrp,
+        COALESCE(p.thumbnail_url, p.main_image, p.image_url) AS thumbnail_url,
+        COALESCE(p.card_image_url, p.main_image, p.image_url) AS card_image_url,
+        p.brand,
         p.stock,
         p.created_at
     FROM public.products p
@@ -69,6 +96,7 @@ BEGIN
             OR (p.created_at, p.id) < (p_last_created_at, p_last_id)
         )
     ORDER BY p.created_at DESC, p.id DESC
-    LIMIT LEAST(p_limit, 100);
+    LIMIT LEAST(p_limit, 48);
 END;
 $$;
+

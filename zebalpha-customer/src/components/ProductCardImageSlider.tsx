@@ -82,6 +82,8 @@ export function ProductCardImageSlider({
               alt={`${alt} - View ${idx + 1}`}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
+              loading={idx === 0 ? "eager" : "lazy"}
+              decoding="async"
               className="w-full h-full object-cover transition-transform duration-700 group-hover/slider:scale-108"
             />
           </div>

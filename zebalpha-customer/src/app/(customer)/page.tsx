@@ -21,34 +21,37 @@ const fetchHomeData = async (brandFilter: boolean = false) => {
   try {
     const { data: catData } = await supabaseServer
       .from("categories")
-      .select("*")
-      .order("name", { ascending: true });
+      .select("id, name, slug, image_url, icon")
+      .order("name", { ascending: true })
+      .limit(16);
 
     if (catData && catData.length > 0) {
       categories = catData as Category[];
     }
 
+    // Slim card selection ONLY for initial viewport load
     let query = supabaseServer
       .from("products")
-      .select("*")
+      .select("id, name, brand, price, mrp, image_url, images, is_premium, tier, is_active, is_approved, approval_status, created_at")
+      .eq("is_active", true)
+      .eq("is_approved", true)
       .order("created_at", { ascending: false });
 
     if (brandFilter) {
-      query = query.eq('brand', 'asaliswad');
+      query = query.eq("brand", "asaliswad");
     }
 
-    query = query.limit(50);
+    query = query.limit(12);
 
     const { data: prodData } = await query;
     if (prodData && prodData.length > 0) {
-      products = (prodData as Product[])
+      products = (prodData as unknown as Product[])
         .filter(p => {
-          if (p.is_active === false || p.is_approved === false || p.approval_status === 'rejected') return false;
           // Hide unreleased upcoming drops from general purchasable home grid
           if (isProductNewDrop(p) && !isDropLive(p)) return false;
           return true;
         })
-        .slice(0, 24);
+        .slice(0, 12);
     }
   } catch (e) {
     console.error("Home data fetch notice:", e);

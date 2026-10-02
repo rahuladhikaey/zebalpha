@@ -3,29 +3,37 @@ import { HTTP_STATUS } from '../constants/index.js';
 import { cacheService } from '../services/cacheService.js';
 
 /**
- * Public Product Listing & Search Controller (Cache-Aside Pattern)
- * Checks Redis / Memory cache first, populates on miss.
+ * Public Product Listing & Search Controller (High-Performance Slim DTO + Cursor Pagination)
+ * Never does SELECT * or loads full catalogs. Max 48 items per request.
  */
 export const getProducts = async (req, res, next) => {
   try {
-    const { category, activeOnly, limit, page, q, search, brand, sort } = req.query;
+    const { category, activeOnly = 'true', limit = '12', cursor, q, search, brand, sort } = req.query;
+    
+    // Normalize parameters for deterministic Redis keying
+    const parsedLimit = Math.min(Math.max(1, parseInt(String(limit), 10) || 12), 48);
+    const normalizedQuery = (q || search || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
     const queryParams = {
       category: category || '',
-      activeOnly: activeOnly || 'false',
-      limit: limit || '',
-      page: page || '',
-      q: (q || search || '').trim().toLowerCase(),
+      activeOnly: activeOnly || 'true',
+      limit: parsedLimit,
+      cursor: cursor || '',
+      q: normalizedQuery,
       brand: brand || '',
       sort: sort || ''
     };
 
-    const cacheKey = cacheService.generateKey('products:list', queryParams);
+    const cacheKey = cacheService.generateKey('products:v1:list', queryParams);
 
-    const { data, source } = await cacheService.fetchOrCache(cacheKey, async () => {
-      let query = supabaseA.from('products').select('*, categories(*)');
+    const { data: result, source } = await cacheService.fetchOrCache(cacheKey, async () => {
+      // 1. Slim field selection ONLY (Prevents downloading long descriptions / metadata)
+      const SLIM_CARD_FIELDS = 'id, name, slug, price, mrp, image_url, thumbnail_url, card_image_url, brand, stock, is_active, is_approved, approval_status, created_at, category_id';
+      
+      let query = supabaseA.from('products').select(SLIM_CARD_FIELDS);
 
       if (queryParams.activeOnly === 'true') {
-        query = query.eq('is_active', true);
+        query = query.eq('is_active', true).eq('is_approved', true);
       }
       if (queryParams.category) {
         query = query.eq('category_id', queryParams.category);
@@ -33,38 +41,64 @@ export const getProducts = async (req, res, next) => {
       if (queryParams.brand) {
         query = query.ilike('brand', `%${queryParams.brand}%`);
       }
+
+      // Full Text / Trigram Search Optimization
       if (queryParams.q) {
-        query = query.or(`name.ilike.%${queryParams.q}%,description.ilike.%${queryParams.q}%,brand.ilike.%${queryParams.q}%`);
+        query = query.or(`name.ilike.%${queryParams.q}%,brand.ilike.%${queryParams.q}%`);
       }
 
+      // Cursor-based Pagination (Keyset pagination for 100,000+ items)
+      if (queryParams.cursor) {
+        try {
+          const decodedCursor = JSON.parse(Buffer.from(queryParams.cursor, 'base64').toString('utf8'));
+          if (decodedCursor && decodedCursor.created_at && decodedCursor.id) {
+            query = query.lt('created_at', decodedCursor.created_at);
+          }
+        } catch (_) {}
+      }
+
+      // Sorting
       if (queryParams.sort === 'price_asc') {
         query = query.order('price', { ascending: true });
       } else if (queryParams.sort === 'price_desc') {
         query = query.order('price', { ascending: false });
       } else {
-        query = query.order('id', { ascending: false });
+        query = query.order('created_at', { ascending: false }).order('id', { ascending: false });
       }
 
-      if (queryParams.limit) {
-        const lim = parseInt(queryParams.limit, 10);
-        if (queryParams.page) {
-          const pg = Math.max(1, parseInt(queryParams.page, 10));
-          const from = (pg - 1) * lim;
-          const to = from + lim - 1;
-          query = query.range(from, to);
-        } else {
-          query = query.limit(lim);
-        }
-      }
+      // Hard Limit max 48 items
+      query = query.limit(parsedLimit + 1);
 
       const { data: dbData, error } = await query;
       if (error) throw error;
-      return dbData || [];
+
+      const items = dbData || [];
+      const hasMore = items.length > parsedLimit;
+      const products = hasMore ? items.slice(0, parsedLimit) : items;
+
+      let nextCursor = null;
+      if (hasMore && products.length > 0) {
+        const lastItem = products[products.length - 1];
+        nextCursor = Buffer.from(JSON.stringify({ created_at: lastItem.created_at, id: lastItem.id })).toString('base64');
+      }
+
+      return {
+        products,
+        nextCursor,
+        hasMore,
+        count: products.length
+      };
     }, cacheService.defaultTtl);
 
     res.setHeader('X-Cache', source === 'cache' ? 'HIT' : 'MISS');
     res.setHeader('X-Cache-Engine', cacheService.isUpstashEnabled ? 'Redis' : 'Memory');
-    res.status(HTTP_STATUS.OK).json({ success: true, data, cacheSource: source });
+    res.status(HTTP_STATUS.OK).json({ 
+      success: true, 
+      data: result.products, 
+      nextCursor: result.nextCursor, 
+      hasMore: result.hasMore,
+      cacheSource: source 
+    });
   } catch (err) {
     next(err);
   }
