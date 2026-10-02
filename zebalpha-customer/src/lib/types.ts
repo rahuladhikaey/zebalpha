@@ -53,6 +53,8 @@ export type Product = {
   drop_date?: string;
   target_drop_date?: string;
   tier?: 'STANDARD' | 'PREMIUM' | 'LIMITED' | string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 
