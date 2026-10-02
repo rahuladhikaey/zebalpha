@@ -100,6 +100,20 @@ export class CacheInvalidation {
   }
 
   /**
+   * Seller Lifecycle Change (Suspension, Deactivation, Account Deletion)
+   * Triggered on: Seller account deleted or marked suspended
+   */
+  async onSellerLifecycleChange(sellerId) {
+    if (!sellerId) return;
+    await redisClient.del(cacheKeys.sellerPublic(sellerId));
+    await this.purgePattern(`products:*`);
+    await this.purgePattern(`product-list:*`);
+    await this.purgePattern(`homepage:*`);
+    await this.purgePattern(`search:*`);
+    console.log(`[Cache Invalidate] Full seller catalog & homepage caches evicted for Seller ID=${sellerId}`);
+  }
+
+  /**
    * Review Created / Updated Invalidation
    * Triggered on: New customer review submitted
    */
