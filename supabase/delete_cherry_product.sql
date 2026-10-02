@@ -1,19 +1,31 @@
 -- ==============================================================================
 -- DELETE "Cherry Happy Day Graphic T-Shirt" AND BROKEN TEST PRODUCTS
+-- Safe version: Checks if optional tables exist before deleting
 -- ==============================================================================
 
--- 1. Delete associated cart, wishlist, and order items first
-DELETE FROM public.cart WHERE product_id IN (
-    SELECT id FROM public.products WHERE name ILIKE '%Cherry Happy Day%'
-);
+DO $$
+BEGIN
+    -- 1. Clean order_items if table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'order_items') THEN
+        DELETE FROM public.order_items WHERE product_id IN (
+            SELECT id FROM public.products WHERE name ILIKE '%Cherry Happy Day%'
+        );
+    END IF;
 
-DELETE FROM public.wishlist WHERE product_id IN (
-    SELECT id FROM public.products WHERE name ILIKE '%Cherry Happy Day%'
-);
+    -- 2. Clean wishlist if table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'wishlist') THEN
+        DELETE FROM public.wishlist WHERE product_id IN (
+            SELECT id FROM public.products WHERE name ILIKE '%Cherry Happy Day%'
+        );
+    END IF;
 
-DELETE FROM public.order_items WHERE product_id IN (
-    SELECT id FROM public.products WHERE name ILIKE '%Cherry Happy Day%'
-);
+    -- 3. Clean cart if table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'cart') THEN
+        DELETE FROM public.cart WHERE product_id IN (
+            SELECT id FROM public.products WHERE name ILIKE '%Cherry Happy Day%'
+        );
+    END IF;
 
--- 2. Delete the product row
-DELETE FROM public.products WHERE name ILIKE '%Cherry Happy Day%';
+    -- 4. Delete the product permanently
+    DELETE FROM public.products WHERE name ILIKE '%Cherry Happy Day%';
+END $$;
