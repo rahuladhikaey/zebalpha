@@ -121,31 +121,185 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
   const orderDateFormatted = new Date(order.created_at || Date.now()).toLocaleDateString("en-GB");
   const invoiceDateFormatted = new Date(order.label_generated_at || order.created_at || Date.now()).toLocaleDateString("en-GB");
 
+  const [downloading, setDownloading] = React.useState(false);
+
+  // 1. Direct 4x6" PDF Download Handler (html2canvas + jsPDF with fallback)
+  const handleDownloadLabel = async () => {
+    try {
+      setDownloading(true);
+      if (printRef.current) {
+        const html2canvas = (await import("html2canvas")).default;
+        const { jsPDF } = await import("jspdf");
+
+        const canvas = await html2canvas(printRef.current, {
+          scale: 3,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+          windowWidth: 420,
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "in",
+          format: [4, 6],
+        });
+
+        pdf.addImage(imgData, "PNG", 0, 0, 4, 6, undefined, "FAST");
+        pdf.save(`Shipping_Label_${orderNumber}_${awb}.pdf`);
+      } else if (order.shipping_label_url || order.label_url) {
+        window.open(order.shipping_label_url || order.label_url, "_blank");
+      }
+    } catch (err) {
+      console.warn("PDF Canvas generation notice, using fallback link:", err);
+      if (order.shipping_label_url || order.label_url) {
+        window.open(order.shipping_label_url || order.label_url, "_blank");
+      } else {
+        alert("Failed to download PDF. Please try again.");
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // 2. Reliable Isolated Print Handler (Avoids Blank Page Bug in Modern Chrome/Edge)
   const handlePrint = () => {
-    window.print();
+    if (!printRef.current) {
+      window.print();
+      return;
+    }
+
+    const existingIframe = document.getElementById("label-print-iframe");
+    if (existingIframe) existingIframe.remove();
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "label-print-iframe";
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Shipping_Label_${orderNumber}</title>
+          <style>
+            @page {
+              size: 4in 6in;
+              margin: 0;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+              background: #fff;
+              color: #000;
+              width: 4in;
+              margin: 0 auto;
+              padding: 4px;
+            }
+            .grid { display: grid; }
+            .grid-cols-\\[1\\.1fr_0\\.9fr\\] { grid-template-columns: 1.1fr 0.9fr; }
+            .grid-cols-\\[1\\.2fr_0\\.8fr_0\\.5fr_0\\.8fr_1\\.7fr\\] { grid-template-columns: 1.2fr 0.8fr 0.5fr 0.8fr 1.7fr; }
+            .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .flex { display: flex; }
+            .flex-col { flex-direction: column; }
+            .items-center { align-items: center; }
+            .items-start { align-items: flex-start; }
+            .justify-between { justify-content: space-between; }
+            .justify-center { justify-content: center; }
+            .shrink-0 { flex-shrink: 0; }
+            .border-b-2 { border-bottom: 2px solid #000; }
+            .border-b { border-bottom: 1px solid #000; }
+            .border-r-2 { border-right: 2px solid #000; }
+            .border-r { border-right: 1px solid #000; }
+            .border-t-2 { border-top: 2px solid #000; }
+            .border-t { border-top: 1px solid #000; }
+            .border-2 { border: 2px solid #000; }
+            .border { border: 1px solid #000; }
+            .border-black { border-color: #000 !important; }
+            .bg-black { background-color: #000 !important; color: #fff !important; }
+            .bg-white { background-color: #fff !important; color: #000 !important; }
+            .bg-zinc-100, .bg-zinc-50 { background-color: #f4f4f5 !important; }
+            .text-black { color: #000 !important; }
+            .text-white { color: #fff !important; }
+            .text-zinc-600, .text-zinc-700, .text-zinc-800 { color: #3f3f46 !important; }
+            .font-bold { font-weight: 700; }
+            .font-black { font-weight: 900; }
+            .font-mono { font-family: monospace; }
+            .uppercase { text-transform: uppercase; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .text-left { text-align: left; }
+            .leading-tight { line-height: 1.25; }
+            .leading-none { line-height: 1; }
+            .p-1 { padding: 4px; }
+            .p-1\\.5 { padding: 6px; }
+            .p-2 { padding: 8px; }
+            .px-2 { padding-left: 8px; padding-right: 8px; }
+            .py-1 { padding-top: 4px; padding-bottom: 4px; }
+            .w-full { width: 100%; }
+            table { border-collapse: collapse; width: 100%; }
+          </style>
+        </head>
+        <body>
+          <div style="width: 380px; margin: 0 auto; border: 2px solid #000; background: #fff; color: #000; font-size: 10px;">
+            ${printRef.current.innerHTML}
+          </div>
+          <script>
+            setTimeout(() => {
+              window.focus();
+              window.print();
+              setTimeout(() => {
+                window.parent.document.getElementById("label-print-iframe")?.remove();
+              }, 1500);
+            }, 300);
+          </script>
+        </body>
+      </html>
+    `);
+    doc.close();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible">
       <style>{`
         @media print {
-          body * {
+          body {
             visibility: hidden !important;
-          }
-          #printable-meesho-label, #printable-meesho-label * {
-            visibility: visible !important;
+            background: #ffffff !important;
           }
           #printable-meesho-label {
-            position: fixed !important;
-            left: 50% !important;
-            top: 10px !important;
-            transform: translateX(-50%) !important;
+            visibility: visible !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 380px !important;
             max-width: 380px !important;
-            margin: 0 !important;
-            border: 2px solid black !important;
-            background: white !important;
-            color: black !important;
+            margin: 0 auto !important;
+            border: 2px solid #000 !important;
+            background: #fff !important;
+            color: #000 !important;
+          }
+          #printable-meesho-label * {
+            visibility: visible !important;
           }
         }
       `}</style>
@@ -170,24 +324,27 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {(order.label_url || order.shiprocket_shipment_id || order.shipment_id) && (
-              <a
-                href={order.label_url || `https://apiv2.shiprocket.in/v1/external/shipments/print/label/${order.shiprocket_shipment_id || order.shipment_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition shadow-md"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Official Shiprocket Slip (PDF)
-              </a>
-            )}
+            {/* Download Label Button */}
+            <button
+              onClick={handleDownloadLabel}
+              disabled={downloading}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-wider transition shadow-lg shadow-purple-600/20 cursor-pointer active:scale-95 disabled:opacity-60"
+            >
+              <Download className={`h-3.5 w-3.5 ${downloading ? "animate-bounce" : ""}`} />
+              <span>{downloading ? "Downloading..." : "Download Label (PDF)"}</span>
+            </button>
+
+            {/* Direct Print Button */}
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-wider transition shadow-lg shadow-purple-600/20 cursor-pointer active:scale-95"
+              title="Print Label"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition border border-zinc-700 cursor-pointer"
             >
               <Printer className="h-3.5 w-3.5" />
-              Print Label (4x6")
+              <span className="hidden sm:inline">Print</span>
             </button>
+
+            {/* Close Button */}
             <button
               onClick={onClose}
               className="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800 transition cursor-pointer"
@@ -450,12 +607,22 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
             Standard 4x6" Thermal Label Format Ready for TSC/Zebra/Rollo Printers
           </span>
-          <button
-            onClick={handlePrint}
-            className="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider transition cursor-pointer"
-          >
-            🖨️ Print Label Now
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadLabel}
+              disabled={downloading}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-wider transition shadow-lg shadow-purple-600/20 cursor-pointer active:scale-95 disabled:opacity-60"
+            >
+              <Download className={`h-4 w-4 ${downloading ? "animate-bounce" : ""}`} />
+              <span>{downloading ? "Downloading PDF..." : "Download Label (PDF)"}</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition border border-zinc-700 cursor-pointer"
+            >
+              🖨️ Print
+            </button>
+          </div>
         </div>
 
       </div>
