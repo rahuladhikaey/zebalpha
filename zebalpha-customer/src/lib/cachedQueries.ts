@@ -60,7 +60,7 @@ export async function getCachedHomeProducts(brandFilter: boolean = false, limit:
     async () => {
       let query = supabaseServer
         .from('products')
-        .select('id, name, brand, price, mrp, image_url, images, is_premium, tier, is_active, is_approved, approval_status, created_at')
+        .select('id, name, brand, price, mrp, image_url, images, is_premium, tier, is_active, is_approved, approval_status, specifications, created_at')
         .eq('is_active', true)
         .eq('is_approved', true)
         .order('created_at', { ascending: false });
