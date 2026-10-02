@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
 
       // Diagnostic check: Did the seller submit an older/previous code?
       try {
-        const { data: oldOtp } = await supabase
+        const { data: oldOtp } = await supabaseServer
           .from("email_otps")
           .select("id, created_at, is_verified")
           .eq("email", normalizedEmail)
