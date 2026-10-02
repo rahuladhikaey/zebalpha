@@ -140,6 +140,83 @@ async function runTests() {
     assert(metrics.invalidations > 0, `Test 7d: Cache recorded invalidations (${metrics.invalidations})`);
   }
 
+  // 8. 100 Simultaneous Requests Stampede Test (Section 17 & 29)
+  {
+    const scaleKey = `stampede:100:${Date.now()}`;
+    let scaleDbHits = 0;
+
+    const scaleDbFetch = async () => {
+      scaleDbHits++;
+      await new Promise(r => setTimeout(r, 60)); // Simulate PostgreSQL query latency
+      return { id: 'scale-product', name: 'High-Demand Sneaker', stock: 100 };
+    };
+
+    // Dispatch 100 simultaneous requests at the exact same millisecond
+    const requests = Array.from({ length: 100 }, () => 
+      cacheService.fetchOrCache(scaleKey, scaleDbFetch, 120)
+    );
+
+    const responses = await Promise.all(requests);
+    assert(responses.length === 100, 'Test 8a: Exactly 100 responses fulfilled');
+    assert(responses.every(r => r.data.id === 'scale-product'), 'Test 8b: All 100 callers received identical correct data');
+    assert(scaleDbHits === 1, `Test 8c: Concurrency stampede protection collapsed 100 simultaneous requests into 1 DB query! (Actual DB queries: ${scaleDbHits})`);
+  }
+
+  // 9. TTL Expiration Lifecycle Test
+  {
+    const ttlKey = `ttl:test:${Date.now()}`;
+    let fetchCount = 0;
+    const fetchFunc = async () => {
+      fetchCount++;
+      return { count: fetchCount };
+    };
+
+    // Set with 1 second TTL
+    await cacheService.fetchOrCache(ttlKey, fetchFunc, 1);
+    assert(fetchCount === 1, 'Test 9a: Initial fetch executed');
+
+    // Immediate second read -> Cache Hit
+    const hitRes = await cacheService.fetchOrCache(ttlKey, fetchFunc, 1);
+    assert(hitRes.source === 'cache' && hitRes.data.count === 1, 'Test 9b: Second read is cache hit');
+    assert(fetchCount === 1, 'Test 9c: No DB query while valid');
+
+    // Wait 1.1s for expiration
+    await new Promise(r => setTimeout(r, 1100));
+
+    // Third read -> Must be Cache Miss and trigger fresh fetch
+    const expireRes = await cacheService.fetchOrCache(ttlKey, fetchFunc, 1);
+    assert(expireRes.source === 'database' && expireRes.data.count === 2, 'Test 9d: Read after TTL expiration triggers fresh database query');
+    assert(fetchCount === 2, 'Test 9e: DB query counter incremented to 2');
+  }
+
+  // 10. Personalized User Data Isolation Test (Section 21 & 27)
+  {
+    const userA = 'user-uuid-111';
+    const userB = 'user-uuid-222';
+    const cartAKey = cacheService.keys.userCart(userA);
+    const cartBKey = cacheService.keys.userCart(userB);
+
+    assert(cartAKey !== cartBKey, 'Test 10a: User A and User B cache keys are strictly isolated');
+
+    await cacheService.set(cartAKey, { items: ['T-Shirt'] }, 300);
+    await cacheService.set(cartBKey, { items: ['Jeans'] }, 300);
+
+    const cartA = await cacheService.get(cartAKey);
+    const cartB = await cacheService.get(cartBKey);
+
+    assert(cartA.items[0] === 'T-Shirt', 'Test 10b: User A receives only User A cart');
+    assert(cartB.items[0] === 'Jeans', 'Test 10c: User B receives only User B cart');
+    assert(cartA.items[0] !== cartB.items[0], 'Test 10d: Zero leakage between personalized user caches');
+  }
+
+  // 11. Malformed / Non-JSON Data Resilience Test
+  {
+    const malformedKey = `malformed:test:${Date.now()}`;
+    await cacheService.set(malformedKey, 'primitive-plain-string', 60);
+    const readBack = await cacheService.get(malformedKey);
+    assert(readBack === 'primitive-plain-string', 'Test 11a: Primitive non-JSON strings handled without exception');
+  }
+
   console.log('\n================================================================');
   console.log(`TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('================================================================\n');

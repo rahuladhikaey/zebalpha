@@ -6,7 +6,9 @@ import {
   suspendSeller,
   reactivateSeller,
   softDeleteSeller,
-  permanentDeleteSeller
+  permanentDeleteSeller,
+  getAdminCacheMetrics,
+  adminTargetedInvalidate
 } from '../controllers/adminController.js';
 import { authenticateJWT, requireRole } from '../middleware/auth.js';
 import { ROLES } from '../constants/index.js';
@@ -16,6 +18,10 @@ const router = Router();
 router.get('/store-settings', getStoreSettings);
 router.post('/store-settings', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), updateStoreSetting);
 router.get('/notify-requests', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), getNotifyRequests);
+
+// Cache Monitoring and Targeted Invalidation (Section 26)
+router.get('/cache/metrics', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), getAdminCacheMetrics);
+router.post('/cache/invalidate', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), adminTargetedInvalidate);
 
 // Seller Account Controls
 router.post('/sellers/:id/suspend', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), suspendSeller);

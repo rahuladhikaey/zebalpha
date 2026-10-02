@@ -1,6 +1,7 @@
 import { supabaseA } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
 import { sendSellerStatusEmail } from '../utils/email.js';
+import { cacheService } from '../services/cacheService.js';
 
 export const getStoreSettings = async (req, res, next) => {
   try {
@@ -298,3 +299,80 @@ export const permanentDeleteSeller = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * SuperAdmin Cache Telemetry & Diagnostics Endpoint (Section 26)
+ * Exposes live cache health, hit/miss rate, and latencies without leaking credentials.
+ */
+export const getAdminCacheMetrics = async (req, res, next) => {
+  try {
+    const metrics = cacheService.getMetrics();
+    const ping = await cacheService.client.ping();
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      health: ping,
+      metrics
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * SuperAdmin Targeted Cache Invalidation Controller (Section 26)
+ * Allows safe targeted purges (never unrestricted FLUSHALL).
+ */
+export const adminTargetedInvalidate = async (req, res, next) => {
+  try {
+    const { target, id, section } = req.body;
+
+    if (!target) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'Invalidation target is required (product, category, homepage, search)'
+      });
+    }
+
+    switch (target.toLowerCase()) {
+      case 'product':
+        await cacheService.invalidateProductCache(id || null);
+        return res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: `Targeted invalidation executed for product ${id || 'catalog'}`
+        });
+
+      case 'category':
+        await cacheService.invalidateCategoryCache(id || null);
+        return res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: `Targeted invalidation executed for category ${id || 'all'}`
+        });
+
+      case 'homepage':
+        await cacheService.invalidator.onHomepageSectionMutation(section || 'featured');
+        return res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: `Targeted invalidation executed for homepage section: ${section || 'featured'}`
+        });
+
+      case 'search':
+        await cacheService.invalidator.purgePattern('search:*');
+        await cacheService.invalidator.purgePattern('products:search*');
+        return res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: 'Targeted invalidation executed for search cache'
+        });
+
+      default:
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: `Unsupported invalidation target: ${target}. Global FLUSHALL is forbidden.`
+        });
+    }
+  } catch (err) {
+    next(err);
+  }
+};
+

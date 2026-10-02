@@ -1,2 +1,1 @@
-// Customer App Custom Hooks
-export {};
+export * from './useCatalogQueries';
