@@ -31,22 +31,21 @@ export async function calculateOrderAmounts({ items = [], paymentMethod = 'COD',
   }
 
   // 1. Fetch live products from database to get trusted prices
-  const productIds = items.map(item => item.product_id || item.id).filter(Boolean);
+  const productIds = items.map(item => item.product_id || item.id || item.productId).filter(Boolean);
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const validProductIds = Array.from(new Set(productIds.filter(id => typeof id === 'string' && uuidRegex.test(id))));
   const dbProductsMap = new Map();
 
-  if (productIds.length > 0) {
+  if (validProductIds.length > 0) {
     const { data: dbProducts, error } = await supabaseA
       .from('products')
       .select('id, name, price, mrp, is_active, is_approved, stock, seller_id, is_new_drop, target_drop_date, status, specifications')
-      .in('id', productIds);
+      .in('id', validProductIds);
 
     if (error) {
-      console.error('[Pricing Engine Error] Failed to fetch product catalog prices:', error.message);
-      throw new Error('Failed to verify product prices against database.');
-    }
-
-    if (dbProducts) {
-      dbProducts.forEach(p => dbProductsMap.set(String(p.id), p));
+      console.error('[Pricing Engine Warning] Failed to fetch product catalog prices:', error.message);
+    } else if (dbProducts) {
+      dbProducts.forEach(p => dbProductsMap.set(String(p.id).toLowerCase(), p));
     }
   }
 

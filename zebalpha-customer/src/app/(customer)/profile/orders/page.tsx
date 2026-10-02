@@ -735,12 +735,20 @@ export default function MyOrdersPage() {
                         </button>
                       )}
 
+                      {/* View Full Order Details Page Link */}
+                      <Link
+                        href={`/profile/orders/${order.order_number || order.id}`}
+                        className="text-[10px] font-black uppercase tracking-widest text-amber-300 bg-amber-950/60 border border-amber-500/40 hover:bg-amber-900 px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        View Full Order Details →
+                      </Link>
+
                       {/* View Details Collapse */}
                       <button
                         onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
                         className="text-[10px] font-black uppercase tracking-widest text-zinc-300 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5"
                       >
-                        {expandedOrderId === order.id ? "Hide Details ↑" : "Delivery Details →"}
+                        {expandedOrderId === order.id ? "Hide Details ↑" : "Quick Summary ↓"}
                       </button>
                     </div>
                   </div>

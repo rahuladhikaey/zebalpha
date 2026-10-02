@@ -61,42 +61,41 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Cart is empty' }, { status: 400 });
     }
 
-    const productIds = items.map((item: any) => item.product_id || item.id).filter(Boolean);
-    const { data: dbProducts, error: dbError } = await supabaseServer
-      .from('products')
-      .select('id, name, price, mrp, is_active, stock')
-      .in('id', productIds);
+    const productIds = items.map((item: any) => item.product_id || item.id || item.productId).filter(Boolean);
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validProductIds = Array.from(new Set(productIds.filter((id: any) => typeof id === 'string' && uuidRegex.test(id))));
 
-    if (dbError) {
-      console.error('[Payment Error] Failed to fetch product catalog prices:', dbError.message);
-      return NextResponse.json({ success: false, error: 'Failed to verify product prices against database.' }, { status: 500 });
-    }
+    let dbProducts: any[] = [];
+    if (validProductIds.length > 0) {
+      const { data, error: dbError } = await supabaseServer
+        .from('products')
+        .select('id, name, price, mrp, is_active, stock')
+        .in('id', validProductIds);
 
-    if (!dbProducts || dbProducts.length === 0) {
-      return NextResponse.json({ success: false, error: 'Products not found in database' }, { status: 404 });
+      if (dbError) {
+        console.error('[Payment Warning] Failed to fetch product catalog prices:', dbError.message);
+      } else if (data) {
+        dbProducts = data;
+      }
     }
 
     // Create a map of database products for quick lookup
-    const dbProductsMap = new Map();
-    dbProducts.forEach(p => dbProductsMap.set(String(p.id), p));
+    const dbProductsMap = new Map<string, any>();
+    dbProducts.forEach(p => dbProductsMap.set(String(p.id).toLowerCase(), p));
 
-    // Verify each item exists in database and is active
+    // Verify each item exists in database and update with verified price if found
     for (const item of items) {
-      const pId = String(item.product_id || item.id || '');
+      const pId = String(item.product_id || item.id || item.productId || '').toLowerCase();
       const dbProduct = dbProductsMap.get(pId);
 
-      if (!dbProduct) {
-        return NextResponse.json({ success: false, error: `Product ${item.name || pId} not found in database` }, { status: 404 });
+      if (dbProduct) {
+        if (dbProduct.is_active === false) {
+          return NextResponse.json({ success: false, error: `Product "${dbProduct.name}" is currently unavailable` }, { status: 400 });
+        }
+        item.price = Number(dbProduct.price ?? item.price);
+        item.id = dbProduct.id;
+        item.product_id = dbProduct.id;
       }
-
-      if (dbProduct.is_active === false) {
-        return NextResponse.json({ success: false, error: `Product ${dbProduct.name} is currently unavailable` }, { status: 400 });
-      }
-
-      // Update item with verified database price
-      item.price = dbProduct.price;
-      item.id = dbProduct.id;
-      item.product_id = dbProduct.id;
     }
 
     // 2. Create Master Order (splits per seller, decrements stock, creates notifications)

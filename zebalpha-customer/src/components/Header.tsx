@@ -73,7 +73,6 @@ export function Header({
               { name: "Home", href: "/" },
               { name: "New Drops", href: "/new-drops" },
               { name: "Premium Store", href: "/premium-store" },
-              { name: "Collection", href: "/collections" },
             ].map((link) => (
               <Link 
                 key={link.name} 

@@ -227,11 +227,12 @@ export default function SellerProducts() {
     };
   }, [isModalOpen]);
 
-  const openAddModal = () => {
+  const openAddModal = (presetDrop = false) => {
     if (accountStatus.toLowerCase() === "suspended") {
       alert("🚫 Your seller account is suspended by Admin. You cannot add or publish new products.");
       return;
     }
+    const isDrop = presetDrop || activeTab === "DROPS";
     setEditingProduct(null);
     setUploadedImages([]);
     setImageError("");
@@ -241,7 +242,7 @@ export default function SellerProducts() {
     setSelectedSubcategoryId(firstSubcategory?.id?.toString() || "");
     setForm({
       name: "",
-      price: "",
+      price: isDrop ? "0" : "",
       mrp: "",
       description: "",
       category_id: categories[0]?.id.toString() || "",
@@ -251,9 +252,9 @@ export default function SellerProducts() {
       low_stock_limit: "5",
       sku: "",
       specificationsText: "",
-      packagesText: "",
+      packagesText: isDrop ? "Standard:0:0:false" : "",
       is_premium: false,
-      is_new_drop: false,
+      is_new_drop: isDrop,
       collection: "",
       target_drop_date: "",
       tier: "STANDARD",
@@ -357,13 +358,19 @@ export default function SellerProducts() {
     }
     setStatusMessage("Saving product...");
 
-    const price = Number(form.price);
+    const isDrop = form.is_new_drop;
+    const price = Number(form.price) || 0;
     const mrp = form.mrp ? Number(form.mrp) : null;
-    const stock = Number(form.stock);
-    const low_stock_limit = Number(form.low_stock_limit);
+    const stock = Number(form.stock) || 0;
+    const low_stock_limit = Number(form.low_stock_limit) || 0;
 
-    if (!form.name.trim() || isNaN(price) || price <= 0) {
-      setStatusMessage("❌ Please enter a valid name and price.");
+    if (!form.name.trim()) {
+      setStatusMessage("❌ Please enter a product name.");
+      return;
+    }
+
+    if (!isDrop && (isNaN(price) || price <= 0)) {
+      setStatusMessage("❌ Please enter a valid price.");
       return;
     }
 
@@ -378,38 +385,49 @@ export default function SellerProducts() {
       });
     }
 
-    if (!form.packagesText.trim()) {
-      setStatusMessage("❌ Please add at least one package (e.g. 250g:120:150:false).");
-      return;
-    }
-
-    // Parse packages (Name:Price:MRP:isBestSeller)
-    const packages = form.packagesText.split("\n").map((line, index) => {
-      const parts = line.split(":");
-      if (parts.length >= 1 && parts[0].trim() !== "") {
-        const name = parts[0].trim();
-        const pkgPrice = parts[1] ? Number(parts[1].trim()) : price;
-        const pkgMrp = parts[2] ? Number(parts[2].trim()) : (mrp || price);
-        const isBestSeller = parts[3] ? parts[3].trim().toLowerCase() === "true" : false;
-
-        if (isNaN(pkgPrice) || pkgPrice <= 0) {
-          return null;
-        }
-
-        return {
-          id: `pkg-${Date.now()}-${index}`,
-          name,
-          price: pkgPrice,
-          mrp: pkgMrp,
-          isBestSeller
-        };
+    let packages: any[] = [];
+    if (!isDrop) {
+      if (!form.packagesText.trim()) {
+        setStatusMessage("❌ Please add at least one package (e.g. 250g:120:150:false).");
+        return;
       }
-      return null;
-    }).filter(Boolean);
 
-    if (packages.length === 0) {
-      setStatusMessage("❌ Please enter at least one valid package in the format: Name:Price:MRP:isBestSeller");
-      return;
+      // Parse packages (Name:Price:MRP:isBestSeller)
+      packages = form.packagesText.split("\n").map((line, index) => {
+        const parts = line.split(":");
+        if (parts.length >= 1 && parts[0].trim() !== "") {
+          const name = parts[0].trim();
+          const pkgPrice = parts[1] ? Number(parts[1].trim()) : price;
+          const pkgMrp = parts[2] ? Number(parts[2].trim()) : (mrp || price);
+          const isBestSeller = parts[3] ? parts[3].trim().toLowerCase() === "true" : false;
+
+          if (isNaN(pkgPrice) || pkgPrice <= 0) {
+            return null;
+          }
+
+          return {
+            id: `pkg-${Date.now()}-${index}`,
+            name,
+            price: pkgPrice,
+            mrp: pkgMrp,
+            isBestSeller
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
+      if (packages.length === 0) {
+        setStatusMessage("❌ Please enter at least one valid package in the format: Name:Price:MRP:isBestSeller");
+        return;
+      }
+    } else {
+      packages = [{
+        id: `drop-${Date.now()}`,
+        name: "Standard",
+        price: price > 0 ? price : 0,
+        mrp: mrp || (price > 0 ? price : 0),
+        isBestSeller: false
+      }];
     }
 
     const slug = form.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
@@ -614,11 +632,15 @@ export default function SellerProducts() {
           <p className="text-xs font-medium text-slate-500 mt-1">Manage standard streetwear and high-ticket 💎 Premium Store items.</p>
         </div>
         <button
-          onClick={openAddModal}
+          onClick={() => openAddModal(activeTab === "DROPS")}
           disabled={accountStatus.toLowerCase() === "suspended"}
-          className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+            activeTab === "DROPS"
+              ? "bg-orange-600 shadow-orange-600/20 hover:bg-orange-700"
+              : "bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700"
+          }`}
         >
-          <Plus size={16} /> Add Product
+          <Plus size={16} /> {activeTab === "DROPS" ? "Add New Drop" : "Add Product"}
         </button>
       </div>
 
@@ -728,10 +750,10 @@ export default function SellerProducts() {
               : "Get started by creating your product listing for the ZEB-ALPHA storefront."}
           </p>
           <button 
-            onClick={openAddModal}
+            onClick={() => openAddModal(activeTab === "DROPS")}
             className="mt-6 rounded-2xl border border-primary/20 px-5 py-3 text-xs font-black text-primary hover:bg-primary/5 transition-all"
           >
-            Add Product Now
+            {activeTab === "DROPS" ? "Add New Drop Now" : "Add Product Now"}
           </button>
         </div>
       ) : (
@@ -882,92 +904,94 @@ export default function SellerProducts() {
             </div>
 
             <form onSubmit={handleFormSubmit} className="space-y-6 flex-1">
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Left Column */}
-                <div className="space-y-4">
+              {/* Drop mode switch banner */}
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.04] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">⚡</span>
                   <div>
-                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Product Name *</label>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                      Product Type / Drop Mode
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {form.is_new_drop 
+                        ? "New Drop Mode: Only product media & coming soon launch date required." 
+                        : "Standard Store Product: Requires pricing, inventory and catalog details."}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/10 cursor-pointer">
                     <input
-                      type="text"
-                      required
-                      value={form.name}
-                      onChange={e => setForm({...form, name: e.target.value})}
-                      placeholder="e.g. ZEBALPHA 2D Animated Heavyweight Oversized Polo"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                      type="checkbox"
+                      checked={form.is_new_drop}
+                      onChange={e => setForm({...form, is_new_drop: e.target.checked})}
+                      className="h-4 w-4 rounded text-orange-500 focus:ring-orange-400"
                     />
-                  </div>
-
-                  <div className="grid gap-4 grid-cols-2">
-                    <div>
-                      <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Price (₹) *</label>
+                    <span className="text-xs font-black text-orange-400">⚡ New Drop</span>
+                  </label>
+                  {!form.is_new_drop && (
+                    <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 cursor-pointer">
                       <input
-                        type="number"
+                        type="checkbox"
+                        checked={form.is_premium}
+                        onChange={e => setForm({...form, is_premium: e.target.checked, tier: e.target.checked ? "PREMIUM" : "STANDARD"})}
+                        className="h-4 w-4 rounded text-amber-500 focus:ring-amber-400"
+                      />
+                      <span className="text-xs font-black text-amber-400">💎 Premium Store</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* NEW DROP SIMPLIFIED MODE */}
+              {form.is_new_drop ? (
+                <div className="space-y-5">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Product Name *</label>
+                      <input
+                        type="text"
                         required
-                        min="1"
-                        value={form.price}
-                        onChange={e => setForm({...form, price: e.target.value})}
-                        placeholder="1299"
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                        value={form.name}
+                        onChange={e => setForm({...form, name: e.target.value})}
+                        placeholder="e.g. ZEBALPHA Cyber Animated Oversized Drop"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-orange-500 transition-all"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">MRP (₹) [Optional]</label>
+                      <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">
+                        Coming Soon / Target Drop Date *
+                      </label>
                       <input
-                        type="number"
-                        min="1"
-                        value={form.mrp}
-                        onChange={e => setForm({...form, mrp: e.target.value})}
-                        placeholder="1999"
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                        type="text"
+                        required
+                        value={form.target_drop_date}
+                        onChange={e => setForm({...form, target_drop_date: e.target.value})}
+                        placeholder="e.g. 2026-10-15 or 15/10/2026"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-orange-500 transition-all"
                       />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        💡 Displayed on the customer <code>/new-drops</code> hype countdown with voting and launch alerts.
+                      </p>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block">Category & Subcategory *</label>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <select
-                        required
-                        value={selectedMainCategory}
-                        onChange={(e) => {
-                          const nextMain = e.target.value;
-                          const nextSubcategory = categories.find((c: any) => (c.main_category || c.description || "Polos & Tees") === nextMain);
-                          setSelectedMainCategory(nextMain);
-                          setSelectedSubcategoryId(nextSubcategory?.id?.toString() || "");
-                        }}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all cursor-pointer"
-                      >
-                        <option value="">Select Category</option>
-                        {Array.from(new Set(categories.map((c: any) => c.main_category || c.description || "Polos & Tees"))).map((mainCat) => (
-                          <option key={mainCat} value={mainCat}>{mainCat}</option>
-                        ))}
-                      </select>
-                      <select
-                        required
-                        value={selectedSubcategoryId}
-                        onChange={(e) => setSelectedSubcategoryId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all cursor-pointer"
-                      >
-                        <option value="">Select Subcategory</option>
-                        {categories.filter((c: any) => (c.main_category || c.description || "Polos & Tees") === selectedMainCategory).map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
+                  {/* Media Upload (Images & Video) */}
                   <div>
                     <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5 flex items-center justify-between">
-                      <span>Product Images (Max 4 Images, ≤ 100 KB each)</span>
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">({uploadedImages.length}/4 Uploaded)</span>
+                      <span>Product Pics & Video (Max 4, ≤ 100 KB each) *</span>
+                      <span className="text-[10px] text-orange-400 font-bold">({uploadedImages.length}/4 Uploaded)</span>
                     </label>
 
-                    {/* Image Thumbnail Previews */}
                     {uploadedImages.length > 0 && (
                       <div className="flex items-center gap-3 mb-2.5 flex-wrap">
                         {uploadedImages.map((imgSrc, idx) => (
-                          <div key={idx} className="relative h-20 w-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 group shadow-sm bg-slate-100 dark:bg-slate-800">
-                            <img src={imgSrc} alt={`Uploaded ${idx + 1}`} className="h-full w-full object-cover" />
+                          <div key={idx} className="relative h-24 w-24 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 group shadow-sm bg-slate-100 dark:bg-slate-800">
+                            {imgSrc.startsWith("data:video") || imgSrc.endsWith(".mp4") ? (
+                              <video src={imgSrc} className="h-full w-full object-cover" muted autoPlay loop />
+                            ) : (
+                              <img src={imgSrc} alt={`Uploaded ${idx + 1}`} className="h-full w-full object-cover" />
+                            )}
                             <button
                               type="button"
                               onClick={() => removeImage(idx)}
@@ -976,217 +1000,264 @@ export default function SellerProducts() {
                               ✕
                             </button>
                             <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-black">
-                              Img {idx + 1}
+                              Media {idx + 1}
                             </span>
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {/* Drag & Drop File Upload Zone */}
                     {uploadedImages.length < 4 && (
-                      <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-600 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50 dark:bg-slate-800/50">
+                      <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-orange-500 rounded-xl p-6 text-center cursor-pointer transition-colors bg-slate-50 dark:bg-slate-800/50">
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/*,video/*"
                           multiple
                           onChange={handleImageUpload}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
-                        <div className="flex flex-col items-center justify-center gap-1">
-                          <Upload size={22} className="text-emerald-600 dark:text-emerald-400 mb-1" />
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                          <Upload size={24} className="text-orange-500 mb-1" />
                           <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                            Upload Image File (Max 4 images, ≤ 100 KB each)
+                            Upload Product Pics / Video Preview
                           </span>
                           <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                            PNG, JPG, WEBP formats supported
+                            PNG, JPG, WEBP or MP4 video previews supported
                           </span>
                         </div>
                       </div>
                     )}
 
-                    {/* Error Alert */}
                     {imageError && (
                       <p className="text-xs font-bold text-rose-500 mt-1.5 animate-pulse">
                         {imageError}
                       </p>
                     )}
-
-                  </div>
-
-                  <div className="grid gap-4 grid-cols-3">
-                    <div className="col-span-2">
-                      <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">SKU</label>
-                      <input
-                        type="text"
-                        value={form.sku}
-                        onChange={e => setForm({...form, sku: e.target.value})}
-                        placeholder="ZEB-POLO-001"
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Brand</label>
-                      <input
-                        type="text"
-                        value={form.brand}
-                        onChange={e => setForm({...form, brand: e.target.value})}
-                        placeholder="ZEBALPHA"
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
-                      />
-                    </div>
                   </div>
                 </div>
+              ) : (
+                /* REGULAR STORE PRODUCT MODE */
+                <div className="space-y-6">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {/* Left Column */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Product Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={form.name}
+                          onChange={e => setForm({...form, name: e.target.value})}
+                          placeholder="e.g. ZEBALPHA 2D Animated Heavyweight Oversized Polo"
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                        />
+                      </div>
 
-                {/* Right Column */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Description *</label>
-                    <textarea
-                      required
-                      rows={3}
-                      value={form.description}
-                      onChange={e => setForm({...form, description: e.target.value})}
-                      placeholder="100% 240 GSM Combed Cotton, 2D Animated Streetwear Fit, Pre-shrunk Fabric..."
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all resize-none"
-                    />
+                      <div className="grid gap-4 grid-cols-2">
+                        <div>
+                          <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Price (₹) *</label>
+                          <input
+                            type="number"
+                            required
+                            min="1"
+                            value={form.price}
+                            onChange={e => setForm({...form, price: e.target.value})}
+                            placeholder="1299"
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">MRP (₹) [Optional]</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={form.mrp}
+                            onChange={e => setForm({...form, mrp: e.target.value})}
+                            placeholder="1999"
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block">Category & Subcategory *</label>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <select
+                            required
+                            value={selectedMainCategory}
+                            onChange={(e) => {
+                              const nextMain = e.target.value;
+                              const nextSubcategory = categories.find((c: any) => (c.main_category || c.description || "Polos & Tees") === nextMain);
+                              setSelectedMainCategory(nextMain);
+                              setSelectedSubcategoryId(nextSubcategory?.id?.toString() || "");
+                            }}
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all cursor-pointer"
+                          >
+                            <option value="">Select Category</option>
+                            {Array.from(new Set(categories.map((c: any) => c.main_category || c.description || "Polos & Tees"))).map((mainCat) => (
+                              <option key={mainCat} value={mainCat}>{mainCat}</option>
+                            ))}
+                          </select>
+                          <select
+                            required
+                            value={selectedSubcategoryId}
+                            onChange={(e) => setSelectedSubcategoryId(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all cursor-pointer"
+                          >
+                            <option value="">Select Subcategory</option>
+                            {categories.filter((c: any) => (c.main_category || c.description || "Polos & Tees") === selectedMainCategory).map((c: any) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5 flex items-center justify-between">
+                          <span>Product Images (Max 4 Images, ≤ 100 KB each)</span>
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">({uploadedImages.length}/4 Uploaded)</span>
+                        </label>
+
+                        {/* Image Thumbnail Previews */}
+                        {uploadedImages.length > 0 && (
+                          <div className="flex items-center gap-3 mb-2.5 flex-wrap">
+                            {uploadedImages.map((imgSrc, idx) => (
+                              <div key={idx} className="relative h-20 w-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 group shadow-sm bg-slate-100 dark:bg-slate-800">
+                                <img src={imgSrc} alt={`Uploaded ${idx + 1}`} className="h-full w-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(idx)}
+                                  className="absolute top-1 right-1 h-5 w-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-black shadow hover:scale-110 transition-transform"
+                                >
+                                  ✕
+                                </button>
+                                <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-black">
+                                  Img {idx + 1}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Drag & Drop File Upload Zone */}
+                        {uploadedImages.length < 4 && (
+                          <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-600 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50 dark:bg-slate-800/50">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleImageUpload}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            <div className="flex flex-col items-center justify-center gap-1">
+                              <Upload size={22} className="text-emerald-600 dark:text-emerald-400 mb-1" />
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                Upload Image File (Max 4 images, ≤ 100 KB each)
+                              </span>
+                              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                PNG, JPG, WEBP formats supported
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Error Alert */}
+                        {imageError && (
+                          <p className="text-xs font-bold text-rose-500 mt-1.5 animate-pulse">
+                            {imageError}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid gap-4 grid-cols-3">
+                        <div className="col-span-2">
+                          <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">SKU</label>
+                          <input
+                            type="text"
+                            value={form.sku}
+                            onChange={e => setForm({...form, sku: e.target.value})}
+                            placeholder="ZEB-POLO-001"
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Brand</label>
+                          <input
+                            type="text"
+                            value={form.brand}
+                            onChange={e => setForm({...form, brand: e.target.value})}
+                            placeholder="ZEBALPHA"
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Description *</label>
+                        <textarea
+                          required
+                          rows={3}
+                          value={form.description}
+                          onChange={e => setForm({...form, description: e.target.value})}
+                          placeholder="100% 240 GSM Combed Cotton, 2D Animated Streetwear Fit, Pre-shrunk Fabric..."
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all resize-none"
+                        />
+                      </div>
+
+                      <div className="grid gap-4 grid-cols-2">
+                        <div>
+                          <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Stock Quantity *</label>
+                          <input
+                            type="number"
+                            required
+                            min="0"
+                            value={form.stock}
+                            onChange={e => setForm({...form, stock: e.target.value})}
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Low Stock Limit *</label>
+                          <input
+                            type="number"
+                            required
+                            min="1"
+                            value={form.low_stock_limit}
+                            onChange={e => setForm({...form, low_stock_limit: e.target.value})}
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Sizes & Pricing (Format: Size:Price:MRP:isBestSeller) * [One per line]</label>
+                        <textarea
+                          rows={2}
+                          required
+                          value={form.packagesText}
+                          onChange={e => setForm({...form, packagesText: e.target.value})}
+                          placeholder="S:1299:1999:false&#10;M:1299:1999:true&#10;L:1299:1999:false&#10;XL:1399:2099:false"
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all resize-none"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid gap-4 grid-cols-2">
-                    <div>
-                      <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Stock Quantity *</label>
-                      <input
-                        type="number"
-                        required
-                        min="0"
-                        value={form.stock}
-                        onChange={e => setForm({...form, stock: e.target.value})}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Low Stock Limit *</label>
-                      <input
-                        type="number"
-                        required
-                        min="1"
-                        value={form.low_stock_limit}
-                        onChange={e => setForm({...form, low_stock_limit: e.target.value})}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
-                      />
-                    </div>
-                  </div>
-
                   <div>
-                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Sizes & Pricing (Format: Size:Price:MRP:isBestSeller) * [One per line]</label>
+                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Product Specifications & Fabric Details (Format: Key:Value) [One per line]</label>
                     <textarea
                       rows={2}
-                      required
-                      value={form.packagesText}
-                      onChange={e => setForm({...form, packagesText: e.target.value})}
-                      placeholder="S:1299:1999:false&#10;M:1299:1999:true&#10;L:1299:1999:false&#10;XL:1399:2099:false"
+                      value={form.specificationsText}
+                      onChange={e => setForm({...form, specificationsText: e.target.value})}
+                      placeholder="Fabric: 100% Combed Cotton&#10;Fit: Oversized Streetwear&#10;GSM: 240 GSM&#10;Care: Machine Wash Cold"
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all resize-none"
                     />
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">Product Specifications & Fabric Details (Format: Key:Value) [One per line]</label>
-                <textarea
-                  rows={2}
-                  value={form.specificationsText}
-                  onChange={e => setForm({...form, specificationsText: e.target.value})}
-                  placeholder="Fabric: 100% Combed Cotton&#10;Fit: Oversized Streetwear&#10;GSM: 240 GSM&#10;Care: Machine Wash Cold"
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-4 py-3 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 transition-all resize-none"
-                />
-              </div>
-
-              {/* Collection, Premium Store & New Drop Tier Controls */}
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.04] p-4 sm:p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">💎</span>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                      Premium Store & Drops Marketplace Setup
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                    Store Placement
-                  </span>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {/* Is Premium Toggle */}
-                  <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-amber-500/50 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={form.is_premium}
-                      onChange={e => setForm({...form, is_premium: e.target.checked, tier: e.target.checked ? "PREMIUM" : "STANDARD"})}
-                      className="mt-0.5 h-4 w-4 rounded text-amber-500 focus:ring-amber-400"
-                    />
-                    <div>
-                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 block">
-                        💎 Flag as Premium Store Item
-                      </span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                        List in luxury /premium-store & separate revenue under Premium earnings.
-                      </span>
-                    </div>
-                  </label>
-
-                  {/* Is New Drop Toggle */}
-                  <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-orange-500/50 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={form.is_new_drop}
-                      onChange={e => setForm({...form, is_new_drop: e.target.checked})}
-                      className="mt-0.5 h-4 w-4 rounded text-orange-500 focus:ring-orange-400"
-                    />
-                    <div>
-                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 block">
-                        ⚡ Flag as New Drop (Upcoming Release)
-                      </span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                        Display on /new-drops hype calendar with customer voting & drop alert.
-                      </span>
-                    </div>
-                  </label>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {/* Collection Selection / Input */}
-                  <div>
-                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">
-                      Curated Collection Name
-                    </label>
-                    <input
-                      type="text"
-                      value={form.collection}
-                      onChange={e => setForm({...form, collection: e.target.value})}
-                      placeholder="e.g. Heavyweight Hoodies, Luxury Polos, Summer Edits"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-amber-500 transition-all"
-                    />
-                  </div>
-
-                  {/* Target Drop Date */}
-                  <div>
-                    <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 block mb-1.5">
-                      Target Drop Date / Launch Date
-                    </label>
-                    <input
-                      type="text"
-                      value={form.target_drop_date}
-                      onChange={e => setForm({...form, target_drop_date: e.target.value})}
-                      placeholder="e.g. 2026-09-25 or 25/09/2026"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-amber-500 transition-all"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      💡 <strong>Launch Automation:</strong> Before this date, product shows exclusively on <code>/new-drops</code> with hype voting & launch alerts (no orders). On/after this date, it automatically goes live for customer purchases!
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
 
               {statusMessage && (
                 <div className={`p-4 rounded-xl text-xs font-black ${

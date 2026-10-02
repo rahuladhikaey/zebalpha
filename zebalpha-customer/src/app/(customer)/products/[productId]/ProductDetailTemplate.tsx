@@ -259,10 +259,6 @@ export default function ProductDetailTemplate({
               />
             )}
 
-            {/* ✨ Virtual Try-On Highlight CTA */}
-            <div className="pt-2">
-              <VirtualTryOnButton onClick={() => setIsVtoOpen(true)} />
-            </div>
 
             {/* Available Offers */}
             {product.offers && product.offers.length > 0 && (
@@ -483,11 +479,6 @@ export default function ProductDetailTemplate({
 
       {/* STICKY BOTTOM BAR FOR MOBILE */}
       <div className="fixed bottom-0 left-0 right-0 z-[60] flex h-16 w-full items-center bg-black/95 backdrop-blur-md border-t border-zinc-800 lg:hidden shadow-2xl px-3 gap-2">
-        <VirtualTryOnButton
-          variant="compact"
-          onClick={() => setIsVtoOpen(true)}
-          className="h-11 px-3 shrink-0"
-        />
         {isUpcomingDrop ? (
           <div className="flex-1 flex gap-2 h-11">
             <button
