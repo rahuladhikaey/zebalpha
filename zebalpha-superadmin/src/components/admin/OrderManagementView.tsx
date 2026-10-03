@@ -512,25 +512,28 @@ export default function OrderManagementView({
                       </td>
 
                       <td className="p-4">
-                        <select
-                          value={status}
-                          onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
-                          className={`rounded-xl border px-3 py-1.5 text-xs font-black uppercase tracking-wider outline-none cursor-pointer transition-all ${
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-wider ${
                             status === "delivered" 
                               ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" 
-                              : ["shipped", "in_transit", "dispatched"].includes(status)
+                              : ["shipped", "in_transit", "dispatched", "ready_to_ship"].includes(status)
                               ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                              : status === "cancelled"
+                              ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                               : "bg-zinc-900 text-zinc-300 border-zinc-700"
                           }`}
                         >
-                          <option value="placed">PLACED</option>
-                          <option value="ready_to_ship">READY TO SHIP</option>
-                          <option value="dispatched">DISPATCHED</option>
-                          <option value="shipped">SHIPPED</option>
-                          <option value="in_transit">IN TRANSIT</option>
-                          <option value="delivered">DELIVERED</option>
-                          <option value="cancelled">CANCELLED</option>
-                        </select>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            status === "delivered" 
+                              ? "bg-emerald-400" 
+                              : ["shipped", "in_transit", "dispatched", "ready_to_ship"].includes(status) 
+                              ? "bg-blue-400 animate-pulse" 
+                              : status === "cancelled" 
+                              ? "bg-rose-400" 
+                              : "bg-zinc-400"
+                          }`} />
+                          {status.replace(/_/g, " ")}
+                        </span>
                       </td>
 
                       <td className="p-4 text-right pr-6 space-x-1.5">
