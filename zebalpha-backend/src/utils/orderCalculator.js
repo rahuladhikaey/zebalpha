@@ -146,8 +146,34 @@ export async function calculateOrderAmounts({ items = [], paymentMethod = 'COD',
   let couponDiscount = 0;
   if (couponCode) {
     const upperCode = couponCode.trim().toUpperCase();
-    if (upperCode === 'WELCOME10') {
-      couponDiscount = Math.round((subtotal - asCardDiscount) * 0.10 * 100) / 100;
+    
+    // Fetch active coupons from store_settings DB
+    try {
+      const { data: dbCoupons } = await supabaseA
+        .from('store_settings')
+        .select('value')
+        .eq('key', 'promotional_coupons')
+        .maybeSingle();
+
+      const couponList = Array.isArray(dbCoupons?.value) ? dbCoupons.value : [];
+      const matched = couponList.find(c => c.code && String(c.code).trim().toUpperCase() === upperCode && c.active !== false);
+
+      if (matched) {
+        const discountStr = String(matched.discount || '');
+        if (matched.type === 'Percentage' || discountStr.includes('%')) {
+          const pct = parseFloat(discountStr.replace(/[^0-9.]/g, '')) || 0;
+          couponDiscount = Math.round((subtotal - asCardDiscount) * (pct / 100) * 100) / 100;
+        } else {
+          const flatVal = parseFloat(discountStr.replace(/[^0-9.]/g, '')) || 0;
+          couponDiscount = Math.min(subtotal - asCardDiscount, flatVal);
+        }
+      } else if (upperCode === 'WELCOME10') {
+        couponDiscount = Math.round((subtotal - asCardDiscount) * 0.10 * 100) / 100;
+      }
+    } catch (e) {
+      if (upperCode === 'WELCOME10') {
+        couponDiscount = Math.round((subtotal - asCardDiscount) * 0.10 * 100) / 100;
+      }
     }
   }
 
