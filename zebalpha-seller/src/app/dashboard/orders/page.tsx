@@ -222,12 +222,16 @@ export default function SellerOrders() {
   const handleDeleteOrder = async (orderId: string | number) => {
     if (!window.confirm("Are you sure you want to delete this order? This action cannot be undone.")) return;
     try {
-      await supabase.from("orders").delete().eq("id", orderId);
-      await fetch(`/api/orders?id=${orderId}`, { method: "DELETE" }).catch(() => null);
-      setStatusMessage("✓ Order deleted successfully!");
-      setOrders(prev => prev.filter(o => o.id !== orderId));
-      setSelectedOrderIds(prev => prev.filter(id => id !== String(orderId)));
-      setTimeout(() => setStatusMessage(""), 3000);
+      const res = await fetch(`/api/orders?id=${orderId}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({ success: false }));
+      if (res.ok && json.success) {
+        setStatusMessage("✓ Order deleted successfully!");
+        setSelectedOrderIds(prev => prev.filter(id => id !== String(orderId)));
+        await loadData();
+        setTimeout(() => setStatusMessage(""), 3000);
+      } else {
+        alert("⚠️ Failed to delete order: " + (json.message || "Database restriction"));
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete order.");
     }
@@ -238,12 +242,11 @@ export default function SellerOrders() {
     if (!window.confirm(`Are you sure you want to PERMANENTLY DELETE ${selectedOrderIds.length} selected orders?`)) return;
     try {
       for (const id of selectedOrderIds) {
-        await supabase.from("orders").delete().eq("id", id);
         await fetch(`/api/orders?id=${id}`, { method: "DELETE" }).catch(() => null);
       }
       setStatusMessage(`✓ ${selectedOrderIds.length} orders deleted successfully!`);
-      setOrders(prev => prev.filter(o => !selectedOrderIds.includes(String(o.id))));
       setSelectedOrderIds([]);
+      await loadData();
       setTimeout(() => setStatusMessage(""), 3000);
     } catch (err: any) {
       alert(err.message || "Failed to delete selected orders.");

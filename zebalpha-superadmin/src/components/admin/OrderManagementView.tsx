@@ -465,15 +465,16 @@ export default function OrderManagementView({
   const handleDeleteOrder = async (orderId: string | number) => {
     if (!window.confirm("Permanently delete this order record?")) return;
     try {
-      await fetch(`/api/admin/orders?id=${orderId}`, { method: "DELETE" }).catch(() => null);
-      try {
-        await supabase.from("orders").delete().eq("id", orderId);
-      } catch (_) {}
-
-      alert("✅ Order deleted successfully!");
-      setOrders(orders.filter(o => o.id !== orderId));
-      if (selectedOrder?.id === orderId) setSelectedOrder(null);
-      onRefresh?.();
+      const res = await fetch(`/api/admin/orders?id=${orderId}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({ success: false }));
+      if (res.ok && json.success) {
+        setStatusMsg("✓ Order deleted successfully!");
+        if (selectedOrder?.id === orderId) setSelectedOrder(null);
+        await loadData();
+        onRefresh?.();
+      } else {
+        alert("⚠️ Failed to delete order: " + (json.message || "Database restriction"));
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete order.");
     }
@@ -517,10 +518,10 @@ export default function OrderManagementView({
         if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${selectedOrderIds.length} selected orders? This action cannot be undone.`)) {
           for (const id of selectedOrderIds) {
             await fetch(`/api/admin/orders?id=${id}`, { method: "DELETE" }).catch(() => null);
-            try { await supabase.from("orders").delete().eq("id", id); } catch (_) {}
           }
-          setOrders(prev => prev.filter(o => !selectedOrderIds.includes(String(o.id))));
           setStatusMsg(`✓ Permanently deleted ${selectedOrderIds.length} orders`);
+          await loadData();
+          onRefresh?.();
         }
       }
       setSelectedOrderIds([]);

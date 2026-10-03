@@ -61,17 +61,61 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, message: "Order ID is required" }, { status: 400 });
     }
 
-    const { error } = await supabaseServer
+    // 1. Fetch order details first to get order_number and id
+    const { data: targetOrder } = await supabaseServer
+      .from("orders")
+      .select("id, order_number")
+      .or(`id.eq.${id},order_number.eq.${id}`)
+      .maybeSingle();
+
+    const targetId = targetOrder?.id || id;
+    const targetOrderNum = targetOrder?.order_number || id;
+
+    // 2. Cascade delete dependent child records to prevent foreign key errors
+    try {
+      await supabaseServer
+        .from("seller_orders")
+        .delete()
+        .or(`parent_order_id.eq.${targetId},order_id.eq.${targetId},order_number.eq.${targetOrderNum}`);
+    } catch (_) {}
+
+    try {
+      await supabaseServer
+        .from("shipments")
+        .delete()
+        .or(`order_id.eq.${targetId},order_number.eq.${targetOrderNum}`);
+    } catch (_) {}
+
+    try {
+      await supabaseServer.from("order_items").delete().eq("order_id", targetId);
+    } catch (_) {}
+
+    try {
+      await supabaseServer
+        .from("order_returns")
+        .delete()
+        .or(`order_id.eq.${targetId},suborder_id.eq.${targetId}`);
+    } catch (_) {}
+
+    try {
+      await supabaseServer
+        .from("seller_claims")
+        .delete()
+        .or(`suborder_id.eq.${targetId},claim_id.eq.${targetId}`);
+    } catch (_) {}
+
+    // 3. Delete master container and sub-order records from orders table
+    const { error: deleteErr } = await supabaseServer
       .from("orders")
       .delete()
-      .eq("id", id);
+      .or(`id.eq.${targetId},order_number.eq.${targetOrderNum},order_number.like.${targetOrderNum}-S%`);
 
-    if (error) {
-      console.error("Superadmin delete order error:", error);
-      return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    if (deleteErr) {
+      console.error("Superadmin delete order error:", deleteErr);
+      return NextResponse.json({ success: false, message: deleteErr.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: "Order deleted successfully" });
+    return NextResponse.json({ success: true, message: "Order and linked sub-orders deleted successfully" });
   } catch (error: any) {
     console.error("Superadmin delete order exception:", error);
     return NextResponse.json({ success: false, message: error?.message || "Failed to delete order" }, { status: 500 });
