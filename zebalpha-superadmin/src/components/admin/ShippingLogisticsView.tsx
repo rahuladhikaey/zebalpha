@@ -28,6 +28,76 @@ import {
   Filter
 } from "lucide-react";
 
+function parseOrderAddress(order: any) {
+  if (!order) return { customerName: "Customer", phone: "", city: "India", pincode: "", formattedDestination: "India", fullAddress: "Customer Address" };
+
+  const customerName = order.customer_name || order.shipping_address?.name || order.name || "Customer";
+  const phone = order.phone || order.shipping_address?.phone || order.mobile || "";
+
+  let rawAddr = order.address || order.shipping_address;
+  let addrObj: any = null;
+
+  if (typeof rawAddr === "string") {
+    try {
+      const parsed = JSON.parse(rawAddr);
+      if (parsed && typeof parsed === "object") {
+        addrObj = parsed;
+      }
+    } catch (_) {
+      // Plain address string
+    }
+  } else if (typeof rawAddr === "object" && rawAddr !== null) {
+    addrObj = rawAddr;
+  }
+
+  let city = order.city || "";
+  let pincode = order.pincode || order.pin_code || order.postcode || "";
+  let fullAddress = "";
+
+  if (addrObj) {
+    city = addrObj.city || addrObj.town || addrObj.district || city;
+    pincode = addrObj.pincode || addrObj.pin_code || addrObj.postal_code || addrObj.zip || pincode;
+    fullAddress = [
+      addrObj.address_line1 || addrObj.address || addrObj.street || addrObj.house,
+      addrObj.address_line2 || addrObj.area || addrObj.landmark,
+      city,
+      addrObj.state,
+      pincode
+    ].filter(Boolean).join(", ");
+  }
+
+  if (typeof rawAddr === "string" && !addrObj) {
+    fullAddress = rawAddr.trim();
+    if (!pincode) {
+      const pinMatch = fullAddress.match(/\b(\d{6})\b/);
+      if (pinMatch) pincode = pinMatch[1];
+    }
+    if (!city) {
+      const parts = fullAddress.split(",").map(s => s.trim());
+      if (parts.length >= 2) {
+        const candidate = parts[parts.length - 2].replace(/-\s*\d{6}|\d{6}/g, "").trim();
+        city = candidate.length > 2 ? candidate : parts[0];
+      } else {
+        city = fullAddress.replace(/-\s*\d{6}|\d{6}/g, "").trim();
+      }
+    }
+  }
+
+  city = (city || "").replace(/-\s*\d{6}|\d{6}/g, "").trim() || "India";
+  pincode = pincode ? String(pincode).trim() : "";
+
+  const formattedDestination = pincode ? `${city} (${pincode})` : city;
+
+  return {
+    customerName,
+    phone,
+    city,
+    pincode,
+    formattedDestination,
+    fullAddress: fullAddress || formattedDestination
+  };
+}
+
 export default function ShippingLogisticsView() {
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<"dispatches" | "pickup_addresses" | "shipments">("dispatches");
@@ -537,12 +607,17 @@ export default function ShippingLogisticsView() {
 
                         {/* Customer */}
                         <td className="px-5 py-4">
-                          <div className="font-bold text-white">
-                            {order.customer_name || order.shipping_address?.name || "Customer"}
-                          </div>
-                          <div className="text-[10px] text-zinc-400 mt-0.5">
-                            🏠 {order.shipping_address?.city || order.city || "City"} ({order.shipping_address?.pincode || order.pincode || "Pincode"})
-                          </div>
+                          {(() => {
+                            const dest = parseOrderAddress(order);
+                            return (
+                              <>
+                                <div className="font-bold text-white">{dest.customerName}</div>
+                                <div className="text-[10px] text-zinc-400 mt-0.5" title={dest.fullAddress}>
+                                  🏠 {dest.formattedDestination}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </td>
 
                         {/* Amount */}
@@ -894,12 +969,17 @@ export default function ShippingLogisticsView() {
                 <span className="text-[10px] font-black uppercase text-blue-400 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5" /> Customer Delivery Destination
                 </span>
-                <p className="text-sm font-black text-white">{selectedOrder.customer_name || "Customer"}</p>
-                <p className="text-zinc-400 font-medium leading-relaxed">
-                  🏠 {typeof selectedOrder.shipping_address === "object"
-                    ? `${selectedOrder.shipping_address?.address_line1 || ""}, ${selectedOrder.shipping_address?.city || ""} - ${selectedOrder.shipping_address?.pincode || ""}`
-                    : selectedOrder.shipping_address || "Customer Address"}
-                </p>
+                {(() => {
+                  const dest = parseOrderAddress(selectedOrder);
+                  return (
+                    <>
+                      <p className="text-sm font-black text-white">{dest.customerName}</p>
+                      <p className="text-zinc-400 font-medium leading-relaxed">
+                        🏠 {dest.fullAddress}
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Items Breakdown */}

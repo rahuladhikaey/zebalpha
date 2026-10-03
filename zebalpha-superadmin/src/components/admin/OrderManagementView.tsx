@@ -26,6 +26,76 @@ import {
   Send
 } from "lucide-react";
 
+function parseOrderAddress(order: any) {
+  if (!order) return { customerName: "Customer", phone: "", city: "India", pincode: "", formattedDestination: "India", fullAddress: "Customer Address" };
+
+  const customerName = order.customer_name || order.shipping_address?.name || order.name || "Customer";
+  const phone = order.phone || order.shipping_address?.phone || order.mobile || "";
+
+  let rawAddr = order.address || order.shipping_address;
+  let addrObj: any = null;
+
+  if (typeof rawAddr === "string") {
+    try {
+      const parsed = JSON.parse(rawAddr);
+      if (parsed && typeof parsed === "object") {
+        addrObj = parsed;
+      }
+    } catch (_) {
+      // Plain address string
+    }
+  } else if (typeof rawAddr === "object" && rawAddr !== null) {
+    addrObj = rawAddr;
+  }
+
+  let city = order.city || "";
+  let pincode = order.pincode || order.pin_code || order.postcode || "";
+  let fullAddress = "";
+
+  if (addrObj) {
+    city = addrObj.city || addrObj.town || addrObj.district || city;
+    pincode = addrObj.pincode || addrObj.pin_code || addrObj.postal_code || addrObj.zip || pincode;
+    fullAddress = [
+      addrObj.address_line1 || addrObj.address || addrObj.street || addrObj.house,
+      addrObj.address_line2 || addrObj.area || addrObj.landmark,
+      city,
+      addrObj.state,
+      pincode
+    ].filter(Boolean).join(", ");
+  }
+
+  if (typeof rawAddr === "string" && !addrObj) {
+    fullAddress = rawAddr.trim();
+    if (!pincode) {
+      const pinMatch = fullAddress.match(/\b(\d{6})\b/);
+      if (pinMatch) pincode = pinMatch[1];
+    }
+    if (!city) {
+      const parts = fullAddress.split(",").map(s => s.trim());
+      if (parts.length >= 2) {
+        const candidate = parts[parts.length - 2].replace(/-\s*\d{6}|\d{6}/g, "").trim();
+        city = candidate.length > 2 ? candidate : parts[0];
+      } else {
+        city = fullAddress.replace(/-\s*\d{6}|\d{6}/g, "").trim();
+      }
+    }
+  }
+
+  city = (city || "").replace(/-\s*\d{6}|\d{6}/g, "").trim() || "India";
+  pincode = pincode ? String(pincode).trim() : "";
+
+  const formattedDestination = pincode ? `${city} (${pincode})` : city;
+
+  return {
+    customerName,
+    phone,
+    city,
+    pincode,
+    formattedDestination,
+    fullAddress: fullAddress || formattedDestination
+  };
+}
+
 interface OrderManagementViewProps {
   initialOrders?: any[];
   initialSellers?: any[];
@@ -475,9 +545,10 @@ export default function OrderManagementView({
               <tbody className="divide-y divide-zinc-800/80 text-xs font-bold text-zinc-300">
                 {filteredOrders.map(ord => {
                   const status = (ord.order_status || "placed").toLowerCase();
-                  const customerName = ord.shipping_address?.name || ord.customer_name || "Customer";
-                  const phone = ord.shipping_address?.phone || ord.phone || "";
-                  const city = ord.shipping_address?.city || ord.city || "Kolkata";
+                  const dest = parseOrderAddress(ord);
+                  const customerName = dest.customerName;
+                  const phone = dest.phone;
+                  const city = dest.city;
                   const awb = ord.tracking_number || ord.shipment_id || "";
                   const courier = ord.courier_name || "Delhivery Surface";
 
@@ -490,7 +561,7 @@ export default function OrderManagementView({
 
                       <td className="p-4">
                         <p className="font-black text-white">{customerName}</p>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">{city} • {phone || "—"}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5" title={dest.fullAddress}>{dest.formattedDestination} • {phone || "—"}</p>
                       </td>
 
                       <td className="p-4 font-black text-sm text-emerald-400">
@@ -1012,8 +1083,8 @@ export default function OrderManagementView({
                   <p className="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-1.5">
                     <User className="w-3.5 h-3.5 text-emerald-400" /> Customer Info
                   </p>
-                  <p className="text-white text-sm font-black">{selectedOrder.shipping_address?.name || selectedOrder.customer_name || "Customer"}</p>
-                  <p className="text-zinc-400 font-mono text-[11px]">Phone: {selectedOrder.shipping_address?.phone || selectedOrder.phone || "—"}</p>
+                  <p className="text-white text-sm font-black">{parseOrderAddress(selectedOrder).customerName}</p>
+                  <p className="text-zinc-400 font-mono text-[11px]">Phone: {parseOrderAddress(selectedOrder).phone || "—"}</p>
                 </div>
 
                 <div className="bg-zinc-900/60 p-4 rounded-2xl border border-zinc-800 space-y-1.5">
@@ -1021,9 +1092,7 @@ export default function OrderManagementView({
                     <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Shipping Destination
                   </p>
                   <p className="text-zinc-300 text-xs leading-relaxed font-medium">
-                    {typeof selectedOrder.shipping_address === "object" 
-                      ? `${selectedOrder.shipping_address?.address_line1 || ""}, ${selectedOrder.shipping_address?.city || ""}, ${selectedOrder.shipping_address?.state || ""} - ${selectedOrder.shipping_address?.pincode || ""}`
-                      : selectedOrder.shipping_address || selectedOrder.address || "Address not specified"}
+                    {parseOrderAddress(selectedOrder).fullAddress}
                   </p>
                 </div>
               </div>
