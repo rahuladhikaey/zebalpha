@@ -241,23 +241,37 @@ export default function DashboardLayout({
     );
   }
 
+  // Keyboard navigation & Esc key listener to close mobile drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSidebarOpen]);
+
   return (
-    <div className="flex h-screen bg-black text-white overflow-hidden font-sans select-none">
+    <div className="flex h-screen bg-black text-white overflow-hidden font-sans select-none relative">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Hover-to-Expand Sidebar Component */}
       <aside 
+        role="navigation"
+        aria-label="Seller Main Navigation"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-zinc-950 border-r border-zinc-800/80 backdrop-blur-2xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
-          isSidebarOpen ? "translate-x-0 w-72" : "-translate-x-full"
-        } ${isExpanded ? "lg:w-72" : "lg:w-20"}`}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-zinc-950 border-r border-zinc-800/80 backdrop-blur-2xl transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? "translate-x-0 w-72" : "-translate-x-full lg:translate-x-0"
+        } ${isExpanded ? "w-72 shadow-2xl shadow-black/80" : "w-20"}`}
       >
         {/* Brand Logo Header */}
         <div className="flex h-20 items-center justify-between px-4 border-b border-zinc-800 shrink-0">
@@ -381,7 +395,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden lg:pl-20 transition-all duration-300">
         {/* Top Header */}
         <header className="flex h-20 items-center justify-between border-b border-foreground/[0.06] bg-background/50 px-6 backdrop-blur-md">
           <div className="flex items-center gap-4">

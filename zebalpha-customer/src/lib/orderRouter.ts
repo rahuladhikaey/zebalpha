@@ -1,5 +1,6 @@
 import { supabaseServer } from '@/lib/supabaseServer';
 import { createShiprocketOrder, getShiprocketToken } from '@/lib/shiprocket';
+import { calculateFallbackEDD, aggregateMultiVendorEDD } from '@/lib/eddService';
 
 type OrderItem = {
   id: string; // product id
@@ -21,6 +22,13 @@ export async function createMasterOrder(payload: {
   const { user_id, customer_name, phone, address, items, total, payment_method } = payload;
   const traceStart = Date.now();
   const trace: Record<string, number> = {};
+
+  // Extract delivery pincode from address string
+  let deliveryPincode = "";
+  if (address) {
+    const pinMatch = address.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || address.match(/\b(\d{6})\b/);
+    if (pinMatch) deliveryPincode = pinMatch[1];
+  }
 
   // Stage 1: Cart Validation
   const tCartStart = Date.now();
@@ -94,9 +102,10 @@ export async function createMasterOrder(payload: {
 
   const parentOrderId = parentOrder.id;
 
-  // Stage 4: Seller Orders & Items Creation
+  // Stage 4: Seller Orders & Items Creation with EDD
   const tSellerStart = Date.now();
-  const sellerOrderRecords: any[] = [];
+  const createdSellerEDDs: any[] = [];
+
   for (const sellerId of Object.keys(bySeller)) {
     try {
       const sellerItems = bySeller[sellerId];
@@ -105,14 +114,50 @@ export async function createMasterOrder(payload: {
       let sellerTotal = 0;
       for (const si of sellerItems) sellerTotal += Number(si.price) * (si.quantity || 1);
 
+      // Fetch seller pickup location for precise EDD
+      let pickupPin = "700001";
+      try {
+        const { data: pickupLoc } = await supabaseServer
+          .from('seller_pickup_locations')
+          .select('pin_code')
+          .eq('seller_id', sellerId)
+          .eq('is_primary', true)
+          .maybeSingle();
+        if (pickupLoc?.pin_code) pickupPin = pickupLoc.pin_code;
+      } catch (_) {}
+
+      // Calculate EDD for this seller shipment
+      const sellerEDD = calculateFallbackEDD(pickupPin, deliveryPincode, new Date());
+      createdSellerEDDs.push(sellerEDD);
+
       const { data: sellerOrder } = await supabaseServer.from('seller_orders').insert([{
         seller_id: sellerId,
         parent_order_id: parentOrderId,
         seller_order_number: sellerOrderNumber,
-        total_amount: sellerTotal
+        total_amount: sellerTotal,
+        expected_delivery_from: sellerEDD.expected_delivery_from,
+        expected_delivery_to: sellerEDD.expected_delivery_to,
+        expected_delivery_date: sellerEDD.expected_delivery_date,
+        edd_source: sellerEDD.edd_source,
+        edd_updated_at: new Date().toISOString()
       }]).select().single();
 
       if (sellerOrder) {
+        // Create corresponding shipment record
+        try {
+          await supabaseServer.from('shipments').insert([{
+            parent_order_id: parentOrderId,
+            seller_order_id: sellerOrder.id,
+            seller_id: sellerId,
+            status: 'MANIFESTED',
+            expected_delivery_from: sellerEDD.expected_delivery_from,
+            expected_delivery_to: sellerEDD.expected_delivery_to,
+            expected_delivery_date: sellerEDD.expected_delivery_date,
+            edd_source: sellerEDD.edd_source,
+            edd_updated_at: new Date().toISOString()
+          }]);
+        } catch (_) {}
+
         for (const si of sellerItems) {
           try {
             await supabaseServer.from('order_items').insert([{
@@ -129,7 +174,6 @@ export async function createMasterOrder(payload: {
             console.warn("Order item insert notice:", oiErr);
           }
         }
-        sellerOrderRecords.push({ sellerOrder });
 
         // Insert notification for seller
         try {
@@ -145,6 +189,23 @@ export async function createMasterOrder(payload: {
       console.warn("Seller order record notice:", soErr);
     }
   }
+
+  // Update parent order with aggregated EDD
+  if (createdSellerEDDs.length > 0) {
+    try {
+      const parentEDD = aggregateMultiVendorEDD(createdSellerEDDs);
+      await supabaseServer.from('orders').update({
+        expected_delivery_from: parentEDD.expected_delivery_from,
+        expected_delivery_to: parentEDD.expected_delivery_to,
+        expected_delivery_date: parentEDD.expected_delivery_date,
+        edd_source: parentEDD.edd_source,
+        edd_updated_at: new Date().toISOString()
+      }).eq('id', parentOrderId);
+    } catch (parentEddErr) {
+      console.warn("Parent order EDD update notice:", parentEddErr);
+    }
+  }
+
   trace['seller_orders_creation_ms'] = Date.now() - tSellerStart;
 
   // Stage 5: Atomic Inventory Reservation

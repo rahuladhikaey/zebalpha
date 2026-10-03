@@ -149,23 +149,37 @@ export default function AdminPage() {
     { id: 'security', label: 'Security & Audit', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' }
   ];
 
+  // Keyboard listener for Escape key to close mobile drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSidebarOpen]);
+
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden font-sans relative">
       {/* Mobile Drawer Overlay */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Hover-to-Expand Sidebar */}
       <aside 
+        role="navigation"
+        aria-label="Super Admin Main Navigation"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-black border-r border-zinc-800/80 backdrop-blur-2xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
-          isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full'
-        } ${isExpanded ? 'lg:w-72' : 'lg:w-20'}`}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-black border-r border-zinc-800/80 backdrop-blur-2xl transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'
+        } ${isExpanded ? 'w-72 shadow-2xl shadow-black/80' : 'w-20'}`}
       >
         {/* Brand Logo Header */}
         <div className="flex items-center justify-between h-20 px-4 border-b border-zinc-800 shrink-0">
@@ -275,7 +289,7 @@ export default function AdminPage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#050505] text-white transition-colors duration-200 relative">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#050505] text-white transition-colors duration-200 relative lg:pl-20">
         {/* Top Header */}
         <header className="h-20 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 flex items-center justify-between px-4 sm:px-8 shrink-0 z-30 transition-colors duration-200">
           <div className="flex items-center gap-4">

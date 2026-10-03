@@ -105,15 +105,74 @@ export async function POST(req: Request) {
       updates.tracking_number = awb;
     }
 
+    // Extract ETD/EDD from webhook payload if present
+    const rawEtd = payload?.edd || payload?.etd || payload?.estimated_delivery_date;
+    if (rawEtd) {
+      const parsedEtd = new Date(rawEtd);
+      if (!isNaN(parsedEtd.getTime())) {
+        updates.expected_delivery_date = parsedEtd.toISOString();
+        updates.expected_delivery_to = parsedEtd.toISOString();
+        updates.edd_source = 'SHIPROCKET';
+        updates.edd_updated_at = new Date().toISOString();
+      }
+    }
+
+    if (mappedOrderStatus === 'delivered') {
+      updates.actual_delivery_date = new Date().toISOString();
+    }
+
+    if (statusStr.includes('DELAY') || statusStr.includes('DELAYED')) {
+      updates.is_delayed = true;
+      updates.delayed_reason = current_status || 'Delayed in transit';
+    }
+
     await supabaseServer.from('orders').update(updates).eq('id', order.id);
+
+    // Update seller_orders table
+    try {
+      const sellerUpdates: any = {
+        shipping_status: mappedOrderStatus,
+        updated_at: new Date().toISOString(),
+      };
+      if (updates.expected_delivery_date) {
+        sellerUpdates.expected_delivery_date = updates.expected_delivery_date;
+        sellerUpdates.expected_delivery_to = updates.expected_delivery_to;
+        sellerUpdates.edd_source = 'SHIPROCKET';
+        sellerUpdates.edd_updated_at = updates.edd_updated_at;
+      }
+      if (updates.actual_delivery_date) {
+        sellerUpdates.actual_delivery_date = updates.actual_delivery_date;
+      }
+      if (updates.is_delayed) {
+        sellerUpdates.is_delayed = true;
+        sellerUpdates.delayed_reason = updates.delayed_reason;
+      }
+
+      await supabaseServer.from('seller_orders').update(sellerUpdates).eq('parent_order_id', order.id);
+    } catch (_) {}
 
     // Update shipments table if available
     try {
-      await supabaseServer.from('shipments').update({
+      const shpUpdates: any = {
         status: mappedOrderStatus,
         delivered_at: mappedOrderStatus === 'delivered' ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
-      }).eq('parent_order_id', order.id);
+      };
+      if (updates.expected_delivery_date) {
+        shpUpdates.expected_delivery_date = updates.expected_delivery_date;
+        shpUpdates.expected_delivery_to = updates.expected_delivery_to;
+        shpUpdates.edd_source = 'SHIPROCKET';
+        shpUpdates.edd_updated_at = updates.edd_updated_at;
+      }
+      if (updates.actual_delivery_date) {
+        shpUpdates.actual_delivery_date = updates.actual_delivery_date;
+      }
+      if (updates.is_delayed) {
+        shpUpdates.is_delayed = true;
+        shpUpdates.delayed_reason = updates.delayed_reason;
+      }
+
+      await supabaseServer.from('shipments').update(shpUpdates).eq('parent_order_id', order.id);
     } catch (_) {}
 
     // Record tracking event
