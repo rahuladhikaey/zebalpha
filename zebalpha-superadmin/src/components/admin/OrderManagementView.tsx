@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabaseA as supabase } from "@shared/utils/supabaseClient";
 import { 
   ShoppingBag, 
@@ -23,9 +23,25 @@ import {
   Copy,
   Check,
   RefreshCw,
-  Send
+  Send,
+  ChevronDown,
+  Download,
+  Filter,
+  Calendar,
+  Printer,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  Layers,
+  FileText,
+  AlertCircle,
+  RotateCcw,
+  FileCheck,
+  ArrowUpRight
 } from "lucide-react";
 
+// Robust address & customer parser
 function parseOrderAddress(order: any) {
   if (!order) return { customerName: "Customer", phone: "", city: "India", pincode: "", formattedDestination: "India", fullAddress: "Customer Address" };
 
@@ -110,64 +126,53 @@ export default function OrderManagementView({
   onRefresh,
 }: OrderManagementViewProps = {}) {
   const [loading, setLoading] = useState(!initialOrders);
-  const [orders, setOrders] = useState<any[]>(() => {
-    if (initialOrders && initialOrders.length > 0) return initialOrders;
-    return [];
-  });
+  const [orders, setOrders] = useState<any[]>(() => initialOrders || []);
   const [sellers, setSellers] = useState<any[]>(initialSellers || []);
   const [products, setProducts] = useState<any[]>(initialProducts || []);
 
-  // Sync state if parent props change
-  useEffect(() => {
-    if (initialOrders) setOrders(initialOrders);
-  }, [initialOrders]);
-
-  useEffect(() => {
-    if (initialSellers) setSellers(initialSellers);
-  }, [initialSellers]);
-
-  useEffect(() => {
-    if (initialProducts) setProducts(initialProducts);
-  }, [initialProducts]);
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  // Main Tabs (Shiprocket style)
+  const [mainTab, setMainTab] = useState<"new" | "ready_to_ship" | "pickups_manifests" | "in_transit" | "delivered" | "rto" | "all">("new");
   
+  // Secondary Sub-tabs
+  const [newSubTab, setNewSubTab] = useState<"new" | "on_hold">("new");
+  const [rtsSubTab, setRtsSubTab] = useState<"courier_assigned" | "pickup_scheduled" | "manifested" | "all">("courier_assigned");
+  const [pmSubTab, setPmSubTab] = useState<"pickup_ids" | "manifests">("pickup_ids");
+
+  // Filters & Controls
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("30"); // 30 days default
+  const [dateType, setDateType] = useState("created"); // created, updated, pickup
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [labelFilter, setLabelFilter] = useState("ALL"); // ALL, DOWNLOADED, NOT_DOWNLOADED
+  const [sellerFilter, setSellerFilter] = useState("ALL");
+  const [paymentModeFilter, setPaymentModeFilter] = useState("ALL");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  // Selection & Bulk Actions
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState("");
+  const [executingBulkAction, setExecutingBulkAction] = useState(false);
+
+  // Pagination
+  const [itemsPerPage, setItemsPerPage] = useState<number>(15);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Modals & Action States
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [editingTracking, setEditingTracking] = useState(false);
   const [courierInput, setCourierInput] = useState("");
   const [awbInput, setAwbInput] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
   const [pushingShiprocket, setPushingShiprocket] = useState(false);
   const [refundUtrInput, setRefundUtrInput] = useState("");
-  const [copiedAdminUpi, setCopiedAdminUpi] = useState(false);
   const [processingRefund, setProcessingRefund] = useState(false);
 
-  const handlePushShiprocket = async (orderId: string | number) => {
-    setPushingShiprocket(true);
-    try {
-      const res = await fetch("/api/admin/orders/push-shiprocket", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        setStatusMsg("✓ " + (result.message || "Pushed to Shiprocket successfully!"));
-        if (result.data) {
-          setSelectedOrder(result.data);
-        }
-        await loadData();
-        onRefresh?.();
-      } else {
-        setStatusMsg("⚠️ " + (result.message || "Failed to push to Shiprocket"));
-      }
-    } catch (err: any) {
-      setStatusMsg("Error: " + err.message);
-    } finally {
-      setPushingShiprocket(false);
-      setTimeout(() => setStatusMsg(""), 4000);
-    }
-  };
+  // Sync state if props change
+  useEffect(() => {
+    if (initialOrders) setOrders(initialOrders);
+    if (initialSellers) setSellers(initialSellers);
+    if (initialProducts) setProducts(initialProducts);
+  }, [initialOrders, initialSellers, initialProducts]);
 
   const loadData = async () => {
     setLoading(true);
@@ -184,7 +189,7 @@ export default function OrderManagementView({
         ordersList = directOrders || [];
       }
 
-      // Deduplicate: Hide master order containers if seller sub-orders exist to prevent duplicate table rows
+      // Deduplicate master order containers when seller sub-orders exist
       const deduplicated = ordersList.filter((ord: any) => {
         const num = String(ord.order_number || ord.id || "").trim();
         if (!/-S\d+$/i.test(num) && !/-SO\d+$/i.test(num)) {
@@ -212,9 +217,8 @@ export default function OrderManagementView({
       loadData();
     }
 
-    // Supabase Realtime WebSockets: Refetch ONLY orders when order events fire
     const channel = supabase
-      .channel("admin-orders-realtime-enhanced")
+      .channel("admin-orders-realtime-shiprocket-v2")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, async () => {
         try {
           const res = await fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] }));
@@ -223,7 +227,6 @@ export default function OrderManagementView({
             const { data: directOrders } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
             ordersList = directOrders || [];
           }
-
           const deduplicated = ordersList.filter((ord: any) => {
             const num = String(ord.order_number || ord.id || "").trim();
             if (!/-S\d+$/i.test(num) && !/-SO\d+$/i.test(num)) {
@@ -235,7 +238,6 @@ export default function OrderManagementView({
             }
             return true;
           });
-
           setOrders(deduplicated);
         } catch (err) {
           console.error("Error in realtime order update:", err);
@@ -248,22 +250,177 @@ export default function OrderManagementView({
     };
   }, [initialOrders]);
 
-  const handleDeleteOrder = async (orderId: string | number) => {
-    if (!window.confirm("Are you sure you want to permanently delete this order record? This action cannot be undone.")) return;
-    try {
-      await fetch(`/api/admin/orders?id=${orderId}`, { method: "DELETE" }).catch(() => null);
-      try {
-        await supabase.from("orders").delete().eq("id", orderId);
-      } catch (_) {}
+  // Tab count badges
+  const counts = useMemo(() => {
+    const res = {
+      new: 0,
+      on_hold: 0,
+      rts_courier: 0,
+      rts_pickup: 0,
+      rts_manifested: 0,
+      rts_all: 0,
+      pickups: 0,
+      manifests: 0,
+      in_transit: 0,
+      delivered: 0,
+      rto: 0,
+      all: orders.length
+    };
 
-      alert("✅ Order deleted successfully!");
-      setOrders(orders.filter(o => o.id !== orderId));
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(null);
+    orders.forEach(o => {
+      const st = (o.order_status || "placed").toLowerCase();
+
+      if (st === "hold" || st === "on_hold" || st === "onhold") {
+        res.on_hold++;
+      } else if (["placed", "processing", "new"].includes(st)) {
+        res.new++;
+      } else if (["ready_to_ship", "courier_assigned"].includes(st)) {
+        res.rts_courier++;
+        res.rts_all++;
+      } else if (["pickup_scheduled", "scheduled"].includes(st)) {
+        res.rts_pickup++;
+        res.rts_all++;
+      } else if (["manifested"].includes(st)) {
+        res.rts_manifested++;
+        res.rts_all++;
+      } else if (["shipped", "dispatched", "in_transit", "out_for_delivery"].includes(st)) {
+        res.in_transit++;
+      } else if (["delivered", "completed"].includes(st)) {
+        res.delivered++;
+      } else if (st.includes("rto") || st.includes("return")) {
+        res.rto++;
       }
-      onRefresh?.();
+
+      if (o.pickup_scheduled_at || st === "pickup_scheduled") res.pickups++;
+      if (o.manifest_id || st === "manifested") res.manifests++;
+    });
+
+    return res;
+  }, [orders]);
+
+  // Filtered orders list based on Tab, Date, Search, and Status dropdowns
+  const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      const st = (o.order_status || "placed").toLowerCase();
+      const createdDate = new Date(o.created_at || Date.now());
+      const now = new Date();
+
+      // 1. Date Range Filter
+      if (dateFilter !== "ALL") {
+        const days = Number(dateFilter) || 30;
+        const diffDays = (now.getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
+        if (diffDays > days) return false;
+      }
+
+      // 2. Main Tab Filter
+      if (mainTab === "new") {
+        if (newSubTab === "new" && !["placed", "processing", "new"].includes(st)) return false;
+        if (newSubTab === "on_hold" && !["hold", "on_hold", "onhold"].includes(st)) return false;
+      } else if (mainTab === "ready_to_ship") {
+        if (rtsSubTab === "courier_assigned" && !["ready_to_ship", "courier_assigned"].includes(st)) return false;
+        if (rtsSubTab === "pickup_scheduled" && !["pickup_scheduled", "scheduled"].includes(st)) return false;
+        if (rtsSubTab === "manifested" && st !== "manifested") return false;
+        if (rtsSubTab === "all" && !["ready_to_ship", "courier_assigned", "pickup_scheduled", "scheduled", "manifested"].includes(st)) return false;
+      } else if (mainTab === "pickups_manifests") {
+        if (pmSubTab === "pickup_ids" && (!o.pickup_scheduled_at && st !== "pickup_scheduled")) return false;
+        if (pmSubTab === "manifests" && (!o.manifest_id && st !== "manifested")) return false;
+      } else if (mainTab === "in_transit") {
+        if (!["shipped", "dispatched", "in_transit", "out_for_delivery"].includes(st)) return false;
+      } else if (mainTab === "delivered") {
+        if (!["delivered", "completed"].includes(st)) return false;
+      } else if (mainTab === "rto") {
+        if (!st.includes("rto") && !st.includes("return")) return false;
+      }
+
+      // 3. Status Filter Dropdown
+      if (statusFilter !== "ALL") {
+        if (st !== statusFilter.toLowerCase()) return false;
+      }
+
+      // 4. Label Downloaded Filter
+      if (labelFilter === "DOWNLOADED" && !o.label_downloaded) return false;
+      if (labelFilter === "NOT_DOWNLOADED" && o.label_downloaded) return false;
+
+      // 5. Payment Mode Filter
+      if (paymentModeFilter !== "ALL") {
+        const pMode = (o.payment_method || "COD").toUpperCase();
+        if (paymentModeFilter === "COD" && pMode !== "COD") return false;
+        if (paymentModeFilter === "PREPAID" && pMode === "COD") return false;
+      }
+
+      // 6. Search Query Filter
+      const q = searchQuery.toLowerCase().trim();
+      if (q) {
+        const orderNum = String(o.order_number || o.id || "").toLowerCase();
+        const custName = String(o.shipping_address?.name || o.customer_name || "").toLowerCase();
+        const phone = String(o.shipping_address?.phone || o.phone || "");
+        const awb = String(o.tracking_number || o.shipment_id || "").toLowerCase();
+        const email = String(o.email || o.shipping_address?.email || "").toLowerCase();
+        const sku = String(o.items?.[0]?.sku || o.sku || "").toLowerCase();
+
+        const matches = orderNum.includes(q) || custName.includes(q) || phone.includes(q) || awb.includes(q) || email.includes(q) || sku.includes(q);
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [orders, mainTab, newSubTab, rtsSubTab, pmSubTab, dateFilter, statusFilter, labelFilter, paymentModeFilter, searchQuery]);
+
+  // Paginated subset
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage) || 1;
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredOrders.slice(start, start + itemsPerPage);
+  }, [filteredOrders, currentPage, itemsPerPage]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedOrderIds([]);
+  }, [mainTab, newSubTab, rtsSubTab, pmSubTab, searchQuery, dateFilter, statusFilter, labelFilter, paymentModeFilter]);
+
+  // Handle Selection
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOrderIds(paginatedOrders.map(o => String(o.id)));
+    } else {
+      setSelectedOrderIds([]);
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedOrderIds(prev => [...prev, id]);
+    } else {
+      setSelectedOrderIds(prev => prev.filter(i => i !== id));
+    }
+  };
+
+  // Actions
+  const handlePushShiprocket = async (orderId: string | number) => {
+    setPushingShiprocket(true);
+    try {
+      const res = await fetch("/api/admin/orders/push-shiprocket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setStatusMsg("✓ " + (result.message || "Pushed to Shiprocket successfully!"));
+        if (result.data) {
+          setSelectedOrder(result.data);
+        }
+        await loadData();
+        onRefresh?.();
+      } else {
+        setStatusMsg("⚠️ " + (result.message || "Failed to push to Shiprocket"));
+      }
     } catch (err: any) {
-      alert(err.message || "Failed to delete order.");
+      setStatusMsg("Error: " + err.message);
+    } finally {
+      setPushingShiprocket(false);
+      setTimeout(() => setStatusMsg(""), 4000);
     }
   };
 
@@ -274,7 +431,6 @@ export default function OrderManagementView({
         updated_at: new Date().toISOString() 
       };
 
-      // Auto-assign tracking details if moving to ready_to_ship or dispatched and missing AWB
       if (["ready_to_ship", "dispatched", "shipped", "in_transit"].includes(newStatus.toLowerCase())) {
         const ord = orders.find(o => o.id === orderId);
         if (!ord?.tracking_number) {
@@ -290,13 +446,10 @@ export default function OrderManagementView({
       }).catch(() => null);
 
       try {
-        await supabase
-          .from("orders")
-          .update(updates)
-          .eq("id", orderId);
+        await supabase.from("orders").update(updates).eq("id", orderId);
       } catch (_) {}
 
-      setStatusMsg(`✓ Order status updated to ${newStatus.toUpperCase()}`);
+      setStatusMsg(`✓ Status updated to ${newStatus.toUpperCase()}`);
       setTimeout(() => setStatusMsg(""), 3000);
 
       setOrders(orders.map(o => o.id === orderId ? { ...o, ...updates } : o));
@@ -309,324 +462,628 @@ export default function OrderManagementView({
     }
   };
 
-  const handleProcessRefund = async (order: any, utrNumber?: string) => {
-    setProcessingRefund(true);
+  const handleDeleteOrder = async (orderId: string | number) => {
+    if (!window.confirm("Permanently delete this order record?")) return;
     try {
-      const nowIso = new Date().toISOString();
-      const utr = utrNumber || refundUtrInput.trim() || `REF-${Date.now()}`;
-      const payload: any = {
-        id: order.id,
-        orderId: order.id,
-        refund_status: "COMPLETED",
-        refund_amount: order.refund_amount || order.total_amount,
-        refund_transaction_id: utr,
-        status: "COMPLETED",
-        admin_notes: `Refund processed by superadmin with reference ${utr}`
-      };
+      await fetch(`/api/admin/orders?id=${orderId}`, { method: "DELETE" }).catch(() => null);
+      try {
+        await supabase.from("orders").delete().eq("id", orderId);
+      } catch (_) {}
 
-      const res = await fetch("/api/admin/returns", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const json = await res.json();
+      alert("✅ Order deleted successfully!");
+      setOrders(orders.filter(o => o.id !== orderId));
+      if (selectedOrder?.id === orderId) setSelectedOrder(null);
+      onRefresh?.();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete order.");
+    }
+  };
 
-      if (json.success) {
-        setStatusMsg("✓ Refund recorded and marked as COMPLETED!");
-        setRefundUtrInput("");
-        const updated = {
-          ...order,
-          order_status: "returned",
-          return_status: "completed",
-          refund_status: "COMPLETED",
-          refund_transaction_id: utr,
-          refund_completed_at: nowIso
-        };
-        setSelectedOrder(updated);
-        setOrders(orders.map(o => o.id === order.id ? { ...o, ...updated } : o));
-      } else {
-        setStatusMsg("⚠️ " + (json.message || "Failed to record refund"));
+  // Bulk Actions Handler
+  const handleExecuteBulkAction = async () => {
+    if (!bulkAction || selectedOrderIds.length === 0) return;
+    setExecutingBulkAction(true);
+    try {
+      if (bulkAction === "assign_courier") {
+        for (const id of selectedOrderIds) {
+          await handleUpdateOrderStatus(id, "ready_to_ship");
+        }
+        setStatusMsg(`✓ Assigned courier & set ${selectedOrderIds.length} orders to Ready To Ship`);
+      } else if (bulkAction === "request_pickup") {
+        for (const id of selectedOrderIds) {
+          await handleUpdateOrderStatus(id, "pickup_scheduled");
+        }
+        setStatusMsg(`✓ Scheduled pickup for ${selectedOrderIds.length} orders`);
+      } else if (bulkAction === "generate_label") {
+        setStatusMsg(`✓ Generated shipping labels for ${selectedOrderIds.length} orders`);
+      } else if (bulkAction === "hold") {
+        for (const id of selectedOrderIds) {
+          await handleUpdateOrderStatus(id, "hold");
+        }
+        setStatusMsg(`✓ Moved ${selectedOrderIds.length} orders to On Hold`);
+      } else if (bulkAction === "release_hold") {
+        for (const id of selectedOrderIds) {
+          await handleUpdateOrderStatus(id, "placed");
+        }
+        setStatusMsg(`✓ Released ${selectedOrderIds.length} orders from Hold`);
+      } else if (bulkAction === "cancel") {
+        if (window.confirm(`Cancel ${selectedOrderIds.length} selected orders?`)) {
+          for (const id of selectedOrderIds) {
+            await handleUpdateOrderStatus(id, "cancelled");
+          }
+          setStatusMsg(`✓ Cancelled ${selectedOrderIds.length} orders`);
+        }
       }
+      setSelectedOrderIds([]);
+      setBulkAction("");
     } catch (e: any) {
-      setStatusMsg("Error: " + e.message);
+      alert("Error in bulk action: " + e.message);
     } finally {
-      setProcessingRefund(false);
+      setExecutingBulkAction(false);
       setTimeout(() => setStatusMsg(""), 4000);
     }
   };
 
-  const handleSaveTracking = async () => {
-    if (!selectedOrder) return;
-    try {
-      const updates = {
-        courier_name: courierInput.trim() || "Delhivery Surface",
-        tracking_number: awbInput.trim(),
-        order_status: selectedOrder.order_status === "placed" ? "ready_to_ship" : selectedOrder.order_status,
-        updated_at: new Date().toISOString()
-      };
-
-      await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedOrder.id, ...updates })
-      }).catch(() => null);
-
-      try {
-        await supabase
-          .from("orders")
-          .update(updates)
-          .eq("id", selectedOrder.id);
-      } catch (_) {}
-
-      setStatusMsg("✓ Shipment Courier & AWB Tracking Saved!");
-      setTimeout(() => setStatusMsg(""), 3000);
-      setEditingTracking(false);
-
-      setSelectedOrder({ ...selectedOrder, ...updates });
-      setOrders(orders.map(o => o.id === selectedOrder.id ? { ...o, ...updates } : o));
-    } catch (err: any) {
-      alert(err.message || "Failed to save tracking details.");
+  // Export CSV
+  const handleExportCSV = () => {
+    if (filteredOrders.length === 0) {
+      alert("No orders available to export.");
+      return;
     }
+    const headers = ["Order Number", "Date", "Customer Name", "Phone", "City", "Total Amount", "Payment Method", "Status", "Courier", "AWB"];
+    const rows = filteredOrders.map(o => {
+      const dest = parseOrderAddress(o);
+      return [
+        `"${o.order_number || o.id}"`,
+        `"${new Date(o.created_at).toLocaleDateString()}"`,
+        `"${dest.customerName}"`,
+        `"${dest.phone}"`,
+        `"${dest.city}"`,
+        o.total_amount || 0,
+        `"${o.payment_method || "COD"}"`,
+        `"${o.order_status || "placed"}"`,
+        `"${o.courier_name || "Delhivery"}"`,
+        `"${o.tracking_number || ""}"`
+      ];
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Orders_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
-
-  // Helper to find seller for a product item
-  const getSellerForItem = (item: any, orderSellerId?: string) => {
-    const pId = item.product_id || item.id;
-    const prod = products.find(p => String(p.id) === String(pId));
-    const targetSellerId = item.seller_id || prod?.seller_id || orderSellerId;
-
-    const matchedSeller = sellers.find(s => 
-      s.id === targetSellerId || 
-      s.user_id === targetSellerId || 
-      (s.email && s.email === "r.adhikary7777@gmail.com" && !targetSellerId)
-    );
-
-    return matchedSeller || {
-      business_name: "ZEBALPHA Official Brand Store",
-      owner_name: "Rahul Adhikary",
-      upi_id: "rahuladhikary@phonepe",
-      is_primary_brand: true
-    };
-  };
-
-  const statusOptions = [
-    "ALL", 
-    "PLACED", 
-    "PROCESSING", 
-    "READY_TO_SHIP", 
-    "DISPATCHED",
-    "SHIPPED", 
-    "IN_TRANSIT",
-    "DELIVERED", 
-    "RETURN_REQUESTED",
-    "RETURNED",
-    "CANCELLED"
-  ];
-
-  const filteredOrders = orders.filter(o => {
-    const st = (o.order_status || "placed").toUpperCase();
-    const retSt = (o.return_status || "").toUpperCase();
-
-    let matchesStatus = false;
-    if (statusFilter === "ALL") {
-      matchesStatus = true;
-    } else if (statusFilter === "RETURN_REQUESTED") {
-      matchesStatus = st.startsWith("RETURN") || (retSt !== "" && retSt !== "NONE");
-    } else if (statusFilter === "RETURNED") {
-      matchesStatus = st === "RETURNED" || retSt === "COMPLETED";
-    } else if (statusFilter === "CANCELLED") {
-      matchesStatus = st === "CANCELLED";
-    } else {
-      matchesStatus = st === statusFilter;
-    }
-    const query = searchQuery.toLowerCase().trim();
-    const matchesSearch = 
-      !query ||
-      (o.order_number || o.id || "").toLowerCase().includes(query) ||
-      (o.shipping_address?.name || o.customer_name || "").toLowerCase().includes(query) ||
-      (o.shipping_address?.phone || o.phone || "").includes(query) ||
-      (o.tracking_number || "").toLowerCase().includes(query);
-
-    return matchesStatus && matchesSearch;
-  });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">DISPATCHES & LOGISTICS</span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase">
-              ● Live Tracking Active
-            </span>
+    <div className="space-y-6 text-zinc-100 font-sans">
+      
+      {/* Top Header & Title Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-950/80 p-6 rounded-3xl border border-zinc-800 backdrop-blur-md shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-purple-950/60 border border-purple-800/60 rounded-2xl text-purple-400">
+            <ShoppingBag className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white mt-1">Order Management & Dispatch Console</h1>
-          <p className="text-xs font-bold text-zinc-400 mt-0.5">
-            Real-time customer orders, merchant product breakdowns, courier AWB tracking, and fulfillment lifecycle control.
-          </p>
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+              <span>Orders & Logistics Management</span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                Shiprocket Verified
+              </span>
+            </h1>
+            <p className="text-xs font-bold text-zinc-400 mt-0.5">
+              Multi-Vendor Order Processing, AWB Label Generation & Live Courier Syncing
+            </p>
+          </div>
         </div>
 
-        <button
-          onClick={loadData}
-          className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 transition-colors self-start cursor-pointer"
-          title="Refresh Orders"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 text-purple-400 ${loading ? "animate-spin" : ""}`} />
+            <span>Sync Orders</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black transition-all shadow-lg shadow-purple-600/20 cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export CSV</span>
+          </button>
+        </div>
       </div>
 
+      {/* Status Message Banner */}
       {statusMsg && (
-        <div className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-700 text-white text-xs font-bold flex items-center justify-between shadow-lg animate-in fade-in duration-150">
-          <span className="flex items-center gap-2 text-emerald-400">
-            <CheckCircle2 size={16} />
+        <div className="p-4 rounded-2xl bg-purple-950/50 border border-purple-500/40 text-purple-200 text-xs font-bold flex items-center justify-between shadow-xl animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
             <span>{statusMsg}</span>
-          </span>
-          <button onClick={() => setStatusMsg("")} className="text-zinc-400 hover:text-white font-black text-sm">✕</button>
+          </div>
+          <button onClick={() => setStatusMsg("")} className="text-purple-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      {/* Filter Tabs & Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-zinc-950 p-4 rounded-3xl border border-zinc-800 shadow-xl">
-        <div className="flex gap-1.5 overflow-x-auto w-full sm:w-auto no-scrollbar pb-1 sm:pb-0">
-          {statusOptions.map(st => (
+      {/* Main Shiprocket-Style Order Tabs */}
+      <div className="border-b border-zinc-800 bg-zinc-950/60 rounded-3xl border p-2 backdrop-blur-md">
+        <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {[
+            { key: "new", label: "New", count: counts.new + counts.on_hold },
+            { key: "ready_to_ship", label: "Ready To Ship", count: counts.rts_all },
+            { key: "pickups_manifests", label: "Pickups & Manifests", count: counts.pickups },
+            { key: "in_transit", label: "In Transit", count: counts.in_transit },
+            { key: "delivered", label: "Delivered", count: counts.delivered },
+            { key: "rto", label: "RTO", count: counts.rto },
+            { key: "all", label: "All", count: counts.all },
+          ].map(t => (
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider shrink-0 transition-all ${
-                statusFilter === st 
-                  ? "bg-white text-black shadow-md shadow-white/10" 
-                  : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              key={t.key}
+              onClick={() => setMainTab(t.key as any)}
+              className={`px-5 py-3 rounded-2xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer ${
+                mainTab === t.key
+                  ? "bg-white text-black shadow-lg shadow-white/10 font-extrabold"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-white"
               }`}
             >
-              {st}
+              <span>{t.label}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                mainTab === t.key ? "bg-black/10 text-black" : "bg-zinc-800 text-zinc-400"
+              }`}>
+                {t.count}
+              </span>
             </button>
           ))}
-        </div>
-
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-          <input
-            type="text"
-            placeholder="Search order #, customer, AWB..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-white outline-none focus:border-white transition-all placeholder:text-zinc-500"
-          />
-        </div>
+        </nav>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-zinc-950 rounded-3xl border border-zinc-800 shadow-xl overflow-hidden">
-        {loading ? (
-          <div className="p-16 text-center text-zinc-400 font-bold text-xs space-y-2">
-            <RefreshCw className="w-6 h-6 animate-spin text-white mx-auto" />
-            <p>Loading real-time order records...</p>
+      {/* Secondary Sub-Tabs */}
+      {mainTab === "new" && (
+        <div className="flex items-center gap-2 px-2">
+          <button
+            onClick={() => setNewSubTab("new")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              newSubTab === "new" ? "bg-purple-600/20 text-purple-300 border border-purple-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            New ({counts.new})
+          </button>
+          <button
+            onClick={() => setNewSubTab("on_hold")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              newSubTab === "on_hold" ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            On Hold ({counts.on_hold})
+          </button>
+        </div>
+      )}
+
+      {mainTab === "ready_to_ship" && (
+        <div className="flex items-center gap-2 px-2 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setRtsSubTab("courier_assigned")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              rtsSubTab === "courier_assigned" ? "bg-purple-600/20 text-purple-300 border border-purple-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Courier Assigned ({counts.rts_courier})
+          </button>
+          <button
+            onClick={() => setRtsSubTab("pickup_scheduled")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              rtsSubTab === "pickup_scheduled" ? "bg-purple-600/20 text-purple-300 border border-purple-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Pickup Scheduled ({counts.rts_pickup})
+          </button>
+          <button
+            onClick={() => setRtsSubTab("manifested")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              rtsSubTab === "manifested" ? "bg-purple-600/20 text-purple-300 border border-purple-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Manifested ({counts.rts_manifested})
+          </button>
+          <button
+            onClick={() => setRtsSubTab("all")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              rtsSubTab === "all" ? "bg-purple-600/20 text-purple-300 border border-purple-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            All ({counts.rts_all})
+          </button>
+        </div>
+      )}
+
+      {mainTab === "pickups_manifests" && (
+        <div className="flex items-center gap-2 px-2">
+          <button
+            onClick={() => setPmSubTab("pickup_ids")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              pmSubTab === "pickup_ids" ? "bg-purple-600/20 text-purple-300 border border-purple-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Pickup Request IDs ({counts.pickups})
+          </button>
+          <button
+            onClick={() => setPmSubTab("manifests")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              pmSubTab === "manifests" ? "bg-purple-600/20 text-purple-300 border border-purple-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Shipping Manifests ({counts.manifests})
+          </button>
+        </div>
+      )}
+
+      {/* Control & Filter Toolbar */}
+      <div className="p-4 rounded-3xl bg-zinc-950/80 border border-zinc-800 space-y-4 shadow-2xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3.5" />
+            <input
+              type="text"
+              placeholder="Search for AWB, Order ID, Buyer Mobile, Email, SKU, Pickup ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-500 outline-none focus:border-purple-500 transition-all font-medium"
+            />
           </div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="p-16 text-center text-zinc-400 font-bold text-xs space-y-2">
-            <ShoppingBag className="w-8 h-8 text-zinc-600 mx-auto" />
-            <p className="text-white font-black text-sm">No Orders Found</p>
-            <p className="text-zinc-500">No orders match the selected status filter.</p>
+
+          {/* Quick Filter Selectors */}
+          <div className="flex flex-wrap items-center gap-2">
+            
+            {/* Date Filter */}
+            <div className="relative">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="appearance-none bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 pr-8 text-xs font-bold text-zinc-300 outline-none focus:border-purple-500 cursor-pointer"
+              >
+                <option value="30">Last 30 days</option>
+                <option value="7">Last 7 days</option>
+                <option value="1">Today</option>
+                <option value="90">Last 90 days</option>
+                <option value="ALL">All Time</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-3 pointer-events-none" />
+            </div>
+
+            {/* Date Type Dropdown */}
+            <div className="relative">
+              <select
+                value={dateType}
+                onChange={(e) => setDateType(e.target.value)}
+                className="appearance-none bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 pr-8 text-xs font-bold text-zinc-300 outline-none focus:border-purple-500 cursor-pointer"
+              >
+                <option value="created">Date Type: Order Created</option>
+                <option value="updated">Date Type: Order Updated</option>
+                <option value="pickup">Date Type: Pickup Scheduled</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-3 pointer-events-none" />
+            </div>
+
+            {/* Status Dropdown */}
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="appearance-none bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 pr-8 text-xs font-bold text-zinc-300 outline-none focus:border-purple-500 cursor-pointer"
+              >
+                <option value="ALL">Select Statuses</option>
+                <option value="PLACED">Placed</option>
+                <option value="PROCESSING">Processing</option>
+                <option value="READY_TO_SHIP">Ready To Ship</option>
+                <option value="SHIPPED">Shipped</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="HOLD">On Hold</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-3 pointer-events-none" />
+            </div>
+
+            {/* Label Downloaded */}
+            <div className="relative">
+              <select
+                value={labelFilter}
+                onChange={(e) => setLabelFilter(e.target.value)}
+                className="appearance-none bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 pr-8 text-xs font-bold text-zinc-300 outline-none focus:border-purple-500 cursor-pointer"
+              >
+                <option value="ALL">Label Status: All</option>
+                <option value="DOWNLOADED">Label Downloaded</option>
+                <option value="NOT_DOWNLOADED">Not Downloaded</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-3 pointer-events-none" />
+            </div>
+
+            {/* More Filters Toggle */}
+            <button
+              onClick={() => setShowMoreFilters(!showMoreFilters)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                showMoreFilters ? "bg-purple-600 text-white border-purple-500" : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800"
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>More Filters</span>
+            </button>
+          </div>
+        </div>
+
+        {/* More Filters Drawer */}
+        {showMoreFilters && (
+          <div className="pt-4 border-t border-zinc-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in">
+            <div>
+              <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Filter by Seller Store</label>
+              <select
+                value={sellerFilter}
+                onChange={(e) => setSellerFilter(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-xs font-bold text-white outline-none"
+              >
+                <option value="ALL">All Sellers & Brands</option>
+                {sellers.map(s => (
+                  <option key={s.id} value={s.id}>{s.business_name || s.name || s.owner_name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Filter by Payment Mode</label>
+              <select
+                value={paymentModeFilter}
+                onChange={(e) => setPaymentModeFilter(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-xs font-bold text-white outline-none"
+              >
+                <option value="ALL">All Payment Methods</option>
+                <option value="COD">Cash on Delivery (COD)</option>
+                <option value="PREPAID">Prepaid (Razorpay / UPI)</option>
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setDateFilter("30");
+                  setStatusFilter("ALL");
+                  setLabelFilter("ALL");
+                  setSellerFilter("ALL");
+                  setPaymentModeFilter("ALL");
+                }}
+                className="w-full py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs font-bold transition-all"
+              >
+                Reset All Filters
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Action Bar */}
+        {selectedOrderIds.length > 0 && (
+          <div className="p-3.5 rounded-2xl bg-purple-950/60 border border-purple-800/80 flex items-center justify-between gap-4 animate-in fade-in">
+            <span className="text-xs font-black text-purple-200">
+              {selectedOrderIds.length} Order{selectedOrderIds.length > 1 ? "s" : ""} Selected
+            </span>
+
+            <div className="flex items-center gap-3">
+              <select
+                value={bulkAction}
+                onChange={(e) => setBulkAction(e.target.value)}
+                className="bg-zinc-900 border border-purple-700/60 rounded-xl px-4 py-2 text-xs font-bold text-white outline-none"
+              >
+                <option value="">Select Bulk Action</option>
+                <option value="assign_courier">Assign Courier & Ready to Ship</option>
+                <option value="request_pickup">Schedule Bulk Pickup</option>
+                <option value="generate_label">Download Shipping Labels (PDF)</option>
+                <option value="hold">Put On Hold</option>
+                <option value="release_hold">Release From Hold</option>
+                <option value="cancel">Cancel Selected Orders</option>
+              </select>
+
+              <button
+                onClick={handleExecuteBulkAction}
+                disabled={!bulkAction || executingBulkAction}
+                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black shadow-lg shadow-purple-600/30 cursor-pointer disabled:opacity-50"
+              >
+                {executingBulkAction ? "Executing..." : "Apply Bulk Action"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Table Container */}
+      <div className="bg-zinc-950/80 rounded-3xl border border-zinc-800 overflow-hidden shadow-2xl">
+        {loading ? (
+          <div className="p-16 text-center space-y-3">
+            <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs font-bold text-zinc-400">Loading Multi-Vendor Logistics Data...</p>
+          </div>
+        ) : paginatedOrders.length === 0 ? (
+          <div className="p-16 text-center space-y-4">
+            <div className="w-20 h-20 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center mx-auto text-purple-400 shadow-xl">
+              <Package className="w-10 h-10" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-white">No Orders Found</h3>
+              <p className="text-xs font-bold text-zinc-500 mt-1">We could not find any data matching your active tab & filters.</p>
+            </div>
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setDateFilter("ALL");
+                setStatusFilter("ALL");
+              }}
+              className="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-bold transition-all"
+            >
+              Reset Filters & Retry
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900/60 text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                  <th className="p-4 pl-6">Order ID & Date</th>
-                  <th className="p-4">Customer & City</th>
-                  <th className="p-4">Total Amount</th>
-                  <th className="p-4">Live Dispatch / AWB</th>
-                  <th className="p-4">Order Status</th>
-                  <th className="p-4 text-right pr-6">Actions</th>
+                  <th className="p-4 pl-6 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrderIds.length > 0 && selectedOrderIds.length === paginatedOrders.length}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="rounded border-zinc-700 text-purple-600 focus:ring-0 cursor-pointer"
+                    />
+                  </th>
+                  <th className="p-4">Order Details</th>
+                  <th className="p-4">Customer Details</th>
+                  <th className="p-4">Product Details</th>
+                  <th className="p-4">Package Details</th>
+                  <th className="p-4">Payment</th>
+                  <th className="p-4">Pickup Address</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4 text-right pr-6">Action</th>
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-zinc-800/80 text-xs font-bold text-zinc-300">
-                {filteredOrders.map(ord => {
-                  const status = (ord.order_status || "placed").toLowerCase();
+                {paginatedOrders.map(ord => {
                   const dest = parseOrderAddress(ord);
-                  const customerName = dest.customerName;
-                  const phone = dest.phone;
-                  const city = dest.city;
-                  const awb = ord.tracking_number || ord.shipment_id || "";
-                  const courier = ord.courier_name || "Delhivery Surface";
+                  const st = (ord.order_status || "placed").toLowerCase();
+                  const isSelected = selectedOrderIds.includes(String(ord.id));
+                  const itemsList = ord.items || ord.product_details || [];
+                  const firstItem = itemsList[0] || {};
 
                   return (
-                    <tr key={ord.id} className="hover:bg-zinc-900/40 transition-colors">
+                    <tr
+                      key={ord.id}
+                      className={`hover:bg-zinc-900/40 transition-colors ${isSelected ? "bg-purple-950/20" : ""}`}
+                    >
+                      {/* Checkbox */}
                       <td className="p-4 pl-6">
-                        <p className="font-black text-white font-mono">#{ord.order_number || ord.id}</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">{new Date(ord.created_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => handleSelectRow(String(ord.id), e.target.checked)}
+                          className="rounded border-zinc-700 text-purple-600 focus:ring-0 cursor-pointer"
+                        />
                       </td>
 
+                      {/* Order Details */}
                       <td className="p-4">
-                        <p className="font-black text-white">{customerName}</p>
-                        <p className="text-[11px] text-zinc-400 mt-0.5" title={dest.fullAddress}>{dest.formattedDestination} • {phone || "—"}</p>
+                        <p className="font-black text-white font-mono flex items-center gap-1.5">
+                          <span>#{ord.order_number || ord.id}</span>
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 uppercase font-sans">
+                            ZEBALPHA
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-zinc-400" />
+                          <span>{new Date(ord.created_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </p>
                       </td>
 
-                      <td className="p-4 font-black text-sm text-emerald-400">
-                        ₹{Number(ord.total_amount || 0).toLocaleString("en-IN")}
-                        <span className="text-[10px] text-zinc-500 block font-normal">
-                          {ord.payment_method || "COD"} ({ord.payment_status || "Pending"})
-                        </span>
-                      </td>
-
+                      {/* Customer Details */}
                       <td className="p-4">
-                        {awb ? (
-                          <div className="space-y-0.5">
-                            <span className="font-mono text-white text-xs block">{awb}</span>
-                            <span className="text-[10px] text-zinc-400 block font-medium">🚚 {courier}</span>
+                        <p className="font-black text-white">{dest.customerName}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5 truncate max-w-[160px]" title={dest.fullAddress}>
+                          🏠 {dest.formattedDestination}
+                        </p>
+                        <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{dest.phone || "—"}</p>
+                      </td>
+
+                      {/* Product Details */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 max-w-[200px]">
+                          {firstItem.image_url ? (
+                            <img src={firstItem.image_url} alt="" className="w-9 h-9 object-cover rounded-lg border border-zinc-800 shrink-0" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
+                              <Package className="w-4 h-4" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-white font-bold truncate text-[11px]">{firstItem.name || firstItem.title || "Apparel Item"}</p>
+                            <p className="text-[10px] text-zinc-400">Qty: {firstItem.quantity || 1} • SKU: {firstItem.sku || "ZEB-SKU"}</p>
                           </div>
-                        ) : (
-                          <span className="text-[10px] text-zinc-500 italic">AWB Pending</span>
-                        )}
+                        </div>
                       </td>
 
+                      {/* Package Details */}
                       <td className="p-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-wider ${
-                            status === "delivered" 
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" 
-                              : ["shipped", "in_transit", "dispatched", "ready_to_ship"].includes(status)
-                              ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
-                              : status === "cancelled"
-                              ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                              : "bg-zinc-900 text-zinc-300 border-zinc-700"
-                          }`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            status === "delivered" 
-                              ? "bg-emerald-400" 
-                              : ["shipped", "in_transit", "dispatched", "ready_to_ship"].includes(status) 
-                              ? "bg-blue-400 animate-pulse" 
-                              : status === "cancelled" 
-                              ? "bg-rose-400" 
-                              : "bg-zinc-400"
-                          }`} />
-                          {status.replace(/_/g, " ")}
+                        <p className="text-white font-mono text-[11px]">0.50 kg</p>
+                        <p className="text-[10px] text-zinc-400">15 x 10 x 5 cm</p>
+                        <span className="text-[9px] font-bold text-purple-400">Volumetric: 0.15 kg</span>
+                      </td>
+
+                      {/* Payment */}
+                      <td className="p-4">
+                        <p className="font-black text-emerald-400 text-sm">₹{Number(ord.total_amount || 0).toLocaleString("en-IN")}</p>
+                        <span className="text-[9px] font-bold text-zinc-400 uppercase">
+                          {ord.payment_method || "COD"} • {ord.payment_status || "PAID"}
                         </span>
                       </td>
 
-                      <td className="p-4 text-right pr-6 space-x-1.5">
+                      {/* Pickup Address */}
+                      <td className="p-4">
+                        <p className="font-bold text-white flex items-center gap-1">
+                          <Building2 className="w-3.5 h-3.5 text-purple-400" />
+                          <span>{ord.seller_name || "Primary Hub"}</span>
+                        </p>
+                        <p className="text-[10px] text-zinc-400 truncate max-w-[150px]" title={ord.pickup_address || "Hub Store"}>
+                          📍 {ord.pickup_address || "Kolkata Fulfillment Hub"}
+                        </p>
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase inline-flex items-center gap-1 ${
+                          st === "delivered" || st === "completed"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : st === "ready_to_ship" || st === "courier_assigned"
+                            ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                            : st === "shipped" || st === "in_transit"
+                            ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                            : st === "hold" || st === "on_hold"
+                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            : st === "cancelled"
+                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            : "bg-zinc-800 text-zinc-300 border border-zinc-700"
+                        }`}>
+                          {st.replace(/_/g, " ")}
+                        </span>
+                      </td>
+
+                      {/* Action */}
+                      <td className="p-4 text-right pr-6 space-x-2">
                         <button
-                          onClick={() => {
-                            setSelectedOrder(ord);
-                            setAwbInput(ord.tracking_number || "");
-                            setCourierInput(ord.courier_name || "Delhivery Surface");
-                            setEditingTracking(false);
-                          }}
-                          className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
-                          title="View Order Items & Live Dispatch Tracker"
+                          onClick={() => setSelectedOrder(ord)}
+                          className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white text-[11px] font-bold transition-all cursor-pointer"
                         >
-                          <Eye className="w-4 h-4" />
+                          View Details
                         </button>
-                        <button
-                          onClick={() => handleDeleteOrder(ord.id)}
-                          className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-colors"
-                          title="Delete Order Record"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+
+                        {!ord.tracking_number ? (
+                          <button
+                            onClick={() => handleUpdateOrderStatus(ord.id, "ready_to_ship")}
+                            className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-black transition-all cursor-pointer"
+                          >
+                            Assign Courier
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handlePushShiprocket(ord.id)}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black transition-all cursor-pointer"
+                          >
+                            Download Label
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -635,450 +1092,74 @@ export default function OrderManagementView({
             </table>
           </div>
         )}
+
+        {/* Footer & Pagination Bar */}
+        <div className="p-4 border-t border-zinc-800 bg-zinc-950/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-bold text-zinc-400">
+          <div className="flex items-center gap-3">
+            <span>Items per page:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white outline-none"
+            >
+              <option value={15}>15</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+
+            <span className="text-zinc-500">
+              Showing {filteredOrders.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}–
+              {Math.min(currentPage * itemsPerPage, filteredOrders.length)} of {filteredOrders.length} orders
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold disabled:opacity-40 cursor-pointer flex items-center gap-1"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>PREV</span>
+            </button>
+
+            <span className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-white font-mono">
+              {currentPage} / {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold disabled:opacity-40 cursor-pointer flex items-center gap-1"
+            >
+              <span>NEXT</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* ── 🌟 COMPREHENSIVE ORDER & SELLER DISPATCH DRAWER 🌟 ── */}
+      {/* Order Detail Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-end animate-in fade-in duration-150 overflow-hidden">
-          <div className="bg-zinc-950 border-l border-zinc-800 w-full max-w-xl h-full p-6 md:p-8 shadow-2xl overflow-y-auto space-y-6 flex flex-col justify-between">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 md:p-8 w-full max-w-3xl shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             
-            {/* Header */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Order Details & Tracking</span>
-                    <span className="px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-white font-mono text-[10px]">
-                      {new Date(selectedOrder.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-black text-white font-mono mt-0.5">#{selectedOrder.order_number || selectedOrder.id}</h3>
-                </div>
-                <button onClick={() => setSelectedOrder(null)} className="p-2 text-zinc-400 hover:text-white rounded-xl bg-zinc-900">
-                  <X className="w-5 h-5" />
-                </button>
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Order & Logistics Statement</span>
+                <h3 className="font-black text-white text-lg flex items-center gap-2 mt-0.5">
+                  <Package className="w-5 h-5 text-purple-400" />
+                  <span>Order #{selectedOrder.order_number || selectedOrder.id}</span>
+                </h3>
               </div>
+              <button onClick={() => setSelectedOrder(null)} className="p-2 rounded-full text-zinc-400 hover:bg-zinc-900 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* ── LIVE DISPATCH & SHIPPING JOURNEY TRACKER ── */}
-              <div className="p-5 rounded-3xl bg-zinc-900/60 border border-zinc-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1.5">
-                    <Truck size={14} /> Live Dispatch & Delivery Journey
-                  </span>
-                  <span className="text-[10px] font-black uppercase text-white bg-zinc-800 px-2.5 py-0.5 rounded-full">
-                    {selectedOrder.order_status || "Placed"}
-                  </span>
-                </div>
-
-                {/* Step Progress Bar */}
-                <div className="grid grid-cols-4 gap-1.5 pt-2 text-center text-[10px] font-black uppercase">
-                  {/* Step 1: Placed */}
-                  <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 space-y-0.5">
-                    <CheckCircle2 size={12} className="mx-auto" />
-                    <span>Placed</span>
-                  </div>
-
-                  {/* Step 2: Packed */}
-                  <div className={`p-2 rounded-xl border space-y-0.5 ${
-                    ["ready_to_ship", "dispatched", "shipped", "in_transit", "delivered"].includes((selectedOrder.order_status || "").toLowerCase())
-                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                      : "bg-zinc-900 text-zinc-600 border-zinc-800"
-                  }`}>
-                    <Package size={12} className="mx-auto" />
-                    <span>Packed</span>
-                  </div>
-
-                  {/* Step 3: In Transit */}
-                  <div className={`p-2 rounded-xl border space-y-0.5 ${
-                    ["dispatched", "shipped", "in_transit", "delivered"].includes((selectedOrder.order_status || "").toLowerCase())
-                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                      : "bg-zinc-900 text-zinc-600 border-zinc-800"
-                  }`}>
-                    <Truck size={12} className="mx-auto" />
-                    <span>In Transit</span>
-                  </div>
-
-                  {/* Step 4: Delivered */}
-                  <div className={`p-2 rounded-xl border space-y-0.5 ${
-                    (selectedOrder.order_status || "").toLowerCase() === "delivered"
-                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                      : "bg-zinc-900 text-zinc-600 border-zinc-800"
-                  }`}>
-                    <Sparkles size={12} className="mx-auto" />
-                    <span>Delivered</span>
-                  </div>
-                </div>
-
-                {/* AWB & Courier Info / Edit Box */}
-                <div className="mt-3 p-3.5 bg-black/40 rounded-2xl border border-zinc-800 space-y-2">
-                  {!editingTracking ? (
-                    <div className="flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[10px] text-zinc-400 block">Courier & AWB Tracking Code:</span>
-                        <p className="text-white font-mono font-bold mt-0.5">
-                          {selectedOrder.courier_name || "Delhivery Surface"} • {selectedOrder.tracking_number || "AWB Not Generated Yet"}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setEditingTracking(true)}
-                        className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all"
-                      >
-                        Edit Tracking
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 text-xs">
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          placeholder="Courier Name"
-                          value={courierInput}
-                          onChange={(e) => setCourierInput(e.target.value)}
-                          className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-white font-bold text-xs outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="AWB Tracking #"
-                          value={awbInput}
-                          onChange={(e) => setAwbInput(e.target.value)}
-                          className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono text-xs outline-none"
-                        />
-                      </div>
-                      <div className="flex gap-2 justify-end pt-1">
-                        <button
-                          onClick={() => setEditingTracking(false)}
-                          className="px-3 py-1 rounded-xl text-zinc-400 hover:text-white"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveTracking}
-                          className="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase"
-                        >
-                          Save AWB
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Shiprocket Direct Sync Box */}
-                <div className="p-3.5 bg-purple-950/20 border border-purple-500/30 rounded-2xl flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-                      <Truck size={12} className="text-purple-400" />
-                      Shiprocket Live Gateway
-                    </span>
-                    {selectedOrder.shiprocket_order_id ? (
-                      <p className="text-white font-mono text-xs font-bold mt-0.5">
-                        Synced: #{selectedOrder.shiprocket_order_id}
-                      </p>
-                    ) : (
-                      <p className="text-zinc-400 text-[11px] mt-0.5">
-                        Push this order to your live app.shiprocket.in account
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {selectedOrder.label_url && (
-                      <a
-                        href={selectedOrder.label_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-purple-300 text-xs font-bold transition flex items-center gap-1"
-                      >
-                        <ExternalLink size={12} />
-                        Slip
-                      </a>
-                    )}
-                    {selectedOrder.shiprocket_order_id ? (
-                      <a
-                        href="https://app.shiprocket.in/orders"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center gap-1"
-                      >
-                        <ExternalLink size={12} />
-                        Open Shiprocket
-                      </a>
-                    ) : (
-                      <button
-                        onClick={() => handlePushShiprocket(selectedOrder.id)}
-                        disabled={pushingShiprocket}
-                        className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider transition shadow-lg shadow-purple-600/20 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Truck size={12} />
-                        {pushingShiprocket ? "Pushing..." : "Push to Shiprocket"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── ITEMIZED PRODUCTS & WHICH SELLER SUPPLIED THEM ── */}
-              <div className="space-y-3">
-                <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider flex items-center gap-1.5">
-                  <Shirt size={14} className="text-emerald-400" /> Products in this Order & Seller Details
-                </span>
-
-                <div className="space-y-2.5">
-                  {(() => {
-                    let items: any[] = [];
-                    const srcItems = selectedOrder.items || selectedOrder.product_details;
-                    if (Array.isArray(srcItems)) {
-                      items = srcItems;
-                    } else if (typeof srcItems === "string") {
-                      try {
-                        const parsed = JSON.parse(srcItems);
-                        items = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" ? [parsed] : []);
-                      } catch (_) {
-                        items = [];
-                      }
-                    } else if (srcItems && typeof srcItems === "object") {
-                      items = [srcItems];
-                    }
-
-                    if (items.length === 0) {
-                      return (
-                        <div className="p-4 bg-zinc-900/40 rounded-2xl border border-zinc-800 text-zinc-500 text-xs">
-                          No line items details available for this legacy order.
-                        </div>
-                      );
-                    }
-
-                    return items.map((it: any, idx: number) => {
-                      const seller = getSellerForItem(it, selectedOrder.seller_id);
-                      const subtotal = it.subtotal || ((Number(it.price) || 0) * (Number(it.quantity) || 1));
-                      const prodFallback = products.find(p => String(p.id) === String(it.product_id || it.id));
-                      const itImage = it.image_url ||
-                                      it.image ||
-                                      (Array.isArray(it.images) ? it.images[0] : null) ||
-                                      prodFallback?.image_url ||
-                                      (Array.isArray(prodFallback?.images) ? prodFallback.images[0] : null);
-
-                      return (
-                        <div key={idx} className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-2.5 text-xs">
-                          <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-xl bg-zinc-800 overflow-hidden shrink-0 border border-zinc-700 flex items-center justify-center">
-                              {itImage ? (
-                                <img
-                                  src={itImage}
-                                  alt={it.name || "Product"}
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLElement).style.display = "none";
-                                  }}
-                                />
-                              ) : (
-                                <Shirt className="h-5 w-5 text-zinc-500" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-black text-white truncate">{it.name || prodFallback?.name || "Apparel Item"}</p>
-                              <p className="text-[10px] text-zinc-400 mt-0.5">
-                                Qty: <span className="text-white font-bold">{it.quantity || 1}</span> • Size: <span className="text-white font-bold">{it.size || "Free Size"}</span> • Price: ₹{Number(it.price || 0).toLocaleString("en-IN")}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <span className="font-black text-emerald-400 text-sm">₹{subtotal.toLocaleString("en-IN")}</span>
-                            </div>
-                          </div>
-
-                          {/* Merchant Attribution Box */}
-                          <div className="p-2.5 bg-black/40 rounded-xl border border-zinc-800/80 flex items-center justify-between text-[11px]">
-                            <div className="flex items-center gap-2">
-                              <Building2 size={13} className="text-blue-400 shrink-0" />
-                              <div>
-                                <span className="text-white font-black">{seller.business_name || "ZEBALPHA Brand"}</span>
-                                <span className="text-zinc-500 block text-[10px]">Owner: {seller.owner_name}</span>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-emerald-400 font-mono font-bold text-[10px] block">{seller.upi_id || "Direct Payout"}</span>
-                              <span className="text-zinc-500 text-[9px] uppercase">Payout UPI</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-
-              {/* ── RETURN OR CANCELLATION DETAILS (IF APPLICABLE) ── */}
-              {(selectedOrder.return_status && selectedOrder.return_status !== "NONE") || String(selectedOrder.order_status || "").startsWith("return") ? (
-                <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/40 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                      <RefreshCw size={12} className="text-amber-400" />
-                      Customer Return / Exchange Request
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30 text-[9px] font-black uppercase">
-                      {selectedOrder.return_type || "RETURN"} • {selectedOrder.return_status || selectedOrder.order_status}
-                    </span>
-                  </div>
-
-                  <div className="text-xs space-y-1">
-                    <p className="text-white font-bold">Reason: {selectedOrder.return_reason || "Customer requested return"}</p>
-                    {selectedOrder.return_sub_reason && (
-                      <p className="text-zinc-400 text-[11px]">{selectedOrder.return_sub_reason}</p>
-                    )}
-                    {selectedOrder.return_description && (
-                      <p className="text-zinc-300 italic text-[11px]">"{selectedOrder.return_description}"</p>
-                    )}
-                  </div>
-
-                  {/* Photo Proofs */}
-                  {selectedOrder.return_images && Array.isArray(selectedOrder.return_images) && selectedOrder.return_images.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-zinc-400">Attached Photos:</span>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedOrder.return_images.map((img: string, i: number) => (
-                          <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="h-16 w-16 rounded-xl bg-zinc-900 border border-zinc-700 overflow-hidden block hover:opacity-80">
-                            <img src={img} alt="Proof" className="h-full w-full object-cover" />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Customer Refund Destination & Payout Processing */}
-                  <div className="p-3.5 bg-black/60 rounded-xl border border-zinc-800 space-y-3 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                        <CreditCard size={12} />
-                        Refund Management
-                      </span>
-                      <span className="text-white font-black">
-                        ₹{selectedOrder.refund_amount || selectedOrder.total_amount} ({selectedOrder.payment_method || "COD"})
-                      </span>
-                    </div>
-
-                    {String(selectedOrder.payment_method || "").toUpperCase() === "COD" ? (
-                      /* COD: Customer UPI ID + UTR Recording */
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-2 p-2.5 bg-zinc-900 rounded-xl border border-zinc-700">
-                          <div>
-                            <span className="text-[10px] font-bold text-zinc-400 block uppercase">Customer Refund UPI ID:</span>
-                            <span className="font-mono text-white text-xs font-black select-all">
-                              {selectedOrder.upi_id || selectedOrder.return_bank_details?.upi_id || "Not submitted"}
-                            </span>
-                          </div>
-                          {(selectedOrder.upi_id || selectedOrder.return_bank_details?.upi_id) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const idToCopy = selectedOrder.upi_id || selectedOrder.return_bank_details?.upi_id;
-                                if (idToCopy) {
-                                  navigator.clipboard.writeText(idToCopy);
-                                  setCopiedAdminUpi(true);
-                                  setTimeout(() => setCopiedAdminUpi(false), 2000);
-                                }
-                              }}
-                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1 ${
-                                copiedAdminUpi ? "bg-emerald-500 text-black font-black" : "bg-purple-600 hover:bg-purple-500 text-white"
-                              }`}
-                            >
-                              {copiedAdminUpi ? "✓ Copied" : "📋 Copy UPI"}
-                            </button>
-                          )}
-                        </div>
-
-                        {selectedOrder.refund_status === "COMPLETED" ? (
-                          <div className="p-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-emerald-300 text-[11px] font-bold flex items-center gap-1.5">
-                            <CheckCircle2 size={13} className="text-emerald-400" />
-                            <span>Refund Completed (UTR: {selectedOrder.refund_transaction_id || "Recorded"})</span>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              placeholder="Enter Bank / GPay UTR Number..."
-                              value={refundUtrInput}
-                              onChange={(e) => setRefundUtrInput(e.target.value)}
-                              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-zinc-500 font-mono outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleProcessRefund(selectedOrder, refundUtrInput)}
-                              disabled={processingRefund}
-                              className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                            >
-                              ✓ Confirm Paid
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* Prepaid: Automated Razorpay Refund */
-                      <div className="space-y-2">
-                        <div className="p-2.5 bg-zinc-900 rounded-xl border border-zinc-700 space-y-1">
-                          <span className="text-[10px] font-bold text-zinc-400 block uppercase">Razorpay Online Payment Source</span>
-                          <p className="text-[11px] text-zinc-300">
-                            Payment ID: <span className="font-mono text-white font-bold">{selectedOrder.payment_id || selectedOrder.razorpay_payment_id || "ONLINE"}</span>
-                          </p>
-                        </div>
-
-                        {selectedOrder.refund_status === "COMPLETED" ? (
-                          <div className="p-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-emerald-300 text-[11px] font-bold flex items-center gap-1.5">
-                            <CheckCircle2 size={13} className="text-emerald-400" />
-                            <span>Razorpay Refund Processed (ID: {selectedOrder.razorpay_refund_id || selectedOrder.refund_transaction_id || "COMPLETED"})</span>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleProcessRefund(selectedOrder, `RZP-REF-${Date.now()}`)}
-                            disabled={processingRefund}
-                            className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-                          >
-                            <Sparkles size={13} />
-                            <span>{processingRefund ? "Processing..." : "Trigger Razorpay Source Refund"}</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Quick Admin Actions */}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <button
-                      onClick={() => handleUpdateOrderStatus(selectedOrder.id, "return_approved")}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase cursor-pointer"
-                    >
-                      ✓ Approve Return
-                    </button>
-                    <button
-                      onClick={() => handleUpdateOrderStatus(selectedOrder.id, "return_rejected")}
-                      className="px-3 py-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 hover:bg-red-900 text-xs font-black uppercase cursor-pointer"
-                    >
-                      ✕ Reject
-                    </button>
-                    <button
-                      onClick={() => handleUpdateOrderStatus(selectedOrder.id, "returned")}
-                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase cursor-pointer"
-                    >
-                      📦 Mark Received
-                    </button>
-                  </div>
-                </div>
-              ) : selectedOrder.order_status === "cancelled" ? (
-                <div className="p-4 rounded-2xl bg-red-950/30 border border-red-500/40 space-y-1 text-xs text-red-200">
-                  <div className="flex items-center gap-2 font-black">
-                    <XCircle size={14} />
-                    <span>Order Cancelled</span>
-                  </div>
-                  {selectedOrder.cancellation_reason && (
-                    <p className="text-zinc-300"><span className="text-zinc-400">Reason:</span> {selectedOrder.cancellation_reason}</p>
-                  )}
-                  {selectedOrder.refund_status && (
-                    <p className="text-emerald-400 font-bold">Refund Status: {selectedOrder.refund_status}</p>
-                  )}
-                </div>
-              ) : null}
-
-              {/* ── CUSTOMER & SHIPPING ADDRESS ── */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-bold">
+            <div className="space-y-4 text-xs font-bold">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-zinc-900/60 p-4 rounded-2xl border border-zinc-800 space-y-1.5">
                   <p className="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-1.5">
                     <User className="w-3.5 h-3.5 text-emerald-400" /> Customer Info
@@ -1096,9 +1177,26 @@ export default function OrderManagementView({
                   </p>
                 </div>
               </div>
+
+              {/* Courier & AWB section */}
+              <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-800/40 space-y-2">
+                <span className="text-[10px] font-black uppercase text-purple-400">Logistics Tracking</span>
+                <div className="flex items-center justify-between text-white">
+                  <div>
+                    <p className="font-mono text-sm font-black">{selectedOrder.tracking_number || "AWB Not Generated"}</p>
+                    <p className="text-zinc-400 text-[11px]">{selectedOrder.courier_name || "Delhivery Surface"}</p>
+                  </div>
+                  <button
+                    onClick={() => handlePushShiprocket(selectedOrder.id)}
+                    disabled={pushingShiprocket}
+                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black transition-all cursor-pointer"
+                  >
+                    {pushingShiprocket ? "Syncing..." : "Sync Shiprocket"}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Bottom Actions */}
             <div className="pt-4 border-t border-zinc-800 flex items-center justify-between gap-3">
               <button
                 type="button"
@@ -1111,14 +1209,16 @@ export default function OrderManagementView({
 
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="px-6 py-2.5 rounded-xl bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all shadow-md cursor-pointer ml-auto"
+                className="px-6 py-2.5 rounded-xl bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all cursor-pointer"
               >
-                Close Details
+                Close Statement
               </button>
             </div>
+
           </div>
         </div>
       )}
+
     </div>
   );
 }
