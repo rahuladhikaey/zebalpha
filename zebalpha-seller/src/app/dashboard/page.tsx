@@ -55,15 +55,22 @@ export default function SellerDashboard() {
   // Filter controls state
   const [filterType, setFilterType] = useState<FilterType>("this_month");
   const [streamFilter, setStreamFilter] = useState<StreamFilterType>("all");
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
-  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
-  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<number>(0);
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
+
+  useEffect(() => {
+    const now = new Date();
+    setSelectedDate(now.toISOString().split("T")[0]);
+    setSelectedMonth(now.getMonth());
+    setSelectedYear(now.getFullYear());
     const d = new Date();
     d.setDate(d.getDate() - 30);
-    return d.toISOString().split("T")[0];
-  });
-  const [customEndDate, setCustomEndDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
+    setCustomStartDate(d.toISOString().split("T")[0]);
+    setCustomEndDate(now.toISOString().split("T")[0]);
+  }, []);
 
   // Overall quick stats with Premium vs Standard separation
   const [quickKPIs, setQuickKPIs] = useState({
@@ -91,7 +98,6 @@ export default function SellerDashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        window.location.href = "/";
         return;
       }
       const currentUserId = user.id;
@@ -332,27 +338,39 @@ export default function SellerDashboard() {
       const targetM = new Date(selectedYear, selectedMonth, 1);
       start = startOfMonth(targetM);
       end = endOfMonth(targetM);
-      label = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
+      label = `${MONTH_NAMES[selectedMonth] || ""} ${selectedYear}`;
       groupMode = "daily";
     } else if (filterType === "specific_day") {
-      if (selectedDate) {
-        const [yy, mm, dd] = selectedDate.split("-").map(Number);
-        const targetD = new Date(yy, mm - 1, dd);
-        start = startOfDay(targetD);
-        end = endOfDay(targetD);
-        label = targetD.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+      if (selectedDate && selectedDate.includes("-")) {
+        const parts = selectedDate.split("-").map(Number);
+        if (parts.length === 3 && !parts.some(isNaN)) {
+          const targetD = new Date(parts[0], parts[1] - 1, parts[2]);
+          if (!isNaN(targetD.getTime())) {
+            start = startOfDay(targetD);
+            end = endOfDay(targetD);
+            label = targetD.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+          }
+        }
       }
       groupMode = "hourly";
     } else if (filterType === "custom") {
-      if (customStartDate) {
-        const [sY, sM, sD] = customStartDate.split("-").map(Number);
-        start = startOfDay(new Date(sY, sM - 1, sD));
+      if (customStartDate && customStartDate.includes("-")) {
+        const parts = customStartDate.split("-").map(Number);
+        if (parts.length === 3 && !parts.some(isNaN)) {
+          const d = new Date(parts[0], parts[1] - 1, parts[2]);
+          if (!isNaN(d.getTime())) start = startOfDay(d);
+        }
       }
-      if (customEndDate) {
-        const [eY, eM, eD] = customEndDate.split("-").map(Number);
-        end = endOfDay(new Date(eY, eM - 1, eD));
+      if (customEndDate && customEndDate.includes("-")) {
+        const parts = customEndDate.split("-").map(Number);
+        if (parts.length === 3 && !parts.some(isNaN)) {
+          const d = new Date(parts[0], parts[1] - 1, parts[2]);
+          if (!isNaN(d.getTime())) end = endOfDay(d);
+        }
       }
-      label = `${new Date(start).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} — ${new Date(end).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+      const sStr = !isNaN(start.getTime()) ? start.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "";
+      const eStr = !isNaN(end.getTime()) ? end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "";
+      label = `${sStr} — ${eStr}`;
       
       const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       groupMode = diffDays > 60 ? "monthly" : "daily";

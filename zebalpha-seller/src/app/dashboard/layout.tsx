@@ -75,16 +75,22 @@ export default function DashboardLayout({
           console.warn("[Security Guard] Unauthorized access attempt blocked. Redirecting to login.");
           setAuthStatus("unauthorized");
           const currentPath = typeof window !== "undefined" ? window.location.pathname : "/dashboard";
-          window.location.href = `/?error=unauthorized&redirect=${encodeURIComponent(currentPath)}`;
+          router.replace(`/?error=unauthorized&redirect=${encodeURIComponent(currentPath)}`);
           return;
         }
 
         // Fetch seller details from database
-        const { data: seller, error: sellerError } = await supabase
+        let sellerQuery = supabase
           .from("sellers")
-          .select("id, full_name, owner_name, email, status, account_status, rejection_reason")
-          .or(`user_id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
-          .maybeSingle();
+          .select("id, full_name, owner_name, email, status, account_status, rejection_reason");
+
+        if (user.email && user.email.trim()) {
+          sellerQuery = sellerQuery.or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase().trim()}`);
+        } else {
+          sellerQuery = sellerQuery.eq("user_id", user.id);
+        }
+
+        const { data: seller, error: sellerError } = await sellerQuery.maybeSingle();
 
         if (!isMounted) return;
 
@@ -94,22 +100,22 @@ export default function DashboardLayout({
           if (accStatus === "pending") {
             setAuthStatus("unauthorized");
             await supabase.auth.signOut();
-            window.location.href = "/?error=pending";
+            router.replace("/?error=pending");
             return;
           }
 
           if (accStatus === "rejected") {
             setAuthStatus("unauthorized");
             await supabase.auth.signOut();
-            window.location.href = `/?error=rejected&reason=${encodeURIComponent(seller.rejection_reason || "Registration rejected")}`;
+            router.replace(`/?error=rejected&reason=${encodeURIComponent(seller.rejection_reason || "Registration rejected")}`);
             return;
           }
 
           setIsSuspended(accStatus === "suspended");
-          setSellerName(seller.full_name || seller.owner_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Seller");
+          setSellerName(seller.full_name || seller.owner_name || user.user_metadata?.full_name || (user.email ? user.email.split("@")[0] : "Seller"));
           setSellerEmail(seller.email || user.email || "");
         } else {
-          setSellerName(user.user_metadata?.full_name || user.email?.split("@")[0] || "Seller");
+          setSellerName(user.user_metadata?.full_name || (user.email ? user.email.split("@")[0] : "Seller"));
           setSellerEmail(user.email || "");
         }
 
@@ -126,7 +132,7 @@ export default function DashboardLayout({
                 const accStatus = (payload.new.account_status || payload.new.status || "Active").toLowerCase();
                 setIsSuspended(accStatus === "suspended");
                 if (accStatus === "rejected" || accStatus === "pending") {
-                  window.location.href = "/?error=unauthorized";
+                  router.replace("/?error=unauthorized");
                 }
               }
             }
@@ -137,7 +143,7 @@ export default function DashboardLayout({
         console.error("[Security Guard Exception]:", err);
         if (isMounted) {
           setAuthStatus("unauthorized");
-          window.location.href = "/?error=unauthorized";
+          router.replace("/?error=unauthorized");
         }
       }
     }
@@ -149,7 +155,7 @@ export default function DashboardLayout({
       if (event === "SIGNED_OUT" || !session) {
         if (isMounted) {
           setAuthStatus("unauthorized");
-          window.location.href = "/?error=unauthorized";
+          router.replace("/?error=unauthorized");
         }
       }
     });
@@ -160,7 +166,7 @@ export default function DashboardLayout({
       if (channel) supabase.removeChannel(channel);
       if (authListener) authListener.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   const handleLogout = async () => {
     if (typeof window !== "undefined") {
@@ -168,7 +174,7 @@ export default function DashboardLayout({
       sessionStorage.clear();
     }
     await supabase.auth.signOut();
-    window.location.href = "/";
+    router.replace("/");
   };
 
   const navItems = [
