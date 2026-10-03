@@ -50,11 +50,7 @@ export default function ReturnsClaimsView() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (claimsData && claimsData.length > 0) {
-        setClaims(claimsData);
-      } else {
-        setClaims(getMockClaims());
-      }
+      setClaims(claimsData || []);
 
       // Fetch Returns
       const { data: returnsData } = await supabase
@@ -62,15 +58,11 @@ export default function ReturnsClaimsView() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (returnsData && returnsData.length > 0) {
-        setReturns(returnsData);
-      } else {
-        setReturns(getMockReturns());
-      }
+      setReturns(returnsData || []);
     } catch (err) {
       console.error("Error loading returns and claims:", err);
-      setClaims(getMockClaims());
-      setReturns(getMockReturns());
+      setClaims([]);
+      setReturns([]);
     } finally {
       setLoading(false);
     }
@@ -440,37 +432,4 @@ export default function ReturnsClaimsView() {
   );
 }
 
-function getMockClaims() {
-  return [
-    {
-      id: "clm_1",
-      claim_id: "CLM-98214",
-      suborder_id: "324387803182751552_1",
-      seller_id: "SEL-8821",
-      product_name: "2100ml Insulated Hot Pot Casserole",
-      claim_type: "WRONG_ITEM",
-      claim_amount: 450,
-      status: "OPEN",
-      seller_comments: "Customer sent an old used water bottle instead of the hot pot casserole.",
-      unboxing_video_url: "https://example.com/unboxing.mp4",
-      outer_box_image_url: "https://images.unsplash.com/photo-1586880244406-556ebe35f282?w=500"
-    }
-  ];
-}
 
-function getMockReturns() {
-  return [
-    {
-      id: "ret_1",
-      suborder_id: "324387803182751552_1",
-      product_name: "2100ml Insulated Hot Pot Casserole",
-      sku: "sdRFNQga",
-      return_type: "CUSTOMER_RETURN",
-      reason: "Defective / Broken handle",
-      awb_number: "1490840421477175",
-      courier_partner: "Delhivery",
-      status: "DELIVERED",
-      refund_status: "COMPLETED"
-    }
-  ];
-}
