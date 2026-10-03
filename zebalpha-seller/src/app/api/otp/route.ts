@@ -105,15 +105,12 @@ export async function POST(request: NextRequest) {
       // 2. Send OTP via EmailJS
       const emailSent = await sendEmailJsOtp(normalizedEmail, otp);
 
-      console.log(`[SELLER OTP] Dispatched code for ${normalizedEmail}: ${otp} (Server Email Sent: ${emailSent})`);
+      console.log(`[SELLER OTP] Dispatched verification code for ${normalizedEmail} (Server Email Sent: ${emailSent})`);
 
       return NextResponse.json({
         success: true,
-        emailSent,
         expiresAt,
-        message: emailSent
-          ? "Verification OTP code sent to your email! Please check your inbox."
-          : "Verification OTP generated. Dispatching to your email...",
+        message: "Verification OTP code sent to your email! Please check your inbox.",
       });
     }
 

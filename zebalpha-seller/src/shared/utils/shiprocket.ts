@@ -18,6 +18,10 @@ const SHIPROCKET_API = "https://apiv2.shiprocket.in/v1/external";
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
+if (typeof window !== "undefined") {
+  throw new Error("Shiprocket operations are restricted to server-side execution only.");
+}
+
 /**
  * Step 1: Obtain or refresh Shiprocket Bearer Auth Token (cached for 23 hours)
  * POST /v1/external/auth/login
@@ -28,8 +32,8 @@ export async function getShiprocketToken(): Promise<string> {
     return cachedToken;
   }
 
-  const email = (process.env.SHIPROCKET_EMAIL || "zebalpha7@gmail.com").trim();
-  const password = (process.env.SHIPROCKET_PASSWORD || "BjI^X9AiKvlHj7*QQ^xoZAH%yRj9MjGo").trim().replace(/^["']|["']$/g, "");
+  const email = (process.env.SHIPROCKET_EMAIL || "").trim();
+  const password = (process.env.SHIPROCKET_PASSWORD || "").trim().replace(/^["']|["']$/g, "");
 
   if (!email || !password) {
     throw new Error("Shiprocket credentials (SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD) missing in environment variables.");

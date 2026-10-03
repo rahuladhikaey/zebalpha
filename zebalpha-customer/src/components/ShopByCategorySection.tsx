@@ -6,23 +6,15 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { Category } from "@/lib/types";
 import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
+import { useCategories, DEFAULT_CLOTHING_CATEGORIES } from "@/hooks/useCatalogQueries";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CLOTHING_TABS = ["ALL", "POLOS", "T-SHIRTS", "HOODIES", "SHIRTS", "BOTTOMS", "LIMITED"];
 
-const DEFAULT_CLOTHING_CATEGORIES: Category[] = [
-  { id: "1", name: "Premium Polos", icon: "👕", main_category: "POLOS", description: "100% Supima Pique" },
-  { id: "2", name: "Oversized Tees", icon: "🛹", main_category: "T-SHIRTS", description: "240 GSM Heavyweight" },
-  { id: "3", name: "Heavyweight Hoodies", icon: "🧥", main_category: "HOODIES", description: "380 GSM Plush Fleece" },
-  { id: "4", name: "Casual Shirts", icon: "👔", main_category: "SHIRTS", description: "Woven Textured Cottons" },
-  { id: "5", name: "Cargo & Trousers", icon: "👖", main_category: "BOTTOMS", description: "Tactical Utility Fits" },
-  { id: "6", name: "Limited Drops", icon: "⚡", main_category: "LIMITED", description: "Exclusive Release Drops" },
-  { id: "7", name: "Zebalpha Classics", icon: "👑", main_category: "ALL", description: "Monogram Signature Pieces" },
-  { id: "8", name: "Accessories & Caps", icon: "🧢", main_category: "ALL", description: "Caps, Chains & Extras" },
-];
-
 export function ShopByCategorySection({ initialCategories = [] }: { initialCategories?: Category[] }) {
-  const [categories, setCategories] = useState<Category[]>(
-    initialCategories.length > 0 ? initialCategories : DEFAULT_CLOTHING_CATEGORIES
+  const queryClient = useQueryClient();
+  const { data: categories = (initialCategories.length > 0 ? initialCategories : DEFAULT_CLOTHING_CATEGORIES) } = useCategories(
+    initialCategories.length > 0 ? initialCategories : undefined
   );
   const [selectedMainTab, setSelectedMainTab] = useState<string>("ALL");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -48,42 +40,23 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
     }
   };
 
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        setCategories(data as Category[]);
-      } else if (initialCategories.length === 0) {
-        setCategories(DEFAULT_CLOTHING_CATEGORIES);
-      }
-    } catch (err) {
-      // Graceful fallback
-    }
-  };
-
   useEffect(() => {
-    fetchCategories();
-
     // Listen to real-time additions/updates by sellers
     const channel = supabase
       .channel("customer-categories-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "categories" },
-        () => fetchCategories()
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["categories"] });
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     const el = scrollContainerRef.current;

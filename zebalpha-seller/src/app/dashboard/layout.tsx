@@ -39,6 +39,12 @@ export default function DashboardLayout({
   const [isSuspended, setIsSuspended] = useState(false);
   const [authStatus, setAuthStatus] = useState<"checking" | "authorized" | "unauthorized">("checking");
 
+  // Route-dependent sidebar management
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
+
+  // One-time seller authentication, profile initialization, and realtime subscription lifecycle
   useEffect(() => {
     let channel: any;
     let authListener: any;
@@ -53,7 +59,8 @@ export default function DashboardLayout({
         if (userError || !user) {
           console.warn("[Security Guard] Unauthorized access attempt blocked. Redirecting to login.");
           setAuthStatus("unauthorized");
-          window.location.href = `/?error=unauthorized&redirect=${encodeURIComponent(pathname)}`;
+          const currentPath = typeof window !== "undefined" ? window.location.pathname : "/dashboard";
+          window.location.href = `/?error=unauthorized&redirect=${encodeURIComponent(currentPath)}`;
           return;
         }
 
@@ -138,7 +145,7 @@ export default function DashboardLayout({
       if (channel) supabase.removeChannel(channel);
       if (authListener) authListener.unsubscribe();
     };
-  }, [pathname]);
+  }, []);
 
   const handleLogout = async () => {
     if (typeof window !== "undefined") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -34,56 +34,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Authoritative Profile Synchronizer & Fetcher
+  // In-flight request deduplication guard
+  const inFlightSyncRef = useRef<{ userId: string; promise: Promise<void> } | null>(null);
+
+  // Authoritative Profile Synchronizer & Fetcher with concurrent request deduplication
   const fetchOrSyncProfile = useCallback(async (authUser: User | null) => {
     if (!authUser) {
       setProfile(null);
       return;
     }
 
-    try {
-      // 1. Attempt to fetch profile from public.profiles
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authUser.id)
-        .maybeSingle();
-
-      if (data && !error) {
-        setProfile(data as UserProfile);
-        return;
-      }
-
-      // 2. If profile is missing (e.g. initial Google OAuth login or trigger delay), create idempotently
-      const metadata = authUser.user_metadata || {};
-      const fallbackName = metadata.full_name || metadata.name || metadata.user_name || authUser.email?.split("@")[0] || "Customer";
-      const fallbackAvatar = metadata.avatar_url || metadata.picture || "";
-
-      const newProfileData = {
-        id: authUser.id,
-        email: authUser.email?.toLowerCase().trim() || "",
-        full_name: fallbackName,
-        avatar_url: fallbackAvatar,
-        role: "customer",
-        status: "active",
-        updated_at: new Date().toISOString()
-      };
-
-      const { data: upsertedProfile, error: upsertErr } = await supabase
-        .from("profiles")
-        .upsert(newProfileData, { onConflict: "id" })
-        .select()
-        .maybeSingle();
-
-      if (upsertedProfile && !upsertErr) {
-        setProfile(upsertedProfile as UserProfile);
-      } else {
-        // Fallback to memory profile if DB upsert is restricted by client RLS
-        setProfile(newProfileData as UserProfile);
-      }
-    } catch (err) {
-      console.warn("[Auth Profile Sync Notice]:", err);
+    // Deduplicate in-flight profile fetch for the same user
+    if (inFlightSyncRef.current && inFlightSyncRef.current.userId === authUser.id) {
+      return inFlightSyncRef.current.promise;
     }
+
+    const syncPromise = (async () => {
+      try {
+        // 1. Attempt to fetch profile from public.profiles
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", authUser.id)
+          .maybeSingle();
+
+        if (data && !error) {
+          setProfile(data as UserProfile);
+          return;
+        }
+
+        // 2. If profile is missing (e.g. initial Google OAuth login or trigger delay), create idempotently
+        const metadata = authUser.user_metadata || {};
+        const fallbackName = metadata.full_name || metadata.name || metadata.user_name || authUser.email?.split("@")[0] || "Customer";
+        const fallbackAvatar = metadata.avatar_url || metadata.picture || "";
+
+        const newProfileData = {
+          id: authUser.id,
+          email: authUser.email?.toLowerCase().trim() || "",
+          full_name: fallbackName,
+          avatar_url: fallbackAvatar,
+          role: "customer",
+          status: "active",
+          updated_at: new Date().toISOString()
+        };
+
+        const { data: upsertedProfile, error: upsertErr } = await supabase
+          .from("profiles")
+          .upsert(newProfileData, { onConflict: "id" })
+          .select()
+          .maybeSingle();
+
+        if (upsertedProfile && !upsertErr) {
+          setProfile(upsertedProfile as UserProfile);
+        } else {
+          // Fallback to memory profile if DB upsert is restricted by client RLS
+          setProfile(newProfileData as UserProfile);
+        }
+      } catch (err) {
+        console.warn("[Auth Profile Sync Notice]:", err);
+      } finally {
+        if (inFlightSyncRef.current?.userId === authUser.id) {
+          inFlightSyncRef.current = null;
+        }
+      }
+    })();
+
+    inFlightSyncRef.current = { userId: authUser.id, promise: syncPromise };
+    return syncPromise;
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -121,6 +138,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await fetchOrSyncProfile(currentUser);
         }
       } else if (event === "SIGNED_OUT") {
+        inFlightSyncRef.current = null;
         setProfile(null);
       }
 
@@ -135,6 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
+      inFlightSyncRef.current = null;
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);

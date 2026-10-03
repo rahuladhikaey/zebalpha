@@ -19,13 +19,18 @@ export async function createMasterOrder(payload: {
   payment_method: string;
 }) {
   const { user_id, customer_name, phone, address, items, total, payment_method } = payload;
+  const traceStart = Date.now();
+  const trace: Record<string, number> = {};
 
-  // Basic validations
+  // Stage 1: Cart Validation
+  const tCartStart = Date.now();
   if (!items || !Array.isArray(items) || items.length === 0) {
     throw new Error('Cart empty');
   }
+  trace['cart_validation_ms'] = Date.now() - tCartStart;
 
-  // Validate products and stock
+  // Stage 2: Stock & Price Validation
+  const tStockStart = Date.now();
   const productIds = items.map(i => i.id);
   const { data: products } = await supabaseServer.from('products').select('id, price, stock, status, seller_id').in('id', productIds as any);
   const prodMap: Record<string, any> = {};
@@ -34,16 +39,18 @@ export async function createMasterOrder(payload: {
   for (const it of items) {
     const p = prodMap[it.id];
     if (!p) {
-      console.warn(`Product not found in live DB: ${it.id}`);
-      continue;
+      throw new Error(`Product not found in catalog: ${it.id}`);
     }
-    if (p.status === "OUT_OF_STOCK") {
-      console.warn(`Product status out of stock: ${it.id}`);
+    const currentStock = Number(p.stock) || 0;
+    const requestedQty = Number(it.quantity) || 1;
+    if (p.status === "OUT_OF_STOCK" || currentStock < requestedQty) {
+      throw new Error(`Product "${p.name || it.id}" is out of stock (available: ${currentStock}, requested: ${requestedQty})`);
     }
     if (p.price && Number(p.price) !== Number(it.price)) {
       console.log(`Product price differs (possibly discount or package): DB=${p.price}, Cart=${it.price}`);
     }
   }
+  trace['stock_validation_ms'] = Date.now() - tStockStart;
 
   // Create parent order
   const orderNumber = `AS${new Date().toISOString().slice(0,10).replace(/-/g,'')}${Math.floor(1000+Math.random()*9000)}`;
@@ -65,6 +72,8 @@ export async function createMasterOrder(payload: {
   const normPaymentMethod = String(payment_method || 'COD').toUpperCase();
   const isCodOrder = normPaymentMethod === 'COD' || normPaymentMethod.includes('CASH');
 
+  // Stage 3: Parent Order Creation
+  const tParentStart = Date.now();
   const { data: parentOrder, error: insertErr } = await supabaseServer.from('orders').insert([{
     order_number: orderNumber,
     user_id: user_id || null,
@@ -81,10 +90,12 @@ export async function createMasterOrder(payload: {
   }]).select().single();
 
   if (insertErr || !parentOrder) throw new Error('Failed to create parent order: ' + (insertErr?.message || 'unknown'));
+  trace['parent_order_creation_ms'] = Date.now() - tParentStart;
 
   const parentOrderId = parentOrder.id;
 
-  // Create seller orders and order items
+  // Stage 4: Seller Orders & Items Creation
+  const tSellerStart = Date.now();
   const sellerOrderRecords: any[] = [];
   for (const sellerId of Object.keys(bySeller)) {
     try {
@@ -134,33 +145,78 @@ export async function createMasterOrder(payload: {
       console.warn("Seller order record notice:", soErr);
     }
   }
+  trace['seller_orders_creation_ms'] = Date.now() - tSellerStart;
 
-  // Reserve inventory safely for all items
+  // Stage 5: Atomic Inventory Reservation
+  const tStockReserveStart = Date.now();
   for (const it of items) {
+    const reqQty = Number(it.quantity) || 1;
     try {
+      // 1. Try atomic PostgreSQL RPC function if installed
+      const { data: rpcRes, error: rpcErr } = await supabaseServer.rpc('decrement_product_stock', {
+        p_product_id: it.id,
+        p_quantity: reqQty
+      });
+
+      if (!rpcErr && rpcRes && rpcRes.success) {
+        try {
+          await supabaseServer.from('stock_history').insert({
+            product_id: it.id,
+            change_amount: -reqQty,
+            reason: `Order Placed - ${parentOrderId}`,
+            admin_user: 'System'
+          });
+        } catch (_) {}
+        continue;
+      }
+
+      // 2. Fallback: Conditional update guarded against negative stock
       const { data: prod } = await supabaseServer.from('products').select('stock').eq('id', it.id).single();
       if (prod) {
-        const newStock = Math.max(0, ((prod?.stock) || 0) - (it.quantity || 1));
-        await supabaseServer.from('products').update({ stock: newStock, status: newStock > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK' }).eq('id', it.id);
-        await supabaseServer.from('stock_history').insert({ product_id: it.id, change_amount: -(it.quantity || 1), reason: `Order Placed - ${parentOrderId}`, admin_user: 'System' });
+        const currentStock = Number(prod.stock) || 0;
+        const newStock = Math.max(0, currentStock - reqQty);
+        await supabaseServer
+          .from('products')
+          .update({
+            stock: newStock,
+            status: newStock > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', it.id)
+          .gte('stock', reqQty); // Atomic guard: only updates if stock >= reqQty
+
+        await supabaseServer.from('stock_history').insert({
+          product_id: it.id,
+          change_amount: -reqQty,
+          reason: `Order Placed - ${parentOrderId}`,
+          admin_user: 'System'
+        });
       }
     } catch (stkErr) {
       console.warn("Stock reservation notice:", stkErr);
     }
   }
+  trace['inventory_reservation_ms'] = Date.now() - tStockReserveStart;
 
-  // Create payment record (for COD, mark pending)
+  // Stage 6: Payment Record & Notification
+  const tPaymentStart = Date.now();
   try {
     await supabaseServer.from('payments').insert([{ parent_order_id: parentOrderId, amount: total, method: payment_method, status: payment_method === 'COD' ? 'PENDING' : 'PENDING' }]);
   } catch (pErr) { console.error('Payment insert error', pErr); }
+  trace['payment_record_ms'] = Date.now() - tPaymentStart;
 
-  // Notify admin
+  // Stage 7: Admin Notification
+  const tNotifyStart = Date.now();
   try {
     const adminRes = await supabaseServer.from('admin_users').select('id').limit(1).single();
     if (adminRes.data) {
       await supabaseServer.from('notifications').insert([{ user_id: adminRes.data.id, title: 'New Order', message: `Order ${parentOrder.order_number} placed`, type: 'admin' }]);
     }
   } catch (aErr) { console.error('Admin notify error', aErr); }
+  trace['notifications_ms'] = Date.now() - tNotifyStart;
+
+  const totalDurationMs = Date.now() - traceStart;
+  console.log(`[CHECKOUT_TRACE] order_id=${parentOrder.id} order_number=${parentOrder.order_number} total_duration=${totalDurationMs}ms stages=${JSON.stringify(trace)}`);
 
   return parentOrder;
 }

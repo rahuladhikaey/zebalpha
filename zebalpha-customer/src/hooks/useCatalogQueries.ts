@@ -3,9 +3,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/apiService';
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { Product, Category } from '@/lib/types';
+
+export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [
+  { id: "1", name: "Premium Polos", icon: "👕", main_category: "POLOS", description: "100% Supima Pique" },
+  { id: "2", name: "Oversized Tees", icon: "🛹", main_category: "T-SHIRTS", description: "240 GSM Heavyweight" },
+  { id: "3", name: "Heavyweight Hoodies", icon: "🧥", main_category: "HOODIES", description: "380 GSM Plush Fleece" },
+  { id: "4", name: "Casual Shirts", icon: "👔", main_category: "SHIRTS", description: "Woven Textured Cottons" },
+  { id: "5", name: "Cargo & Trousers", icon: "👖", main_category: "BOTTOMS", description: "Tactical Utility Fits" },
+  { id: "6", name: "Limited Drops", icon: "⚡", main_category: "LIMITED", description: "Exclusive Release Drops" },
+  { id: "7", name: "Zebalpha Classics", icon: "👑", main_category: "ALL", description: "Monogram Signature Pieces" },
+  { id: "8", name: "Accessories & Caps", icon: "🧢", main_category: "ALL", description: "Caps, Chains & Extras" },
+];
+
+export const SLIM_PRODUCT_CARD_FIELDS =
+  "id, name, slug, brand, price, mrp, image_url, images, is_active, is_approved, approval_status, created_at, category_id, category_name, category, collection, description, is_premium, tier, is_new_drop, status, specifications, stock, target_drop_date";
 
 /**
- * Custom 300ms Debounce Hook for Search Inputs (Section 11)
+ * Custom 300ms Debounce Hook for Search Inputs
  */
 export function useDebounce<T>(value: T, delay: number = 300): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -32,7 +48,180 @@ export function normalizeQueryString(str?: string): string {
 }
 
 /**
- * L1 Browser-Cached Products Hook (Section 8 & 10)
+ * Canonical Category Fetcher
+ * Tries API service first, falls back gracefully to Supabase client query.
+ */
+export async function fetchCanonicalCategories(): Promise<Category[]> {
+  try {
+    const res = await apiService.getCategories();
+    if (!res.error && res.data && Array.isArray(res.data) && res.data.length > 0) {
+      return res.data as Category[];
+    }
+  } catch (_) {}
+
+  try {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name, slug, icon, image_url, main_category, description, sort_order, is_active")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      return data as Category[];
+    }
+  } catch (_) {}
+
+  return DEFAULT_CLOTHING_CATEGORIES;
+}
+
+/**
+ * L1 Browser-Cached Categories Hook (One Canonical Source)
+ * Reuses initial SSR data if provided; caches for 30 minutes.
+ */
+export function useCategories(initialCategories?: Category[]) {
+  return useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: fetchCanonicalCategories,
+    initialData: initialCategories && initialCategories.length > 0 ? initialCategories : undefined,
+    staleTime: 30 * 60 * 1000, // 30 minutes fresh L1 cache
+    gcTime: 60 * 60 * 1000,
+  });
+}
+
+export interface PaginatedProductsParams {
+  category?: string | number | null;
+  search?: string;
+  sort?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedProductsResponse {
+  products: Product[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+/**
+ * Paginated Slim Products Fetcher
+ * Pushes filtering and limit/offset pagination to the database.
+ */
+export async function fetchPaginatedProducts(params: PaginatedProductsParams): Promise<PaginatedProductsResponse> {
+  const page = Math.max(1, params.page || 1);
+  const pageSize = Math.min(Math.max(1, params.pageSize || 24), 48);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  try {
+    let query = supabase
+      .from("products")
+      .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
+      .or("is_active.is.null,is_active.eq.true")
+      .or("is_approved.is.null,is_approved.eq.true")
+      .neq("approval_status", "rejected");
+
+    // Server-side category filtering
+    if (params.category && String(params.category).trim() !== "" && String(params.category) !== "all") {
+      const cat = String(params.category).toLowerCase().trim();
+      if (cat.includes("polo")) {
+        query = query.or("name.ilike.%polo%,category.ilike.%polo%,category_name.ilike.%polo%,collection.ilike.%polo%");
+      } else if (cat.includes("tee") || cat.includes("t-shirt") || cat.includes("oversized")) {
+        query = query.or("name.ilike.%tee%,name.ilike.%shirt%,category.ilike.%tee%,category_name.ilike.%tee%");
+      } else if (cat.includes("hoodie") || cat.includes("fleece")) {
+        query = query.or("name.ilike.%hoodie%,category.ilike.%hoodie%,category_name.ilike.%hoodie%");
+      } else if (cat.includes("shirt")) {
+        query = query.or("name.ilike.%shirt%,category.ilike.%shirt%,category_name.ilike.%shirt%");
+      } else if (cat.includes("bottom") || cat.includes("cargo") || cat.includes("pant") || cat.includes("trouser")) {
+        query = query.or("name.ilike.%cargo%,name.ilike.%pant%,category.ilike.%cargo%,category_name.ilike.%bottom%");
+      } else if (cat.includes("drop") || cat.includes("limited")) {
+        query = query.or("is_new_drop.eq.true,name.ilike.%drop%,status.eq.COMING_SOON");
+      } else {
+        query = query.or(`category_id.eq.${cat},name.ilike.%${cat}%,category.ilike.%${cat}%,category_name.ilike.%${cat}%`);
+      }
+    }
+
+    // Server-side search filtering
+    if (params.search && params.search.trim()) {
+      const q = params.search.trim();
+      query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%,brand.ilike.%${q}%`);
+    }
+
+    // Server-side sorting
+    if (params.sort === "price_asc") {
+      query = query.order("price", { ascending: true });
+    } else if (params.sort === "price_desc") {
+      query = query.order("price", { ascending: false });
+    } else {
+      query = query.order("created_at", { ascending: false });
+    }
+
+    // Range-based pagination
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) {
+      console.warn("Notice querying paginated products:", error.message);
+      return {
+        products: [],
+        totalCount: 0,
+        page,
+        pageSize,
+        totalPages: 1,
+        hasMore: false,
+      };
+    }
+
+    const products = (data || []) as Product[];
+    const totalCount = count !== null ? count : products.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+    return {
+      products,
+      totalCount,
+      page,
+      pageSize,
+      totalPages,
+      hasMore: page < totalPages,
+    };
+  } catch (err: any) {
+    console.error("Error in fetchPaginatedProducts:", err);
+    return {
+      products: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 1,
+      hasMore: false,
+    };
+  }
+}
+
+/**
+ * L1 Browser-Cached Paginated Products Hook
+ */
+export function usePaginatedProducts(params: PaginatedProductsParams) {
+  const normalizedParams = {
+    category: params.category ? String(params.category).trim() : "all",
+    search: normalizeQueryString(params.search),
+    sort: params.sort || "newest",
+    page: Math.max(1, params.page || 1),
+    pageSize: Math.min(Math.max(1, params.pageSize || 24), 48),
+  };
+
+  return useQuery<PaginatedProductsResponse>({
+    queryKey: ['products', normalizedParams],
+    queryFn: () => fetchPaginatedProducts(normalizedParams),
+    staleTime: 5 * 60 * 1000, // 5 minutes fresh L1 cache
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+/**
+ * L1 Browser-Cached Products Hook (Legacy Compatibility)
  */
 export function useProducts(params?: {
   category?: string;
@@ -58,13 +247,13 @@ export function useProducts(params?: {
       if (res.error) throw new Error(res.error);
       return res.data;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes fresh L1 cache
-    gcTime: 30 * 60 * 1000, // 30 minutes garbage collection
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
 /**
- * L1 Browser-Cached Product Detail Hook (Section 8 & 12)
+ * L1 Browser-Cached Product Detail Hook
  */
 export function useProductDetail(productId: string | number) {
   return useQuery({
@@ -76,30 +265,13 @@ export function useProductDetail(productId: string | number) {
       return res.data;
     },
     enabled: !!productId,
-    staleTime: 10 * 60 * 1000, // 10 minutes fresh
+    staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
 }
 
 /**
- * L1 Browser-Cached Categories Hook (Section 8 & 9)
- */
-export function useCategories() {
-  return useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      const res = await apiService.getCategories();
-      if (res.error) throw new Error(res.error);
-      return res.data || [];
-    },
-    staleTime: 30 * 60 * 1000, // 30 minutes fresh
-    gcTime: 60 * 60 * 1000,
-  });
-}
-
-/**
- * L1 Browser-Cached Debounced Search Hook (Section 8 & 11)
- * Automatically skips network requests for repeated identical search queries.
+ * L1 Browser-Cached Debounced Search Hook
  */
 export function useSearchProducts(rawQuery: string, category?: string) {
   const normalizedQuery = normalizeQueryString(rawQuery);
@@ -118,7 +290,7 @@ export function useSearchProducts(rawQuery: string, category?: string) {
       return res.data?.products || res.data || [];
     },
     enabled: debouncedQuery.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 5 * 60 * 1000,
     gcTime: 20 * 60 * 1000,
   });
 }

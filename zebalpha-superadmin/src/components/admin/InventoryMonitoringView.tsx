@@ -4,9 +4,14 @@ import { useState, useEffect } from "react";
 import { supabaseA as supabase } from "@shared/utils/supabaseClient";
 import { AlertTriangle, AlertCircle, Package, Search, ArrowUpRight } from "lucide-react";
 
-export default function InventoryMonitoringView() {
-  const [loading, setLoading] = useState(true);
-  const [products, setProducts] = useState<any[]>([]);
+interface InventoryMonitoringViewProps {
+  initialProducts?: any[];
+  onRefresh?: () => void;
+}
+
+export default function InventoryMonitoringView({ initialProducts = [], onRefresh }: InventoryMonitoringViewProps) {
+  const [loading, setLoading] = useState(initialProducts.length === 0);
+  const [products, setProducts] = useState<any[]>(initialProducts);
   const [filterType, setFilterType] = useState<"all" | "low_stock" | "out_of_stock">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -28,8 +33,13 @@ export default function InventoryMonitoringView() {
   };
 
   useEffect(() => {
-    loadInventory();
-  }, []);
+    if (initialProducts.length > 0) {
+      setProducts(initialProducts);
+      setLoading(false);
+    } else {
+      loadInventory();
+    }
+  }, [initialProducts]);
 
   const lowStockCount = products.filter(p => (p.stock || 0) > 0 && (p.stock || 0) <= (p.low_stock_limit || 10)).length;
   const outOfStockCount = products.filter(p => (p.stock || 0) === 0).length;

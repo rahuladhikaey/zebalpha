@@ -26,11 +26,39 @@ import {
   Send
 } from "lucide-react";
 
-export default function OrderManagementView() {
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [sellers, setSellers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+interface OrderManagementViewProps {
+  initialOrders?: any[];
+  initialSellers?: any[];
+  initialProducts?: any[];
+  onRefresh?: () => void;
+}
+
+export default function OrderManagementView({
+  initialOrders,
+  initialSellers,
+  initialProducts,
+  onRefresh,
+}: OrderManagementViewProps = {}) {
+  const [loading, setLoading] = useState(!initialOrders);
+  const [orders, setOrders] = useState<any[]>(() => {
+    if (initialOrders && initialOrders.length > 0) return initialOrders;
+    return [];
+  });
+  const [sellers, setSellers] = useState<any[]>(initialSellers || []);
+  const [products, setProducts] = useState<any[]>(initialProducts || []);
+
+  // Sync state if parent props change
+  useEffect(() => {
+    if (initialOrders) setOrders(initialOrders);
+  }, [initialOrders]);
+
+  useEffect(() => {
+    if (initialSellers) setSellers(initialSellers);
+  }, [initialSellers]);
+
+  useEffect(() => {
+    if (initialProducts) setProducts(initialProducts);
+  }, [initialProducts]);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
@@ -59,6 +87,7 @@ export default function OrderManagementView() {
           setSelectedOrder(result.data);
         }
         await loadData();
+        onRefresh?.();
       } else {
         setStatusMsg("⚠️ " + (result.message || "Failed to push to Shiprocket"));
       }
@@ -109,18 +138,45 @@ export default function OrderManagementView() {
   };
 
   useEffect(() => {
-    loadData();
+    if (!initialOrders) {
+      loadData();
+    }
 
-    // Supabase Realtime WebSockets for zero-refresh order monitoring
+    // Supabase Realtime WebSockets: Refetch ONLY orders when order events fire
     const channel = supabase
       .channel("admin-orders-realtime-enhanced")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, async () => {
+        try {
+          const res = await fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] }));
+          let ordersList = res.data || [];
+          if (ordersList.length === 0) {
+            const { data: directOrders } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+            ordersList = directOrders || [];
+          }
+
+          const deduplicated = ordersList.filter((ord: any) => {
+            const num = String(ord.order_number || ord.id || "").trim();
+            if (!/-S\d+$/i.test(num) && !/-SO\d+$/i.test(num)) {
+              const hasSubOrder = ordersList.some((other: any) => {
+                const otherNum = String(other.order_number || other.id || "").trim();
+                return (otherNum.startsWith(num + "-S") || otherNum.startsWith(num + "-SO")) && otherNum !== num;
+              });
+              if (hasSubOrder) return false;
+            }
+            return true;
+          });
+
+          setOrders(deduplicated);
+        } catch (err) {
+          console.error("Error in realtime order update:", err);
+        }
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [initialOrders]);
 
   const handleDeleteOrder = async (orderId: string | number) => {
     if (!window.confirm("Are you sure you want to permanently delete this order record? This action cannot be undone.")) return;
@@ -135,6 +191,7 @@ export default function OrderManagementView() {
       if (selectedOrder?.id === orderId) {
         setSelectedOrder(null);
       }
+      onRefresh?.();
     } catch (err: any) {
       alert(err.message || "Failed to delete order.");
     }
@@ -176,6 +233,7 @@ export default function OrderManagementView() {
       if (selectedOrder?.id === orderId) {
         setSelectedOrder({ ...selectedOrder, ...updates });
       }
+      onRefresh?.();
     } catch (err: any) {
       alert(err.message || "Failed to update order status.");
     }

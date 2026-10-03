@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase, supabaseAdmin } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 import { 
   CreditCard, 
   Coins, 
@@ -62,21 +62,18 @@ export default function AsCardsLoyaltyView() {
       }
 
       // 2. Fetch Products
-      const { data: pData } = await supabaseAdmin.from("products").select("id, name, price");
+      const { data: pData } = await supabase.from("products").select("id, name, price");
       setProducts(pData || []);
 
-      // 3. Fetch Active Special Offer / BOGO from store_settings
-      const { data: offerData } = await supabaseAdmin
-        .from("store_settings")
-        .select("value")
-        .eq("key", "special_offers_bogo")
-        .maybeSingle();
+      // 3. Fetch Active Special Offer / BOGO via Secure Admin API
+      const offerRes = await fetch("/api/admin/offers");
+      const offerJson = await offerRes.json();
 
-      if (offerData?.value) {
-        setActiveOffer(offerData.value);
-        if (offerData.value.mainProductId) {
-          setSelectedMainProduct(offerData.value.mainProductId.toString());
-          setSelectedOfferProducts(offerData.value.offerProductIds || []);
+      if (offerJson.success && offerJson.data) {
+        setActiveOffer(offerJson.data);
+        if (offerJson.data.mainProductId) {
+          setSelectedMainProduct(offerJson.data.mainProductId.toString());
+          setSelectedOfferProducts(offerJson.data.offerProductIds || []);
         }
       }
     } catch (e: any) {
@@ -221,15 +218,13 @@ export default function AsCardsLoyaltyView() {
     };
 
     try {
-      const { error } = await supabaseAdmin
-        .from("store_settings")
-        .upsert({
-          key: "special_offers_bogo",
-          value: offerPayload,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
+      const response = await fetch("/api/admin/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(offerPayload)
+      });
+      const resJson = await response.json();
+      if (!resJson.success) throw new Error(resJson.message || "Failed to save offer settings");
 
       setActiveOffer(offerPayload);
       setStatusMessage("🎁 Cardholder exclusive BOGO & bundle offer persisted to production database!");

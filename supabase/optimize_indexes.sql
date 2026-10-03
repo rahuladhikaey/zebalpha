@@ -20,11 +20,14 @@ CREATE INDEX IF NOT EXISTS idx_products_brand_active
 ON public.products (brand, is_active);
 
 -- 2. Indexing Orders & Transactions for High-Concurrency Checkout & Dashboards
-CREATE INDEX IF NOT EXISTS idx_orders_customer_created 
-ON public.orders (customer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_user_created 
+ON public.orders (user_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_orders_seller_status 
-ON public.orders (seller_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_seller_created 
+ON public.orders (seller_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_orders_status_created 
+ON public.orders (order_status, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id 
 ON public.order_items (order_id);

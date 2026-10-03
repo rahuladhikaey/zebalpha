@@ -224,27 +224,55 @@ export const createOrder = async (req, res, next) => {
       await supabaseB.from('orders').insert([sellerOrderPayload]);
       sellerIndex++;
 
-      // Reduce stock in Supabase B
+      // Reduce stock atomically in Supabase B (guarded against concurrency overselling)
       for (const { item, currentStock } of sellerItemsList) {
         const pId = item.product_id || item.id;
-        const qty = item.quantity || 1;
-        const newStock = Math.max(0, currentStock - qty);
+        const qty = Number(item.quantity) || 1;
 
-        await supabaseB
-          .from('products')
-          .update({ stock: newStock, updated_at: new Date().toISOString() })
-          .eq('id', pId);
+        let decremented = false;
+        let finalStock = Math.max(0, currentStock - qty);
+
+        try {
+          const { data: rpcRes, error: rpcErr } = await supabaseB.rpc('decrement_product_stock', {
+            p_product_id: pId,
+            p_quantity: qty
+          });
+
+          if (!rpcErr && rpcRes && rpcRes.success) {
+            decremented = true;
+            finalStock = rpcRes.new_stock !== undefined ? rpcRes.new_stock : finalStock;
+          }
+        } catch (rpcEx) {
+          console.warn(`[orderController Notice] decrement_product_stock RPC notice:`, rpcEx?.message);
+        }
+
+        if (!decremented) {
+          // Fallback: Atomic conditional update guarded against negative stock
+          const newStock = Math.max(0, currentStock - qty);
+          finalStock = newStock;
+          await supabaseB
+            .from('products')
+            .update({ 
+              stock: newStock, 
+              status: newStock > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK',
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', pId)
+            .gte('stock', qty); // Atomic guard: only updates if stock >= qty
+        }
 
         // Record stock history log
-        await supabaseB.from('stock_history').insert([{
-          seller_id: sellerId,
-          product_id: pId,
-          previous_stock: currentStock,
-          new_stock: newStock,
-          change_amount: -qty,
-          change_type: 'ORDER_DEDUCTION',
-          change_reason: `Stock deducted for Order #${orderNumber}`
-        }]);
+        try {
+          await supabaseB.from('stock_history').insert([{
+            seller_id: sellerId,
+            product_id: pId,
+            previous_stock: currentStock,
+            new_stock: finalStock,
+            change_amount: -qty,
+            change_type: 'ORDER_DEDUCTION',
+            change_reason: `Stock deducted for Order #${orderNumber}`
+          }]);
+        } catch (_) {}
 
         // Invalidate public cache for affected product
         cacheService.invalidateProductCache(pId).catch(() => {});

@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       user_id,
     } = body;
 
-    const secret = (process.env.RAZORPAY_KEY_SECRET || "5LUjZ94LMDnjwlLyB9cUU5cb").trim();
+    const secret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
 
     if (!razorpay_payment_id) {
       return NextResponse.json({ success: false, message: "Missing required payment identifier" }, { status: 400 });
@@ -54,6 +54,30 @@ export async function POST(req: Request) {
     if (!isAuthentic) {
       console.warn("Invalid Razorpay signature for order:", razorpay_order_id);
       return NextResponse.json({ success: false, message: "Invalid payment signature" }, { status: 400 });
+    }
+
+    // 1.1 Idempotency check: if order was already recorded for this payment/order, return existing order immediately
+    if (razorpay_payment_id || razorpay_order_id) {
+      let existingQuery = supabaseServer.from("orders").select("id, order_number, payment_status");
+      if (razorpay_payment_id && razorpay_order_id) {
+        existingQuery = existingQuery.or(`razorpay_payment_id.eq.${razorpay_payment_id},razorpay_order_id.eq.${razorpay_order_id}`);
+      } else if (razorpay_payment_id) {
+        existingQuery = existingQuery.eq("razorpay_payment_id", razorpay_payment_id);
+      } else {
+        existingQuery = existingQuery.eq("razorpay_order_id", razorpay_order_id);
+      }
+
+      const { data: existingList } = await existingQuery.limit(1);
+      if (existingList && existingList.length > 0) {
+        const existingOrder = existingList[0];
+        console.log(`[Idempotent Payment Return] Order already created for Razorpay ID: ${existingOrder.order_number}`);
+        return NextResponse.json({
+          success: true,
+          orderId: existingOrder.id,
+          orderNumber: existingOrder.order_number,
+          alreadyProcessed: true,
+        });
+      }
     }
 
     // Verify product prices against database before creating order

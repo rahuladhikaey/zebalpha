@@ -14,6 +14,9 @@ import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { getCachedHomeCategories, getCachedHomeProducts } from "@/lib/cachedQueries";
 
+const SLIM_PRODUCT_FIELDS =
+  "id, name, slug, brand, price, mrp, image_url, images, is_active, is_approved, approval_status, created_at, category_id, category_name, category, collection, description, is_premium, tier, is_new_drop, status, specifications, stock, target_drop_date";
+
 const fetchHomeData = async (brandFilter?: string) => {
   let categories: Category[] = [];
   let products: Product[] = [];
@@ -29,7 +32,7 @@ const fetchHomeData = async (brandFilter?: string) => {
     if (!rawProducts || rawProducts.length === 0) {
       let fallbackQuery = supabaseServer
         .from("products")
-        .select("*")
+        .select(SLIM_PRODUCT_FIELDS)
         .order("created_at", { ascending: false })
         .limit(12);
 

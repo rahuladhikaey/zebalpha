@@ -5,34 +5,54 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
+let lastCheckedTimestamp = 0;
+let cachedHasNew = false;
+
 export default function NotificationBell() {
-  const [hasNew, setHasNew] = useState(false);
+  const [hasNew, setHasNew] = useState(cachedHasNew);
 
   useEffect(() => {
     async function checkNewProducts() {
-      const { data } = await supabase
-        .from("products")
-        .select("id")
-        .order("id", { ascending: false })
-        .limit(1);
+      const now = Date.now();
+      // Throttle repeated checks to once every 60 seconds across client route transitions
+      if (now - lastCheckedTimestamp < 60000) {
+        setHasNew(cachedHasNew);
+        return;
+      }
+      lastCheckedTimestamp = now;
 
-      if (data && data.length > 0) {
-        const latestId = data[0].id;
-        const lastSeenId = localStorage.getItem("last_seen_product_id");
-        if (!lastSeenId || parseInt(lastSeenId) < latestId) {
-          setHasNew(true);
+      try {
+        const { data } = await supabase
+          .from("products")
+          .select("created_at")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (data && data.length > 0) {
+          const latestCreatedAt = data[0].created_at;
+          const lastSeenAt = localStorage.getItem("last_seen_product_created_at");
+          if (!lastSeenAt || new Date(latestCreatedAt) > new Date(lastSeenAt)) {
+            setHasNew(true);
+            cachedHasNew = true;
+          } else {
+            setHasNew(false);
+            cachedHasNew = false;
+          }
         }
+      } catch (err) {
+        console.warn("Notice checking new products for notification bell:", err);
       }
     }
     checkNewProducts();
     
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('customer-new-products-bell')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'products' },
         () => {
           setHasNew(true);
+          cachedHasNew = true;
         }
       )
       .subscribe();
@@ -42,10 +62,18 @@ export default function NotificationBell() {
     };
   }, []);
 
+  const handleClick = () => {
+    setHasNew(false);
+    cachedHasNew = false;
+    try {
+      localStorage.setItem("last_seen_product_created_at", new Date().toISOString());
+    } catch (_) {}
+  };
+
   return (
     <Link 
       href="/notifications" 
-      onClick={() => setHasNew(false)}
+      onClick={handleClick}
       className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-all shrink-0 active:scale-95" 
       aria-label="Notifications"
     >

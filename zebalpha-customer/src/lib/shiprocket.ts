@@ -5,6 +5,10 @@
 
 const SHIPROCKET_BASE_URL = "https://apiv2.shiprocket.in/v1/external";
 
+if (typeof window !== "undefined") {
+  throw new Error("Shiprocket operations are restricted to server-side execution only.");
+}
+
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
 

@@ -42,15 +42,40 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(adminUrl, 301);
   }
 
-  // 2. Rate limiting check for API endpoints to protect DB & backend from traffic spikes
+  // 2. Resilient Rate limiting check for API endpoints (fail-open if Redis encounters network error)
   if (ratelimit && pathname.startsWith('/api/')) {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
-    const { success } = await ratelimit.limit(`ratelimit_${ip}`);
-    if (!success) {
-      return NextResponse.json(
-        { success: false, message: 'Too many requests. Please slow down.' },
-        { status: 429 }
-      );
+    try {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+      
+      // Route-aware rate limit keys
+      let rateKey = `ratelimit_gen_${ip}`;
+      if (pathname.startsWith('/api/otp')) {
+        rateKey = `ratelimit_otp_${ip}`;
+      } else if (pathname.startsWith('/api/checkout')) {
+        rateKey = `ratelimit_chk_${ip}`;
+      }
+
+      const { success, reset } = await ratelimit.limit(rateKey);
+      if (!success) {
+        const retryAfter = reset ? Math.max(1, Math.ceil((reset - Date.now()) / 1000)) : 60;
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'RATE_LIMIT_EXCEEDED', 
+            message: 'Too many requests. Please slow down.',
+            retryAfter
+          },
+          { 
+            status: 429,
+            headers: {
+              'Retry-After': String(retryAfter)
+            }
+          }
+        );
+      }
+    } catch (rlErr) {
+      // Fail-open: Redis/network hiccup must NEVER break storefront APIs
+      console.warn('[Customer Proxy Notice]: Rate limiter unreachable, degrading gracefully to fail-open:', (rlErr as any)?.message);
     }
   }
 

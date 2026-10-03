@@ -53,6 +53,9 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
  * Cached fetcher for Homepage Featured Drops Grid Section (Section 9)
  * Cache TTL: 20 minutes (1200s)
  */
+const SLIM_PRODUCT_FIELDS =
+  'id, name, slug, brand, price, mrp, image_url, images, is_active, is_approved, approval_status, created_at, category_id, category_name, category, collection, description, is_premium, tier, is_new_drop, status, specifications, stock, target_drop_date';
+
 export async function getCachedHomeProducts(brandFilter?: string, limit: number = 12): Promise<Product[]> {
   const brandKey = brandFilter ? brandFilter.toLowerCase().trim() : 'all';
   const cacheKey = `homepage:section:featured:v3:brand:${brandKey}:limit:${limit}`;
@@ -61,7 +64,7 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
     async () => {
       let query = supabaseServer
         .from('products')
-        .select('*')
+        .select(SLIM_PRODUCT_FIELDS)
         .or('is_active.is.null,is_active.eq.true')
         .or('is_approved.is.null,is_approved.eq.true')
         .neq('approval_status', 'rejected')

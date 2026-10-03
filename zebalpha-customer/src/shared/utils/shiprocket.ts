@@ -4,6 +4,10 @@
 
 const SHIPROCKET_API = "https://apiv2.shiprocket.in/v1/external";
 
+if (typeof window !== "undefined") {
+  throw new Error("Shiprocket operations are restricted to server-side execution only.");
+}
+
 export async function getShiprocketToken() {
   const email = process.env.SHIPROCKET_EMAIL;
   const password = process.env.SHIPROCKET_PASSWORD;

@@ -257,12 +257,48 @@ export default function AdminPage() {
               />
             )}
 
-            {tab === "sellers" && <SellerManagementView />}
-            {tab === "products" && <ProductApprovalView />}
-            {tab === "categories" && <CategoriesShelvesView />}
-            {tab === "inventory" && <InventoryMonitoringView />}
-            {tab === "alerts" && <StockAlertsView />}
-            {tab === "orders" && <OrderManagementView />}
+            {tab === "sellers" && (
+              <SellerManagementView
+                initialSellers={sellers}
+                initialProducts={products}
+                initialOrders={orders}
+                onRefresh={fetchData}
+              />
+            )}
+            {tab === "products" && (
+              <ProductApprovalView
+                initialProducts={products}
+                initialSellers={sellers}
+                onRefresh={fetchData}
+              />
+            )}
+            {tab === "categories" && (
+              <CategoriesShelvesView
+                initialCategories={categories}
+                initialProducts={products}
+                onRefresh={fetchData}
+              />
+            )}
+            {tab === "inventory" && (
+              <InventoryMonitoringView
+                initialProducts={products}
+                onRefresh={fetchData}
+              />
+            )}
+            {tab === "alerts" && (
+              <StockAlertsView
+                initialProducts={products}
+                onRefresh={fetchData}
+              />
+            )}
+            {tab === "orders" && (
+              <OrderManagementView
+                initialOrders={orders}
+                initialSellers={sellers}
+                initialProducts={products}
+                onRefresh={fetchData}
+              />
+            )}
             {tab === "returns-claims" && <ReturnsClaimsView />}
             {tab === "as-card" && <AsCardsLoyaltyView />}
             {tab === "shipping" && <ShippingLogisticsView />}

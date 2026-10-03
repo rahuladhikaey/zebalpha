@@ -21,8 +21,8 @@ services:
       - key: RAZORPAY_KEY_ID
         value: rzp_test_ShRpqbs6hVT6Ie
       - key: RAZORPAY_KEY_SECRET
-        value: 5LUjZ94LMDnjwlLyB9cUU5cb
+        sync: false
       - key: SHIPROCKET_EMAIL
         value: zebalpha7@gmail.com
       - key: SHIPROCKET_PASSWORD
-        value: "BjI^X9AiKvlHj7*QQ^xoZAH%yRj9MjGo"
+        sync: false

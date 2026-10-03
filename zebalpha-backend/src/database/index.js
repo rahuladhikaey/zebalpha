@@ -13,6 +13,11 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10000
 });
 
+// Guard against unexpected errors on idle pool clients to prevent Node process termination
+pool.on('error', (err) => {
+  console.error('[PostgreSQL Pool Unexpected Error]:', err.message);
+});
+
 // Helper function to execute parameterized SQL queries directly on PostgreSQL
 export const query = (text, params) => pool.query(text, params);
 

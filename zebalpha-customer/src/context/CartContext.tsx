@@ -163,49 +163,60 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           });
       }
 
-      // If guest items exist, merge deterministically into database
+      // If guest items exist, merge deterministically into database in a single batch
       if (guestItems.length > 0) {
         const mergedMap = new Map<string, CartItem>();
 
         // Populate with DB items first
         currentDbItems.forEach((it) => mergedMap.set(String(it.id), it));
 
+        const batchUpsertMap = new Map<string, any>();
+        const nowIso = new Date().toISOString();
+
         // Merge guest items
         for (const gItem of guestItems) {
           const key = String(gItem.id);
           const maxStock = gItem.stock ?? 100;
+          const pkgName = gItem.name.includes(" - ") ? gItem.name.split(" - ")[1] : "Standard";
+          const conflictKey = `${user.id}_${gItem.id}_${pkgName}`;
+
+          let finalQty = gItem.quantity;
           if (mergedMap.has(key)) {
             const existing = mergedMap.get(key)!;
-            const newQty = Math.min(existing.quantity + gItem.quantity, maxStock);
-            mergedMap.set(key, { ...existing, quantity: newQty });
-
-            // Update in Supabase
-            await supabase
-              .from("cart_items")
-              .update({ quantity: newQty, updated_at: new Date().toISOString() })
-              .eq("user_id", user.id)
-              .eq("product_id", gItem.id);
+            finalQty = Math.min(existing.quantity + gItem.quantity, maxStock);
+            mergedMap.set(key, { ...existing, quantity: finalQty });
           } else {
-            mergedMap.set(key, gItem);
-            // Insert in Supabase
-            await supabase
-              .from("cart_items")
-              .upsert({
-                user_id: user.id,
-                product_id: gItem.id,
-                package_name: gItem.name.includes(" - ") ? gItem.name.split(" - ")[1] : "Standard",
-                quantity: Math.min(gItem.quantity, maxStock),
-                updated_at: new Date().toISOString(),
-              }, { onConflict: "user_id,product_id,package_name" });
+            finalQty = Math.min(gItem.quantity, maxStock);
+            mergedMap.set(key, { ...gItem, quantity: finalQty });
+          }
+
+          batchUpsertMap.set(conflictKey, {
+            user_id: user.id,
+            product_id: gItem.id,
+            package_name: pkgName,
+            quantity: finalQty,
+            updated_at: nowIso,
+          });
+        }
+
+        const itemsToUpsert = Array.from(batchUpsertMap.values());
+        if (itemsToUpsert.length > 0) {
+          const { error: batchErr } = await supabase
+            .from("cart_items")
+            .upsert(itemsToUpsert, { onConflict: "user_id,product_id,package_name" });
+
+          if (batchErr) {
+            console.warn("[Cart Batch Sync Error]:", batchErr);
+          } else {
+            // Clean up guest local storage ONLY after successful database synchronization
+            if (typeof window !== "undefined") {
+              localStorage.removeItem(STORAGE_KEY);
+              localStorage.removeItem(LEGACY_STORAGE_KEY);
+            }
           }
         }
 
         currentDbItems = Array.from(mergedMap.values());
-        // Clean up guest local storage after successful merge
-        if (typeof window !== "undefined") {
-          localStorage.removeItem(STORAGE_KEY);
-          localStorage.removeItem(LEGACY_STORAGE_KEY);
-        }
       }
 
       setCart(currentDbItems);

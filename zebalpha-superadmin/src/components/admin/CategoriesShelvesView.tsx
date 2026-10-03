@@ -44,10 +44,32 @@ const DEFAULT_APPAREL_CATEGORIES = [
   { name: "Season 1 Limited Exclusives", main_category: "New Drops & Exclusives", icon: "🔥" }
 ];
 
-export default function CategoriesShelvesView() {
-  const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+interface CategoriesShelvesViewProps {
+  initialCategories?: any[];
+  initialProducts?: any[];
+  onRefresh?: () => void;
+}
+
+export default function CategoriesShelvesView({
+  initialCategories,
+  initialProducts,
+  onRefresh,
+}: CategoriesShelvesViewProps = {}) {
+  const [loading, setLoading] = useState(!initialCategories);
+  const [categories, setCategories] = useState<any[]>(() => {
+    if (initialCategories && initialCategories.length > 0) return initialCategories;
+    return [];
+  });
+  const [products, setProducts] = useState<any[]>(initialProducts || []);
+
+  // Sync state if parent props change
+  useEffect(() => {
+    if (initialCategories) setCategories(initialCategories);
+  }, [initialCategories]);
+
+  useEffect(() => {
+    if (initialProducts) setProducts(initialProducts);
+  }, [initialProducts]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMainCategoryFilter, setSelectedMainCategoryFilter] = useState("ALL");
   
@@ -104,8 +126,10 @@ export default function CategoriesShelvesView() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!initialCategories) {
+      loadData();
+    }
+  }, [initialCategories]);
 
   // 1:1 Square Apparel Thumbnail Compression (Target: ~40 KB)
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,6 +236,7 @@ export default function CategoriesShelvesView() {
       setImagePreview("");
       setImageSizeNotice("");
       setEditingCategoryId(null);
+      onRefresh?.();
     }
   };
 
@@ -247,6 +272,7 @@ export default function CategoriesShelvesView() {
         localStorage.setItem("zebalpha_categories_cache", JSON.stringify(updated));
       }
       setStatusMessage(`🗑️ Apparel category deleted.`);
+      onRefresh?.();
     } catch (e: any) {
       console.error("Error deleting category:", e);
       const updated = categories.filter((c) => c.id !== categoryId);
@@ -255,6 +281,7 @@ export default function CategoriesShelvesView() {
         localStorage.setItem("zebalpha_categories_cache", JSON.stringify(updated));
       }
       setStatusMessage(`🗑️ Category removed.`);
+      onRefresh?.();
     } finally {
       setActioningId(null);
     }
@@ -272,6 +299,7 @@ export default function CategoriesShelvesView() {
       
       setStatusMessage("✅ 10 ZEBALPHA Clothing & Streetwear collections seeded to database!");
       loadData();
+      onRefresh?.();
     } catch (err: any) {
       console.warn("Notice seeding categories:", err);
       setCategories(DEFAULT_APPAREL_CATEGORIES.map((c, i) => ({ id: i + 1, ...c, slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") })));

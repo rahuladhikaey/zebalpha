@@ -7,6 +7,7 @@ import { ProductCardImageSlider } from "./ProductCardImageSlider";
 import { AddToCartButton } from "./AddToCartButton";
 import { WishlistButton } from "./WishlistButton";
 import { supabase } from "@/lib/supabaseClient";
+import { SLIM_PRODUCT_CARD_FIELDS } from "@/hooks/useCatalogQueries";
 
 interface InfiniteProductFeedProps {
   initialProducts: Product[];
@@ -40,7 +41,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     try {
       let query = supabase
         .from("products")
-        .select("*")
+        .select(SLIM_PRODUCT_CARD_FIELDS)
         .or("is_active.is.null,is_active.eq.true")
         .or("is_approved.is.null,is_approved.eq.true")
         .neq("approval_status", "rejected")

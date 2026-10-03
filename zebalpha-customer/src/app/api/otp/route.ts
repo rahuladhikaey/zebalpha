@@ -102,12 +102,10 @@ export async function POST(request: NextRequest) {
       // 2. Send OTP via EmailJS
       const emailSent = await sendEmailJsOtp(normalizedEmail, otp);
 
-      console.log(`[CUSTOMER OTP LOG] Generated code for ${normalizedEmail}: ${otp} (Email Sent: ${emailSent})`);
+      console.log(`[CUSTOMER OTP LOG] Generated verification code for ${normalizedEmail} (Email Sent: ${emailSent})`);
 
       return NextResponse.json({
         success: true,
-        otp,
-        emailSent,
         expiresAt,
         message: "Verification OTP code sent to your email! Please check your inbox.",
       });
@@ -220,16 +218,12 @@ export async function POST(request: NextRequest) {
       // 2. Send OTP via EmailJS
       const emailSent = await sendEmailJsOtp(normalizedEmail, otp);
 
-      console.log(`[Customer OTP Resend] Code: ${otp}, Email Sent: ${emailSent}`);
+      console.log(`[CUSTOMER OTP RESEND] Dispatched verification code for ${normalizedEmail} (Email Sent: ${emailSent})`);
 
       return NextResponse.json({
         success: true,
-        otp,
-        emailSent,
         expiresAt,
-        message: emailSent
-          ? "New verification OTP sent to your email!"
-          : "Verification OTP generated. Please check your email.",
+        message: "New verification OTP sent to your email! Please check your inbox.",
       });
     }
 

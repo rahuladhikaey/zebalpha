@@ -59,6 +59,34 @@ export async function POST(req: Request) {
       }
     }
 
+    // Idempotency guard: Throttle duplicate rapid COD submissions (within 30 seconds)
+    if (user_id || phone) {
+      const thirtySecondsAgo = new Date(Date.now() - 30 * 1000).toISOString();
+      let dupQuery = supabaseServer
+        .from("orders")
+        .select("id, order_number, created_at")
+        .eq("payment_method", "COD")
+        .gte("created_at", thirtySecondsAgo);
+
+      if (user_id) {
+        dupQuery = dupQuery.eq("user_id", user_id);
+      } else if (phone) {
+        dupQuery = dupQuery.eq("phone", phone);
+      }
+
+      const { data: recentOrders } = await dupQuery.order("created_at", { ascending: false }).limit(1);
+      if (recentOrders && recentOrders.length > 0) {
+        const recentOrder = recentOrders[0];
+        console.warn(`[Duplicate COD Protection] Throttling rapid double submission. Returning existing order: ${recentOrder.order_number}`);
+        return NextResponse.json({
+          success: true,
+          orderId: recentOrder.id,
+          orderNumber: recentOrder.order_number,
+          isDuplicateSubmission: true,
+        });
+      }
+    }
+
     // Delegate to master order creation which handles splitting, reservation and notifications
     const parentOrder = await createMasterOrder({ user_id, customer_name, phone, address, items, total, payment_method: 'COD' });
 

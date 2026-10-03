@@ -71,9 +71,6 @@ function CheckoutContent() {
   const [cardError, setCardError] = useState("");
   const [appliedCardType, setAppliedCardType] = useState<string | null>(null);
 
-  // VIP Offer states
-  const [storeProducts, setStoreProducts] = useState<any[]>([]);
-
   // Billing Settings State
   const [billingSettings, setBillingSettings] = useState({
     deliveryFee: 29,
@@ -90,18 +87,8 @@ function CheckoutContent() {
   const productId = searchParams.get("productId");
   const quantity = parseInt(searchParams.get("quantity") || "1");
 
-  // 1. Fetch products & Store Settings
+  // 1. Fetch Store Settings
   useEffect(() => {
-    const fetchAllProducts = async () => {
-      try {
-        const { data } = await supabase.from("products").select("*");
-        if (data) setStoreProducts(data);
-      } catch (err) {
-        console.error("Error fetching products", err);
-      }
-    };
-    fetchAllProducts();
-
     const fetchSettings = async () => {
       try {
         const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').single();

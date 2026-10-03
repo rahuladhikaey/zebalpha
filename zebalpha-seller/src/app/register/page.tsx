@@ -7,10 +7,6 @@ import Link from "next/link";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { CheckCircle2, Store, User, Mail, Phone, Lock, ArrowRight, ShieldCheck, Eye, EyeOff, CreditCard } from "lucide-react";
 
-const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
-const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
-const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
-
 export default function SellerRegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<"info" | "otp" | "submitted">("info");
@@ -55,32 +51,6 @@ export default function SellerRegisterPage() {
       }, 150);
     }
   }, [step]);
-
-  // Direct client-side EmailJS dispatch fallback
-  const sendEmailJsDirect = async (targetEmail: string, passcode: string) => {
-    try {
-      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          service_id: EMAILJS_SERVICE_ID,
-          template_id: EMAILJS_TEMPLATE_ID,
-          user_id: EMAILJS_PUBLIC_KEY,
-          template_params: {
-            email: targetEmail,
-            to_email: targetEmail,
-            passcode: passcode,
-            otp: passcode,
-            code: passcode,
-            to_name: "Merchant",
-            time: "15 minutes",
-          },
-        }),
-      });
-    } catch (err) {
-      console.warn("Seller direct EmailJS dispatch note:", err);
-    }
-  };
 
   // Password Strength Calculation
   const passwordStrength = useMemo(() => {

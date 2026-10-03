@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
 const TEST_JWT_SECRET = 'x9#kL2!pQ8$vN5@mZ1*cJ4^yH7&tR0%bW3';
-const TEST_RAZORPAY_SECRET = '5LUjZ94LMDnjwlLyB9cUU5cb';
+const TEST_RAZORPAY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
 
 test('Security Audit - JWT Signature Validation & Algorithm Restriction', async (t) => {
   await t.test('Valid JWT token signed with HS256 algorithm passes verification', () => {

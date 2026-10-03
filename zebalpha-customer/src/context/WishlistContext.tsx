@@ -87,32 +87,50 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
           .map((row: any) => row.products as Product);
       }
 
-      // Merge guest items if any
+      // Merge guest items if any in a single batch
       if (guestItems.length > 0) {
         const mergedMap = new Map<string, Product>();
         currentDbItems.forEach((p) => mergedMap.set(String(p.id), p));
+
+        const batchUpsertMap = new Map<string, any>();
+        const nowIso = new Date().toISOString();
 
         for (const gProduct of guestItems) {
           const key = String(gProduct.id);
           if (!mergedMap.has(key)) {
             mergedMap.set(key, gProduct);
-            // Insert into Supabase
-            await supabase.from("wishlists").upsert(
-              {
-                user_id: user.id,
-                product_id: gProduct.id,
-                created_at: new Date().toISOString(),
-              },
-              { onConflict: "user_id,product_id" }
-            );
+            batchUpsertMap.set(`${user.id}_${gProduct.id}`, {
+              user_id: user.id,
+              product_id: gProduct.id,
+              created_at: nowIso,
+            });
+          }
+        }
+
+        const itemsToUpsert = Array.from(batchUpsertMap.values());
+        if (itemsToUpsert.length > 0) {
+          const { error: batchErr } = await supabase
+            .from("wishlists")
+            .upsert(itemsToUpsert, { onConflict: "user_id,product_id" });
+
+          if (batchErr) {
+            console.warn("[Wishlist Batch Sync Error]:", batchErr);
+          } else {
+            // Clean up guest local storage ONLY after successful database synchronization
+            if (typeof window !== "undefined") {
+              localStorage.removeItem(STORAGE_KEY);
+              localStorage.removeItem(LEGACY_STORAGE_KEY);
+            }
+          }
+        } else {
+          // All guest items were already in user's DB wishlist
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(LEGACY_STORAGE_KEY);
           }
         }
 
         currentDbItems = Array.from(mergedMap.values());
-        if (typeof window !== "undefined") {
-          localStorage.removeItem(STORAGE_KEY);
-          localStorage.removeItem(LEGACY_STORAGE_KEY);
-        }
       }
 
       setWishlist(currentDbItems);

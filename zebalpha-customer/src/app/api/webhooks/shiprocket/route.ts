@@ -64,6 +64,32 @@ export async function POST(req: Request) {
       );
     }
 
+    // Define logistics status hierarchy to prevent out-of-order webhook regressions
+    const STATUS_HIERARCHY: Record<string, number> = {
+      placed: 1,
+      processing: 2,
+      ready_to_ship: 3,
+      shipped: 4,
+      out_for_delivery: 5,
+      delivered: 6,
+      rto: 6,
+      cancelled: 6,
+    };
+
+    const currentRank = STATUS_HIERARCHY[String(order.order_status).toLowerCase()] || 0;
+    const newRank = STATUS_HIERARCHY[String(mappedOrderStatus).toLowerCase()] || 0;
+
+    // Reject regressions from terminal or higher state (e.g. delivered -> shipped)
+    if (currentRank >= 6 && newRank < 6) {
+      console.warn(`[Shiprocket Webhook] Ignoring backwards transition from '${order.order_status}' to '${mappedOrderStatus}' for order ${order.order_number}`);
+      return NextResponse.json({
+        success: true,
+        message: `Order is already in terminal/advanced status '${order.order_status}'. Status update skipped.`,
+        order_id: order.id,
+        current_status: order.order_status,
+      });
+    }
+
     const updates: any = {
       order_status: mappedOrderStatus,
       updated_at: new Date().toISOString(),

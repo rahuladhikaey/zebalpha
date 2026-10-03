@@ -107,17 +107,38 @@ export default function SellerOrders() {
         console.warn("seller_orders query notice:", soErr);
       }
 
-      // 3. Fetch all orders
-      const { data: ordersData, error: ordersErr } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (ordersErr) {
-        console.error("Error fetching orders:", ordersErr);
+      // 3. Fetch only orders belonging to this seller (direct seller_id or linked seller_orders)
+      const sellerIdFilters = sellerIdsToMatch.map(id => `seller_id.eq.${id}`).join(",");
+      let directOrders: any[] = [];
+      if (sellerIdFilters) {
+        const { data: dOrders, error: dErr } = await supabase
+          .from("orders")
+          .select("*")
+          .or(sellerIdFilters)
+          .order("created_at", { ascending: false })
+          .limit(200);
+        if (dErr) console.warn("Direct seller orders query error:", dErr);
+        if (dOrders) directOrders = dOrders;
       }
 
-      const allOrders = (ordersData || []) as Order[];
+      let linkedOrders: any[] = [];
+      const parentIdsArray = Array.from(linkedParentOrderIds).filter(Boolean);
+      if (parentIdsArray.length > 0) {
+        const { data: lOrders, error: lErr } = await supabase
+          .from("orders")
+          .select("*")
+          .in("id", parentIdsArray.slice(0, 100))
+          .order("created_at", { ascending: false });
+        if (lErr) console.warn("Linked orders query error:", lErr);
+        if (lOrders) linkedOrders = lOrders;
+      }
+
+      // Merge and deduplicate by order id
+      const orderMap = new Map<string, any>();
+      [...directOrders, ...linkedOrders].forEach(o => {
+        if (o && o.id) orderMap.set(String(o.id), o);
+      });
+      const allOrders = Array.from(orderMap.values()) as Order[];
 
       // 4. Filter orders containing seller's items or direct store merchant orders
       const filteredOrders: any[] = [];
@@ -157,7 +178,7 @@ export default function SellerOrders() {
             sellerItems = rawItems;
           }
 
-          if (isDirectSellerOrder || sellerItems.length > 0 || sellerProductIdSet.size === 0) {
+          if (isDirectSellerOrder || sellerItems.length > 0) {
             const finalItems = sellerItems.length > 0 ? sellerItems : rawItems;
             const sellerTotal = finalItems.reduce((sum: number, item: any) => 
               sum + (item.subtotal || ((Number(item.price) || 0) * (Number(item.quantity) || 1))), 0);
@@ -173,16 +194,6 @@ export default function SellerOrders() {
           console.error("Error parsing order items", order.id, e);
         }
       });
-
-      if (filteredOrders.length === 0 && allOrders.length > 0) {
-        allOrders.forEach(ord => {
-          filteredOrders.push({
-            ...ord,
-            seller_items: ord.items || ord.product_details || [],
-            seller_total: Number(ord.total_amount) || 0
-          });
-        });
-      }
 
       const deduplicatedSellerOrders = filteredOrders.filter((ord: any) => {
         const num = String(ord.order_number || ord.id || "").trim();

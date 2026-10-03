@@ -1,9 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 const VERIFIED_URL = "https://qjpahzstldiatfbutvfc.supabase.co";
-const VERIFIED_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODU1MzQwNiwiZXhwIjoyMTA0MTI5NDA2fQ.cxVZ_pEUu3pKXAyO5RRjLhp4Zusjd8RctWpZkL3rVWs";
-
-const supabase = createClient(VERIFIED_URL, VERIFIED_SERVICE_KEY);
+const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || "").trim();
+const supabase = createClient(VERIFIED_URL, serviceKey);
 
 async function wipeProductsAndOrders() {
   console.log("🚀 Starting clean purge of all products, shipments, and orders...");

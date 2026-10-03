@@ -6,10 +6,6 @@ import Link from "next/link";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, RefreshCw } from "lucide-react";
 
-const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
-const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
-const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
-
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -34,32 +30,6 @@ export default function ForgotPasswordPage() {
       if (timer) clearInterval(timer);
     };
   }, [resendCooldown]);
-
-  // Client-side EmailJS fallback dispatch
-  const sendEmailJsDirect = async (targetEmail: string, passcode: string) => {
-    try {
-      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          service_id: EMAILJS_SERVICE_ID,
-          template_id: EMAILJS_TEMPLATE_ID,
-          user_id: EMAILJS_PUBLIC_KEY,
-          template_params: {
-            email: targetEmail,
-            to_email: targetEmail,
-            passcode: passcode,
-            otp: passcode,
-            code: passcode,
-            to_name: "Merchant",
-            time: "15 minutes",
-          },
-        }),
-      });
-    } catch (err) {
-      console.warn("Forgot-password direct EmailJS dispatch note:", err);
-    }
-  };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,9 +76,6 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        if (data.otp && !data.emailSent) {
-          sendEmailJsDirect(normalizedEmail, data.otp);
-        }
         setResendCooldown(60);
         setOtpCode("");
         setSuccessMsg(`✓ New verification OTP sent to ${normalizedEmail}! Please check your email.`);

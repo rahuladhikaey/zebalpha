@@ -9,10 +9,6 @@ import { Eye, EyeOff } from "lucide-react";
 
 const SIGNUP_EMAIL_KEY = "signupEmail";
 
-const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
-const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
-const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
-
 export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState(() => {
@@ -115,31 +111,6 @@ export default function SignupPage() {
     }
   };
 
-  // Client-side direct EmailJS fallback send
-  const sendEmailJsDirect = async (targetEmail: string, passcode: string) => {
-    try {
-      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          service_id: EMAILJS_SERVICE_ID,
-          template_id: EMAILJS_TEMPLATE_ID,
-          user_id: EMAILJS_PUBLIC_KEY,
-          template_params: {
-            email: targetEmail,
-            to_email: targetEmail,
-            passcode: passcode,
-            time: "15 minutes",
-          },
-        }),
-      });
-    } catch (err) {
-      console.warn("Direct EmailJS dispatch note:", err);
-    }
-  };
-
   // Step 1: Submit details -> Generate & send OTP
   const handleInitiateSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,11 +155,6 @@ export default function SignupPage() {
         showStatus(data.error || "Failed to send verification code. Please try again.", "error");
         setLoading(false);
         return;
-      }
-
-      // Also trigger browser-side EmailJS dispatch for absolute guarantee if server email wasn't sent
-      if (data.otp && !data.emailSent) {
-        sendEmailJsDirect(normalizedEmail, data.otp);
       }
 
       setStep("otp");
@@ -314,9 +280,6 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        if (data.otp && !data.emailSent) {
-          sendEmailJsDirect(normalizedEmail, data.otp);
-        }
         setResendCooldown(60);
         setOtp("");
         showStatus(`New code sent to ${normalizedEmail}! (Check spam folder if needed)`, "success");

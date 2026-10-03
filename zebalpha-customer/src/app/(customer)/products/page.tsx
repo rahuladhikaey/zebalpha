@@ -14,6 +14,8 @@ import { WishlistButton } from "@/components/WishlistButton";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 import { Search, ShoppingBag, Sparkles } from "lucide-react";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
+import { useCategories, usePaginatedProducts, useDebounce, DEFAULT_CLOTHING_CATEGORIES } from "@/hooks/useCatalogQueries";
+import { useQueryClient } from "@tanstack/react-query";
 
 const getCategoryEmojiOrIcon = (name: string) => {
   const lower = (name || "").toLowerCase();
@@ -28,23 +30,13 @@ const getCategoryEmojiOrIcon = (name: string) => {
   return "🛍️";
 };
 
-const DEFAULT_CLOTHING_CATEGORIES: Category[] = [
-  { id: "1", name: "Premium Polos", icon: "👕", main_category: "POLOS", description: "100% Supima Pique" },
-  { id: "2", name: "Oversized Tees", icon: "🛹", main_category: "T-SHIRTS", description: "240 GSM Heavyweight" },
-  { id: "3", name: "Heavyweight Hoodies", icon: "🧥", main_category: "HOODIES", description: "380 GSM Plush Fleece" },
-  { id: "4", name: "Casual Shirts", icon: "👔", main_category: "SHIRTS", description: "Woven Textured Cottons" },
-  { id: "5", name: "Cargo & Trousers", icon: "👖", main_category: "BOTTOMS", description: "Tactical Utility Fits" },
-  { id: "6", name: "Limited Drops", icon: "⚡", main_category: "LIMITED", description: "Exclusive Release Drops" },
-  { id: "7", name: "Zebalpha Classics", icon: "👑", main_category: "ALL", description: "Monogram Signature Pieces" },
-  { id: "8", name: "Accessories & Caps", icon: "🧢", main_category: "ALL", description: "Caps, Chains & Extras" },
-];
-
 function ProductsContent() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CLOTHING_CATEGORIES);
+  const queryClient = useQueryClient();
+  const { data: categories = DEFAULT_CLOTHING_CATEGORIES } = useCategories();
   const [selectedCategory, setSelectedCategory] = useState<number | string | null>(null);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const debouncedSearch = useDebounce(search, 300);
+  const [page, setPage] = useState(1);
 
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
@@ -66,46 +58,44 @@ function ProductsContent() {
     }
   }, [searchParam]);
 
-  const load = async () => {
-    setLoading(true);
-
-    try {
-      const [{ data: productsData }, { data: categoriesData }] = await Promise.all([
-        supabase.from("products").select("*").order("created_at", { ascending: false }),
-        supabase.from("categories").select("*").order("name", { ascending: true }),
-      ]);
-
-
-      const activeProducts = (productsData ?? []).filter((p: any) => 
-        p.is_active !== false && p.is_approved !== false && p.approval_status !== 'rejected'
-      );
-
-      setProducts(activeProducts as Product[]);
-
-      if (categoriesData && categoriesData.length > 0) {
-        setCategories(categoriesData as Category[]);
-      } else {
-        setCategories(DEFAULT_CLOTHING_CATEGORIES);
-      }
-    } catch (err) {
-      console.warn("Notice loading products catalog:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Reset page when category or search query changes
   useEffect(() => {
-    load();
+    setPage(1);
+  }, [selectedCategory, debouncedSearch]);
 
+  // Server-side paginated query with L1 browser caching
+  const {
+    data: paginatedData,
+    isLoading: loading,
+    isFetching,
+  } = usePaginatedProducts({
+    category: selectedCategory,
+    search: debouncedSearch,
+    page,
+    pageSize: 24,
+  });
+
+  const products = paginatedData?.products || [];
+  const totalCount = paginatedData?.totalCount || 0;
+  const totalPages = paginatedData?.totalPages || 1;
+
+  // Realtime subscription: Invalidate query cache instead of full-table reload
+  useEffect(() => {
     const channel = supabase
       .channel("customer-products-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => load())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["products"] });
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [queryClient]);
 
   const filtered = useMemo(() => {
     return products.filter((product) => {
@@ -119,45 +109,9 @@ function ProductsContent() {
         return false;
       }
 
-      let matchesCategory = true;
-
-      if (selectedCategory !== null && selectedCategory !== undefined && selectedCategory !== "") {
-        const catStr = String(selectedCategory).toLowerCase().trim();
-        const prodCatIdStr = String(product.category_id || "").toLowerCase();
-        const prodCatNameStr = String(product.category_name || "").toLowerCase();
-        const prodCatStr = String(product.category || "").toLowerCase();
-        const prodCollectionStr = String(product.collection || "").toLowerCase();
-        const prodNameStr = String(product.name || "").toLowerCase();
-
-        if (catStr.includes("polo")) {
-          matchesCategory = prodCatNameStr.includes("polo") || prodCatStr.includes("polo") || prodNameStr.includes("polo") || prodCollectionStr.includes("polo");
-        } else if (catStr.includes("tee") || catStr.includes("t-shirt") || catStr.includes("oversized")) {
-          matchesCategory = prodCatNameStr.includes("tee") || prodCatNameStr.includes("t-shirt") || prodCatStr.includes("tee") || prodNameStr.includes("tee") || prodNameStr.includes("shirt");
-        } else if (catStr.includes("hoodie") || catStr.includes("fleece")) {
-          matchesCategory = prodCatNameStr.includes("hoodie") || prodCatStr.includes("hoodie") || prodNameStr.includes("hoodie");
-        } else if (catStr.includes("shirt")) {
-          matchesCategory = prodCatNameStr.includes("shirt") || prodCatStr.includes("shirt") || prodNameStr.includes("shirt");
-        } else if (catStr.includes("bottom") || catStr.includes("cargo") || catStr.includes("pant") || catStr.includes("trouser")) {
-          matchesCategory = prodCatNameStr.includes("cargo") || prodCatStr.includes("cargo") || prodNameStr.includes("pant") || prodNameStr.includes("trouser") || prodNameStr.includes("cargo");
-        } else if (catStr.includes("drop") || catStr.includes("limited")) {
-          matchesCategory = isNewDrop || prodCatNameStr.includes("drop") || prodNameStr.includes("drop") || prodNameStr.includes("limited");
-        } else {
-          const foundCat = categories.find(c => String(c.id).toLowerCase() === catStr || c.name.toLowerCase().includes(catStr) || catStr.includes(c.name.toLowerCase()));
-          const targetValues = foundCat 
-            ? [String(foundCat.id).toLowerCase(), foundCat.name.toLowerCase()] 
-            : [catStr];
-
-          matchesCategory = targetValues.some(v => prodCatIdStr.includes(v) || prodCatNameStr.includes(v) || prodCatStr.includes(v)) ||
-            prodCatNameStr.includes(catStr) ||
-            prodCatStr.includes(catStr) ||
-            prodNameStr.includes(catStr);
-        }
-      }
-
-      const matchesSearch = !search || product.name.toLowerCase().includes(search.toLowerCase()) || (product.description || "").toLowerCase().includes(search.toLowerCase());
-      return matchesCategory && matchesSearch;
+      return true;
     });
-  }, [products, categories, selectedCategory, search]);
+  }, [products, selectedCategory]);
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -268,74 +222,131 @@ function ProductsContent() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1440px]:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-6">
-                {filtered.map((product) => {
-                  const discountPercent = product.mrp && product.mrp > product.price
-                    ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
-                    : 0;
-                  return (
-                    <article key={product.id} className="group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800">
-                      {/* Auto-sliding Image Holder */}
-                      <div className="relative">
-                        <ProductCardImageSlider
-                          images={product.images && product.images.length > 0 ? product.images : [product.image_url]}
-                          alt={product.name}
-                          href={`/products/${product.id}`}
-                          discountPercent={discountPercent}
-                          isPremium={product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true"}
-                        />
-                        <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3">
-                          <WishlistButton product={product} />
+              <>
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1440px]:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-6">
+                  {filtered.map((product) => {
+                    const discountPercent = product.mrp && product.mrp > product.price
+                      ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
+                      : 0;
+                    return (
+                      <article key={product.id} className="group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800">
+                        {/* Auto-sliding Image Holder */}
+                        <div className="relative">
+                          <ProductCardImageSlider
+                            images={product.images && product.images.length > 0 ? product.images : [product.image_url]}
+                            alt={product.name}
+                            href={`/products/${product.id}`}
+                            discountPercent={discountPercent}
+                            isPremium={product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true"}
+                          />
+                          <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3">
+                            <WishlistButton product={product} />
+                          </div>
                         </div>
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex flex-1 flex-col p-2.5 sm:p-4 sm:pt-5">
-                        <Link href={`/products/${product.id}`} className="mb-auto">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                            {product.brand || "ZEBALPHA"}
-                          </p>
-                          <h3 className="line-clamp-2 text-xs sm:text-sm font-bold leading-tight text-white group-hover:text-zinc-300 transition-colors mt-0.5">
-                            {product.name}
-                          </h3>
-                        </Link>
+                        
+                        {/* Content */}
+                        <div className="flex flex-1 flex-col p-2.5 sm:p-4 sm:pt-5">
+                          <Link href={`/products/${product.id}`} className="mb-auto">
+                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400">
+                              {product.brand || "ZEBALPHA"}
+                            </p>
+                            <h3 className="line-clamp-2 text-xs sm:text-sm font-bold leading-tight text-white group-hover:text-zinc-300 transition-colors mt-0.5">
+                              {product.name}
+                            </h3>
+                          </Link>
 
-                        <div className="mt-3.5 space-y-2.5">
-                          <div className="flex flex-col">
-                            <div className="flex items-baseline gap-1.5 flex-wrap">
-                              <span className="text-sm sm:text-base font-black text-white">₹{product.price}</span>
-                              {product.mrp && product.mrp > product.price && (
-                                <span className="text-[10px] font-bold text-zinc-400 line-through">
-                                  ₹{product.mrp}
+                          <div className="mt-3.5 space-y-2.5">
+                            <div className="flex flex-col">
+                              <div className="flex items-baseline gap-1.5 flex-wrap">
+                                <span className="text-sm sm:text-base font-black text-white">₹{product.price}</span>
+                                {product.mrp && product.mrp > product.price && (
+                                  <span className="text-[10px] font-bold text-zinc-400 line-through">
+                                    ₹{product.mrp}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {discountPercent > 0 && (
+                                <span className="text-[9px] font-black uppercase text-zinc-300 bg-white/10 border border-white/10 px-2 py-0.5 rounded-full inline-block w-fit mt-1">
+                                  Save ₹{product.mrp! - product.price}
                                 </span>
                               )}
                             </div>
-                            
-                            {discountPercent > 0 && (
-                              <span className="text-[9px] font-black uppercase text-zinc-300 bg-white/10 border border-white/10 px-2 py-0.5 rounded-full inline-block w-fit mt-1">
-                                Save ₹{product.mrp! - product.price}
-                              </span>
-                            )}
-                          </div>
 
-                          <div className="pt-1 flex items-center justify-between gap-2">
-                            {isProductNewDrop(product) && !isDropLive(product) ? (
-                              <Link
-                                href={`/products/${product.id}`}
-                                className="w-full flex h-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider hover:bg-amber-500/20 transition-all"
-                              >
-                                ⚡ Dropping Soon
-                              </Link>
-                            ) : (
-                              <AddToCartButton product={product} />
-                            )}
+                            <div className="pt-1 flex items-center justify-between gap-2">
+                              {isProductNewDrop(product) && !isDropLive(product) ? (
+                                <Link
+                                  href={`/products/${product.id}`}
+                                  className="w-full flex h-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider hover:bg-amber-500/20 transition-all"
+                                >
+                                  ⚡ Dropping Soon
+                                </Link>
+                              ) : (
+                                <AddToCartButton product={product} />
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                {/* Server-Side Pagination Bar */}
+                {totalPages > 1 && (
+                  <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-800/80 pt-6 px-2">
+                    <div className="text-xs font-bold text-zinc-400">
+                      Showing{" "}
+                      <span className="text-white font-black">
+                        {(page - 1) * 24 + 1} - {Math.min(page * 24, totalCount)}
+                      </span>{" "}
+                      of <span className="text-white font-black">{totalCount}</span> products
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (page > 1) {
+                            setPage(page - 1);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }
+                        }}
+                        disabled={page <= 1}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+                          page <= 1
+                            ? "bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed opacity-40"
+                            : "bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800 hover:border-white shadow-md active:scale-95 cursor-pointer"
+                        }`}
+                      >
+                        ← Prev
+                      </button>
+
+                      <span className="px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-black text-white">
+                        Page {page} of {totalPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (page < totalPages) {
+                            setPage(page + 1);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }
+                        }}
+                        disabled={page >= totalPages}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+                          page >= totalPages
+                            ? "bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed opacity-40"
+                            : "bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800 hover:border-white shadow-md active:scale-95 cursor-pointer"
+                        }`}
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

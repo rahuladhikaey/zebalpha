@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
@@ -17,7 +18,7 @@ type PageProps = {
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const getProduct = async (productId: string) => {
+const getProduct = cache(async (productId: string) => {
   const { data, error } = await supabase
     .from("products")
     .select("*")
@@ -50,7 +51,7 @@ const getProduct = async (productId: string) => {
   }
 
   return data as Product;
-};
+});
 
 const getRelatedProducts = async (category_id: any, currentProductId: string | number) => {
   const { data, error } = await supabase

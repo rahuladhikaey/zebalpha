@@ -92,19 +92,23 @@ export default function DashboardOverview({
     y: number;
   } | null>(null);
 
-  // Auto Refresh States
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  // Auto Refresh States (Default false to prevent unconditional polling)
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(30); // in seconds
   const [secondsToRefresh, setSecondsToRefresh] = useState(30);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto Refresh Countdown timer
+  // Auto Refresh Countdown timer with visibility check
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
 
     if (autoRefreshEnabled && !loading) {
       setSecondsToRefresh(refreshInterval);
       timerRef.current = setInterval(() => {
+        // Pause timer if tab is hidden in background
+        if (typeof document !== "undefined" && document.hidden) {
+          return;
+        }
         setSecondsToRefresh((prev) => {
           if (prev <= 1) {
             onRefresh();

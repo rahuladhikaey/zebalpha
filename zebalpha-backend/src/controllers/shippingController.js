@@ -80,6 +80,21 @@ export const pushOrderHandler = async (req, res, next) => {
         });
       }
 
+      // Idempotency: Prevent duplicate Shiprocket shipment creation if already dispatched
+      if (dbOrder.shiprocket_order_id || dbOrder.shiprocket_shipment_id || dbOrder.tracking_number) {
+        return res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: 'Order has already been dispatched to Shiprocket.',
+          alreadyPushed: true,
+          data: {
+            shiprocket_order_id: dbOrder.shiprocket_order_id,
+            shiprocket_shipment_id: dbOrder.shiprocket_shipment_id || dbOrder.shipment_id,
+            awb_code: dbOrder.tracking_number,
+            courier_name: dbOrder.courier_name
+          }
+        });
+      }
+
       // Map database order fields to Shiprocket payload structure
       targetOrderData = {
         order_id: dbOrder.order_number || dbOrder.id,
@@ -211,6 +226,32 @@ export const webhookHandler = async (req, res, next) => {
       return res.status(HTTP_STATUS.OK).json({
         success: true,
         message: 'Webhook acknowledged (Order record not found in system).',
+      });
+    }
+
+    // Define logistics status hierarchy to prevent out-of-order webhook regressions
+    const STATUS_HIERARCHY = {
+      'placed': 1,
+      'processing': 2,
+      'ready_to_ship': 3,
+      'shipped': 4,
+      'out_for_delivery': 5,
+      'delivered': 6,
+      'rto': 6,
+      'cancelled': 6
+    };
+
+    const currentRank = STATUS_HIERARCHY[String(order.order_status).toLowerCase()] || 0;
+    const newRank = STATUS_HIERARCHY[String(mapped_order_status).toLowerCase()] || 0;
+
+    // Reject regressions from terminal or higher state (e.g. delivered -> shipped)
+    if (currentRank >= 6 && newRank < 6) {
+      console.warn(`[Shiprocket Webhook] Ignoring backwards transition from '${order.order_status}' to '${mapped_order_status}' for order ${order.order_number}`);
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        message: `Order is already in terminal/advanced status '${order.order_status}'. Status update skipped.`,
+        order_id: order.id,
+        current_status: order.order_status
       });
     }
 

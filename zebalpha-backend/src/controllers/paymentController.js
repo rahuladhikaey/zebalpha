@@ -6,8 +6,8 @@ import { supabaseA } from '../lib/supabase.js';
 import { calculateOrderAmounts } from '../utils/orderCalculator.js';
 
 const getRazorpayInstance = () => {
-  const keyId = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie').trim();
-  const keySecret = (config.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || '5LUjZ94LMDnjwlLyB9cUU5cb').trim();
+  const keyId = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || '').trim();
+  const keySecret = (config.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || '').trim();
   if (!keyId || !keySecret) {
     return null;
   }
@@ -46,7 +46,7 @@ export const createRazorpayOrder = async (req, res, next) => {
     const amountInPaise = Math.round(finalAmount * 100);
 
     const razorpay = getRazorpayInstance();
-    const orderKey = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie').trim();
+    const orderKey = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || '').trim();
 
     if (!razorpay) {
       console.warn('[Razorpay Notice] Gateway keys missing, returning test gateway structure.');
@@ -90,7 +90,7 @@ export const createRazorpayOrder = async (req, res, next) => {
   } catch (err) {
     console.error('[Create Order Server Error]:', err);
     const fallbackId = `order_${Date.now()}`;
-    const orderKey = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie').trim();
+    const orderKey = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || '').trim();
     return res.status(HTTP_STATUS.OK).json({
       success: true,
       orderId: fallbackId,
@@ -177,22 +177,31 @@ export const verifyRazorpayPayment = async (req, res, next) => {
 export const handleRazorpayWebhook = async (req, res, next) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    const webhookSecret = (process.env.RAZORPAY_WEBHOOK_SECRET || config.razorpay?.webhookSecret || '5LUjZ94LMDnjwlLyB9cUU5cb').trim();
+    const webhookSecret = (process.env.RAZORPAY_WEBHOOK_SECRET || config.razorpay?.webhookSecret || '').trim();
 
-    // Verify signature if provided
-    if (signature && webhookSecret) {
-      const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-      const expectedSignature = crypto
-        .createHmac('sha256', webhookSecret)
-        .update(rawBody)
-        .digest('hex');
+    if (!signature || !webhookSecret) {
+      console.warn('[Security Alert] Razorpay webhook missing signature or secret.');
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'Missing required webhook signature or secret configuration.'
+      });
+    }
 
-      const expectedBuf = Buffer.from(expectedSignature);
-      const providedBuf = Buffer.from(String(signature));
+    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('hex');
 
-      if (expectedBuf.length !== providedBuf.length || !crypto.timingSafeEqual(expectedBuf, providedBuf)) {
-        console.warn('[Webhook Notice] Razorpay webhook signature mismatch. Proceeding with event inspection.');
-      }
+    const expectedBuf = Buffer.from(expectedSignature);
+    const providedBuf = Buffer.from(String(signature));
+
+    if (expectedBuf.length !== providedBuf.length || !crypto.timingSafeEqual(expectedBuf, providedBuf)) {
+      console.warn('[Security Alert] Razorpay webhook signature cryptographic mismatch.');
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'Cryptographic webhook signature verification failed.'
+      });
     }
 
     const { event, payload } = req.body || {};

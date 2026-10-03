@@ -4,11 +4,16 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import routes from './routes/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { observabilityMiddleware } from './middleware/observability.js';
+import { createResilientRateLimitStore } from './services/rateLimiter/redisStore.js';
 
 const app = express();
 
 // Set trust proxy for Render reverse proxy rate limiting
 app.set('trust proxy', 1);
+
+// Mount Observability & Correlation Tracking before all routes and security headers
+app.use(observabilityMiddleware);
 
 // 1. Comprehensive Helmet Security Headers
 app.use(
@@ -92,17 +97,27 @@ app.use(
   })
 );
 
-// 3. Rate Limiting Protection (DDoS, Credential Stuffing, Brute-Force Prevention)
+// 3. Distributed Rate Limiting Protection (Render Multi-Instance Resilient)
+const createStandardRateLimitHandler = (errorMessage) => (req, res, next, options) => {
+  const retryAfterSeconds = Math.ceil(options.windowMs / 1000);
+  res.setHeader('Retry-After', retryAfterSeconds);
+  res.status(429).json({
+    success: false,
+    error: 'RATE_LIMIT_EXCEEDED',
+    message: errorMessage,
+    retryAfter: retryAfterSeconds,
+    requestId: req.id || req.correlationId
+  });
+};
+
 const globalApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 500, // Max 500 requests per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
+  store: createResilientRateLimitStore({ windowMs: 15 * 60 * 1000, prefix: 'rl:global:' }),
   skip: (req) => req.path === '/' || req.path === '/health' || req.path.endsWith('/health'),
-  message: {
-    success: false,
-    error: 'Too many requests from this IP. Please try again after 15 minutes.'
-  }
+  handler: createStandardRateLimitHandler('Too many requests from this IP. Please try again after 15 minutes.')
 });
 
 const authRateLimiter = rateLimit({
@@ -110,10 +125,8 @@ const authRateLimiter = rateLimit({
   max: 20, // Max 20 authentication attempts per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    error: 'Too many login attempts. Please wait 15 minutes before trying again.'
-  }
+  store: createResilientRateLimitStore({ windowMs: 15 * 60 * 1000, prefix: 'rl:auth:' }),
+  handler: createStandardRateLimitHandler('Too many login attempts. Please wait 15 minutes before trying again.')
 });
 
 const checkoutRateLimiter = rateLimit({
@@ -121,10 +134,8 @@ const checkoutRateLimiter = rateLimit({
   max: 30, // Max 30 checkout actions per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    error: 'Checkout request limit exceeded. Please wait a few moments.'
-  }
+  store: createResilientRateLimitStore({ windowMs: 15 * 60 * 1000, prefix: 'rl:checkout:' }),
+  handler: createStandardRateLimitHandler('Checkout request limit exceeded. Please wait a few moments before retrying.')
 });
 
 // Apply global rate limiter

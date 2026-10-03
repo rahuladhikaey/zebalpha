@@ -5,8 +5,8 @@ import { config } from '../config/index.js';
  * Returns an initialized Razorpay instance
  */
 const getRazorpayInstance = () => {
-  const keyId = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie').trim();
-  const keySecret = (config.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || '5LUjZ94LMDnjwlLyB9cUU5cb').trim();
+  const keyId = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || '').trim();
+  const keySecret = (config.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || '').trim();
   
   if (!keyId || !keySecret) {
     console.warn('[Razorpay Refund Service]: Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET');

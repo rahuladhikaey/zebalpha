@@ -63,12 +63,40 @@ export const cleanCategory = (cat?: string | null) => {
   return cat;
 };
 
-export default function SellerManagementView() {
-  const [loading, setLoading] = useState(true);
-  const [sellers, setSellers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
+interface SellerManagementViewProps {
+  initialSellers?: any[];
+  initialProducts?: any[];
+  initialOrders?: any[];
+  onRefresh?: () => void;
+}
+
+export default function SellerManagementView({
+  initialSellers,
+  initialProducts,
+  initialOrders,
+  onRefresh,
+}: SellerManagementViewProps = {}) {
+  const [loading, setLoading] = useState(!initialSellers);
+  const [sellers, setSellers] = useState<any[]>(() => {
+    if (initialSellers && initialSellers.length > 0) return initialSellers;
+    return [];
+  });
+  const [products, setProducts] = useState<any[]>(initialProducts || []);
+  const [orders, setOrders] = useState<any[]>(initialOrders || []);
   const [pickupLocations, setPickupLocations] = useState<any[]>([]);
+
+  // Sync state if parent props change
+  useEffect(() => {
+    if (initialSellers) setSellers(initialSellers);
+  }, [initialSellers]);
+
+  useEffect(() => {
+    if (initialProducts) setProducts(initialProducts);
+  }, [initialProducts]);
+
+  useEffect(() => {
+    if (initialOrders) setOrders(initialOrders);
+  }, [initialOrders]);
 
   // Filtering & Search
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -172,21 +200,45 @@ export default function SellerManagementView() {
   };
 
   useEffect(() => {
-    loadData();
+    // If parent passed initial sellers and products, avoid redundant initial full-table fetches
+    if (initialSellers && initialProducts && initialOrders) {
+      supabase
+        .from("seller_pickup_locations")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .then(({ data }) => {
+          if (data) setPickupLocations(data);
+          setLoading(false);
+        });
+    } else {
+      loadData();
+    }
 
-    // Supabase Realtime WebSockets for zero-refresh updates
+    // Targeted Supabase Realtime WebSockets: Only refresh the specific table that changed
     const channel = supabase
       .channel("admin-seller-management-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sellers" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "seller_pickup_locations" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "sellers" }, async () => {
+        const { data } = await supabase.from("sellers").select("*").order("created_at", { ascending: false });
+        if (data) setSellers(data);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, async () => {
+        const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+        if (data) setProducts(data);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, async () => {
+        const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+        if (data) setOrders(data);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "seller_pickup_locations" }, async () => {
+        const { data } = await supabase.from("seller_pickup_locations").select("*").order("created_at", { ascending: false });
+        if (data) setPickupLocations(data);
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [initialSellers, initialProducts, initialOrders]);
 
   // ── Compute Real Metrics for Each Seller ─────────────────────────────────
   const sellersWithMetrics = useMemo(() => {
@@ -413,6 +465,7 @@ export default function SellerManagementView() {
         setSelectedSeller((prev: any) => ({ ...prev, ...updates }));
       }
       await loadData();
+      onRefresh?.();
     } catch (err: any) {
       console.error("Suspend error:", err);
       alert(err.message || "Failed to suspend merchant.");
@@ -443,6 +496,7 @@ export default function SellerManagementView() {
         setSelectedSeller((prev: any) => ({ ...prev, ...updates }));
       }
       await loadData();
+      onRefresh?.();
     } catch (err: any) {
       console.error("Reactivate error:", err);
       alert(err.message || "Failed to reactivate merchant.");
@@ -502,6 +556,7 @@ export default function SellerManagementView() {
         pickup_address: ""
       });
       await loadData();
+      onRefresh?.();
     } catch (err: any) {
       console.error("Error creating merchant:", err);
       alert(err.message || "Failed to onboard merchant.");
@@ -547,6 +602,7 @@ export default function SellerManagementView() {
       setShowEditSellerModal(false);
       setEditingSellerData(null);
       await loadData();
+      onRefresh?.();
     } catch (err: any) {
       console.error("Error updating merchant:", err);
       alert(err.message || "Failed to update merchant.");

@@ -20,16 +20,52 @@ import {
   UserCheck
 } from "lucide-react";
 
-export default function ProductApprovalView() {
-  const [loading, setLoading] = useState(true);
-  const [products, setProducts] = useState<any[]>([]);
-  const [sellersMap, setSellersMap] = useState<Record<string, any>>({});
+interface ProductApprovalViewProps {
+  initialProducts?: any[];
+  initialSellers?: any[];
+  onRefresh?: () => void;
+}
+
+const buildSellersMap = (sellersData?: any[] | null) => {
+  const sMap: Record<string, any> = {};
+  if (sellersData && sellersData.length > 0) {
+    sellersData.forEach((s: any) => {
+      if (s.id) sMap[String(s.id)] = s;
+      if (s.user_id) sMap[String(s.user_id)] = s;
+      if (s.seller_id) sMap[String(s.seller_id)] = s;
+      if (s.seller_code) sMap[String(s.seller_code)] = s;
+    });
+  }
+  return sMap;
+};
+
+export default function ProductApprovalView({
+  initialProducts,
+  initialSellers,
+  onRefresh,
+}: ProductApprovalViewProps = {}) {
+  const [loading, setLoading] = useState(!initialProducts);
+  const [products, setProducts] = useState<any[]>(initialProducts || []);
+  const [sellersMap, setSellersMap] = useState<Record<string, any>>(() => buildSellersMap(initialSellers));
   const [filterTab, setFilterTab] = useState<"all" | "premium" | "new_drops" | "approved" | "hidden">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [actioningId, setActioningId] = useState<string | number | null>(null);
   const [editingCollectionId, setEditingCollectionId] = useState<string | number | null>(null);
   const [collectionInput, setCollectionInput] = useState<string>("");
+
+  // Sync state if parent props change
+  useEffect(() => {
+    if (initialProducts) {
+      setProducts(initialProducts);
+    }
+  }, [initialProducts]);
+
+  useEffect(() => {
+    if (initialSellers) {
+      setSellersMap(buildSellersMap(initialSellers));
+    }
+  }, [initialSellers]);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -41,17 +77,7 @@ export default function ProductApprovalView() {
 
       if (prodErr) throw prodErr;
 
-      const sMap: Record<string, any> = {};
-      if (sellersData && sellersData.length > 0) {
-        sellersData.forEach((s: any) => {
-          if (s.id) sMap[String(s.id)] = s;
-          if (s.user_id) sMap[String(s.user_id)] = s;
-          if (s.seller_id) sMap[String(s.seller_id)] = s;
-          if (s.seller_code) sMap[String(s.seller_code)] = s;
-        });
-      }
-
-      setSellersMap(sMap);
+      setSellersMap(buildSellersMap(sellersData));
       setProducts(productsData || []);
     } catch (e: any) {
       console.error("Error loading products:", e);
@@ -61,8 +87,10 @@ export default function ProductApprovalView() {
   };
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+    if (!initialProducts || !initialSellers) {
+      loadProducts();
+    }
+  }, [initialProducts, initialSellers]);
 
   const handleUpdateProductStatus = async (productId: string | number, updates: any) => {
     setActioningId(productId);
@@ -80,6 +108,7 @@ export default function ProductApprovalView() {
       if (selectedProduct?.id === productId) {
         setSelectedProduct(updatedObj);
       }
+      onRefresh?.();
     } catch (err: any) {
       alert(err.message || "Failed to update product.");
     }
@@ -101,6 +130,7 @@ export default function ProductApprovalView() {
 
       setProducts(products.filter(p => p.id !== productId));
       if (selectedProduct?.id === productId) setSelectedProduct(null);
+      onRefresh?.();
     } catch (err: any) {
       alert(err.message || "Failed to delete product.");
     }

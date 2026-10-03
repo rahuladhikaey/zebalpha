@@ -134,27 +134,34 @@ export default function MyOrdersPage() {
     try {
       const userEmail = (user?.email || "").trim().toLowerCase();
 
-      let query = supabase.from("orders").select("*");
+      // 1. Primary fast indexed query by user_id
+      const { data: userOrders, error: userErr } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-      if (user?.id && userEmail) {
-        query = query.or(`user_id.eq.${user.id},customer_email.ilike.${userEmail},email.ilike.${userEmail}`);
-      } else if (user?.id) {
-        query = query.eq("user_id", user.id);
-      }
+      let rawOrders: Order[] = (userOrders as Order[]) || [];
 
-      const { data, error } = await query.order("created_at", { ascending: false });
-
-      let rawOrders: Order[] = [];
-      if (error) {
-        const { data: fallbackData } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("user_id", user?.id)
-          .order("created_at", { ascending: false });
-
-        rawOrders = (fallbackData as Order[]) || [];
-      } else {
-        rawOrders = (data as Order[]) || [];
+      // 2. If user has an email and fewer than 5 orders found, check exact email match for guest checkout linking
+      if (userEmail && rawOrders.length < 5) {
+        try {
+          const { data: emailOrders } = await supabase
+            .from("orders")
+            .select("*")
+            .or(`customer_email.eq.${userEmail},email.eq.${userEmail}`)
+            .order("created_at", { ascending: false })
+            .limit(20);
+          if (emailOrders && emailOrders.length > 0) {
+            const existingIds = new Set(rawOrders.map(o => o.id));
+            emailOrders.forEach((eo: any) => {
+              if (!existingIds.has(eo.id)) rawOrders.push(eo);
+            });
+          }
+        } catch (_) {
+          // Graceful fallback if email columns are not present
+        }
       }
 
       // Deduplicate orders

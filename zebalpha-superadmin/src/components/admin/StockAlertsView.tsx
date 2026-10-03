@@ -18,55 +18,82 @@ import {
   Send
 } from "lucide-react";
 
-export default function StockAlertsView() {
-  const [loading, setLoading] = useState(true);
-  const [products, setProducts] = useState<any[]>([]);
+interface StockAlertsViewProps {
+  initialProducts?: any[];
+  onRefresh?: () => void;
+}
+
+export default function StockAlertsView({ initialProducts = [], onRefresh }: StockAlertsViewProps) {
+  const [loading, setLoading] = useState(initialProducts.length === 0);
+  const [products, setProducts] = useState<any[]>(initialProducts);
   const [notifyRequests, setNotifyRequests] = useState<any[]>([]);
   const [stockHistory, setStockHistory] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"critical" | "notify" | "history">("critical");
   const [statusMessage, setStatusMessage] = useState("");
 
-  const loadData = async () => {
-    setLoading(true);
+  const fetchProducts = async () => {
     try {
-      // 1. Load low stock products from Supabase DB
       const { data: pData } = await supabase
         .from("products")
         .select("*")
         .order("stock", { ascending: true });
+      if (pData) setProducts(pData);
+    } catch (e: any) {
+      console.warn("Notice loading stock products:", e);
+    }
+  };
 
-      setProducts(pData || []);
-
-      // 2. Load real customer back-in-stock notify requests from Supabase DB
+  const fetchNotifyRequests = async () => {
+    try {
       const { data: notifyData } = await supabase
         .from("notify_requests")
         .select("*, products(id, name, price, stock)")
         .order("created_at", { ascending: false });
+      if (notifyData) setNotifyRequests(notifyData);
+    } catch (e: any) {
+      console.warn("Notice loading notify requests:", e);
+    }
+  };
 
-      setNotifyRequests(notifyData || []);
-
-      // 3. Load real stock audit trail history from Supabase DB
+  const fetchStockHistory = async () => {
+    try {
       const { data: historyData } = await supabase
         .from("stock_history")
         .select("*, products(name)")
         .order("created_at", { ascending: false });
-
-      setStockHistory(historyData || []);
+      if (historyData) setStockHistory(historyData);
     } catch (e: any) {
-      console.error("Error loading stock alerts real data:", e);
+      console.warn("Notice loading stock history:", e);
+    }
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const promises: Promise<any>[] = [fetchNotifyRequests(), fetchStockHistory()];
+      if (initialProducts.length === 0) {
+        promises.push(fetchProducts());
+      }
+      await Promise.all(promises);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (initialProducts.length > 0) {
+      setProducts(initialProducts);
+    }
+  }, [initialProducts]);
+
+  useEffect(() => {
     loadData();
 
-    // Supabase Realtime channel for zero-delay notification & stock alerts
+    // Supabase Realtime channel for targeted notification & stock updates
     const channel = supabase
       .channel("admin-stock-alerts-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notify_requests" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "stock_history" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "notify_requests" }, () => fetchNotifyRequests())
+      .on("postgres_changes", { event: "*", schema: "public", table: "stock_history" }, () => fetchStockHistory())
       .subscribe();
 
     return () => {
