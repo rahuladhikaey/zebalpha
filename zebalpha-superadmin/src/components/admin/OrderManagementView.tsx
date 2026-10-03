@@ -513,6 +513,15 @@ export default function OrderManagementView({
           }
           setStatusMsg(`✓ Cancelled ${selectedOrderIds.length} orders`);
         }
+      } else if (bulkAction === "delete") {
+        if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${selectedOrderIds.length} selected orders? This action cannot be undone.`)) {
+          for (const id of selectedOrderIds) {
+            await fetch(`/api/admin/orders?id=${id}`, { method: "DELETE" }).catch(() => null);
+            try { await supabase.from("orders").delete().eq("id", id); } catch (_) {}
+          }
+          setOrders(prev => prev.filter(o => !selectedOrderIds.includes(String(o.id))));
+          setStatusMsg(`✓ Permanently deleted ${selectedOrderIds.length} orders`);
+        }
       }
       setSelectedOrderIds([]);
       setBulkAction("");
@@ -887,6 +896,7 @@ export default function OrderManagementView({
                 <option value="hold">Put On Hold</option>
                 <option value="release_hold">Release From Hold</option>
                 <option value="cancel">Cancel Selected Orders</option>
+                <option value="delete">Delete Selected Orders (Permanent)</option>
               </select>
 
               <button
@@ -1084,6 +1094,15 @@ export default function OrderManagementView({
                             Download Label
                           </button>
                         )}
+
+                        <button
+                          onClick={() => handleDeleteOrder(ord.id)}
+                          title="Delete Order"
+                          className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-bold transition-all cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
                       </td>
                     </tr>
                   );

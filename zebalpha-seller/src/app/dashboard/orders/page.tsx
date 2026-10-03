@@ -219,6 +219,37 @@ export default function SellerOrders() {
     loadData();
   }, []);
 
+  const handleDeleteOrder = async (orderId: string | number) => {
+    if (!window.confirm("Are you sure you want to delete this order? This action cannot be undone.")) return;
+    try {
+      await supabase.from("orders").delete().eq("id", orderId);
+      await fetch(`/api/orders?id=${orderId}`, { method: "DELETE" }).catch(() => null);
+      setStatusMessage("✓ Order deleted successfully!");
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+      setSelectedOrderIds(prev => prev.filter(id => id !== String(orderId)));
+      setTimeout(() => setStatusMessage(""), 3000);
+    } catch (err: any) {
+      alert(err.message || "Failed to delete order.");
+    }
+  };
+
+  const handleBulkDeleteOrders = async () => {
+    if (selectedOrderIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to PERMANENTLY DELETE ${selectedOrderIds.length} selected orders?`)) return;
+    try {
+      for (const id of selectedOrderIds) {
+        await supabase.from("orders").delete().eq("id", id);
+        await fetch(`/api/orders?id=${id}`, { method: "DELETE" }).catch(() => null);
+      }
+      setStatusMessage(`✓ ${selectedOrderIds.length} orders deleted successfully!`);
+      setOrders(prev => prev.filter(o => !selectedOrderIds.includes(String(o.id))));
+      setSelectedOrderIds([]);
+      setTimeout(() => setStatusMessage(""), 3000);
+    } catch (err: any) {
+      alert(err.message || "Failed to delete selected orders.");
+    }
+  };
+
   // Periodic re-render timer for real-time 1-hour cancellation countdowns
   const [, setTimerTick] = useState(0);
   useEffect(() => {
@@ -513,9 +544,18 @@ export default function SellerOrders() {
           </select>
 
           {selectedOrderIds.length > 0 && (
-            <span className="px-3 py-1 rounded-xl bg-purple-600/20 text-purple-300 border border-purple-500/30 text-xs font-black">
-              {selectedOrderIds.length} Selected
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-xl bg-purple-600/20 text-purple-300 border border-purple-500/30 text-xs font-black">
+                {selectedOrderIds.length} Selected
+              </span>
+              <button
+                onClick={handleBulkDeleteOrders}
+                className="flex items-center gap-1 px-3 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-black transition cursor-pointer"
+              >
+                <Trash className="h-3.5 w-3.5 text-rose-400" />
+                <span>Delete Selected</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -772,6 +812,14 @@ export default function SellerOrders() {
                               View Details
                             </button>
                           )}
+
+                          <button
+                            onClick={() => handleDeleteOrder(order.id)}
+                            title="Delete Order"
+                            className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition cursor-pointer"
+                          >
+                            <Trash className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
