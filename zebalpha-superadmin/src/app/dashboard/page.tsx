@@ -52,14 +52,18 @@ export default function AdminPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [tab, setTab] = useState("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("admin_sidebar_collapsed") === "true";
-    }
-    return true; // Default slim mode
-  });
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = !isCollapsed || isHovered;
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("admin_sidebar_collapsed");
+      if (saved !== null) {
+        setIsCollapsed(saved === "true");
+      }
+    }
+  }, []);
 
   const [statusMessage, setStatusMessage] = useState("");
   const [adminUser, setAdminUser] = useState("Super Admin");
