@@ -52,6 +52,15 @@ export default function AdminPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [tab, setTab] = useState("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("admin_sidebar_collapsed") === "true";
+    }
+    return true; // Default slim mode
+  });
+  const [isHovered, setIsHovered] = useState(false);
+  const isExpanded = !isCollapsed || isHovered;
+
   const [statusMessage, setStatusMessage] = useState("");
   const [adminUser, setAdminUser] = useState("Super Admin");
 
@@ -150,61 +159,117 @@ export default function AdminPage() {
         />
       )}
 
-      {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-black border-r border-zinc-800/80 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="flex items-center gap-3 h-20 px-6 border-b border-zinc-800 shrink-0">
-          <Image
-            src={Logo}
-            alt="ZEB-ALPHA Super Admin Logo"
-            className="h-10 w-10 shrink-0 rounded-full object-cover border border-zinc-700 shadow-md"
-          />
-          <div className="min-w-0">
-            <h1 className="text-sm font-black tracking-tight text-white uppercase truncate">Super Admin</h1>
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">{adminUser}</p>
+      {/* Hover-to-Expand Sidebar */}
+      <aside 
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-black border-r border-zinc-800/80 backdrop-blur-2xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full'
+        } ${isExpanded ? 'lg:w-72' : 'lg:w-20'}`}
+      >
+        {/* Brand Logo Header */}
+        <div className="flex items-center justify-between h-20 px-4 border-b border-zinc-800 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <Image
+              src={Logo}
+              alt="ZEB-ALPHA Super Admin Logo"
+              className="h-10 w-10 shrink-0 rounded-full object-cover border border-zinc-700 shadow-md"
+            />
+            <div className={`min-w-0 transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"}`}>
+              <h1 className="text-sm font-black tracking-tight text-white uppercase truncate whitespace-nowrap">Super Admin</h1>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate whitespace-nowrap">{adminUser}</p>
+            </div>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="ml-auto lg:hidden text-zinc-400 hover:text-white">
+
+          <button
+            onClick={() => {
+              const next = !isCollapsed;
+              setIsCollapsed(next);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("admin_sidebar_collapsed", String(next));
+              }
+            }}
+            className="hidden lg:flex p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer"
+            title={isCollapsed ? "Pin Sidebar Open" : "Collapse Sidebar"}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
+            </svg>
+          </button>
+
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-zinc-400 hover:text-white">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5 no-scrollbar">
+        {/* Navigation Items */}
+        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1.5 no-scrollbar">
           {MENU_ITEMS.map((t: any) => (
-            <button
-              key={t.id}
-              onClick={() => { setTab(t.id); setIsSidebarOpen(false); }}
-              className={`w-full flex items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold transition-all ${tab === t.id
-                  ? 'bg-white text-black shadow-lg shadow-white/10 font-extrabold'
-                  : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+            <div key={t.id} className="relative group/item">
+              <button
+                onClick={() => { setTab(t.id); setIsSidebarOpen(false); }}
+                className={`w-full flex items-center rounded-2xl px-3.5 py-3 text-xs font-bold transition-all cursor-pointer ${
+                  isExpanded ? "justify-between" : "justify-center"
+                } ${
+                  tab === t.id
+                    ? 'bg-white text-black shadow-lg shadow-white/10 font-extrabold'
+                    : 'text-zinc-400 hover:bg-white/5 hover:text-white'
                 }`}
-            >
-              <div className="flex items-center gap-3">
-                <svg className={`h-5 w-5 ${tab === t.id ? 'text-black' : 'text-zinc-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={t.icon} />
-                </svg>
-                <span>{t.label}</span>
-              </div>
-              {t.badge && (
-                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                  tab === t.id 
-                    ? 'bg-black/10 text-black border-black/20' 
-                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                }`}>
-                  {t.badge}
-                </span>
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <svg className={`h-5 w-5 shrink-0 ${tab === t.id ? 'text-black' : 'text-zinc-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={t.icon} />
+                  </svg>
+                  <span className={`transition-all duration-300 whitespace-nowrap ${
+                    isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
+                  }`}>
+                    {t.label}
+                  </span>
+                </div>
+
+                {t.badge && isExpanded && (
+                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 ${
+                    tab === t.id 
+                      ? 'bg-black/10 text-black border-black/20' 
+                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                  }`}>
+                    {t.badge}
+                  </span>
+                )}
+              </button>
+
+              {/* Flyout Label Tooltip on Hover in Slim Collapsed Mode */}
+              {!isExpanded && (
+                <div className="fixed left-20 ml-2 hidden lg:group-hover/item:flex items-center gap-2 z-50 bg-zinc-900 border border-zinc-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-left-2 pointer-events-none">
+                  <span>{t.label}</span>
+                  {t.badge && (
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      {t.badge}
+                    </span>
+                  )}
+                </div>
               )}
-            </button>
+            </div>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-zinc-800 shrink-0 bg-zinc-950/60">
+        {/* User Card & Logout */}
+        <div className="p-3 border-t border-zinc-800 shrink-0 bg-zinc-950/60">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-950/40 transition-colors"
+            className={`w-full flex items-center rounded-2xl px-3.5 py-3 text-xs font-bold text-rose-500 hover:bg-rose-950/40 transition-colors cursor-pointer ${
+              isExpanded ? "gap-3" : "justify-center"
+            }`}
+            title="Sign Out"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7" />
             </svg>
-            Sign Out
+            <span className={`transition-all duration-300 whitespace-nowrap ${
+              isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
+            }`}>
+              Sign Out
+            </span>
           </button>
         </div>
       </aside>

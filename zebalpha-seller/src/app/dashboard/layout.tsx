@@ -23,7 +23,9 @@ import {
   MapPin,
   ShieldCheck,
   Lock,
-  RotateCcw
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -34,6 +36,15 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("seller_sidebar_collapsed") === "true";
+    }
+    return true; // Default slim mode
+  });
+  const [isHovered, setIsHovered] = useState(false);
+  const isExpanded = !isCollapsed || isHovered;
+
   const [sellerName, setSellerName] = useState("Seller");
   const [sellerEmail, setSellerEmail] = useState("");
   const [isSuspended, setIsSuspended] = useState(false);
@@ -231,7 +242,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-black text-white overflow-hidden font-sans select-none">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -240,87 +251,131 @@ export default function DashboardLayout({
         />
       )}
 
-      {/* Sidebar Component */}
+      {/* Hover-to-Expand Sidebar Component */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-foreground/[0.02] border-r border-foreground/[0.06] backdrop-blur-xl transition-all duration-300 lg:static lg:translate-x-0 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-zinc-950 border-r border-zinc-800/80 backdrop-blur-2xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0 w-72" : "-translate-x-full"
+        } ${isExpanded ? "lg:w-72" : "lg:w-20"}`}
       >
         {/* Brand Logo Header */}
-        <div className="flex h-20 items-center justify-between px-6 border-b border-foreground/[0.06]">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
+        <div className="flex h-20 items-center justify-between px-4 border-b border-zinc-800 shrink-0">
+          <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
             <img
               src="/official-logo.png"
               alt="ZEBALPHA Logo"
-              className="h-9 w-9 rounded-full object-cover border border-zinc-700 shadow-md"
+              className="h-10 w-10 rounded-full object-cover border border-zinc-700 shadow-md shrink-0"
             />
-            <div className="flex flex-col">
-              <span className="text-lg font-black tracking-tight text-white leading-none">ZEB-ALPHA</span>
-              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 mt-1 flex items-center gap-1">
+            <div className={`flex flex-col transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"}`}>
+              <span className="text-base font-black tracking-tight text-white leading-none whitespace-nowrap">ZEB-ALPHA</span>
+              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 mt-1 flex items-center gap-1 whitespace-nowrap">
                 <ShieldCheck size={10} /> Verified Seller
               </span>
             </div>
           </Link>
+
+          <button
+            onClick={() => {
+              const next = !isCollapsed;
+              setIsCollapsed(next);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("seller_sidebar_collapsed", String(next));
+              }
+            }}
+            className="hidden lg:flex p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer"
+            title={isCollapsed ? "Pin Sidebar Open" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden text-text-muted hover:text-text-primary"
+            className="lg:hidden text-zinc-400 hover:text-white"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto">
+        <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto no-scrollbar">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setIsSidebarOpen(false)}
-                className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-black transition-all ${
-                  isActive 
-                    ? "bg-white text-black shadow-lg shadow-white/10" 
-                    : "text-zinc-400 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <div className="flex items-center gap-3.5">
-                  <Icon size={18} />
-                  <span>{item.name}</span>
-                </div>
-                {item.badge && (
-                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
+              <div key={item.name} className="relative group/item">
+                <Link
+                  href={item.href}
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={`flex items-center rounded-2xl px-3.5 py-3 text-sm font-black transition-all ${
+                    isExpanded ? "justify-between" : "justify-center"
+                  } ${
                     isActive 
-                      ? "bg-black/10 text-black border-black/20" 
-                      : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                  }`}>
-                    {item.badge}
-                  </span>
+                      ? "bg-white text-black shadow-lg shadow-white/10" 
+                      : "text-zinc-400 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <Icon size={20} className="shrink-0" />
+                    <span className={`transition-all duration-300 whitespace-nowrap ${
+                      isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
+                    }`}>
+                      {item.name}
+                    </span>
+                  </div>
+
+                  {item.badge && isExpanded && (
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 ${
+                      isActive 
+                        ? "bg-black/10 text-black border-black/20" 
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+
+                {/* Flyout Label Tooltip on Hover in Slim Collapsed Mode */}
+                {!isExpanded && (
+                  <div className="fixed left-20 ml-2 hidden lg:group-hover/item:flex items-center gap-2 z-50 bg-zinc-900 border border-zinc-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-left-2 pointer-events-none">
+                    <span>{item.name}</span>
+                    {item.badge && (
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
                 )}
-              </Link>
+              </div>
             );
           })}
         </nav>
 
         {/* User Card & Logout */}
-        <div className="border-t border-white/10 p-4 flex flex-col gap-4 bg-zinc-950/40">
-          <div className="flex items-center gap-3 px-2 py-1">
-            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white border border-white/10">
+        <div className="border-t border-zinc-800 p-3 flex flex-col gap-3 bg-zinc-950/80 shrink-0">
+          <div className={`flex items-center gap-3 px-2 py-1 ${isExpanded ? "" : "justify-center"}`}>
+            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white border border-white/10 shrink-0">
               <User size={18} />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-black truncate text-white">{sellerName}</p>
-              <p className="text-[10px] font-bold text-zinc-400 truncate">{sellerEmail}</p>
+            <div className={`flex-1 min-w-0 transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"}`}>
+              <p className="text-xs font-black truncate text-white whitespace-nowrap">{sellerName}</p>
+              <p className="text-[10px] font-bold text-zinc-400 truncate whitespace-nowrap">{sellerEmail}</p>
             </div>
           </div>
 
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-4 rounded-2xl border border-rose-500/10 px-4 py-3 text-sm font-black text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
+            className={`flex items-center gap-3.5 rounded-2xl border border-rose-500/20 px-3.5 py-3 text-xs font-black text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer ${
+              isExpanded ? "" : "justify-center"
+            }`}
+            title="Logout Portal"
           >
-            <LogOut size={18} />
-            Logout Portal
+            <LogOut size={18} className="shrink-0" />
+            <span className={`transition-all duration-300 whitespace-nowrap ${
+              isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
+            }`}>
+              Logout Portal
+            </span>
           </button>
         </div>
       </aside>
