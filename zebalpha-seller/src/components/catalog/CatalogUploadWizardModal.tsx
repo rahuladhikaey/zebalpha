@@ -14,6 +14,7 @@ export interface CatalogUploadWizardModalProps {
   onClose: () => void;
   sellerId: string;
   categories: Category[];
+  editingProduct?: any | null;
   onSuccess: () => void;
 }
 
@@ -125,12 +126,72 @@ export default function CatalogUploadWizardModal({
   onClose,
   sellerId,
   categories,
+  editingProduct,
   onSuccess,
 }: CatalogUploadWizardModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<MasterCatalogFormState>(INITIAL_FORM_STATE);
   const [errorMsg, setErrorMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (editingProduct) {
+      const specs = (editingProduct.specifications as any) || {};
+      const imgList = Array.isArray(editingProduct.images) && editingProduct.images.length > 0
+        ? editingProduct.images
+        : editingProduct.image_url
+        ? [editingProduct.image_url]
+        : [];
+
+      setForm({
+        category_id: String(editingProduct.category_id || ""),
+        subcategory_id: "",
+        subcategory_name: editingProduct.category || "",
+        images: imgList,
+        front_image_index: 0,
+        name: editingProduct.name || "",
+        description: editingProduct.description || "",
+
+        fabric: specs.fabric || "100% Pure Cotton",
+        pattern: specs.pattern || "Solid / Plain",
+        fit_type: specs.fit_type || "Regular Fit",
+        sleeve_type: specs.sleeve_type || "Short Sleeve",
+        neck_type: specs.neck_type || "Round Neck",
+        care_instructions: specs.care_instructions || "Machine Wash Cold",
+        target_gender: specs.target_gender || "Unisex",
+        weight_grams: String(specs.weight_grams || "300"),
+
+        country_of_origin: specs.country_of_origin || "India",
+        manufacturer_name: specs.manufacturer_name || "",
+        manufacturer_address: specs.manufacturer_address || "",
+        manufacturer_pincode: specs.manufacturer_pincode || "",
+        packer_same_as_manufacturer: !specs.packer_name || specs.packer_name === specs.manufacturer_name,
+        packer_name: specs.packer_name || "",
+        packer_address: specs.packer_address || "",
+        packer_pincode: specs.packer_pincode || "",
+
+        price: String(editingProduct.price || ""),
+        defective_returns_price: String(specs.defective_returns_price || ""),
+        mrp: String(editingProduct.mrp || editingProduct.price || ""),
+
+        style_code: specs.style_code || "",
+        volumetric_weight: specs.volumetric_weight || "",
+        brand: editingProduct.brand || "zebalpha",
+        is_premium: editingProduct.is_premium === true || editingProduct.tier === "PREMIUM",
+        is_new_drop: editingProduct.is_new_drop === true || editingProduct.status === "COMING_SOON",
+        collection: editingProduct.collection || "",
+        target_drop_date: editingProduct.target_drop_date || "",
+        tier: editingProduct.tier || "STANDARD",
+
+        has_variants: false,
+        variants: [],
+        single_stock: String(editingProduct.stock ?? 20),
+        single_sku: editingProduct.sku || "",
+      });
+    } else {
+      setForm(INITIAL_FORM_STATE);
+    }
+  }, [editingProduct, isOpen]);
 
   if (!isOpen) return null;
 
@@ -251,18 +312,32 @@ export default function CatalogUploadWizardModal({
         tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
       };
 
-      const { data: insertedProduct, error: insertError } = await supabase
-        .from("products")
-        .insert([productPayload])
-        .select()
-        .single();
+      let savedProduct: any = null;
+      if (editingProduct) {
+        const { data: updatedProduct, error: updateError } = await supabase
+          .from("products")
+          .update(productPayload)
+          .eq("id", editingProduct.id)
+          .select()
+          .single();
 
-      if (insertError) throw insertError;
+        if (updateError) throw updateError;
+        savedProduct = updatedProduct;
+      } else {
+        const { data: insertedProduct, error: insertError } = await supabase
+          .from("products")
+          .insert([productPayload])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        savedProduct = insertedProduct;
+      }
 
       // Insert Variants if enabled
-      if (form.has_variants && insertedProduct && form.variants.length > 0) {
+      if (form.has_variants && savedProduct && form.variants.length > 0) {
         const variantsPayload = form.variants.map((v) => ({
-          product_id: insertedProduct.id,
+          product_id: savedProduct.id,
           name: `${form.name} - ${v.size}`,
           price: parseFloat(v.price) || parseFloat(form.price),
           mrp: parseFloat(v.mrp) || parseFloat(form.mrp),
@@ -275,7 +350,7 @@ export default function CatalogUploadWizardModal({
           .insert(variantsPayload);
 
         if (variantError) {
-          console.warn("Product inserted, variant creation notice:", variantError.message);
+          console.warn("Product saved, variant creation notice:", variantError.message);
         }
       }
 
