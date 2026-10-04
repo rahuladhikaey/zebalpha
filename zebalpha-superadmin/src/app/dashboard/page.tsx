@@ -52,18 +52,8 @@ export default function AdminPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [tab, setTab] = useState("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState(false);
-  const isExpanded = !isCollapsed || isHovered;
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("admin_sidebar_collapsed");
-      if (saved !== null) {
-        setIsCollapsed(saved === "true");
-      }
-    }
-  }, []);
+  const isExpanded = isHovered || isSidebarOpen;
 
   const [statusMessage, setStatusMessage] = useState("");
   const [adminUser, setAdminUser] = useState("Super Admin");
@@ -120,6 +110,17 @@ export default function AdminPage() {
     fetchData();
   }, []);
 
+  // Keyboard listener for Escape key to close mobile drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSidebarOpen]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
@@ -153,17 +154,6 @@ export default function AdminPage() {
     { id: 'security', label: 'Security & Audit', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' }
   ];
 
-  // Keyboard listener for Escape key to close mobile drawer
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isSidebarOpen) {
-        setIsSidebarOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSidebarOpen]);
-
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden font-sans relative">
       {/* Mobile Drawer Overlay */}
@@ -186,38 +176,33 @@ export default function AdminPage() {
         } ${isExpanded ? 'w-72 shadow-2xl shadow-black/80' : 'w-20'}`}
       >
         {/* Brand Logo Header */}
-        <div className="flex items-center justify-between h-20 px-4 border-b border-zinc-800 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <Image
-              src={Logo}
-              alt="ZEB-ALPHA Super Admin Logo"
-              className="h-10 w-10 shrink-0 rounded-full object-cover border border-zinc-700 shadow-md"
-            />
-            <div className={`min-w-0 transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"}`}>
+        <div className={`flex h-20 items-center border-b border-zinc-800 shrink-0 transition-all duration-300 ${
+          isExpanded ? "justify-between px-5" : "justify-center px-0"
+        }`}>
+          <div className={`flex items-center min-w-0 ${isExpanded ? "gap-3.5" : "justify-center"}`}>
+            <div className="w-10 h-10 min-w-10 min-h-10 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-zinc-700 shadow-md bg-zinc-900">
+              <Image
+                src={Logo}
+                alt="ZEB-ALPHA Super Admin Logo"
+                className="w-full h-full object-cover rounded-full"
+                width={40}
+                height={40}
+              />
+            </div>
+            <div className={`min-w-0 transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden"}`}>
               <h1 className="text-sm font-black tracking-tight text-white uppercase truncate whitespace-nowrap">Super Admin</h1>
               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate whitespace-nowrap">{adminUser}</p>
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              const next = !isCollapsed;
-              setIsCollapsed(next);
-              if (typeof window !== "undefined") {
-                localStorage.setItem("admin_sidebar_collapsed", String(next));
-              }
-            }}
-            className="hidden lg:flex p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer"
-            title={isCollapsed ? "Pin Sidebar Open" : "Collapse Sidebar"}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
-            </svg>
-          </button>
-
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-zinc-400 hover:text-white">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+          {isSidebarOpen && (
+            <button 
+              onClick={() => setIsSidebarOpen(false)} 
+              className="lg:hidden text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          )}
         </div>
 
         {/* Navigation Items */}

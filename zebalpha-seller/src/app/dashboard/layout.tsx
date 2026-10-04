@@ -23,9 +23,7 @@ import {
   MapPin,
   ShieldCheck,
   Lock,
-  RotateCcw,
-  ChevronLeft,
-  ChevronRight
+  RotateCcw
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -36,18 +34,8 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState(false);
-  const isExpanded = !isCollapsed || isHovered;
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("seller_sidebar_collapsed");
-      if (saved !== null) {
-        setIsCollapsed(saved === "true");
-      }
-    }
-  }, []);
+  const isExpanded = isHovered || isSidebarOpen;
 
   const [sellerName, setSellerName] = useState("Seller");
   const [sellerEmail, setSellerEmail] = useState("");
@@ -203,6 +191,17 @@ export default function DashboardLayout({
     };
   }, [isSidebarOpen]);
 
+  // Keyboard navigation & Esc key listener to close mobile drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSidebarOpen]);
+
   // FULL-SCREEN SECURITY SHIELD WHILE VERIFYING CREDENTIALS
   if (authStatus === "checking") {
     return (
@@ -251,17 +250,6 @@ export default function DashboardLayout({
     );
   }
 
-  // Keyboard navigation & Esc key listener to close mobile drawer
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isSidebarOpen) {
-        setIsSidebarOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSidebarOpen]);
-
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden font-sans select-none relative">
       {/* Mobile Sidebar Overlay */}
@@ -284,14 +272,18 @@ export default function DashboardLayout({
         } ${isExpanded ? "w-72 shadow-2xl shadow-black/80" : "w-20"}`}
       >
         {/* Brand Logo Header */}
-        <div className="flex h-20 items-center justify-between px-4 border-b border-zinc-800 shrink-0">
-          <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
-            <img
-              src="/official-logo.png"
-              alt="ZEBALPHA Logo"
-              className="h-10 w-10 rounded-full object-cover border border-zinc-700 shadow-md shrink-0"
-            />
-            <div className={`flex flex-col transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"}`}>
+        <div className={`flex h-20 items-center border-b border-zinc-800 shrink-0 transition-all duration-300 ${
+          isExpanded ? "justify-between px-5" : "justify-center px-0"
+        }`}>
+          <Link href="/dashboard" className={`flex items-center min-w-0 ${isExpanded ? "gap-3.5" : "justify-center"}`}>
+            <div className="w-10 h-10 min-w-10 min-h-10 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-zinc-700 shadow-md bg-zinc-900">
+              <img
+                src="/official-logo.png"
+                alt="ZEBALPHA Logo"
+                className="w-full h-full object-cover rounded-full"
+              />
+            </div>
+            <div className={`flex flex-col transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden"}`}>
               <span className="text-base font-black tracking-tight text-white leading-none whitespace-nowrap">ZEB-ALPHA</span>
               <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 mt-1 flex items-center gap-1 whitespace-nowrap">
                 <ShieldCheck size={10} /> Verified Seller
@@ -299,26 +291,14 @@ export default function DashboardLayout({
             </div>
           </Link>
 
-          <button
-            onClick={() => {
-              const next = !isCollapsed;
-              setIsCollapsed(next);
-              if (typeof window !== "undefined") {
-                localStorage.setItem("seller_sidebar_collapsed", String(next));
-              }
-            }}
-            className="hidden lg:flex p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer"
-            title={isCollapsed ? "Pin Sidebar Open" : "Collapse Sidebar"}
-          >
-            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-          </button>
-
-          <button 
-            onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden text-zinc-400 hover:text-white"
-          >
-            <X size={20} />
-          </button>
+          {isSidebarOpen && (
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
 
         {/* Navigation Links */}
