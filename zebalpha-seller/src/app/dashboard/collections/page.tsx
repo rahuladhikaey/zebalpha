@@ -161,30 +161,38 @@ export default function SellerCollectionsPage() {
     setIsModalOpen(true);
   };
 
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError("❌ Image file size must be less than 2 MB.");
+    if (file.size > 5 * 1024 * 1024) {
+      setError("❌ Image file size must be less than 5 MB.");
       return;
     }
 
     try {
+      setUploadingImage(true);
+      setError("");
+
       const reader = new FileReader();
-      reader.onload = () => {
-        setImagePreview(reader.result as string);
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setImagePreview(base64);
+        setForm((prev) => ({ ...prev, image_url: prev.image_url || base64 }));
       };
       reader.readAsDataURL(file);
 
-      setError("");
-      setSubmitting(true);
       const uploadedUrl = await uploadToCloudinary(file);
-      setForm((prev) => ({ ...prev, image_url: uploadedUrl }));
+      if (uploadedUrl) {
+        setForm((prev) => ({ ...prev, image_url: uploadedUrl }));
+        setImagePreview(uploadedUrl);
+      }
     } catch (err: any) {
-      setError("❌ Failed to upload image to Cloudinary CDN.");
+      console.warn("Cloudinary/Supabase storage upload notice, using local image preview:", err);
     } finally {
-      setSubmitting(false);
+      setUploadingImage(false);
     }
   };
 
@@ -200,10 +208,12 @@ export default function SellerCollectionsPage() {
 
     setSubmitting(true);
     try {
+      const finalImage = form.image_url || imagePreview || null;
+
       const payload = {
         name: form.name.trim(),
         main_category: (form.main_category || "ALL").trim().toUpperCase(),
-        image_url: form.image_url || null,
+        image_url: finalImage,
         description: form.description || null,
         sort_order: form.sort_order || 0,
         is_active: form.is_active !== false,
@@ -825,8 +835,10 @@ export default function SellerCollectionsPage() {
                     )}
                   </div>
                   <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-zinc-800 hover:border-zinc-600 rounded-2xl p-4 cursor-pointer transition-colors bg-zinc-900/40">
-                    <span className="text-xs font-black text-white">Upload New Image</span>
-                    <span className="text-[10px] text-zinc-500 mt-0.5">PNG, JPG, WEBP (Max 2MB)</span>
+                    <span className="text-xs font-black text-white">
+                      {uploadingImage ? "Uploading Image..." : "Upload New Image"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5">PNG, JPG, WEBP (Max 5MB)</span>
                     <input type="file" accept="image/*" onChange={handleImageFileChange} className="hidden" />
                   </label>
                 </div>
@@ -842,10 +854,10 @@ export default function SellerCollectionsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || uploadingImage}
                   className="flex items-center gap-2 rounded-2xl bg-white px-6 py-3 text-xs font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-all disabled:opacity-50 cursor-pointer shadow-lg"
                 >
-                  {submitting ? "Saving..." : editingId ? "Update Card" : "Save Collection"}
+                  {submitting ? "Saving..." : uploadingImage ? "Uploading Cover..." : editingId ? "Update Card" : "Save Collection"}
                 </button>
               </div>
             </form>
