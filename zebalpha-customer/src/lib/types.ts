@@ -5,6 +5,9 @@ export type Category = {
   main_category?: string;
   description?: string;
   icon?: string;
+  slug?: string;
+  sort_order?: number;
+  is_active?: boolean;
 };
 
 export type ProductPackage = {

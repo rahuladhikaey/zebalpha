@@ -66,8 +66,15 @@ export type OrderPayload = {
 };
 
 export type Category = {
-	id: number;
+	id: number | string;
 	name: string;
+	image_url?: string;
+	main_category?: string;
+	description?: string;
+	icon?: string;
+	slug?: string;
+	sort_order?: number;
+	is_active?: boolean;
 };
 
 export type UserProfile = {
