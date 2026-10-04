@@ -15,7 +15,9 @@ import {
   Layers,
   Shirt,
   Sparkles,
-  Package
+  Package,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { getCategoryIcon } from "@/utils/categoryIcons";
 import { exportCategoriesExcel } from "@/utils/excelExport";
@@ -196,22 +198,35 @@ export default function CategoriesShelvesView({
 
     try {
       if (editingCategoryId) {
-        const response = await fetch("/api/admin/categories", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingCategoryId, updates: payload })
-        });
-        const resJson = await response.json();
-        if (!resJson.success) throw new Error(resJson.message || "Failed to update category");
+        const { error } = await supabase
+          .from("categories")
+          .update(payload)
+          .eq("id", editingCategoryId);
+
+        if (error) {
+          const response = await fetch("/api/admin/categories", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: editingCategoryId, updates: payload })
+          });
+          const resJson = await response.json();
+          if (!resJson.success) throw new Error(resJson.message || "Failed to update category");
+        }
         setStatusMessage(`✅ Apparel collection "${categoryName.trim()}" updated successfully.`);
       } else {
-        const response = await fetch("/api/admin/categories", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        const resJson = await response.json();
-        if (!resJson.success) throw new Error(resJson.message || "Failed to save category");
+        const { error } = await supabase
+          .from("categories")
+          .insert([payload]);
+
+        if (error) {
+          const response = await fetch("/api/admin/categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const resJson = await response.json();
+          if (!resJson.success) throw new Error(resJson.message || "Failed to save category");
+        }
         setStatusMessage(`✨ New apparel collection "${categoryName.trim()}" created under ${mainCategory}!`);
       }
 
@@ -220,6 +235,7 @@ export default function CategoriesShelvesView({
       setImagePreview("");
       setImageSizeNotice("");
       setEditingCategoryId(null);
+      onRefresh?.();
     } catch (e: any) {
       console.error("Error saving category:", e);
       // Local state fallback update
@@ -255,16 +271,56 @@ export default function CategoriesShelvesView({
     setImageSizeNotice("");
   };
 
+  const handleToggleHideCategory = async (category: any) => {
+    const isCurrentlyHidden = category.is_active === false;
+    const newActiveState = isCurrentlyHidden;
+
+    setActioningId(category.id);
+    try {
+      const { error } = await supabase
+        .from("categories")
+        .update({ is_active: newActiveState })
+        .eq("id", category.id);
+
+      if (error) {
+        await fetch("/api/admin/categories", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: category.id, updates: { is_active: newActiveState } })
+        });
+      }
+
+      const updated = categories.map(c => c.id === category.id ? { ...c, is_active: newActiveState } : c);
+      setCategories(updated);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("zebalpha_categories_cache", JSON.stringify(updated));
+      }
+      setStatusMessage(`Category "${category.name}" is now ${newActiveState ? "Visible" : "Hidden"}.`);
+      onRefresh?.();
+    } catch (e: any) {
+      console.error("Error toggling category status:", e);
+    } finally {
+      setActioningId(null);
+    }
+  };
+
   const handleDeleteCategory = async (categoryId: number) => {
     if (!confirm("Are you sure you want to delete this apparel category?")) return;
 
     setActioningId(categoryId);
     try {
-      const response = await fetch(`/api/admin/categories?id=${categoryId}`, {
-        method: "DELETE"
-      });
-      const resJson = await response.json();
-      if (!resJson.success) throw new Error(resJson.message || "Failed to delete category");
+      const { error } = await supabase
+        .from("categories")
+        .delete()
+        .eq("id", categoryId);
+
+      if (error) {
+        const response = await fetch(`/api/admin/categories?id=${categoryId}`, {
+          method: "DELETE"
+        });
+        const resJson = await response.json();
+        if (!resJson.success) throw new Error(resJson.message || "Failed to delete category");
+      }
 
       const updated = categories.filter((c) => c.id !== categoryId);
       setCategories(updated);
@@ -525,9 +581,15 @@ export default function CategoriesShelvesView({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                        {c.main_category || "Apparel"}
-                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                          c.is_active === false
+                            ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        }`}>
+                          {c.is_active === false ? "Hidden" : c.main_category || "Apparel"}
+                        </span>
+                      </div>
                       <h4 className="font-black text-sm text-white mt-1 truncate">{c.name}</h4>
                       <p className="text-[10px] text-zinc-400 font-bold flex items-center gap-1 mt-0.5">
                         <Package size={11} className="text-zinc-500" />
@@ -538,15 +600,28 @@ export default function CategoriesShelvesView({
 
                   <div className="flex items-center gap-2 shrink-0 ml-2">
                     <button
+                      onClick={() => handleToggleHideCategory(c)}
+                      className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                        c.is_active === false
+                          ? "bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20"
+                          : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                      }`}
+                      title={c.is_active === false ? "Show Category" : "Hide Category"}
+                    >
+                      {c.is_active === false ? <EyeOff className="w-3.5 h-3.5 text-rose-400" /> : <Eye className="w-3.5 h-3.5 text-emerald-400" />}
+                    </button>
+
+                    <button
                       onClick={() => handleEditClick(c)}
-                      className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 transition-colors"
+                      className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 transition-colors cursor-pointer"
                       title="Edit Category"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
+
                     <button
                       onClick={() => handleDeleteCategory(c.id)}
-                      className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 transition-colors"
+                      className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer"
                       title="Delete Category"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

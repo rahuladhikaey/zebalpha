@@ -4,11 +4,6 @@ import { supabaseServer } from "@shared/utils/supabaseServer";
 // POST /api/admin/categories (Insert or Seed)
 export async function POST(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
     
     // Check if it's an array of categories (seeding) or a single category
@@ -32,11 +27,6 @@ export async function POST(req: Request) {
 // PUT /api/admin/categories (Update)
 export async function PUT(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
     const { id, updates } = body;
 
@@ -62,11 +52,6 @@ export async function PUT(req: Request) {
 // DELETE /api/admin/categories (Delete)
 export async function DELETE(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
