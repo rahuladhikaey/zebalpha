@@ -33,16 +33,6 @@ export const MAIN_CATEGORIES = [
   "Capsule Collections"
 ];
 
-const DEFAULT_APPAREL_CATEGORIES = [
-  { name: "Premium Polos", main_category: "POLOS", icon: "👕", description: "100% Supima Pique & Knitted Polos", image_url: "/banner-premium-polo.png" },
-  { name: "Oversized Tees", main_category: "T-SHIRTS", icon: "🛹", description: "240 GSM Heavyweight Streetwear Tees", image_url: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&auto=format&fit=crop&q=80" },
-  { name: "Heavyweight Hoodies", main_category: "HOODIES", icon: "🧥", description: "400+ GSM French Terry Fleece Hoodies", image_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80" },
-  { name: "Classic Shirts", main_category: "SHIRTS", icon: "👔", description: "Structured Utility & Camp-Collar Overshirts", image_url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80" },
-  { name: "Cargo & Bottoms", main_category: "BOTTOMS", icon: "👖", description: "Multi-Pocket Tactical Cargos & Streetwear Bottoms", image_url: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80" },
-  { name: "Limited Drops", main_category: "LIMITED", icon: "⚡", description: "Exclusive Seasonally Numbered Limited Capsules", image_url: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80" },
-  { name: "Accessories & Headwear", main_category: "ACCESSORIES", icon: "🧢", description: "Elevated Beanies, Caps & Streetwear Essentials", image_url: "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80" }
-];
-
 interface CategoriesShelvesViewProps {
   initialCategories?: any[];
   initialProducts?: any[];
@@ -333,62 +323,7 @@ export default function CategoriesShelvesView({
     }
   };
 
-  const handleSeedCategories = async () => {
-    try {
-      const response = await fetch("/api/admin/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(DEFAULT_APPAREL_CATEGORIES)
-      });
-      const resJson = await response.json();
-      if (!resJson.success) throw new Error(resJson.message || "Failed to seed categories");
-      
-      setStatusMessage("✅ 10 ZEBALPHA Clothing & Streetwear collections seeded to database!");
-      loadData();
-      onRefresh?.();
-    } catch (err: any) {
-      console.warn("Notice seeding categories:", err);
-      setCategories(DEFAULT_APPAREL_CATEGORIES.map((c, i) => ({ id: i + 1, ...c, slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") })));
-      if (typeof window !== "undefined") {
-        localStorage.setItem("zebalpha_categories_cache", JSON.stringify(DEFAULT_APPAREL_CATEGORIES));
-      }
-      setStatusMessage("✅ ZEBALPHA Apparel collections populated!");
-    }
-  };
-
-  const filteredCategories = categories.filter((c) => {
-    const matchesSearch = (c.name || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesMain = selectedMainCategoryFilter === "ALL" || (c.main_category || "").toLowerCase() === selectedMainCategoryFilter.toLowerCase();
-    return matchesSearch && matchesMain;
-  });
-
-  return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-950 p-6 md:p-8 rounded-3xl border border-zinc-800 shadow-2xl relative overflow-hidden">
-        <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
-        
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 text-zinc-400 font-bold text-xs uppercase tracking-widest">
-            <Shirt className="w-4 h-4 text-emerald-400" />
-            <span>Apparel Collections & Category Architecture</span>
-          </div>
-          <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white mt-1">
-            Apparel Category & Collection Management
-          </h2>
-          <p className="text-xs font-bold text-zinc-400 mt-1 max-w-2xl">
-            Create and organize clothing collections (Polos, Oversized Streetwear Tees, Hoodies, Bottoms), upload high-res collection covers, and manage catalog routing for the ZEBALPHA storefront.
-          </p>
-        </div>
-
         <div className="flex items-center gap-3 flex-wrap relative z-10">
-          <button
-            onClick={handleSeedCategories}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-bold text-xs hover:bg-zinc-800 transition-all active:scale-95 shadow-md cursor-pointer"
-          >
-            <Sparkles size={14} className="text-amber-400" />
-            <span>Seed Brand Collections</span>
-          </button>
           <button
             onClick={() => exportCategoriesExcel(categories, products)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition-all active:scale-95 shadow-md cursor-pointer"
@@ -545,7 +480,7 @@ export default function CategoriesShelvesView({
           </div>
         ) : filteredCategories.length === 0 ? (
           <div className="bg-zinc-950 p-12 rounded-3xl border border-zinc-800 text-center text-xs font-bold text-zinc-500">
-            No apparel collections found matching "{selectedMainCategoryFilter}". Click "Seed Brand Collections" to restore defaults.
+            No apparel collections found matching "{selectedMainCategoryFilter}".
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
