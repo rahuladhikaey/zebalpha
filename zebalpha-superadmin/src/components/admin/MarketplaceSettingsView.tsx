@@ -15,7 +15,12 @@ import {
   Power,
   RefreshCw,
   Clock,
-  Sparkles
+  Sparkles,
+  CheckCircle2,
+  ExternalLink,
+  CreditCard,
+  Eye,
+  AlertCircle
 } from "lucide-react";
 
 export default function MarketplaceSettingsView() {
@@ -23,6 +28,7 @@ export default function MarketplaceSettingsView() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [statusType, setStatusType] = useState<"success" | "error">("success");
 
   // General & Fees Marketplace Config
   const [marketplaceConfig, setMarketplaceConfig] = useState({
@@ -39,7 +45,7 @@ export default function MarketplaceSettingsView() {
 
   const [products, setProducts] = useState<any[]>([]);
 
-  // Real Promotional Coupons State (Persisted in DB `store_settings` key `promotional_coupons`)
+  // Promotional Coupons State (Persisted in DB `store_settings` key `promotional_coupons`)
   const [coupons, setCoupons] = useState<any[]>([]);
   const [newCouponForm, setNewCouponForm] = useState({
     code: "",
@@ -49,7 +55,7 @@ export default function MarketplaceSettingsView() {
     minOrderAmount: "0"
   });
 
-  // Special Offers & BOGO State
+  // Special Offers & BOGO State (Persisted in DB `store_settings` key `special_offers_list`)
   const [specialOffers, setSpecialOffers] = useState<any[]>([]);
   const [newOfferForm, setNewOfferForm] = useState({
     title: "",
@@ -63,55 +69,137 @@ export default function MarketplaceSettingsView() {
   const [herobanners, setHeroBanners] = useState<any[]>([]);
   const [newBannerUrl, setNewBannerUrl] = useState("");
   const [newBannerAlt, setNewBannerAlt] = useState("");
+  const [newBannerLink, setNewBannerLink] = useState("");
   const [marqueeItems, setMarqueeItems] = useState<any[]>([]);
   const [newMarqueeText, setNewMarqueeText] = useState("");
   const [newMarqueeIcon, setNewMarqueeIcon] = useState("badge");
 
+  const notify = (msg: string, type: "success" | "error" = "success", duration = 4000) => {
+    setStatusMsg(msg);
+    setStatusType(type);
+    setTimeout(() => setStatusMsg(""), duration);
+  };
+
+  // Helper to reliably save key-value pairs through our Next.js API (bypasses Supabase RLS with service_role)
+  const saveSettingToDb = async (key: string, value: any) => {
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || `Server returned ${res.status}`);
+      }
+      return true;
+    } catch (apiErr: any) {
+      console.warn(`[Settings] Server API failed for "${key}", attempting direct fallback:`, apiErr);
+      const { error: directErr } = await supabase
+        .from("store_settings")
+        .upsert(
+          { key, value, updated_at: new Date().toISOString() },
+          { onConflict: "key" }
+        );
+      if (directErr) {
+        console.error(`[Settings] Direct fallback also failed:`, directErr);
+        throw new Error(apiErr.message || directErr.message || "Failed to persist setting");
+      }
+      return true;
+    }
+  };
+
   const loadSettings = async () => {
     setLoading(true);
     try {
-      // Fetch all store settings from Supabase DB
-      const { data: settingsData, error } = await supabase
-        .from("store_settings")
-        .select("*");
+      let loadedFromApi = false;
 
-      if (error) {
-        console.error("Error fetching store settings:", error);
+      // 1. Fetch from Next.js server API with service_role
+      try {
+        const res = await fetch("/api/admin/settings", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.settings) {
+            loadedFromApi = true;
+            const rulesMap = json.settings;
+
+            if (rulesMap.marketplace_rules) {
+              setMarketplaceConfig(prev => ({
+                ...prev,
+                ...rulesMap.marketplace_rules
+              }));
+              try {
+                localStorage.setItem("asali_swad_marketplace_rules", JSON.stringify(rulesMap.marketplace_rules));
+              } catch (_) {}
+            }
+
+            if (rulesMap.promotional_coupons) {
+              setCoupons(Array.isArray(rulesMap.promotional_coupons) ? rulesMap.promotional_coupons : []);
+            }
+
+            if (rulesMap.special_offers_list) {
+              setSpecialOffers(Array.isArray(rulesMap.special_offers_list) ? rulesMap.special_offers_list : []);
+            }
+
+            if (rulesMap.hero_banners) {
+              setHeroBanners(Array.isArray(rulesMap.hero_banners) ? rulesMap.hero_banners : []);
+            }
+
+            if (rulesMap.marquee_banner) {
+              setMarqueeItems(Array.isArray(rulesMap.marquee_banner) ? rulesMap.marquee_banner : []);
+            }
+
+            if (json.products && Array.isArray(json.products)) {
+              setProducts(json.products);
+            }
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Could not load settings from /api/admin/settings, trying fallback:", apiErr);
       }
 
-      if (settingsData && settingsData.length > 0) {
-        const rulesMap: Record<string, any> = {};
-        settingsData.forEach(item => {
-          rulesMap[item.key] = item.value;
-        });
+      // 2. Direct client query fallback if server route didn't return
+      if (!loadedFromApi) {
+        const { data: settingsData, error } = await supabase
+          .from("store_settings")
+          .select("*");
 
-        if (rulesMap.marketplace_rules) {
-          setMarketplaceConfig(prev => ({
-            ...prev,
-            ...rulesMap.marketplace_rules
-          }));
+        if (!error && settingsData && settingsData.length > 0) {
+          const rulesMap: Record<string, any> = {};
+          settingsData.forEach(item => {
+            rulesMap[item.key] = item.value;
+          });
+
+          if (rulesMap.marketplace_rules) {
+            setMarketplaceConfig(prev => ({ ...prev, ...rulesMap.marketplace_rules }));
+          }
+          if (rulesMap.promotional_coupons) {
+            setCoupons(Array.isArray(rulesMap.promotional_coupons) ? rulesMap.promotional_coupons : []);
+          }
+          if (rulesMap.special_offers_list) {
+            setSpecialOffers(Array.isArray(rulesMap.special_offers_list) ? rulesMap.special_offers_list : []);
+          }
+          if (rulesMap.hero_banners) {
+            setHeroBanners(Array.isArray(rulesMap.hero_banners) ? rulesMap.hero_banners : []);
+          }
+          if (rulesMap.marquee_banner) {
+            setMarqueeItems(Array.isArray(rulesMap.marquee_banner) ? rulesMap.marquee_banner : []);
+          }
         }
 
-        if (rulesMap.promotional_coupons) {
-          setCoupons(Array.isArray(rulesMap.promotional_coupons) ? rulesMap.promotional_coupons : []);
-        }
-
-        if (rulesMap.special_offers_list) {
-          setSpecialOffers(Array.isArray(rulesMap.special_offers_list) ? rulesMap.special_offers_list : []);
-        }
-
-        if (rulesMap.hero_banners) {
-          setHeroBanners(Array.isArray(rulesMap.hero_banners) ? rulesMap.hero_banners : []);
-        }
-
-        if (rulesMap.marquee_banner) {
-          setMarqueeItems(Array.isArray(rulesMap.marquee_banner) ? rulesMap.marquee_banner : []);
-        }
+        // Fetch products for selector
+        const { data: prodData } = await supabase.from("products").select("id, name, price");
+        if (prodData) setProducts(prodData);
       }
 
-      // Fetch products for BOGO offer selector
-      const { data: prodData } = await supabase.from("products").select("id, name, price");
-      setProducts(prodData || []);
+      // 3. Fallback to localStorage if state is empty
+      try {
+        const local = localStorage.getItem("asali_swad_marketplace_rules");
+        if (local) {
+          const parsed = JSON.parse(local);
+          setMarketplaceConfig(prev => ({ ...prev, ...parsed }));
+        }
+      } catch (_) {}
     } catch (err: any) {
       console.error("Error loading marketplace settings:", err);
     } finally {
@@ -123,42 +211,23 @@ export default function MarketplaceSettingsView() {
     loadSettings();
   }, []);
 
+  // Save General & Fees
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setStatusMsg("");
 
     try {
-      // Save as 'marketplace_rules' (superadmin internal usage)
-      const { error } = await supabase
-        .from("store_settings")
-        .upsert({
-          key: "marketplace_rules",
-          value: marketplaceConfig,
-          updated_at: new Date().toISOString()
-        });
+      await saveSettingToDb("marketplace_rules", marketplaceConfig);
 
-      if (error) throw error;
+      // LocalStorage instant cache
+      try {
+        localStorage.setItem("asali_swad_marketplace_rules", JSON.stringify(marketplaceConfig));
+      } catch (_) {}
 
-      // Also save as 'billing' key so Customer checkout/cart picks up these values
-      const billingPayload = {
-        deliveryFee: Number(marketplaceConfig.deliveryCharge) || 40,
-        freeDeliveryThreshold: Number(marketplaceConfig.freeShippingThreshold) || 999,
-        packagingFee: Number(marketplaceConfig.appCharge) || 5,
-        tax: 3
-      };
-      await supabase
-        .from("store_settings")
-        .upsert({
-          key: "billing",
-          value: billingPayload,
-          updated_at: new Date().toISOString()
-        });
-
-      setStatusMsg("🎉 Production marketplace charges, commission % & rules updated in real-time DB!");
-      setTimeout(() => setStatusMsg(""), 4000);
+      notify("🎉 Production settings & billing rules saved permanently to database!");
     } catch (err: any) {
-      alert(err.message || "Failed to save settings to database.");
+      console.error("Save error:", err);
+      notify(err.message || "Failed to save settings to database.", "error");
     } finally {
       setSaving(false);
     }
@@ -198,42 +267,23 @@ export default function MarketplaceSettingsView() {
     const updatedCoupons = [...coupons, newCoupon];
 
     try {
-      const { error } = await supabase
-        .from("store_settings")
-        .upsert({
-          key: "promotional_coupons",
-          value: updatedCoupons,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-
+      await saveSettingToDb("promotional_coupons", updatedCoupons);
       setCoupons(updatedCoupons);
       setNewCouponForm({ code: "", discount: "", type: "Percentage", expiry: "", minOrderAmount: "0" });
-      setStatusMsg(`🎉 Promotional coupon "${cleanCode}" created & saved in database!`);
-      setTimeout(() => setStatusMsg(""), 4000);
+      notify(`🎉 Promotional coupon "${cleanCode}" saved to database!`);
     } catch (err: any) {
-      alert(err.message || "Failed to save coupon.");
+      notify(err.message || "Failed to save coupon.", "error");
     }
   };
 
   const handleToggleCouponStatus = async (couponId: string | number) => {
     const updated = coupons.map(c => c.id === couponId ? { ...c, active: !c.active } : c);
     try {
-      const { error } = await supabase
-        .from("store_settings")
-        .upsert({
-          key: "promotional_coupons",
-          value: updated,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
+      await saveSettingToDb("promotional_coupons", updated);
       setCoupons(updated);
-      setStatusMsg("Coupon status updated in database.");
-      setTimeout(() => setStatusMsg(""), 2000);
+      notify("Coupon status updated in database.");
     } catch (err: any) {
-      alert(err.message || "Failed to update coupon status.");
+      notify(err.message || "Failed to update coupon status.", "error");
     }
   };
 
@@ -241,20 +291,11 @@ export default function MarketplaceSettingsView() {
     if (!confirm("Are you sure you want to delete this coupon?")) return;
     const updated = coupons.filter(c => c.id !== couponId);
     try {
-      const { error } = await supabase
-        .from("store_settings")
-        .upsert({
-          key: "promotional_coupons",
-          value: updated,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
+      await saveSettingToDb("promotional_coupons", updated);
       setCoupons(updated);
-      setStatusMsg("Coupon deleted permanently from database.");
-      setTimeout(() => setStatusMsg(""), 2000);
+      notify("Coupon deleted permanently from database.");
     } catch (err: any) {
-      alert(err.message || "Failed to delete coupon.");
+      notify(err.message || "Failed to delete coupon.", "error");
     }
   };
 
@@ -277,36 +318,23 @@ export default function MarketplaceSettingsView() {
     ];
 
     try {
-      const { error } = await supabase
-        .from("store_settings")
-        .upsert({
-          key: "special_offers_list",
-          value: updatedOffers,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-
+      await saveSettingToDb("special_offers_list", updatedOffers);
       setSpecialOffers(updatedOffers);
       setNewOfferForm({ title: "", main_product_id: "", bonus_product_id: "", discount_type: "BOGO", discount_pct: 100 });
-      setStatusMsg("🎁 New Special Offer & BOGO deal created in production DB!");
-      setTimeout(() => setStatusMsg(""), 4000);
+      notify("🎁 Special Offer & BOGO deal created & saved to database!");
     } catch (err: any) {
-      alert(err.message || "Failed to save special offer.");
+      notify(err.message || "Failed to save special offer.", "error");
     }
   };
 
   const handleToggleOfferStatus = async (offerId: string) => {
     const updated = specialOffers.map(o => o.id === offerId ? { ...o, is_active: !o.is_active } : o);
     try {
-      await supabase.from("store_settings").upsert({
-        key: "special_offers_list",
-        value: updated,
-        updated_at: new Date().toISOString()
-      });
+      await saveSettingToDb("special_offers_list", updated);
       setSpecialOffers(updated);
-    } catch (e) {
-      console.error(e);
+      notify("Offer status updated in database.");
+    } catch (e: any) {
+      notify(e.message || "Failed to update offer status.", "error");
     }
   };
 
@@ -314,14 +342,76 @@ export default function MarketplaceSettingsView() {
     if (!confirm("Delete this special offer?")) return;
     const updated = specialOffers.filter(o => o.id !== offerId);
     try {
-      await supabase.from("store_settings").upsert({
-        key: "special_offers_list",
-        value: updated,
-        updated_at: new Date().toISOString()
-      });
+      await saveSettingToDb("special_offers_list", updated);
       setSpecialOffers(updated);
-    } catch (e) {
-      console.error(e);
+      notify("Offer deleted from database.");
+    } catch (e: any) {
+      notify(e.message || "Failed to delete offer.", "error");
+    }
+  };
+
+  // --- HOMEPAGE BANNER HANDLERS ---
+  const handleAddBanner = async () => {
+    if (!newBannerUrl.trim()) {
+      alert("Please enter a valid image URL for the banner.");
+      return;
+    }
+    const newBanner = {
+      id: Date.now(),
+      src: newBannerUrl.trim(),
+      alt: newBannerAlt.trim() || "Banner Image",
+      link: newBannerLink.trim() || "/"
+    };
+    const updated = [...herobanners, newBanner];
+    try {
+      await saveSettingToDb("hero_banners", updated);
+      setHeroBanners(updated);
+      setNewBannerUrl("");
+      setNewBannerAlt("");
+      setNewBannerLink("");
+      notify("✅ Hero banner added! Customer homepage will reflect immediately.");
+    } catch (err: any) {
+      notify(err.message || "Failed to save banner.", "error");
+    }
+  };
+
+  const handleDeleteBanner = async (index: number) => {
+    const updated = herobanners.filter((_, idx) => idx !== index);
+    try {
+      await saveSettingToDb("hero_banners", updated);
+      setHeroBanners(updated);
+      notify("✅ Banner removed.");
+    } catch (err: any) {
+      notify(err.message || "Failed to delete banner.", "error");
+    }
+  };
+
+  // --- MARQUEE HANDLERS ---
+  const handleAddMarquee = async () => {
+    if (!newMarqueeText.trim()) {
+      alert("Please enter marquee text.");
+      return;
+    }
+    const updated = [...marqueeItems, { icon: newMarqueeIcon, text: newMarqueeText.trim() }];
+    try {
+      await saveSettingToDb("marquee_banner", updated);
+      setMarqueeItems(updated);
+      setNewMarqueeText("");
+      setNewMarqueeIcon("badge");
+      notify("✅ Moving offer banner text updated in database!");
+    } catch (err: any) {
+      notify(err.message || "Failed to save marquee text.", "error");
+    }
+  };
+
+  const handleDeleteMarquee = async (index: number) => {
+    const updated = marqueeItems.filter((_, idx) => idx !== index);
+    try {
+      await saveSettingToDb("marquee_banner", updated);
+      setMarqueeItems(updated);
+      notify("✅ Marquee text item removed.");
+    } catch (err: any) {
+      notify(err.message || "Failed to delete marquee text.", "error");
     }
   };
 
@@ -335,34 +425,34 @@ export default function MarketplaceSettingsView() {
             Configure delivery charges, app platform fees, seller commission %, promotional coupons & homepage banners.
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl self-start overflow-x-auto">
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl self-start overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveTab("general")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${activeTab === "general" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500"}`}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${activeTab === "general" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
           >
             General
           </button>
           <button
             onClick={() => setActiveTab("fees")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${activeTab === "fees" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500"}`}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${activeTab === "fees" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
           >
             Fees & Commission
           </button>
           <button
             onClick={() => setActiveTab("offers")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${activeTab === "offers" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500"}`}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${activeTab === "offers" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
           >
             Special Offers & BOGO ({specialOffers.length})
           </button>
           <button
             onClick={() => setActiveTab("coupons")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${activeTab === "coupons" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500"}`}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${activeTab === "coupons" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
           >
             Coupons ({coupons.length})
           </button>
           <button
             onClick={() => setActiveTab("homepage")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${activeTab === "homepage" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500"}`}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${activeTab === "homepage" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
           >
             🏠 Homepage
           </button>
@@ -370,43 +460,61 @@ export default function MarketplaceSettingsView() {
       </div>
 
       {statusMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200 flex items-center justify-between">
-          <span>{statusMsg}</span>
-          <button onClick={() => setStatusMsg("")} className="text-emerald-800 font-black">✕</button>
+        <div className={`p-4 rounded-2xl font-bold text-xs border flex items-center justify-between transition-all ${
+          statusType === "success" 
+            ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800" 
+            : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+        }`}>
+          <div className="flex items-center gap-2">
+            {statusType === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}
+            <span>{statusMsg}</span>
+          </div>
+          <button onClick={() => setStatusMsg("")} className="font-black px-2 hover:opacity-75 cursor-pointer">✕</button>
         </div>
       )}
 
       {loading ? (
-        <div className="p-12 text-center text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-2">
-          <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
-          <span>Loading Production Settings from Database...</span>
+        <div className="p-16 text-center text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-3">
+          <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
+          <span className="text-sm font-black text-slate-600 dark:text-slate-300">Connecting to Database & Loading Production Settings...</span>
         </div>
       ) : (
         <>
           {/* GENERAL TAB */}
           {activeTab === "general" && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm max-w-2xl space-y-4">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <Settings className="w-5 h-5 text-emerald-600" />
-                General Marketplace Configuration
-              </h2>
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm max-w-2xl space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-emerald-600" />
+                  General Marketplace Configuration
+                </h2>
+                <button
+                  onClick={loadSettings}
+                  title="Reload from DB"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
 
               <form onSubmit={handleSaveSettings} className="space-y-4 text-xs font-bold">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400">Marketplace Name</label>
                   <input
                     type="text"
+                    required
                     value={marketplaceConfig.marketplaceName}
                     onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, marketplaceName: e.target.value })}
                     className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400">Support Email</label>
                     <input
                       type="email"
+                      required
                       value={marketplaceConfig.supportEmail}
                       onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, supportEmail: e.target.value })}
                       className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
@@ -416,6 +524,7 @@ export default function MarketplaceSettingsView() {
                     <label className="text-[10px] font-black uppercase text-slate-400">Support Phone</label>
                     <input
                       type="text"
+                      required
                       value={marketplaceConfig.supportPhone}
                       onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, supportPhone: e.target.value })}
                       className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
@@ -426,9 +535,9 @@ export default function MarketplaceSettingsView() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="py-3 px-6 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-md shadow-emerald-600/20"
+                  className="py-3.5 px-8 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50 transition-all"
                 >
-                  {saving ? "Saving..." : "Save General Settings"}
+                  {saving ? "Saving to Database..." : "Save General Settings"}
                 </button>
               </form>
             </div>
@@ -437,14 +546,23 @@ export default function MarketplaceSettingsView() {
           {/* FEES & COMMISSION TAB */}
           {activeTab === "fees" && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm max-w-3xl space-y-6">
-              <div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Percent className="w-5 h-5 text-emerald-600" />
-                  <span>Real-time Charges & Seller Commission Control</span>
-                </h2>
-                <p className="text-xs text-slate-500 font-medium mt-1">
-                  Set delivery charge, app platform charge, seller commission %, and shipping costs applied real-time during customer checkout and seller payouts.
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <Percent className="w-5 h-5 text-emerald-600" />
+                    <span>Real-time Charges & Seller Commission Control</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-1">
+                    Set delivery charge, app platform charge, seller commission %, and shipping costs applied real-time during customer checkout and seller payouts.
+                  </p>
+                </div>
+                <button
+                  onClick={loadSettings}
+                  title="Reload from DB"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
               </div>
 
               <form onSubmit={handleSaveSettings} className="space-y-4 text-xs font-bold">
@@ -456,6 +574,8 @@ export default function MarketplaceSettingsView() {
                     </label>
                     <input
                       type="number"
+                      required
+                      min="0"
                       value={marketplaceConfig.deliveryCharge}
                       onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, deliveryCharge: e.target.value })}
                       className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
@@ -470,6 +590,8 @@ export default function MarketplaceSettingsView() {
                     </label>
                     <input
                       type="number"
+                      required
+                      min="0"
                       value={marketplaceConfig.freeShippingThreshold}
                       onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, freeShippingThreshold: e.target.value })}
                       className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
@@ -484,6 +606,8 @@ export default function MarketplaceSettingsView() {
                     </label>
                     <input
                       type="number"
+                      required
+                      min="0"
                       value={marketplaceConfig.appCharge}
                       onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, appCharge: e.target.value })}
                       className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
@@ -498,6 +622,9 @@ export default function MarketplaceSettingsView() {
                     </label>
                     <input
                       type="number"
+                      required
+                      min="0"
+                      max="100"
                       value={marketplaceConfig.globalCommissionPct}
                       onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, globalCommissionPct: e.target.value })}
                       className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
@@ -505,27 +632,52 @@ export default function MarketplaceSettingsView() {
                     <span className="text-[10px] text-slate-400">Default marketplace commission deducted from seller payout</span>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2 md:col-span-2">
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
                       <Truck className="w-4 h-4 text-emerald-600" />
                       <span>Default Base Shipping Cost (₹)</span>
                     </label>
                     <input
                       type="number"
+                      required
+                      min="0"
                       value={marketplaceConfig.defaultShippingCost}
                       onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, defaultShippingCost: e.target.value })}
                       className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
                     />
                     <span className="text-[10px] text-slate-400">Base shipping & logistics cost allocated per parcel dispatch</span>
                   </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2 flex flex-col justify-between">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <CreditCard className="w-4 h-4 text-emerald-600" />
+                      <span>Cash On Delivery (COD)</span>
+                    </label>
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setMarketplaceConfig({ ...marketplaceConfig, codEnabled: !marketplaceConfig.codEnabled })}
+                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all cursor-pointer ${
+                          marketplaceConfig.codEnabled
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
+                            : "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+                        }`}
+                      >
+                        {marketplaceConfig.codEnabled ? "✅ COD Enabled" : "❌ COD Disabled"}
+                      </button>
+                      <span className="text-[10px] text-slate-400">
+                        {marketplaceConfig.codEnabled ? "Customers can choose Pay on Delivery" : "Online prepaid only"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <button
                   type="submit"
                   disabled={saving}
-                  className="py-3.5 px-8 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
+                  className="py-3.5 px-8 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-50 transition-all"
                 >
-                  {saving ? "Saving Changes..." : "Save Production Charges & Commission"}
+                  {saving ? "Saving to Database..." : "Save Production Charges & Commission"}
                 </button>
               </form>
             </div>
@@ -535,10 +687,19 @@ export default function MarketplaceSettingsView() {
           {activeTab === "offers" && (
             <div className="space-y-6">
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Gift className="w-5 h-5 text-amber-500" />
-                  <span>Create Special Offer & BOGO Deal</span>
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <Gift className="w-5 h-5 text-amber-500" />
+                    <span>Create Special Offer & BOGO Deal</span>
+                  </h2>
+                  <button
+                    onClick={loadSettings}
+                    title="Reload from DB"
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
 
                 <form onSubmit={handleAddSpecialOffer} className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold">
                   <div className="space-y-1">
@@ -546,7 +707,7 @@ export default function MarketplaceSettingsView() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Buy 1 Pure Honey Get 1 Spice Free!"
+                      placeholder="e.g. Buy 1 Oversized Tee Get 1 Free (BOGO)!"
                       value={newOfferForm.title}
                       onChange={(e) => setNewOfferForm({ ...newOfferForm, title: e.target.value })}
                       className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 outline-none focus:border-emerald-500"
@@ -598,7 +759,7 @@ export default function MarketplaceSettingsView() {
                   <div className="md:col-span-2 pt-2 flex justify-end">
                     <button
                       type="submit"
-                      className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase tracking-widest shadow-md"
+                      className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase tracking-widest shadow-md cursor-pointer transition-all"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Create & Deploy Offer</span>
@@ -608,7 +769,7 @@ export default function MarketplaceSettingsView() {
               </div>
 
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                <h3 className="text-base font-black text-slate-900 dark:text-white">Active Special Offers & BOGO Deals</h3>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">Active Special Offers & BOGO Deals ({specialOffers.length})</h3>
                 {specialOffers.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 font-bold text-xs italic">No active special offers configured in database.</div>
                 ) : (
@@ -617,7 +778,7 @@ export default function MarketplaceSettingsView() {
                       <div key={offer.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700 flex items-center justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase">{offer.discount_type}</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-black uppercase">{offer.discount_type}</span>
                             <h4 className="font-black text-slate-900 dark:text-white text-sm">{offer.title}</h4>
                           </div>
                           <p className="text-xs text-slate-500 font-medium mt-1">
@@ -629,13 +790,17 @@ export default function MarketplaceSettingsView() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleToggleOfferStatus(offer.id)}
-                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${offer.is_active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"}`}
+                            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition-all cursor-pointer ${
+                              offer.is_active !== false 
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" 
+                                : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                            }`}
                           >
-                            {offer.is_active ? "Active" : "Inactive"}
+                            {offer.is_active !== false ? "Active" : "Inactive"}
                           </button>
                           <button
                             onClick={() => handleDeleteOffer(offer.id)}
-                            className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                            className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
                             title="Delete Offer"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -654,10 +819,19 @@ export default function MarketplaceSettingsView() {
             <div className="space-y-6">
               {/* Create Coupon Form */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Tag className="w-5 h-5 text-emerald-600" />
-                  <span>Create New Promotional Coupon</span>
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <Tag className="w-5 h-5 text-emerald-600" />
+                    <span>Create New Promotional Coupon</span>
+                  </h2>
+                  <button
+                    onClick={loadSettings}
+                    title="Reload from DB"
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
 
                 <form onSubmit={handleAddCoupon} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold">
                   <div className="space-y-1">
@@ -721,7 +895,7 @@ export default function MarketplaceSettingsView() {
                   <div className="md:col-span-1 pt-6 flex items-center">
                     <button
                       type="submit"
-                      className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest shadow-md shadow-emerald-600/20"
+                      className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest shadow-md shadow-emerald-600/20 cursor-pointer transition-all"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Create & Deploy Coupon</span>
@@ -739,7 +913,7 @@ export default function MarketplaceSettingsView() {
                   </h3>
                   <button 
                     onClick={loadSettings}
-                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
                     title="Refresh List"
                   >
                     <RefreshCw className="w-4 h-4" />
@@ -776,7 +950,7 @@ export default function MarketplaceSettingsView() {
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={() => handleToggleCouponStatus(c.id)}
-                            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1 transition-all ${
+                            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1 transition-all cursor-pointer ${
                               c.active !== false
                                 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
                                 : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
@@ -787,7 +961,7 @@ export default function MarketplaceSettingsView() {
                           </button>
                           <button
                             onClick={() => handleDeleteCoupon(c.id)}
-                            className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                            className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
                             title="Delete Coupon"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -806,16 +980,27 @@ export default function MarketplaceSettingsView() {
             <div className="space-y-6">
               {/* Hero Banners Manager */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  🖼️ Hero Banner Carousel
-                </h2>
-                <p className="text-xs font-bold text-slate-500">Add banner image URLs to show on the customer homepage carousel. Changes reflect instantly.</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      🖼️ Hero Banner Carousel
+                    </h2>
+                    <p className="text-xs font-bold text-slate-500">Add banner image URLs to show on the customer homepage carousel. Changes reflect instantly.</p>
+                  </div>
+                  <button
+                    onClick={loadSettings}
+                    title="Reload from DB"
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="flex-1 space-y-2">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <input
                       type="url"
-                      placeholder="Image URL (e.g., https://supabase.co/...)"
+                      placeholder="Image URL (e.g. https://... or /banner.jpg)"
                       value={newBannerUrl}
                       onChange={e => setNewBannerUrl(e.target.value)}
                       className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
@@ -827,66 +1012,95 @@ export default function MarketplaceSettingsView() {
                       onChange={e => setNewBannerAlt(e.target.value)}
                       className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
                     />
+                    <input
+                      type="text"
+                      placeholder="Target Link (e.g. /category/hoodies)"
+                      value={newBannerLink}
+                      onChange={e => setNewBannerLink(e.target.value)}
+                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
+                    />
                   </div>
+
+                  {newBannerUrl && (
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+                      <div className="w-24 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 shrink-0">
+                        <img 
+                          src={newBannerUrl} 
+                          alt="Banner Preview" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as any).style.display = 'none'; }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500">Live Image Preview</span>
+                    </div>
+                  )}
+
                   <button
-                    onClick={async () => {
-                      if (!newBannerUrl.trim()) return;
-                      const updated = [...herobanners, { id: Date.now(), src: newBannerUrl.trim(), alt: newBannerAlt.trim() || "Banner Image" }];
-                      setHeroBanners(updated);
-                      setNewBannerUrl("");
-                      setNewBannerAlt("");
-                      await supabase.from("store_settings").upsert({ key: "hero_banners", value: updated, updated_at: new Date().toISOString() });
-                      setStatusMsg("✅ Hero banners updated! Customer homepage will reflect immediately.");
-                      setTimeout(() => setStatusMsg(""), 3000);
-                    }}
-                    className="px-5 py-2 rounded-2xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 shrink-0 self-start"
+                    onClick={handleAddBanner}
+                    className="px-6 py-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 shrink-0 cursor-pointer shadow-md shadow-emerald-600/20 transition-all"
                   >
-                    + Add Banner
+                    + Add Banner to Carousel
                   </button>
                 </div>
 
                 {herobanners.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 pt-2">
                     <p className="text-[10px] font-black uppercase text-slate-400">Current Banners ({herobanners.length})</p>
-                    {herobanners.map((b: any, i: number) => (
-                      <div key={b.id || i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 rounded-2xl p-3">
-                        <img src={b.src} alt={b.alt} className="w-16 h-10 object-cover rounded-xl shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{b.alt}</p>
-                          <p className="text-[10px] font-medium text-slate-400 truncate">{b.src}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {herobanners.map((b: any, i: number) => (
+                        <div key={b.id || i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 border border-slate-200 dark:border-slate-700">
+                          <img 
+                            src={b.src} 
+                            alt={b.alt} 
+                            className="w-20 h-14 object-cover rounded-xl shrink-0 border border-slate-300 dark:border-slate-700" 
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{b.alt}</p>
+                            <p className="text-[10px] font-mono text-slate-400 truncate">{b.src}</p>
+                            {b.link && (
+                              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate flex items-center gap-1 mt-0.5">
+                                <ExternalLink size={10} /> {b.link}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteBanner(i)}
+                            className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 text-[10px] font-black hover:bg-rose-100 cursor-pointer transition-colors"
+                          >
+                            Remove
+                          </button>
                         </div>
-                        <button
-                          onClick={async () => {
-                            const updated = herobanners.filter((_, idx) => idx !== i);
-                            setHeroBanners(updated);
-                            await supabase.from("store_settings").upsert({ key: "hero_banners", value: updated, updated_at: new Date().toISOString() });
-                            setStatusMsg("✅ Banner removed.");
-                            setTimeout(() => setStatusMsg(""), 2000);
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-[10px] font-black hover:bg-rose-100"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-slate-400 italic">No custom banners added yet. Customer homepage uses default local images.</p>
+                  <p className="text-xs font-semibold text-slate-400 italic">No custom banners in database yet. Customer homepage uses default fallback banners.</p>
                 )}
               </div>
 
               {/* Marquee Banner Manager */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  📢 Moving Offer Banner Text
-                </h2>
-                <p className="text-xs font-bold text-slate-500">Manage the scrolling marquee text items shown at the top of the customer homepage.</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      📢 Moving Offer Banner Text
+                    </h2>
+                    <p className="text-xs font-bold text-slate-500">Manage the scrolling marquee text items shown at the top of the customer storefront.</p>
+                  </div>
+                  <button
+                    onClick={loadSettings}
+                    title="Reload from DB"
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1 space-y-2">
                     <input
                       type="text"
-                      placeholder="e.g., Free Delivery on orders above ₹499"
+                      placeholder="e.g. Free Delivery on orders above ₹999 | 100% Premium Bio-Washed Cotton"
                       value={newMarqueeText}
                       onChange={e => setNewMarqueeText(e.target.value)}
                       className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
@@ -894,58 +1108,45 @@ export default function MarketplaceSettingsView() {
                     <select
                       value={newMarqueeIcon}
                       onChange={e => setNewMarqueeIcon(e.target.value)}
-                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
+                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500 cursor-pointer"
                     >
-                      <option value="badge">✅ Badge (Quality)</option>
-                      <option value="chef">👨‍🍳 Chef (Curated)</option>
-                      <option value="leaf">🌿 Leaf (Fresh)</option>
-                      <option value="truck">🚚 Truck (Delivery)</option>
-                      <option value="tag">🏷️ Tag (Offer)</option>
+                      <option value="badge">✅ Badge (Quality Verified)</option>
+                      <option value="truck">🚚 Truck (Fast Delivery)</option>
+                      <option value="tag">🏷️ Tag (Special Offer)</option>
+                      <option value="leaf">🌿 Leaf (Organic / Sustainable)</option>
+                      <option value="chef">👨‍🍳 Star (Curated Collection)</option>
                     </select>
                   </div>
                   <button
-                    onClick={async () => {
-                      if (!newMarqueeText.trim()) return;
-                      const updated = [...marqueeItems, { icon: newMarqueeIcon, text: newMarqueeText.trim() }];
-                      setMarqueeItems(updated);
-                      setNewMarqueeText("");
-                      setNewMarqueeIcon("badge");
-                      await supabase.from("store_settings").upsert({ key: "marquee_banner", value: updated, updated_at: new Date().toISOString() });
-                      setStatusMsg("✅ Marquee banner updated! Customer homepage will reflect immediately.");
-                      setTimeout(() => setStatusMsg(""), 3000);
-                    }}
-                    className="px-5 py-2 rounded-2xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 shrink-0 self-start"
+                    onClick={handleAddMarquee}
+                    className="px-6 py-3 rounded-2xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 shrink-0 self-start cursor-pointer shadow-md shadow-emerald-600/20 transition-all"
                   >
-                    + Add Text
+                    + Add Marquee Text
                   </button>
                 </div>
 
                 {marqueeItems.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 pt-2">
                     <p className="text-[10px] font-black uppercase text-slate-400">Current Marquee Items ({marqueeItems.length})</p>
-                    {marqueeItems.map((m: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-2xl p-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">{m.icon === "chef" ? "👨‍🍳" : m.icon === "leaf" ? "🌿" : m.icon === "truck" ? "🚚" : m.icon === "tag" ? "🏷️" : "✅"}</span>
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{m.text}</span>
+                    <div className="space-y-2">
+                      {marqueeItems.map((m: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{m.icon === "truck" ? "🚚" : m.icon === "tag" ? "🏷️" : m.icon === "leaf" ? "🌿" : m.icon === "chef" ? "⭐" : "✅"}</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{m.text}</span>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteMarquee(i)}
+                            className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 text-[10px] font-black hover:bg-rose-100 cursor-pointer transition-colors"
+                          >
+                            Remove
+                          </button>
                         </div>
-                        <button
-                          onClick={async () => {
-                            const updated = marqueeItems.filter((_, idx) => idx !== i);
-                            setMarqueeItems(updated);
-                            await supabase.from("store_settings").upsert({ key: "marquee_banner", value: updated, updated_at: new Date().toISOString() });
-                            setStatusMsg("✅ Marquee item removed.");
-                            setTimeout(() => setStatusMsg(""), 2000);
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-[10px] font-black hover:bg-rose-100"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-slate-400 italic">No custom marquee items. Customer homepage uses default text.</p>
+                  <p className="text-xs font-semibold text-slate-400 italic">No custom marquee items in database yet. Customer storefront uses default scrolling items.</p>
                 )}
               </div>
             </div>
