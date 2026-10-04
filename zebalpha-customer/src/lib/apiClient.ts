@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/client";
 
 export async function fetchProducts(params?: { categoryId?: string; search?: string }) {
 	const supabase = createClient();
-	let query = supabase.from("products").select("*, categories(*)").eq("is_active", true);
+	let query = supabase.from("products").select("*").or("is_active.is.null,is_active.eq.true");
 
 	if (params?.categoryId) {
 		query = query.eq("category_id", params.categoryId);
@@ -21,7 +21,7 @@ export async function fetchProductById(id: string) {
 	const supabase = createClient();
 	const { data, error } = await supabase
 		.from("products")
-		.select("*, categories(*)")
+		.select("*")
 		.eq("id", id)
 		.single();
 

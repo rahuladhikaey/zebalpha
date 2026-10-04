@@ -53,8 +53,7 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
  * Cached fetcher for Homepage Featured Drops Grid Section (Section 9)
  * Cache TTL: 20 minutes (1200s)
  */
-const SLIM_PRODUCT_FIELDS =
-  'id, name, slug, brand, price, mrp, image_url, images, is_active, is_approved, approval_status, created_at, category_id, category_name, category, collection, description, is_premium, tier, is_new_drop, status, specifications, stock, target_drop_date';
+const SLIM_PRODUCT_FIELDS = '*';
 
 export async function getCachedHomeProducts(brandFilter?: string, limit: number = 12): Promise<Product[]> {
   const brandKey = brandFilter ? brandFilter.toLowerCase().trim() : 'all';

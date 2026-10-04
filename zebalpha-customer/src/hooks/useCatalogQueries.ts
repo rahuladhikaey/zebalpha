@@ -17,8 +17,7 @@ export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [
   { id: "8", name: "Accessories & Caps", icon: "🧢", main_category: "ALL", description: "Caps, Chains & Extras", image_url: "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80" },
 ];
 
-export const SLIM_PRODUCT_CARD_FIELDS =
-  "id, name, slug, brand, price, mrp, image_url, images, is_active, is_approved, approval_status, created_at, category_id, category_name, category, collection, description, is_premium, tier, is_new_drop, status, specifications, stock, target_drop_date";
+export const SLIM_PRODUCT_CARD_FIELDS = "*";
 
 /**
  * Custom 300ms Debounce Hook for Search Inputs
@@ -128,19 +127,24 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
     if (params.category && String(params.category).trim() !== "" && String(params.category) !== "all") {
       const cat = String(params.category).toLowerCase().trim();
       if (cat.includes("polo")) {
-        query = query.or("name.ilike.%polo%,category.ilike.%polo%,category_name.ilike.%polo%,collection.ilike.%polo%");
+        query = query.or("name.ilike.%polo%,description.ilike.%polo%,brand.ilike.%polo%");
       } else if (cat.includes("tee") || cat.includes("t-shirt") || cat.includes("oversized")) {
-        query = query.or("name.ilike.%tee%,name.ilike.%shirt%,category.ilike.%tee%,category_name.ilike.%tee%");
+        query = query.or("name.ilike.%tee%,name.ilike.%shirt%,name.ilike.%t-shirt%,description.ilike.%tee%");
       } else if (cat.includes("hoodie") || cat.includes("fleece")) {
-        query = query.or("name.ilike.%hoodie%,category.ilike.%hoodie%,category_name.ilike.%hoodie%");
+        query = query.or("name.ilike.%hoodie%,description.ilike.%hoodie%");
       } else if (cat.includes("shirt")) {
-        query = query.or("name.ilike.%shirt%,category.ilike.%shirt%,category_name.ilike.%shirt%");
+        query = query.or("name.ilike.%shirt%,description.ilike.%shirt%");
       } else if (cat.includes("bottom") || cat.includes("cargo") || cat.includes("pant") || cat.includes("trouser")) {
-        query = query.or("name.ilike.%cargo%,name.ilike.%pant%,category.ilike.%cargo%,category_name.ilike.%bottom%");
+        query = query.or("name.ilike.%cargo%,name.ilike.%pant%,name.ilike.%trouser%,description.ilike.%cargo%");
       } else if (cat.includes("drop") || cat.includes("limited")) {
-        query = query.or("is_new_drop.eq.true,name.ilike.%drop%,status.eq.COMING_SOON");
+        query = query.or("name.ilike.%drop%,name.ilike.%limited%,description.ilike.%drop%");
       } else {
-        query = query.or(`category_id.eq.${cat},name.ilike.%${cat}%,category.ilike.%${cat}%,category_name.ilike.%${cat}%`);
+        const isNum = !isNaN(Number(cat));
+        if (isNum) {
+          query = query.eq("category_id", Number(cat));
+        } else {
+          query = query.or(`name.ilike.%${cat}%,description.ilike.%${cat}%,brand.ilike.%${cat}%`);
+        }
       }
     }
 
