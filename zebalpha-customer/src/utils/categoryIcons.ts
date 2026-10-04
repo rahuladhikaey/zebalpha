@@ -1,15 +1,12 @@
 export const getCategoryIcon = (name: string): { type: 'image' | 'emoji', value: string } => {
-  const lower = name.toLowerCase();
-  if (lower.includes("sweet") || lower.includes("sugar")) return { type: 'image', value: '/category-icons/sweet.png' };
-  if (lower.includes("healthy")) return { type: 'image', value: '/category-icons/healthy.png' };
-  if (lower.includes("veg")) return { type: 'image', value: '/category-icons/veg.png' };
-  if (lower.includes("spicy") || lower.includes("masala") || lower.includes("spice")) return { type: 'image', value: '/category-icons/spicy.png' };
-  
-  if (lower.includes("bori")) return { type: 'emoji', value: '🧆' };
-  if (lower.includes("dall") || lower.includes("dal")) return { type: 'emoji', value: '🥣' };
-  if (lower.includes("oil")) return { type: 'emoji', value: '🧴' };
-  if (lower.includes("rice")) return { type: 'emoji', value: '🌾' };
-  if (lower.includes("cloth") || lower.includes("wear")) return { type: 'emoji', value: '👕' };
-  if (lower.includes("elect")) return { type: 'emoji', value: '🔌' };
+  const lower = (name || "").toLowerCase();
+  if (lower.includes("polo") || lower.includes("collared")) return { type: 'emoji', value: '👕' };
+  if (lower.includes("tee") || lower.includes("t-shirt") || lower.includes("oversized")) return { type: 'emoji', value: '🛹' };
+  if (lower.includes("hoodie") || lower.includes("sweatshirt") || lower.includes("fleece")) return { type: 'emoji', value: '🧥' };
+  if (lower.includes("shirt")) return { type: 'emoji', value: '👔' };
+  if (lower.includes("cargo") || lower.includes("pant") || lower.includes("bottom") || lower.includes("trouser") || lower.includes("denim")) return { type: 'emoji', value: '👖' };
+  if (lower.includes("drop") || lower.includes("exclusive") || lower.includes("limited")) return { type: 'emoji', value: '⚡' };
+  if (lower.includes("cap") || lower.includes("beanie") || lower.includes("headwear") || lower.includes("accessor")) return { type: 'emoji', value: '🧢' };
   return { type: 'emoji', value: '📦' };
 };
+

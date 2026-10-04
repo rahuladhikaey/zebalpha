@@ -34,16 +34,13 @@ export const MAIN_CATEGORIES = [
 ];
 
 const DEFAULT_APPAREL_CATEGORIES = [
-  { name: "Luxury Zip Polos", main_category: "Polos & Shirts", icon: "👕" },
-  { name: "Textured Knit Polos", main_category: "Polos & Shirts", icon: "🧶" },
-  { name: "Heavyweight Graphic Oversized Tees", main_category: "Oversized Tees", icon: "🛹" },
-  { name: "Acid-Wash Streetwear Tees", main_category: "Oversized Tees", icon: "🎨" },
-  { name: "400 GSM Heavyweight Hoodies", main_category: "Hoodies & Sweatshirts", icon: "🧥" },
-  { name: "French Terry Crewnecks", main_category: "Hoodies & Sweatshirts", icon: "🧵" },
-  { name: "Multi-Pocket Cargo Pants", main_category: "Streetwear & Bottoms", icon: "👖" },
-  { name: "Relaxed Fit Streetwear Joggers", main_category: "Streetwear & Bottoms", icon: "👟" },
-  { name: "2D Animated Capsule Drop", main_category: "New Drops & Exclusives", icon: "⚡" },
-  { name: "Season 1 Limited Exclusives", main_category: "New Drops & Exclusives", icon: "🔥" }
+  { name: "Premium Polos", main_category: "POLOS", icon: "👕", description: "100% Supima Pique & Knitted Polos", image_url: "/banner-premium-polo.png" },
+  { name: "Oversized Tees", main_category: "T-SHIRTS", icon: "🛹", description: "240 GSM Heavyweight Streetwear Tees", image_url: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&auto=format&fit=crop&q=80" },
+  { name: "Heavyweight Hoodies", main_category: "HOODIES", icon: "🧥", description: "400+ GSM French Terry Fleece Hoodies", image_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80" },
+  { name: "Classic Shirts", main_category: "SHIRTS", icon: "👔", description: "Structured Utility & Camp-Collar Overshirts", image_url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80" },
+  { name: "Cargo & Bottoms", main_category: "BOTTOMS", icon: "👖", description: "Multi-Pocket Tactical Cargos & Streetwear Bottoms", image_url: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80" },
+  { name: "Limited Drops", main_category: "LIMITED", icon: "⚡", description: "Exclusive Seasonally Numbered Limited Capsules", image_url: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80" },
+  { name: "Accessories & Headwear", main_category: "ACCESSORIES", icon: "🧢", description: "Elevated Beanies, Caps & Streetwear Essentials", image_url: "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80" }
 ];
 
 interface CategoriesShelvesViewProps {

@@ -35,7 +35,8 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
     async () => {
       const { data, error } = await supabaseServer
         .from('categories')
-        .select('id, name, slug, image_url, icon')
+        .select('id, name, slug, image_url, icon, main_category, description, is_active')
+        .or('is_active.is.null,is_active.eq.true')
         .order('name', { ascending: true })
         .limit(limit);
 
