@@ -773,20 +773,6 @@ interface TimelineStep {
               <p className="text-xs text-zinc-400 font-medium pt-1">
                 Placed on <span className="text-white font-bold">{new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               </p>
-            </div>
-
-            {/* 1-Hour Cancellation Live Timer Pill */}
-            {isEligibleForCancellation && cancelTimeRemaining !== null && cancelTimeRemaining > 0 && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber-950/40 border border-amber-500/40 shadow-inner">
-                <Clock className="text-amber-400 animate-pulse shrink-0" size={18} />
-                <div className="text-left">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">Instant Cancellation Window</p>
-                  <p className="text-xs font-mono font-black text-white">
-                    Available for {formatTimer(cancelTimeRemaining)}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 

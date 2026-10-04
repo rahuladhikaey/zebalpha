@@ -690,8 +690,8 @@ export default function MyOrdersPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {/* Cancel Order Button (Meesho / Flipkart Standard - 2 Hour Window) */}
-                      {isCancellable(order) ? (
+                      {/* Cancel Order Button */}
+                      {isCancellable(order) && (
                         <button
                           onClick={() => {
                             setCancelModalOrder(order);
@@ -701,16 +701,7 @@ export default function MyOrdersPage() {
                           className="text-[11px] font-black uppercase tracking-wider text-red-400 bg-red-950/40 border border-red-500/30 hover:bg-red-900/60 hover:text-white px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-2 active:scale-95 shadow-lg"
                         >
                           <span>✕ Cancel Order</span>
-                          <span className="text-[9px] bg-red-900/80 border border-red-500/40 px-1.5 py-0.5 rounded text-red-200 font-bold">
-                            ⏱️ {getCancellationInfo(order).remainingMins}m left
-                          </span>
                         </button>
-                      ) : (
-                        ["placed", "confirmed", "processing", "ready_to_ship", "pending"].includes(String(order.order_status || "").toLowerCase()) && (
-                          <span className="text-[10px] text-zinc-500 font-semibold px-3 py-1.5 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex items-center gap-1.5 cursor-default">
-                            <span>🔒 Cancel closed (&gt;1h)</span>
-                          </span>
-                        )
                       )}
 
                       {/* Return / Exchange Button (Meesho / Flipkart Standard) */}
