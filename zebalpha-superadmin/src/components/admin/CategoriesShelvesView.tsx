@@ -154,10 +154,13 @@ export default function CategoriesShelvesView({
     reader.readAsDataURL(file);
   };
 
+  const [savingCategory, setSavingCategory] = useState(false);
+
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryName.trim()) return;
 
+    setSavingCategory(true);
     let finalImageUrl = imagePreview || null;
     if (imagePreview && imagePreview.startsWith("data:")) {
       try {
@@ -239,6 +242,8 @@ export default function CategoriesShelvesView({
       setImageSizeNotice("");
       setEditingCategoryId(null);
       onRefresh?.();
+    } finally {
+      setSavingCategory(false);
     }
   };
 
@@ -463,11 +468,19 @@ export default function CategoriesShelvesView({
         <div className="flex justify-end gap-3 pt-2">
           <button
             type="submit"
-            disabled={uploadingImage}
+            disabled={uploadingImage || savingCategory}
             className="flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white hover:bg-zinc-200 text-black font-black text-xs transition-all active:scale-95 shadow-lg shadow-white/10 cursor-pointer disabled:opacity-50"
           >
-            {editingCategoryId ? <Check className="w-4 h-4 text-black" /> : <Plus className="w-4 h-4 text-black" />}
-            <span>{editingCategoryId ? "Save Collection Changes" : "Create Apparel Collection"}</span>
+            {savingCategory ? (
+              <RefreshCw className="w-4 h-4 text-black animate-spin" />
+            ) : editingCategoryId ? (
+              <Check className="w-4 h-4 text-black" />
+            ) : (
+              <Plus className="w-4 h-4 text-black" />
+            )}
+            <span>
+              {savingCategory ? "Saving..." : editingCategoryId ? "Save Collection Changes" : "Create Apparel Collection"}
+            </span>
           </button>
         </div>
       </form>
