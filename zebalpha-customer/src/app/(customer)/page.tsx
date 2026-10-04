@@ -9,7 +9,6 @@ import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
 import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { ShopByCategorySection } from "@/components/ShopByCategorySection";
-import { CuratedCollectionsSection } from "@/components/CuratedCollectionsSection";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
@@ -99,9 +98,6 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
 
         {/* Curated Categories Section */}
         <ShopByCategorySection initialCategories={categories} />
-
-        {/* Premium Curated Fashion Collections Section */}
-        <CuratedCollectionsSection />
 
         {/* Featured Clothing Drops Grid with Infinite Scroll */}
         <section className="mt-14 mb-16">
