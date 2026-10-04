@@ -82,8 +82,8 @@ export function useCategories(initialCategories?: Category[]) {
     queryKey: ['categories'],
     queryFn: fetchCanonicalCategories,
     initialData: initialCategories && initialCategories.length > 0 ? initialCategories : undefined,
-    staleTime: 30 * 60 * 1000, // 30 minutes fresh L1 cache
-    gcTime: 60 * 60 * 1000,
+    staleTime: 5 * 1000, // 5 seconds fresh L1 cache
+    gcTime: 60 * 1000,
   });
 }
 

@@ -46,7 +46,7 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
       }
       return (data || []) as Category[];
     },
-    1200 // 20 mins TTL
+    5 // 5 seconds TTL
   );
 }
 
