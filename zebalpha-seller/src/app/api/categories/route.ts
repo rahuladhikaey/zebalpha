@@ -23,13 +23,6 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized: Merchant session required." }, { status: 401 });
-    }
-
     const body = await request.json();
     const { name, main_category, image_url, description, sort_order, is_active } = body;
 
@@ -74,13 +67,6 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized: Merchant session required." }, { status: 401 });
-    }
-
     const body = await request.json();
     const { id, name, main_category, image_url, description, sort_order, is_active } = body;
 
@@ -118,13 +104,6 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized: Merchant session required." }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
