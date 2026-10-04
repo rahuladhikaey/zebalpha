@@ -164,9 +164,12 @@ export default function CategoriesShelvesView({
     let finalImageUrl = imagePreview || null;
     if (imagePreview && imagePreview.startsWith("data:")) {
       try {
-        finalImageUrl = await uploadToCloudinary(imagePreview);
+        const uploadPromise = uploadToCloudinary(imagePreview);
+        const timeoutPromise = new Promise<string>((resolve) => setTimeout(() => resolve(imagePreview), 1500));
+        finalImageUrl = await Promise.race([uploadPromise, timeoutPromise]);
       } catch (err) {
         console.warn("Category Cloudinary upload notice:", err);
+        finalImageUrl = imagePreview;
       }
     }
 
