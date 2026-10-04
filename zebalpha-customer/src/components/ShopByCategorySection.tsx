@@ -82,40 +82,12 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
   return (
     <section className="mt-10 sm:mt-14 relative select-none">
       {/* 1. Header & Taxonomy Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+      <div className="flex items-center justify-between gap-4 mb-5">
         <div className="flex items-center gap-3">
           <span className="h-6 w-1 bg-white rounded-full" />
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
             Curated Collections
           </h2>
-        </div>
-
-        {/* Desktop Carousel Navigation Arrows */}
-        <div className="hidden sm:flex items-center gap-2">
-          <button
-            onClick={() => handleScroll("left")}
-            disabled={!canScrollLeft}
-            aria-label="Scroll left"
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all border ${
-              canScrollLeft
-                ? "bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800 hover:border-white shadow-md active:scale-95 cursor-pointer"
-                : "bg-neutral-950 border-neutral-900 text-neutral-600 cursor-not-allowed opacity-30"
-            }`}
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => handleScroll("right")}
-            disabled={!canScrollRight}
-            aria-label="Scroll right"
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all border ${
-              canScrollRight
-                ? "bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800 hover:border-white shadow-md active:scale-95 cursor-pointer"
-                : "bg-neutral-950 border-neutral-900 text-neutral-600 cursor-not-allowed opacity-30"
-            }`}
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
         </div>
       </div>
 
@@ -144,13 +116,9 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
         })}
       </div>
 
-      {/* 3. Normal Clean Curated Cards (Side-to-Side Scrollable) */}
+      {/* 3. Responsive Wrapped Grid (6 cards per row / 3x2 on mobile; >6 collections wrap to next line) */}
       <div className="relative">
-        <div
-          ref={scrollContainerRef}
-          className="flex items-stretch gap-3 sm:gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory py-2 px-1 no-scrollbar -mx-2 sm:mx-0"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3.5 py-2">
           {filteredCategories.map((cat, idx) => {
             let imageSrc = cat.image_url;
             if (!imageSrc) {
@@ -172,30 +140,30 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
               <Link
                 key={cat.id || idx}
                 href={`/products?category=${encodeURIComponent(cat.name)}`}
-                className="group relative flex-shrink-0 snap-start w-[135px] sm:w-[160px] md:w-[175px] flex flex-col items-center p-2 sm:p-2.5 rounded-2xl bg-neutral-900/90 border border-neutral-800/90 hover:border-white/40 hover:bg-neutral-850 shadow-lg hover:shadow-[0_8px_20px_rgba(255,255,255,0.06)] transition-all duration-300 transform hover:-translate-y-1 active:scale-95 text-center overflow-hidden cursor-pointer"
+                className="group relative w-full flex flex-col items-center p-1.5 sm:p-2.5 rounded-2xl bg-neutral-900/90 border border-neutral-800/90 hover:border-white/40 hover:bg-neutral-850 shadow-lg hover:shadow-[0_8px_20px_rgba(255,255,255,0.06)] transition-all duration-300 transform hover:-translate-y-1 active:scale-95 text-center overflow-hidden cursor-pointer"
               >
                 {/* Clean Highlight Shimmer */}
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-white/5 to-transparent transition-opacity duration-300 pointer-events-none" />
 
-                {/* Cover Image Box - Always renders real fashion picture */}
-                <div className="relative w-full aspect-square rounded-xl bg-neutral-950 border border-neutral-800/80 flex items-center justify-center overflow-hidden group-hover:border-white/30 transition-all duration-300 shadow-inner mb-2">
+                {/* Cover Image Box */}
+                <div className="relative w-full aspect-square rounded-xl bg-neutral-950 border border-neutral-800/80 flex items-center justify-center overflow-hidden group-hover:border-white/30 transition-all duration-300 shadow-inner mb-1.5">
                   <Image
                     src={imageSrc}
                     alt={cat.name}
                     fill
-                    sizes="(max-width: 640px) 135px, 175px"
+                    sizes="(max-width: 640px) 33vw, 16vw"
                     className="object-cover group-hover:scale-108 transition-transform duration-500"
                     unoptimized
                   />
                 </div>
 
                 {/* Collection Title */}
-                <span className="text-xs sm:text-[13px] font-black text-neutral-200 group-hover:text-white uppercase tracking-wider line-clamp-1 transition-colors px-1">
+                <span className="text-[10px] sm:text-xs md:text-[13px] font-black text-neutral-200 group-hover:text-white uppercase tracking-wider line-clamp-1 transition-colors px-0.5">
                   {cat.name}
                 </span>
 
                 {/* Action Prompt */}
-                <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-1 group-hover:text-neutral-300 transition-colors flex items-center gap-1">
+                <span className="text-[8px] sm:text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-0.5 group-hover:text-neutral-300 transition-colors flex items-center gap-0.5">
                   <span>Explore</span>
                   <ArrowRight className="w-2.5 h-2.5 transform group-hover:translate-x-0.5 transition-transform" />
                 </span>
