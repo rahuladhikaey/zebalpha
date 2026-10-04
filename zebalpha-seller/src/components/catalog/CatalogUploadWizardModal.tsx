@@ -343,8 +343,15 @@ export default function CatalogUploadWizardModal({
             }
           ];
 
+      const computedSlug = editingProduct?.slug || (
+        form.name
+          ? `${form.name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "")}-${Date.now().toString(36)}`
+          : `prod-${Date.now()}`
+      );
+
       const productPayload: any = {
         name: form.name,
+        slug: computedSlug,
         description: form.description,
         price: parseFloat(form.price) || 0,
         mrp: parseFloat(form.mrp) || parseFloat(form.price) || 0,
