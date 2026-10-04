@@ -196,7 +196,21 @@ export default function AdminProductEditModal({
         volumetric_weight: form.volumetric_weight,
       };
 
-      const payload = {
+      const updatedPackages = Array.isArray(product.packages) && product.packages.length > 0
+        ? product.packages.map((pkg: any, idx: number) => {
+            if (idx === 0) {
+              return {
+                ...pkg,
+                price: parseFloat(form.price) || pkg.price,
+                mrp: parseFloat(form.mrp) || pkg.mrp,
+                stock: parseInt(form.stock) || pkg.stock,
+              };
+            }
+            return pkg;
+          })
+        : undefined;
+
+      const payload: any = {
         name: form.name,
         description: form.description,
         price: parseFloat(form.price) || 0,
@@ -214,12 +228,26 @@ export default function AdminProductEditModal({
         tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
       };
 
-      const { error } = await supabase
+      if (updatedPackages) {
+        payload.packages = updatedPackages;
+      }
+
+      let currentPayload = { ...payload };
+      let updateRes = await supabase
         .from("products")
-        .update(payload)
+        .update(currentPayload)
         .eq("id", product.id);
 
-      if (error) throw error;
+      if (updateRes.error && updateRes.error.message.includes("column")) {
+        const match = updateRes.error.message.match(/column '([^']+)'|'([^']+)' column/);
+        const colToStrip = match ? (match[1] || match[2]) : null;
+        if (colToStrip && colToStrip in currentPayload) {
+          delete currentPayload[colToStrip];
+          updateRes = await supabase.from("products").update(currentPayload).eq("id", product.id);
+        }
+      }
+
+      if (updateRes.error) throw updateRes.error;
 
       onSuccess();
       onClose();

@@ -30,13 +30,15 @@ export interface Step4Props {
 }
 
 const CLOTHING_SIZES = ["Free Size", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
+const CLOTHING_COLORS = ["Black", "White", "Red", "Navy Blue", "Beige", "Olive Green", "Grey", "Maroon", "Pink", "Yellow", "Purple", "Custom Color"];
 
 export default function Step4AddVariants({ formData, onChange }: Step4Props) {
-  const addVariant = (sizeName: string = "Free Size") => {
+  const addVariant = (sizeName: string = "Free Size", colorName: string = "Black") => {
     const newVariant: CatalogVariant = {
       id: Math.random().toString(36).substring(2, 9),
       size: sizeName,
-      sku: formData.style_code ? `${formData.style_code}_${sizeName}` : `SKU_${sizeName}`,
+      color: colorName,
+      sku: formData.style_code ? `${formData.style_code}_${colorName}_${sizeName}` : `SKU_${colorName}_${sizeName}`,
       stock: "20",
       price: formData.price || "0",
       defective_returns_price: formData.defective_returns_price || "0",
@@ -67,15 +69,14 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     reader.readAsDataURL(file);
   };
 
-  const addCommonStandardSizes = () => {
+  const addCommonStandardSizes = (colorName: string = "Black") => {
     const defaultSizes = ["S", "M", "L", "XL"];
-    const existingSizes = formData.variants.map((v) => v.size);
-    const toAdd = defaultSizes.filter((s) => !existingSizes.includes(s));
     
-    const newVariants: CatalogVariant[] = toAdd.map((s) => ({
+    const newVariants: CatalogVariant[] = defaultSizes.map((s) => ({
       id: Math.random().toString(36).substring(2, 9),
       size: s,
-      sku: formData.style_code ? `${formData.style_code}_${s}` : `SKU_${s}`,
+      color: colorName,
+      sku: formData.style_code ? `${formData.style_code}_${colorName}_${s}` : `SKU_${colorName}_${s}`,
       stock: "20",
       price: formData.price || "0",
       defective_returns_price: formData.defective_returns_price || "0",
@@ -90,9 +91,9 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       {/* Toggle: Single Product vs Multi-Variant Product */}
       <div className="p-4 rounded-xl bg-[#141418] border border-[#27272a] flex items-center justify-between">
         <div>
-          <span className="text-sm font-semibold text-white block">Multi-Variant Clothing Product</span>
+          <span className="text-sm font-semibold text-white block">Multi-Color & Size Variant Product</span>
           <span className="text-xs text-zinc-400">
-            Enable if this garment is sold in multiple sizes (S, M, L, XL) or colors.
+            Enable if this garment design is available in multiple colors (Black, Red, White) or sizes (S, M, L, XL).
           </span>
         </div>
         <input
@@ -146,38 +147,54 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#27272a] pb-3">
             <div>
-              <span className="text-sm font-semibold text-white block">Clothing Size Matrix ({formData.variants.length} Variants)</span>
-              <span className="text-xs text-zinc-400">Specify inventory and custom prices per size</span>
+              <span className="text-sm font-semibold text-white block">Clothing Color & Size Matrix ({formData.variants.length} Variants)</span>
+              <span className="text-xs text-zinc-400">Specify color, size, inventory stock, and color-specific photos</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={addCommonStandardSizes}
+                onClick={() => addCommonStandardSizes("Black")}
                 className="py-1.5 px-3 rounded-lg bg-[#18181b] border border-[#27272a] hover:border-zinc-400 text-xs text-zinc-200 font-medium transition-all"
               >
-                + Quick Add S, M, L, XL
+                + Add Black (S, M, L, XL)
               </button>
               <button
                 type="button"
-                onClick={() => addVariant("Free Size")}
+                onClick={() => addCommonStandardSizes("Red")}
+                className="py-1.5 px-3 rounded-lg bg-[#18181b] border border-[#27272a] hover:border-zinc-400 text-xs text-rose-400 font-medium transition-all"
+              >
+                + Add Red (S, M, L, XL)
+              </button>
+              <button
+                type="button"
+                onClick={() => addVariant("Free Size", "Black")}
                 className="py-1.5 px-3 rounded-lg bg-white text-black hover:bg-zinc-200 text-xs font-bold transition-all flex items-center gap-1"
               >
-                <Plus className="w-3.5 h-3.5" /> Add Size Variant
+                <Plus className="w-3.5 h-3.5" /> Add Color/Size Variant
               </button>
             </div>
           </div>
 
           {formData.variants.length === 0 ? (
             <div className="p-8 rounded-xl border-2 border-dashed border-[#27272a] bg-[#0d0d11] text-center space-y-3">
-              <p className="text-xs text-zinc-400">No size variants added yet.</p>
-              <button
-                type="button"
-                onClick={addCommonStandardSizes}
-                className="py-2 px-4 rounded-lg bg-white text-black text-xs font-bold"
-              >
-                Add Standard Sizes (S, M, L, XL)
-              </button>
+              <p className="text-xs text-zinc-400">No color/size variants added yet.</p>
+              <div className="flex justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => addCommonStandardSizes("Black")}
+                  className="py-2 px-4 rounded-lg bg-white text-black text-xs font-bold"
+                >
+                  Add Black Sizes (S, M, L, XL)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addCommonStandardSizes("White")}
+                  className="py-2 px-4 rounded-lg bg-zinc-800 text-white text-xs font-bold"
+                >
+                  Add White Sizes (S, M, L, XL)
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -187,11 +204,13 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                   className="p-4 rounded-xl bg-[#0d0d11] border border-[#27272a] space-y-3 relative group"
                 >
                   <div className="flex items-center justify-between border-b border-[#222228] pb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <span className="text-xs font-bold text-white bg-[#18181b] px-2.5 py-1 rounded-md border border-[#27272a]">
                         Variant #{idx + 1}
                       </span>
-                      <span className="text-xs text-zinc-400">Size: <strong className="text-white">{v.size}</strong></span>
+                      <span className="text-xs text-zinc-300">
+                        Color: <strong className="text-emerald-400">{v.color || "Black"}</strong> | Size: <strong className="text-white">{v.size}</strong>
+                      </span>
                     </div>
 
                     <button
@@ -204,7 +223,40 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-center">
+                    {/* Color Image Upload */}
+                    <div className="col-span-2 md:col-span-1 flex items-center gap-2">
+                      {v.image_url ? (
+                        <div className="relative w-12 h-12 rounded-lg border border-[#27272a] overflow-hidden shrink-0 group/img">
+                          <img src={v.image_url} alt="Color variant photo" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => updateVariant(v.id, { image_url: undefined })}
+                            className="absolute inset-0 bg-black/70 text-red-400 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="w-12 h-12 rounded-lg border border-dashed border-[#27272a] hover:border-zinc-400 bg-[#141418] cursor-pointer flex flex-col items-center justify-center shrink-0" title="Upload Color Photo">
+                          <Upload className="w-4 h-4 text-zinc-400" />
+                          <input type="file" accept="image/*" onChange={(e) => handleVariantImageUpload(v.id, e)} className="hidden" />
+                        </label>
+                      )}
+                      <span className="text-[10px] text-zinc-400">Color Photo</span>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-medium text-zinc-400 mb-1 block">Garment Color *</label>
+                      <input
+                        type="text"
+                        value={v.color || "Black"}
+                        onChange={(e) => updateVariant(v.id, { color: e.target.value })}
+                        placeholder="e.g. Red, Black"
+                        className="w-full p-2 rounded-lg bg-[#141418] border border-[#27272a] text-white text-xs"
+                      />
+                    </div>
+
                     <div>
                       <label className="text-[11px] font-medium text-zinc-400 mb-1 block">Size *</label>
                       <select
@@ -225,17 +277,6 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                         value={v.stock}
                         onChange={(e) => updateVariant(v.id, { stock: e.target.value })}
                         placeholder="20"
-                        className="w-full p-2 rounded-lg bg-[#141418] border border-[#27272a] text-white text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-medium text-zinc-400 mb-1 block">Variant SKU ID *</label>
-                      <input
-                        type="text"
-                        value={v.sku}
-                        onChange={(e) => updateVariant(v.id, { sku: e.target.value })}
-                        placeholder="SKU_ID"
                         className="w-full p-2 rounded-lg bg-[#141418] border border-[#27272a] text-white text-xs"
                       />
                     </div>

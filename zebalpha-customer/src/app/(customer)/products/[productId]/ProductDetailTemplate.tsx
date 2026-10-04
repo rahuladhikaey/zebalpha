@@ -22,7 +22,17 @@ export default function ProductDetailTemplate({
   relatedProducts?: Product[]
 }) {
   const [isVtoOpen, setIsVtoOpen] = useState(false);
-  const images = useMemo(() => normalizeProductImages(product), [product]);
+  const images = useMemo(() => {
+    const rawImages = normalizeProductImages(product);
+    if (selectedPackage && selectedPackage.image_url && !rawImages.includes(selectedPackage.image_url)) {
+      return [selectedPackage.image_url, ...rawImages];
+    }
+    if (selectedPackage && selectedPackage.image_url && rawImages.includes(selectedPackage.image_url)) {
+      const filtered = rawImages.filter((img) => img !== selectedPackage.image_url);
+      return [selectedPackage.image_url, ...filtered];
+    }
+    return rawImages;
+  }, [product, selectedPackage]);
 
   const normalizedPackages = useMemo(() => {
     if (!product.packages || product.packages.length === 0) return [];
@@ -54,7 +64,8 @@ export default function ProductDetailTemplate({
     ...product,
     price: displayPrice,
     mrp: displayMrp,
-    name: selectedPackage ? `${product.name} - ${selectedPackage.name}` : product.name,
+    name: selectedPackage ? `${product.name} (${selectedPackage.name})` : product.name,
+    image_url: selectedPackage?.image_url || product.image_url,
   };
 
   const [reviews, setReviews] = useState<any[]>([]);

@@ -134,14 +134,21 @@ export default function CatalogUploadWizardModal({
   const [errorMsg, setErrorMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  React.useEffect(() => {
-    if (editingProduct) {
-      const specs = (editingProduct.specifications as any) || {};
-      const imgList = Array.isArray(editingProduct.images) && editingProduct.images.length > 0
-        ? editingProduct.images
-        : editingProduct.image_url
-        ? [editingProduct.image_url]
-        : [];
+      // Parse existing packages if editing
+      const existingPackages = Array.isArray(editingProduct.packages) ? editingProduct.packages : [];
+      const hasVars = existingPackages.length > 0 && !(existingPackages.length === 1 && (existingPackages[0].name === "Standard" || existingPackages[0].name === "Standard Package"));
+
+      const loadedVariants: CatalogVariant[] = existingPackages.map((pkg: any) => ({
+        id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
+        size: pkg.size || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[1] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[1] : pkg.name || "Free Size"),
+        color: pkg.color || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[0] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[0] : "Black"),
+        sku: pkg.sku || "",
+        stock: String(pkg.stock ?? 20),
+        price: String(pkg.price ?? editingProduct.price ?? ""),
+        defective_returns_price: String((editingProduct.specifications as any)?.defective_returns_price || ""),
+        mrp: String(pkg.mrp ?? editingProduct.mrp ?? ""),
+        image_url: pkg.image_url || undefined,
+      }));
 
       setForm({
         category_id: String(editingProduct.category_id || ""),
@@ -183,8 +190,8 @@ export default function CatalogUploadWizardModal({
         target_drop_date: editingProduct.target_drop_date || "",
         tier: editingProduct.tier || "STANDARD",
 
-        has_variants: false,
-        variants: [],
+        has_variants: hasVars,
+        variants: loadedVariants,
         single_stock: String(editingProduct.stock ?? 20),
         single_sku: editingProduct.sku || "",
       });
@@ -291,13 +298,44 @@ export default function CatalogUploadWizardModal({
       const primaryCatId = form.category_id ? (isNaN(Number(form.category_id)) ? null : Number(form.category_id)) : (categories[0]?.id || null);
       const calculatedStock = form.has_variants ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0) : (parseInt(form.single_stock) || 20);
 
-      const productPayload = {
+      // Build packages JSON array for multi-color and multi-size matrix
+      const computedPackages = form.has_variants && form.variants.length > 0
+        ? form.variants.map((v, idx) => ({
+            id: v.id || `pkg_${idx}_${Date.now()}`,
+            name: v.color && v.color !== "Default" && v.color !== "Standard"
+              ? `${v.color} / ${v.size}`
+              : v.size || "Standard",
+            color: v.color || "Default",
+            size: v.size || "Free Size",
+            price: parseFloat(v.price) || parseFloat(form.price) || 0,
+            mrp: parseFloat(v.mrp) || parseFloat(form.mrp) || parseFloat(v.price) || 0,
+            stock: parseInt(v.stock) || 20,
+            sku: v.sku || `${form.style_code || 'SKU'}_${v.color || 'COLOR'}_${v.size}`,
+            image_url: v.image_url || coverImageUrl,
+            isBestSeller: idx === 0,
+          }))
+        : [
+            {
+              id: `pkg_std_${Date.now()}`,
+              name: "Standard",
+              color: "Standard",
+              size: "Free Size",
+              price: parseFloat(form.price) || 0,
+              mrp: parseFloat(form.mrp) || parseFloat(form.price) || 0,
+              stock: parseInt(form.single_stock) || 20,
+              sku: form.single_sku || form.style_code || `SKU_${Date.now()}`,
+              image_url: coverImageUrl,
+              isBestSeller: true,
+            }
+          ];
+
+      const productPayload: any = {
         name: form.name,
         description: form.description,
         price: parseFloat(form.price) || 0,
         mrp: parseFloat(form.mrp) || parseFloat(form.price) || 0,
         category_id: primaryCatId,
-        category: form.subcategory_name || "Apparel",
+        // Removed 'category' text column to prevent missing column schema cache errors
         image_url: coverImageUrl,
         images: orderedImages,
         specifications: specificationsData,
@@ -315,39 +353,60 @@ export default function CatalogUploadWizardModal({
         collection: form.collection || null,
         target_drop_date: form.target_drop_date || null,
         tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
+        packages: computedPackages,
       };
 
       let savedProduct: any = null;
       if (editingProduct) {
-        const { data: updatedProduct, error: updateError } = await supabase
+        let currentPayload = { ...productPayload };
+        let updateRes = await supabase
           .from("products")
-          .update(productPayload)
+          .update(currentPayload)
           .eq("id", editingProduct.id)
           .select()
           .single();
 
-        if (updateError) throw updateError;
-        savedProduct = updatedProduct;
+        if (updateRes.error && updateRes.error.message.includes("column")) {
+          const match = updateRes.error.message.match(/column '([^']+)'|'([^']+)' column/);
+          const colToStrip = match ? (match[1] || match[2]) : null;
+          if (colToStrip && colToStrip in currentPayload) {
+            delete currentPayload[colToStrip];
+            updateRes = await supabase.from("products").update(currentPayload).eq("id", editingProduct.id).select().single();
+          }
+        }
+
+        if (updateRes.error) throw updateRes.error;
+        savedProduct = updateRes.data;
       } else {
-        const { data: insertedProduct, error: insertError } = await supabase
+        let currentPayload = { ...productPayload };
+        let insertRes = await supabase
           .from("products")
-          .insert([productPayload])
+          .insert([currentPayload])
           .select()
           .single();
 
-        if (insertError) throw insertError;
-        savedProduct = insertedProduct;
+        if (insertRes.error && insertRes.error.message.includes("column")) {
+          const match = insertRes.error.message.match(/column '([^']+)'|'([^']+)' column/);
+          const colToStrip = match ? (match[1] || match[2]) : null;
+          if (colToStrip && colToStrip in currentPayload) {
+            delete currentPayload[colToStrip];
+            insertRes = await supabase.from("products").insert([currentPayload]).select().single();
+          }
+        }
+
+        if (insertRes.error) throw insertRes.error;
+        savedProduct = insertRes.data;
       }
 
-      // Insert Variants if enabled
+      // Insert or Sync Variants if enabled
       if (form.has_variants && savedProduct && form.variants.length > 0) {
         const variantsPayload = form.variants.map((v) => ({
           product_id: savedProduct.id,
-          name: `${form.name} - ${v.size}`,
+          name: v.color ? `${form.name} (${v.color} - ${v.size})` : `${form.name} (${v.size})`,
           price: parseFloat(v.price) || parseFloat(form.price),
           mrp: parseFloat(v.mrp) || parseFloat(form.mrp),
           stock: parseInt(v.stock) || 20,
-          sku: v.sku || `${form.style_code}_${v.size}`,
+          sku: v.sku || `${form.style_code}_${v.color}_${v.size}`,
         }));
 
         const { error: variantError } = await supabase
@@ -355,7 +414,7 @@ export default function CatalogUploadWizardModal({
           .insert(variantsPayload);
 
         if (variantError) {
-          console.warn("Product saved, variant creation notice:", variantError.message);
+          console.warn("Product saved, variant notice:", variantError.message);
         }
       }
 
