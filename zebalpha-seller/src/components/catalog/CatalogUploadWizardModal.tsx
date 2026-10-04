@@ -343,11 +343,14 @@ export default function CatalogUploadWizardModal({
             }
           ];
 
-      const computedSlug = editingProduct?.slug || (
-        form.name
-          ? `${form.name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "")}-${Date.now().toString(36)}`
-          : `prod-${Date.now()}`
-      );
+      const generateSlug = (text: string) => {
+        const base = text ? text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "") : "";
+        return base ? `${base}-${Date.now().toString(36)}` : `prod-${Date.now().toString(36)}`;
+      };
+
+      const computedSlug = (editingProduct?.slug && typeof editingProduct.slug === "string" && editingProduct.slug.trim())
+        ? editingProduct.slug.trim()
+        : generateSlug(form.name);
 
       const productPayload: any = {
         name: form.name,
@@ -377,7 +380,23 @@ export default function CatalogUploadWizardModal({
         packages: computedPackages,
       };
 
-      // Helper function to safely insert or update to products table with auto-stripping of missing columns
+      const NON_STRIPPABLE_COLUMNS = new Set([
+        "name",
+        "slug",
+        "price",
+        "mrp",
+        "stock",
+        "sku",
+        "image_url",
+        "images",
+        "specifications",
+        "seller_id",
+        "is_active",
+        "is_approved",
+        "approval_status"
+      ]);
+
+      // Helper function to safely insert or update to products table with auto-stripping of missing optional columns
       const safeSaveProduct = async (payload: any, isEdit: boolean, productId?: any) => {
         let currentPayload = { ...payload };
         let attempts = 0;
@@ -409,11 +428,11 @@ export default function CatalogUploadWizardModal({
           console.warn(`Supabase save attempt ${attempts} notice:`, errMsg);
 
           if (errMsg.includes("column") || errMsg.includes("schema cache")) {
-            const match = errMsg.match(/column '([^']+)'|'([^']+)' column/i);
-            const colToStrip = match ? (match[1] || match[2]) : null;
+            const match = errMsg.match(/column '([^']+)'|'([^']+)' column|column "([^"]+)"|"([^"]+)" column/i);
+            const colToStrip = match ? (match[1] || match[2] || match[3] || match[4]) : null;
 
-            if (colToStrip && colToStrip in currentPayload) {
-              console.warn(`Stripping missing DB column '${colToStrip}' and retrying...`);
+            if (colToStrip && colToStrip in currentPayload && !NON_STRIPPABLE_COLUMNS.has(colToStrip)) {
+              console.warn(`Stripping missing optional DB column '${colToStrip}' and retrying...`);
               delete currentPayload[colToStrip];
               continue;
             }

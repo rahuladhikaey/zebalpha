@@ -210,8 +210,18 @@ export default function AdminProductEditModal({
           })
         : undefined;
 
+      const generateSlug = (text: string) => {
+        const base = text ? text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "") : "";
+        return base ? `${base}-${Date.now().toString(36)}` : `prod-${Date.now().toString(36)}`;
+      };
+
+      const computedSlug = (product.slug && typeof product.slug === "string" && product.slug.trim())
+        ? product.slug.trim()
+        : generateSlug(form.name);
+
       const payload: any = {
         name: form.name,
+        slug: computedSlug,
         description: form.description,
         price: parseFloat(form.price) || 0,
         mrp: parseFloat(form.mrp) || parseFloat(form.price) || 0,
@@ -232,22 +242,48 @@ export default function AdminProductEditModal({
         payload.packages = updatedPackages;
       }
 
+      const NON_STRIPPABLE_COLUMNS = new Set([
+        "name",
+        "slug",
+        "price",
+        "mrp",
+        "stock",
+        "sku",
+        "image_url",
+        "images",
+        "specifications",
+        "seller_id",
+        "is_active",
+        "is_approved",
+        "approval_status"
+      ]);
+
       let currentPayload = { ...payload };
-      let updateRes = await supabase
-        .from("products")
-        .update(currentPayload)
-        .eq("id", product.id);
+      let attempts = 0;
+      const maxAttempts = 12;
 
-      if (updateRes.error && updateRes.error.message.includes("column")) {
-        const match = updateRes.error.message.match(/column '([^']+)'|'([^']+)' column/);
-        const colToStrip = match ? (match[1] || match[2]) : null;
-        if (colToStrip && colToStrip in currentPayload) {
-          delete currentPayload[colToStrip];
-          updateRes = await supabase.from("products").update(currentPayload).eq("id", product.id);
+      while (attempts < maxAttempts) {
+        attempts++;
+        const updateRes = await supabase
+          .from("products")
+          .update(currentPayload)
+          .eq("id", product.id);
+
+        if (!updateRes.error) break;
+
+        const errMsg = updateRes.error?.message || "";
+        if (errMsg.includes("column") || errMsg.includes("schema cache")) {
+          const match = errMsg.match(/column '([^']+)'|'([^']+)' column|column "([^"]+)"|"([^"]+)" column/i);
+          const colToStrip = match ? (match[1] || match[2] || match[3] || match[4]) : null;
+
+          if (colToStrip && colToStrip in currentPayload && !NON_STRIPPABLE_COLUMNS.has(colToStrip)) {
+            delete currentPayload[colToStrip];
+            continue;
+          }
         }
-      }
 
-      if (updateRes.error) throw updateRes.error;
+        throw updateRes.error;
+      }
 
       onSuccess();
       onClose();
