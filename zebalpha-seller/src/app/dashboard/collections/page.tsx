@@ -103,6 +103,21 @@ export default function SellerCollectionsPage() {
 
   useEffect(() => {
     loadAllData();
+
+    const channel = supabase
+      .channel("seller-categories-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "categories" },
+        () => {
+          loadAllData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const openCreateModal = () => {

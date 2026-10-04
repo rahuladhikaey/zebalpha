@@ -74,6 +74,7 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
   const displayList = categories.length > 0 ? categories : DEFAULT_CLOTHING_CATEGORIES;
 
   const filteredCategories = displayList.filter((c) => {
+    if (c.is_active === false) return false;
     if (selectedMainTab === "ALL") return true;
     const mainCat = (c.main_category || c.description || c.name || "").toUpperCase();
     return mainCat.includes(selectedMainTab);

@@ -162,7 +162,7 @@ function ProductsContent() {
             </button>
 
             {/* Curated Categories */}
-            {categories.map((category) => {
+            {categories.filter(c => c.is_active !== false).map((category) => {
               const isActive = selectedCategory === category.id || selectedCategory === category.name;
               const emoji = category.icon || getCategoryEmojiOrIcon(category.name);
               return (

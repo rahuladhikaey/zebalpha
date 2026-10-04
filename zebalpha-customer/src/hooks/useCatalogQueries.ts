@@ -126,23 +126,25 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
     if (params.category && String(params.category).trim() !== "" && String(params.category) !== "all") {
       const cat = String(params.category).toLowerCase().trim();
       if (cat.includes("polo")) {
-        query = query.or("name.ilike.%polo%,description.ilike.%polo%,brand.ilike.%polo%");
+        query = query.or("name.ilike.%polo%,description.ilike.%polo%,brand.ilike.%polo%,category.ilike.%polo%,main_category.ilike.%polo%");
       } else if (cat.includes("tee") || cat.includes("t-shirt") || cat.includes("oversized")) {
-        query = query.or("name.ilike.%tee%,name.ilike.%shirt%,name.ilike.%t-shirt%,description.ilike.%tee%");
+        query = query.or("name.ilike.%tee%,name.ilike.%t-shirt%,name.ilike.%oversized%,description.ilike.%tee%,category.ilike.%tee%,category.ilike.%t-shirt%,category.ilike.%oversized%,main_category.ilike.%t-shirt%");
       } else if (cat.includes("hoodie") || cat.includes("fleece")) {
-        query = query.or("name.ilike.%hoodie%,description.ilike.%hoodie%");
+        query = query.or("name.ilike.%hoodie%,description.ilike.%hoodie%,category.ilike.%hoodie%,main_category.ilike.%hoodie%");
       } else if (cat.includes("shirt")) {
-        query = query.or("name.ilike.%shirt%,description.ilike.%shirt%");
-      } else if (cat.includes("bottom") || cat.includes("cargo") || cat.includes("pant") || cat.includes("trouser")) {
-        query = query.or("name.ilike.%cargo%,name.ilike.%pant%,name.ilike.%trouser%,description.ilike.%cargo%");
+        query = query.or("name.ilike.%shirt%,description.ilike.%shirt%,category.ilike.%shirt%,main_category.ilike.%shirt%");
+      } else if (cat.includes("bottom") || cat.includes("cargo") || cat.includes("pant") || cat.includes("trouser") || cat.includes("denim")) {
+        query = query.or("name.ilike.%cargo%,name.ilike.%pant%,name.ilike.%trouser%,description.ilike.%cargo%,category.ilike.%cargo%,category.ilike.%bottom%,main_category.ilike.%bottom%");
       } else if (cat.includes("drop") || cat.includes("limited")) {
-        query = query.or("name.ilike.%drop%,name.ilike.%limited%,description.ilike.%drop%");
+        query = query.or("name.ilike.%drop%,name.ilike.%limited%,description.ilike.%drop%,category.ilike.%drop%,category.ilike.%limited%,main_category.ilike.%limited%");
+      } else if (cat.includes("accessor") || cat.includes("cap") || cat.includes("headwear") || cat.includes("hat")) {
+        query = query.or("name.ilike.%cap%,name.ilike.%beanie%,name.ilike.%accessor%,description.ilike.%cap%,category.ilike.%accessor%,main_category.ilike.%accessor%");
       } else {
         const isNum = !isNaN(Number(cat));
         if (isNum) {
           query = query.eq("category_id", Number(cat));
         } else {
-          query = query.or(`name.ilike.%${cat}%,description.ilike.%${cat}%,brand.ilike.%${cat}%`);
+          query = query.or(`name.ilike.%${cat}%,description.ilike.%${cat}%,brand.ilike.%${cat}%,category.ilike.%${cat}%,main_category.ilike.%${cat}%`);
         }
       }
     }
