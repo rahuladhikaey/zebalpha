@@ -17,8 +17,10 @@ import {
   Layers,
   Sparkles,
   Store,
-  UserCheck
+  UserCheck,
+  Edit3
 } from "lucide-react";
+import AdminProductEditModal from "./AdminProductEditModal";
 
 interface ProductApprovalViewProps {
   initialProducts?: any[];
@@ -53,6 +55,7 @@ export default function ProductApprovalView({
   const [actioningId, setActioningId] = useState<string | number | null>(null);
   const [editingCollectionId, setEditingCollectionId] = useState<string | number | null>(null);
   const [collectionInput, setCollectionInput] = useState<string>("");
+  const [editingProductForAdmin, setEditingProductForAdmin] = useState<any | null>(null);
 
   // Sync state if parent props change
   useEffect(() => {
@@ -370,6 +373,15 @@ export default function ProductApprovalView({
                       </button>
                     )}
 
+                    {/* Full Product Specs Edit Modal */}
+                    <button
+                      onClick={() => setEditingProductForAdmin(prod)}
+                      className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                      title="Edit Product Details & Specs"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+
                     {/* Hide / Show Toggle */}
                     <button
                       onClick={() => handleUpdateProductStatus(prod.id, { is_active: !prod.is_active })}
@@ -393,6 +405,14 @@ export default function ProductApprovalView({
           })}
         </div>
       )}
+
+      {/* Admin Product Specs & Catalog Edit Modal */}
+      <AdminProductEditModal
+        isOpen={!!editingProductForAdmin}
+        product={editingProductForAdmin}
+        onClose={() => setEditingProductForAdmin(null)}
+        onSuccess={() => loadProducts()}
+      />
     </div>
   );
 }

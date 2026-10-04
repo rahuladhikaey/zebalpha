@@ -208,7 +208,7 @@ export function aggregateMultiVendorEDD(sellerOrdersOrShipments: any[]): EDDResu
   let earliestFrom: Date | null = null;
   let primarySource: EDDResult["edd_source"] = "SERVER_ESTIMATE";
 
-  activeShipments.forEach(item => {
+  for (const item of activeShipments) {
     const itemEDD = item.expected_delivery_date || item.expected_delivery_to;
     const itemFrom = item.expected_delivery_from;
     const itemSource = item.edd_source;
@@ -234,7 +234,7 @@ export function aggregateMultiVendorEDD(sellerOrdersOrShipments: any[]): EDDResu
         }
       }
     }
-  });
+  }
 
   if (!latestTo) {
     return calculateFallbackEDD();

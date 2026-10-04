@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { uploadToCloudinary } from "@shared/services";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
+import CatalogUploadWizardModal from "@/components/catalog/CatalogUploadWizardModal";
+import { UploadCloud } from "lucide-react";
 
 export default function SellerProducts() {
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,9 @@ export default function SellerProducts() {
   const [settingsCompletionPct, setSettingsCompletionPct] = useState<number>(0);
   const [fssaiStatus, setFssaiStatus] = useState<string>("Not Submitted");
   const [accountStatus, setAccountStatus] = useState<string>("Active");
+
+  // Multi-step Catalog Wizard state
+  const [isWizardModalOpen, setIsWizardModalOpen] = useState(false);
 
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -631,17 +636,27 @@ export default function SellerProducts() {
           <h1 className="text-2xl font-bold tracking-tight">My Products Catalog</h1>
           <p className="text-xs font-medium text-slate-500 mt-1">Manage standard streetwear and high-ticket 💎 Premium Store items.</p>
         </div>
-        <button
-          onClick={() => openAddModal(activeTab === "DROPS")}
-          disabled={accountStatus.toLowerCase() === "suspended"}
-          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-            activeTab === "DROPS"
-              ? "bg-orange-600 shadow-orange-600/20 hover:bg-orange-700"
-              : "bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700"
-          }`}
-        >
-          <Plus size={16} /> {activeTab === "DROPS" ? "Add New Drop" : "Add Product"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setIsWizardModalOpen(true)}
+            disabled={accountStatus.toLowerCase() === "suspended"}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-black bg-white hover:bg-zinc-200 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <UploadCloud size={16} /> 4-Step Catalog Upload
+          </button>
+
+          <button
+            onClick={() => openAddModal(activeTab === "DROPS")}
+            disabled={accountStatus.toLowerCase() === "suspended"}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              activeTab === "DROPS"
+                ? "bg-orange-600 shadow-orange-600/20 hover:bg-orange-700"
+                : "bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700"
+            }`}
+          >
+            <Plus size={16} /> {activeTab === "DROPS" ? "Add New Drop" : "Quick Add"}
+          </button>
+        </div>
       </div>
 
       {accountStatus.toLowerCase() === "suspended" && (
@@ -1287,9 +1302,14 @@ export default function SellerProducts() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      {/* 4-Step Seller Catalog Upload Wizard Modal */}
+      <CatalogUploadWizardModal
+        isOpen={isWizardModalOpen}
+        onClose={() => setIsWizardModalOpen(false)}
+        sellerId={sellerId || userId}
+        categories={categories}
+        onSuccess={() => loadData()}
+      />
     </div>
   );
 }

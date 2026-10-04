@@ -1,0 +1,414 @@
+"use client";
+
+import React, { useState } from "react";
+import { X, CheckCircle2, ChevronRight, ChevronLeft, UploadCloud, AlertTriangle } from "lucide-react";
+import Step1AddProduct from "./Step1AddProduct";
+import Step2BasicDetails from "./Step2BasicDetails";
+import Step3AdditionalDetails from "./Step3AdditionalDetails";
+import Step4AddVariants, { type CatalogVariant } from "./Step4AddVariants";
+import type { Category } from "@shared/types";
+import { supabase } from "@shared/utils/supabaseClient";
+
+export interface CatalogUploadWizardModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sellerId: string;
+  categories: Category[];
+  onSuccess: () => void;
+}
+
+export interface MasterCatalogFormState {
+  // Step 1
+  category_id: string;
+  subcategory_id: string;
+  subcategory_name: string;
+  images: string[];
+  front_image_index: number;
+  name: string;
+  description: string;
+
+  // Step 2
+  fabric: string;
+  pattern: string;
+  fit_type: string;
+  sleeve_type: string;
+  neck_type: string;
+  care_instructions: string;
+  target_gender: string;
+  weight_grams: string;
+
+  country_of_origin: string;
+  manufacturer_name: string;
+  manufacturer_address: string;
+  manufacturer_pincode: string;
+  packer_same_as_manufacturer: boolean;
+  packer_name: string;
+  packer_address: string;
+  packer_pincode: string;
+
+  price: string;
+  defective_returns_price: string;
+  mrp: string;
+
+  // Step 3
+  style_code: string;
+  volumetric_weight: string;
+  brand: string;
+  is_premium: boolean;
+  is_new_drop: boolean;
+  collection: string;
+  target_drop_date: string;
+  tier: string;
+
+  // Step 4
+  has_variants: boolean;
+  variants: CatalogVariant[];
+  single_stock: string;
+  single_sku: string;
+}
+
+const INITIAL_FORM_STATE: MasterCatalogFormState = {
+  category_id: "",
+  subcategory_id: "",
+  subcategory_name: "",
+  images: [],
+  front_image_index: 0,
+  name: "",
+  description: "",
+
+  fabric: "100% Pure Cotton",
+  pattern: "Solid / Plain",
+  fit_type: "Regular Fit",
+  sleeve_type: "Short Sleeve",
+  neck_type: "Round Neck",
+  care_instructions: "Machine Wash Cold",
+  target_gender: "Unisex",
+  weight_grams: "300",
+
+  country_of_origin: "India",
+  manufacturer_name: "",
+  manufacturer_address: "",
+  manufacturer_pincode: "",
+  packer_same_as_manufacturer: true,
+  packer_name: "",
+  packer_address: "",
+  packer_pincode: "",
+
+  price: "",
+  defective_returns_price: "",
+  mrp: "",
+
+  style_code: "",
+  volumetric_weight: "",
+  brand: "zebalpha",
+  is_premium: false,
+  is_new_drop: false,
+  collection: "",
+  target_drop_date: "",
+  tier: "STANDARD",
+
+  has_variants: false,
+  variants: [],
+  single_stock: "20",
+  single_sku: "",
+};
+
+const STEPS = [
+  { id: 1, title: "Add Product", desc: "Category & Media" },
+  { id: 2, title: "Basic Details", desc: "Specs & Pricing" },
+  { id: 3, title: "Additional Details", desc: "Logistics & Brand" },
+  { id: 4, title: "Add Variant(s)", desc: "Inventory & Sizes" },
+];
+
+export default function CatalogUploadWizardModal({
+  isOpen,
+  onClose,
+  sellerId,
+  categories,
+  onSuccess,
+}: CatalogUploadWizardModalProps) {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [form, setForm] = useState<MasterCatalogFormState>(INITIAL_FORM_STATE);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!isOpen) return null;
+
+  const updateForm = (updates: Partial<MasterCatalogFormState>) => {
+    setForm((prev) => ({ ...prev, ...updates }));
+  };
+
+  const validateStep = (step: number): boolean => {
+    setErrorMsg("");
+    if (step === 1) {
+      if (!form.name.trim()) {
+        setErrorMsg("Please enter a product title/name.");
+        return false;
+      }
+      if (form.images.length === 0) {
+        setErrorMsg("Please upload at least 1 product image.");
+        return false;
+      }
+    } else if (step === 2) {
+      if (!form.price || parseFloat(form.price) <= 0) {
+        setErrorMsg("Please enter a valid listing price.");
+        return false;
+      }
+      if (!form.mrp || parseFloat(form.mrp) <= 0) {
+        setErrorMsg("Please enter a valid MRP.");
+        return false;
+      }
+      if (!form.fabric) {
+        setErrorMsg("Please select fabric/material.");
+        return false;
+      }
+    } else if (step === 4) {
+      if (!form.has_variants) {
+        if (!form.single_stock || parseInt(form.single_stock) < 0) {
+          setErrorMsg("Please enter a valid stock quantity.");
+          return false;
+        }
+      } else {
+        if (form.variants.length === 0) {
+          setErrorMsg("Please add at least 1 size variant or disable multi-variants.");
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep((prev) => Math.min(4, prev + 1));
+    }
+  };
+
+  const handleBack = () => {
+    setErrorMsg("");
+    setCurrentStep((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleSubmitCatalog = async () => {
+    if (!validateStep(4)) return;
+
+    setSubmitting(true);
+    setErrorMsg("");
+
+    try {
+      // Rearrange images so cover image is at index 0
+      const orderedImages = [...form.images];
+      if (form.front_image_index > 0 && form.front_image_index < orderedImages.length) {
+        const coverImg = orderedImages.splice(form.front_image_index, 1)[0];
+        orderedImages.unshift(coverImg);
+      }
+
+      const coverImageUrl = orderedImages[0] || "";
+
+      // Specifications JSON payload
+      const specificationsData = {
+        fabric: form.fabric,
+        pattern: form.pattern,
+        fit_type: form.fit_type,
+        sleeve_type: form.sleeve_type,
+        neck_type: form.neck_type,
+        care_instructions: form.care_instructions,
+        target_gender: form.target_gender,
+        weight_grams: form.weight_grams,
+        country_of_origin: form.country_of_origin,
+        manufacturer_name: form.manufacturer_name,
+        manufacturer_address: form.manufacturer_address,
+        manufacturer_pincode: form.manufacturer_pincode,
+        packer_name: form.packer_same_as_manufacturer ? form.manufacturer_name : form.packer_name,
+        packer_address: form.packer_same_as_manufacturer ? form.manufacturer_address : form.packer_address,
+        packer_pincode: form.packer_same_as_manufacturer ? form.manufacturer_pincode : form.packer_pincode,
+        defective_returns_price: form.defective_returns_price,
+        style_code: form.style_code,
+        volumetric_weight: form.volumetric_weight,
+      };
+
+      const primaryCatId = form.category_id ? (isNaN(Number(form.category_id)) ? null : Number(form.category_id)) : (categories[0]?.id || null);
+
+      const productPayload = {
+        name: form.name,
+        description: form.description,
+        price: parseFloat(form.price) || 0,
+        mrp: parseFloat(form.mrp) || parseFloat(form.price) || 0,
+        category_id: primaryCatId,
+        category: form.subcategory_name || "Apparel",
+        image_url: coverImageUrl,
+        images: orderedImages,
+        specifications: specificationsData,
+        brand: form.brand || "zebalpha",
+        stock: form.has_variants ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0) : parseInt(form.single_stock) || 20,
+        sku: form.has_variants ? (form.style_code || "MULTI_VARIANT") : (form.single_sku || form.style_code || `SKU_${Date.now()}`),
+        low_stock_limit: 5,
+        seller_id: sellerId || null,
+        is_premium: form.is_premium,
+        is_new_drop: form.is_new_drop,
+        collection: form.collection || null,
+        target_drop_date: form.target_drop_date || null,
+        tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
+      };
+
+      const { data: insertedProduct, error: insertError } = await supabase
+        .from("products")
+        .insert([productPayload])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Insert Variants if enabled
+      if (form.has_variants && insertedProduct && form.variants.length > 0) {
+        const variantsPayload = form.variants.map((v) => ({
+          product_id: insertedProduct.id,
+          name: `${form.name} - ${v.size}`,
+          price: parseFloat(v.price) || parseFloat(form.price),
+          mrp: parseFloat(v.mrp) || parseFloat(form.mrp),
+          stock: parseInt(v.stock) || 20,
+          sku: v.sku || `${form.style_code}_${v.size}`,
+        }));
+
+        const { error: variantError } = await supabase
+          .from("product_variants")
+          .insert(variantsPayload);
+
+        if (variantError) {
+          console.warn("Product inserted, variant creation notice:", variantError.message);
+        }
+      }
+
+      onSuccess();
+      onClose();
+      setForm(INITIAL_FORM_STATE);
+      setCurrentStep(1);
+    } catch (err: any) {
+      console.error("Error creating product:", err);
+      setErrorMsg(err.message || "Failed to submit product catalog.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-4xl bg-[#0d0d10] border border-[#27272a] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+        {/* Header */}
+        <div className="p-4 md:p-5 border-b border-[#27272a] flex items-center justify-between bg-[#141418]">
+          <div>
+            <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+              <UploadCloud className="w-5 h-5 text-emerald-400" />
+              Upload Product Catalog
+            </h2>
+            <p className="text-xs text-zinc-400">Step {currentStep} of 4: {STEPS[currentStep - 1].desc}</p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg bg-[#18181b] text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Stepper Progress Indicator */}
+        <div className="grid grid-cols-4 border-b border-[#27272a] bg-[#050505]">
+          {STEPS.map((s) => {
+            const isActive = currentStep === s.id;
+            const isCompleted = currentStep > s.id;
+            return (
+              <div
+                key={s.id}
+                onClick={() => isCompleted && setCurrentStep(s.id)}
+                className={`p-3 md:p-4 text-center cursor-pointer transition-all border-b-2 ${
+                  isActive
+                    ? "border-white bg-[#141418]"
+                    : isCompleted
+                    ? "border-emerald-500 bg-[#0d0d10]"
+                    : "border-transparent opacity-50"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <span
+                    className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
+                      isCompleted
+                        ? "bg-emerald-500 text-black"
+                        : isActive
+                        ? "bg-white text-black"
+                        : "bg-[#27272a] text-zinc-400"
+                    }`}
+                  >
+                    {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : s.id}
+                  </span>
+                  <span className="hidden md:inline text-xs font-bold text-zinc-200">{s.title}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Modal Body / Active Step */}
+        <div className="p-4 md:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-4">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {errorMsg}
+            </div>
+          )}
+
+          {currentStep === 1 && (
+            <Step1AddProduct formData={form} categories={categories} onChange={updateForm} />
+          )}
+
+          {currentStep === 2 && (
+            <Step2BasicDetails formData={form} onChange={updateForm} />
+          )}
+
+          {currentStep === 3 && (
+            <Step3AdditionalDetails formData={form} onChange={updateForm} />
+          )}
+
+          {currentStep === 4 && (
+            <Step4AddVariants formData={form} onChange={updateForm} />
+          )}
+        </div>
+
+        {/* Navigation Footer */}
+        <div className="p-4 border-t border-[#27272a] bg-[#141418] flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={currentStep === 1 || submitting}
+            className={`py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              currentStep === 1
+                ? "opacity-30 cursor-not-allowed text-zinc-500 bg-[#18181b]"
+                : "bg-[#18181b] text-white hover:bg-zinc-800 border border-[#27272a]"
+            }`}
+          >
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
+
+          {currentStep < 4 ? (
+            <button
+              type="button"
+              onClick={handleNext}
+              className="py-2.5 px-6 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-bold shadow-lg shadow-white/10 flex items-center gap-1.5 transition-all"
+            >
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmitCatalog}
+              disabled={submitting}
+              className="py-2.5 px-6 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 transition-all"
+            >
+              {submitting ? "Uploading Catalog..." : "Submit & Publish Catalog"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
