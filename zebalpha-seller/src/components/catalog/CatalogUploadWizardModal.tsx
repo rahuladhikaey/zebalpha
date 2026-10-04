@@ -210,7 +210,7 @@ export default function CatalogUploadWizardModal({
         setErrorMsg("Please upload at least 1 product image.");
         return false;
       }
-    } else if (step === 2) {
+    } else if (step === 2 && !form.is_new_drop) {
       if (!form.price || parseFloat(form.price) <= 0) {
         setErrorMsg("Please enter a valid listing price.");
         return false;
@@ -223,7 +223,7 @@ export default function CatalogUploadWizardModal({
         setErrorMsg("Please select fabric/material.");
         return false;
       }
-    } else if (step === 4) {
+    } else if (step === 4 && !form.is_new_drop) {
       if (!form.has_variants) {
         if (!form.single_stock || parseInt(form.single_stock) < 0) {
           setErrorMsg("Please enter a valid stock quantity.");
@@ -251,7 +251,7 @@ export default function CatalogUploadWizardModal({
   };
 
   const handleSubmitCatalog = async () => {
-    if (!validateStep(4)) return;
+    if (!validateStep(1)) return;
 
     setSubmitting(true);
     setErrorMsg("");
@@ -289,6 +289,7 @@ export default function CatalogUploadWizardModal({
       };
 
       const primaryCatId = form.category_id ? (isNaN(Number(form.category_id)) ? null : Number(form.category_id)) : (categories[0]?.id || null);
+      const calculatedStock = form.has_variants ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0) : (parseInt(form.single_stock) || 20);
 
       const productPayload = {
         name: form.name,
@@ -301,8 +302,12 @@ export default function CatalogUploadWizardModal({
         images: orderedImages,
         specifications: specificationsData,
         brand: form.brand || "zebalpha",
-        stock: form.has_variants ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0) : parseInt(form.single_stock) || 20,
+        stock: calculatedStock,
         sku: form.has_variants ? (form.style_code || "MULTI_VARIANT") : (form.single_sku || form.style_code || `SKU_${Date.now()}`),
+        status: form.is_new_drop ? "COMING_SOON" : (calculatedStock > 0 ? "IN_STOCK" : "OUT_OF_STOCK"),
+        is_active: true,
+        is_approved: true,
+        approval_status: "approved",
         low_stock_limit: 5,
         seller_id: sellerId || null,
         is_premium: form.is_premium,
@@ -464,24 +469,37 @@ export default function CatalogUploadWizardModal({
             <ChevronLeft className="w-4 h-4" /> Back
           </button>
 
-          {currentStep < 4 ? (
-            <button
-              type="button"
-              onClick={handleNext}
-              className="py-2.5 px-6 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-bold shadow-lg shadow-white/10 flex items-center gap-1.5 transition-all"
-            >
-              Next <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmitCatalog}
-              disabled={submitting}
-              className="py-2.5 px-6 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 transition-all"
-            >
-              {submitting ? "Uploading Catalog..." : "Submit & Publish Catalog"}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {form.is_new_drop && currentStep < 4 && (
+              <button
+                type="button"
+                onClick={handleSubmitCatalog}
+                disabled={submitting}
+                className="py-2.5 px-4 rounded-xl bg-orange-500 text-black hover:bg-orange-400 text-xs font-bold shadow-lg shadow-orange-500/20 flex items-center gap-1 transition-all"
+              >
+                {submitting ? "Publishing..." : "⚡ Publish New Drop Now"}
+              </button>
+            )}
+
+            {currentStep < 4 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="py-2.5 px-6 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-bold shadow-lg shadow-white/10 flex items-center gap-1.5 transition-all"
+              >
+                Next <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmitCatalog}
+                disabled={submitting}
+                className="py-2.5 px-6 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 transition-all"
+              >
+                {submitting ? "Uploading Catalog..." : "Submit & Publish Catalog"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

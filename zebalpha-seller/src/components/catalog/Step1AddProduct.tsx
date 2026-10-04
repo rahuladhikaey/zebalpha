@@ -13,6 +13,9 @@ export interface Step1Props {
     front_image_index: number;
     name: string;
     description: string;
+    is_premium?: boolean;
+    is_new_drop?: boolean;
+    target_drop_date?: string;
   };
   categories: Category[];
   onChange: (updates: Partial<Step1Props["formData"]>) => void;
@@ -75,6 +78,50 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
 
   return (
     <div className="space-y-6">
+      {/* Product Type / Placement Selector */}
+      <div className="p-4 rounded-xl bg-[#141418] border border-[#27272a] space-y-2">
+        <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
+          Product Category Type
+        </label>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => onChange({ is_premium: false, is_new_drop: false })}
+            className={`p-2.5 rounded-lg border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              !formData.is_premium && !formData.is_new_drop
+                ? "bg-white text-black border-white shadow-md"
+                : "bg-[#0d0d11] text-zinc-400 border-[#27272a] hover:text-white"
+            }`}
+          >
+            🏷️ Normal Apparel
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChange({ is_premium: true, is_new_drop: false })}
+            className={`p-2.5 rounded-lg border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              formData.is_premium
+                ? "bg-amber-500 text-black border-amber-400 shadow-md shadow-amber-500/20"
+                : "bg-[#0d0d11] text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+            }`}
+          >
+            💎 Premium Store Item
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChange({ is_new_drop: true, is_premium: false })}
+            className={`p-2.5 rounded-lg border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              formData.is_new_drop
+                ? "bg-orange-500 text-black border-orange-400 shadow-md shadow-orange-500/20"
+                : "bg-[#0d0d11] text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+            }`}
+          >
+            ⚡ New Drop
+          </button>
+        </div>
+      </div>
       {/* Category Selection */}
       <div className="space-y-2">
         <label className="text-sm font-semibold text-zinc-200 flex items-center gap-1">
@@ -216,6 +263,24 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
           className="w-full p-3 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white transition-colors"
         />
       </div>
+
+      {/* Target Launch Date for New Drops */}
+      {formData.is_new_drop && (
+        <div className="space-y-2 p-4 rounded-xl bg-orange-500/10 border border-orange-500/30">
+          <label className="text-sm font-semibold text-orange-300 flex items-center gap-1">
+            ⚡ Target Launch / Drop Date <span className="text-red-400">*</span>
+          </label>
+          <input
+            type="datetime-local"
+            value={formData.target_drop_date || ""}
+            onChange={(e) => onChange({ target_drop_date: e.target.value })}
+            className="w-full p-3 rounded-lg bg-[#0d0d11] border border-orange-500/40 text-white text-sm"
+          />
+          <p className="text-[11px] text-zinc-400">
+            💡 Displayed on the customer <code>/new-drops</code> hype countdown with voting and launch alerts.
+          </p>
+        </div>
+      )}
 
       {/* Product Description */}
       <div className="space-y-2">

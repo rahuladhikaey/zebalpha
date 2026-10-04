@@ -754,8 +754,11 @@ export default function SellerProducts() {
               : "Get started by creating your product listing for the ZEB-ALPHA storefront."}
           </p>
           <button 
-            onClick={() => openAddModal(activeTab === "DROPS")}
-            className="mt-6 rounded-2xl border border-primary/20 px-5 py-3 text-xs font-black text-primary hover:bg-primary/5 transition-all"
+            onClick={() => {
+              setEditingProduct(null);
+              setIsWizardModalOpen(true);
+            }}
+            className="mt-6 rounded-2xl border border-white/20 px-5 py-3 text-xs font-black text-white hover:bg-white/10 transition-all cursor-pointer"
           >
             {activeTab === "DROPS" ? "Add New Drop Now" : "Add Product Now"}
           </button>
