@@ -30,6 +30,8 @@ export async function POST(req: Request) {
       items,
       total,
       user_id,
+      couponCode,
+      discount,
     } = body;
 
     const secret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
@@ -133,6 +135,8 @@ export async function POST(req: Request) {
         items,
         total,
         payment_method: "ONLINE",
+        coupon_code: couponCode || null,
+        discount_amount: Number(discount) || 0,
       });
     } catch (orderErr: any) {
       console.warn("createMasterOrder notice:", orderErr?.message);

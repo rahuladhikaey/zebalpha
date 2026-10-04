@@ -18,8 +18,11 @@ export async function createMasterOrder(payload: {
   items: OrderItem[];
   total: number;
   payment_method: string;
+  discount_amount?: number;
+  coupon_code?: string;
+  notes?: string;
 }) {
-  const { user_id, customer_name, phone, address, items, total, payment_method } = payload;
+  const { user_id, customer_name, phone, address, items, total, payment_method, discount_amount, coupon_code, notes } = payload;
   const traceStart = Date.now();
   const trace: Record<string, number> = {};
 
@@ -92,6 +95,8 @@ export async function createMasterOrder(payload: {
     items: items,
     product_details: items,
     total_amount: total,
+    discount_amount: Number(discount_amount) || 0,
+    notes: coupon_code ? `Coupon Applied: ${coupon_code}` : (notes || null),
     payment_method: isCodOrder ? 'COD' : normPaymentMethod,
     payment_status: isCodOrder ? 'PENDING' : 'COMPLETE',
     order_status: 'placed'

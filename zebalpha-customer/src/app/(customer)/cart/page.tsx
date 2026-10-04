@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Zap, Minus, Plus } from "lucide-react";
+import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Sparkles } from "lucide-react";
 
 export default function CartPage() {
   const router = useRouter();
@@ -23,6 +23,15 @@ export default function CartPage() {
     percentage: 50,
     isActive: true
   });
+
+  // Promotional Coupon State
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponError, setCouponError] = useState("");
+  const [couponSuccess, setCouponSuccess] = useState("");
+  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   
   useEffect(() => {
     const fetchSettings = async () => {
@@ -41,6 +50,29 @@ export default function CartPage() {
     };
     fetchOffer();
 
+    const fetchCoupons = async () => {
+      try {
+        const { data } = await supabase
+          .from('store_settings')
+          .select('value')
+          .eq('key', 'promotional_coupons')
+          .maybeSingle();
+
+        const couponList = Array.isArray(data?.value) ? data.value.filter((c: any) => c.active !== false) : [];
+        setAvailableCoupons(couponList);
+
+        if (typeof window !== "undefined") {
+          const cached = sessionStorage.getItem("applied_coupon");
+          if (cached) {
+            setCouponInput(cached.toUpperCase());
+          }
+        }
+      } catch (err) {
+        console.warn("Notice loading coupons in cart:", err);
+      }
+    };
+    fetchCoupons();
+
     const fetchCrossSells = async () => {
       const { data } = await supabase.from('products').select('*').limit(6);
       if (data) {
@@ -50,6 +82,115 @@ export default function CartPage() {
     };
     if (cart.length > 0) fetchCrossSells();
   }, [cart]);
+
+  const applyCouponCode = (codeToApply?: string, couponList = availableCoupons) => {
+    const rawCode = (codeToApply || couponInput).trim().toUpperCase();
+    setCouponError("");
+    setCouponSuccess("");
+
+    if (!rawCode) {
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+
+    try {
+      let matched = couponList.find(
+        (c) => c.code && String(c.code).trim().toUpperCase() === rawCode && c.active !== false
+      );
+
+      if (!matched && rawCode === "WELCOME10") {
+        matched = {
+          code: "WELCOME10",
+          discount: "10%",
+          type: "Percentage",
+          minOrderAmount: 0,
+          active: true
+        };
+      }
+
+      if (!matched) {
+        setCouponError(`Coupon code "${rawCode}" is invalid or inactive.`);
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        setIsValidatingCoupon(false);
+        return;
+      }
+
+      const minAmount = Number(matched.minOrderAmount) || 0;
+      if (minAmount > 0 && totalValue < minAmount) {
+        setCouponError(`Min order amount of ₹${minAmount} required to use "${rawCode}".`);
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        setIsValidatingCoupon(false);
+        return;
+      }
+
+      if (matched.expiry) {
+        const expiryDate = new Date(matched.expiry);
+        expiryDate.setHours(23, 59, 59, 999);
+        if (expiryDate < new Date()) {
+          setCouponError(`Coupon code "${rawCode}" has expired.`);
+          setAppliedCoupon(null);
+          setCouponDiscount(0);
+          setIsValidatingCoupon(false);
+          return;
+        }
+      }
+
+      let calculatedDiscount = 0;
+      const discountStr = String(matched.discount || "");
+
+      if (matched.type === "Percentage" || discountStr.includes("%")) {
+        const pct = parseFloat(discountStr.replace(/[^0-9.]/g, "")) || 0;
+        calculatedDiscount = Math.round(totalValue * (pct / 100));
+      } else if (matched.type === "Flat Shipping Off") {
+        calculatedDiscount = billingSettings.deliveryFee || 0;
+      } else {
+        const flatVal = parseFloat(discountStr.replace(/[^0-9.]/g, "")) || 0;
+        calculatedDiscount = Math.min(totalValue, flatVal);
+      }
+
+      setAppliedCoupon(matched);
+      setCouponDiscount(calculatedDiscount);
+      setCouponSuccess(`🎉 Coupon "${rawCode}" applied! Saved ₹${calculatedDiscount}.`);
+      setCouponInput(rawCode);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("applied_coupon", rawCode);
+      }
+    } catch (err: any) {
+      setCouponError(err.message || "Failed to validate coupon.");
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponInput("");
+    setCouponError("");
+    setCouponSuccess("");
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("applied_coupon");
+    }
+  };
+
+  useEffect(() => {
+    if (appliedCoupon) {
+      const discountStr = String(appliedCoupon.discount || "");
+      if (appliedCoupon.type === "Percentage" || discountStr.includes("%")) {
+        const pct = parseFloat(discountStr.replace(/[^0-9.]/g, "")) || 0;
+        setCouponDiscount(Math.round(totalValue * (pct / 100)));
+      } else if (appliedCoupon.type === "Flat Shipping Off") {
+        setCouponDiscount(billingSettings.deliveryFee || 0);
+      } else {
+        const flatVal = parseFloat(discountStr.replace(/[^0-9.]/g, "")) || 0;
+        setCouponDiscount(Math.min(totalValue, flatVal));
+      }
+    }
+  }, [totalValue, appliedCoupon, billingSettings.deliveryFee]);
 
   if (cart.length === 0) {
     return (
@@ -71,9 +212,12 @@ export default function CartPage() {
 
   const offerApplied = cartOffer.isActive && totalValue >= cartOffer.threshold;
   const discountAmount = offerApplied ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
-  const discountedSubtotal = totalValue - discountAmount;
+  const totalDiscount = discountAmount + couponDiscount;
+  const discountedSubtotal = Math.max(0, totalValue - totalDiscount);
 
-  const deliveryCost = discountedSubtotal >= billingSettings.freeDeliveryThreshold ? 0 : billingSettings.deliveryFee;
+  const isFreeDeliveryByThreshold = discountedSubtotal >= billingSettings.freeDeliveryThreshold;
+  const isFreeDeliveryByCoupon = appliedCoupon?.type === "Flat Shipping Off";
+  const deliveryCost = (isFreeDeliveryByThreshold || isFreeDeliveryByCoupon) ? 0 : billingSettings.deliveryFee;
   const grandTotal = discountedSubtotal + deliveryCost + billingSettings.packagingFee + billingSettings.tax;
   const amountToFreeDelivery = Math.max(0, billingSettings.freeDeliveryThreshold - discountedSubtotal);
 
@@ -201,11 +345,107 @@ export default function CartPage() {
         {/* Billing Details */}
         <div className="bg-zinc-950 rounded-3xl p-5 sm:p-6 border border-zinc-800 shadow-xl">
           <h3 className="text-sm font-black text-white tracking-tight mb-4">Billing details</h3>
+
+          {/* Promo / Coupon Code Section */}
+          <div className="mb-4 pb-4 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Promo / Coupon Code</span>
+              </span>
+              {appliedCoupon && (
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="text-[10px] font-bold text-rose-400 hover:text-rose-300 underline cursor-pointer"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-mono font-black text-xs uppercase tracking-wider bg-emerald-900/60 px-2 py-0.5 rounded-lg border border-emerald-700/60 text-emerald-200">
+                    {appliedCoupon.code}
+                  </span>
+                  <span className="text-xs font-bold truncate">
+                    Saved ₹{couponDiscount} ({appliedCoupon.discount})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="text-xs font-black text-rose-400 hover:text-rose-300 ml-2 cursor-pointer p-1"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="ENTER COUPON CODE"
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value.toUpperCase());
+                      setCouponError("");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        applyCouponCode(couponInput);
+                      }
+                    }}
+                    className="flex-1 rounded-xl bg-zinc-900 border border-zinc-700 px-3.5 py-2 text-xs font-mono font-bold text-white placeholder-zinc-500 uppercase outline-none focus:border-white transition-colors"
+                  />
+                  <button
+                    type="button"
+                    disabled={!couponInput.trim() || isValidatingCoupon}
+                    onClick={() => applyCouponCode(couponInput)}
+                    className="px-4 py-2 rounded-xl bg-white text-black font-black text-xs uppercase tracking-wider hover:bg-zinc-200 disabled:opacity-40 transition-all cursor-pointer shadow-md shadow-white/10"
+                  >
+                    {isValidatingCoupon ? "..." : "Apply"}
+                  </button>
+                </div>
+
+                {couponError && (
+                  <p className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                    <span>⚠️</span> {couponError}
+                  </p>
+                )}
+
+                {couponSuccess && (
+                  <p className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                    <span>✓</span> {couponSuccess}
+                  </p>
+                )}
+
+                {availableCoupons.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mr-1">Available:</span>
+                    {availableCoupons.slice(0, 3).map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => applyCouponCode(c.code)}
+                        className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-700/80 hover:border-emerald-500 text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer"
+                      >
+                        {c.code} ({c.discount})
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-bold text-zinc-400">Subtotal</span>
-              <span className={`font-black ${offerApplied ? 'text-zinc-500 line-through' : 'text-white'}`}>₹{totalValue}</span>
+              <span className={`font-black ${offerApplied || (appliedCoupon && couponDiscount > 0) ? 'text-zinc-500 line-through' : 'text-white'}`}>₹{totalValue}</span>
             </div>
             
             {offerApplied && (
@@ -215,6 +455,15 @@ export default function CartPage() {
                   <span className="bg-white/10 text-white border border-white/20 text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full font-black">Applied</span>
                 </span>
                 <span className="font-black text-white">-₹{discountAmount}</span>
+              </div>
+            )}
+
+            {appliedCoupon && couponDiscount > 0 && (
+              <div className="flex items-center justify-between text-sm text-emerald-400">
+                <span className="font-bold flex items-center gap-1.5">
+                  🏷️ Coupon ({appliedCoupon.code})
+                </span>
+                <span className="font-black">-₹{couponDiscount}</span>
               </div>
             )}
             
@@ -277,7 +526,7 @@ export default function CartPage() {
           </div>
           <button 
             disabled={cart.filter(item => (item.stock ?? Infinity) > 0).length === 0}
-            onClick={() => router.push('/checkout')}
+            onClick={() => router.push(appliedCoupon ? `/checkout?coupon=${appliedCoupon.code}` : '/checkout')}
             className={`transition-all text-black px-12 py-4 rounded-2xl font-black text-base tracking-wide shadow-xl active:scale-95 min-w-[160px] text-center cursor-pointer ${
               cart.filter(item => (item.stock ?? Infinity) > 0).length === 0
                 ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"

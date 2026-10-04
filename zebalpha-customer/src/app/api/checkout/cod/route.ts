@@ -13,6 +13,8 @@ export async function POST(req: Request) {
       items,
       total,
       user_id,
+      couponCode,
+      discount,
     } = await req.json();
 
     // Verify product prices against database before creating order
@@ -88,7 +90,17 @@ export async function POST(req: Request) {
     }
 
     // Delegate to master order creation which handles splitting, reservation and notifications
-    const parentOrder = await createMasterOrder({ user_id, customer_name, phone, address, items, total, payment_method: 'COD' });
+    const parentOrder = await createMasterOrder({
+      user_id,
+      customer_name,
+      phone,
+      address,
+      items,
+      total,
+      payment_method: 'COD',
+      coupon_code: couponCode || null,
+      discount_amount: Number(discount) || 0
+    });
 
     // Send WhatsApp Order Confirmation (keep for backward compatibility)
     try {

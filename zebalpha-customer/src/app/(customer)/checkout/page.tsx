@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import { Header } from "@/components/Header";
+import { Tag, Check, X, Sparkles } from "lucide-react";
 
 const normalizeAddressFromRecord = (record: any) => {
   const addressLine = record?.address_line || record?.address_line1 || record?.address_line2 || "";
@@ -84,10 +85,19 @@ function CheckoutContent() {
     isActive: true
   });
 
+  // Promotional Coupon State
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponError, setCouponError] = useState("");
+  const [couponSuccess, setCouponSuccess] = useState("");
+  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
   const productId = searchParams.get("productId");
   const quantity = parseInt(searchParams.get("quantity") || "1");
 
-  // 1. Fetch Store Settings
+  // 1. Fetch Store Settings & Active Coupons
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -112,6 +122,28 @@ function CheckoutContent() {
       }
     };
     fetchOffer();
+
+    const fetchCoupons = async () => {
+      try {
+        const { data } = await supabase
+          .from('store_settings')
+          .select('value')
+          .eq('key', 'promotional_coupons')
+          .maybeSingle();
+
+        const couponList = Array.isArray(data?.value) ? data.value.filter((c: any) => c.active !== false) : [];
+        setAvailableCoupons(couponList);
+
+        // Check if coupon code was passed in URL or sessionStorage
+        const passedCoupon = searchParams.get("coupon") || (typeof window !== "undefined" ? sessionStorage.getItem("applied_coupon") : "");
+        if (passedCoupon) {
+          setCouponInput(passedCoupon.toUpperCase());
+        }
+      } catch (err) {
+        console.warn("Notice loading coupons from DB:", err);
+      }
+    };
+    fetchCoupons();
   }, []);
 
   // 2. Fetch saved address reactively whenever user is ready
@@ -288,11 +320,127 @@ function CheckoutContent() {
   // Offer discount applies ONLY on subtotal (item prices)
   const offerApplied = cartOffer.isActive && totalValue >= cartOffer.threshold;
   const discountAmount = offerApplied ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
-  const discountedSubtotal = totalValue - discountAmount;
+
+  // Total discounts combined (Cart Offer + Coupon)
+  const totalDiscount = discountAmount + couponDiscount;
+  const discountedSubtotal = Math.max(0, totalValue - totalDiscount);
 
   // Calculate final totals based on billing settings
-  const deliveryCost = discountedSubtotal >= billingSettings.freeDeliveryThreshold ? 0 : billingSettings.deliveryFee;
+  const isFreeDeliveryByThreshold = discountedSubtotal >= billingSettings.freeDeliveryThreshold;
+  const isFreeDeliveryByCoupon = appliedCoupon?.type === "Flat Shipping Off";
+  const deliveryCost = (isFreeDeliveryByThreshold || isFreeDeliveryByCoupon) ? 0 : billingSettings.deliveryFee;
   const grandTotal = discountedSubtotal + deliveryCost + billingSettings.packagingFee + billingSettings.tax;
+
+  const applyCouponCode = (codeToApply?: string, couponList = availableCoupons) => {
+    const rawCode = (codeToApply || couponInput).trim().toUpperCase();
+    setCouponError("");
+    setCouponSuccess("");
+
+    if (!rawCode) {
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+
+    try {
+      let matched = couponList.find(
+        (c) => c.code && String(c.code).trim().toUpperCase() === rawCode && c.active !== false
+      );
+
+      // Built-in WELCOME10 fallback
+      if (!matched && rawCode === "WELCOME10") {
+        matched = {
+          code: "WELCOME10",
+          discount: "10%",
+          type: "Percentage",
+          minOrderAmount: 0,
+          active: true
+        };
+      }
+
+      if (!matched) {
+        setCouponError(`Coupon code "${rawCode}" is invalid or inactive.`);
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        setIsValidatingCoupon(false);
+        return;
+      }
+
+      const minAmount = Number(matched.minOrderAmount) || 0;
+      if (minAmount > 0 && totalValue < minAmount) {
+        setCouponError(`Min order amount of ₹${minAmount} required to use "${rawCode}".`);
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        setIsValidatingCoupon(false);
+        return;
+      }
+
+      if (matched.expiry) {
+        const expiryDate = new Date(matched.expiry);
+        expiryDate.setHours(23, 59, 59, 999);
+        if (expiryDate < new Date()) {
+          setCouponError(`Coupon code "${rawCode}" has expired.`);
+          setAppliedCoupon(null);
+          setCouponDiscount(0);
+          setIsValidatingCoupon(false);
+          return;
+        }
+      }
+
+      let calculatedDiscount = 0;
+      const discountStr = String(matched.discount || "");
+
+      if (matched.type === "Percentage" || discountStr.includes("%")) {
+        const pct = parseFloat(discountStr.replace(/[^0-9.]/g, "")) || 0;
+        calculatedDiscount = Math.round(totalValue * (pct / 100));
+      } else if (matched.type === "Flat Shipping Off") {
+        calculatedDiscount = billingSettings.deliveryFee || 0;
+      } else {
+        const flatVal = parseFloat(discountStr.replace(/[^0-9.]/g, "")) || 0;
+        calculatedDiscount = Math.min(totalValue, flatVal);
+      }
+
+      setAppliedCoupon(matched);
+      setCouponDiscount(calculatedDiscount);
+      setCouponSuccess(`🎉 Coupon "${rawCode}" applied! Saved ₹${calculatedDiscount}.`);
+      setCouponInput(rawCode);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("applied_coupon", rawCode);
+      }
+    } catch (err: any) {
+      setCouponError(err.message || "Failed to validate coupon.");
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponInput("");
+    setCouponError("");
+    setCouponSuccess("");
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("applied_coupon");
+    }
+  };
+
+  // Keep coupon discount updated if totalValue changes
+  useEffect(() => {
+    if (appliedCoupon) {
+      const discountStr = String(appliedCoupon.discount || "");
+      if (appliedCoupon.type === "Percentage" || discountStr.includes("%")) {
+        const pct = parseFloat(discountStr.replace(/[^0-9.]/g, "")) || 0;
+        setCouponDiscount(Math.round(totalValue * (pct / 100)));
+      } else if (appliedCoupon.type === "Flat Shipping Off") {
+        setCouponDiscount(billingSettings.deliveryFee || 0);
+      } else {
+        const flatVal = parseFloat(discountStr.replace(/[^0-9.]/g, "")) || 0;
+        setCouponDiscount(Math.min(totalValue, flatVal));
+      }
+    }
+  }, [totalValue, appliedCoupon, billingSettings.deliveryFee]);
 
   const handleValidateCard = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -466,7 +614,8 @@ function CheckoutContent() {
               total: grandTotal,
               user_id: userId,
               applyAsCard: cardValidated,
-              couponCode: "",
+              couponCode: appliedCoupon ? appliedCoupon.code : "",
+              discount: totalDiscount,
             }),
           });
 
@@ -585,7 +734,8 @@ function CheckoutContent() {
                 total: grandTotal,
                 user_id: userId,
                 applyAsCard: cardValidated,
-                couponCode: "",
+                couponCode: appliedCoupon ? appliedCoupon.code : "",
+                discount: totalDiscount,
               };
 
               let verifyData: any = null;
@@ -1012,15 +1162,124 @@ function CheckoutContent() {
                   </div>
                 ))}
               </div>
+
+              {/* Promo / Coupon Code Section */}
+              <div className="mt-6 border-t border-zinc-800/80 pt-5">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Have a Promo / Coupon Code?</span>
+                  </span>
+                  {appliedCoupon && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-[10px] font-bold text-rose-400 hover:text-rose-300 underline cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono font-black text-xs uppercase tracking-wider bg-emerald-900/60 px-2 py-0.5 rounded-lg border border-emerald-700/60 text-emerald-200">
+                        {appliedCoupon.code}
+                      </span>
+                      <span className="text-xs font-bold truncate">
+                        Saved ₹{couponDiscount} ({appliedCoupon.discount})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-xs font-black text-rose-400 hover:text-rose-300 ml-2 cursor-pointer p-1"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="ENTER COUPON CODE"
+                        value={couponInput}
+                        onChange={(e) => {
+                          setCouponInput(e.target.value.toUpperCase());
+                          setCouponError("");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            applyCouponCode(couponInput);
+                          }
+                        }}
+                        className="flex-1 rounded-xl bg-zinc-900 border border-zinc-700 px-3.5 py-2.5 text-xs font-mono font-bold text-white placeholder-zinc-500 uppercase outline-none focus:border-white transition-colors"
+                      />
+                      <button
+                        type="button"
+                        disabled={!couponInput.trim() || isValidatingCoupon}
+                        onClick={() => applyCouponCode(couponInput)}
+                        className="px-5 py-2.5 rounded-xl bg-white text-black font-black text-xs uppercase tracking-wider hover:bg-zinc-200 disabled:opacity-40 transition-all cursor-pointer shadow-md shadow-white/10"
+                      >
+                        {isValidatingCoupon ? "..." : "Apply"}
+                      </button>
+                    </div>
+
+                    {couponError && (
+                      <p className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                        <span>⚠️</span> {couponError}
+                      </p>
+                    )}
+
+                    {couponSuccess && (
+                      <p className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                        <span>✓</span> {couponSuccess}
+                      </p>
+                    )}
+
+                    {/* Quick Select Chips for Available Coupons */}
+                    {availableCoupons.length > 0 && (
+                      <div className="pt-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mr-1">Available:</span>
+                          {availableCoupons.slice(0, 4).map((c) => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => applyCouponCode(c.code)}
+                              className="text-[10px] font-mono font-black uppercase px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-700/80 hover:border-emerald-500 text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <span>{c.code}</span>
+                              <span className="text-[9px] text-zinc-400 font-sans">({c.discount})</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="mt-8 border-t border-zinc-800 pt-6 space-y-3">
                 <div className="flex items-center justify-between text-zinc-400">
                   <span className="text-[11px] font-bold uppercase tracking-widest">Subtotal</span>
-                  <span className={`font-bold ${offerApplied ? 'line-through text-zinc-500' : 'text-white'}`}>₹{totalValue}</span>
+                  <span className={`font-bold ${offerApplied || (appliedCoupon && couponDiscount > 0) ? 'line-through text-zinc-500' : 'text-white'}`}>₹{totalValue}</span>
                 </div>
                 {offerApplied && (
                   <div className="flex items-center justify-between text-white">
                     <span className="text-[11px] font-bold uppercase tracking-widest">🎉 {cartOffer.percentage}% Off</span>
                     <span className="font-bold">-₹{discountAmount}</span>
+                  </div>
+                )}
+                {appliedCoupon && couponDiscount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-400">
+                    <span className="text-[11px] font-bold uppercase tracking-widest flex items-center gap-1">
+                      🏷️ Coupon ({appliedCoupon.code})
+                    </span>
+                    <span className="font-bold">-₹{couponDiscount}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-zinc-400">
