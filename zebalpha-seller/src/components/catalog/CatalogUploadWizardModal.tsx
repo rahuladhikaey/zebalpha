@@ -302,6 +302,11 @@ export default function CatalogUploadWizardModal({
         defective_returns_price: form.defective_returns_price,
         style_code: form.style_code,
         volumetric_weight: form.volumetric_weight,
+        is_premium: form.is_premium,
+        is_new_drop: form.is_new_drop,
+        collection: form.collection,
+        target_drop_date: form.target_drop_date,
+        tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
       };
 
       const primaryCatId = form.category_id ? (isNaN(Number(form.category_id)) ? null : Number(form.category_id)) : (categories[0]?.id || null);
@@ -365,47 +370,55 @@ export default function CatalogUploadWizardModal({
         packages: computedPackages,
       };
 
-      let savedProduct: any = null;
-      if (editingProduct) {
-        let currentPayload = { ...productPayload };
-        let updateRes = await supabase
-          .from("products")
-          .update(currentPayload)
-          .eq("id", editingProduct.id)
-          .select()
-          .single();
+      // Helper function to safely insert or update to products table with auto-stripping of missing columns
+      const safeSaveProduct = async (payload: any, isEdit: boolean, productId?: any) => {
+        let currentPayload = { ...payload };
+        let attempts = 0;
+        const maxAttempts = 12;
 
-        if (updateRes.error && updateRes.error.message.includes("column")) {
-          const match = updateRes.error.message.match(/column '([^']+)'|'([^']+)' column/);
-          const colToStrip = match ? (match[1] || match[2]) : null;
-          if (colToStrip && colToStrip in currentPayload) {
-            delete currentPayload[colToStrip];
-            updateRes = await supabase.from("products").update(currentPayload).eq("id", editingProduct.id).select().single();
+        while (attempts < maxAttempts) {
+          attempts++;
+          let res: any;
+          if (isEdit) {
+            res = await supabase
+              .from("products")
+              .update(currentPayload)
+              .eq("id", productId)
+              .select()
+              .single();
+          } else {
+            res = await supabase
+              .from("products")
+              .insert([currentPayload])
+              .select()
+              .single();
           }
+
+          if (!res.error) {
+            return res.data;
+          }
+
+          const errMsg = res.error?.message || "";
+          console.warn(`Supabase save attempt ${attempts} notice:`, errMsg);
+
+          if (errMsg.includes("column") || errMsg.includes("schema cache")) {
+            const match = errMsg.match(/column '([^']+)'|'([^']+)' column/i);
+            const colToStrip = match ? (match[1] || match[2]) : null;
+
+            if (colToStrip && colToStrip in currentPayload) {
+              console.warn(`Stripping missing DB column '${colToStrip}' and retrying...`);
+              delete currentPayload[colToStrip];
+              continue;
+            }
+          }
+
+          throw res.error;
         }
 
-        if (updateRes.error) throw updateRes.error;
-        savedProduct = updateRes.data;
-      } else {
-        let currentPayload = { ...productPayload };
-        let insertRes = await supabase
-          .from("products")
-          .insert([currentPayload])
-          .select()
-          .single();
+        throw new Error("Failed to save product after multiple column stripping attempts.");
+      };
 
-        if (insertRes.error && insertRes.error.message.includes("column")) {
-          const match = insertRes.error.message.match(/column '([^']+)'|'([^']+)' column/);
-          const colToStrip = match ? (match[1] || match[2]) : null;
-          if (colToStrip && colToStrip in currentPayload) {
-            delete currentPayload[colToStrip];
-            insertRes = await supabase.from("products").insert([currentPayload]).select().single();
-          }
-        }
-
-        if (insertRes.error) throw insertRes.error;
-        savedProduct = insertRes.data;
-      }
+      const savedProduct = await safeSaveProduct(productPayload, Boolean(editingProduct), editingProduct?.id);
 
       // Insert or Sync Variants if enabled
       if (form.has_variants && savedProduct && form.variants.length > 0) {
