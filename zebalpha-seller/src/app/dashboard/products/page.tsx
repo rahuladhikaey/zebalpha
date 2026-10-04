@@ -1302,6 +1302,10 @@ export default function SellerProducts() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
       {/* 4-Step Seller Catalog Upload Wizard Modal */}
       <CatalogUploadWizardModal
         isOpen={isWizardModalOpen}
