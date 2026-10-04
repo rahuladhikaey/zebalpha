@@ -5,8 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { Category } from "@/lib/types";
-import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
-import { useCategories, DEFAULT_CLOTHING_CATEGORIES } from "@/hooks/useCatalogQueries";
+import { ChevronLeft, ChevronRight, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
+import { useCategories } from "@/hooks/useCatalogQueries";
 import { useQueryClient } from "@tanstack/react-query";
 
 const CLOTHING_TABS = ["ALL", "POLOS", "T-SHIRTS", "HOODIES", "SHIRTS", "BOTTOMS", "LIMITED", "ACCESSORIES"];
@@ -18,30 +18,9 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
   );
   const [selectedMainTab, setSelectedMainTab] = useState<string>("ALL");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
-
-  const checkScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setCanScrollLeft(scrollLeft > 10);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
-
-  const handleScroll = (direction: "left" | "right") => {
-    if (scrollContainerRef.current) {
-      const { clientWidth } = scrollContainerRef.current;
-      const scrollDistance = clientWidth > 640 ? clientWidth * 0.65 : 220;
-      scrollContainerRef.current.scrollBy({
-        left: direction === "left" ? -scrollDistance : scrollDistance,
-        behavior: "smooth",
-      });
-    }
-  };
 
   useEffect(() => {
-    // Listen to real-time additions/updates by sellers
+    // Listen to real-time additions/updates by SuperAdmin
     const channel = supabase
       .channel("customer-categories-realtime")
       .on(
@@ -58,19 +37,6 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
     };
   }, [queryClient]);
 
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (el) {
-      checkScroll();
-      el.addEventListener("scroll", checkScroll, { passive: true });
-      window.addEventListener("resize", checkScroll);
-      return () => {
-        el.removeEventListener("scroll", checkScroll);
-        window.removeEventListener("resize", checkScroll);
-      };
-    }
-  }, [categories, selectedMainTab]);
-
   const displayList = categories || [];
 
   const filteredCategories = displayList.filter((c) => {
@@ -82,18 +48,26 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
 
   return (
     <section className="mt-10 sm:mt-14 relative select-none">
-      {/* 1. Header & Taxonomy Tabs */}
+      {/* 1. Header with Verified Badge & View All Link */}
       <div className="flex items-center justify-between gap-4 mb-5">
-        <div className="flex items-center gap-3">
-          <span className="h-6 w-1 bg-white rounded-full" />
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
-            Curated Collections
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
+            <span>Curated Collections</span>
+            <CheckCircle2 className="w-5 h-5 text-violet-400 fill-violet-500/20" />
           </h2>
         </div>
+
+        <Link
+          href="/products"
+          className="group text-xs font-extrabold uppercase tracking-widest text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1 cursor-pointer"
+        >
+          <span>VIEW ALL</span>
+          <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+        </Link>
       </div>
 
       {/* 2. Taxonomy Filter Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4 no-scrollbar">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6 no-scrollbar">
         {CLOTHING_TABS.map((tab) => {
           const isActive = selectedMainTab === tab;
           return (
@@ -105,9 +79,9 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                   scrollContainerRef.current.scrollTo({ left: 0, behavior: "smooth" });
                 }
               }}
-              className={`px-4 py-1.5 rounded-full text-[11px] font-black tracking-wider transition-all uppercase whitespace-nowrap cursor-pointer ${
+              className={`px-4 py-2 rounded-full text-[11px] font-black tracking-wider transition-all uppercase whitespace-nowrap cursor-pointer ${
                 isActive
-                  ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.4)] scale-105"
+                  ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] scale-105"
                   : "bg-neutral-900 text-neutral-400 border border-neutral-800 hover:bg-neutral-800 hover:text-white"
               }`}
             >
@@ -117,13 +91,12 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
         })}
       </div>
 
-      {/* 3. Responsive Wrapped Grid */}
+      {/* 3. Sleek Card Grid (Inspired by Reference UI) */}
       <div className="relative">
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3.5 py-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
           {filteredCategories.map((cat, idx) => {
             let imageSrc = cat.image_url;
             
-            // Replace invalid/missing or legacy mismatched URLs with accurate pictures:
             if (
               !imageSrc || 
               imageSrc.includes("photo-1576995853123-5a10305d93c0") || 
@@ -147,33 +120,27 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
               <Link
                 key={cat.id || idx}
                 href={`/products?category=${encodeURIComponent(cat.name)}`}
-                className="group relative w-full flex flex-col items-center p-1.5 sm:p-2.5 rounded-2xl bg-neutral-900/90 border border-neutral-800/90 hover:border-white/40 hover:bg-neutral-850 shadow-lg hover:shadow-[0_8px_20px_rgba(255,255,255,0.06)] transition-all duration-300 transform hover:-translate-y-1 active:scale-95 text-center overflow-hidden cursor-pointer"
+                className="group relative flex flex-col items-center rounded-3xl bg-neutral-900/90 border border-neutral-800 hover:border-violet-500/50 hover:bg-neutral-850 shadow-lg hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-3"
               >
                 {/* Clean Highlight Shimmer */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-white/5 to-transparent transition-opacity duration-300 pointer-events-none" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-violet-500/10 to-transparent transition-opacity duration-300 pointer-events-none rounded-3xl" />
 
-                {/* Cover Image Box */}
-                <div className="relative w-full aspect-square rounded-xl bg-neutral-950 border border-neutral-800/80 flex items-center justify-center overflow-hidden group-hover:border-white/30 transition-all duration-300 shadow-inner mb-1.5">
+                {/* Soft Curved Cover Image Box */}
+                <div className="relative w-full aspect-square rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner mb-3 p-2">
                   <Image
                     src={imageSrc}
                     alt={cat.name}
                     fill
-                    sizes="(max-width: 640px) 33vw, 16vw"
-                    className="object-cover group-hover:scale-108 transition-transform duration-500"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
+                    className="object-cover group-hover:scale-108 transition-transform duration-500 rounded-xl"
                     unoptimized
                   />
                 </div>
 
-                {/* Collection Title */}
-                <span className="text-[10px] sm:text-xs md:text-[13px] font-black text-neutral-200 group-hover:text-white uppercase tracking-wider line-clamp-1 transition-colors px-0.5">
-                  {cat.name}
-                </span>
-
-                {/* Action Prompt */}
-                <span className="text-[8px] sm:text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-0.5 group-hover:text-neutral-300 transition-colors flex items-center gap-0.5">
-                  <span>Explore</span>
-                  <ArrowRight className="w-2.5 h-2.5 transform group-hover:translate-x-0.5 transition-transform" />
-                </span>
+                {/* Solid Purple Bottom Category Label Pill */}
+                <div className="w-full py-2.5 px-2 rounded-xl bg-violet-600 group-hover:bg-violet-500 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider text-center transition-colors shadow-md flex items-center justify-center gap-1">
+                  <span className="line-clamp-1">{cat.name}</span>
+                </div>
               </Link>
             );
           })}

@@ -5,37 +5,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@shared/utils/supabaseClient";
 import { 
-  Plus, 
   Sparkles, 
-  Trash2, 
-  Edit3, 
-  Upload, 
-  X, 
-  Check, 
   Layers, 
   Eye, 
   EyeOff,
-  AlertCircle,
-  ExternalLink,
   Crown,
   Flame,
-  Clock,
   ArrowRight,
-  Package
+  Package,
+  ShieldCheck,
+  Plus
 } from "lucide-react";
-import { uploadToCloudinary } from "@shared/services";
-import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
-
-const TAXONOMY_OPTIONS = [
-  "ALL",
-  "POLOS",
-  "T-SHIRTS",
-  "HOODIES",
-  "SHIRTS",
-  "BOTTOMS",
-  "LIMITED",
-  "ACCESSORIES"
-];
+import { isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 interface CategoryItem {
   id: string;
@@ -54,23 +35,6 @@ export default function SellerCollectionsPage() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [sellerProducts, setSellerProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string>("");
-  const [successMsg, setSuccessMsg] = useState<string>("");
-
-  // Form State
-  const [form, setForm] = useState({
-    name: "",
-    main_category: "POLOS",
-    image_url: "",
-    description: "",
-    sort_order: 0,
-    is_active: true,
-  });
-
-  const [imagePreview, setImagePreview] = useState<string>("");
 
   const loadAllData = async () => {
     try {
@@ -131,214 +95,6 @@ export default function SellerCollectionsPage() {
     };
   }, []);
 
-  const openCreateModal = () => {
-    setEditingId(null);
-    setForm({
-      name: "",
-      main_category: "POLOS",
-      image_url: "",
-      description: "",
-      sort_order: categories.length,
-      is_active: true,
-    });
-    setImagePreview("");
-    setError("");
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (item: CategoryItem) => {
-    setEditingId(item.id);
-    setForm({
-      name: item.name,
-      main_category: item.main_category || "POLOS",
-      image_url: item.image_url || "",
-      description: item.description || "",
-      sort_order: item.sort_order ?? categories.length,
-      is_active: item.is_active ?? true,
-    });
-    setImagePreview(item.image_url || "");
-    setError("");
-    setIsModalOpen(true);
-  };
-
-  const [uploadingImage, setUploadingImage] = useState(false);
-
-  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError("❌ Image file size must be less than 5 MB.");
-      return;
-    }
-
-    try {
-      setUploadingImage(true);
-      setError("");
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setImagePreview(base64);
-        setForm((prev) => ({ ...prev, image_url: prev.image_url || base64 }));
-      };
-      reader.readAsDataURL(file);
-
-      const uploadedUrl = await uploadToCloudinary(file);
-      if (uploadedUrl) {
-        setForm((prev) => ({ ...prev, image_url: uploadedUrl }));
-        setImagePreview(uploadedUrl);
-      }
-    } catch (err: any) {
-      console.warn("Cloudinary/Supabase storage upload notice, using local image preview:", err);
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccessMsg("");
-
-    if (!form.name.trim()) {
-      setError("❌ Please provide a collection name.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const finalImage = form.image_url || imagePreview || null;
-
-      const payload = {
-        name: form.name.trim(),
-        main_category: (form.main_category || "ALL").trim().toUpperCase(),
-        image_url: finalImage,
-        description: form.description || null,
-        sort_order: form.sort_order || 0,
-        is_active: form.is_active !== false,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (editingId) {
-        // 1. Try Supabase direct update
-        const { error: sbErr } = await supabase
-          .from("categories")
-          .update(payload)
-          .eq("id", editingId);
-
-        if (sbErr) {
-          // Fallback to API route
-          const res = await fetch(`/api/categories/${editingId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          const data = await res.json();
-          if (!data.success) throw new Error(data.error || "Failed to update collection.");
-        }
-        setSuccessMsg("✅ Collection updated successfully!");
-      } else {
-        const baseSlug = form.name
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
-        const uniqueSlug = `${baseSlug || "collection"}-${Date.now().toString(36)}`;
-
-        const insertPayload = {
-          ...payload,
-          slug: uniqueSlug,
-          created_at: new Date().toISOString(),
-        };
-
-        const { error: sbErr } = await supabase
-          .from("categories")
-          .insert([insertPayload]);
-
-        if (sbErr) {
-          const res = await fetch("/api/categories", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(insertPayload),
-          });
-          const data = await res.json();
-          if (!data.success) throw new Error(data.error || "Failed to create collection.");
-        }
-        setSuccessMsg("✅ Collection created successfully!");
-      }
-
-      setIsModalOpen(false);
-      loadAllData();
-      setTimeout(() => setSuccessMsg(""), 4000);
-    } catch (err: any) {
-      setError(`❌ ${err.message || "Failed to save collection."}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete collection "${name}"?`)) return;
-
-    try {
-      // 1. Try direct Supabase delete
-      const { error: sbErr } = await supabase
-        .from("categories")
-        .delete()
-        .eq("id", id);
-
-      if (sbErr) {
-        // 2. Fallback to API route
-        const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to delete collection.");
-        }
-      }
-
-      setSuccessMsg(`✅ Collection "${name}" deleted.`);
-      loadAllData();
-      setTimeout(() => setSuccessMsg(""), 4000);
-    } catch (err: any) {
-      alert(`Error deleting collection: ${err.message || "Failed to delete"}`);
-    }
-  };
-
-  const toggleActive = async (item: CategoryItem) => {
-    try {
-      const updatedStatus = !item.is_active;
-
-      // Optimistic UI update
-      setCategories((prev) =>
-        prev.map((c) => (c.id === item.id ? { ...c, is_active: updatedStatus } : c))
-      );
-
-      // 1. Try direct Supabase update
-      const { error: sbErr } = await supabase
-        .from("categories")
-        .update({ is_active: updatedStatus, updated_at: new Date().toISOString() })
-        .eq("id", item.id);
-
-      if (sbErr) {
-        const res = await fetch(`/api/categories/${item.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_active: updatedStatus }),
-        });
-        const data = await res.json();
-        if (!data.success) {
-          // Rollback optimistic update
-          setCategories((prev) =>
-            prev.map((c) => (c.id === item.id ? { ...c, is_active: item.is_active } : c))
-          );
-        }
-      }
-    } catch (err) {
-      console.error("Failed to toggle category active status:", err);
-    }
-  };
-
   // Filtered lists for tabs
   const newDropProducts = sellerProducts.filter(
     (p) => p.is_new_drop || p.status === "COMING_SOON" || (p.specifications as any)?.is_new_drop === "true"
@@ -348,48 +104,40 @@ export default function SellerCollectionsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
+    <div className="space-y-6 select-none">
+      {/* 1. Page Header with Admin Authority Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-950 p-6 rounded-3xl border border-zinc-800 shadow-xl relative overflow-hidden">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-black tracking-tight text-white uppercase">
-              Collections & Drops Hub
+              Curated Collections Catalogue
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
-              Storefront Sets
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider bg-violet-500/20 text-violet-300 border border-violet-500/40 uppercase flex items-center gap-1">
+              <ShieldCheck size={12} className="text-violet-400" />
+              <span>Admin Managed</span>
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
-            Organize products into curated collections, upcoming hype drops, and luxury premium vaults visible across the storefront.
+          <p className="text-xs text-zinc-400 max-w-2xl">
+            Browse official store collections created and curated by Admin. Use these categories when adding new products to ensure seamless routing on the ZEBALPHA storefront.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          {activeTab === "collections" && (
-            <button
-              onClick={openCreateModal}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase tracking-wider text-black transition-all hover:bg-zinc-200 active:scale-95 shadow-lg cursor-pointer"
-            >
-              <Plus size={16} />
-              <span>Create Collection</span>
-            </button>
-          )}
+        <div className="flex items-center gap-3 flex-wrap relative z-10">
           <Link
             href="/dashboard/products"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 px-4 py-3 text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase tracking-wider text-black transition-all hover:bg-zinc-200 active:scale-95 shadow-lg cursor-pointer"
           >
-            <Package size={15} />
-            <span>Manage Products</span>
+            <Plus size={16} />
+            <span>Add Product to Collection</span>
           </Link>
         </div>
       </div>
 
       {/* 2. Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab("collections")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "collections"
               ? "bg-white text-black shadow-md font-extrabold"
               : "text-zinc-400 hover:text-white hover:bg-zinc-900"
@@ -401,7 +149,7 @@ export default function SellerCollectionsPage() {
 
         <button
           onClick={() => setActiveTab("new_drops")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "new_drops"
               ? "bg-orange-500 text-white shadow-md font-extrabold"
               : "text-zinc-400 hover:text-white hover:bg-zinc-900"
@@ -413,7 +161,7 @@ export default function SellerCollectionsPage() {
 
         <button
           onClick={() => setActiveTab("premium")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "premium"
               ? "bg-amber-500 text-black shadow-md font-extrabold"
               : "text-zinc-400 hover:text-white hover:bg-zinc-900"
@@ -424,15 +172,7 @@ export default function SellerCollectionsPage() {
         </button>
       </div>
 
-      {/* Success Notification */}
-      {successMsg && (
-        <div className="flex items-center gap-2 rounded-2xl bg-emerald-950/70 border border-emerald-800 p-4 text-xs font-bold text-emerald-300 animate-fadeIn">
-          <Check size={16} />
-          <span>{successMsg}</span>
-        </div>
-      )}
-
-      {/* 3. TAB 1: CURATED COLLECTIONS */}
+      {/* 3. TAB 1: CURATED COLLECTIONS (Read-Only Catalogue) */}
       {activeTab === "collections" && (
         <>
           {loading ? (
@@ -445,100 +185,90 @@ export default function SellerCollectionsPage() {
               <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500 mb-4 border border-zinc-800">
                 <Sparkles size={28} />
               </div>
-              <h3 className="text-base font-black text-white uppercase">No Curated Cards Uploaded Yet</h3>
-              <p className="text-xs text-zinc-400 max-w-sm mt-1 mb-6">
-                Upload your first collection card (e.g. Premium Polos, Oversized Tees) to have it feature live on the storefront.
+              <h3 className="text-base font-black text-white uppercase">No Curated Collections Added Yet</h3>
+              <p className="text-xs text-zinc-400 max-w-sm mt-1 mb-2">
+                SuperAdmin has not added any collection categories yet. Check back soon for updated storefront sets.
               </p>
-              <button
-                onClick={openCreateModal}
-                className="flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-all cursor-pointer"
-              >
-                <Plus size={16} />
-                <span>Upload First Collection</span>
-              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className={`group relative rounded-3xl border transition-all duration-300 p-5 flex flex-col justify-between ${
-                    cat.is_active
-                      ? "bg-zinc-950 border-zinc-800 hover:border-zinc-700"
-                      : "bg-zinc-950/50 border-zinc-900 opacity-60"
-                  }`}
-                >
-                  <div>
-                    {/* Top Bar with Category & Active Toggle */}
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-900 border border-zinc-800 text-zinc-300">
-                        {cat.main_category || "ALL"}
-                      </span>
-                      <button
-                        onClick={() => toggleActive(cat)}
-                        title={cat.is_active ? "Card is visible on storefront" : "Card is hidden"}
-                        className={`p-1.5 rounded-xl border transition-colors ${
-                          cat.is_active
-                            ? "border-emerald-800 bg-emerald-950/60 text-emerald-400"
-                            : "border-zinc-800 bg-zinc-900 text-zinc-500"
-                        }`}
-                      >
-                        {cat.is_active ? <Eye size={14} /> : <EyeOff size={14} />}
-                      </button>
-                    </div>
+              {categories.map((cat) => {
+                const productCount = sellerProducts.filter(
+                  (p) => (p.category_id && String(p.category_id) === String(cat.id)) || 
+                         (p.category && (p.category || "").toLowerCase() === (cat.name || "").toLowerCase()) ||
+                         (p.main_category && (p.main_category || "").toLowerCase() === (cat.main_category || "").toLowerCase())
+                ).length;
 
-                    {/* Card Preview Image */}
-                    <div className="relative w-full h-40 rounded-2xl bg-zinc-900 border border-zinc-800/80 overflow-hidden flex items-center justify-center mb-4">
-                      {cat.image_url ? (
-                        <img
-                          src={cat.image_url}
-                          alt={cat.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center gap-1 text-zinc-600">
-                          <Sparkles size={24} />
-                          <span className="text-[10px] uppercase tracking-wider font-bold">No Image</span>
-                        </div>
+                return (
+                  <div
+                    key={cat.id}
+                    className={`group relative rounded-3xl border transition-all duration-300 p-5 flex flex-col justify-between ${
+                      cat.is_active
+                        ? "bg-zinc-950 border-zinc-800 hover:border-violet-500/50 hover:bg-zinc-900/60"
+                        : "bg-zinc-950/50 border-zinc-900 opacity-60"
+                    }`}
+                  >
+                    <div>
+                      {/* Top Bar with Category & Active Status */}
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-900 border border-zinc-800 text-zinc-300">
+                          {cat.main_category || "ALL"}
+                        </span>
+                        <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                          cat.is_active
+                            ? "border-emerald-800/80 bg-emerald-950/60 text-emerald-400"
+                            : "border-zinc-800 bg-zinc-900 text-zinc-500"
+                        }`}>
+                          {cat.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                          <span>{cat.is_active ? "Live" : "Hidden"}</span>
+                        </span>
+                      </div>
+
+                      {/* Card Preview Cover Image */}
+                      <div className="relative w-full h-40 rounded-2xl bg-zinc-900 border border-zinc-800/80 overflow-hidden flex items-center justify-center mb-4">
+                        {cat.image_url ? (
+                          <img
+                            src={cat.image_url}
+                            alt={cat.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-zinc-600">
+                            <Sparkles size={24} />
+                            <span className="text-[10px] uppercase tracking-wider font-bold">Default Cover</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Name & Description */}
+                      <h3 className="text-sm font-black text-white uppercase tracking-tight line-clamp-1">
+                        {cat.name}
+                      </h3>
+                      {cat.description && (
+                        <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
+                          {cat.description}
+                        </p>
                       )}
                     </div>
 
-                    {/* Name & Description */}
-                    <h3 className="text-sm font-black text-white uppercase tracking-tight line-clamp-1">
-                      {cat.name}
-                    </h3>
-                    {cat.description && (
-                      <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
-                        {cat.description}
-                      </p>
-                    )}
-                  </div>
+                    {/* Footer Info & Quick Link */}
+                    <div className="mt-5 pt-3 border-t border-zinc-800/60 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                        <Package size={12} className="text-zinc-500" />
+                        <span>{productCount} Products Listed</span>
+                      </span>
 
-                  {/* Action Buttons */}
-                  <div className="mt-5 pt-3 border-t border-zinc-800/60 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                      Order: #{cat.sort_order}
-                    </span>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => openEditModal(cat)}
-                        className="p-2 rounded-xl bg-zinc-900 text-zinc-300 border border-zinc-800 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
-                        title="Edit Collection"
+                      <Link
+                        href={`/dashboard/products?category=${encodeURIComponent(cat.name)}`}
+                        className="text-violet-400 hover:text-violet-300 font-black text-[11px] uppercase tracking-wider flex items-center gap-1"
                       >
-                        <Edit3 size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(cat.id, cat.name)}
-                        className="p-2 rounded-xl bg-rose-950/30 text-rose-400 border border-rose-900/40 hover:bg-rose-900/60 transition-colors cursor-pointer"
-                        title="Delete Collection"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                        <span>List Product</span>
+                        <ArrowRight size={12} />
+                      </Link>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -595,28 +325,28 @@ export default function SellerCollectionsPage() {
                         </span>
                       </div>
 
-                    <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-zinc-900 mb-3 border border-zinc-800">
-                      <img src={p.image_url || "/banner-premium-polo.png"} alt={p.name} className="w-full h-full object-cover" />
+                      <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-zinc-900 mb-3 border border-zinc-800">
+                        <img src={p.image_url || "/banner-premium-polo.png"} alt={p.name} className="w-full h-full object-cover" />
+                      </div>
+
+                      <h4 className="text-sm font-black text-white">{p.name}</h4>
+                      <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{p.description}</p>
                     </div>
 
-                    <h4 className="text-sm font-black text-white">{p.name}</h4>
-                    <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{p.description}</p>
+                    <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-xs">
+                      <span className="font-black text-white">₹{p.price}</span>
+                      <Link
+                        href="/dashboard/products"
+                        className="text-orange-400 font-bold hover:underline inline-flex items-center gap-1 text-[11px]"
+                      >
+                        <span>Edit Drop Settings</span>
+                        <ArrowRight size={12} />
+                      </Link>
+                    </div>
                   </div>
-
-                  <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-xs">
-                    <span className="font-black text-white">₹{p.price}</span>
-                    <Link
-                      href="/dashboard/products"
-                      className="text-orange-400 font-bold hover:underline inline-flex items-center gap-1 text-[11px]"
-                    >
-                      <span>Edit Drop Settings</span>
-                      <ArrowRight size={12} />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
@@ -686,133 +416,6 @@ export default function SellerCollectionsPage() {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* 6. Add / Edit Modal for Collection Cards */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-zinc-800">
-              <div>
-                <h2 className="text-lg font-black text-white uppercase tracking-tight">
-                  {editingId ? "Edit Collection Card" : "New Collection Card"}
-                </h2>
-                <p className="text-xs text-zinc-400">Manage storefront collection card assets and display order.</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800 transition-colors cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {error && (
-              <div className="mb-4 flex items-center gap-2 rounded-2xl bg-rose-950/60 border border-rose-800 p-3.5 text-xs font-bold text-rose-300">
-                <AlertCircle size={15} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-black text-zinc-300 uppercase tracking-wider mb-1.5">
-                  Collection Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Polos & Streetwear Tees"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs font-bold text-white placeholder-zinc-500 focus:border-white focus:outline-none transition-colors"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-zinc-300 uppercase tracking-wider mb-1.5">
-                    Category Filter
-                  </label>
-                  <select
-                    value={form.main_category}
-                    onChange={(e) => setForm({ ...form, main_category: e.target.value })}
-                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-xs font-bold text-white focus:border-white focus:outline-none transition-colors cursor-pointer"
-                  >
-                    {TAXONOMY_OPTIONS.map((tax) => (
-                      <option key={tax} value={tax}>{tax}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black text-zinc-300 uppercase tracking-wider mb-1.5">
-                    Display Order
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.sort_order}
-                    onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs font-bold text-white placeholder-zinc-500 focus:border-white focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-zinc-300 uppercase tracking-wider mb-1.5">
-                  Collection Description
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Signature 100% Supima & Combed Cotton streetwear pieces..."
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-xs font-bold text-white placeholder-zinc-500 focus:border-white focus:outline-none transition-colors resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-zinc-300 uppercase tracking-wider mb-1.5">
-                  Collection Banner Image
-                </label>
-                <div className="flex items-center gap-4">
-                  <div className="relative h-20 w-28 shrink-0 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
-                    {imagePreview ? (
-                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <Upload size={20} className="text-zinc-600" />
-                    )}
-                  </div>
-                  <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-zinc-800 hover:border-zinc-600 rounded-2xl p-4 cursor-pointer transition-colors bg-zinc-900/40">
-                    <span className="text-xs font-black text-white">
-                      {uploadingImage ? "Uploading Image..." : "Upload New Image"}
-                    </span>
-                    <span className="text-[10px] text-zinc-500 mt-0.5">PNG, JPG, WEBP (Max 5MB)</span>
-                    <input type="file" accept="image/*" onChange={handleImageFileChange} className="hidden" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-3 text-xs font-bold text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || uploadingImage}
-                  className="flex items-center gap-2 rounded-2xl bg-white px-6 py-3 text-xs font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-all disabled:opacity-50 cursor-pointer shadow-lg"
-                >
-                  {submitting ? "Saving..." : uploadingImage ? "Uploading Cover..." : editingId ? "Update Card" : "Save Collection"}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>
