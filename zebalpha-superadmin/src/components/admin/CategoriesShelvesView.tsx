@@ -323,6 +323,31 @@ export default function CategoriesShelvesView({
     }
   };
 
+  const filteredCategories = categories.filter((c) => {
+    const matchesSearch = (c.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesMain = selectedMainCategoryFilter === "ALL" || (c.main_category || "").toLowerCase() === selectedMainCategoryFilter.toLowerCase();
+    return matchesSearch && matchesMain;
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-950 p-6 md:p-8 rounded-3xl border border-zinc-800 shadow-2xl relative overflow-hidden">
+        <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 text-zinc-400 font-bold text-xs uppercase tracking-widest">
+            <Shirt className="w-4 h-4 text-emerald-400" />
+            <span>Apparel Collections & Category Architecture</span>
+          </div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white mt-1">
+            Apparel Category & Collection Management
+          </h2>
+          <p className="text-xs font-bold text-zinc-400 mt-1 max-w-2xl">
+            Create and organize clothing collections (Polos, Oversized Streetwear Tees, Hoodies, Bottoms), upload high-res collection covers, and manage catalog routing for the ZEBALPHA storefront.
+          </p>
+        </div>
+
         <div className="flex items-center gap-3 flex-wrap relative z-10">
           <button
             onClick={() => exportCategoriesExcel(categories, products)}
