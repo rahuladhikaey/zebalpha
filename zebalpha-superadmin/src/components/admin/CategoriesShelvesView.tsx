@@ -161,17 +161,7 @@ export default function CategoriesShelvesView({
     if (!categoryName.trim()) return;
 
     setSavingCategory(true);
-    let finalImageUrl = imagePreview || null;
-    if (imagePreview && imagePreview.startsWith("data:")) {
-      try {
-        const uploadPromise = uploadToCloudinary(imagePreview);
-        const timeoutPromise = new Promise<string>((resolve) => setTimeout(() => resolve(imagePreview), 1500));
-        finalImageUrl = await Promise.race([uploadPromise, timeoutPromise]);
-      } catch (err) {
-        console.warn("Category Cloudinary upload notice:", err);
-        finalImageUrl = imagePreview;
-      }
-    }
+    const finalImageUrl = imagePreview || null;
 
     const baseSlug = categoryName
       .trim()
