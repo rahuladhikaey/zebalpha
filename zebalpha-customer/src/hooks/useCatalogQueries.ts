@@ -46,14 +46,26 @@ export async function fetchCanonicalCategories(): Promise<Category[]> {
     const { data, error } = await supabase
       .from("categories")
       .select("id, name, slug, icon, image_url, main_category, description, sort_order, is_active")
-      .or("is_active.is.null,is_active.eq.true")
+      .neq("is_active", false)
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      console.warn("Notice fetching categories in customer app:", error.message);
+      // Fallback query selecting all records
+      const { data: allData } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+      if (allData) return allData as Category[];
+    }
+
+    if (data) {
       return data as Category[];
     }
-  } catch (_) {}
+  } catch (err) {
+    console.error("Error in fetchCanonicalCategories:", err);
+  }
 
   return [];
 }

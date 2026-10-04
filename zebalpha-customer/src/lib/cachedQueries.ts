@@ -36,17 +36,22 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
       const { data, error } = await supabaseServer
         .from('categories')
         .select('id, name, slug, image_url, icon, main_category, description, is_active')
-        .or('is_active.is.null,is_active.eq.true')
+        .neq('is_active', false)
         .order('name', { ascending: true })
         .limit(limit);
 
       if (error) {
         console.error('[Database Error] Failed to fetch home categories:', error);
-        return [];
+        // Fallback fetch all
+        const { data: fallbackData } = await supabaseServer
+          .from('categories')
+          .select('*')
+          .limit(limit);
+        return (fallbackData || []) as Category[];
       }
       return (data || []) as Category[];
     },
-    5 // 5 seconds TTL
+    1 // 1 second TTL for real-time responsiveness
   );
 }
 
