@@ -167,50 +167,56 @@ export default function CategoriesShelvesView({
       }
     }
 
+    const baseSlug = categoryName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const uniqueSlug = `${baseSlug || "collection"}-${Date.now().toString(36)}`;
+
     const payload = {
       name: categoryName.trim(),
-      slug: categoryName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-"),
+      slug: uniqueSlug,
       description: mainCategory,
-      main_category: mainCategory,
+      main_category: mainCategory.toUpperCase(),
       image_url: finalImageUrl,
+      sort_order: categories.length + 1,
+      is_active: true,
+      created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
     try {
       if (editingCategoryId) {
-        const { error } = await supabase
-          .from("categories")
-          .update(payload)
-          .eq("id", editingCategoryId);
-
-        if (error) {
-          const response = await fetch("/api/admin/categories", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: editingCategoryId, updates: payload })
-          });
-          const resJson = await response.json();
-          if (!resJson.success) throw new Error(resJson.message || "Failed to update category");
+        const response = await fetch("/api/admin/categories", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingCategoryId, updates: payload })
+        });
+        const resJson = await response.json();
+        if (!resJson.success) {
+          const { error } = await supabase
+            .from("categories")
+            .update(payload)
+            .eq("id", editingCategoryId);
+          if (error) throw error;
         }
         setStatusMessage(`✅ Apparel collection "${categoryName.trim()}" updated successfully.`);
       } else {
-        const { error } = await supabase
-          .from("categories")
-          .insert([payload]);
-
-        if (error) {
-          const response = await fetch("/api/admin/categories", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          const resJson = await response.json();
-          if (!resJson.success) throw new Error(resJson.message || "Failed to save category");
+        const response = await fetch("/api/admin/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const resJson = await response.json();
+        if (!resJson.success) {
+          const { error } = await supabase.from("categories").insert([payload]);
+          if (error) throw new Error(resJson.message || error.message || "Failed to save category");
         }
-        setStatusMessage(`✨ New apparel collection "${categoryName.trim()}" created under ${mainCategory}!`);
+        setStatusMessage(`✨ New apparel collection "${categoryName.trim()}" created!`);
       }
 
-      loadData();
+      await loadData();
       setCategoryName("");
       setImagePreview("");
       setImageSizeNotice("");
