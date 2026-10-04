@@ -22,18 +22,6 @@ export default function ProductDetailTemplate({
   relatedProducts?: Product[]
 }) {
   const [isVtoOpen, setIsVtoOpen] = useState(false);
-  const images = useMemo(() => {
-    const rawImages = normalizeProductImages(product);
-    if (selectedPackage && selectedPackage.image_url && !rawImages.includes(selectedPackage.image_url)) {
-      return [selectedPackage.image_url, ...rawImages];
-    }
-    if (selectedPackage && selectedPackage.image_url && rawImages.includes(selectedPackage.image_url)) {
-      const filtered = rawImages.filter((img) => img !== selectedPackage.image_url);
-      return [selectedPackage.image_url, ...filtered];
-    }
-    return rawImages;
-  }, [product, selectedPackage]);
-
   const normalizedPackages = useMemo(() => {
     if (!product.packages || product.packages.length === 0) return [];
     return product.packages.map((pkg, idx) => {
@@ -53,6 +41,18 @@ export default function ProductDetailTemplate({
       ? normalizedPackages.find(p => p.isBestSeller) || normalizedPackages[0]
       : null
   );
+
+  const images = useMemo(() => {
+    const rawImages = normalizeProductImages(product);
+    if (selectedPackage && selectedPackage.image_url && !rawImages.includes(selectedPackage.image_url)) {
+      return [selectedPackage.image_url, ...rawImages];
+    }
+    if (selectedPackage && selectedPackage.image_url && rawImages.includes(selectedPackage.image_url)) {
+      const filtered = rawImages.filter((img) => img !== selectedPackage.image_url);
+      return [selectedPackage.image_url, ...filtered];
+    }
+    return rawImages;
+  }, [product, selectedPackage]);
 
   const displayPrice = selectedPackage ? selectedPackage.price : product.price;
   const displayMrp = selectedPackage && selectedPackage.mrp ? selectedPackage.mrp : product.mrp;

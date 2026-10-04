@@ -128,11 +128,20 @@ export default function CatalogUploadWizardModal({
   categories,
   editingProduct,
   onSuccess,
-}: CatalogUploadWizardModalProps) {
+}: CatalogUploadWizardModalProps): JSX.Element | null {
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<MasterCatalogFormState>(INITIAL_FORM_STATE);
   const [errorMsg, setErrorMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (editingProduct) {
+      const specs = (editingProduct.specifications as any) || {};
+      const imgList = Array.isArray(editingProduct.images) && editingProduct.images.length > 0
+        ? editingProduct.images
+        : editingProduct.image_url
+        ? [editingProduct.image_url]
+        : [];
 
       // Parse existing packages if editing
       const existingPackages = Array.isArray(editingProduct.packages) ? editingProduct.packages : [];

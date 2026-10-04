@@ -3,6 +3,11 @@ export type ProductPackage = {
 	name: string;
 	price: number;
 	mrp?: number;
+	color?: string;
+	size?: string;
+	stock?: number;
+	image_url?: string;
+	sku?: string;
 	isBestSeller?: boolean;
 };
 
