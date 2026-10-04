@@ -152,32 +152,41 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {filteredCategories.map((cat, idx) => {
-            const imageSrc = cat.image_url || null;
+            let imageSrc = cat.image_url;
+            if (!imageSrc) {
+              const nameUpper = (cat.name || "").toUpperCase();
+              const mainCatUpper = (cat.main_category || "").toUpperCase();
+              const key = `${nameUpper} ${mainCatUpper}`;
+
+              if (key.includes("POLO")) imageSrc = "/banner-premium-polo.png";
+              else if (key.includes("TEE") || key.includes("T-SHIRT") || key.includes("OVERSIZED")) imageSrc = "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=600&auto=format&fit=crop&q=80";
+              else if (key.includes("HOODIE") || key.includes("SWEAT")) imageSrc = "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80";
+              else if (key.includes("SHIRT")) imageSrc = "/banner-retro-cream.png";
+              else if (key.includes("CARGO") || key.includes("TROUSER") || key.includes("BOTTOM")) imageSrc = "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80";
+              else if (key.includes("LIMITED") || key.includes("DROP")) imageSrc = "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80";
+              else if (key.includes("ACCESSOR") || key.includes("CAP") || key.includes("HEADWEAR")) imageSrc = "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80";
+              else imageSrc = "/banner-casual-green.png";
+            }
+
             return (
               <Link
                 key={cat.id || idx}
                 href={`/products?category=${encodeURIComponent(cat.name)}`}
-                className="group relative flex-shrink-0 snap-start w-[130px] sm:w-[155px] md:w-[170px] flex flex-col items-center p-2 sm:p-2.5 rounded-2xl bg-neutral-900/90 border border-neutral-800/90 hover:border-white/40 hover:bg-neutral-850 shadow-lg hover:shadow-[0_8px_20px_rgba(255,255,255,0.06)] transition-all duration-300 transform hover:-translate-y-1 active:scale-95 text-center overflow-hidden cursor-pointer"
+                className="group relative flex-shrink-0 snap-start w-[135px] sm:w-[160px] md:w-[175px] flex flex-col items-center p-2 sm:p-2.5 rounded-2xl bg-neutral-900/90 border border-neutral-800/90 hover:border-white/40 hover:bg-neutral-850 shadow-lg hover:shadow-[0_8px_20px_rgba(255,255,255,0.06)] transition-all duration-300 transform hover:-translate-y-1 active:scale-95 text-center overflow-hidden cursor-pointer"
               >
                 {/* Clean Highlight Shimmer */}
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-white/5 to-transparent transition-opacity duration-300 pointer-events-none" />
 
-                {/* Cover Image / Icon Box - Maximized for bigger picture visibility */}
+                {/* Cover Image Box - Always renders real fashion picture */}
                 <div className="relative w-full aspect-square rounded-xl bg-neutral-950 border border-neutral-800/80 flex items-center justify-center overflow-hidden group-hover:border-white/30 transition-all duration-300 shadow-inner mb-2">
-                  {imageSrc ? (
-                    <Image
-                      src={imageSrc}
-                      alt={cat.name}
-                      fill
-                      sizes="(max-width: 640px) 130px, 170px"
-                      className="object-cover group-hover:scale-108 transition-transform duration-500"
-                      unoptimized
-                    />
-                  ) : (
-                    <span className="text-3xl sm:text-4xl select-none group-hover:scale-110 transition-transform duration-300">
-                      {cat.icon || "👕"}
-                    </span>
-                  )}
+                  <Image
+                    src={imageSrc}
+                    alt={cat.name}
+                    fill
+                    sizes="(max-width: 640px) 135px, 175px"
+                    className="object-cover group-hover:scale-108 transition-transform duration-500"
+                    unoptimized
+                  />
                 </div>
 
                 {/* Collection Title */}
