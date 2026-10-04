@@ -128,7 +128,7 @@ export default function CatalogUploadWizardModal({
   categories,
   editingProduct,
   onSuccess,
-}: CatalogUploadWizardModalProps): JSX.Element | null {
+}: CatalogUploadWizardModalProps): React.JSX.Element | null {
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<MasterCatalogFormState>(INITIAL_FORM_STATE);
   const [errorMsg, setErrorMsg] = useState("");
