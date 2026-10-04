@@ -174,26 +174,69 @@ export default function SellerCollectionsPage() {
 
     setSubmitting(true);
     try {
-      const url = editingId ? `/api/categories/${editingId}` : "/api/categories";
-      const method = editingId ? "PUT" : "POST";
+      const payload = {
+        name: form.name.trim(),
+        main_category: (form.main_category || "ALL").trim().toUpperCase(),
+        image_url: form.image_url || null,
+        description: form.description || null,
+        sort_order: form.sort_order || 0,
+        is_active: form.is_active !== false,
+        updated_at: new Date().toISOString(),
+      };
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      if (editingId) {
+        // 1. Try Supabase direct update
+        const { error: sbErr } = await supabase
+          .from("categories")
+          .update(payload)
+          .eq("id", editingId);
 
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to save collection.");
+        if (sbErr) {
+          // Fallback to API route
+          const res = await fetch(`/api/categories/${editingId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error || "Failed to update collection.");
+        }
+        setSuccessMsg("✅ Collection updated successfully!");
+      } else {
+        const baseSlug = form.name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+        const uniqueSlug = `${baseSlug || "collection"}-${Date.now().toString(36)}`;
+
+        const insertPayload = {
+          ...payload,
+          slug: uniqueSlug,
+          created_at: new Date().toISOString(),
+        };
+
+        const { error: sbErr } = await supabase
+          .from("categories")
+          .insert([insertPayload]);
+
+        if (sbErr) {
+          const res = await fetch("/api/categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(insertPayload),
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error || "Failed to create collection.");
+        }
+        setSuccessMsg("✅ Collection created successfully!");
       }
 
-      setSuccessMsg(editingId ? "✅ Collection updated successfully!" : "✅ Collection created successfully!");
       setIsModalOpen(false);
       loadAllData();
       setTimeout(() => setSuccessMsg(""), 4000);
     } catch (err: any) {
-      setError(`❌ ${err.message}`);
+      setError(`❌ ${err.message || "Failed to save collection."}`);
     } finally {
       setSubmitting(false);
     }
@@ -203,32 +246,57 @@ export default function SellerCollectionsPage() {
     if (!confirm(`Are you sure you want to delete collection "${name}"?`)) return;
 
     try {
-      const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to delete collection.");
+      // 1. Try direct Supabase delete
+      const { error: sbErr } = await supabase
+        .from("categories")
+        .delete()
+        .eq("id", id);
+
+      if (sbErr) {
+        // 2. Fallback to API route
+        const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to delete collection.");
+        }
       }
+
       setSuccessMsg(`✅ Collection "${name}" deleted.`);
       loadAllData();
       setTimeout(() => setSuccessMsg(""), 4000);
     } catch (err: any) {
-      alert(`Error deleting collection: ${err.message}`);
+      alert(`Error deleting collection: ${err.message || "Failed to delete"}`);
     }
   };
 
   const toggleActive = async (item: CategoryItem) => {
     try {
       const updatedStatus = !item.is_active;
-      const res = await fetch(`/api/categories/${item.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_active: updatedStatus }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCategories((prev) =>
-          prev.map((c) => (c.id === item.id ? { ...c, is_active: updatedStatus } : c))
-        );
+
+      // Optimistic UI update
+      setCategories((prev) =>
+        prev.map((c) => (c.id === item.id ? { ...c, is_active: updatedStatus } : c))
+      );
+
+      // 1. Try direct Supabase update
+      const { error: sbErr } = await supabase
+        .from("categories")
+        .update({ is_active: updatedStatus, updated_at: new Date().toISOString() })
+        .eq("id", item.id);
+
+      if (sbErr) {
+        const res = await fetch(`/api/categories/${item.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: updatedStatus }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          // Rollback optimistic update
+          setCategories((prev) =>
+            prev.map((c) => (c.id === item.id ? { ...c, is_active: item.is_active } : c))
+          );
+        }
       }
     } catch (err) {
       console.error("Failed to toggle category active status:", err);
