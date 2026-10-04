@@ -773,6 +773,7 @@ interface TimelineStep {
               <p className="text-xs text-zinc-400 font-medium pt-1">
                 Placed on <span className="text-white font-bold">{new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               </p>
+            </div>
           </div>
         </div>
 
