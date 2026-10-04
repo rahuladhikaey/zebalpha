@@ -77,11 +77,22 @@ export default function SellerCollectionsPage() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Fetch Categories / Collections
-      const res = await fetch("/api/categories");
-      const data = await res.json();
-      if (data.success) {
-        setCategories(data.categories || []);
+      // Fetch Categories / Collections directly from Supabase first
+      const { data: catData, error: catErr } = await supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (!catErr && catData && catData.length > 0) {
+        setCategories(catData);
+      } else {
+        // Fallback API call
+        const res = await fetch("/api/categories");
+        const data = await res.json();
+        if (data.success && data.categories) {
+          setCategories(data.categories);
+        }
       }
 
       // Fetch seller's products
@@ -326,6 +337,45 @@ export default function SellerCollectionsPage() {
     (p) => p.is_premium || p.tier === "PREMIUM" || (p.specifications as any)?.is_premium === "true"
   );
 
+  const handleSeedCollections = async () => {
+    try {
+      const DEFAULT_BRAND_CATEGORIES = [
+        { name: "Premium Polos", main_category: "POLOS", icon: "👕", description: "100% Supima Pique & Knitted Polos", image_url: "/banner-premium-polo.png", sort_order: 1, is_active: true },
+        { name: "Oversized Tees", main_category: "T-SHIRTS", icon: "🛹", description: "240 GSM Heavyweight Streetwear Tees", image_url: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&auto=format&fit=crop&q=80", sort_order: 2, is_active: true },
+        { name: "Heavyweight Hoodies", main_category: "HOODIES", icon: "🧥", description: "400+ GSM French Terry Fleece Hoodies", image_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80", sort_order: 3, is_active: true },
+        { name: "Classic Shirts", main_category: "SHIRTS", icon: "👔", description: "Structured Utility & Camp-Collar Overshirts", image_url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80", sort_order: 4, is_active: true },
+        { name: "Cargo & Bottoms", main_category: "BOTTOMS", icon: "👖", description: "Multi-Pocket Tactical Cargos & Streetwear Bottoms", image_url: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80", sort_order: 5, is_active: true },
+        { name: "Limited Drops", main_category: "LIMITED", icon: "⚡", description: "Exclusive Seasonally Numbered Limited Capsules", image_url: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80", sort_order: 6, is_active: true },
+        { name: "Accessories & Headwear", main_category: "ACCESSORIES", icon: "🧢", description: "Elevated Beanies, Caps & Streetwear Essentials", image_url: "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80", sort_order: 7, is_active: true }
+      ];
+
+      const seedPayload = DEFAULT_BRAND_CATEGORIES.map((c) => ({
+        ...c,
+        slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error } = await supabase
+        .from("categories")
+        .upsert(seedPayload, { onConflict: "name" });
+
+      if (error) {
+        await fetch("/api/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(seedPayload)
+        });
+      }
+
+      setSuccessMsg("✨ 7 Brand Collections populated to database!");
+      loadAllData();
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err: any) {
+      console.error("Error seeding collections:", err);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 1. Page Header */}
@@ -344,15 +394,25 @@ export default function SellerCollectionsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {activeTab === "collections" && (
-            <button
-              onClick={openCreateModal}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase tracking-wider text-black transition-all hover:bg-zinc-200 active:scale-95 shadow-lg cursor-pointer"
-            >
-              <Plus size={16} />
-              <span>Create Collection</span>
-            </button>
+            <>
+              <button
+                onClick={handleSeedCollections}
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-zinc-900 border border-zinc-700 px-4 py-3 text-xs font-bold text-white hover:bg-zinc-800 transition-all cursor-pointer"
+                title="Populate missing default brand collections"
+              >
+                <Sparkles size={14} className="text-amber-400" />
+                <span>Seed Brand Sets</span>
+              </button>
+              <button
+                onClick={openCreateModal}
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase tracking-wider text-black transition-all hover:bg-zinc-200 active:scale-95 shadow-lg cursor-pointer"
+              >
+                <Plus size={16} />
+                <span>Create Collection</span>
+              </button>
+            </>
           )}
           <Link
             href="/dashboard/products"
