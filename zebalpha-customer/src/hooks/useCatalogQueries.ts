@@ -6,15 +6,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Product, Category } from '@/lib/types';
 
-export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [
-  { id: "1", name: "Premium Polos", icon: "👕", main_category: "POLOS", description: "100% Supima Pique & Knitted Polos", image_url: "/banner-premium-polo.png" },
-  { id: "2", name: "Oversized Tees", icon: "🛹", main_category: "T-SHIRTS", description: "240 GSM Heavyweight Streetwear Tees", image_url: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&auto=format&fit=crop&q=80" },
-  { id: "3", name: "Heavyweight Hoodies", icon: "🧥", main_category: "HOODIES", description: "400+ GSM French Terry Fleece Hoodies", image_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80" },
-  { id: "4", name: "Classic Shirts", icon: "👔", main_category: "SHIRTS", description: "Structured Utility & Camp-Collar Overshirts", image_url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80" },
-  { id: "5", name: "Cargo & Bottoms", icon: "👖", main_category: "BOTTOMS", description: "Multi-Pocket Tactical Cargos & Streetwear Bottoms", image_url: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80" },
-  { id: "6", name: "Limited Drops", icon: "⚡", main_category: "LIMITED", description: "Exclusive Seasonally Numbered Limited Capsules", image_url: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80" },
-  { id: "7", name: "Accessories & Headwear", icon: "🧢", main_category: "ACCESSORIES", description: "Elevated Beanies, Caps & Streetwear Essentials", image_url: "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80" },
-];
+export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [];
 
 export const SLIM_PRODUCT_CARD_FIELDS = "*";
 
@@ -47,16 +39,9 @@ export function normalizeQueryString(str?: string): string {
 
 /**
  * Canonical Category Fetcher
- * Tries API service first, falls back gracefully to Supabase client query.
+ * Queries Supabase categories table directly for 100% real-time dynamic categories.
  */
 export async function fetchCanonicalCategories(): Promise<Category[]> {
-  try {
-    const res = await apiService.getCategories();
-    if (!res.error && res.data && Array.isArray(res.data) && res.data.length > 0) {
-      return res.data as Category[];
-    }
-  } catch (_) {}
-
   try {
     const { data, error } = await supabase
       .from("categories")
@@ -65,12 +50,12 @@ export async function fetchCanonicalCategories(): Promise<Category[]> {
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
 
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       return data as Category[];
     }
   } catch (_) {}
 
-  return DEFAULT_CLOTHING_CATEGORIES;
+  return [];
 }
 
 /**

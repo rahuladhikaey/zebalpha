@@ -78,46 +78,13 @@ export default function SellerCollectionsPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       // Fetch Categories / Collections directly from Supabase
-      let { data: catData, error: catErr } = await supabase
+      const { data: catData, error: catErr } = await supabase
         .from("categories")
         .select("*")
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
 
-      // If database has fewer than 7 collections, auto-populate missing brand sets
-      if (!catErr && catData && catData.length < 7) {
-        const DEFAULT_BRAND_CATEGORIES = [
-          { name: "Premium Polos", main_category: "POLOS", icon: "👕", description: "100% Supima Pique & Knitted Polos", image_url: "/banner-premium-polo.png", sort_order: 1, is_active: true },
-          { name: "Oversized Tees", main_category: "T-SHIRTS", icon: "🛹", description: "240 GSM Heavyweight Streetwear Tees", image_url: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&auto=format&fit=crop&q=80", sort_order: 2, is_active: true },
-          { name: "Heavyweight Hoodies", main_category: "HOODIES", icon: "🧥", description: "400+ GSM French Terry Fleece Hoodies", image_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80", sort_order: 3, is_active: true },
-          { name: "Classic Shirts", main_category: "SHIRTS", icon: "👔", description: "Structured Utility & Camp-Collar Overshirts", image_url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80", sort_order: 4, is_active: true },
-          { name: "Cargo & Bottoms", main_category: "BOTTOMS", icon: "👖", description: "Multi-Pocket Tactical Cargos & Streetwear Bottoms", image_url: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80", sort_order: 5, is_active: true },
-          { name: "Limited Drops", main_category: "LIMITED", icon: "⚡", description: "Exclusive Seasonally Numbered Limited Capsules", image_url: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80", sort_order: 6, is_active: true },
-          { name: "Accessories & Headwear", main_category: "ACCESSORIES", icon: "🧢", description: "Elevated Beanies, Caps & Streetwear Essentials", image_url: "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80", sort_order: 7, is_active: true }
-        ];
-
-        const existingMains = new Set(catData.map((c) => (c.main_category || c.name || "").toUpperCase()));
-        const missing = DEFAULT_BRAND_CATEGORIES.filter((c) => !existingMains.has(c.main_category.toUpperCase()) && !existingMains.has(c.name.toUpperCase()));
-
-        if (missing.length > 0) {
-          const insertPayload = missing.map((c) => ({
-            ...c,
-            slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }));
-          await supabase.from("categories").insert(insertPayload);
-
-          const { data: refreshed } = await supabase
-            .from("categories")
-            .select("*")
-            .order("sort_order", { ascending: true })
-            .order("created_at", { ascending: true });
-          if (refreshed && refreshed.length > 0) catData = refreshed;
-        }
-      }
-
-      if (!catErr && catData && catData.length > 0) {
+      if (!catErr && catData) {
         setCategories(catData);
       } else {
         // Fallback API call

@@ -103,22 +103,15 @@ export default function CategoriesShelvesView({
         supabase.from("products").select("id, category_id, category")
       ]);
 
-      if (cRes.data && cRes.data.length > 0) {
-        // Filter out old legacy grocery items if any, or present all
+      if (cRes.data) {
         setCategories(cRes.data);
         if (typeof window !== "undefined") {
           localStorage.setItem("zebalpha_categories_cache", JSON.stringify(cRes.data));
         }
-      } else if (cached && cached.length > 0) {
-        setCategories(cached);
-      } else {
-        // Fallback default apparel categories for instant clean experience
-        setCategories(DEFAULT_APPAREL_CATEGORIES.map((c, i) => ({ id: i + 1, ...c, slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") })));
       }
       setProducts(pRes.data || []);
     } catch (e: any) {
       console.error("Error loading categories:", e);
-      setCategories(DEFAULT_APPAREL_CATEGORIES.map((c, i) => ({ id: i + 1, ...c, slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") })));
     } finally {
       setLoading(false);
     }

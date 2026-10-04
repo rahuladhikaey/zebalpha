@@ -13,7 +13,7 @@ const CLOTHING_TABS = ["ALL", "POLOS", "T-SHIRTS", "HOODIES", "SHIRTS", "BOTTOMS
 
 export function ShopByCategorySection({ initialCategories = [] }: { initialCategories?: Category[] }) {
   const queryClient = useQueryClient();
-  const { data: categories = (initialCategories.length > 0 ? initialCategories : DEFAULT_CLOTHING_CATEGORIES) } = useCategories(
+  const { data: categories = initialCategories } = useCategories(
     initialCategories.length > 0 ? initialCategories : undefined
   );
   const [selectedMainTab, setSelectedMainTab] = useState<string>("ALL");
@@ -71,7 +71,7 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
     }
   }, [categories, selectedMainTab]);
 
-  const displayList = categories.length > 0 ? categories : DEFAULT_CLOTHING_CATEGORIES;
+  const displayList = categories || [];
 
   const filteredCategories = displayList.filter((c) => {
     if (c.is_active === false) return false;
