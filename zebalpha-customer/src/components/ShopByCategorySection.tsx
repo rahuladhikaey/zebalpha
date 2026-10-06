@@ -143,7 +143,7 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-violet-500/10 to-transparent transition-opacity duration-300 pointer-events-none rounded-3xl" />
 
                     {/* Soft Curved Cover Image Box */}
-                    <div className="relative w-full aspect-square rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner mb-3 p-2">
+                    <div className="relative w-full aspect-square rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner p-2">
                       <Image
                         src={imageSrc}
                         alt={cat.name}
@@ -155,11 +155,6 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                         }}
                         unoptimized
                       />
-                    </div>
-
-                    {/* Solid Purple Bottom Category Label Pill */}
-                    <div className="w-full py-2.5 px-2 rounded-xl bg-violet-600 group-hover:bg-violet-500 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider text-center transition-colors shadow-md flex items-center justify-center gap-1">
-                      <span className="line-clamp-1">{cat.name}</span>
                     </div>
                   </Link>
                 );
