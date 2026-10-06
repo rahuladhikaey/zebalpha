@@ -125,15 +125,6 @@ export function Footer() {
               </span>
             </div>
 
-            <div className="mt-7 flex items-center gap-3">
-              <Link
-                href="/products"
-                className="inline-flex items-center gap-2 rounded-full bg-white text-black font-black text-xs uppercase tracking-[0.2em] px-6 py-3 hover:bg-neutral-200 transition-all active:scale-95 shadow-2xl"
-              >
-                <span>Shop The Drop</span>
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            </div>
           </div>
 
           <div className="hidden lg:block lg:col-span-3">
