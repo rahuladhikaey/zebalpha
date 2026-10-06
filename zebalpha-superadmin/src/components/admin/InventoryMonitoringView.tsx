@@ -163,7 +163,7 @@ export default function InventoryMonitoringView({ initialProducts = [], onRefres
                     <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="p-4 pl-6">
                         <p className="font-black text-slate-900 dark:text-white">{p.name}</p>
-                        <p className="text-[11px] text-slate-400">{p.brand || "Asali Swad"}</p>
+                        <p className="text-[11px] text-slate-400">{p.brand || "ZEBALPHA"}</p>
                       </td>
                       <td className="p-4 font-mono text-slate-500">{p.sku || "—"}</td>
                       <td className="p-4 font-black text-sm">{stock} units</td>

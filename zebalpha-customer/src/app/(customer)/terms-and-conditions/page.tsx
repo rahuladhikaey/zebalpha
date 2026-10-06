@@ -175,7 +175,7 @@ export default function TermsAndConditionsPage() {
                 Contact
               </h2>
               <div className="mt-6 pl-11 space-y-3 text-sm text-zinc-300">
-                <p><strong className="text-white">Email:</strong> connect.asaliswad2026@gmail.com</p>
+                <p><strong className="text-white">Email:</strong> support@zebalpha.shop</p>
                 <p><strong className="text-white">Phone:</strong> Support Desk</p>
               </div>
             </div>

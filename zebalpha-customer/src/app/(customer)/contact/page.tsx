@@ -30,8 +30,8 @@ export default function ContactPage() {
                 <div className="mt-8 space-y-6 text-sm leading-7">
                   <div>
                     <p className="font-semibold text-white">Email</p>
-                    <a href="mailto:connect.asaliswad2026@gmail.com" className="mt-2 inline-block text-zinc-300 transition hover:text-white underline">
-                      connect.asaliswad2026@gmail.com
+                    <a href="mailto:support@zebalpha.shop" className="mt-2 inline-block text-zinc-300 transition hover:text-white underline">
+                      support@zebalpha.shop
                     </a>
                   </div>
                   <div>

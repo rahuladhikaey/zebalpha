@@ -1505,7 +1505,7 @@ function ProductRatingWidget({ productId, productName, user }: { productId: numb
   // Load existing rating if any
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("asali_swad_reviews");
+      const stored = localStorage.getItem("zebalpha_reviews") || localStorage.getItem("asali_swad_reviews");
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
@@ -1540,7 +1540,7 @@ function ProductRatingWidget({ productId, productName, user }: { productId: numb
     };
 
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("asali_swad_reviews");
+      const stored = localStorage.getItem("zebalpha_reviews") || localStorage.getItem("asali_swad_reviews");
       let list = [];
       if (stored) {
         try {
@@ -1551,7 +1551,7 @@ function ProductRatingWidget({ productId, productName, user }: { productId: numb
       }
       list = list.filter((r: any) => !(Number(r.product_id) === Number(productId) && r.user_email === user.email));
       list.push(newReview);
-      localStorage.setItem("asali_swad_reviews", JSON.stringify(list));
+      localStorage.setItem("zebalpha_reviews", JSON.stringify(list));
     }
 
     setSavedReview(newReview);

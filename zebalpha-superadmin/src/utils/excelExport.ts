@@ -35,7 +35,7 @@ function createStandardSheet(title: string, headers: string[], rows: any[][], st
 
 	// Title block lines
 	const titleBlock = [
-		[`🌶️ Asali Swad eCommerce Platform — ${title}`],
+		[`ZEBALPHA eCommerce Platform — ${title}`],
 		[`Export Date & Time: ${timestamp}`],
 		[`Total Records: ${rows.length}`],
 	];
@@ -96,7 +96,7 @@ export function exportDashboardExcel(
 	const outOfStock = products.filter((p) => p.stock === 0).length;
 
 	const dashboardData = [
-		["🌶️ ASALI SWAD — DASHBOARD METRICS SUMMARY"],
+		["ZEBALPHA — DASHBOARD METRICS SUMMARY"],
 		[`Generated: ${new Date().toLocaleString("en-IN")}`],
 		[],
 		["Metric Category", "Indicator / Statistic", "Value"],

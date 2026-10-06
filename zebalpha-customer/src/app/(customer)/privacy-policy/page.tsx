@@ -198,7 +198,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="mt-6 pl-11 space-y-3 text-sm text-zinc-300">
                 <p><strong className="text-white">Business Name:</strong> ZEBALPHA</p>
-                <p><strong className="text-white">Email:</strong> connect.asaliswad2026@gmail.com</p>
+                <p><strong className="text-white">Email:</strong> support@zebalpha.shop</p>
                 <p><strong className="text-white">Phone:</strong> Support Desk</p>
                 <p><strong className="text-white">Address:</strong> Head Office</p>
               </div>

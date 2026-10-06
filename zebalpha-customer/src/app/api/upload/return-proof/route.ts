@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
     // Try Cloudinary CDN if configured
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "p1ish280";
-    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || "asaliswad_products";
+    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || "zebalpha_products";
 
     try {
       const formData = new URLSearchParams();

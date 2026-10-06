@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const htmlContent = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #059669; font-size: 26px; font-weight: 800; margin: 0;">Asali Swad Marketplace</h1>
+          <h1 style="color: #059669; font-size: 26px; font-weight: 800; margin: 0;">ZEBALPHA Marketplace</h1>
           <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Official Merchant Payout Transaction Receipt</p>
         </div>
         <div style="background-color: #ffffff; padding: 28px; border-radius: 16px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
           </table>
 
           <div style="margin-top: 24px; padding: 16px; background-color: #f1f5f9; border-radius: 12px; font-size: 12px; color: #475569;">
-            <strong>Settlement Note:</strong> ${notes || 'This settlement transfer was completed manually by Asali Swad Administration using PhonePe / UPI app.'}
+            <strong>Settlement Note:</strong> ${notes || 'This settlement transfer was completed manually by ZEBALPHA Administration using PhonePe / UPI app.'}
           </div>
         </div>
         <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #94a3b8;">
