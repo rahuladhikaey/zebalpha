@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { EditorialCard, EditorialItemData } from "./EditorialCard";
-import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
 interface EditorialCarouselProps {
   items: EditorialItemData[];
@@ -172,42 +171,6 @@ export function EditorialCarousel({
               />
             );
           })}
-        </div>
-      </div>
-
-      {/* Footer Controls matching Reference Photo */}
-      <div className="mt-4 flex items-center justify-between px-2 sm:px-4 max-w-6xl mx-auto relative z-20">
-        {/* Subtitle tag */}
-        <div className="flex items-center gap-2 text-[10px] sm:text-xs font-mono tracking-widest text-neutral-500 uppercase">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <span>CURVED FASHION GALLERY</span>
-        </div>
-
-        {/* Action Controls: Pause, Prev, Next */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsPaused(!isPaused)}
-            aria-label={isPaused ? "Play Auto Scroll" : "Pause Auto Scroll"}
-            className="p-2.5 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 transition-colors cursor-pointer"
-          >
-            {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-          </button>
-
-          <button
-            onClick={handlePrev}
-            aria-label="Previous Item"
-            className="p-3 rounded-full bg-neutral-900 border border-neutral-800 text-white hover:bg-white hover:text-black transition-all shadow-md active:scale-95 cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={handleNext}
-            aria-label="Next Item"
-            className="p-3 rounded-full bg-neutral-900 border border-neutral-800 text-white hover:bg-white hover:text-black transition-all shadow-md active:scale-95 cursor-pointer"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>

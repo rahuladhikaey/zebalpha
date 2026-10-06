@@ -133,11 +133,8 @@ export function ZebalphaEditorial({
   return (
     <section
       id="zebalpha-editorial-section"
-      className="my-14 sm:my-20 relative w-full overflow-hidden rounded-3xl bg-[#FAF8F5] dark:bg-neutral-950 text-neutral-900 dark:text-white border border-neutral-200/80 dark:border-neutral-900 shadow-[0_20px_60px_rgba(0,0,0,0.12)] dark:shadow-[0_0_80px_rgba(0,0,0,0.8)]"
+      className="my-12 sm:my-16 relative w-full overflow-hidden text-white"
     >
-      {/* Background Atmosphere glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(251,191,36,0.08)_0%,transparent_70%)] pointer-events-none" />
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* 1. TOP STORY NAVIGATION STRIP */}
       <EditorialCategoryStrip
