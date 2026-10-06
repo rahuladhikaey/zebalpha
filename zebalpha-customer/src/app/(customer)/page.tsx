@@ -9,25 +9,20 @@ import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
 import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { ShopByCategorySection } from "@/components/ShopByCategorySection";
-import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
-import { getCachedHomeCategories, getCachedHomeProducts, getCachedEditorialCards } from "@/lib/cachedQueries";
+import { getCachedHomeCategories, getCachedHomeProducts } from "@/lib/cachedQueries";
 
 const SLIM_PRODUCT_FIELDS = "*";
 
 const fetchHomeData = async (brandFilter?: string) => {
   let categories: Category[] = [];
   let products: Product[] = [];
-  let editorialCards: any[] = [];
 
   try {
     // 1. Fetch categories via Redis L2 / in-memory cache
     categories = await getCachedHomeCategories(16);
-
-    // 2. Fetch Superadmin-managed editorial cards via Redis L2 / in-memory cache
-    editorialCards = await getCachedEditorialCards();
 
     // 2. Fetch featured initial 12 products via Redis L2 / in-memory cache
     let rawProducts = await getCachedHomeProducts(brandFilter, 12);
@@ -70,14 +65,13 @@ const fetchHomeData = async (brandFilter?: string) => {
   return {
     categories,
     products,
-    editorialCards,
   };
 };
 
 export default async function HomePage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const resolvedParams = await props.searchParams;
   const brandParam = typeof resolvedParams?.brand === 'string' ? resolvedParams.brand : undefined;
-  const { categories, products, editorialCards } = await fetchHomeData(brandParam);
+  const { categories, products } = await fetchHomeData(brandParam);
 
   return (
     <>
@@ -103,13 +97,6 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
 
         {/* Curated Categories Section */}
         <ShopByCategorySection initialCategories={categories} />
-
-        {/* Zebalpha Editorial Fashion Section: Woven to Be Remembered */}
-        <ZebalphaEditorial
-          initialProducts={products}
-          initialCategories={categories}
-          initialEditorialCards={editorialCards}
-        />
 
         {/* Featured Clothing Drops Grid with Infinite Scroll */}
         <section className="mt-14 mb-16">
