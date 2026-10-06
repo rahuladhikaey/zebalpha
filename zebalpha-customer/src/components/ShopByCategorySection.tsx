@@ -55,7 +55,7 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
 
   return (
     <section className="mt-10 sm:mt-14 relative select-none">
-      {/* 1. Header with Verified Badge & View All Link */}
+      {/* 1. Header with Verified Badge */}
       <div className="flex items-center justify-between gap-4 mb-5">
         <div className="flex items-center gap-2.5">
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
@@ -63,14 +63,6 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
             <CheckCircle2 className="w-5 h-5 text-violet-400 fill-violet-500/20" />
           </h2>
         </div>
-
-        <Link
-          href="/products"
-          className="group text-xs font-extrabold uppercase tracking-widest text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1 cursor-pointer"
-        >
-          <span>VIEW ALL</span>
-          <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
-        </Link>
       </div>
 
       {/* 2. Taxonomy Filter Pills */}
