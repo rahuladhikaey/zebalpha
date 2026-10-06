@@ -24,6 +24,7 @@ import MarketplaceSettingsView from "@/components/admin/MarketplaceSettingsView"
 import SettlementDashboard from "@/components/admin/SettlementDashboard";
 import RevenueDashboard from "@/components/admin/RevenueDashboard";
 import ReturnsClaimsView from "@/components/admin/ReturnsClaimsView";
+import EditorialCardsView from "@/components/admin/EditorialCardsView";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -140,6 +141,7 @@ export default function AdminPage() {
     { id: 'sellers', label: 'Seller Management', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
     { id: 'products', label: 'Product Approvals', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' },
     { id: 'categories', label: 'Apparel Categories', icon: 'M7 7h.01M7 11h.01M7 15h.01M13 7h.01M13 11h.01M13 15h.01M17 7h.01M17 11h.01M17 15h.01' },
+    { id: 'editorial-cards', label: 'Curved Editorial Cards', badge: 'NEW', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
     { id: 'inventory', label: 'Inventory Monitoring', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
     { id: 'alerts', label: 'Stock Alerts & Notify', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
     { id: 'orders', label: 'Orders ∨', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z' },
@@ -347,6 +349,7 @@ export default function AdminPage() {
                 onRefresh={fetchData}
               />
             )}
+            {tab === "editorial-cards" && <EditorialCardsView />}
             {tab === "inventory" && (
               <InventoryMonitoringView
                 initialProducts={products}
