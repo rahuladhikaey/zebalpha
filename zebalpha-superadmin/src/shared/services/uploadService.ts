@@ -162,3 +162,40 @@ export async function uploadToCloudinary(
 ): Promise<string> {
   return await uploadToSupabaseBucket("product-images", fileOrBase64);
 }
+
+/**
+ * Compress any input image to WebP and validate against max KB limit (default <= 150 KB)
+ */
+export async function compressAndValidateWebPImage(
+  fileOrBase64: File | Blob | string,
+  maxKbLimit: number = 150
+): Promise<{
+  blob: Blob;
+  contentType: string;
+  ext: string;
+  originalSizeBytes: number;
+  compressedSizeBytes: number;
+  isWithinLimit: boolean;
+  sizeFormatted: string;
+}> {
+  const maxBytes = maxKbLimit * 1024;
+  let originalSize = 0;
+  if (typeof fileOrBase64 !== "string") {
+    originalSize = (fileOrBase64 as Blob).size;
+  }
+  const { blob, contentType, ext } = await compressImageTo100KB(fileOrBase64, maxBytes);
+  const compressedSize = blob.size;
+  const isWithinLimit = compressedSize <= maxBytes;
+  const sizeFormatted = `${(compressedSize / 1024).toFixed(1)} KB`;
+
+  return {
+    blob,
+    contentType,
+    ext,
+    originalSizeBytes: originalSize,
+    compressedSizeBytes: compressedSize,
+    isWithinLimit,
+    sizeFormatted,
+  };
+}
+

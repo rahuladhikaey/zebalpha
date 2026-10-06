@@ -56,6 +56,47 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
 }
 
 /**
+ * Cached fetcher for Homepage Curved Editorial Cards Section
+ * Cache TTL: 1 sec for real-time responsiveness with L2 Redis/memory cache
+ */
+export async function getCachedEditorialCards(): Promise<any[]> {
+  return getCachedOrFetch<any[]>(
+    'homepage:section:editorial_cards',
+    async () => {
+      try {
+        const { data, error } = await supabaseServer
+          .from('editorial_cards')
+          .select('*')
+          .neq('is_active', false)
+          .order('sort_order', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+          return data;
+        }
+
+        // Fallback: Query marketplace_settings key 'editorial_cards'
+        const { data: settingData } = await supabaseServer
+          .from('marketplace_settings')
+          .select('setting_value')
+          .eq('setting_key', 'editorial_cards')
+          .maybeSingle();
+
+        if (settingData?.setting_value) {
+          const parsed = JSON.parse(settingData.setting_value);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.filter((c: any) => c.is_active !== false);
+          }
+        }
+      } catch (e) {
+        console.error('[Database Error] Failed to fetch editorial cards:', e);
+      }
+      return [];
+    },
+    1 // 1 sec TTL for real-time responsiveness
+  );
+}
+
+/**
  * Cached fetcher for Homepage Featured Drops Grid Section (Section 9)
  * Cache TTL: 20 minutes (1200s)
  */
