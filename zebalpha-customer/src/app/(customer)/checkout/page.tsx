@@ -639,9 +639,14 @@ function CheckoutContent() {
 
         if (data && data.success) {
           orderPlacedRef.current = true;
-          await saveUserAddress();
           if (!isBuyNow) clearCart();
-          router.push(`/order-success?order_id=${data.orderId}`);
+          saveUserAddress().catch((err) => console.warn("Background address save notice:", err));
+          const successUrl = `/order-success?order_id=${data.orderId}`;
+          if (typeof window !== "undefined") {
+            window.location.href = successUrl;
+          } else {
+            router.push(successUrl);
+          }
         } else {
           setMessage(data?.error ? `Could not place COD order: ${data.error}` : "Could not place COD order. Please try again.");
           setSaving(false);
@@ -772,9 +777,14 @@ function CheckoutContent() {
 
               if (verifyData?.success) {
                 orderPlacedRef.current = true;
-                await saveUserAddress();
                 if (!isBuyNow) clearCart();
-                router.push(`/order-success?order_id=${verifyData.orderId || verifyData.orderNumber}`);
+                saveUserAddress().catch((err) => console.warn("Background address save notice:", err));
+                const successUrl = `/order-success?order_id=${verifyData.orderId || verifyData.orderNumber}`;
+                if (typeof window !== "undefined") {
+                  window.location.href = successUrl;
+                } else {
+                  router.push(successUrl);
+                }
               } else {
                 setMessage("Payment verification failed. Please contact support with payment ID: " + response.razorpay_payment_id);
                 setSaving(false);
