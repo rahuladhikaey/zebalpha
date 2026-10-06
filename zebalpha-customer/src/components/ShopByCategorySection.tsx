@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { Category } from "@/lib/types";
-import { ChevronLeft, ChevronRight, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
+import { CheckCircle2, ArrowRight } from "lucide-react";
 import { useCategories } from "@/hooks/useCatalogQueries";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -17,6 +17,7 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
     initialCategories.length > 0 ? initialCategories : undefined
   );
   const [selectedMainTab, setSelectedMainTab] = useState<string>("ALL");
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,15 +92,19 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
         })}
       </div>
 
-      {/* 3. Sleek Card Grid (Inspired by Reference UI) */}
+      {/* 3. Responsive Card Grid (6 Cards per Row max, Auto-wraps to Next Line) */}
       <div className="relative">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
           {filteredCategories.map((cat, idx) => {
+            const keyId = String(cat.id || idx);
             let imageSrc = cat.image_url;
-            
+            const isBroken = imgErrors[keyId];
+
             if (
-              !imageSrc || 
-              imageSrc.includes("photo-1576995853123-5a10305d93c0") || 
+              !imageSrc ||
+              isBroken ||
+              imageSrc.length < 5 ||
+              imageSrc.includes("photo-1576995853123-5a10305d93c0") ||
               (imageSrc.includes("banner-retro-cream.png") && (cat.name || "").toUpperCase().includes("SHIRT"))
             ) {
               const nameUpper = (cat.name || "").toUpperCase();
@@ -113,7 +118,7 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
               else if (key.includes("CARGO") || key.includes("TROUSER") || key.includes("BOTTOM") || key.includes("PANT") || key.includes("DENIM")) imageSrc = "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80";
               else if (key.includes("LIMITED") || key.includes("DROP") || key.includes("CAPSULE")) imageSrc = "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80";
               else if (key.includes("ACCESSOR") || key.includes("CAP") || key.includes("HEADWEAR") || key.includes("HAT")) imageSrc = "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80";
-              else imageSrc = "/banner-casual-green.png";
+              else imageSrc = "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80";
             }
 
             return (
@@ -133,6 +138,9 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
                     className="object-cover group-hover:scale-108 transition-transform duration-500 rounded-xl"
+                    onError={() => {
+                      setImgErrors((prev) => ({ ...prev, [keyId]: true }));
+                    }}
                     unoptimized
                   />
                 </div>
