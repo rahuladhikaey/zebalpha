@@ -20,28 +20,33 @@ export function EditorialCarousel({
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartScroll, setDragStartScroll] = useState(0);
   const [containerWidth, setContainerWidth] = useState(1200);
+  const [windowWidth, setWindowWidth] = useState<number>(typeof window !== "undefined" ? window.innerWidth : 1200);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
   const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
 
-  // Check prefers-reduced-motion & container width
+  // Check prefers-reduced-motion & container width & window width
   useEffect(() => {
     if (typeof window !== "undefined") {
       const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
       setIsReducedMotion(mq.matches);
-      const updateWidth = () => {
+      const updateDimensions = () => {
+        setWindowWidth(window.innerWidth);
         if (containerRef.current) {
           setContainerWidth(containerRef.current.clientWidth);
         }
       };
-      updateWidth();
-      window.addEventListener("resize", updateWidth);
-      return () => window.removeEventListener("resize", updateWidth);
+      updateDimensions();
+      window.addEventListener("resize", updateDimensions);
+      return () => window.removeEventListener("resize", updateDimensions);
     }
   }, []);
 
-  const cardWidth = typeof window !== "undefined" && window.innerWidth < 640 ? 240 : 310;
-  const cardGap = 16;
+  const isMobile = windowWidth < 640;
+  const isTablet = windowWidth >= 640 && windowWidth < 1024;
+
+  const cardWidth = windowWidth < 640 ? 170 : windowWidth < 768 ? 220 : windowWidth < 1024 ? 260 : 280;
+  const cardGap = windowWidth < 640 ? 12 : windowWidth < 768 ? 14 : 16;
   const singleSetWidth = items.length * (cardWidth + cardGap);
   const displayItems = [...items, ...items, ...items];
 
@@ -101,7 +106,7 @@ export function EditorialCarousel({
       ref={containerRef}
       role="region"
       aria-label="Woven to Be Remembered Fashion Carousel"
-      className="relative w-full py-6 sm:py-10 overflow-hidden select-none outline-none"
+      className="relative w-full py-4 sm:py-8 overflow-hidden select-none outline-none"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => {
         if (!isDragging) setIsPaused(false);
@@ -109,20 +114,21 @@ export function EditorialCarousel({
     >
       {/* Background Subtle Curved Arc Line */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-15">
-        <div className="w-[110%] h-[260px] rounded-[100%] border-b-2 border-amber-500/40 transform translate-y-12" />
+        <div className="w-[110%] h-[220px] sm:h-[260px] rounded-[100%] border-b-2 border-amber-500/40 transform translate-y-10 sm:translate-y-12" />
       </div>
 
       {/* Interactive Curved Tray */}
       <div
-        className="relative w-full min-h-[380px] sm:min-h-[440px] flex items-center touch-pan-y cursor-grab active:cursor-grabbing overflow-hidden"
+        className="relative w-full min-h-[280px] sm:min-h-[360px] md:min-h-[420px] flex items-center touch-pan-y cursor-grab active:cursor-grabbing overflow-hidden px-2 sm:px-4"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
         <div
-          className="flex items-center gap-4 absolute left-0"
+          className="flex items-center absolute left-0"
           style={{
+            gap: `${cardGap}px`,
             transform: `translateX(${-scrollPos}px)`,
             willChange: "transform",
           }}
@@ -134,9 +140,9 @@ export function EditorialCarousel({
 
             const t = containerWidth > 0 ? (cardCenter - screenCenter) / (containerWidth * 0.45) : 0;
             const absT = Math.min(1.5, Math.abs(t));
-            const translateY = isReducedMotion ? 0 : Math.pow(absT, 1.8) * 32;
-            const rotateDeg = isReducedMotion ? 0 : t * 5.5;
-            const scale = isReducedMotion ? 1 : Math.max(0.9, 1.04 - Math.abs(t) * 0.08);
+            const translateY = isReducedMotion ? 0 : Math.pow(absT, 1.8) * (isMobile ? 8 : isTablet ? 20 : 32);
+            const rotateDeg = isReducedMotion ? 0 : t * (isMobile ? 1.5 : isTablet ? 3.5 : 5.5);
+            const scale = isReducedMotion ? 1 : Math.max(0.92, 1.04 - Math.abs(t) * (isMobile ? 0.04 : 0.08));
 
             return (
               <EditorialCard

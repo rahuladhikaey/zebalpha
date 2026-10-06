@@ -39,12 +39,12 @@ export function EditorialCard({
     >
       <Link
         href={item.href}
-        className="group relative block w-[230px] sm:w-[270px] md:w-[300px] aspect-[3/4] rounded-xl overflow-hidden bg-neutral-900 border border-white/10 shadow-2xl transition-all duration-300 hover:border-amber-400/40"
+        className="group relative block w-[170px] sm:w-[220px] md:w-[260px] lg:w-[280px] aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-900 border border-white/10 shadow-2xl transition-all duration-300 hover:border-amber-400/40"
       >
         {/* Loading Skeleton */}
         {!imageLoaded && (
           <div className="absolute inset-0 bg-neutral-900 animate-pulse flex items-center justify-center">
-            <span className="text-[10px] font-mono tracking-widest text-neutral-600 uppercase">
+            <span className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase">
               ZEBALPHA EDIT
             </span>
           </div>
@@ -55,7 +55,7 @@ export function EditorialCard({
           src={item.image}
           alt={item.title}
           fill
-          sizes="(max-width: 640px) 230px, (max-width: 768px) 270px, 300px"
+          sizes="(max-width: 640px) 170px, (max-width: 768px) 220px, (max-width: 1024px) 260px, 280px"
           className={`object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${
             imageLoaded ? "opacity-100" : "opacity-0"
           }`}
@@ -64,18 +64,18 @@ export function EditorialCard({
         />
 
         {/* Minimal Bottom Dark Shadow Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent pointer-events-none opacity-85 group-hover:opacity-95 transition-opacity" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity" />
 
         {/* Minimal Bottom Left Text Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-10 flex flex-col text-left space-y-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-300/90 group-hover:text-amber-300 transition-colors">
+        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 z-10 flex flex-col text-left space-y-0.5">
+          <span className="text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest text-amber-400/90 group-hover:text-amber-300 transition-colors">
             {item.category}
           </span>
-          <h3 className="text-sm font-bold text-white tracking-tight leading-snug line-clamp-1 drop-shadow-md">
+          <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight leading-snug line-clamp-2 drop-shadow-md">
             {item.title}
           </h3>
           {item.price !== undefined && (
-            <span className="text-[11px] font-semibold text-neutral-300/90 pt-0.5 font-mono">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-neutral-200 pt-0.5 font-mono">
               ₹{item.price.toLocaleString("en-IN")}
             </span>
           )}
