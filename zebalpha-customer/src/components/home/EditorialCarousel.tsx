@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 interface EditorialCarouselProps {
   items: EditorialItemData[];
   speed?: number; // pixels per second for right-to-left auto-scroll
+  autoPlayInterval?: number;
 }
 
 export function EditorialCarousel({

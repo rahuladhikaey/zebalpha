@@ -162,7 +162,7 @@ export function ZebalphaEditorial({
 
         {/* 3. CURVED FASHION CAROUSEL */}
         <div className="mt-4">
-          <EditorialCarousel items={displayItems} autoPlayInterval={3500} />
+          <EditorialCarousel items={displayItems} speed={45} />
         </div>
       </div>
     </section>
