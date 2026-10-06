@@ -217,7 +217,13 @@ function CheckoutContent() {
     };
 
     fetchSavedAddress();
-  }, [user, authLoading]);
+
+    // Preload Razorpay SDK and prefetch order success page in background for zero-latency checkout
+    loadRazorpay();
+    try {
+      router.prefetch('/order-success');
+    } catch (e) {}
+  }, [user, authLoading, router]);
 
   // 3. Auto-check for VIP / Alpha Membership card
   useEffect(() => {

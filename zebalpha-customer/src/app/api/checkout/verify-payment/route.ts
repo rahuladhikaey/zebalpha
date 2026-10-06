@@ -212,19 +212,15 @@ export async function POST(req: Request) {
       console.error("Payment status finalize error:", pErr);
     }
 
-    // 4. Send WhatsApp confirmation if configured
-    try {
-      if (phone && sendWhatsAppOrderConfirmation) {
-        await sendWhatsAppOrderConfirmation({
-          phone,
-          orderId: orderIdToReturn,
-          customerName: customer_name,
-          totalAmount: total,
-          items: items || [],
-        });
-      }
-    } catch (waError) {
-      console.error("WhatsApp notification error:", waError);
+    // 4. Send WhatsApp confirmation in background (non-blocking for fast client response)
+    if (phone && sendWhatsAppOrderConfirmation) {
+      sendWhatsAppOrderConfirmation({
+        phone,
+        orderId: orderIdToReturn,
+        customerName: customer_name,
+        totalAmount: total,
+        items: items || [],
+      }).catch((waError) => console.error("WhatsApp notification error:", waError));
     }
 
     return NextResponse.json({
