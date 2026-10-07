@@ -9,12 +9,10 @@ import { CheckCircle2 } from "lucide-react";
 
 interface CuratedCollectionsSectionProps {
   initialCollections?: CuratedCollection[];
-  initialCategories?: Category[];
 }
 
 export function CuratedCollectionsSection({
   initialCollections = [],
-  initialCategories = [],
 }: CuratedCollectionsSectionProps) {
   const [collections, setCollections] = useState<CuratedCollection[]>(initialCollections);
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
@@ -60,25 +58,15 @@ export function CuratedCollectionsSection({
     (c) => c && c.is_active !== false && c.image_url && c.image_url.trim().length > 0 && !imgErrors[String(c.id)]
   );
 
-  // Fallback to active categories with real uploaded images if curated_collections table is empty during transition
-  const displayItems =
-    validCollections.length > 0
-      ? validCollections.map((c) => ({
-          id: c.id,
-          title: c.title,
-          image_url: c.image_url,
-          href: c.link_url || `/products?category=${encodeURIComponent(c.slug || c.title)}`,
-        }))
-      : initialCategories
-          .filter((cat) => cat && cat.is_active !== false && cat.image_url && cat.image_url.trim().length > 10 && !imgErrors[String(cat.id)])
-          .map((cat) => ({
-            id: cat.id,
-            title: cat.name,
-            image_url: cat.image_url!,
-            href: `/products?category=${encodeURIComponent(cat.name)}`,
-          }));
+  // Strictly display admin-managed curated collections ONLY (NO fallback to old categories)
+  const displayItems = validCollections.map((c) => ({
+    id: c.id,
+    title: c.title,
+    image_url: c.image_url,
+    href: c.link_url || `/products?category=${encodeURIComponent(c.slug || c.title)}`,
+  }));
 
-  // If no real admin-managed content is available, cleanly hide section (NEVER show fake fallback images)
+  // If no admin-managed curated collections are active, cleanly hide section (NEVER show old categories)
   if (displayItems.length === 0) {
     return null;
   }

@@ -64,11 +64,8 @@ function ProductFeedSkeleton() {
 // --- ASYNC DATA CONTAINERS (STREAMED BELOW THE FOLD) ---
 
 async function CategoriesContainer() {
-  const [curatedCollections, categories] = await Promise.all([
-    getCachedCuratedCollections().catch(() => []),
-    getCachedHomeCategories(16).catch(() => []),
-  ]);
-  return <CuratedCollectionsSection initialCollections={curatedCollections} initialCategories={categories} />;
+  const curatedCollections = await getCachedCuratedCollections().catch(() => []);
+  return <CuratedCollectionsSection initialCollections={curatedCollections} />;
 }
 
 async function EditorialContainer({ brandParam }: { brandParam?: string } = {}) {
