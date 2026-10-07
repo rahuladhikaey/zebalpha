@@ -398,7 +398,19 @@ export default function CatalogUploadWizardModal({
         };
       }
 
-      const primaryCatId = form.category_id ? (isNaN(Number(form.category_id)) ? null : Number(form.category_id)) : (categories[0]?.id || null);
+      // Category ID must be a valid UUID string and match an existing category, else null
+      const isValidUuid = (id: any) =>
+        Boolean(id) &&
+        typeof id === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id).trim());
+
+      let primaryCatId: string | null = null;
+      if (isValidUuid(form.category_id)) {
+        primaryCatId = String(form.category_id).trim();
+      } else if (categories && categories.length > 0 && isValidUuid(String(categories[0]?.id))) {
+        primaryCatId = String(categories[0].id).trim();
+      }
+
       const hasSizeDetails = form.size_details && form.size_details.length > 0;
 
       // Build packages JSON array for multi-color and multi-size matrix
@@ -548,6 +560,16 @@ export default function CatalogUploadWizardModal({
               delete currentPayload[colToStrip];
               continue;
             }
+          }
+
+          // Auto-recovery for category foreign key mismatch (if selected category ID does not exist in DB)
+          if (
+            errMsg.includes("products_category_id_fkey") ||
+            (errMsg.includes("foreign key") && errMsg.includes("category"))
+          ) {
+            console.warn(`Category foreign key violation detected (${errMsg}). Setting category_id = null and retrying...`);
+            currentPayload.category_id = null;
+            continue;
           }
 
           throw res.error;

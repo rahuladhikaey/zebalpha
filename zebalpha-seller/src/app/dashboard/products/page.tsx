@@ -154,13 +154,13 @@ export default function SellerProducts() {
 
       if (finalCategories.length === 0) {
         finalCategories = [
-          { id: "214a7fd0-1fde-49a9-8286-46be87dd8865", name: "Premium Polos", main_category: "Polos & Tees" },
-          { id: "7a59e13a-e19e-4759-9d37-98ae190f5627", name: "Oversized Streetwear Tees", main_category: "Polos & Tees" },
-          { id: "db87a094-76c8-41f4-81a6-8cf3e550a904", name: "Heavyweight Hoodies", main_category: "Hoodies & Jackets" },
-          { id: "d591540e-3381-4acf-9279-99a9d4b5d602", name: "Casual Collared Shirts", main_category: "Shirts" },
-          { id: "1b7c926c-f542-472c-b85c-7aae12b02bce", name: "Streetwear Cargo & Bottoms", main_category: "Bottoms" },
-          { id: "986c0ec4-bdc2-4bcd-a86c-8211306d522f", name: "Limited Edition Drops", main_category: "Limited" },
-          { id: "1513015e-249b-48f1-8282-6694ad3615bd", name: "Accessories & Headwear", main_category: "Accessories" }
+          { id: "", name: "Premium Polos", main_category: "Polos & Tees" },
+          { id: "", name: "Oversized Streetwear Tees", main_category: "Polos & Tees" },
+          { id: "", name: "Heavyweight Hoodies", main_category: "Hoodies & Jackets" },
+          { id: "", name: "Casual Collared Shirts", main_category: "Shirts" },
+          { id: "", name: "Streetwear Cargo & Bottoms", main_category: "Bottoms" },
+          { id: "", name: "Limited Edition Drops", main_category: "Limited" },
+          { id: "", name: "Accessories & Headwear", main_category: "Accessories" }
         ];
       }
 
