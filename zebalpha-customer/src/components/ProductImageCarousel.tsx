@@ -137,6 +137,9 @@ export default function ProductImageCarousel({
                 <img
                   src={img || "/placeholder.jpg"}
                   alt={`${productName} - View ${idx + 1}`}
+                  loading={idx === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                  fetchPriority={idx === 0 ? "high" : "low"}
                   className="h-full w-full object-cover transition-transform duration-500 rounded-[2.5rem]"
                 />
               </div>

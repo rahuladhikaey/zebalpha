@@ -126,6 +126,7 @@ export async function POST(req: Request) {
 
     // 2. Create Master Order (splits per seller, decrements stock, creates notifications)
     let createdOrder: any = null;
+    let isMasterOrderCreated = false;
     try {
       createdOrder = await createMasterOrder({
         user_id,
@@ -137,7 +138,14 @@ export async function POST(req: Request) {
         payment_method: "ONLINE",
         coupon_code: couponCode || null,
         discount_amount: Number(discount) || 0,
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        verifiedProductsMap: dbProductsMap,
       });
+      if (createdOrder) {
+        isMasterOrderCreated = true;
+      }
     } catch (orderErr: any) {
       console.warn("createMasterOrder notice:", orderErr?.message);
     }
@@ -182,35 +190,22 @@ export async function POST(req: Request) {
           createdOrder = fallbackOrder;
         }
       }
+
+      // If created by emergency fallback, ensure payment record exists
+      if (createdOrder?.id) {
+        try {
+          await supabaseServer.from("payments").insert([{
+            parent_order_id: createdOrder.id,
+            amount: total,
+            method: "ONLINE",
+            status: "COMPLETE",
+            transaction_reference: razorpay_payment_id,
+          }]);
+        } catch (_) {}
+      }
     }
 
     const orderIdToReturn = createdOrder?.id || createdOrder?.order_number || `ORD-${Date.now()}`;
-
-    // 3. Mark payment as COMPLETE and attach Razorpay reference numbers
-    try {
-      await supabaseServer.from("payments").insert([{
-        parent_order_id: createdOrder?.id || null,
-        amount: total,
-        method: "ONLINE",
-        status: "COMPLETE",
-        transaction_reference: razorpay_payment_id,
-      }]);
-
-      if (createdOrder?.id) {
-        await supabaseServer
-          .from("orders")
-          .update({
-            payment_status: "COMPLETE",
-            order_status: "placed",
-            razorpay_order_id,
-            razorpay_payment_id,
-            razorpay_signature,
-          })
-          .eq("id", createdOrder.id);
-      }
-    } catch (pErr) {
-      console.error("Payment status finalize error:", pErr);
-    }
 
     // 4. Send WhatsApp confirmation in background (non-blocking for fast client response)
     if (phone && sendWhatsAppOrderConfirmation) {

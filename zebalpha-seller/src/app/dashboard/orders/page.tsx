@@ -28,7 +28,11 @@ import {
   ShieldCheck,
   Check
 } from "lucide-react";
-import { ShippingLabelModal } from "@/components/ShippingLabelModal";
+import dynamic from "next/dynamic";
+const ShippingLabelModal = dynamic(
+  () => import("@/components/ShippingLabelModal").then((mod) => mod.ShippingLabelModal),
+  { ssr: false, loading: () => null }
+);
 
 export default function SellerOrders() {
   const [loading, setLoading] = useState(true);

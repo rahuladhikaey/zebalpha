@@ -10,7 +10,7 @@ type OrderItem = {
   variant?: any;
 };
 
-export async function createMasterOrder(payload: {
+export type MasterOrderPayload = {
   user_id?: string | null;
   customer_name: string;
   phone: string;
@@ -21,7 +21,13 @@ export async function createMasterOrder(payload: {
   discount_amount?: number;
   coupon_code?: string;
   notes?: string;
-}) {
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
+  verifiedProductsMap?: Map<string, any> | Record<string, any>;
+};
+
+export async function createMasterOrder(payload: MasterOrderPayload) {
   const { user_id, customer_name, phone, address, items, total, payment_method, discount_amount, coupon_code, notes } = payload;
   const traceStart = Date.now();
   const trace: Record<string, number> = {};
@@ -40,12 +46,33 @@ export async function createMasterOrder(payload: {
   }
   trace['cart_validation_ms'] = Date.now() - tCartStart;
 
-  // Stage 2: Stock & Price Validation
+  // Stage 2: Stock & Price Validation (Reuses verified catalog items if already loaded)
   const tStockStart = Date.now();
-  const productIds = items.map(i => i.id);
-  const { data: products } = await supabaseServer.from('products').select('id, price, stock, status, seller_id').in('id', productIds as any);
   const prodMap: Record<string, any> = {};
-  (products || []).forEach((p: any) => prodMap[p.id] = p);
+  const missingProductIds: string[] = [];
+
+  for (const it of items) {
+    let p: any = null;
+    const lookupKey = String(it.id).toLowerCase();
+    if (payload.verifiedProductsMap instanceof Map) {
+      p = payload.verifiedProductsMap.get(lookupKey);
+    } else if (payload.verifiedProductsMap && typeof payload.verifiedProductsMap === 'object') {
+      p = (payload.verifiedProductsMap as any)[lookupKey] || (payload.verifiedProductsMap as any)[it.id];
+    }
+    if (p) {
+      prodMap[it.id] = p;
+    } else {
+      missingProductIds.push(it.id);
+    }
+  }
+
+  if (missingProductIds.length > 0) {
+    const { data: fetchedProducts } = await supabaseServer
+      .from('products')
+      .select('id, name, price, stock, status, seller_id')
+      .in('id', missingProductIds as any);
+    (fetchedProducts || []).forEach((p: any) => { prodMap[p.id] = p; });
+  }
 
   for (const it of items) {
     const p = prodMap[it.id];
@@ -83,7 +110,7 @@ export async function createMasterOrder(payload: {
   const normPaymentMethod = String(payment_method || 'COD').toUpperCase();
   const isCodOrder = normPaymentMethod === 'COD' || normPaymentMethod.includes('CASH');
 
-  // Stage 3: Parent Order Creation
+  // Stage 3: Parent Order Creation with Direct Payment Identifiers
   const tParentStart = Date.now();
   const { data: parentOrder, error: insertErr } = await supabaseServer.from('orders').insert([{
     order_number: orderNumber,
@@ -99,7 +126,10 @@ export async function createMasterOrder(payload: {
     notes: coupon_code ? `Coupon Applied: ${coupon_code}` : (notes || null),
     payment_method: isCodOrder ? 'COD' : normPaymentMethod,
     payment_status: isCodOrder ? 'PENDING' : 'COMPLETE',
-    order_status: 'placed'
+    order_status: 'placed',
+    razorpay_order_id: payload.razorpay_order_id || null,
+    razorpay_payment_id: payload.razorpay_payment_id || null,
+    razorpay_signature: payload.razorpay_signature || null,
   }]).select().single();
 
   if (insertErr || !parentOrder) throw new Error('Failed to create parent order: ' + (insertErr?.message || 'unknown'));
@@ -107,11 +137,28 @@ export async function createMasterOrder(payload: {
 
   const parentOrderId = parentOrder.id;
 
-  // Stage 4: Seller Orders & Items Creation with EDD
+  // Stage 4: Seller Orders & Items Creation with Batching
   const tSellerStart = Date.now();
   const createdSellerEDDs: any[] = [];
 
-  for (const sellerId of Object.keys(bySeller)) {
+  // Batch query all seller primary pickup locations in one single DB call
+  const sellerPickupMap: Record<string, string> = {};
+  if (sellerList.length > 0) {
+    try {
+      const { data: pickupLocs } = await supabaseServer
+        .from('seller_pickup_locations')
+        .select('seller_id, pin_code, pincode, is_default')
+        .in('seller_id', sellerList);
+      (pickupLocs || []).forEach((loc: any) => {
+        const pin = loc.pin_code || loc.pincode;
+        if (loc.seller_id && pin && (loc.is_default || !sellerPickupMap[loc.seller_id])) {
+          sellerPickupMap[loc.seller_id] = pin;
+        }
+      });
+    } catch (_) {}
+  }
+
+  for (const sellerId of sellerList) {
     try {
       const sellerItems = bySeller[sellerId];
       const sellerOrderNumber = `SO-${Date.now()}-${Math.floor(1000+Math.random()*9000)}`;
@@ -119,19 +166,7 @@ export async function createMasterOrder(payload: {
       let sellerTotal = 0;
       for (const si of sellerItems) sellerTotal += Number(si.price) * (si.quantity || 1);
 
-      // Fetch seller pickup location for precise EDD
-      let pickupPin = "700001";
-      try {
-        const { data: pickupLoc } = await supabaseServer
-          .from('seller_pickup_locations')
-          .select('pin_code')
-          .eq('seller_id', sellerId)
-          .eq('is_primary', true)
-          .maybeSingle();
-        if (pickupLoc?.pin_code) pickupPin = pickupLoc.pin_code;
-      } catch (_) {}
-
-      // Calculate EDD for this seller shipment
+      const pickupPin = sellerPickupMap[sellerId] || "700001";
       const sellerEDD = calculateFallbackEDD(pickupPin, deliveryPincode, new Date());
       createdSellerEDDs.push(sellerEDD);
 
@@ -163,32 +198,25 @@ export async function createMasterOrder(payload: {
           }]);
         } catch (_) {}
 
-        for (const si of sellerItems) {
+        // Batch insert all order items for this seller in a single operation
+        const itemsToInsert = sellerItems.map((si) => ({
+          parent_order_id: parentOrderId,
+          seller_order_id: sellerOrder.id,
+          product_id: si.id,
+          quantity: si.quantity,
+          price: si.price,
+          discount: 0,
+          gst: 0,
+          seller_id: sellerId,
+        }));
+
+        if (itemsToInsert.length > 0) {
           try {
-            await supabaseServer.from('order_items').insert([{
-              parent_order_id: parentOrderId,
-              seller_order_id: sellerOrder.id,
-              product_id: si.id,
-              quantity: si.quantity,
-              price: si.price,
-              discount: 0,
-              gst: 0,
-              seller_id: sellerId
-            }]);
+            await supabaseServer.from('order_items').insert(itemsToInsert);
           } catch (oiErr) {
-            console.warn("Order item insert notice:", oiErr);
+            console.warn("Order items batch insert notice:", oiErr);
           }
         }
-
-        // Insert notification for seller
-        try {
-          await supabaseServer.from('notifications').insert([{
-            user_id: sellerId,
-            title: 'New Order Received',
-            message: `New order ${parentOrder.order_number} - ${sellerItems.length} items`,
-            type: 'order'
-          }]);
-        } catch (nErr) {}
       }
     } catch (soErr) {
       console.warn("Seller order record notice:", soErr);
@@ -213,12 +241,12 @@ export async function createMasterOrder(payload: {
 
   trace['seller_orders_creation_ms'] = Date.now() - tSellerStart;
 
-  // Stage 5: Atomic Inventory Reservation
+  // Stage 5: Atomic Inventory Reservation (Preserves row-level FOR UPDATE locking RPC and atomic fallback)
   const tStockReserveStart = Date.now();
   for (const it of items) {
     const reqQty = Number(it.quantity) || 1;
     try {
-      // 1. Try atomic PostgreSQL RPC function if installed
+      // 1. Try atomic PostgreSQL RPC function with FOR UPDATE locking
       const { data: rpcRes, error: rpcErr } = await supabaseServer.rpc('decrement_product_stock', {
         p_product_id: it.id,
         p_quantity: reqQty
@@ -264,21 +292,53 @@ export async function createMasterOrder(payload: {
   }
   trace['inventory_reservation_ms'] = Date.now() - tStockReserveStart;
 
-  // Stage 6: Payment Record & Notification
+  // Stage 6: Durable Payment Record
   const tPaymentStart = Date.now();
   try {
-    await supabaseServer.from('payments').insert([{ parent_order_id: parentOrderId, amount: total, method: payment_method, status: payment_method === 'COD' ? 'PENDING' : 'PENDING' }]);
+    await supabaseServer.from('payments').insert([{
+      parent_order_id: parentOrderId,
+      amount: total,
+      method: isCodOrder ? 'COD' : normPaymentMethod,
+      status: isCodOrder ? 'PENDING' : 'COMPLETE',
+      transaction_reference: payload.razorpay_payment_id || null,
+    }]);
   } catch (pErr) { console.error('Payment insert error', pErr); }
   trace['payment_record_ms'] = Date.now() - tPaymentStart;
 
-  // Stage 7: Admin Notification
+  // Stage 7: Non-blocking Notifications (Does not delay customer response)
   const tNotifyStart = Date.now();
-  try {
-    const adminRes = await supabaseServer.from('admin_users').select('id').limit(1).single();
-    if (adminRes.data) {
-      await supabaseServer.from('notifications').insert([{ user_id: adminRes.data.id, title: 'New Order', message: `Order ${parentOrder.order_number} placed`, type: 'admin' }]);
-    }
-  } catch (aErr) { console.error('Admin notify error', aErr); }
+  const notificationPromises: Promise<any>[] = [];
+
+  for (const sellerId of sellerList) {
+    notificationPromises.push(
+      Promise.resolve(
+        supabaseServer.from('notifications').insert([{
+          user_id: sellerId,
+          title: 'New Order Received',
+          message: `New order ${parentOrder.order_number} - ${bySeller[sellerId]?.length || 1} items`,
+          type: 'order'
+        }])
+      ).catch(() => {})
+    );
+  }
+
+  notificationPromises.push(
+    Promise.resolve(
+      supabaseServer.from('admin_users').select('id').limit(1).single().then((adminRes) => {
+        if (adminRes.data?.id) {
+          return supabaseServer.from('notifications').insert([{
+            user_id: adminRes.data.id,
+            title: 'New Order',
+            message: `Order ${parentOrder.order_number} placed`,
+            type: 'admin'
+          }]);
+        }
+      })
+    ).catch(() => {})
+  );
+
+  // Run notifications asynchronously without blocking response
+  Promise.allSettled(notificationPromises).catch(() => {});
   trace['notifications_ms'] = Date.now() - tNotifyStart;
 
   const totalDurationMs = Date.now() - traceStart;

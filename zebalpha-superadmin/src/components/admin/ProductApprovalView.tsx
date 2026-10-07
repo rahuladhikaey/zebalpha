@@ -20,7 +20,12 @@ import {
   UserCheck,
   Edit3
 } from "lucide-react";
-import AdminProductEditModal from "./AdminProductEditModal";
+import dynamic from "next/dynamic";
+
+const AdminProductEditModal = dynamic(
+  () => import("./AdminProductEditModal"),
+  { ssr: false, loading: () => null }
+);
 
 interface ProductApprovalViewProps {
   initialProducts?: any[];
@@ -56,6 +61,8 @@ export default function ProductApprovalView({
   const [editingCollectionId, setEditingCollectionId] = useState<string | number | null>(null);
   const [collectionInput, setCollectionInput] = useState<string>("");
   const [editingProductForAdmin, setEditingProductForAdmin] = useState<any | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 24;
 
   // Sync state if parent props change
   useEffect(() => {
@@ -73,9 +80,12 @@ export default function ProductApprovalView({
   const loadProducts = async () => {
     setLoading(true);
     try {
+      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, thumbnail_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, created_at";
+      const SLIM_SELLER_FIELDS = "id, user_id, seller_id, seller_code, business_name, shop_name, name, full_name, owner_name";
+
       const [{ data: productsData, error: prodErr }, { data: sellersData }] = await Promise.all([
-        supabase.from("products").select("*").order("created_at", { ascending: false }),
-        supabase.from("sellers").select("*")
+        supabase.from("products").select(SLIM_ADMIN_FIELDS).order("created_at", { ascending: false }),
+        supabase.from("sellers").select(SLIM_SELLER_FIELDS)
       ]);
 
       if (prodErr) throw prodErr;
@@ -169,6 +179,12 @@ export default function ProductApprovalView({
     return matchesTab && matchesSearch;
   });
 
+  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE) || 1;
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -193,7 +209,10 @@ export default function ProductApprovalView({
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setFilterTab(tab.id as any)}
+              onClick={() => {
+                setFilterTab(tab.id as any);
+                setCurrentPage(1);
+              }}
               className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider shrink-0 transition-all cursor-pointer ${
                 filterTab === tab.id
                   ? "bg-white text-black shadow-md shadow-white/10"
@@ -211,7 +230,10 @@ export default function ProductApprovalView({
             type="text"
             placeholder="Search product name, Seller ID, Shop Name..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-white outline-none focus:border-white"
           />
         </div>
@@ -224,7 +246,7 @@ export default function ProductApprovalView({
         <div className="p-12 text-center text-zinc-500 font-bold text-xs">No products found for selected criteria.</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProducts.map(prod => {
+          {paginatedProducts.map(prod => {
             const isPremium = prod.is_premium === true || prod.tier === "PREMIUM" || (prod.specifications as any)?.is_premium === "true";
             const isNewDrop = prod.is_new_drop === true || prod.status === "COMING_SOON" || (prod.specifications as any)?.is_new_drop === "true";
 
@@ -259,8 +281,14 @@ export default function ProductApprovalView({
 
                   <div className="flex gap-4">
                     <div className="h-20 w-20 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden relative shrink-0">
-                      {prod.image_url ? (
-                        <img src={prod.image_url} alt={prod.name} className="w-full h-full object-cover" />
+                      {prod.image_url || prod.thumbnail_url ? (
+                        <img 
+                          src={prod.thumbnail_url || prod.image_url} 
+                          alt={prod.name} 
+                          loading="lazy" 
+                          decoding="async" 
+                          className="w-full h-full object-cover" 
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-zinc-500">
                           <ImageIcon className="w-8 h-8" />
@@ -403,6 +431,36 @@ export default function ProductApprovalView({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-zinc-950 p-4 rounded-3xl border border-zinc-800 shadow-xl">
+          <div className="text-xs font-bold text-zinc-400">
+            Showing <span className="text-white font-black">{(currentPage - 1) * PAGE_SIZE + 1}</span> to{" "}
+            <span className="text-white font-black">{Math.min(currentPage * PAGE_SIZE, filteredProducts.length)}</span> of{" "}
+            <span className="text-white font-black">{filteredProducts.length}</span> products
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-black uppercase text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+            >
+              Previous
+            </button>
+            <span className="text-xs font-bold text-zinc-400 px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-black uppercase text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
 

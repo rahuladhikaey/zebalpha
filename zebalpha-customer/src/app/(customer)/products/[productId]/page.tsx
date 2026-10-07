@@ -55,7 +55,7 @@ const getProduct = cache(async (productId: string) => {
 const getRelatedProducts = async (category_id: any, currentProductId: string | number) => {
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select("id, name, brand, price, mrp, image_url, thumbnail_url, images, is_active, stock, category_id, is_premium, is_new_drop")
     .eq("category_id", category_id)
     .neq("id", currentProductId)
     .limit(5);
@@ -65,7 +65,7 @@ const getRelatedProducts = async (category_id: any, currentProductId: string | n
     return [];
   }
 
-  return data as Product[];
+  return (data || []) as unknown as Product[];
 };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

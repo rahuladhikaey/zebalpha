@@ -13,6 +13,7 @@ export type Product = {
 	mrp?: number;
 	description: string;
 	image_url: string;
+	thumbnail_url?: string;
 	images?: string[];
 	category_id?: number | string;
 	category_name?: string;

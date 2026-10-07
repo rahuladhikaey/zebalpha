@@ -99,22 +99,19 @@ export async function POST(req: Request) {
       total,
       payment_method: 'COD',
       coupon_code: couponCode || null,
-      discount_amount: Number(discount) || 0
+      discount_amount: Number(discount) || 0,
+      verifiedProductsMap: dbProductsMap,
     });
 
-    // Send WhatsApp Order Confirmation (keep for backward compatibility)
-    try {
-      if (phone) {
-        await sendWhatsAppOrderConfirmation({
-          phone,
-          orderId: parentOrder.id,
-          customerName: customer_name,
-          totalAmount: total,
-          items: items || [],
-        });
-      }
-    } catch (waError) {
-      console.error("WhatsApp notification error:", waError);
+    // Send WhatsApp Order Confirmation asynchronously in background (non-blocking for fast COD confirmation)
+    if (phone && sendWhatsAppOrderConfirmation) {
+      sendWhatsAppOrderConfirmation({
+        phone,
+        orderId: parentOrder.id,
+        customerName: customer_name,
+        totalAmount: total,
+        items: items || [],
+      }).catch((waError) => console.error("WhatsApp notification error:", waError));
     }
 
     return NextResponse.json({ success: true, orderId: parentOrder.id, orderNumber: parentOrder.order_number });

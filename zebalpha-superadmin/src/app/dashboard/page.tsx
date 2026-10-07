@@ -8,23 +8,32 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Product } from "@/types/products";
 import type { Category } from "@/types/categories";
 import type { Order } from "@/types/orders";
+import dynamic from "next/dynamic";
 import DashboardOverview from "@/components/DashboardOverview";
-import SellerManagementView from "@/components/admin/SellerManagementView";
-import ProductApprovalView from "@/components/admin/ProductApprovalView";
-import CategoriesShelvesView from "@/components/admin/CategoriesShelvesView";
-import InventoryMonitoringView from "@/components/admin/InventoryMonitoringView";
-import StockAlertsView from "@/components/admin/StockAlertsView";
-import OrderManagementView from "@/components/admin/OrderManagementView";
-import AsCardsLoyaltyView from "@/components/admin/AsCardsLoyaltyView";
-import ShippingLogisticsView from "@/components/admin/ShippingLogisticsView";
-import ReportsAnalyticsView from "@/components/admin/ReportsAnalyticsView";
-import NotificationsBroadcastView from "@/components/admin/NotificationsBroadcastView";
-import SecurityAuditView from "@/components/admin/SecurityAuditView";
-import MarketplaceSettingsView from "@/components/admin/MarketplaceSettingsView";
-import SettlementDashboard from "@/components/admin/SettlementDashboard";
-import RevenueDashboard from "@/components/admin/RevenueDashboard";
-import ReturnsClaimsView from "@/components/admin/ReturnsClaimsView";
-import EditorialCardsView from "@/components/admin/EditorialCardsView";
+
+const AdminTabSkeleton = () => (
+  <div className="p-8 space-y-4 animate-pulse">
+    <div className="h-8 w-64 bg-zinc-900 rounded-xl" />
+    <div className="h-96 bg-zinc-950 rounded-3xl border border-zinc-800" />
+  </div>
+);
+
+const SellerManagementView = dynamic(() => import("@/components/admin/SellerManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const ProductApprovalView = dynamic(() => import("@/components/admin/ProductApprovalView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const CategoriesShelvesView = dynamic(() => import("@/components/admin/CategoriesShelvesView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const InventoryMonitoringView = dynamic(() => import("@/components/admin/InventoryMonitoringView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const StockAlertsView = dynamic(() => import("@/components/admin/StockAlertsView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const OrderManagementView = dynamic(() => import("@/components/admin/OrderManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const AsCardsLoyaltyView = dynamic(() => import("@/components/admin/AsCardsLoyaltyView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const ShippingLogisticsView = dynamic(() => import("@/components/admin/ShippingLogisticsView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const ReportsAnalyticsView = dynamic(() => import("@/components/admin/ReportsAnalyticsView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const NotificationsBroadcastView = dynamic(() => import("@/components/admin/NotificationsBroadcastView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const SecurityAuditView = dynamic(() => import("@/components/admin/SecurityAuditView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const MarketplaceSettingsView = dynamic(() => import("@/components/admin/MarketplaceSettingsView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const SettlementDashboard = dynamic(() => import("@/components/admin/SettlementDashboard"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const RevenueDashboard = dynamic(() => import("@/components/admin/RevenueDashboard"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const ReturnsClaimsView = dynamic(() => import("@/components/admin/ReturnsClaimsView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const EditorialCardsView = dynamic(() => import("@/components/admin/EditorialCardsView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 
 export default function AdminPage() {
   const router = useRouter();
@@ -71,8 +80,10 @@ export default function AdminPage() {
         }
       } catch (_) {}
 
+      const SLIM_DASHBOARD_PRODUCT_FIELDS = "id, name, brand, price, mrp, stock, low_stock_limit, status, is_premium, tier, is_new_drop, collection, target_drop_date, is_active, is_approved, approval_status, category_id, category, seller_id, created_at, image_url, thumbnail_url";
+
       const [pRes, cRes, oRes] = await Promise.all([
-        supabase.from("products").select("*").order("created_at", { ascending: false }),
+        supabase.from("products").select(SLIM_DASHBOARD_PRODUCT_FIELDS).order("created_at", { ascending: false }),
         supabase.from("categories").select("*").order("name"),
         fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] }))
       ]);
@@ -97,7 +108,7 @@ export default function AdminPage() {
 
       setOrders(deduplicatedOrders);
 
-      setProducts(pRes.data || []);
+      setProducts((pRes.data as any) || []);
       setCategories(cRes.data || []);
       setSellers(sellersData);
     } catch (e) {

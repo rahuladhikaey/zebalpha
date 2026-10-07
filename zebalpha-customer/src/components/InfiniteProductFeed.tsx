@@ -55,7 +55,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
 
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        const newBatch = data as Product[];
+        const newBatch = (data || []) as unknown as Product[];
         setProducts((prev) => {
           const existingIds = new Set(prev.map((p) => p.id));
           const uniqueNew = newBatch.filter((p) => !existingIds.has(p.id));
@@ -96,7 +96,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     <div className="w-full">
       {/* Product Grid */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-5">
-        {products.map((product) => {
+        {products.map((product, idx) => {
           const effectiveMrp =
             product.mrp && product.mrp > product.price ? product.mrp : Math.round(product.price * 1.25);
           const discountAmount = effectiveMrp - product.price;
@@ -123,6 +123,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                     product.tier === "PREMIUM" ||
                     (product.specifications as any)?.is_premium === "true"
                   }
+                  isAboveTheFold={idx < 4}
                 />
                 <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3">
                   <WishlistButton product={product} />

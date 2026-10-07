@@ -11,7 +11,11 @@ import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
 import { normalizeProductImages } from "@/lib/productImageUtils";
 import { VirtualTryOnButton } from "@/components/vto/VirtualTryOnButton";
-import { VirtualTryOnModal } from "@/components/vto/VirtualTryOnModal";
+import dynamic from "next/dynamic";
+const VirtualTryOnModal = dynamic(
+  () => import("@/components/vto/VirtualTryOnModal").then((mod) => mod.VirtualTryOnModal),
+  { ssr: false, loading: () => null }
+);
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 export default function ProductDetailTemplate({

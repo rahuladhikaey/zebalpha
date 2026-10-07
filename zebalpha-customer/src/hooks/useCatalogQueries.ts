@@ -8,7 +8,7 @@ import { Product, Category } from '@/lib/types';
 
 export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [];
 
-export const SLIM_PRODUCT_CARD_FIELDS = "*";
+export const SLIM_PRODUCT_CARD_FIELDS = "id, name, brand, price, mrp, image_url, thumbnail_url, images, category_id, category, stock, low_stock_limit, status, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, created_at, specifications, seller_id";
 
 /**
  * Custom 300ms Debounce Hook for Search Inputs
@@ -177,7 +177,7 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       };
     }
 
-    const products = (data || []) as Product[];
+    const products = (data || []) as unknown as Product[];
     const totalCount = count !== null ? count : products.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 

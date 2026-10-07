@@ -16,8 +16,13 @@ import {
 } from "lucide-react";
 import { uploadToCloudinary } from "@shared/services";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
-import CatalogUploadWizardModal from "@/components/catalog/CatalogUploadWizardModal";
+import dynamic from "next/dynamic";
 import { UploadCloud } from "lucide-react";
+
+const CatalogUploadWizardModal = dynamic(
+  () => import("@/components/catalog/CatalogUploadWizardModal"),
+  { ssr: false, loading: () => null }
+);
 
 export default function SellerProducts() {
   const [loading, setLoading] = useState(true);
@@ -101,6 +106,8 @@ export default function SellerProducts() {
   };
 
   const [activeTab, setActiveTab] = useState<"ALL" | "PREMIUM" | "NORMAL" | "DROPS">("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   const loadData = async () => {
     setLoading(true);
@@ -126,27 +133,24 @@ export default function SellerProducts() {
       const sellerIdsToQuery = [user.id];
       if (resolvedSellerId) sellerIdsToQuery.push(resolvedSellerId);
 
-      // Fetch products for this seller (matching either seller primary key or auth user ID)
-      const { data: productsData } = await supabase
-        .from("products")
-        .select("*, categories(name)")
-        .in("seller_id", sellerIdsToQuery)
-        .order("created_at", { ascending: false });
+      // SLIM VIEWPORT FIELDS: never load descriptions, large specs, or raw arrays
+      const SLIM_SELLER_FIELDS = "id, name, price, mrp, stock, low_stock_limit, sku, image_url, thumbnail_url, status, is_active, is_approved, approval_status, is_premium, is_new_drop, collection, target_drop_date, tier, seller_id, created_at, categories(name)";
 
-      // Fetch categories for dropdown without restrictive filters + fallback list
-      let finalCategories: any[] = [];
-      try {
-        const { data: categoriesData } = await supabase
+      // PARALLEL EXECUTION: Fetch products and categories concurrently
+      const [productsRes, categoriesRes] = await Promise.all([
+        supabase
+          .from("products")
+          .select(SLIM_SELLER_FIELDS)
+          .in("seller_id", sellerIdsToQuery)
+          .order("created_at", { ascending: false }),
+        supabase
           .from("categories")
-          .select("*")
-          .order("name", { ascending: true });
+          .select("id, name, main_category")
+          .order("name", { ascending: true })
+      ]);
 
-        if (categoriesData && categoriesData.length > 0) {
-          finalCategories = categoriesData;
-        }
-      } catch (err) {
-        console.warn("Seller categories fetch notice:", err);
-      }
+      const productsData = productsRes.data || [];
+      let finalCategories: any[] = (categoriesRes.data && categoriesRes.data.length > 0) ? categoriesRes.data : [];
 
       if (finalCategories.length === 0) {
         finalCategories = [
@@ -160,7 +164,7 @@ export default function SellerProducts() {
         ];
       }
 
-      const mappedProducts: Product[] = (productsData || []).map((p: any) => {
+      const mappedProducts: Product[] = productsData.map((p: any) => {
         const specs = p.specifications || {};
         const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium") || (p.name || "").toLowerCase().includes("supima");
         const isDrop = p.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
@@ -628,6 +632,12 @@ export default function SellerProducts() {
     return true;
   });
 
+  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE) || 1;
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   return (
     <div className="space-y-6">
       {/* Header & Add Button */}
@@ -660,7 +670,7 @@ export default function SellerProducts() {
       {/* Quick Stream Metrics Breakdown Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         <div 
-          onClick={() => setActiveTab("ALL")}
+          onClick={() => { setActiveTab("ALL"); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${
             activeTab === "ALL" 
               ? "bg-zinc-900 border-white/40 shadow-md shadow-white/5" 
@@ -673,7 +683,7 @@ export default function SellerProducts() {
         </div>
 
         <div 
-          onClick={() => setActiveTab("PREMIUM")}
+          onClick={() => { setActiveTab("PREMIUM"); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${
             activeTab === "PREMIUM" 
               ? "bg-amber-950/40 border-amber-500/60 shadow-md shadow-amber-500/10" 
@@ -689,7 +699,7 @@ export default function SellerProducts() {
         </div>
 
         <div 
-          onClick={() => setActiveTab("NORMAL")}
+          onClick={() => { setActiveTab("NORMAL"); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${
             activeTab === "NORMAL" 
               ? "bg-sky-950/40 border-sky-500/60 shadow-md shadow-sky-500/10" 
@@ -702,7 +712,7 @@ export default function SellerProducts() {
         </div>
 
         <div 
-          onClick={() => setActiveTab("DROPS")}
+          onClick={() => { setActiveTab("DROPS"); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${
             activeTab === "DROPS" 
               ? "bg-orange-950/40 border-orange-500/60 shadow-md shadow-orange-500/10" 
@@ -725,7 +735,10 @@ export default function SellerProducts() {
         ].map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => {
+              setActiveTab(tab.key as any);
+              setCurrentPage(1);
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap border ${
               activeTab === tab.key
                 ? tab.highlight || "bg-white border-white text-black shadow-md shadow-white/10"
@@ -738,9 +751,37 @@ export default function SellerProducts() {
       </div>
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
-          <span className="ml-3 text-sm font-bold text-text-muted">Loading products...</span>
+        <div className="overflow-hidden rounded-3xl border border-foreground/[0.06] bg-foreground/[0.01] shadow-sm">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead className="bg-foreground/[0.03] border-b border-foreground/[0.06] font-black">
+              <tr>
+                <th className="px-6 py-4">Product Info & Stream</th>
+                <th className="px-6 py-4">Category</th>
+                <th className="px-6 py-4">Price</th>
+                <th className="px-6 py-4">Stock Status</th>
+                <th className="px-6 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-foreground/[0.04]">
+              {[1, 2, 3, 4, 5].map((idx) => (
+                <tr key={idx} className="animate-pulse">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="h-14 w-14 rounded-2xl bg-zinc-800/60 shrink-0" />
+                      <div className="space-y-2 flex-1">
+                        <div className="h-4 bg-zinc-800/60 rounded w-48" />
+                        <div className="h-3 bg-zinc-800/40 rounded w-24" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4"><div className="h-4 bg-zinc-800/50 rounded w-24" /></td>
+                  <td className="px-6 py-4"><div className="h-4 bg-zinc-800/50 rounded w-16" /></td>
+                  <td className="px-6 py-4"><div className="h-4 bg-zinc-800/50 rounded w-20" /></td>
+                  <td className="px-6 py-4 text-right"><div className="h-8 bg-zinc-800/40 rounded-xl w-16 ml-auto" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="rounded-3xl border-2 border-dashed border-foreground/[0.08] p-12 text-center text-text-muted">
@@ -777,7 +818,7 @@ export default function SellerProducts() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-foreground/[0.04]">
-                {filteredProducts.map((product) => (
+                {paginatedProducts.map((product) => (
                   <tr 
                     key={product.id} 
                     className={`transition-all ${
@@ -790,8 +831,12 @@ export default function SellerProducts() {
                       <div className="flex items-center gap-4">
                         <div className="relative">
                           <img 
-                            src={product.image_url} 
+                            src={(product as any).thumbnail_url || product.image_url} 
                             alt={product.name} 
+                            loading="lazy"
+                            decoding="async"
+                            width={56}
+                            height={56}
                             className={`h-14 w-14 rounded-2xl object-cover border ${
                               product.is_premium 
                                 ? "border-amber-500/50 shadow-md shadow-amber-500/20" 
@@ -896,6 +941,53 @@ export default function SellerProducts() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls Bar */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-foreground/[0.06] bg-foreground/[0.02]">
+              <p className="text-xs font-bold text-zinc-400">
+                Showing <span className="text-white font-extrabold">{(currentPage - 1) * PAGE_SIZE + 1}</span> to <span className="text-white font-extrabold">{Math.min(currentPage * PAGE_SIZE, filteredProducts.length)}</span> of <span className="text-white font-extrabold">{filteredProducts.length}</span> products
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3.5 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  Previous
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                    if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setCurrentPage(p)}
+                          className={`h-8 w-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            currentPage === p
+                              ? "bg-white text-black font-black shadow-md"
+                              : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    } else if (p === currentPage - 2 || p === currentPage + 2) {
+                      return <span key={p} className="text-zinc-600 px-1 text-xs">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3.5 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

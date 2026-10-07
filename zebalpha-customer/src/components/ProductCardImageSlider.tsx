@@ -12,6 +12,7 @@ interface ProductCardImageSliderProps {
   discountPercent?: number;
   isPremium?: boolean;
   className?: string;
+  isAboveTheFold?: boolean;
 }
 
 export function ProductCardImageSlider({
@@ -21,6 +22,7 @@ export function ProductCardImageSlider({
   discountPercent,
   isPremium,
   className = "",
+  isAboveTheFold = false,
 }: ProductCardImageSliderProps) {
   // Normalize image list (remove empty/null strings and duplicates)
   const validImages = Array.from(
@@ -82,7 +84,7 @@ export function ProductCardImageSlider({
               alt={`${alt} - View ${idx + 1}`}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
-              loading={idx === 0 ? "eager" : "lazy"}
+              loading={idx === 0 && isAboveTheFold ? "eager" : "lazy"}
               decoding="async"
               onError={(e: any) => {
                 // Fallback on broken image link

@@ -100,7 +100,7 @@ export async function getCachedEditorialCards(): Promise<any[]> {
  * Cached fetcher for Homepage Featured Drops Grid Section (Section 9)
  * Cache TTL: 20 minutes (1200s)
  */
-const SLIM_PRODUCT_FIELDS = '*';
+const SLIM_PRODUCT_FIELDS = 'id, name, brand, price, mrp, image_url, thumbnail_url, images, category_id, category, stock, low_stock_limit, status, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, created_at, specifications, seller_id';
 
 export async function getCachedHomeProducts(brandFilter?: string, limit: number = 12): Promise<Product[]> {
   const brandKey = brandFilter ? brandFilter.toLowerCase().trim() : 'all';

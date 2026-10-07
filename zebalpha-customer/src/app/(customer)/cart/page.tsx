@@ -74,7 +74,11 @@ export default function CartPage() {
     fetchCoupons();
 
     const fetchCrossSells = async () => {
-      const { data } = await supabase.from('products').select('*').limit(6);
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, price, mrp, image_url, thumbnail_url, is_active, stock')
+        .eq('is_active', true)
+        .limit(6);
       if (data) {
         const inCartIds = new Set(cart.map(c => c.id));
         setCrossSellProducts(data.filter(p => !inCartIds.has(p.id)));

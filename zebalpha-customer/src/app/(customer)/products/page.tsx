@@ -224,7 +224,7 @@ function ProductsContent() {
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1440px]:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-6">
-                  {filtered.map((product) => {
+                  {filtered.map((product, idx) => {
                     const discountPercent = product.mrp && product.mrp > product.price
                       ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
                       : 0;
@@ -238,6 +238,7 @@ function ProductsContent() {
                             href={`/products/${product.id}`}
                             discountPercent={discountPercent}
                             isPremium={product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true"}
+                            isAboveTheFold={idx < 4}
                           />
                           <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3">
                             <WishlistButton product={product} />
