@@ -90,6 +90,13 @@ function ProductsContent() {
           queryClient.invalidateQueries({ queryKey: ["products"] });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "curated_collections" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["categories"] });
+        }
+      )
       .subscribe();
 
     return () => {

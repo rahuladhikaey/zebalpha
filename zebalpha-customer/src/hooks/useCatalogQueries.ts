@@ -39,28 +39,37 @@ export function normalizeQueryString(str?: string): string {
 
 /**
  * Canonical Category Fetcher
- * Queries Supabase categories table directly for 100% real-time dynamic categories.
+ * Prioritizes active Curated Collections managed by Admin, with fallback to standard categories.
  */
 export async function fetchCanonicalCategories(): Promise<Category[]> {
   try {
+    // 1. Prioritize real admin-managed Curated Collections (e.g. FLOWER)
+    const { data: curatedData, error: curatedErr } = await supabase
+      .from("curated_collections")
+      .select("id, title, slug, image_url, display_order, is_active")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
+
+    if (!curatedErr && curatedData && curatedData.length > 0) {
+      return curatedData.map((c) => ({
+        id: c.id,
+        name: c.title,
+        slug: c.slug || c.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        image_url: c.image_url,
+        is_active: true,
+      })) as Category[];
+    }
+
+    // 2. Fallback to standard categories table (ignoring any test records)
     const { data, error } = await supabase
       .from("categories")
       .select("id, name, slug, icon, image_url, main_category, description, sort_order, is_active")
       .neq("is_active", false)
+      .not("name", "ilike", "%jhb%")
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
 
-    if (error) {
-      console.warn("Notice fetching categories in customer app:", error.message);
-      // Fallback query selecting all records
-      const { data: allData } = await supabase
-        .from("categories")
-        .select("*")
-        .order("name", { ascending: true });
-      if (allData) return allData as Category[];
-    }
-
-    if (data) {
+    if (!error && data && data.length > 0) {
       return data as Category[];
     }
   } catch (err) {
