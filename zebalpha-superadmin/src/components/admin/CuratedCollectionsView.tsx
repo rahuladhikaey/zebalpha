@@ -468,31 +468,6 @@ export default function CuratedCollectionsView() {
               />
             </div>
 
-            {/* Target Link & Slug */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-zinc-300">Target Link URL</label>
-                <input
-                  type="text"
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                  placeholder="/products?category=T-Shirts"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-zinc-300">Slug (Optional)</label>
-                <input
-                  type="text"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  placeholder="oversized-tees"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
-                />
-              </div>
-            </div>
-
             {/* Short Description */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-zinc-300">Short Description (Optional)</label>
