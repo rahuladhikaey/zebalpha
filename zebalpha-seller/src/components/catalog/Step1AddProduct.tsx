@@ -3,6 +3,11 @@
 import React, { useState } from "react";
 import { Upload, X, CheckCircle2, AlertCircle } from "lucide-react";
 import type { Category } from "@shared/types";
+import SizeSpecificDetailsSection, {
+  SizeVariantDetail,
+  SizeMeasurementDetail,
+  MeasurementUnit,
+} from "./SizeSpecificDetailsSection";
 
 export interface Step1Props {
   formData: {
@@ -16,6 +21,16 @@ export interface Step1Props {
     is_premium?: boolean;
     is_new_drop?: boolean;
     target_drop_date?: string;
+
+    // Meesho-style size & measurements fields
+    selected_sizes?: string[];
+    size_details?: SizeVariantDetail[];
+    measurement_unit?: MeasurementUnit;
+    size_measurements?: SizeMeasurementDetail[];
+    is_measurements_enabled?: boolean;
+    style_code?: string;
+    price?: string;
+    mrp?: string;
   };
   categories: Category[];
   onChange: (updates: Partial<Step1Props["formData"]>) => void;
@@ -281,6 +296,24 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
           </p>
         </div>
       )}
+
+      {/* Meesho-Style Size-Specific Details & Measurements */}
+      <SizeSpecificDetailsSection
+        selectedSizes={formData.selected_sizes || []}
+        sizeDetails={formData.size_details || []}
+        sizeMeasurements={formData.size_measurements || []}
+        measurementUnit={formData.measurement_unit || "inches"}
+        isMeasurementsEnabled={formData.is_measurements_enabled ?? true}
+        styleCode={formData.style_code}
+        subcategoryName={formData.subcategory_name}
+        defaultPrice={formData.price}
+        defaultMrp={formData.mrp}
+        onSizesChange={(newSizes) => onChange({ selected_sizes: newSizes })}
+        onSizeDetailsChange={(newDetails) => onChange({ size_details: newDetails })}
+        onSizeMeasurementsChange={(newMeasurements) => onChange({ size_measurements: newMeasurements })}
+        onMeasurementUnitChange={(unit) => onChange({ measurement_unit: unit })}
+        onToggleMeasurements={(enabled) => onChange({ is_measurements_enabled: enabled })}
+      />
 
       {/* Product Description */}
       <div className="space-y-2">

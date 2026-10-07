@@ -25,6 +25,8 @@ export interface Step4Props {
     defective_returns_price: string;
     mrp: string;
     style_code: string;
+    selected_sizes?: string[];
+    size_details?: any[];
   };
   onChange: (updates: Partial<Step4Props["formData"]>) => void;
 }
@@ -34,15 +36,16 @@ const CLOTHING_COLORS = ["Black", "White", "Red", "Navy Blue", "Beige", "Olive G
 
 export default function Step4AddVariants({ formData, onChange }: Step4Props) {
   const addVariant = (sizeName: string = "Free Size", colorName: string = "Black") => {
+    const matchingDetail = formData.size_details?.find((d) => d.size === sizeName);
     const newVariant: CatalogVariant = {
       id: Math.random().toString(36).substring(2, 9),
       size: sizeName,
       color: colorName,
-      sku: formData.style_code ? `${formData.style_code}_${colorName}_${sizeName}` : `SKU_${colorName}_${sizeName}`,
-      stock: "20",
-      price: formData.price || "0",
-      defective_returns_price: formData.defective_returns_price || "0",
-      mrp: formData.mrp || "0",
+      sku: matchingDetail?.sku || (formData.style_code ? `${formData.style_code}_${colorName}_${sizeName}` : `SKU_${colorName}_${sizeName}`),
+      stock: matchingDetail?.inventory || "20",
+      price: matchingDetail?.selling_price || formData.price || "0",
+      defective_returns_price: matchingDetail?.return_price || formData.defective_returns_price || "0",
+      mrp: matchingDetail?.mrp || formData.mrp || "0",
     };
     onChange({ variants: [...formData.variants, newVariant] });
   };
@@ -70,18 +73,23 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
   };
 
   const addCommonStandardSizes = (colorName: string = "Black") => {
-    const defaultSizes = ["S", "M", "L", "XL"];
+    const activeSizes = (formData.selected_sizes && formData.selected_sizes.length > 0)
+      ? formData.selected_sizes
+      : ["S", "M", "L", "XL"];
     
-    const newVariants: CatalogVariant[] = defaultSizes.map((s) => ({
-      id: Math.random().toString(36).substring(2, 9),
-      size: s,
-      color: colorName,
-      sku: formData.style_code ? `${formData.style_code}_${colorName}_${s}` : `SKU_${colorName}_${s}`,
-      stock: "20",
-      price: formData.price || "0",
-      defective_returns_price: formData.defective_returns_price || "0",
-      mrp: formData.mrp || "0",
-    }));
+    const newVariants: CatalogVariant[] = activeSizes.map((s) => {
+      const matchingDetail = formData.size_details?.find((d) => d.size === s);
+      return {
+        id: Math.random().toString(36).substring(2, 9),
+        size: s,
+        color: colorName,
+        sku: matchingDetail?.sku || (formData.style_code ? `${formData.style_code}_${colorName}_${s}` : `SKU_${colorName}_${s}`),
+        stock: matchingDetail?.inventory || "20",
+        price: matchingDetail?.selling_price || formData.price || "0",
+        defective_returns_price: matchingDetail?.return_price || formData.defective_returns_price || "0",
+        mrp: matchingDetail?.mrp || formData.mrp || "0",
+      };
+    });
 
     onChange({ variants: [...formData.variants, ...newVariants] });
   };

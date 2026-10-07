@@ -6,6 +6,11 @@ import Step1AddProduct from "./Step1AddProduct";
 import Step2BasicDetails from "./Step2BasicDetails";
 import Step3AdditionalDetails from "./Step3AdditionalDetails";
 import Step4AddVariants, { type CatalogVariant } from "./Step4AddVariants";
+import {
+  type SizeVariantDetail,
+  type SizeMeasurementDetail,
+  type MeasurementUnit,
+} from "./SizeSpecificDetailsSection";
 import type { Category } from "@shared/types";
 import { supabase } from "@shared/utils/supabaseClient";
 
@@ -27,6 +32,13 @@ export interface MasterCatalogFormState {
   front_image_index: number;
   name: string;
   description: string;
+
+  // Step 1: Meesho-Style Dynamic Size & Measurements
+  selected_sizes: string[];
+  size_details: SizeVariantDetail[];
+  measurement_unit: MeasurementUnit;
+  size_measurements: SizeMeasurementDetail[];
+  is_measurements_enabled: boolean;
 
   // Step 2
   fabric: string;
@@ -76,6 +88,12 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
   front_image_index: 0,
   name: "",
   description: "",
+
+  selected_sizes: [],
+  size_details: [],
+  measurement_unit: "inches",
+  size_measurements: [],
+  is_measurements_enabled: true,
 
   fabric: "100% Pure Cotton",
   pattern: "Solid / Plain",
@@ -159,6 +177,46 @@ export default function CatalogUploadWizardModal({
         image_url: pkg.image_url || undefined,
       }));
 
+      // Parse existing sizes and measurements for Step 1 Meesho-style tables
+      const loadedSizes: string[] = Array.from(
+        new Set(
+          existingPackages
+            .map((p: any) => p.size || (p.name?.includes(" / ") ? p.name.split(" / ")[1] : p.name?.includes(" - ") ? p.name.split(" - ")[1] : p.name))
+            .filter((s: any) => s && s !== "Standard" && s !== "Standard Package")
+        )
+      );
+
+      const loadedSizeDetails: SizeVariantDetail[] = existingPackages
+        .filter((pkg: any) => pkg.name !== "Standard" || loadedSizes.length > 0)
+        .map((pkg: any) => {
+          const sz = pkg.size || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[1] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[1] : pkg.name || "Free Size");
+          return {
+            id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
+            size: sz,
+            mrp: String(pkg.mrp ?? editingProduct.mrp ?? ""),
+            selling_price: String(pkg.price ?? editingProduct.price ?? ""),
+            inventory: String(pkg.stock ?? 20),
+            sku: pkg.sku || "",
+            return_price: String(pkg.return_price ?? (editingProduct.specifications as any)?.defective_returns_price ?? ""),
+          };
+        });
+
+      const existingSizeChart = specs.size_chart;
+      const loadedUnit: MeasurementUnit = existingSizeChart?.unit === "cm" ? "cm" : "inches";
+      const loadedMeasurements: SizeMeasurementDetail[] = Array.isArray(existingSizeChart?.rows)
+        ? existingSizeChart.rows.map((r: any) => ({
+            size: r.size,
+            bust_chest: r.bust_chest || r.chest || r.bust || "",
+            waist: r.waist || "",
+            shoulder: r.shoulder || "",
+            length: r.length || "",
+            hip: r.hip || "",
+            sleeve_length: r.sleeve_length || r.sleeve || "",
+            inseam: r.inseam || "",
+            thigh: r.thigh || "",
+          }))
+        : [];
+
       setForm({
         category_id: String(editingProduct.category_id || ""),
         subcategory_id: "",
@@ -167,6 +225,12 @@ export default function CatalogUploadWizardModal({
         front_image_index: 0,
         name: editingProduct.name || "",
         description: editingProduct.description || "",
+
+        selected_sizes: loadedSizes,
+        size_details: loadedSizeDetails,
+        measurement_unit: loadedUnit,
+        size_measurements: loadedMeasurements,
+        is_measurements_enabled: Boolean(existingSizeChart && loadedMeasurements.length > 0),
 
         fabric: specs.fabric || "100% Pure Cotton",
         pattern: specs.pattern || "Solid / Plain",
@@ -226,12 +290,29 @@ export default function CatalogUploadWizardModal({
         setErrorMsg("Please upload at least 1 product image.");
         return false;
       }
+      // If sizes were selected, validate selling price on those rows
+      if (form.selected_sizes.length > 0 && form.size_details.length > 0) {
+        for (const sd of form.size_details) {
+          if (sd.selling_price && parseFloat(sd.selling_price) <= 0) {
+            setErrorMsg(`Selling price for size ${sd.size} must be greater than 0.`);
+            return false;
+          }
+          if (sd.mrp && sd.selling_price && parseFloat(sd.mrp) < parseFloat(sd.selling_price)) {
+            setErrorMsg(`MRP cannot be less than selling price for size ${sd.size}.`);
+            return false;
+          }
+        }
+      }
     } else if (step === 2 && !form.is_new_drop) {
-      if (!form.price || parseFloat(form.price) <= 0) {
+      const hasSizeDetails = form.size_details && form.size_details.length > 0;
+      const effectivePrice = form.price || (hasSizeDetails ? form.size_details[0]?.selling_price : "");
+      const effectiveMrp = form.mrp || (hasSizeDetails ? form.size_details[0]?.mrp || effectivePrice : "");
+
+      if (!effectivePrice || parseFloat(effectivePrice) <= 0) {
         setErrorMsg("Please enter a valid listing price.");
         return false;
       }
-      if (!form.mrp || parseFloat(form.mrp) <= 0) {
+      if (!effectiveMrp || parseFloat(effectiveMrp) <= 0) {
         setErrorMsg("Please enter a valid MRP.");
         return false;
       }
@@ -309,8 +390,16 @@ export default function CatalogUploadWizardModal({
         tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
       };
 
+      // Save size measurements if enabled
+      if (form.is_measurements_enabled && form.size_measurements && form.size_measurements.length > 0) {
+        (specificationsData as any).size_chart = {
+          unit: form.measurement_unit || "inches",
+          rows: form.size_measurements,
+        };
+      }
+
       const primaryCatId = form.category_id ? (isNaN(Number(form.category_id)) ? null : Number(form.category_id)) : (categories[0]?.id || null);
-      const calculatedStock = form.has_variants ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0) : (parseInt(form.single_stock) || 20);
+      const hasSizeDetails = form.size_details && form.size_details.length > 0;
 
       // Build packages JSON array for multi-color and multi-size matrix
       const computedPackages = form.has_variants && form.variants.length > 0
@@ -328,6 +417,20 @@ export default function CatalogUploadWizardModal({
             image_url: v.image_url || coverImageUrl,
             isBestSeller: idx === 0,
           }))
+        : hasSizeDetails
+        ? form.size_details.map((sd, idx) => ({
+            id: sd.id || `pkg_${idx}_${Date.now()}`,
+            name: sd.size,
+            color: "Standard",
+            size: sd.size,
+            price: parseFloat(sd.selling_price) || parseFloat(form.price) || 0,
+            mrp: parseFloat(sd.mrp) || parseFloat(form.mrp) || parseFloat(sd.selling_price) || 0,
+            stock: parseInt(sd.inventory) || 0,
+            sku: sd.sku || `${form.style_code || 'SKU'}-${sd.size.toUpperCase()}`,
+            return_price: parseFloat(sd.return_price) || 0,
+            image_url: coverImageUrl,
+            isBestSeller: idx === 0,
+          }))
         : [
             {
               id: `pkg_std_${Date.now()}`,
@@ -343,6 +446,15 @@ export default function CatalogUploadWizardModal({
             }
           ];
 
+      const calculatedStock = form.has_variants
+        ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
+        : hasSizeDetails
+        ? form.size_details.reduce((acc, d) => acc + (parseInt(d.inventory) || 0), 0)
+        : (parseInt(form.single_stock) || 20);
+
+      const effectivePrice = parseFloat(form.price) || (hasSizeDetails ? parseFloat(form.size_details[0]?.selling_price) || 0 : 0);
+      const effectiveMrp = parseFloat(form.mrp) || (hasSizeDetails ? parseFloat(form.size_details[0]?.mrp) || effectivePrice : effectivePrice);
+
       const generateSlug = (text: string) => {
         const base = text ? text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "") : "";
         return base ? `${base}-${Date.now().toString(36)}` : `prod-${Date.now().toString(36)}`;
@@ -356,8 +468,8 @@ export default function CatalogUploadWizardModal({
         name: form.name,
         slug: computedSlug,
         description: form.description,
-        price: parseFloat(form.price) || 0,
-        mrp: parseFloat(form.mrp) || parseFloat(form.price) || 0,
+        price: effectivePrice,
+        mrp: effectiveMrp,
         category_id: primaryCatId,
         // Removed 'category' text column to prevent missing column schema cache errors
         image_url: coverImageUrl,

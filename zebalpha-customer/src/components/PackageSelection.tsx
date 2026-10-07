@@ -1,11 +1,25 @@
-import React from "react";
+import React, { useState } from "react";
 import { ProductPackage } from "@/lib/types";
-import { Check } from "lucide-react";
+import { Check, Ruler, X } from "lucide-react";
 
 interface PackageSelectionProps {
   packages: ProductPackage[];
   selectedPackage: ProductPackage | null;
   onSelect: (pkg: ProductPackage) => void;
+  sizeChart?: {
+    unit?: "inches" | "cm";
+    rows?: Array<{
+      size: string;
+      bust_chest?: string;
+      waist?: string;
+      shoulder?: string;
+      length?: string;
+      hip?: string;
+      sleeve_length?: string;
+      inseam?: string;
+      thigh?: string;
+    }>;
+  };
 }
 
 const COLOR_HEX_MAP: Record<string, string> = {
@@ -29,7 +43,9 @@ const COLOR_HEX_MAP: Record<string, string> = {
   brown: "#78350f",
 };
 
-export function PackageSelection({ packages, selectedPackage, onSelect }: PackageSelectionProps) {
+export function PackageSelection({ packages, selectedPackage, onSelect, sizeChart }: PackageSelectionProps) {
+  const [showChartModal, setShowChartModal] = useState(false);
+
   if (!packages || packages.length === 0) return null;
 
   // Extract distinct colors
@@ -76,6 +92,20 @@ export function PackageSelection({ packages, selectedPackage, onSelect }: Packag
     const matched = list.find((p) => p.size === currentSize) || list[0];
     onSelect(matched);
   };
+
+  const chartRows = Array.isArray(sizeChart?.rows) ? sizeChart.rows : [];
+  const hasValidChart = chartRows.length > 0;
+  const unit = sizeChart?.unit || "inches";
+
+  // Check which columns have values
+  const hasChest = chartRows.some((r) => r.bust_chest);
+  const hasWaist = chartRows.some((r) => r.waist);
+  const hasShoulder = chartRows.some((r) => r.shoulder);
+  const hasLength = chartRows.some((r) => r.length);
+  const hasHip = chartRows.some((r) => r.hip);
+  const hasSleeve = chartRows.some((r) => r.sleeve_length);
+  const hasInseam = chartRows.some((r) => r.inseam);
+  const hasThigh = chartRows.some((r) => r.thigh);
 
   return (
     <div className="space-y-4 pt-3 border-t border-zinc-800">
@@ -129,9 +159,22 @@ export function PackageSelection({ packages, selectedPackage, onSelect }: Packag
       {/* 2. Size / Variant Selection */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-extrabold uppercase tracking-wider text-zinc-400">
-            {hasMultipleColors ? "Select Size:" : "Select Option / Size:"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold uppercase tracking-wider text-zinc-400">
+              {hasMultipleColors ? "Select Size:" : "Select Option / Size:"}
+            </span>
+            {hasValidChart && (
+              <button
+                type="button"
+                onClick={() => setShowChartModal(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-violet-400 hover:text-violet-300 underline cursor-pointer"
+              >
+                <Ruler className="w-3 h-3" />
+                <span>Size Guide</span>
+              </button>
+            )}
+          </div>
+
           {selectedPackage && (
             <span className="text-[10px] font-mono text-emerald-400 font-bold">
               In Stock • ₹{selectedPackage.price}
@@ -180,6 +223,78 @@ export function PackageSelection({ packages, selectedPackage, onSelect }: Packag
           })}
         </div>
       </div>
+
+      {/* 3. Size Guide / Measurements Modal */}
+      {showChartModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-violet-500/10 text-violet-400">
+                  <Ruler className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-black uppercase text-white tracking-wide">
+                    Garment Size Guide & Measurements
+                  </h3>
+                  <span className="text-[10px] font-mono text-zinc-400">
+                    All measurements in <strong className="text-violet-300 uppercase">{unit}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowChartModal(false)}
+                className="p-1.5 rounded-full bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-zinc-800">
+              <table className="w-full text-left text-xs text-zinc-300">
+                <thead className="bg-zinc-900/80 uppercase font-black text-[10px] text-zinc-400 border-b border-zinc-800">
+                  <tr>
+                    <th className="py-3 px-3.5">Size</th>
+                    {hasChest && <th className="py-3 px-3">Chest / Bust</th>}
+                    {hasWaist && <th className="py-3 px-3">Waist</th>}
+                    {hasShoulder && <th className="py-3 px-3">Shoulder</th>}
+                    {hasLength && <th className="py-3 px-3">Length</th>}
+                    {hasHip && <th className="py-3 px-3">Hip</th>}
+                    {hasSleeve && <th className="py-3 px-3">Sleeve</th>}
+                    {hasInseam && <th className="py-3 px-3">Inseam</th>}
+                    {hasThigh && <th className="py-3 px-3">Thigh</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-850 bg-zinc-950 font-mono text-xs">
+                  {chartRows.map((r, i) => (
+                    <tr key={i} className="hover:bg-zinc-900/50">
+                      <td className="py-2.5 px-3.5 font-sans font-black text-white">
+                        <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800">
+                          {r.size}
+                        </span>
+                      </td>
+                      {hasChest && <td className="py-2.5 px-3 text-zinc-200">{r.bust_chest || "—"}</td>}
+                      {hasWaist && <td className="py-2.5 px-3 text-zinc-200">{r.waist || "—"}</td>}
+                      {hasShoulder && <td className="py-2.5 px-3 text-zinc-200">{r.shoulder || "—"}</td>}
+                      {hasLength && <td className="py-2.5 px-3 text-zinc-200">{r.length || "—"}</td>}
+                      {hasHip && <td className="py-2.5 px-3 text-zinc-200">{r.hip || "—"}</td>}
+                      {hasSleeve && <td className="py-2.5 px-3 text-zinc-200">{r.sleeve_length || "—"}</td>}
+                      {hasInseam && <td className="py-2.5 px-3 text-zinc-200">{r.inseam || "—"}</td>}
+                      {hasThigh && <td className="py-2.5 px-3 text-zinc-200">{r.thigh || "—"}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-[11px] text-zinc-500 text-center pt-1">
+              💡 Tip: Measure a garment that fits you well and compare it with the size chart above.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

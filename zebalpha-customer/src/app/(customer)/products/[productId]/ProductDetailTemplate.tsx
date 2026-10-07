@@ -272,6 +272,7 @@ export default function ProductDetailTemplate({
                 packages={normalizedPackages} 
                 selectedPackage={selectedPackage} 
                 onSelect={setSelectedPackage} 
+                sizeChart={(product.specifications as any)?.size_chart}
               />
             )}
 
