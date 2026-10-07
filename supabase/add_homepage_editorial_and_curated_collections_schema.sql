@@ -38,22 +38,29 @@ CREATE POLICY "Service role manages curated_collections"
     USING (true) 
     WITH CHECK (true);
 
--- Authenticated Admin full management
+-- Authenticated Admin full management (Secure: Checks app_metadata or profiles table, NO user_metadata)
 DROP POLICY IF EXISTS "Admins manage curated_collections" ON public.curated_collections;
 CREATE POLICY "Admins manage curated_collections" 
     ON public.curated_collections 
     FOR ALL 
     TO authenticated 
     USING (
-        auth.jwt() ->> 'role' = 'service_role' OR 
         (auth.jwt() -> 'app_metadata' ->> 'role') IN ('superadmin', 'admin') OR
-        (auth.jwt() -> 'user_metadata' ->> 'role') IN ('superadmin', 'admin')
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role IN ('superadmin', 'admin')
+        )
     )
     WITH CHECK (
-        auth.jwt() ->> 'role' = 'service_role' OR 
         (auth.jwt() -> 'app_metadata' ->> 'role') IN ('superadmin', 'admin') OR
-        (auth.jwt() -> 'user_metadata' ->> 'role') IN ('superadmin', 'admin')
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role IN ('superadmin', 'admin')
+        )
     );
+
 
 -- Composite Index for fast active ordering
 CREATE INDEX IF NOT EXISTS idx_curated_collections_active_order 
@@ -94,21 +101,27 @@ CREATE POLICY "Service role manages editorial_cards"
     USING (true) 
     WITH CHECK (true);
 
--- Authenticated Admin full management
+-- Authenticated Admin full management (Secure: Checks app_metadata or profiles table, NO user_metadata)
 DROP POLICY IF EXISTS "Admins manage editorial_cards" ON public.editorial_cards;
 CREATE POLICY "Admins manage editorial_cards" 
     ON public.editorial_cards 
     FOR ALL 
     TO authenticated 
     USING (
-        auth.jwt() ->> 'role' = 'service_role' OR 
         (auth.jwt() -> 'app_metadata' ->> 'role') IN ('superadmin', 'admin') OR
-        (auth.jwt() -> 'user_metadata' ->> 'role') IN ('superadmin', 'admin')
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role IN ('superadmin', 'admin')
+        )
     )
     WITH CHECK (
-        auth.jwt() ->> 'role' = 'service_role' OR 
         (auth.jwt() -> 'app_metadata' ->> 'role') IN ('superadmin', 'admin') OR
-        (auth.jwt() -> 'user_metadata' ->> 'role') IN ('superadmin', 'admin')
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role IN ('superadmin', 'admin')
+        )
     );
 
 -- Composite Index for fast active ordering
@@ -128,7 +141,7 @@ CREATE POLICY "Public read editorial images"
     FOR SELECT
     USING (bucket_id = 'editorial-images');
 
--- Storage upload policy for admins and service role
+-- Storage upload policy for admins and service role (Secure: app_metadata or profiles table)
 DROP POLICY IF EXISTS "Admin upload editorial images" ON storage.objects;
 CREATE POLICY "Admin upload editorial images"
     ON storage.objects 
@@ -137,8 +150,11 @@ CREATE POLICY "Admin upload editorial images"
         bucket_id = 'editorial-images' AND (
             auth.jwt() ->> 'role' = 'service_role' OR 
             (auth.jwt() -> 'app_metadata' ->> 'role') IN ('superadmin', 'admin') OR
-            (auth.jwt() -> 'user_metadata' ->> 'role') IN ('superadmin', 'admin') OR
-            auth.role() = 'authenticated'
+            EXISTS (
+                SELECT 1 FROM public.profiles 
+                WHERE profiles.id = auth.uid() 
+                AND profiles.role IN ('superadmin', 'admin')
+            )
         )
     );
 
@@ -150,8 +166,11 @@ CREATE POLICY "Admin delete editorial images"
         bucket_id = 'editorial-images' AND (
             auth.jwt() ->> 'role' = 'service_role' OR 
             (auth.jwt() -> 'app_metadata' ->> 'role') IN ('superadmin', 'admin') OR
-            (auth.jwt() -> 'user_metadata' ->> 'role') IN ('superadmin', 'admin') OR
-            auth.role() = 'authenticated'
+            EXISTS (
+                SELECT 1 FROM public.profiles 
+                WHERE profiles.id = auth.uid() 
+                AND profiles.role IN ('superadmin', 'admin')
+            )
         )
     );
 
