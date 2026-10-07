@@ -61,7 +61,25 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [sellers, setSellers] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTabState] = useState("dashboard");
+
+  // Restore active tab from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedTab = localStorage.getItem("admin_active_tab");
+      if (savedTab) {
+        setTabState(savedTab);
+      }
+    }
+  }, []);
+
+  const setTab = (newTab: string) => {
+    setTabState(newTab);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("admin_active_tab", newTab);
+    }
+  };
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = isHovered || isSidebarOpen;
@@ -69,8 +87,11 @@ export default function AdminPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [adminUser, setAdminUser] = useState("Super Admin");
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (isInitial: boolean = false) => {
+    // Only show full-page loading skeleton on initial mount, NEVER on background refetches
+    if (isInitial) {
+      setLoading(true);
+    }
     try {
       let sellersData: any[] = [];
       try {
@@ -115,12 +136,14 @@ export default function AdminPage() {
     } catch (e) {
       console.warn("Notice loading dashboard overview data:", e);
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, []);
 
   // Keyboard listener for Escape key to close mobile drawer
