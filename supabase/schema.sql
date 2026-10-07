@@ -1253,5 +1253,41 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
 
+-- ====================================================================
+-- HOMEPAGE CURATED COLLECTIONS & WOVEN EDITORIAL CARDS
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS public.curated_collections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255),
+    short_description TEXT,
+    link_url TEXT,
+    image_url TEXT NOT NULL,
+    display_order INT DEFAULT 0 NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.editorial_cards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(100),
+    price NUMERIC,
+    badge VARCHAR(100),
+    href TEXT,
+    image_url TEXT NOT NULL,
+    display_order INT DEFAULT 0 NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_curated_collections_active_order 
+    ON public.curated_collections(is_active, display_order ASC);
+
+CREATE INDEX IF NOT EXISTS idx_editorial_cards_active_order 
+    ON public.editorial_cards(is_active, display_order ASC);
+
 COMMIT;
 

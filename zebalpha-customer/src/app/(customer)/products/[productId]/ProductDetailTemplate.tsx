@@ -17,13 +17,14 @@ const VirtualTryOnModal = dynamic(
   { ssr: false, loading: () => null }
 );
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
-
 export default function ProductDetailTemplate({
   product,
-  relatedProducts = []
+  relatedProducts = [],
+  relatedProductsSlot
 }: {
-  product: Product,
-  relatedProducts?: Product[]
+  product: Product;
+  relatedProducts?: Product[];
+  relatedProductsSlot?: React.ReactNode;
 }) {
   const [isVtoOpen, setIsVtoOpen] = useState(false);
   const normalizedPackages = useMemo(() => {
@@ -439,8 +440,9 @@ export default function ProductDetailTemplate({
       </div>
 
       <div className="mx-auto max-w-[1440px] px-4 md:px-8">
-        {/* RELATED PRODUCTS SECTION */}
-        {relatedProducts.length > 0 && (
+        {relatedProductsSlot ? (
+          relatedProductsSlot
+        ) : relatedProducts.length > 0 ? (
           <div className="mt-20 border-t border-zinc-800 pt-16">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -489,7 +491,7 @@ export default function ProductDetailTemplate({
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* STICKY BOTTOM BAR FOR MOBILE */}

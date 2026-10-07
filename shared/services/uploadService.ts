@@ -163,3 +163,62 @@ export async function uploadToCloudinary(
 ): Promise<string> {
   return await uploadToSupabaseBucket("product-images", fileOrBase64);
 }
+
+/**
+ * Validates that an image file does not exceed maxKb limit (Strictly 120 KB for Homepage Editorial)
+ */
+export function validateHomepageImageSize(
+  fileOrBlob: File | Blob,
+  maxKbLimit: number = 120
+): { isValid: boolean; message?: string; sizeKb: number } {
+  const sizeBytes = fileOrBlob.size;
+  const sizeKb = Number((sizeBytes / 1024).toFixed(1));
+  const maxBytes = maxKbLimit * 1024;
+
+  if (sizeBytes > maxBytes) {
+    return {
+      isValid: false,
+      message: `Image must be 120 KB or smaller. (Selected: ${sizeKb} KB).`,
+      sizeKb,
+    };
+  }
+
+  return { isValid: true, sizeKb };
+}
+
+/**
+ * Validate against max KB limit (Strict <= 120 KB limit)
+ */
+export async function compressAndValidateWebPImage(
+  fileOrBase64: File | Blob | string,
+  maxKbLimit: number = 120
+): Promise<{
+  blob: Blob;
+  contentType: string;
+  ext: string;
+  originalSizeBytes: number;
+  compressedSizeBytes: number;
+  isWithinLimit: boolean;
+  sizeFormatted: string;
+}> {
+  const maxBytes = maxKbLimit * 1024;
+  let originalSize = 0;
+  if (typeof fileOrBase64 !== "string") {
+    originalSize = (fileOrBase64 as Blob).size;
+  }
+  const { blob, contentType, ext } = await compressImageTo100KB(fileOrBase64, maxBytes);
+  const compressedSize = blob.size;
+  const isWithinLimit = compressedSize <= maxBytes;
+  const sizeFormatted = `${(compressedSize / 1024).toFixed(1)} KB`;
+
+  return {
+    blob,
+    contentType,
+    ext,
+    originalSizeBytes: originalSize,
+    compressedSizeBytes: compressedSize,
+    isWithinLimit,
+    sizeFormatted,
+  };
+}
+

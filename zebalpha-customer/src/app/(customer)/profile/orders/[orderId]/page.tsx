@@ -916,7 +916,7 @@ interface TimelineStep {
                                 alt={pName}
                                 className="h-full w-full object-cover"
                                 onError={(e) => {
-                                  (e.target as HTMLElement).setAttribute("src", "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300");
+                                  (e.target as HTMLElement).setAttribute("src", "/official-logo.png");
                                 }}
                               />
                             </div>

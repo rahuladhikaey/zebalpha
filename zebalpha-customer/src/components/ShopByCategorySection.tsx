@@ -104,25 +104,8 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                 let imageSrc = cat.image_url;
                 const isBroken = imgErrors[keyId];
 
-                if (
-                  !imageSrc ||
-                  isBroken ||
-                  imageSrc.length < 5 ||
-                  imageSrc.includes("photo-1576995853123-5a10305d93c0") ||
-                  (imageSrc.includes("banner-retro-cream.png") && (cat.name || "").toUpperCase().includes("SHIRT"))
-                ) {
-                  const nameUpper = (cat.name || "").toUpperCase();
-                  const mainCatUpper = (cat.main_category || "").toUpperCase();
-                  const key = `${nameUpper} ${mainCatUpper}`;
-
-                  if (key.includes("POLO")) imageSrc = "/banner-premium-polo.png";
-                  else if (key.includes("TEE") || key.includes("T-SHIRT") || key.includes("OVERSIZED")) imageSrc = "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&auto=format&fit=crop&q=80";
-                  else if (key.includes("HOODIE") || key.includes("SWEAT") || key.includes("FLEECE")) imageSrc = "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80";
-                  else if (key.includes("SHIRT")) imageSrc = "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80";
-                  else if (key.includes("CARGO") || key.includes("TROUSER") || key.includes("BOTTOM") || key.includes("PANT") || key.includes("DENIM")) imageSrc = "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80";
-                  else if (key.includes("LIMITED") || key.includes("DROP") || key.includes("CAPSULE")) imageSrc = "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80";
-                  else if (key.includes("ACCESSOR") || key.includes("CAP") || key.includes("HEADWEAR") || key.includes("HAT")) imageSrc = "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=600&auto=format&fit=crop&q=80";
-                  else imageSrc = "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80";
+                if (!imageSrc || isBroken || imageSrc.length < 5) {
+                  return null;
                 }
 
                 return (

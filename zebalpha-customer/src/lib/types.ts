@@ -77,3 +77,31 @@ export type OrderPayload = {
   items: Array<{ name: string; quantity: number; price: number; subtotal: number }>;
   total: number;
 };
+
+export type CuratedCollection = {
+  id: string;
+  title: string;
+  slug?: string;
+  short_description?: string;
+  link_url?: string;
+  image_url: string;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type EditorialCard = {
+  id: string | number;
+  title: string;
+  category?: string;
+  price?: number;
+  badge?: string;
+  href?: string;
+  image_url: string;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+

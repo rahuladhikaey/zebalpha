@@ -1,6 +1,7 @@
-import { cache } from "react";
+import { Suspense, cache } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { Product } from "@/lib/types";
 import { Header } from "@/components/Header";
@@ -17,39 +18,47 @@ type PageProps = {
 
 export const revalidate = 60;
 
+// Explicit minimal projection of fields genuinely required by the PDP
+const SLIM_PDP_FIELDS = "id, name, brand, price, mrp, stock, status, is_active, image_url, thumbnail_url, images, category_id, category_name, seller_id, description, packages, offers, specifications, tier, is_premium, is_new_drop, drop_date, drop_time, drop_status, rating, review_count, created_at";
+
 const getProduct = cache(async (productId: string) => {
+  // Attempt single roundtrip with embedded seller details
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, owner_name, city, state, business_logo_url)`)
     .eq("id", productId)
     .maybeSingle();
 
-  if (error || !data) {
-    console.error("Error fetching product:", error);
-    return null;
-  }
+  let productData: any = data;
 
-  // Fetch seller details if seller_id exists
-  if (data.seller_id) {
-    try {
-      const { data: sellerData } = await supabase
-        .from("sellers")
-        .select("business_name, owner_name, city, state, business_logo_url")
-        .eq("id", data.seller_id)
-        .maybeSingle();
+  // Fallback to slim fields only if relation embedding is not configured in schema cache
+  if (error || !productData) {
+    const fallback = await supabase
+      .from("products")
+      .select(SLIM_PDP_FIELDS)
+      .eq("id", productId)
+      .maybeSingle();
 
-      if (sellerData) {
-        data.seller_name = sellerData.business_name || sellerData.owner_name;
-        data.business_name = sellerData.business_name;
-        data.seller_city = sellerData.city;
-        data.seller_logo = sellerData.business_logo_url;
-      }
-    } catch (e) {
-      console.warn("Could not fetch seller info for product:", e);
+    if (fallback.error || !fallback.data) {
+      console.error("Error fetching product:", fallback.error || error);
+      return null;
     }
+    productData = fallback.data;
   }
 
-  return data as Product;
+  // Populate seller fields directly from embedded seller without extra sequential query
+  if (productData.seller) {
+    const s = Array.isArray(productData.seller) ? productData.seller[0] : productData.seller;
+    if (s) {
+      productData.seller_name = s.business_name || s.owner_name;
+      productData.business_name = s.business_name;
+      productData.seller_city = s.city;
+      productData.seller_logo = s.business_logo_url;
+    }
+    delete productData.seller;
+  }
+
+  return productData as Product;
 });
 
 const getRelatedProducts = async (category_id: any, currentProductId: string | number) => {
@@ -67,6 +76,101 @@ const getRelatedProducts = async (category_id: any, currentProductId: string | n
 
   return (data || []) as unknown as Product[];
 };
+
+function RelatedProductsSkeleton() {
+  return (
+    <div className="mt-20 border-t border-zinc-800 pt-16">
+      <div className="flex items-center justify-between mb-8">
+        <div className="space-y-2">
+          <div className="h-3 w-20 bg-zinc-900 rounded animate-pulse" />
+          <div className="h-6 w-44 bg-zinc-900 rounded animate-pulse" />
+        </div>
+        <div className="h-4 w-28 bg-zinc-900 rounded animate-pulse" />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex flex-col rounded-3xl bg-zinc-950 p-3 border border-zinc-800">
+            <div className="aspect-square w-full rounded-2xl bg-zinc-900 animate-pulse mb-4" />
+            <div className="h-4 w-3/4 bg-zinc-900 rounded animate-pulse mb-2" />
+            <div className="h-3 w-1/2 bg-zinc-900 rounded animate-pulse mb-3" />
+            <div className="h-5 w-20 bg-zinc-900 rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function RelatedProductsSection({
+  categoryId,
+  currentProductId,
+}: {
+  categoryId: any;
+  currentProductId: string | number;
+}) {
+  const relatedProducts = await getRelatedProducts(categoryId, currentProductId);
+  if (!relatedProducts || relatedProducts.length === 0) return null;
+
+  return (
+    <div className="mt-20 border-t border-zinc-800 pt-16">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Suggestions</span>
+          <h2 className="text-2xl font-black text-white mt-1">You Might Also Like</h2>
+        </div>
+        <Link href="/products" className="text-sm font-black text-white hover:underline">
+          View All Products
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+        {relatedProducts.map((p) => (
+          <Link
+            key={p.id}
+            href={`/products/${p.id}`}
+            className="group flex flex-col rounded-3xl bg-zinc-950 p-3 transition-all hover:shadow-2xl border border-zinc-800 hover:border-zinc-700"
+          >
+            <div className="aspect-square w-full overflow-hidden rounded-2xl bg-zinc-900 mb-4 flex items-center justify-center">
+              <img
+                src={p.images?.[0] || p.image_url}
+                alt={p.name}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+            </div>
+            <div className="flex-1 space-y-2">
+              <h3 className="text-sm font-bold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">
+                {p.name}
+              </h3>
+              <div className="flex items-center gap-1.5">
+                <div className="flex h-5 items-center gap-0.5 rounded-md bg-white text-black px-1.5 text-[10px] font-bold">
+                  <span>4.4</span>
+                  <Star size={8} fill="currentColor" aria-hidden="true" />
+                </div>
+                <span className="text-[10px] font-bold text-zinc-400">(234)</span>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-bold text-zinc-500 line-through">
+                    ₹{p.mrp || Math.round(p.price * 1.2)}
+                  </span>
+                  <span className="text-[9px] font-extrabold text-white bg-zinc-900 border border-zinc-800 px-1 py-0.5 rounded">
+                    {Math.round(
+                      (((p.mrp || Math.round(p.price * 1.2)) - p.price) /
+                        (p.mrp || Math.round(p.price * 1.2))) *
+                        100
+                    )}
+                    % OFF
+                  </span>
+                </div>
+                <span className="text-sm font-black text-white">₹{p.price}</span>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { productId } = await params;
@@ -95,11 +199,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProductDetailPage({ params }: PageProps) {
   const { productId } = await params;
   const product = await getProduct(productId);
-  
-  // Fetch related products if category_id exists
-  const relatedProducts = product && product.category_id 
-    ? await getRelatedProducts(product.category_id, product.id)
-    : [];
 
   if (!product) {
     return (
@@ -151,11 +250,19 @@ export default async function ProductDetailPage({ params }: PageProps) {
       />
       <Header title={product.name} subtitle={product.category_name || "Premium Quality"} />
 
-      <ProductDetailTemplate product={product} relatedProducts={relatedProducts} />
+      <ProductDetailTemplate
+        product={product}
+        relatedProductsSlot={
+          product.category_id ? (
+            <Suspense fallback={<RelatedProductsSkeleton />}>
+              <RelatedProductsSection
+                categoryId={product.category_id}
+                currentProductId={product.id}
+              />
+            </Suspense>
+          ) : null
+        }
+      />
     </main>
   );
 }
-
-
-
-

@@ -16,103 +16,71 @@ interface CollectionItem {
   badge: string;
   categoryFilter: string;
   image: string;
-  itemCount: number;
+  link?: string;
 }
 
-const FEATURED_COLLECTIONS: CollectionItem[] = [
-  {
-    id: "premium-store",
-    title: "💎 Luxury & Premium Store",
-    subtitle: "Atelier Couture • 400+ GSM & Supima",
-    description: "Exclusive luxury cuts, 100% long-staple California Supima®, bespoke quarter-zips, and limited numbered artisan drops.",
-    badge: "👑 VIP Vault",
-    categoryFilter: "premium-store",
-    image: "/banner-premium-polo.png",
-    itemCount: 24,
-  },
-  {
-    id: "polos-tees",
-    title: "Streetwear Polos & Heavy Tees",
-    subtitle: "Signature 100% Combed Heavy Cotton",
-    description: "Relaxed modern fits, tailored zip collars, and heavyweight minimal streetwear tees crafted for everyday luxury.",
-    badge: "Bestsellers",
-    categoryFilter: "Polos",
-    image: "/banner-retro-cream.png",
-    itemCount: 18,
-  },
-  {
-    id: "heavyweight-hoodies",
-    title: "Heavyweight Hoodies",
-    subtitle: "380 GSM Plush Fleece Lined",
-    description: "Architectural silhouettes with double-lined hoods, drop-shoulders, and ultra-durable ribbing built for cold drops.",
-    badge: "Core Drops",
-    categoryFilter: "Hoodies",
-    image: "/banner-casual-green.png",
-    itemCount: 12,
-  },
-  {
-    id: "casual-shirts",
-    title: "Casual Collared Shirts",
-    subtitle: "Resort Linen & Textured Knits",
-    description: "Breathable woven cottons and effortless relaxed tailoring designed for day-to-night versatility.",
-    badge: "Summer Edits",
-    categoryFilter: "Shirts",
-    image: "/banner-retro-cream.png",
-    itemCount: 14,
-  },
-  {
-    id: "streetwear-bottoms",
-    title: "Cargo & Streetwear Bottoms",
-    subtitle: "Utility Pockets & Relaxed Trousers",
-    description: "Deep pocket utility cargo pants, heavyweight fleece joggers, and relaxed modern trousers with adjustable hems.",
-    badge: "Essential Bottoms",
-    categoryFilter: "Bottoms",
-    image: "/banner-premium-polo.png",
-    itemCount: 9,
-  },
-  {
-    id: "limited-drops",
-    title: "Limited Edition Drops",
-    subtitle: "Numbered Micro-Batches",
-    description: "Exclusive small-batch releases with custom dye treatments, high-density embroidery, and unique serial tags.",
-    badge: "🔥 Limited 100",
-    categoryFilter: "Limited",
-    image: "/banner-casual-green.png",
-    itemCount: 6,
-  },
-  {
-    id: "coming-soon",
-    title: "New Drops & Future Designs",
-    subtitle: "Unreleased Sample Preview",
-    description: "Sneak peek into upcoming drops. Vote your customer hype rating and register for drop notifications before launch.",
-    badge: "⚡ Coming Soon",
-    categoryFilter: "new-drops",
-    image: "/banner-retro-cream.png",
-    itemCount: 8,
-  },
-];
-
 export default function CollectionsPage() {
+  const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadProducts() {
+    async function loadData() {
       try {
-        const { data } = await supabase
-          .from("products")
-          .select("*")
-          .eq("is_active", true)
-          .order("created_at", { ascending: false });
+        const [pRes, cRes, catRes] = await Promise.all([
+          supabase
+            .from("products")
+            .select("id, name, category, category_id, is_active, is_premium, is_new_drop, tier, status, image_url, images")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("curated_collections")
+            .select("id, title, slug, short_description, link_url, image_url, display_order")
+            .eq("is_active", true)
+            .order("display_order", { ascending: true }),
+          supabase
+            .from("categories")
+            .select("id, name, slug, description, main_category, image_url")
+            .eq("is_active", true)
+            .order("name", { ascending: true })
+        ]);
 
-        if (data) setProducts(data as Product[]);
+        const loadedProducts = (pRes.data as Product[]) || [];
+        setProducts(loadedProducts);
+
+        if (cRes.data && cRes.data.length > 0) {
+          const mapped: CollectionItem[] = cRes.data.map((c) => ({
+            id: c.id,
+            title: c.title,
+            subtitle: "Curated Style Drop",
+            description: c.short_description || "Handpicked collection crafted with signature streetwear fits and premium combed cottons.",
+            badge: "Curated",
+            categoryFilter: c.slug || c.title,
+            image: c.image_url,
+            link: c.link_url,
+          }));
+          setCollections(mapped);
+        } else if (catRes.data && catRes.data.length > 0) {
+          const mapped: CollectionItem[] = catRes.data
+            .filter((cat) => cat.image_url && cat.image_url.trim().length > 5)
+            .map((cat) => ({
+              id: cat.id,
+              title: cat.name,
+              subtitle: cat.main_category || "Apparel Collection",
+              description: cat.description || `Signature ${cat.name} edit crafted for the culture.`,
+              badge: "Official",
+              categoryFilter: cat.name,
+              image: cat.image_url,
+            }));
+          setCollections(mapped);
+        }
       } catch (err) {
-        console.error("Error loading products for collections:", err);
+        console.error("Error loading collections:", err);
       } finally {
         setLoading(false);
       }
     }
-    loadProducts();
+    loadData();
   }, []);
 
   return (
@@ -141,7 +109,7 @@ export default function CollectionsPage() {
       {/* Collections Grid */}
       <section className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {FEATURED_COLLECTIONS.map((col) => {
+          {collections.map((col) => {
             const matchedProducts = products.filter((p) => {
               if (col.categoryFilter === "premium-store") return p.is_premium || p.tier === "PREMIUM";
               if (col.categoryFilter === "new-drops") return p.is_new_drop || p.status === "COMING_SOON";
@@ -155,11 +123,13 @@ export default function CollectionsPage() {
 
             const isNewDropsCard = col.categoryFilter === "new-drops";
             const isPremiumStoreCard = col.categoryFilter === "premium-store";
-            const targetHref = isPremiumStoreCard 
-              ? "/premium-store" 
-              : isNewDropsCard 
-                ? "/new-drops" 
-                : `/products?category=${col.categoryFilter}`;
+            const targetHref = col.link
+              ? col.link
+              : isPremiumStoreCard 
+                ? "/premium-store" 
+                : isNewDropsCard 
+                  ? "/new-drops" 
+                  : `/products?category=${col.categoryFilter}`;
 
             return (
               <div

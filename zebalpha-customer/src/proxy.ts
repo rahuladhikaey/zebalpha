@@ -79,13 +79,40 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // 3. Refresh Supabase session and handle customer auth
-  const { response, user } = await updateSession(request);
-
-  // Check if it's a customer protected route
+  // 3. Fast-path: Public catalog routes do not require blocking remote authentication checks
   const isProtectedUserRoute = protectedUserRoutes.some(route => 
     pathname === route || pathname.startsWith(`${route}/`)
   );
+  const isProtectedApiRoute = pathname.startsWith('/api/profile/');
+
+  const isPublicCatalogRoute = 
+    pathname === '/' ||
+    pathname === '/products' ||
+    pathname.startsWith('/products/') ||
+    pathname.startsWith('/categories') ||
+    pathname.startsWith('/category/') ||
+    pathname.startsWith('/new-drops') ||
+    pathname.startsWith('/premium-store') ||
+    pathname.startsWith('/wishlist') ||
+    pathname.startsWith('/cart') ||
+    pathname.startsWith('/search') ||
+    pathname.startsWith('/legal') ||
+    pathname.startsWith('/privacy') ||
+    pathname.startsWith('/terms');
+
+  // If public catalog route (page route only, never an API route), return immediately with zero remote auth network latency
+  if (isPublicCatalogRoute && !isProtectedUserRoute && !isProtectedApiRoute && !pathname.startsWith('/api/')) {
+    const response = NextResponse.next({ request });
+    const origin = request.headers.get('origin') || '';
+    response.headers.set('Access-Control-Allow-Origin', origin || '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    return response;
+  }
+
+  // 4. Authenticate and refresh Supabase session for protected routes
+  const { response, user } = await updateSession(request);
 
   if (isProtectedUserRoute) {
     if (!user) {
@@ -96,7 +123,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith('/api/profile/')) {
+  if (isProtectedApiRoute) {
     if (!user) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }

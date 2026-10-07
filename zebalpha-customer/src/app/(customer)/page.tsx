@@ -5,11 +5,11 @@ export const dynamic = 'force-dynamic';
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
 import { MovingOfferBanner } from "@/components/MovingOfferBanner";
-import { ShopByCategorySection } from "@/components/ShopByCategorySection";
+import { CuratedCollectionsSection } from "@/components/CuratedCollectionsSection";
 import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
-import { getCachedHomeCategories, getCachedHomeProducts, getCachedEditorialCards } from "@/lib/cachedQueries";
+import { getCachedCuratedCollections, getCachedHomeCategories, getCachedHomeProducts, getCachedEditorialCards } from "@/lib/cachedQueries";
 
 // --- SKELETON LOADERS FOR PROGRESSIVE SECTIONS ---
 
@@ -64,24 +64,16 @@ function ProductFeedSkeleton() {
 // --- ASYNC DATA CONTAINERS (STREAMED BELOW THE FOLD) ---
 
 async function CategoriesContainer() {
-  const categories = await getCachedHomeCategories(16).catch(() => []);
-  return <ShopByCategorySection initialCategories={categories} />;
+  const [curatedCollections, categories] = await Promise.all([
+    getCachedCuratedCollections().catch(() => []),
+    getCachedHomeCategories(16).catch(() => []),
+  ]);
+  return <CuratedCollectionsSection initialCollections={curatedCollections} initialCategories={categories} />;
 }
 
-async function EditorialContainer({ brandParam }: { brandParam?: string }) {
-  const [categories, editorialCards, products] = await Promise.all([
-    getCachedHomeCategories(16).catch(() => []),
-    getCachedEditorialCards().catch(() => []),
-    getCachedHomeProducts(brandParam, 6).catch(() => [])
-  ]);
-
-  return (
-    <ZebalphaEditorial
-      initialProducts={products}
-      initialCategories={categories}
-      initialEditorialCards={editorialCards}
-    />
-  );
+async function EditorialContainer({ brandParam }: { brandParam?: string } = {}) {
+  const editorialCards = await getCachedEditorialCards().catch(() => []);
+  return <ZebalphaEditorial initialEditorialCards={editorialCards} />;
 }
 
 async function ProductFeedContainer({ brandParam }: { brandParam?: string }) {

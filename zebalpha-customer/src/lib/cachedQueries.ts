@@ -1,80 +1,98 @@
 import { getCachedOrFetch, invalidateCacheKey, invalidateCachePattern } from './cacheHelper';
 import { supabaseServer } from './supabaseServer';
-import { Product, Category } from './types';
+import { Product, Category, CuratedCollection, EditorialCard } from './types';
 
 /**
- * Cached fetcher for Active Categories
- * Cache TTL: 12 hours (43200s)
+ * Slim query fields for Curated Collections & Editorial Cards
  */
-export async function getCachedCategories() {
-  return getCachedOrFetch<Category[]>(
-    'categories:all',
-    async () => {
-      const { data, error } = await supabaseServer
-        .from('categories')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error('[Database Error] Failed to fetch categories:', error);
-        return [];
-      }
-      return (data || []) as Category[];
-    },
-    43200 // 12 hours TTL
-  );
-}
+const SLIM_CURATED_COLLECTION_FIELDS = 'id, title, slug, short_description, link_url, image_url, display_order';
+const SLIM_EDITORIAL_CARD_FIELDS = 'id, title, category, price, badge, href, image_url, display_order';
 
 /**
- * Cached fetcher for Homepage Curated Categories Section (Section 9)
- * Cache TTL: 20 minutes (1200s)
- */
-export async function getCachedHomeCategories(limit: number = 16): Promise<Category[]> {
-  return getCachedOrFetch<Category[]>(
-    `homepage:section:categories:limit:${limit}`,
-    async () => {
-      const { data, error } = await supabaseServer
-        .from('categories')
-        .select('id, name, slug, image_url, icon, main_category, description, is_active')
-        .neq('is_active', false)
-        .order('name', { ascending: true })
-        .limit(limit);
-
-      if (error) {
-        console.error('[Database Error] Failed to fetch home categories:', error);
-        // Fallback fetch all
-        const { data: fallbackData } = await supabaseServer
-          .from('categories')
-          .select('*')
-          .limit(limit);
-        return (fallbackData || []) as Category[];
-      }
-      return (data || []) as Category[];
-    },
-    1 // 1 second TTL for real-time responsiveness
-  );
-}
-
-/**
- * Cached fetcher for Homepage Curved Editorial Cards Section
+ * Cached fetcher for Homepage Curated Collections Section
  * Cache TTL: 1 sec for real-time responsiveness with L2 Redis/memory cache
  */
-export async function getCachedEditorialCards(): Promise<any[]> {
-  return getCachedOrFetch<any[]>(
-    'homepage:section:editorial_cards',
+export async function getCachedCuratedCollections(): Promise<CuratedCollection[]> {
+  return getCachedOrFetch<CuratedCollection[]>(
+    'homepage:section:curated_collections',
     async () => {
       try {
         const { data, error } = await supabaseServer
-          .from('editorial_cards')
-          .select('*')
-          .neq('is_active', false)
-          .order('sort_order', { ascending: true });
+          .from('curated_collections')
+          .select(SLIM_CURATED_COLLECTION_FIELDS)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+          .limit(24);
 
         if (!error && data && data.length > 0) {
-          return data;
+          return data as CuratedCollection[];
+        }
+        if (error) {
+          console.error('[Database Error] Failed to fetch curated collections:', error.message);
+        }
+      } catch (e) {
+        console.error('[Database Error] Failed to fetch curated collections:', e);
+      }
+      return [];
+    },
+    1 // 1 sec TTL for real-time responsiveness
+  );
+}
+
+/**
+ * Cached fetcher for Homepage Categories (Fallback / Supporting)
+ * Cache TTL: 20 minutes (1200s)
+ */
+export async function getCachedHomeCategories(limit: number = 16): Promise<Category[]> {
+  const cacheKey = `homepage:section:categories:limit:${limit}`;
+  return getCachedOrFetch<Category[]>(
+    cacheKey,
+    async () => {
+      try {
+        const { data, error } = await supabaseServer
+          .from('categories')
+          .select('id, name, slug, image_url, description, sort_order, is_active')
+          .or('is_active.is.null,is_active.eq.true')
+          .order('sort_order', { ascending: true })
+          .limit(limit);
+
+        if (!error && data && data.length > 0) {
+          return data as Category[];
+        }
+        if (error) {
+          console.error('[Database Error] Failed to fetch home categories:', error.message);
+        }
+      } catch (e) {
+        console.error('[Database Error] Failed to fetch home categories:', e);
+      }
+      return [];
+    },
+    1200 // 20 mins TTL
+  );
+}
+
+/**
+ * Cached fetcher for Homepage Curved Editorial Cards Section (Woven to Be Remembered)
+ * Cache TTL: 1 sec for real-time responsiveness with L2 Redis/memory cache
+ */
+export async function getCachedEditorialCards(): Promise<EditorialCard[]> {
+  return getCachedOrFetch<EditorialCard[]>(
+    'homepage:section:editorial_cards',
+    async () => {
+      try {
+        // Slim query: active records only, ordered by display_order
+        const { data, error } = await supabaseServer
+          .from('editorial_cards')
+          .select(SLIM_EDITORIAL_CARD_FIELDS)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+          .limit(16);
+
+        if (!error && data && data.length > 0) {
+          return data as EditorialCard[];
         }
 
-        // Fallback: Query marketplace_settings key 'editorial_cards'
+        // Fallback: Query marketplace_settings key 'editorial_cards' safely
         const { data: settingData } = await supabaseServer
           .from('marketplace_settings')
           .select('setting_value')
@@ -84,7 +102,19 @@ export async function getCachedEditorialCards(): Promise<any[]> {
         if (settingData?.setting_value) {
           const parsed = JSON.parse(settingData.setting_value);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed.filter((c: any) => c.is_active !== false);
+            return parsed
+              .filter((c: any) => c.is_active !== false)
+              .map((c: any) => ({
+                id: c.id,
+                title: c.title,
+                category: c.category,
+                price: c.price,
+                badge: c.badge,
+                href: c.href,
+                image_url: c.image_url,
+                display_order: c.display_order ?? c.sort_order ?? 0,
+                is_active: c.is_active ?? true,
+              })) as EditorialCard[];
           }
         }
       } catch (e) {
@@ -202,3 +232,13 @@ export async function invalidateProductCache(productId?: string, categoryId?: st
     await invalidateCachePattern('products:*');
   }
 }
+
+/**
+ * Invalidate Curated Collections and Woven Editorial Cards cache
+ */
+export async function invalidateHomepageEditorialCache() {
+  await invalidateCacheKey('homepage:section:curated_collections');
+  await invalidateCacheKey('homepage:section:editorial_cards');
+  await invalidateCachePattern('homepage:section:*');
+}
+

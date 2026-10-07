@@ -10,6 +10,7 @@
     "shared"
   ],
   "scripts": {
+    "build": "npm run build:customer && npm run build:seller && npm run build:admin",
     "dev": "npm --prefix zebalpha-customer run dev",
     "dev:customer": "npm --prefix zebalpha-customer run dev",
     "dev:seller": "npm --prefix zebalpha-seller run dev",
