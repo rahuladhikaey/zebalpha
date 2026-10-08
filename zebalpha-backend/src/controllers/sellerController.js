@@ -283,7 +283,7 @@ export const createSupportTicket = async (req, res, next) => {
     const { data: seller } = await supabaseB
       .from('sellers')
       .select('id')
-      .eq('user_id', req.user?.id)
+      .or(`user_id.eq.${req.user?.id},id.eq.${req.user?.id}`)
       .maybeSingle();
 
     const sellerId = seller?.id || req.user?.id;

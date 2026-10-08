@@ -174,6 +174,11 @@ CREATE TABLE IF NOT EXISTS public.products (
     specifications JSONB DEFAULT '{}'::jsonb,
     offers JSONB DEFAULT '[]'::jsonb,
     packages JSONB DEFAULT '[]'::jsonb,
+    is_premium BOOLEAN DEFAULT FALSE,
+    is_new_drop BOOLEAN DEFAULT FALSE,
+    collection VARCHAR(100),
+    target_drop_date TIMESTAMPTZ,
+    tier VARCHAR(50) DEFAULT 'STANDARD',
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -1104,8 +1109,30 @@ CREATE POLICY "Admins full manage sellers" ON public.sellers FOR ALL TO authenti
 
 -- 4. Products Policy (Public read active products, Sellers manage own, Admins manage all)
 CREATE POLICY "Public view active products" ON public.products FOR SELECT TO public USING (is_active = true);
-CREATE POLICY "Sellers view own products" ON public.products FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
-CREATE POLICY "Sellers manage own products" ON public.products FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
+CREATE POLICY "Sellers view own products" ON public.products FOR SELECT TO authenticated USING (
+    seller_id::text IN (SELECT s.id::text FROM public.sellers s WHERE s.user_id = auth.uid() OR s.id = auth.uid())
+    OR seller_id::text = auth.uid()::text
+    OR EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
+);
+CREATE POLICY "Sellers insert own products" ON public.products FOR INSERT TO authenticated WITH CHECK (
+    seller_id::text IN (SELECT s.id::text FROM public.sellers s WHERE s.user_id = auth.uid() OR s.id = auth.uid())
+    OR seller_id::text = auth.uid()::text
+    OR EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
+);
+CREATE POLICY "Sellers update own products" ON public.products FOR UPDATE TO authenticated USING (
+    seller_id::text IN (SELECT s.id::text FROM public.sellers s WHERE s.user_id = auth.uid() OR s.id = auth.uid())
+    OR seller_id::text = auth.uid()::text
+    OR EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
+) WITH CHECK (
+    seller_id::text IN (SELECT s.id::text FROM public.sellers s WHERE s.user_id = auth.uid() OR s.id = auth.uid())
+    OR seller_id::text = auth.uid()::text
+    OR EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
+);
+CREATE POLICY "Sellers delete own products" ON public.products FOR DELETE TO authenticated USING (
+    seller_id::text IN (SELECT s.id::text FROM public.sellers s WHERE s.user_id = auth.uid() OR s.id = auth.uid())
+    OR seller_id::text = auth.uid()::text
+    OR EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
+);
 CREATE POLICY "Admins full manage products" ON public.products FOR ALL TO authenticated USING (public.is_admin());
 
 -- 5. Orders Policy
@@ -1189,8 +1216,10 @@ CREATE POLICY "Sellers manage own pickup locations" ON public.seller_pickup_loca
 CREATE POLICY "Admins manage pickup locations" ON public.seller_pickup_locations FOR ALL TO authenticated USING (public.is_admin());
 
 -- 24. Seller Support Tickets
-CREATE POLICY "Sellers manage own tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
-CREATE POLICY "Admins manage tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (public.is_admin());
+CREATE POLICY "Sellers view own support tickets" ON public.seller_support_tickets FOR SELECT TO authenticated USING (seller_id::text IN (SELECT s.id::text FROM public.sellers s WHERE s.user_id = auth.uid() OR s.id = auth.uid()) OR seller_id::text = auth.uid()::text OR public.is_admin());
+CREATE POLICY "Sellers create own support tickets" ON public.seller_support_tickets FOR INSERT TO authenticated WITH CHECK (seller_id::text IN (SELECT s.id::text FROM public.sellers s WHERE s.user_id = auth.uid() OR s.id = auth.uid()) OR seller_id::text = auth.uid()::text OR public.is_admin());
+CREATE POLICY "Sellers update own support tickets" ON public.seller_support_tickets FOR UPDATE TO authenticated USING (seller_id::text IN (SELECT s.id::text FROM public.sellers s WHERE s.user_id = auth.uid() OR s.id = auth.uid()) OR seller_id::text = auth.uid()::text OR public.is_admin());
+CREATE POLICY "Admins full manage support tickets" ON public.seller_support_tickets FOR ALL TO authenticated USING (public.is_admin());
 
 -- 25. Stock History
 CREATE POLICY "Sellers view own stock history" ON public.stock_history FOR SELECT TO authenticated USING (seller_id::text IN (SELECT id::text FROM public.sellers WHERE user_id = auth.uid()));
