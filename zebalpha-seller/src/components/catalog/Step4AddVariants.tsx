@@ -19,6 +19,7 @@ import {
   RefreshCw,
   AlertCircle,
   HelpCircle,
+  Star,
 } from "lucide-react";
 
 export interface CatalogVariant {
@@ -40,6 +41,8 @@ export interface Step4Props {
   formData: {
     has_variants: boolean;
     variants: CatalogVariant[];
+    default_color?: string;
+    main_color?: string;
     single_stock: string;
     single_sku: string;
     price: string;
@@ -181,8 +184,25 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       }
       grp.items.push(v);
     }
+
+    // Rearrange so default_color / main_color is ALWAYS FIRST (Index 0) (Req #1)
+    const activeDef = (formData.default_color || formData.main_color || groups[0]?.color || "").trim().toLowerCase();
+    if (activeDef) {
+      const defIdx = groups.findIndex((g) => g.color.toLowerCase() === activeDef);
+      if (defIdx > 0) {
+        const [defGrp] = groups.splice(defIdx, 1);
+        groups.unshift(defGrp);
+      }
+    }
+
     return groups;
-  }, [formData.variants]);
+  }, [formData.variants, formData.default_color, formData.main_color]);
+
+  const activeDefaultColor =
+    formData.default_color ||
+    formData.main_color ||
+    colorGroups[0]?.color ||
+    "Black";
 
   // Extract distinct sizes active across all variants
   const activeSizes = useMemo(() => {
@@ -245,11 +265,17 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       gallery: [],
     }));
 
-    onChange({
+    const updates: Partial<Step4Props["formData"]> = {
       has_variants: true,
       variants: [...formData.variants, ...newVariants],
-    });
+    };
 
+    if (!formData.default_color && !formData.main_color) {
+      updates.default_color = cleanName;
+      updates.main_color = cleanName;
+    }
+
+    onChange(updates);
     showSuccessBanner(`Added "${cleanName}" with ${targetSizes.length} sizes`);
   };
 
@@ -257,7 +283,16 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     const updated = formData.variants.filter(
       (v) => (v.color || "Black").trim().toLowerCase() !== colorName.trim().toLowerCase()
     );
-    onChange({ variants: updated });
+    const updates: Partial<Step4Props["formData"]> = { variants: updated };
+    if (
+      formData.default_color?.toLowerCase() === colorName.toLowerCase() ||
+      formData.main_color?.toLowerCase() === colorName.toLowerCase()
+    ) {
+      const remainingColor = updated[0]?.color || "";
+      updates.default_color = remainingColor;
+      updates.main_color = remainingColor;
+    }
+    onChange(updates);
     showSuccessBanner(`Removed color "${colorName}"`);
   };
 
@@ -822,6 +857,65 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                     </button>
                   </div>
                 </div>
+
+                {/* 1.5 MAIN / DEFAULT PRODUCT COLOR (Req #1) */}
+                {colorGroups.length > 0 && (
+                  <div className="border-t border-[#1e1e24] pt-3.5 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                      <div>
+                        <span className="text-xs font-black text-amber-400 flex items-center gap-1.5 uppercase tracking-wide">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          MAIN / DEFAULT PRODUCT COLOR (Always 1st for Customers):
+                        </span>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                          Select which color is the primary display variant. This color will be placed at index 0 and loaded first on the customer storefront.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-black text-black bg-amber-400 px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 self-start sm:self-auto shadow-sm">
+                        ★ 1st: {activeDefaultColor}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                      {colorGroups.map((g) => {
+                        const isMain = activeDefaultColor.toLowerCase() === g.color.toLowerCase();
+                        return (
+                          <button
+                            key={g.color}
+                            type="button"
+                            onClick={() => {
+                              onChange({
+                                default_color: g.color,
+                                main_color: g.color,
+                              });
+                              showSuccessBanner(`"${g.color}" set as Main / Default Product Color (Index 0)`);
+                            }}
+                            className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border cursor-pointer ${
+                              isMain
+                                ? "bg-amber-500 text-black border-amber-300 ring-2 ring-amber-400/50 shadow-md font-black"
+                                : "bg-[#141418] text-zinc-300 border-[#27272a] hover:border-zinc-500 hover:text-white"
+                            }`}
+                          >
+                            <span
+                              className="w-3 h-3 rounded-full border border-black/30 shrink-0"
+                              style={{ backgroundColor: g.color_hex || "#3b82f6" }}
+                            />
+                            <span>{g.color}</span>
+                            {isMain ? (
+                              <span className="text-[8px] bg-black text-amber-300 px-1.5 py-0.5 rounded font-black uppercase tracking-tight">
+                                ★ Main (1st)
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-zinc-500">
+                                Make Main
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* 2. Reusable Size Master (Req #12) */}
                 <div className="border-t border-[#1e1e24] pt-3">

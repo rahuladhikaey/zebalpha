@@ -61,8 +61,11 @@ export type Product = {
   is_new_drop?: boolean;
   collection?: string;
   drop_date?: string;
-  target_drop_date?: string;
   tier?: 'STANDARD' | 'PREMIUM' | 'LIMITED' | string;
+  default_color?: string;
+  main_color?: string;
+  mainColorId?: string;
+  defaultColorId?: string;
   created_at?: string;
   updated_at?: string;
 };

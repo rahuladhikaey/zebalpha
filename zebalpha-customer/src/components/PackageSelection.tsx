@@ -21,6 +21,7 @@ interface PackageSelectionProps {
   validationError?: string;
   displayPrice?: number;
   displayMrp?: number;
+  defaultColorName?: string;
 }
 
 const COLOR_HEX_MAP: Record<string, string> = {
@@ -60,6 +61,7 @@ export function PackageSelection({
   validationError,
   displayPrice,
   displayMrp,
+  defaultColorName,
 }: PackageSelectionProps) {
   const [showChartModal, setShowChartModal] = useState(false);
   const [activeUnit, setActiveUnit] = useState<"inches" | "cm">(
@@ -96,6 +98,17 @@ export function PackageSelection({
     });
 
     const colors = Array.from(cMap.keys());
+    // Prioritize Main / Default product color: ALWAYS FIRST (Req #1)
+    if (defaultColorName) {
+      const defIdx = colors.findIndex(
+        (c) => c.toLowerCase() === defaultColorName.toLowerCase()
+      );
+      if (defIdx > 0) {
+        const [def] = colors.splice(defIdx, 1);
+        colors.unshift(def);
+      }
+    }
+
     const isMultiColor =
       colors.length > 1 &&
       !(colors.length === 1 && (colors[0] === "Default" || colors[0] === "Standard"));
@@ -140,7 +153,7 @@ export function PackageSelection({
       allDistinctSizes: sortedSizes,
       hasMultipleColors: isMultiColor,
     };
-  }, [packages]);
+  }, [packages, defaultColorName]);
 
   // Packages under the currently active color
   const packagesInActiveColor = useMemo(() => {
@@ -245,16 +258,6 @@ export function PackageSelection({
               )}
             </span>
             <div className="flex items-center gap-2">
-              {selectedColor && (
-                <button
-                  type="button"
-                  onClick={() => onColorChange(selectedColor)}
-                  className="text-[11px] font-bold text-zinc-400 hover:text-white underline decoration-zinc-600 hover:decoration-white transition-colors cursor-pointer"
-                  title="Click to view main parent product image"
-                >
-                  View Main Product
-                </button>
-              )}
               <span className="text-[11px] font-bold text-zinc-500">
                 {availableColors.length} {availableColors.length === 1 ? "Color" : "Colors"}
               </span>

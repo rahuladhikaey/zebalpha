@@ -77,6 +77,8 @@ export interface MasterCatalogFormState {
   // Step 4: Variants & Size Chart
   has_variants: boolean;
   variants: CatalogVariant[];
+  default_color?: string;
+  main_color?: string;
   single_stock: string;
   single_sku: string;
   size_chart_columns?: string[];
@@ -135,6 +137,8 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
 
   has_variants: false,
   variants: [],
+  default_color: "",
+  main_color: "",
   single_stock: "20",
   single_sku: "",
 };
@@ -292,6 +296,8 @@ export default function CatalogUploadWizardModal({
 
         has_variants: hasVars,
         variants: loadedVariants,
+        default_color: (editingProduct as any).default_color || (editingProduct.specifications as any)?.default_color || editingProduct.packages?.[0]?.color || loadedVariants[0]?.color || "",
+        main_color: (editingProduct as any).main_color || (editingProduct as any).default_color || (editingProduct.specifications as any)?.main_color || loadedVariants[0]?.color || "",
         single_stock: String(editingProduct.stock ?? 20),
         single_sku: editingProduct.sku || "",
       });
@@ -634,9 +640,37 @@ export default function CatalogUploadWizardModal({
       }
       if (!effectiveMrp) effectiveMrp = effectivePrice;
 
+      // Resolve Main / Default Product Color (Req #1)
+      const activeDefaultCol = (
+        form.default_color ||
+        form.main_color ||
+        processedVariants[0]?.color ||
+        "Black"
+      ).trim();
+
+      // Sort variants so variants of the Main / Default Color are ALWAYS FIRST (Index 0)
+      const sortedVariants = [...processedVariants].sort((a, b) => {
+        const aIsDef = (a.color || "").trim().toLowerCase() === activeDefaultCol.toLowerCase();
+        const bIsDef = (b.color || "").trim().toLowerCase() === activeDefaultCol.toLowerCase();
+        if (aIsDef && !bIsDef) return -1;
+        if (!aIsDef && bIsDef) return 1;
+        return 0;
+      });
+
+      // Synchronize parent product cover image & gallery with the Main / Default Color
+      const defaultVariant = sortedVariants.find(
+        (v) => (v.color || "").trim().toLowerCase() === activeDefaultCol.toLowerCase()
+      );
+      const defaultColorCover = defaultVariant?.image_url || defaultVariant?.gallery?.[0] || coverImageUrl;
+      const defaultColorGallery = defaultVariant?.gallery && defaultVariant.gallery.length > 0
+        ? defaultVariant.gallery
+        : uploadedImagesList;
+
+      const finalProductCover = defaultColorCover || coverImageUrl;
+
       // Build packages JSON array for multi-color and multi-size matrix
       const computedPackages = hasVariants
-        ? processedVariants.map((v, idx) => ({
+        ? sortedVariants.map((v, idx) => ({
             id: v.id || `pkg_${idx}_${Date.now()}`,
             name: v.color && v.color !== "Default" && v.color !== "Standard"
               ? `${v.color} / ${v.size}`
@@ -648,8 +682,8 @@ export default function CatalogUploadWizardModal({
             mrp: parseFloat(v.mrp) || effectiveMrp || parseFloat(v.price) || 0,
             stock: parseInt(v.stock) || 0,
             sku: v.sku || `${form.style_code || 'SKU'}_${v.color || 'COLOR'}_${v.size}`,
-            image_url: v.image_url || coverImageUrl,
-            gallery: Array.isArray(v.gallery) && v.gallery.length > 0 ? v.gallery : (v.image_url ? [v.image_url] : [coverImageUrl]),
+            image_url: v.image_url || finalProductCover,
+            gallery: Array.isArray(v.gallery) && v.gallery.length > 0 ? v.gallery : (v.image_url ? [v.image_url] : [finalProductCover]),
             isBestSeller: idx === 0,
           }))
         : hasSizeDetails
@@ -705,9 +739,19 @@ export default function CatalogUploadWizardModal({
         price: effectivePrice,
         mrp: effectiveMrp,
         category_id: primaryCatId,
-        image_url: coverImageUrl,
-        images: uploadedImagesList,
-        specifications: specificationsData,
+        image_url: finalProductCover,
+        images: defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList,
+        default_color: activeDefaultCol,
+        main_color: activeDefaultCol,
+        mainColorId: activeDefaultCol,
+        defaultColorId: activeDefaultCol,
+        specifications: {
+          ...specificationsData,
+          default_color: activeDefaultCol,
+          main_color: activeDefaultCol,
+          mainColorId: activeDefaultCol,
+          defaultColorId: activeDefaultCol,
+        },
         brand: form.brand || "zebalpha",
         stock: calculatedStock,
         sku: form.has_variants ? (form.style_code || "MULTI_VARIANT") : (form.single_sku || form.style_code || `SKU_${Date.now()}`),

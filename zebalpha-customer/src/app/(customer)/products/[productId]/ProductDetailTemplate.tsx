@@ -97,11 +97,40 @@ export default function ProductDetailTemplate({
     });
 
     const groups = Array.from(map.values());
-    const available = groups.find((g) => g.isAvailable);
-    const defColor = available?.colorName || groups[0]?.colorName || "";
+
+    // Resolve Main / Default Product Color (Priority: 1. Main/default color -> ALWAYS FIRST)
+    const mainColorIdentifier = (
+      product.default_color ||
+      product.main_color ||
+      product.mainColorId ||
+      product.defaultColorId ||
+      (product.specifications as any)?.default_color ||
+      (product.specifications as any)?.main_color ||
+      (product.specifications as any)?.mainColorId ||
+      (product.specifications as any)?.defaultColorId ||
+      // Match parent image with variant:
+      normalizedPackages.find(
+        (p) => p.image_url && (p.image_url === product.image_url || p.gallery?.includes(product.image_url))
+      )?.color ||
+      // Fallback: first package color
+      normalizedPackages[0]?.color ||
+      ""
+    ).trim().toLowerCase();
+
+    if (mainColorIdentifier) {
+      const mainIdx = groups.findIndex(
+        (g) => g.colorName.toLowerCase() === mainColorIdentifier
+      );
+      if (mainIdx > 0) {
+        const [mainGrp] = groups.splice(mainIdx, 1);
+        groups.unshift(mainGrp);
+      }
+    }
+
+    const defColor = groups[0]?.colorName || "";
 
     return { colorGroups: groups, defaultColorName: defColor };
-  }, [normalizedPackages]);
+  }, [normalizedPackages, product]);
 
   const hasVariants = normalizedPackages.length > 0;
   const hasMultipleColors = useMemo(() => {
@@ -115,20 +144,17 @@ export default function ProductDetailTemplate({
   }, [colorGroups]);
 
   // 3. Single Source of Truth State
-  // When a product has multiple color variants, do NOT force-select on initial load.
-  // The page must display the 1st MAIN PARENT PRODUCT (the exact image from the feed card) first!
-  const [selectedColor, setSelectedColor] = useState<string>(
-    hasMultipleColors ? "" : defaultColorName
-  );
+  // Initial color: The Main / Default Product Color is ALWAYS loaded first (Req #1)
+  const [selectedColor, setSelectedColor] = useState<string>(defaultColorName);
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [validationError, setValidationError] = useState<string>("");
 
-  // Sync selectedColor ONLY if there are no multiple colors (e.g. single default package)
+  // Sync selectedColor to defaultColorName on mount or when defaultColorName resolves
   useEffect(() => {
-    if (!hasMultipleColors && !selectedColor && defaultColorName) {
+    if (!selectedColor && defaultColorName) {
       setSelectedColor(defaultColorName);
     }
-  }, [hasMultipleColors, defaultColorName, selectedColor]);
+  }, [defaultColorName, selectedColor]);
 
   // Active color group - ONLY active if a color is explicitly selected
   const currentColorGroup = useMemo(() => {
@@ -150,11 +176,13 @@ export default function ProductDetailTemplate({
   }, [currentColorGroup, selectedSize]);
 
   // Handle color change:
-  // If clicking the currently selected color, toggle it off to return to main parent product view!
+  // When customer clicks another color:
+  // Black -> Red:
+  // Selected Color = Red, Main Image = Red image, Gallery = Red gallery, Sizes = Red sizes, Price/Stock = Red price/stock.
+  // The newly selected color becomes active.
+  // The color selector ordering itself remains: Black, Red, Olive Green, Navy Blue.
   const handleColorChange = (newColor: string) => {
-    if (selectedColor.toLowerCase() === newColor.toLowerCase()) {
-      setSelectedColor("");
-      setValidationError("");
+    if (!newColor || selectedColor.toLowerCase() === newColor.toLowerCase()) {
       return;
     }
 
@@ -181,9 +209,9 @@ export default function ProductDetailTemplate({
   };
 
   // Color-specific gallery images for the main hero carousel
-  // When no color is selected, ALWAYS display the 1st main parent product image from the feed card!
+  // When page loads with the main product color selected, displays that color's primary image and gallery!
   const images = useMemo(() => {
-    if (selectedColor && currentColorGroup && currentColorGroup.gallery.length > 0) {
+    if (currentColorGroup && currentColorGroup.gallery.length > 0) {
       if (selectedVariant?.image_url && currentColorGroup.gallery.includes(selectedVariant.image_url)) {
         return [
           selectedVariant.image_url,
@@ -193,18 +221,18 @@ export default function ProductDetailTemplate({
       return currentColorGroup.gallery;
     }
 
-    if (selectedColor && currentColorGroup?.thumbnail) {
+    if (currentColorGroup?.thumbnail) {
       return [currentColorGroup.thumbnail];
     }
 
-    // Default: Show the 1st main parent product image first!
+    // Default: Show the main parent product images
     const parentImages = normalizeProductImages(product);
     if (parentImages.length > 0) {
       return parentImages;
     }
 
     return [product.image_url || "/placeholder.jpg"].filter(Boolean);
-  }, [selectedColor, currentColorGroup, selectedVariant, product]);
+  }, [currentColorGroup, selectedVariant, product]);
 
   // Price & MRP
   const displayPrice = selectedVariant
@@ -451,6 +479,7 @@ export default function ProductDetailTemplate({
                 selectedVariant={selectedVariant}
                 onColorChange={handleColorChange}
                 onSizeSelect={handleSizeSelect}
+                defaultColorName={defaultColorName}
                 sizeChart={(product.specifications as any)?.size_chart}
                 validationError={validationError}
                 displayPrice={displayPrice}
