@@ -76,6 +76,22 @@ export const apiService = {
     const query = new URLSearchParams();
     if (params.sellerId) query.append('sellerId', params.sellerId);
     return apiFetch(`/api/settlements/revenue/summary?${query.toString()}`);
-  }
+  },
+
+  // Razorpay Route Marketplace Settlements
+  getRouteBatches: (params: any = {}) => {
+    const query = new URLSearchParams();
+    Object.keys(params).forEach(k => {
+      if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+        query.append(k, params[k]);
+      }
+    });
+    return apiFetch(`/api/settlements/batches?${query.toString()}`);
+  },
+  holdRouteBatch: (id: string, reason: string) => apiFetch(`/api/settlements/batches/${id}/hold`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  releaseRouteBatch: (id: string, reason?: string) => apiFetch(`/api/settlements/batches/${id}/release`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  reconcileRouteBatch: (id: string) => apiFetch(`/api/settlements/batches/${id}/reconcile`, { method: 'POST' }),
+  triggerRouteSweep: () => apiFetch('/api/settlements/sweep/trigger', { method: 'POST' })
 };
+
 

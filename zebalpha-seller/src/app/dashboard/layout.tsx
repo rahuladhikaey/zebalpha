@@ -165,7 +165,7 @@ export default function DashboardLayout({
     router.replace("/");
   };
 
-  const navItems = [
+  const navItems: Array<{ name: string; href: string; icon: any; badge?: string }> = [
     { name: "Dashboard",     href: "/dashboard",               icon: LayoutDashboard },
     { name: "Products",      href: "/dashboard/products",      icon: ShoppingBag },
     { name: "Collections",   href: "/dashboard/collections",   icon: Sparkles },

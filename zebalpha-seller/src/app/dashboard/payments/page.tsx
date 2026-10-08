@@ -22,7 +22,8 @@ import {
   Info, 
   Wallet, 
   Smartphone, 
-  AlertTriangle 
+  AlertTriangle,
+  ShieldCheck
 } from "lucide-react";
 import { 
   LedgerTransaction, 
@@ -51,6 +52,7 @@ export default function SellerPaymentsPage() {
     net_seller_earnings: 0,
     total_settled: 0,
     available_balance: 0,
+    reserved_balance: 0,
     pending_settlement: 0,
     on_hold_balance: 0
   });
@@ -88,6 +90,9 @@ export default function SellerPaymentsPage() {
   const [withdrawError, setWithdrawError] = useState("");
   const [withdrawSuccessMessage, setWithdrawSuccessMessage] = useState("");
 
+  const [sellerConfig, setSellerConfig] = useState<any>(null);
+  const [routeOverview, setRouteOverview] = useState<any>(null);
+
   // Fetch financial data from server
   async function loadFinancialData() {
     try {
@@ -100,6 +105,8 @@ export default function SellerPaymentsPage() {
         if (json.transactions) setTransactions(json.transactions);
         if (json.settlements) setSettlements(json.settlements);
         if (json.settlementMethods) setSettlementMethods(json.settlementMethods);
+        if (json.sellerConfig) setSellerConfig(json.sellerConfig);
+        if (json.routeOverview) setRouteOverview(json.routeOverview);
         if (json.activeSettlementMethod) {
           setActiveSettlementMethod(json.activeSettlementMethod);
           if (json.activeSettlementMethod.upi_id || json.activeSettlementMethod.destination_raw) {
@@ -361,6 +368,48 @@ export default function SellerPaymentsPage() {
             <span>Settlement Statement</span>
           </a>
         </div>
+      </div>
+
+      {/* ── RAZORPAY ROUTE AUTOMATED SETTLEMENT STATUS BANNER ─────────────────── */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-5 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className={`p-3 rounded-2xl border ${
+            sellerConfig?.route_onboarding_status === 'ACTIVE' 
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+              : sellerConfig?.route_onboarding_status === 'PENDING_VERIFICATION' 
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' 
+              : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+          }`}>
+            <ShieldCheck size={24} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-white">Razorpay Route Marketplace Settlement</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                sellerConfig?.route_onboarding_status === 'ACTIVE'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : sellerConfig?.route_onboarding_status === 'PENDING_VERIFICATION'
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                  : 'bg-zinc-800 border-zinc-700 text-zinc-300'
+              }`}>
+                {sellerConfig?.route_onboarding_status || 'NOT_STARTED'}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              {sellerConfig?.route_onboarding_status === 'ACTIVE'
+                ? `Automated hourly settlements via ${sellerConfig?.route_settlement_method || 'UPI'} (${sellerConfig?.route_upi_id || activeSettlementMethod?.masked_destination || 'Verified Destination'}). Hold window: ${sellerConfig?.settlement_hold_days || 7} days post-delivery.`
+                : 'Complete payment onboarding to enable automated hands-free settlement into your verified account.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowEditSettlementModal(true)}
+          className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-bold transition flex items-center gap-1.5 self-start md:self-auto"
+        >
+          <span>{sellerConfig?.route_onboarding_status === 'ACTIVE' ? 'Manage Settlement Method' : 'Configure Settlement Setup'}</span>
+          <ChevronRight size={14} />
+        </button>
       </div>
 
       {/* ── REVENUE & SETTLEMENT KPI CARDS ────────────────────────────────────────── */}

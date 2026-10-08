@@ -129,11 +129,97 @@ async function processCommerceEvent(row) {
     return { status: 'PROCESSED' };
   }
 
+  // Razorpay Route Transfer Events
+  if (event === 'transfer.processed' && payload?.transfer?.entity) {
+    const transfer = payload.transfer.entity;
+    const settlementNumber = transfer.notes?.settlement_number;
+    const transferId = transfer.id;
+    const utr = transfer.settlement_id || transfer.recipient_settlement_id || null;
+
+    if (settlementNumber) {
+      const { data: settlement } = await supabaseA
+        .from('seller_settlements')
+        .select('id')
+        .eq('settlement_number', settlementNumber)
+        .maybeSingle();
+
+      if (settlement) {
+        await supabaseA.rpc('finalize_route_settlement_success', {
+          p_settlement_id: settlement.id,
+          p_transfer_id: transferId,
+          p_utr_number: utr,
+          p_provider_status: 'processed',
+          p_source: 'WEBHOOK_TRANSFER_PROCESSED'
+        });
+        console.log(`✓ [Webhook] Settled batch ${settlementNumber} from transfer.processed event`);
+      }
+    }
+    return { status: 'PROCESSED' };
+  }
+
+  if (event === 'transfer.failed' && payload?.transfer?.entity) {
+    const transfer = payload.transfer.entity;
+    const settlementNumber = transfer.notes?.settlement_number;
+    if (settlementNumber) {
+      await supabaseA.from('seller_settlements')
+        .update({ 
+          status: 'FAILED',
+          failure_reason: transfer.error?.description || 'Route transfer failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('settlement_number', settlementNumber);
+    }
+    return { status: 'PROCESSED' };
+  }
+
+  // Razorpay Route Linked Account Events
+  if (event === 'account.activated' && payload?.account?.entity) {
+    const account = payload.account.entity;
+    await supabaseA.from('sellers')
+      .update({
+        route_onboarding_status: 'ACTIVE',
+        route_verification_status: 'VERIFIED',
+        updated_at: new Date().toISOString()
+      })
+      .eq('razorpay_account_id', account.id);
+    return { status: 'PROCESSED' };
+  }
+
+  if (event === 'account.under_review' && payload?.account?.entity) {
+    const account = payload.account.entity;
+    await supabaseA.from('sellers')
+      .update({
+        route_onboarding_status: 'PENDING_VERIFICATION',
+        route_verification_status: 'UNDER_REVIEW',
+        updated_at: new Date().toISOString()
+      })
+      .eq('razorpay_account_id', account.id);
+    return { status: 'PROCESSED' };
+  }
+
+  if (event === 'account.suspended' && payload?.account?.entity) {
+    const account = payload.account.entity;
+    await supabaseA.from('sellers')
+      .update({
+        route_onboarding_status: 'SUSPENDED',
+        updated_at: new Date().toISOString()
+      })
+      .eq('razorpay_account_id', account.id);
+    return { status: 'PROCESSED' };
+  }
+
   if (event === 'payment.captured' && payload?.payment?.entity) {
     const payment = payload.payment.entity;
     const orderId = payment.notes?.order_id || payment.notes?.orderId;
     if (orderId) {
       await supabaseA.from('orders').update({ payment_status: 'COMPLETE', payment_id: payment.id }).eq('id', orderId);
+      // Trigger order financial ledger recording
+      try {
+        const { recordFinancialLedgerForOrder } = await import('./orderFinancialService.js');
+        await recordFinancialLedgerForOrder(orderId);
+      } catch (fErr) {
+        console.warn('[Webhook Order Financial Notice]:', fErr?.message);
+      }
     }
     return { status: 'PROCESSED' };
   }

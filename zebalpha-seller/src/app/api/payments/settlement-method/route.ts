@@ -118,13 +118,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: methodErr.message }, { status: 500 });
     }
 
-    // Sync UPI to seller profile table for quick referencing
+    // Sync UPI to seller profile table for quick referencing & Razorpay Route settlement
     await supabaseServer
       .from("sellers")
       .update({ 
         phonepay_number: vpa, 
         phonepay_no: vpa,
-        upi_id: vpa
+        upi_id: vpa,
+        route_settlement_method: "UPI",
+        route_upi_id: vpa,
+        route_onboarding_status: "ACTIVE",
+        route_verification_status: "VERIFIED",
+        auto_settlement_enabled: true,
+        updated_at: new Date().toISOString()
       })
       .eq("id", sellerId);
 

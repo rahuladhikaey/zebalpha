@@ -12,7 +12,16 @@ import {
   getSellerSettlements, 
   getSettlementDetails, 
   paySettlement, 
-  getRevenueSummary 
+  getRevenueSummary,
+  sellerRouteOnboard,
+  getSellerRouteSummary,
+  getSellerRouteBatches,
+  getSellerRouteLedger,
+  getRouteBatches,
+  adminHoldSettlementBatch,
+  adminReleaseSettlementBatch,
+  adminReconcileSettlementBatch,
+  adminTriggerSettlementSweep
 } from '../controllers/settlementController.js';
 import { authenticateJWT, requireRole } from '../middleware/auth.js';
 import { ROLES } from '../constants/index.js';
@@ -46,6 +55,33 @@ router.get('/audit-logs', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), get
 router.post('/worker/trigger', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), triggerPayoutWorker);
 
 // ==============================================================================
+// RAZORPAY ROUTE MARKETPLACE SETTLEMENT ROUTES
+// ==============================================================================
+
+// Seller Route Onboarding (UPI / Bank Account)
+router.post('/route/onboard', authenticateJWT, requireRole([ROLES.SELLER]), sellerRouteOnboard);
+router.post('/seller/onboarding', authenticateJWT, requireRole([ROLES.SELLER]), sellerRouteOnboard);
+
+// Seller Financial Overview & Real-Time Minor Units Summary
+router.get('/route/summary', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), getSellerRouteSummary);
+router.get('/seller/summary', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), getSellerRouteSummary);
+
+// Seller Route Settlement Batches History
+router.get('/route/batches', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), getSellerRouteBatches);
+router.get('/seller/batches', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), getSellerRouteBatches);
+
+// Seller Double-Entry Financial Ledger
+router.get('/route/ledger', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), getSellerRouteLedger);
+router.get('/seller/ledger', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, ROLES.SELLER]), getSellerRouteLedger);
+
+// Super Admin Route Settlement Batches Management
+router.get('/batches', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), getRouteBatches);
+router.post('/batches/:id/hold', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), adminHoldSettlementBatch);
+router.post('/batches/:id/release', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), adminReleaseSettlementBatch);
+router.post('/batches/:id/reconcile', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), adminReconcileSettlementBatch);
+router.post('/sweep/trigger', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), adminTriggerSettlementSweep);
+
+// ==============================================================================
 // LEGACY WEEKLY SETTLEMENTS & REVENUE SUMMARY
 // ==============================================================================
 router.get('/', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), getSettlements);
@@ -55,3 +91,4 @@ router.post('/:id/pay', authenticateJWT, requireRole([ROLES.SUPER_ADMIN]), paySe
 router.get('/revenue/summary', authenticateJWT, getRevenueSummary);
 
 export default router;
+

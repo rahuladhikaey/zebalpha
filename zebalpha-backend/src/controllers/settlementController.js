@@ -3,6 +3,8 @@ import { HTTP_STATUS } from '../constants/index.js';
 import { sendSellerStatusEmail } from '../utils/email.js';
 import { reconcilePayout, reconcileAllActivePayouts } from '../services/reconciliationService.js';
 import { processPayoutQueueBatch, detectAndReconcileStuckPayouts } from '../services/payoutQueueService.js';
+import { createLinkedAccount, getTransferDetails, getLinkedAccount } from '../services/razorpayRouteService.js';
+import { evaluateDeliveredOrders, processEligibleSettlementBatches } from '../services/settlementEligibilityService.js';
 
 /**
  * Fetch Comprehensive Admin Settlement & Payout Overview
@@ -633,3 +635,582 @@ export const getRevenueSummary = async (req, res, next) => {
     next(err);
   }
 };
+
+// ==============================================================================
+// RAZORPAY ROUTE MARKETPLACE SETTLEMENT CONTROLLERS
+// ==============================================================================
+
+/**
+ * Robust seller identity resolver from authenticated JWT
+ * Never trusts seller_id from client body/query
+ */
+async function resolveSellerId(req) {
+  if (req.sellerId) return req.sellerId;
+  const userId = req.user?.id;
+  if (!userId) return null;
+  const { data: seller } = await supabaseA
+    .from('sellers')
+    .select('id')
+    .or(`user_id.eq.${userId},id.eq.${userId}`)
+    .maybeSingle();
+  return seller?.id || userId;
+}
+
+/**
+ * 1. Onboard / Configure Seller for Razorpay Route Settlement (UPI or Bank)
+ * POST /api/settlements/route/onboard or /api/v1/seller/settlement/onboarding
+ */
+export const sellerRouteOnboard = async (req, res, next) => {
+  try {
+    const sellerId = await resolveSellerId(req);
+    if (!sellerId) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, error: 'Unauthorized seller account' });
+    }
+
+    const { data: seller, error: sErr } = await supabaseA
+      .from('sellers')
+      .select('*')
+      .eq('id', sellerId)
+      .single();
+
+    if (sErr || !seller) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Seller record not found' });
+    }
+
+    const { 
+      settlement_method = 'UPI', 
+      upi_id, 
+      beneficiary_name,
+      bank_account,
+      business_type = 'individual',
+      legal_name
+    } = req.body;
+
+    const normalizedMethod = String(settlement_method).toUpperCase();
+    if (!['UPI', 'BANK_ACCOUNT'].includes(normalizedMethod)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
+        success: false, 
+        error: 'Invalid settlement method. Supported methods: UPI, BANK_ACCOUNT' 
+      });
+    }
+
+    if (normalizedMethod === 'UPI') {
+      if (!upi_id || !upi_id.includes('@')) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
+          success: false, 
+          error: 'A valid UPI ID (e.g. merchant@upi) is required for UPI settlement' 
+        });
+      }
+    } else if (normalizedMethod === 'BANK_ACCOUNT') {
+      if (!bank_account?.account_number || !bank_account?.ifsc_code) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
+          success: false, 
+          error: 'Bank account number and IFSC code are required for Bank Account settlement' 
+        });
+      }
+    }
+
+    // Call Razorpay Route Linked Account Onboarding
+    const routeRes = await createLinkedAccount(seller, {
+      legal_name: legal_name || beneficiary_name || seller.business_name,
+      business_type,
+      settlement_method: normalizedMethod,
+      upi_id: normalizedMethod === 'UPI' ? upi_id : null,
+      beneficiary_name: beneficiary_name || seller.business_name,
+      bank_account: normalizedMethod === 'BANK_ACCOUNT' ? bank_account : null,
+      email: seller.email,
+      phone: seller.phone_number || seller.mobile_number
+    });
+
+    // Update sellers table with safe metadata only
+    const updatePayload = {
+      razorpay_account_id: routeRes.accountId,
+      route_onboarding_status: routeRes.status || 'PENDING_VERIFICATION',
+      route_verification_status: routeRes.verificationStatus || 'UNDER_REVIEW',
+      route_settlement_method: normalizedMethod,
+      route_upi_id: normalizedMethod === 'UPI' ? upi_id : null,
+      route_bank_account: normalizedMethod === 'BANK_ACCOUNT' ? {
+        masked_account: `****${String(bank_account.account_number).slice(-4)}`,
+        ifsc: bank_account.ifsc_code,
+        beneficiary_name: beneficiary_name || seller.business_name
+      } : null,
+      auto_settlement_enabled: true,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: updErr } = await supabaseA
+      .from('sellers')
+      .update(updatePayload)
+      .eq('id', sellerId);
+
+    if (updErr) throw updErr;
+
+    // Log admin/seller audit
+    await supabaseA.from('admin_audit_logs').insert({
+      admin_id: req.user?.id,
+      admin_email: req.user?.email || seller.email,
+      action: 'SELLER_ROUTE_ONBOARDED',
+      target_seller_id: sellerId,
+      new_state: {
+        accountId: routeRes.accountId,
+        method: normalizedMethod,
+        status: updatePayload.route_onboarding_status
+      },
+      reason: `Seller onboarded to Razorpay Route with ${normalizedMethod}`,
+      ip_address: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      user_agent: req.headers['user-agent'] || 'API'
+    });
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Razorpay Route linked account configured successfully.',
+      data: {
+        accountId: routeRes.accountId,
+        onboardingStatus: updatePayload.route_onboarding_status,
+        verificationStatus: updatePayload.route_verification_status,
+        settlementMethod: normalizedMethod,
+        isMock: !!routeRes.isMock,
+        isFallback: !!routeRes.isFallback
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 2. Fetch Seller Route Financial Summary (Derived from double-entry ledger & overview view)
+ * GET /api/settlements/route/summary or /api/v1/seller/finance/summary
+ */
+export const getSellerRouteSummary = async (req, res, next) => {
+  try {
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const sellerId = isSuperAdmin && req.query.sellerId 
+      ? req.query.sellerId 
+      : await resolveSellerId(req);
+
+    if (!sellerId) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, error: 'Unauthorized seller account' });
+    }
+
+    const { data: summary, error } = await supabaseA
+      .from('seller_route_financial_overview')
+      .select('*')
+      .eq('seller_id', sellerId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[Route Overview Query Warning]:', error.message);
+    }
+
+    // Also get seller's Route setup details
+    const { data: seller } = await supabaseA
+      .from('sellers')
+      .select('id, business_name, razorpay_account_id, route_onboarding_status, route_verification_status, route_settlement_method, route_upi_id, route_bank_account, settlement_hold_days, auto_settlement_enabled, is_suspended, status')
+      .eq('id', sellerId)
+      .single();
+
+    const overview = summary || {
+      seller_id: sellerId,
+      gross_sales_minor: 0,
+      platform_commission_minor: 0,
+      fixed_fees_minor: 0,
+      refund_adjustments_minor: 0,
+      eligible_settlement_minor: 0,
+      pending_settlement_minor: 0,
+      settled_amount_minor: 0,
+      reserved_balance_minor: 0,
+      net_earnings_minor: 0,
+      available_balance_minor: 0
+    };
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: {
+        ...overview,
+        // Minor units (paise)
+        currency: 'INR',
+        // Rupee formatting for display
+        gross_sales: Number((Number(overview.gross_sales_minor || 0) / 100).toFixed(2)),
+        platform_commission: Number((Number(overview.platform_commission_minor || 0) / 100).toFixed(2)),
+        fixed_fees: Number((Number(overview.fixed_fees_minor || 0) / 100).toFixed(2)),
+        refund_adjustments: Number((Number(overview.refund_adjustments_minor || 0) / 100).toFixed(2)),
+        eligible_settlement: Number((Number(overview.eligible_settlement_minor || 0) / 100).toFixed(2)),
+        pending_settlement: Number((Number(overview.pending_settlement_minor || 0) / 100).toFixed(2)),
+        settled_amount: Number((Number(overview.settled_amount_minor || 0) / 100).toFixed(2)),
+        reserved_balance: Number((Number(overview.reserved_balance_minor || 0) / 100).toFixed(2)),
+        net_earnings: Number((Number(overview.net_earnings_minor || 0) / 100).toFixed(2)),
+        available_balance: Number((Number(overview.available_balance_minor || 0) / 100).toFixed(2)),
+        sellerConfig: seller || null
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 3. Fetch Seller Route Batches History
+ * GET /api/settlements/route/batches or /api/v1/seller/settlements
+ */
+export const getSellerRouteBatches = async (req, res, next) => {
+  try {
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const sellerId = isSuperAdmin && req.query.sellerId 
+      ? req.query.sellerId 
+      : await resolveSellerId(req);
+
+    if (!sellerId) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, error: 'Unauthorized seller account' });
+    }
+
+    const { status, page = 1, limit = 50 } = req.query;
+
+    let query = supabaseA
+      .from('seller_settlements')
+      .select('*, settlement_orders(*)', { count: 'exact' })
+      .eq('seller_id', sellerId);
+
+    if (status && status !== 'ALL') {
+      query = query.eq('status', status.toUpperCase());
+    }
+
+    const from = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const to = from + parseInt(limit, 10) - 1;
+    query = query.order('created_at', { ascending: false }).range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      count: count || data?.length || 0,
+      data: data || []
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 4. Fetch Seller Route Financial Ledger (Double-Entry Log)
+ * GET /api/settlements/route/ledger or /api/v1/seller/finance/transactions
+ */
+export const getSellerRouteLedger = async (req, res, next) => {
+  try {
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+    const sellerId = isSuperAdmin && req.query.sellerId 
+      ? req.query.sellerId 
+      : await resolveSellerId(req);
+
+    if (!sellerId) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, error: 'Unauthorized seller account' });
+    }
+
+    const { type, status, page = 1, limit = 50 } = req.query;
+
+    let query = supabaseA
+      .from('seller_financial_ledger')
+      .select('*', { count: 'exact' })
+      .eq('seller_id', sellerId);
+
+    if (type && type !== 'ALL') {
+      query = query.eq('transaction_type', type.toUpperCase());
+    }
+    if (status && status !== 'ALL') {
+      query = query.eq('status', status.toUpperCase());
+    }
+
+    const from = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const to = from + parseInt(limit, 10) - 1;
+    query = query.order('created_at', { ascending: false }).range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      count: count || data?.length || 0,
+      data: data || []
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 5. Fetch All Route Settlement Batches (Super Admin)
+ * GET /api/settlements/batches or /api/v1/admin/settlements
+ */
+export const getRouteBatches = async (req, res, next) => {
+  try {
+    const { status, sellerId, search, page = 1, limit = 50 } = req.query;
+
+    let query = supabaseA
+      .from('seller_settlements')
+      .select('*, sellers:seller_id(id, business_name, owner_name, email, razorpay_account_id, route_settlement_method, route_upi_id), settlement_orders(*)', { count: 'exact' });
+
+    if (status && status !== 'ALL') {
+      query = query.eq('status', status.toUpperCase());
+    }
+    if (sellerId) {
+      query = query.eq('seller_id', sellerId);
+    }
+
+    const from = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const to = from + parseInt(limit, 10) - 1;
+    query = query.order('created_at', { ascending: false }).range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    let filtered = data || [];
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(b => 
+        b.settlement_number?.toLowerCase().includes(q) ||
+        b.razorpay_transfer_id?.toLowerCase().includes(q) ||
+        b.utr_number?.toLowerCase().includes(q) ||
+        b.sellers?.business_name?.toLowerCase().includes(q) ||
+        b.sellers?.email?.toLowerCase().includes(q)
+      );
+    }
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      count: count || filtered.length,
+      data: filtered
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 6. Super Admin: Place Settlement Batch on Hold
+ * POST /api/settlements/batches/:id/hold or /api/v1/admin/settlements/:id/hold
+ */
+export const adminHoldSettlementBatch = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason = 'Placed on hold by Super Admin' } = req.body;
+    const adminId = req.user?.id;
+    const adminEmail = req.user?.email || 'admin@zebalpha.shop';
+
+    const { data: batch, error: bErr } = await supabaseA
+      .from('seller_settlements')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (bErr || !batch) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Settlement batch not found' });
+    }
+
+    if (['SETTLED', 'COMPLETED'].includes(batch.status)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
+        success: false, 
+        error: 'Cannot place a settled batch on hold. Funds have already been transferred.' 
+      });
+    }
+
+    const oldStatus = batch.status;
+
+    const { data: updated, error: uErr } = await supabaseA
+      .from('seller_settlements')
+      .update({
+        status: 'ON_HOLD',
+        hold_reason: reason,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (uErr) throw uErr;
+
+    // Log admin audit
+    await supabaseA.from('admin_audit_logs').insert({
+      admin_id: adminId,
+      admin_email: adminEmail,
+      action: 'SETTLEMENT_HOLD',
+      target_seller_id: batch.seller_id,
+      previous_state: { status: oldStatus },
+      new_state: { status: 'ON_HOLD', reason },
+      reason: reason,
+      ip_address: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      user_agent: req.headers['user-agent'] || 'Admin Dashboard'
+    });
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: `Batch ${batch.settlement_number || id} placed on hold.`,
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 7. Super Admin: Release Settlement Batch from Hold
+ * POST /api/settlements/batches/:id/release or /api/v1/admin/settlements/:id/release
+ */
+export const adminReleaseSettlementBatch = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason = 'Released from hold by Super Admin' } = req.body;
+    const adminId = req.user?.id;
+    const adminEmail = req.user?.email || 'admin@zebalpha.shop';
+
+    const { data: batch, error: bErr } = await supabaseA
+      .from('seller_settlements')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (bErr || !batch) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Settlement batch not found' });
+    }
+
+    if (batch.status !== 'ON_HOLD') {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
+        success: false, 
+        error: `Cannot release batch in ${batch.status} state. Only ON_HOLD batches can be released.` 
+      });
+    }
+
+    const { data: updated, error: uErr } = await supabaseA
+      .from('seller_settlements')
+      .update({
+        status: 'QUEUED',
+        hold_reason: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (uErr) throw uErr;
+
+    // Log admin audit
+    await supabaseA.from('admin_audit_logs').insert({
+      admin_id: adminId,
+      admin_email: adminEmail,
+      action: 'SETTLEMENT_RELEASE',
+      target_seller_id: batch.seller_id,
+      previous_state: { status: 'ON_HOLD' },
+      new_state: { status: 'QUEUED', reason },
+      reason: reason,
+      ip_address: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      user_agent: req.headers['user-agent'] || 'Admin Dashboard'
+    });
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: `Batch ${batch.settlement_number || id} released and queued for processing.`,
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 8. Super Admin: Reconcile Single Settlement Batch against Razorpay Route API
+ * POST /api/settlements/batches/:id/reconcile or /api/v1/admin/settlements/:id/reconcile
+ */
+export const adminReconcileSettlementBatch = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?.id;
+    const adminEmail = req.user?.email || 'admin@zebalpha.shop';
+
+    const { data: batch, error: bErr } = await supabaseA
+      .from('seller_settlements')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (bErr || !batch) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Settlement batch not found' });
+    }
+
+    let providerTransfer = null;
+    if (batch.razorpay_transfer_id) {
+      providerTransfer = await getTransferDetails(batch.razorpay_transfer_id);
+    }
+
+    let newStatus = batch.status;
+    let reconciled = false;
+
+    if (providerTransfer?.success && providerTransfer?.transfer) {
+      const pStatus = providerTransfer.transfer.status;
+      if (pStatus === 'processed' && batch.status !== 'SETTLED') {
+        await supabaseA.rpc('finalize_route_settlement_success', {
+          p_settlement_id: batch.id,
+          p_transfer_id: batch.razorpay_transfer_id,
+          p_utr_number: providerTransfer.transfer.settlement_id || batch.utr_number || 'UTR_RECONCILED',
+          p_provider_status: 'processed',
+          p_source: 'ADMIN_RECONCILIATION'
+        });
+        newStatus = 'SETTLED';
+        reconciled = true;
+      } else if (pStatus === 'failed' && batch.status !== 'FAILED') {
+        await supabaseA.from('seller_settlements')
+          .update({
+            status: 'FAILED',
+            failure_reason: providerTransfer.transfer.error?.description || 'Provider reported transfer failure',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', batch.id);
+        newStatus = 'FAILED';
+        reconciled = true;
+      }
+    }
+
+    // Log admin audit
+    await supabaseA.from('admin_audit_logs').insert({
+      admin_id: adminId,
+      admin_email: adminEmail,
+      action: 'SETTLEMENT_RECONCILE',
+      target_seller_id: batch.seller_id,
+      previous_state: { status: batch.status },
+      new_state: { status: newStatus, reconciled },
+      reason: `Manual Route batch reconciliation check`,
+      ip_address: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      user_agent: req.headers['user-agent'] || 'Admin Dashboard'
+    });
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      batchNumber: batch.settlement_number,
+      previousStatus: batch.status,
+      currentStatus: newStatus,
+      reconciled,
+      providerData: providerTransfer?.transfer || null
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 9. Super Admin: Trigger On-Demand Automated Settlement Sweep
+ * POST /api/settlements/sweep/trigger or /api/v1/admin/settlements/sweep
+ */
+export const adminTriggerSettlementSweep = async (req, res, next) => {
+  try {
+    const adminEmail = req.user?.email || 'admin@zebalpha.shop';
+    const sweepResult = await processEligibleSettlementBatches(`ADMIN_TRIGGER_${adminEmail}`);
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Settlement eligibility evaluation and batch sweep executed successfully.',
+      data: sweepResult
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

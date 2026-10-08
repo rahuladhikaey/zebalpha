@@ -183,6 +183,7 @@ export function computeLedgerBalances(
     net_seller_earnings: netSellerEarnings,
     total_settled: Number(totalSettled.toFixed(2)),
     available_balance: availableBalance,
+    reserved_balance: 0,
     pending_settlement: Number(pendingSettlement.toFixed(2)),
     on_hold_balance: Number(onHoldBalance.toFixed(2))
   };

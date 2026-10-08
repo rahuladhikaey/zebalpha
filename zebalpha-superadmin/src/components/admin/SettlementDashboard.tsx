@@ -37,8 +37,18 @@ import { exportCustomDataExcel } from "@/utils/excelExport";
 
 export default function SettlementDashboard() {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"payouts" | "audit">("payouts");
+  const [activeTab, setActiveTab] = useState<"batches" | "payouts" | "audit">("batches");
   
+  // Razorpay Route Marketplace Settlement Batches
+  const [batches, setBatches] = useState<any[]>([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
+  const [batchStatusFilter, setBatchStatusFilter] = useState<string>("ALL");
+  const [batchSearchQuery, setBatchSearchQuery] = useState("");
+  const [selectedBatchDetail, setSelectedBatchDetail] = useState<any | null>(null);
+  const [holdModalBatch, setHoldModalBatch] = useState<any | null>(null);
+  const [holdReasonInput, setHoldReasonInput] = useState("");
+  const [sweepRunning, setSweepRunning] = useState(false);
+
   // Aggregated Overview
   const [overview, setOverview] = useState<any>({
     total_seller_earnings: 0,
@@ -137,8 +147,128 @@ export default function SettlementDashboard() {
   useEffect(() => {
     if (activeTab === "audit") {
       loadAuditLogs();
+    } else if (activeTab === "batches") {
+      loadBatches();
     }
   }, [activeTab]);
+
+  // Load Route Settlement Batches
+  const loadBatches = async () => {
+    setBatchesLoading(true);
+    try {
+      const res = await apiService.getRouteBatches({
+        status: batchStatusFilter !== "ALL" ? batchStatusFilter : undefined,
+        search: batchSearchQuery || undefined,
+        limit: 100
+      });
+      if (res?.data) {
+        setBatches(res.data);
+      }
+    } catch (err: any) {
+      console.error("[Route Batches Load Error]:", err);
+    } finally {
+      setBatchesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "batches") {
+      loadBatches();
+    }
+  }, [batchStatusFilter]);
+
+  const handleHoldBatch = async (batchId: string) => {
+    if (!holdReasonInput.trim()) {
+      setActionMsg({ text: "Please enter a reason for placing this batch on hold.", type: "error" });
+      return;
+    }
+    try {
+      const res = await apiService.holdRouteBatch(batchId, holdReasonInput.trim());
+      if (res.success) {
+        setActionMsg({ text: `Batch placed on hold successfully.`, type: "success" });
+        setHoldModalBatch(null);
+        setHoldReasonInput("");
+        loadBatches();
+      } else {
+        setActionMsg({ text: res.error || "Failed to hold batch.", type: "error" });
+      }
+    } catch (err: any) {
+      setActionMsg({ text: err.message || "Failed to hold batch.", type: "error" });
+    }
+  };
+
+  const handleReleaseBatch = async (batchId: string) => {
+    try {
+      const res = await apiService.releaseRouteBatch(batchId);
+      if (res.success) {
+        setActionMsg({ text: `Batch released and queued for processing.`, type: "success" });
+        loadBatches();
+      } else {
+        setActionMsg({ text: res.error || "Failed to release batch.", type: "error" });
+      }
+    } catch (err: any) {
+      setActionMsg({ text: err.message || "Failed to release batch.", type: "error" });
+    }
+  };
+
+  const handleReconcileBatch = async (batchId: string) => {
+    try {
+      const res: any = await apiService.reconcileRouteBatch(batchId);
+      if (res.success) {
+        setActionMsg({ 
+          text: `Batch ${res.batchNumber || res.data?.batchNumber || ''}: Status is ${res.currentStatus || res.data?.currentStatus || 'CHECKED'} ${(res.reconciled || res.data?.reconciled) ? '(reconciled with provider)' : ''}`, 
+          type: "success" 
+        });
+        loadBatches();
+      } else {
+        setActionMsg({ text: res.error || "Reconciliation failed.", type: "error" });
+      }
+    } catch (err: any) {
+      setActionMsg({ text: err.message || "Reconciliation failed.", type: "error" });
+    }
+  };
+
+  const handleTriggerSweep = async () => {
+    setSweepRunning(true);
+    try {
+      const res = await apiService.triggerRouteSweep();
+      if (res.success) {
+        setActionMsg({ 
+          text: `Settlement sweep executed: ${res.data?.processed || 0} batches processed for ${res.data?.totalSellers || 0} sellers.`, 
+          type: "success" 
+        });
+        loadBatches();
+        loadOverviewAndPayouts();
+      } else {
+        setActionMsg({ text: res.error || "Sweep failed.", type: "error" });
+      }
+    } catch (err: any) {
+      setActionMsg({ text: err.message || "Sweep failed.", type: "error" });
+    } finally {
+      setSweepRunning(false);
+    }
+  };
+
+  const handleExportBatchesExcel = () => {
+    const dataToExport = batches.map(b => ({
+      "Settlement Number": b.settlement_number,
+      "Seller Name": b.sellers?.business_name || b.sellers?.owner_name || "Merchant",
+      "Seller ID": b.seller_id,
+      "Amount (₹)": Number(b.amount_minor ? b.amount_minor / 100 : b.amount || 0).toFixed(2),
+      "Amount Minor (Paise)": b.amount_minor || 0,
+      "Currency": b.currency || "INR",
+      "Status": b.status,
+      "Razorpay Linked Account": b.razorpay_account_id || b.sellers?.razorpay_account_id || "N/A",
+      "Razorpay Transfer ID": b.razorpay_transfer_id || "N/A",
+      "UTR Number": b.utr_number || "N/A",
+      "Hold Reason": b.hold_reason || "None",
+      "Orders Included": b.settlement_orders?.length || 0,
+      "Created At": b.created_at,
+      "Processed At": b.processed_at || "N/A"
+    }));
+
+    exportCustomDataExcel(dataToExport, `ZEBALPHA_Route_Settlement_Batches_${new Date().toISOString().split("T")[0]}`);
+  };
 
   // Open Payout Detail Modal
   const handleViewPayoutDetail = async (payoutId: string) => {
@@ -521,7 +651,19 @@ export default function SettlementDashboard() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-zinc-800 pb-4">
         
         {/* Tab Selection */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setActiveTab("batches")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "batches"
+                ? "bg-white text-black shadow-md"
+                : "bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800"
+            }`}
+          >
+            <Building2 size={14} />
+            <span>Route Settlement Batches ({batches.length})</span>
+          </button>
+
           <button
             onClick={() => setActiveTab("payouts")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
@@ -548,6 +690,24 @@ export default function SettlementDashboard() {
         </div>
 
         {/* Status Filter Chips */}
+        {activeTab === "batches" && (
+          <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1">
+            {["ALL", "QUEUED", "PROCESSING", "SETTLED", "ON_HOLD", "FAILED"].map(st => (
+              <button
+                key={st}
+                onClick={() => setBatchStatusFilter(st)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap cursor-pointer ${
+                  batchStatusFilter === st
+                    ? "bg-zinc-100 text-black font-extrabold shadow-sm"
+                    : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"
+                }`}
+              >
+                {st.replace(/_/g, " ")}
+              </button>
+            ))}
+          </div>
+        )}
+
         {activeTab === "payouts" && (
           <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1">
             {["ALL", "PROCESSING", "SUCCESS", "FAILED", "REVERSED", "RECONCILIATION_REQUIRED", "LONG_PROCESSING"].map(st => (
@@ -568,7 +728,174 @@ export default function SettlementDashboard() {
       </div>
 
       {/* ── 4. MAIN CONTENT VIEW ─────────────────────────────────────────────────── */}
-      {activeTab === "payouts" ? (
+      {activeTab === "batches" ? (
+        <div className="space-y-4">
+          {/* Batches Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-950 p-3.5 rounded-2xl border border-zinc-800">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Filter by batch #, seller, UTR, account..."
+                value={batchSearchQuery}
+                onChange={(e) => setBatchSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') loadBatches(); }}
+                className="w-full pl-9 pr-4 py-2 rounded-xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-white outline-none focus:border-zinc-500 transition-all placeholder:text-zinc-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+              <button
+                onClick={handleTriggerSweep}
+                disabled={sweepRunning}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+              >
+                <Zap size={14} className={sweepRunning ? "animate-spin text-amber-300" : "text-amber-300"} />
+                <span>Run Settlement Sweep Now</span>
+              </button>
+
+              <button
+                onClick={handleExportBatchesExcel}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white font-bold text-xs shadow-md transition"
+              >
+                <Download size={14} />
+                <span>Export Batches Excel</span>
+              </button>
+
+              <button
+                onClick={loadBatches}
+                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white"
+                title="Refresh Batches"
+              >
+                <RefreshCw className={`w-4 h-4 ${batchesLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Batches Table */}
+          <div className="bg-zinc-950 rounded-2xl border border-zinc-800 shadow-xl overflow-hidden">
+            {batchesLoading ? (
+              <div className="p-12 text-center text-zinc-400 font-bold text-xs space-y-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-white mx-auto" />
+                <p>Loading Razorpay Route settlement batches...</p>
+              </div>
+            ) : batches.length === 0 ? (
+              <div className="p-12 text-center text-zinc-400 font-bold text-xs space-y-1">
+                <Building2 className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                <p className="text-white">No Route settlement batches found.</p>
+                <p className="text-zinc-500 text-[11px]">When orders are delivered past the return window, automated batches will be created and displayed here.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800 bg-zinc-900/60 text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                      <th className="p-4 pl-6">Batch & Orders</th>
+                      <th className="p-4">Seller & Linked Account</th>
+                      <th className="p-4">Settlement Amount</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Razorpay Transfer / UTR</th>
+                      <th className="p-4">Created Date</th>
+                      <th className="p-4 text-right pr-6">Admin Controls</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80 text-xs font-bold text-zinc-300">
+                    {batches.map((b) => (
+                      <tr key={b.id} className="hover:bg-zinc-900/40 transition-colors">
+                        <td className="p-4 pl-6">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-white">{b.settlement_number || b.id.slice(0, 12)}</span>
+                            <button
+                              onClick={() => handleCopy(b.settlement_number || b.id)}
+                              className="text-zinc-500 hover:text-white p-0.5"
+                              title="Copy Batch Number"
+                            >
+                              {copiedText === (b.settlement_number || b.id) ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => setSelectedBatchDetail(b)}
+                            className="text-[11px] text-zinc-400 hover:text-emerald-400 flex items-center gap-1 mt-0.5"
+                          >
+                            <span>{b.settlement_orders?.length || 0} order(s) bundled</span>
+                            <ChevronRight size={10} />
+                          </button>
+                        </td>
+
+                        <td className="p-4">
+                          <div className="text-white font-bold">{b.sellers?.business_name || b.sellers?.owner_name || 'Merchant'}</div>
+                          <span className="text-[10px] font-mono text-zinc-500 block">
+                            {b.razorpay_account_id || b.sellers?.razorpay_account_id || 'Route Linked Account'}
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <span className="text-emerald-400 font-mono font-bold text-sm">
+                            ₹{Number(b.amount_minor ? b.amount_minor / 100 : b.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 block font-mono">
+                            {b.amount_minor ? `${b.amount_minor} paise` : 'INR'}
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          {getStatusBadge(b.status)}
+                          {b.hold_reason && (
+                            <span className="text-[10px] text-amber-400 block mt-1 font-normal max-w-xs truncate" title={b.hold_reason}>
+                              Hold: {b.hold_reason}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-4 font-mono text-[11px]">
+                          {b.razorpay_transfer_id ? (
+                            <div className="text-zinc-300">
+                              <span className="block text-zinc-400 text-[10px]">ID: {b.razorpay_transfer_id}</span>
+                              <span className="block text-emerald-400 text-[10px]">UTR: {b.utr_number || 'Confirmed'}</span>
+                            </div>
+                          ) : (
+                            <span className="text-zinc-500">Pending Transfer</span>
+                          )}
+                        </td>
+
+                        <td className="p-4 text-zinc-400 text-[11px]">
+                          {new Date(b.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                        </td>
+
+                        <td className="p-4 text-right pr-6 space-x-1.5 whitespace-nowrap">
+                          {b.status === "ON_HOLD" ? (
+                            <button
+                              onClick={() => handleReleaseBatch(b.id)}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-[11px] font-bold"
+                            >
+                              Release Hold
+                            </button>
+                          ) : ["QUEUED", "PROCESSING"].includes(b.status) ? (
+                            <button
+                              onClick={() => { setHoldModalBatch(b); setHoldReasonInput(""); }}
+                              className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 text-[11px] font-bold"
+                            >
+                              Hold
+                            </button>
+                          ) : null}
+
+                          <button
+                            onClick={() => handleReconcileBatch(b.id)}
+                            className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white text-[11px] font-bold"
+                            title="Reconcile with Razorpay API"
+                          >
+                            Reconcile
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeTab === "payouts" ? (
         <div className="space-y-4">
 
           {/* Search & Date Controls */}
@@ -1014,6 +1341,88 @@ export default function SettlementDashboard() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ── HOLD BATCH MODAL ────────────────────────────────────────────── */}
+      {holdModalBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-zinc-950 border border-zinc-800 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-black text-white">Place Settlement Batch on Hold</h3>
+            <p className="text-xs text-zinc-400">
+              Batch: <strong className="text-white font-mono">{holdModalBatch.settlement_number}</strong> ({holdModalBatch.sellers?.business_name || 'Merchant'})
+            </p>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-zinc-300">Reason for Hold *</label>
+              <textarea
+                value={holdReasonInput}
+                onChange={(e) => setHoldReasonInput(e.target.value)}
+                placeholder="e.g. Return window dispute pending, KYC re-verification required..."
+                className="w-full p-3 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-white outline-none focus:border-zinc-500 min-h-[90px]"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => { setHoldModalBatch(null); setHoldReasonInput(""); }}
+                className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleHoldBatch(holdModalBatch.id)}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold"
+              >
+                Confirm Hold
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BATCH ORDERS DRILLDOWN MODAL ────────────────────────────────────── */}
+      {selectedBatchDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-zinc-950 border border-zinc-800 w-full max-w-2xl rounded-3xl shadow-2xl p-6 my-8 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">BATCH ORDERS DRILLDOWN</span>
+                <h3 className="text-base font-black text-white font-mono">{selectedBatchDetail.settlement_number}</h3>
+              </div>
+              <button onClick={() => setSelectedBatchDetail(null)} className="p-1 rounded-lg text-zinc-400 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between py-1.5 border-b border-zinc-900">
+                <span className="text-zinc-400">Total Settlement Amount:</span>
+                <span className="text-emerald-400 font-bold font-mono">₹{Number(selectedBatchDetail.amount_minor ? selectedBatchDetail.amount_minor / 100 : selectedBatchDetail.amount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-zinc-900">
+                <span className="text-zinc-400">Razorpay Transfer ID:</span>
+                <span className="text-white font-mono">{selectedBatchDetail.razorpay_transfer_id || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-zinc-900">
+                <span className="text-zinc-400">UTR Reference:</span>
+                <span className="text-white font-mono">{selectedBatchDetail.utr_number || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-zinc-900">
+                <span className="text-zinc-400">Orders Included:</span>
+                <span className="text-white font-bold">{selectedBatchDetail.settlement_orders?.length || 0} order(s)</span>
+              </div>
+            </div>
+            <div className="max-h-60 overflow-y-auto divide-y divide-zinc-900 text-xs">
+              {selectedBatchDetail.settlement_orders?.map((so: any) => (
+                <div key={so.id} className="py-2.5 flex items-center justify-between">
+                  <div>
+                    <span className="text-white font-mono font-bold block">{so.order_id}</span>
+                    <span className="text-[10px] text-zinc-500">Delivered & Return Window Expired</span>
+                  </div>
+                  <span className="text-emerald-400 font-mono font-bold">₹{Number(so.amount_minor ? so.amount_minor / 100 : so.amount || 0).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-3 border-t border-zinc-800 text-right">
+              <button onClick={() => setSelectedBatchDetail(null)} className="px-4 py-2 rounded-xl bg-white text-black text-xs font-bold">Close</button>
+            </div>
           </div>
         </div>
       )}

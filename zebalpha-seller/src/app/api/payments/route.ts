@@ -58,14 +58,23 @@ export async function GET(req: NextRequest) {
     }
 
     // Default to the authenticated user's own seller record
+    let sellerRecord: any = null;
     if (!sellerId) {
       const { data: seller } = await supabaseServer
         .from("sellers")
-        .select("id, business_name, phonepay_number, phonepay_no")
+        .select("id, business_name, phonepay_number, phonepay_no, upi_id, razorpay_account_id, route_onboarding_status, route_verification_status, route_settlement_method, route_upi_id, route_bank_account, settlement_hold_days, auto_settlement_enabled, is_suspended, status")
         .eq("user_id", user.id)
         .maybeSingle();
 
+      sellerRecord = seller;
       sellerId = seller?.id || user.id;
+    } else {
+      const { data: seller } = await supabaseServer
+        .from("sellers")
+        .select("id, business_name, phonepay_number, phonepay_no, upi_id, razorpay_account_id, route_onboarding_status, route_verification_status, route_settlement_method, route_upi_id, route_bank_account, settlement_hold_days, auto_settlement_enabled, is_suspended, status")
+        .eq("id", sellerId)
+        .maybeSingle();
+      sellerRecord = seller;
     }
 
     if (!sellerId) {
@@ -89,6 +98,29 @@ export async function GET(req: NextRequest) {
 
     // 2. Compute dynamic financial balances from ledger
     let balances = computeLedgerBalances(transactions);
+
+    // Fetch Route authoritative overview view (double-entry minor units)
+    let routeOverview: any = null;
+    try {
+      const { data: roData } = await supabaseServer
+        .from("seller_route_financial_overview")
+        .select("*")
+        .eq("seller_id", sellerId)
+        .maybeSingle();
+
+      if (roData) {
+        routeOverview = roData;
+        balances.gross_sales = Number((Number(roData.gross_sales_minor || 0) / 100).toFixed(2));
+        balances.commission = Number((Number(roData.platform_commission_minor || 0) / 100).toFixed(2));
+        balances.fixed_fees = Number((Number(roData.fixed_fees_minor || 0) / 100).toFixed(2));
+        balances.returns_and_refunds = Number((Number(roData.refund_adjustments_minor || 0) / 100).toFixed(2));
+        balances.pending_settlement = Number((Number(roData.pending_settlement_minor || 0) / 100).toFixed(2));
+        balances.total_settled = Number((Number(roData.settled_amount_minor || 0) / 100).toFixed(2));
+        balances.reserved_balance = Number((Number(roData.reserved_balance_minor || 0) / 100).toFixed(2));
+        balances.net_seller_earnings = Number((Number(roData.net_earnings_minor || 0) / 100).toFixed(2));
+        balances.available_balance = Number((Number(roData.available_balance_minor || 0) / 100).toFixed(2));
+      }
+    } catch (_) {}
 
     // Fetch in-flight payouts to ensure reserved balance is 100% accurate
     try {
@@ -245,6 +277,8 @@ export async function GET(req: NextRequest) {
       settlementMethods,
       activeSettlementMethod,
       payoutRequests,
+      routeOverview,
+      sellerConfig: sellerRecord,
       sellerId
     });
   } catch (err: any) {

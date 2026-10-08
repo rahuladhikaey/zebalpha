@@ -3,6 +3,7 @@ import { purgeExpiredDeletions } from '../controllers/sellerController.js';
 import { supabaseA, supabaseB } from '../lib/supabase.js';
 import { processPayoutQueueBatch, detectAndReconcileStuckPayouts, enqueueAutoSettlements } from '../services/payoutQueueService.js';
 import { drainWebhookQueue } from '../services/payoutWebhookService.js';
+import { processEligibleSettlementBatches } from '../services/settlementEligibilityService.js';
 
 /**
  * Auto-complete orders that have been marked as 'delivered' for more than 7 days
@@ -112,6 +113,16 @@ export const initCronJobs = () => {
     console.log('⏰ [CRON] Auto-settlement enqueue:', result);
   }), { timezone: 'Asia/Kolkata' });
 
-  console.log('✅ Cron Jobs Scheduled: [Seller Purge @ 00:00, Order Auto-Completion @ 02:00, Settlement Reconcile @ 03:00, Payout Worker @ 15s, Webhook Worker @ 15s, Stuck Payouts @ 10m, Auto-Settlement @ 04:30 IST]');
+  // Job 8: Razorpay Route Automated Marketplace Settlement Sweeper (Hourly)
+  // Scans delivered orders past hold window, marks payables ELIGIBLE, creates seller settlement batches,
+  // and dispatches transfers via Razorpay Route marketplace rails.
+  cron.schedule('0 * * * *', guarded('route-settlement-sweeper', async () => {
+    console.log('⏰ [CRON] Starting Automated Razorpay Route Settlement Sweep...');
+    const result = await processEligibleSettlementBatches('CRON_HOURLY');
+    console.log(`✅ [CRON] Route Settlement Sweep Complete: ${result?.processed || 0} batches processed.`);
+  }));
+
+  console.log('✅ Cron Jobs Scheduled: [Seller Purge @ 00:00, Order Auto-Completion @ 02:00, Settlement Reconcile @ 03:00, Payout Worker @ 15s, Webhook Worker @ 15s, Stuck Payouts @ 10m, Auto-Settlement @ 04:30 IST, Route Sweeper @ Hourly]');
 
 };
+

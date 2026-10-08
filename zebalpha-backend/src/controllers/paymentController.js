@@ -5,6 +5,7 @@ import { HTTP_STATUS } from '../constants/index.js';
 import { supabaseA } from '../lib/supabase.js';
 import { calculateOrderAmounts } from '../utils/orderCalculator.js';
 import { verifyWebhookSignature, storeWebhookEvent, drainWebhookQueue } from '../services/payoutWebhookService.js';
+import { recordFinancialLedgerForOrder } from '../services/orderFinancialService.js';
 
 const getRazorpayInstance = () => {
   const keyId = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || '').trim();
@@ -162,6 +163,11 @@ export const verifyRazorpayPayment = async (req, res, next) => {
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
+
+      // Trigger immutable financial ledger recording for seller payable
+      setImmediate(() => {
+        recordFinancialLedgerForOrder(orderId).catch(fErr => console.error('[Order Financial Ledger Warning]:', fErr?.message));
+      });
     }
 
     res.status(HTTP_STATUS.OK).json({ success: true, verified: true });
