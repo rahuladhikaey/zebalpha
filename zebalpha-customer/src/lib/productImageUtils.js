@@ -10,6 +10,10 @@ export function normalizeProductImages(product) {
     }
   };
 
+  pushValue(product?.image_url);
+  pushValue(product?.thumbnail_url);
+  pushValue(product?.main_image);
+
   const rawImages = product?.images;
   if (Array.isArray(rawImages)) {
     rawImages.forEach((item) => {
@@ -37,8 +41,6 @@ export function normalizeProductImages(product) {
       pushValue(rawImages);
     }
   }
-
-  pushValue(product?.image_url);
 
   return candidates;
 }

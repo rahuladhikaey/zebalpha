@@ -201,14 +201,37 @@ export function PackageSelection({
         <div id="color-selection-section" className="space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-extrabold uppercase tracking-wider text-zinc-400">
-              SELECTED COLOR:{" "}
-              <strong className="text-white text-sm font-black tracking-normal capitalize ml-1">
-                {selectedColor}
-              </strong>
+              {selectedColor ? (
+                <>
+                  SELECTED COLOR:{" "}
+                  <strong className="text-white text-sm font-black tracking-normal capitalize ml-1">
+                    {selectedColor}
+                  </strong>
+                </>
+              ) : (
+                <>
+                  SELECT COLOR:{" "}
+                  <span className="text-zinc-500 text-xs font-semibold normal-case ml-1">
+                    (Choose a color)
+                  </span>
+                </>
+              )}
             </span>
-            <span className="text-[11px] font-bold text-zinc-500">
-              {availableColors.length} {availableColors.length === 1 ? "Color" : "Colors"}
-            </span>
+            <div className="flex items-center gap-2">
+              {selectedColor && (
+                <button
+                  type="button"
+                  onClick={() => onColorChange(selectedColor)}
+                  className="text-[11px] font-bold text-zinc-400 hover:text-white underline decoration-zinc-600 hover:decoration-white transition-colors cursor-pointer"
+                  title="Click to view main parent product image"
+                >
+                  View Main Product
+                </button>
+              )}
+              <span className="text-[11px] font-bold text-zinc-500">
+                {availableColors.length} {availableColors.length === 1 ? "Color" : "Colors"}
+              </span>
+            </div>
           </div>
 
           {/* Clean Ecommerce Horizontal Color Selector */}
@@ -335,7 +358,7 @@ export function PackageSelection({
                 }`}
                 title={
                   isOutOfStock
-                    ? `${sizeName} is Out of Stock for ${selectedColor}`
+                    ? `${sizeName} is Out of Stock${selectedColor ? ` for ${selectedColor}` : ""}`
                     : `Select size ${sizeName}`
                 }
               >
@@ -385,8 +408,14 @@ export function PackageSelection({
               Selected:
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-white bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-lg">
-                Color: {selectedColor}
+              <span
+                className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
+                  selectedColor
+                    ? "text-white bg-zinc-900 border-zinc-800"
+                    : "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                }`}
+              >
+                Color: {selectedColor || "Select a color"}
               </span>
               <span
                 className={`text-xs font-black px-2.5 py-1 rounded-lg border ${

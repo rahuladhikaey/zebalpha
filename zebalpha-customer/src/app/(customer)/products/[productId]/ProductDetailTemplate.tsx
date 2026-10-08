@@ -104,24 +104,37 @@ export default function ProductDetailTemplate({
   }, [normalizedPackages]);
 
   const hasVariants = normalizedPackages.length > 0;
+  const hasMultipleColors = useMemo(() => {
+    return (
+      colorGroups.length > 1 &&
+      !(
+        colorGroups.length === 1 &&
+        (colorGroups[0]?.colorName === "Default" || colorGroups[0]?.colorName === "Standard")
+      )
+    );
+  }, [colorGroups]);
 
   // 3. Single Source of Truth State
-  const [selectedColor, setSelectedColor] = useState<string>(defaultColorName);
+  // When a product has multiple color variants, do NOT force-select on initial load.
+  // The page must display the 1st MAIN PARENT PRODUCT (the exact image from the feed card) first!
+  const [selectedColor, setSelectedColor] = useState<string>(
+    hasMultipleColors ? "" : defaultColorName
+  );
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [validationError, setValidationError] = useState<string>("");
 
-  // Sync selectedColor if defaultColorName is resolved asynchronously
+  // Sync selectedColor ONLY if there are no multiple colors (e.g. single default package)
   useEffect(() => {
-    if (!selectedColor && defaultColorName) {
+    if (!hasMultipleColors && !selectedColor && defaultColorName) {
       setSelectedColor(defaultColorName);
     }
-  }, [defaultColorName, selectedColor]);
+  }, [hasMultipleColors, defaultColorName, selectedColor]);
 
-  // Active color group
+  // Active color group - ONLY active if a color is explicitly selected
   const currentColorGroup = useMemo(() => {
+    if (!selectedColor) return null;
     return (
       colorGroups.find((g) => g.colorName.toLowerCase() === selectedColor.toLowerCase()) ||
-      colorGroups[0] ||
       null
     );
   }, [colorGroups, selectedColor]);
@@ -137,9 +150,14 @@ export default function ProductDetailTemplate({
   }, [currentColorGroup, selectedSize]);
 
   // Handle color change:
-  // Immediately switch selected color, gallery and available sizes.
-  // Check if current selectedSize is available in the new color; if not, reset size selection.
+  // If clicking the currently selected color, toggle it off to return to main parent product view!
   const handleColorChange = (newColor: string) => {
+    if (selectedColor.toLowerCase() === newColor.toLowerCase()) {
+      setSelectedColor("");
+      setValidationError("");
+      return;
+    }
+
     setSelectedColor(newColor);
     setValidationError("");
 
@@ -163,8 +181,9 @@ export default function ProductDetailTemplate({
   };
 
   // Color-specific gallery images for the main hero carousel
+  // When no color is selected, ALWAYS display the 1st main parent product image from the feed card!
   const images = useMemo(() => {
-    if (currentColorGroup && currentColorGroup.gallery.length > 0) {
+    if (selectedColor && currentColorGroup && currentColorGroup.gallery.length > 0) {
       if (selectedVariant?.image_url && currentColorGroup.gallery.includes(selectedVariant.image_url)) {
         return [
           selectedVariant.image_url,
@@ -174,12 +193,18 @@ export default function ProductDetailTemplate({
       return currentColorGroup.gallery;
     }
 
-    if (currentColorGroup?.thumbnail) {
+    if (selectedColor && currentColorGroup?.thumbnail) {
       return [currentColorGroup.thumbnail];
     }
 
-    return normalizeProductImages(product);
-  }, [currentColorGroup, selectedVariant, product]);
+    // Default: Show the 1st main parent product image first!
+    const parentImages = normalizeProductImages(product);
+    if (parentImages.length > 0) {
+      return parentImages;
+    }
+
+    return [product.image_url || "/placeholder.jpg"].filter(Boolean);
+  }, [selectedColor, currentColorGroup, selectedVariant, product]);
 
   // Price & MRP
   const displayPrice = selectedVariant
@@ -253,8 +278,8 @@ export default function ProductDetailTemplate({
   // Validation before Add to Cart or Buy Now
   const handleValidateAndProceed = () => {
     if (hasVariants) {
-      if (!selectedColor) {
-        setValidationError("Please select a color");
+      if (hasMultipleColors && !selectedColor) {
+        setValidationError("Please select a color variant");
         const el = document.getElementById("color-selection-section");
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
         return false;
