@@ -76,12 +76,16 @@ export default function CartPage() {
     const fetchCrossSells = async () => {
       const { data } = await supabase
         .from('products')
-        .select('id, name, price, mrp, image_url, thumbnail_url, is_active, stock')
+        .select('id, name, price, mrp, image_url, images, is_active, stock')
         .eq('is_active', true)
         .limit(6);
       if (data) {
         const inCartIds = new Set(cart.map(c => c.id));
-        setCrossSellProducts(data.filter(p => !inCartIds.has(p.id)));
+        const mapped = data.map((p: any) => ({
+          ...p,
+          thumbnail_url: p.image_url || (Array.isArray(p.images) && p.images[0]) || '',
+        }));
+        setCrossSellProducts(mapped.filter(p => !inCartIds.has(p.id)));
       }
     };
     if (cart.length > 0) fetchCrossSells();

@@ -19,7 +19,7 @@ type PageProps = {
 export const revalidate = 60;
 
 // Explicit minimal projection of fields genuinely required by the PDP
-const SLIM_PDP_FIELDS = "id, name, brand, price, mrp, stock, status, is_active, image_url, thumbnail_url, images, category_id, category_name, seller_id, description, packages, offers, specifications, tier, is_premium, is_new_drop, drop_date, drop_time, drop_status, rating, review_count, created_at";
+const SLIM_PDP_FIELDS = "id, name, brand, price, mrp, stock, status, is_active, image_url, images, category_id, seller_id, description, packages, offers, specifications, created_at";
 
 const getProduct = cache(async (productId: string) => {
   // Attempt single roundtrip with embedded seller details
@@ -31,19 +31,20 @@ const getProduct = cache(async (productId: string) => {
 
   let productData: any = data;
 
-  // Fallback to slim fields only if relation embedding is not configured in schema cache
+  // Fallback to select(*) if relationship or slim fields error
   if (error || !productData) {
     const fallback = await supabase
       .from("products")
-      .select(SLIM_PDP_FIELDS)
+      .select("*")
       .eq("id", productId)
       .maybeSingle();
 
-    if (fallback.error || !fallback.data) {
+    if (fallback.data) {
+      productData = fallback.data;
+    } else {
       console.error("Error fetching product:", fallback.error || error);
       return null;
     }
-    productData = fallback.data;
   }
 
   // Populate seller fields directly from embedded seller without extra sequential query
@@ -58,23 +59,44 @@ const getProduct = cache(async (productId: string) => {
     delete productData.seller;
   }
 
+  if (productData) {
+    const specs = productData.specifications || {};
+    productData.thumbnail_url = productData.thumbnail_url || productData.image_url || (Array.isArray(productData.images) && productData.images[0]) || "";
+    productData.category_name = productData.category_name || specs.category || "Apparel";
+    productData.is_premium = productData.is_premium ?? (productData.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true");
+    productData.is_new_drop = productData.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || productData.status === "COMING_SOON");
+    productData.tier = productData.tier || specs.tier || "STANDARD";
+  }
+
   return productData as Product;
 });
 
 const getRelatedProducts = async (category_id: any, currentProductId: string | number) => {
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
-    .select("id, name, brand, price, mrp, image_url, thumbnail_url, images, is_active, stock, category_id, is_premium, is_new_drop")
-    .eq("category_id", category_id)
+    .select("id, name, brand, price, mrp, image_url, images, is_active, stock, category_id")
     .neq("id", currentProductId)
     .limit(5);
 
-  if (error) {
-    console.error("Error fetching related products:", error);
-    return [];
+  if (category_id) {
+    query = query.eq("category_id", category_id);
   }
 
-  return (data || []) as unknown as Product[];
+  let { data, error } = await query;
+  if (error || !data) {
+    const fallback = await supabase
+      .from("products")
+      .select("*")
+      .neq("id", currentProductId)
+      .limit(5);
+    data = fallback.data;
+  }
+
+  const rawList = data || [];
+  return rawList.map((p: any) => ({
+    ...p,
+    thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
+  })) as Product[];
 };
 
 function RelatedProductsSkeleton() {

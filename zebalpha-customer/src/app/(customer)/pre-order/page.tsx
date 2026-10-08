@@ -50,11 +50,12 @@ function PreOrderContent() {
       const fetchProduct = async () => {
         setIsLoadingProduct(true);
         try {
+          const targetId = isNaN(Number(productId)) ? productId : Number(productId);
           const { data, error } = await supabase
             .from("products")
             .select("*")
-            .eq("id", Number(productId))
-            .single();
+            .eq("id", targetId)
+            .maybeSingle();
 
           if (data) {
             setProduct({ ...data, quantity });

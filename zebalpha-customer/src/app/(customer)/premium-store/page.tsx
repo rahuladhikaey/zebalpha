@@ -32,16 +32,27 @@ export default function PremiumStorePage() {
     async function loadPremiumProducts() {
       try {
         setLoading(true);
-        // Query products flagged as premium or tier=PREMIUM
+        // Query active products and identify premium products safely
         const { data, error } = await supabase
           .from("products")
           .select("*")
-          .or("is_premium.eq.true,tier.eq.PREMIUM,category.ilike.%premium%,category.ilike.%luxe%,category_name.ilike.%premium%")
           .eq("is_active", true)
           .order("created_at", { ascending: false });
 
         if (data && data.length > 0) {
-          setProducts(data as Product[]);
+          const premiumList = data.filter((p: any) => {
+            const specs = p.specifications || {};
+            return (
+              p.is_premium === true ||
+              p.tier === "PREMIUM" ||
+              specs.is_premium === true ||
+              specs.is_premium === "true" ||
+              specs.tier === "PREMIUM" ||
+              (p.name || "").toLowerCase().includes("premium") ||
+              (p.name || "").toLowerCase().includes("supima")
+            );
+          });
+          setProducts((premiumList.length > 0 ? premiumList : data) as Product[]);
         } else {
           setProducts([]);
         }

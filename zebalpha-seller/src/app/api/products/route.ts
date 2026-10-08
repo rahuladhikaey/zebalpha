@@ -19,6 +19,22 @@ async function getAuthenticatedUser(req: NextRequest) {
   return null;
 }
 
+// Helper to invalidate customer storefront cache on Upstash Redis
+async function invalidateStorefrontCache() {
+  try {
+    const upstashUrl = "https://resolved-falcon-225201.upstash.io";
+    const upstashToken = "gQAAAAAAA2-xAAIgcDIxN2RjZjJlZTM0ZTk0ZTZlOWI2MGJlYWRlNzE1MmE3ZQ";
+    await fetch(`${upstashUrl}/pipeline`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${upstashToken}` },
+      body: JSON.stringify([
+        ["DEL", "homepage:section:featured:v4:brand:all:limit:12"],
+        ["DEL", "homepage:section:featured:v3:brand:all:limit:12"],
+      ]),
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 // POST /api/products — Create a new product with full server-side validation & RLS bypass
 export async function POST(req: NextRequest) {
   try {
@@ -265,6 +281,9 @@ export async function POST(req: NextRequest) {
       }
     } catch (_) {}
 
+    // Invalidate customer storefront cache
+    await invalidateStorefrontCache();
+
     return NextResponse.json({
       success: true,
       message: "Product published successfully.",
@@ -410,6 +429,9 @@ export async function PUT(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Invalidate customer storefront cache
+    await invalidateStorefrontCache();
 
     return NextResponse.json({
       success: true,

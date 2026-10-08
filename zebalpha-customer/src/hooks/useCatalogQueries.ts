@@ -8,7 +8,7 @@ import { Product, Category } from '@/lib/types';
 
 export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [];
 
-export const SLIM_PRODUCT_CARD_FIELDS = "id, name, brand, price, mrp, image_url, thumbnail_url, images, category_id, category, stock, low_stock_limit, status, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, created_at, specifications, seller_id";
+export const SLIM_PRODUCT_CARD_FIELDS = "id, name, brand, price, mrp, image_url, images, category_id, stock, low_stock_limit, status, is_active, is_approved, approval_status, created_at, specifications, seller_id";
 
 /**
  * Custom 300ms Debounce Hook for Search Inputs
@@ -125,33 +125,34 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       .from("products")
       .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
       .or("is_active.is.null,is_active.eq.true")
-      .or("is_approved.is.null,is_approved.eq.true")
       .neq("approval_status", "rejected");
 
-    // Server-side category filtering
+    // Server-side category filtering without referencing non-existent columns
     if (params.category && String(params.category).trim() !== "" && String(params.category) !== "all") {
       const cat = String(params.category).toLowerCase().trim();
-      if (cat.includes("polo")) {
-        query = query.or("name.ilike.%polo%,description.ilike.%polo%,brand.ilike.%polo%,category.ilike.%polo%,main_category.ilike.%polo%");
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cat);
+      const isNum = !isNaN(Number(cat));
+
+      if (isUuid) {
+        query = query.eq("category_id", cat);
+      } else if (isNum) {
+        query = query.eq("category_id", Number(cat));
+      } else if (cat.includes("polo")) {
+        query = query.or("name.ilike.%polo%,description.ilike.%polo%,brand.ilike.%polo%");
       } else if (cat.includes("tee") || cat.includes("t-shirt") || cat.includes("oversized")) {
-        query = query.or("name.ilike.%tee%,name.ilike.%t-shirt%,name.ilike.%oversized%,description.ilike.%tee%,category.ilike.%tee%,category.ilike.%t-shirt%,category.ilike.%oversized%,main_category.ilike.%t-shirt%");
+        query = query.or("name.ilike.%tee%,name.ilike.%t-shirt%,name.ilike.%oversized%,description.ilike.%tee%");
       } else if (cat.includes("hoodie") || cat.includes("fleece")) {
-        query = query.or("name.ilike.%hoodie%,description.ilike.%hoodie%,category.ilike.%hoodie%,main_category.ilike.%hoodie%");
+        query = query.or("name.ilike.%hoodie%,description.ilike.%hoodie%");
       } else if (cat.includes("shirt")) {
-        query = query.or("name.ilike.%shirt%,description.ilike.%shirt%,category.ilike.%shirt%,main_category.ilike.%shirt%");
+        query = query.or("name.ilike.%shirt%,description.ilike.%shirt%");
       } else if (cat.includes("bottom") || cat.includes("cargo") || cat.includes("pant") || cat.includes("trouser") || cat.includes("denim")) {
-        query = query.or("name.ilike.%cargo%,name.ilike.%pant%,name.ilike.%trouser%,description.ilike.%cargo%,category.ilike.%cargo%,category.ilike.%bottom%,main_category.ilike.%bottom%");
+        query = query.or("name.ilike.%cargo%,name.ilike.%pant%,name.ilike.%trouser%,description.ilike.%cargo%");
       } else if (cat.includes("drop") || cat.includes("limited")) {
-        query = query.or("name.ilike.%drop%,name.ilike.%limited%,description.ilike.%drop%,category.ilike.%drop%,category.ilike.%limited%,main_category.ilike.%limited%");
+        query = query.or("name.ilike.%drop%,name.ilike.%limited%,description.ilike.%drop%");
       } else if (cat.includes("accessor") || cat.includes("cap") || cat.includes("headwear") || cat.includes("hat")) {
-        query = query.or("name.ilike.%cap%,name.ilike.%beanie%,name.ilike.%accessor%,description.ilike.%cap%,category.ilike.%accessor%,main_category.ilike.%accessor%");
+        query = query.or("name.ilike.%cap%,name.ilike.%beanie%,name.ilike.%accessor%,description.ilike.%cap%");
       } else {
-        const isNum = !isNaN(Number(cat));
-        if (isNum) {
-          query = query.eq("category_id", Number(cat));
-        } else {
-          query = query.or(`name.ilike.%${cat}%,description.ilike.%${cat}%,brand.ilike.%${cat}%,category.ilike.%${cat}%,main_category.ilike.%${cat}%`);
-        }
+        query = query.or(`name.ilike.%${cat}%,description.ilike.%${cat}%,brand.ilike.%${cat}%`);
       }
     }
 
@@ -173,7 +174,22 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
     // Range-based pagination
     query = query.range(from, to);
 
-    const { data, count, error } = await query;
+    let { data, count, error } = await query;
+    if (error || !data) {
+      console.warn("Notice querying paginated products, trying resilient fallback:", error?.message);
+      const fallback = await supabase
+        .from("products")
+        .select("*", { count: "exact" })
+        .or("is_active.is.null,is_active.eq.true")
+        .neq("approval_status", "rejected")
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      data = fallback.data;
+      count = fallback.count;
+      error = fallback.error;
+    }
+
     if (error) {
       console.warn("Notice querying paginated products:", error.message);
       return {
@@ -186,7 +202,22 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       };
     }
 
-    const products = (data || []) as unknown as Product[];
+    const rawList = data || [];
+    const products: Product[] = rawList.map((p: any) => {
+      const specs = p.specifications || {};
+      const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium");
+      const isDrop = p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
+      return {
+        ...p,
+        thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
+        is_premium: isPrem,
+        tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
+        is_new_drop: isDrop,
+        collection: p.collection || specs.collection || "",
+        target_drop_date: p.target_drop_date || specs.target_drop_date || "",
+        category: p.category || specs.category || "Apparel",
+      };
+    });
     const totalCount = count !== null ? count : products.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 

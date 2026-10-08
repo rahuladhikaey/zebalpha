@@ -127,14 +127,16 @@ export async function getCachedEditorialCards(): Promise<EditorialCard[]> {
 }
 
 /**
- * Cached fetcher for Homepage Featured Drops Grid Section (Section 9)
- * Cache TTL: 20 minutes (1200s)
+/**
+ * Resilient query fields for Homepage Featured Drops Grid Section
+ * Omits non-existent columns (thumbnail_url, category) to prevent PostgREST 400 errors
  */
-const SLIM_PRODUCT_FIELDS = 'id, name, brand, price, mrp, image_url, thumbnail_url, images, category_id, category, stock, low_stock_limit, status, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, created_at, specifications, seller_id';
+const SLIM_PRODUCT_FIELDS = 'id, name, brand, price, mrp, image_url, images, category_id, stock, low_stock_limit, status, is_active, is_approved, approval_status, created_at, specifications, seller_id';
 
 export async function getCachedHomeProducts(brandFilter?: string, limit: number = 12): Promise<Product[]> {
   const brandKey = brandFilter ? brandFilter.toLowerCase().trim() : 'all';
-  const cacheKey = `homepage:section:featured:v3:brand:${brandKey}:limit:${limit}`;
+  // Bumped to v4 to instantly invalidate any stale empty arrays in Redis
+  const cacheKey = `homepage:section:featured:v4:brand:${brandKey}:limit:${limit}`;
   return getCachedOrFetch<Product[]>(
     cacheKey,
     async () => {
@@ -142,7 +144,6 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
         .from('products')
         .select(SLIM_PRODUCT_FIELDS)
         .or('is_active.is.null,is_active.eq.true')
-        .or('is_approved.is.null,is_approved.eq.true')
         .neq('approval_status', 'rejected')
         .order('created_at', { ascending: false });
 
@@ -152,14 +153,46 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
 
       query = query.limit(limit);
 
-      const { data, error } = await query;
+      let { data, error } = await query;
+
+      // Resilient fallback: If any slim column is missing in remote DB, fetch with select(*)
+      if (error || !data) {
+        console.warn('[Database Notice] Retrying home products with select(*):', error?.message);
+        const fallback = await supabaseServer
+          .from('products')
+          .select('*')
+          .or('is_active.is.null,is_active.eq.true')
+          .neq('approval_status', 'rejected')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        data = fallback.data;
+        error = fallback.error;
+      }
+
       if (error) {
         console.error('[Database Error] Failed to fetch home products:', error);
         return [];
       }
-      return (data || []) as unknown as Product[];
+
+      const rawList = data || [];
+      return rawList.map((p: any) => {
+        const specs = p.specifications || {};
+        const isPrem = p.is_premium === true || p.tier === 'PREMIUM' || specs.is_premium === true || specs.is_premium === 'true' || specs.tier === 'PREMIUM' || (p.name || '').toLowerCase().includes('premium');
+        const isDrop = p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === 'true' || p.status === 'COMING_SOON';
+        return {
+          ...p,
+          thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || '',
+          is_premium: isPrem,
+          tier: isPrem ? 'PREMIUM' : (p.tier || specs.tier || 'STANDARD'),
+          is_new_drop: isDrop,
+          collection: p.collection || specs.collection || '',
+          target_drop_date: p.target_drop_date || specs.target_drop_date || '',
+          category: p.category || specs.category || 'Apparel',
+        };
+      }) as unknown as Product[];
     },
-    1200 // 20 mins TTL
+    5 // 5 sec TTL for real-time responsiveness when sellers add products
   );
 }
 

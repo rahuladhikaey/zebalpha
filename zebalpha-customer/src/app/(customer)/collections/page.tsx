@@ -30,7 +30,7 @@ export default function CollectionsPage() {
         const [pRes, cRes, catRes] = await Promise.all([
           supabase
             .from("products")
-            .select("id, name, category, category_id, is_active, is_premium, is_new_drop, tier, status, image_url, images")
+            .select("id, name, category_id, is_active, status, image_url, images, specifications")
             .eq("is_active", true)
             .order("created_at", { ascending: false }),
           supabase
@@ -45,7 +45,27 @@ export default function CollectionsPage() {
             .order("name", { ascending: true })
         ]);
 
-        const loadedProducts = (pRes.data as Product[]) || [];
+        let rawProducts = pRes.data;
+        if (pRes.error || !rawProducts) {
+          const fallback = await supabase
+            .from("products")
+            .select("*")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false });
+          rawProducts = fallback.data;
+        }
+
+        const loadedProducts = (rawProducts || []).map((p: any) => {
+          const specs = p.specifications || {};
+          return {
+            ...p,
+            is_premium: p.is_premium ?? (p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true"),
+            is_new_drop: p.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON"),
+            tier: p.tier || specs.tier || "STANDARD",
+            category: p.category || specs.category || "Apparel",
+            thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
+          };
+        }) as Product[];
         setProducts(loadedProducts);
 
         if (cRes.data && cRes.data.length > 0) {

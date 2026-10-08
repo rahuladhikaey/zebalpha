@@ -33,6 +33,64 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     }
   }, [initialProducts]);
 
+  // Initial client fallback fetch if SSR returned empty array (e.g., cold cache)
+  useEffect(() => {
+    if (products.length === 0) {
+      let isMounted = true;
+      (async () => {
+        try {
+          let query = supabase
+            .from("products")
+            .select(SLIM_PRODUCT_CARD_FIELDS)
+            .or("is_active.is.null,is_active.eq.true")
+            .neq("approval_status", "rejected")
+            .order("created_at", { ascending: false })
+            .limit(12);
+
+          if (brandFilter) {
+            query = query.ilike("brand", `%${brandFilter}%`);
+          }
+
+          let { data, error } = await query;
+          if (error || !data || data.length === 0) {
+            const fallback = await supabase
+              .from("products")
+              .select("*")
+              .or("is_active.is.null,is_active.eq.true")
+              .neq("approval_status", "rejected")
+              .order("created_at", { ascending: false })
+              .limit(12);
+            data = fallback.data;
+          }
+
+          if (isMounted && data && data.length > 0) {
+            const mapped = data.map((p: any) => {
+              const specs = p.specifications || {};
+              const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM";
+              const isDrop = p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
+              return {
+                ...p,
+                thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
+                is_premium: isPrem,
+                tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
+                is_new_drop: isDrop,
+                category: p.category || specs.category || "Apparel",
+              };
+            });
+            setProducts(mapped);
+            setLastCreatedAt(mapped[mapped.length - 1].created_at || null);
+            setHasMore(mapped.length >= 12);
+          }
+        } catch (e) {
+          console.warn("Notice in client product fetch:", e);
+        }
+      })();
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [products.length, brandFilter]);
+
   // Lazy load next batch on scroll
   const loadMoreProducts = useCallback(async () => {
     if (isLoadingMore || !hasMore || !lastCreatedAt) return;
@@ -43,7 +101,6 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
         .from("products")
         .select(SLIM_PRODUCT_CARD_FIELDS)
         .or("is_active.is.null,is_active.eq.true")
-        .or("is_approved.is.null,is_approved.eq.true")
         .neq("approval_status", "rejected")
         .lt("created_at", lastCreatedAt)
         .order("created_at", { ascending: false })
@@ -53,9 +110,35 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
         query = query.ilike("brand", `%${brandFilter}%`);
       }
 
-      const { data, error } = await query;
+      let { data, error } = await query;
+      if (error || !data || data.length === 0) {
+        const fallback = await supabase
+          .from("products")
+          .select("*")
+          .or("is_active.is.null,is_active.eq.true")
+          .neq("approval_status", "rejected")
+          .lt("created_at", lastCreatedAt)
+          .order("created_at", { ascending: false })
+          .limit(12);
+        data = fallback.data;
+        error = fallback.error;
+      }
+
       if (!error && data && data.length > 0) {
-        const newBatch = (data || []) as unknown as Product[];
+        const newBatch: Product[] = data.map((p: any) => {
+          const specs = p.specifications || {};
+          const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM";
+          const isDrop = p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
+          return {
+            ...p,
+            thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
+            is_premium: isPrem,
+            tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
+            is_new_drop: isDrop,
+            category: p.category || specs.category || "Apparel",
+          };
+        });
+
         setProducts((prev) => {
           const existingIds = new Set(prev.map((p) => p.id));
           const uniqueNew = newBatch.filter((p) => !existingIds.has(p.id));
