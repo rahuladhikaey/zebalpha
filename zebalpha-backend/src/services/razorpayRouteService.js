@@ -172,18 +172,11 @@ export async function executeRouteTransfer({
 
   const razorpay = getRazorpayInstance();
 
-  // Test / Sandbox Simulation Mode if keys not present
+  // Provider validation
   if (!razorpay) {
-    console.log(`[Razorpay Route Simulation] Executing mock transfer of ${amountMinor} paise for ${settlementNumber}...`);
-    const mockTransferId = `trf_sim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const mockUtr = `UTR${Math.floor(100000000000 + Math.random() * 900000000000)}`;
-
     return {
-      success: true,
-      transferId: mockTransferId,
-      utr: mockUtr,
-      status: 'processed',
-      isMock: true
+      success: false,
+      error: 'Razorpay Route credentials not configured in environment (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET missing).'
     };
   }
 
@@ -203,22 +196,7 @@ export async function executeRouteTransfer({
 
     if (!res.ok) {
       const errDesc = res.data?.error?.description || `HTTP ${res.status} Error`;
-      console.warn(`[Razorpay Route Transfer Rejected]: ${errDesc}`);
-
-      // If Route feature is not enabled on standard test key, simulate successful transfer for testing
-      if (res.status === 400 || res.status === 404 || res.status === 403) {
-        console.log(`[Razorpay Route Notice] Route API returned (${errDesc}), falling back to test simulation.`);
-        const fallbackTransferId = `trf_test_${Date.now()}`;
-        const fallbackUtr = `UTR${Math.floor(100000000000 + Math.random() * 900000000000)}`;
-        return {
-          success: true,
-          transferId: fallbackTransferId,
-          utr: fallbackUtr,
-          status: 'processed',
-          isFallback: true
-        };
-      }
-
+      console.warn(`[Razorpay Route Transfer Rejected by Provider]: ${errDesc}`);
       return {
         success: false,
         error: errDesc,
@@ -310,3 +288,49 @@ export async function queryTransferStatus(transferId) {
     return { found: false, error: err.message };
   }
 }
+
+/**
+ * Retrieves details for a linked account
+ */
+export async function getLinkedAccount(accountId) {
+  if (!accountId) return null;
+  const razorpay = getRazorpayInstance();
+  if (!razorpay) {
+    return { success: true, account: { id: accountId, status: 'activated' } };
+  }
+  try {
+    const res = await callRazorpayApi('GET', `/accounts/${encodeURIComponent(accountId)}`);
+    if (!res.ok) {
+      return { success: false, error: res.data?.error?.description || `HTTP ${res.status}` };
+    }
+    return { success: true, account: res.data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Retrieves transfer details by ID (Route transfer)
+ */
+export async function getTransferDetails(transferId) {
+  if (!transferId) return null;
+  const statusRes = await queryTransferStatus(transferId);
+  if (statusRes.found) {
+    return {
+      success: true,
+      transfer: {
+        id: statusRes.transferId,
+        status: statusRes.status,
+        amount: statusRes.amountMinor,
+        account: statusRes.accountId,
+        settlement_id: statusRes.utr,
+        data: statusRes.data
+      }
+    };
+  }
+  return {
+    success: false,
+    error: statusRes.error || 'Transfer not found'
+  };
+}
+
