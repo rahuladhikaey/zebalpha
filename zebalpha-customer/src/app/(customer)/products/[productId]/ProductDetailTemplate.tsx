@@ -354,61 +354,6 @@ export default function ProductDetailTemplate({
                 <WishlistButton product={product} />
               </div>
 
-              {/* Action Buttons - Desktop */}
-              <div className="hidden lg:grid grid-cols-2 gap-4 mt-2">
-                {isUpcomingDrop ? (
-                  <div className="col-span-2 flex gap-3">
-                    <button
-                      type="button"
-                      onClick={handleNotifyDrop}
-                      className={`flex h-16 flex-1 items-center justify-center gap-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer shadow-xl ${
-                        isDropNotified
-                          ? "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
-                          : "bg-white text-black hover:bg-neutral-200 shadow-white/10"
-                      }`}
-                    >
-                      {isDropNotified ? (
-                        <>
-                          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                          Registered for Drop
-                        </>
-                      ) : (
-                        <>
-                          <Bell className="h-5 w-5" />
-                          Notify Me on Drop ⚡
-                        </>
-                      )}
-                    </button>
-                    <Link
-                      href="/new-drops"
-                      className="flex h-16 px-6 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-black uppercase tracking-wider text-white hover:bg-zinc-800 transition-all"
-                    >
-                      Explore All Drops
-                    </Link>
-                  </div>
-                ) : isCurrentVariantInStock ? (
-                  <>
-                    <AddToCartButton
-                      product={computedProduct}
-                      onBeforeAdd={handleValidateAndProceed}
-                      className="flex h-16 items-center justify-center gap-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-sm font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 active:scale-95 cursor-pointer"
-                    />
-                    <div className="w-full">
-                      <BuyNowButton
-                        product={computedProduct}
-                        onBeforeBuy={handleValidateAndProceed}
-                        className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="col-span-2">
-                    <button disabled className="flex h-16 w-full items-center justify-center rounded-2xl bg-zinc-900 text-sm font-black uppercase tracking-widest text-zinc-500 border border-zinc-800 cursor-not-allowed">
-                      Out of Stock
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -438,6 +383,9 @@ export default function ProductDetailTemplate({
                 </div>
               )}
 
+              <span className="text-xs font-black tracking-widest text-zinc-400 uppercase">
+                {product.brand || "ZEBALPHA"}
+              </span>
               <h1 className="text-2xl font-bold text-white md:text-3xl leading-tight">
                 {product.name}
               </h1>
@@ -456,12 +404,12 @@ export default function ProductDetailTemplate({
             )}
 
             <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                <span className="text-4xl font-black text-white">₹{displayPrice}</span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-3xl sm:text-4xl font-black text-white">₹{displayPrice}</span>
                 {hasDiscount && (
                   <>
-                    <span className="text-lg font-bold text-zinc-500 line-through">₹{displayMrp}</span>
-                    <span className="text-lg font-black text-white bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-lg">{discountPercent}% off</span>
+                    <span className="text-base sm:text-lg font-bold text-zinc-500 line-through">₹{displayMrp}</span>
+                    <span className="text-xs sm:text-sm font-black text-white bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-lg">{discountPercent}% OFF</span>
                   </>
                 )}
               </div>
@@ -480,8 +428,54 @@ export default function ProductDetailTemplate({
                 onSizeSelect={handleSizeSelect}
                 sizeChart={(product.specifications as any)?.size_chart}
                 validationError={validationError}
+                displayPrice={displayPrice}
+                displayMrp={displayMrp}
               />
             )}
+
+            {/* Action Buttons: [ Add to Cart ] [ Buy Now ] */}
+            <div className="pt-2">
+              {isUpcomingDrop ? (
+                <button
+                  type="button"
+                  onClick={handleNotifyDrop}
+                  className={`flex h-14 sm:h-16 w-full items-center justify-center gap-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer shadow-xl ${
+                    isDropNotified
+                      ? "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
+                      : "bg-white text-black hover:bg-neutral-200 shadow-white/10"
+                  }`}
+                >
+                  {isDropNotified ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                      Registered for Drop
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="h-5 w-5" />
+                      Notify Me on Drop ⚡
+                    </>
+                  )}
+                </button>
+              ) : isCurrentVariantInStock ? (
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <AddToCartButton
+                    product={computedProduct}
+                    onBeforeAdd={handleValidateAndProceed}
+                    className="flex h-14 sm:h-16 items-center justify-center gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs sm:text-sm font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 active:scale-95 cursor-pointer"
+                  />
+                  <BuyNowButton
+                    product={computedProduct}
+                    onBeforeBuy={handleValidateAndProceed}
+                    className="flex h-14 sm:h-16 w-full items-center justify-center gap-2 rounded-2xl bg-white text-xs sm:text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer"
+                  />
+                </div>
+              ) : (
+                <button disabled className="flex h-14 sm:h-16 w-full items-center justify-center rounded-2xl bg-zinc-900 text-sm font-black uppercase tracking-widest text-zinc-500 border border-zinc-800 cursor-not-allowed">
+                  Out of Stock
+                </button>
+              )}
+            </div>
 
 
             {/* Available Offers */}

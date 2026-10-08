@@ -19,6 +19,8 @@ interface PackageSelectionProps {
     chart_image?: string;
   };
   validationError?: string;
+  displayPrice?: number;
+  displayMrp?: number;
 }
 
 const COLOR_HEX_MAP: Record<string, string> = {
@@ -56,6 +58,8 @@ export function PackageSelection({
   onSizeSelect,
   sizeChart,
   validationError,
+  displayPrice,
+  displayMrp,
 }: PackageSelectionProps) {
   const [showChartModal, setShowChartModal] = useState(false);
   const [activeUnit, setActiveUnit] = useState<"inches" | "cm">(
@@ -374,22 +378,26 @@ export function PackageSelection({
       </div>
 
       {/* 3. CLEAN SELECTED VARIANT SUMMARY (NO TECHNICAL SKU / DEBUG INFO) */}
-      <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-3.5 space-y-2">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/90 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-zinc-400 font-bold">Selected:</span>
-            <span className="font-extrabold text-white bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-md">
-              Color: {selectedColor}
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+              Selected:
             </span>
-            <span
-              className={`font-extrabold px-2 py-0.5 rounded-md border ${
-                selectedSize
-                  ? "text-white bg-zinc-900 border-zinc-800"
-                  : "text-amber-400 bg-amber-500/10 border-amber-500/30"
-              }`}
-            >
-              Size: {selectedSize || "Select a size"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-white bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-lg">
+                Color: {selectedColor}
+              </span>
+              <span
+                className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
+                  selectedSize
+                    ? "text-white bg-zinc-900 border-zinc-800"
+                    : "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                }`}
+              >
+                Size: {selectedSize || "Select a size"}
+              </span>
+            </div>
           </div>
 
           {/* Dynamic Stock Indicator */}
@@ -415,6 +423,16 @@ export function PackageSelection({
             )}
           </div>
         </div>
+
+        {/* Dynamic Variant Price Display */}
+        {displayPrice !== undefined && (
+          <div className="pt-2 border-t border-zinc-850 flex items-baseline gap-2.5">
+            <span className="text-2xl font-black text-white">₹{displayPrice}</span>
+            {displayMrp && displayMrp > displayPrice && (
+              <span className="text-xs font-bold text-zinc-500 line-through">₹{displayMrp}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 4. SIZE CHART MODAL & RESPONSIVE BOTTOM SHEET */}
