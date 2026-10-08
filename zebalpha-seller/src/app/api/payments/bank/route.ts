@@ -1,30 +1,92 @@
-import { NextResponse } from "next/server";
-import { supabaseServer } from "@shared/utils/supabaseServer";
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
+import {
+  encryptAccountNumber,
+  hashAccountNumber,
+  maskAccountNumber,
+  validateBankInput,
+  checkBankRateLimit
+} from "@/shared/services/bankSecurityService";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
- * POST /api/payments/bank
- * Saves or updates seller bank account with masking and change-protection status.
+ * Helper to authenticate seller session from cookies or Authorization Bearer header
  */
-export async function POST(req: Request) {
+async function getAuthenticatedUser(req: NextRequest) {
   try {
-    const { data: { user } } = await supabaseServer.auth.getUser();
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return user;
+  } catch (_) {}
+
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const { data: tokenUser } = await supabaseServer.auth.getUser(token);
+    if (tokenUser?.user) return tokenUser.user;
+  }
+
+  return null;
+}
+
+/**
+ * POST /api/payments/bank
+ * Secure Bank Vault Endpoint
+ * Encrypts bank account number with AES-256-GCM, stores HMAC blind index, 
+ * enforces rate limiting, logs audit trails, and activates anti-fraud payout hold.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const user = await getAuthenticatedUser(req);
     if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized access. Please log in." }, { status: 401 });
     }
 
-    const { accountHolderName, bankName, accountNumber, ifscCode, upiId } = await req.json();
+    // Extract client IP and User-Agent for audit & anti-fraud tracking
+    const forwarded = req.headers.get("x-forwarded-for");
+    const ip = (forwarded ? forwarded.split(",")[0] : req.headers.get("x-real-ip")) || "unknown-ip";
+    const userAgent = req.headers.get("user-agent") || "unknown-agent";
 
-    if (!accountHolderName || !bankName || !accountNumber || !ifscCode) {
+    // Rate Limiting: Max 3 bank update attempts per 30 minutes
+    const rateCheck = checkBankRateLimit(`${user.id}:${ip}`);
+    if (!rateCheck.allowed) {
       return NextResponse.json({
         success: false,
-        error: "Account Holder Name, Bank Name, Account Number, and IFSC are required"
+        error: `Too many bank update attempts. For security reasons, please retry in ${rateCheck.retryAfterSeconds} seconds.`
+      }, { status: 429 });
+    }
+
+    const body = await req.json();
+    const { accountHolderName, bankName, accountNumber, confirmAccountNumber, ifscCode, upiId } = body;
+
+    // Strict multi-layer validation
+    const validation = validateBankInput({
+      accountHolderName,
+      bankName,
+      accountNumber,
+      confirmAccountNumber,
+      ifscCode,
+      upiId
+    });
+
+    if (!validation.valid || !validation.cleaned) {
+      return NextResponse.json({
+        success: false,
+        error: validation.error || "Invalid bank details provided"
       }, { status: 400 });
     }
 
-    // Resolve seller ID
+    const {
+      accountHolderName: cleanHolder,
+      bankName: cleanBank,
+      accountNumber: cleanAcc,
+      ifscCode: cleanIfsc,
+      upiId: cleanUpi
+    } = validation.cleaned;
+
+    // Resolve seller ID strictly tied to authenticated user ID
     const { data: seller } = await supabaseServer
       .from("sellers")
       .select("id")
@@ -33,46 +95,76 @@ export async function POST(req: Request) {
 
     const sellerId = seller?.id || user.id;
 
-    // Mask account number: e.g. "•••• •••• 1234"
-    const cleanAcc = String(accountNumber).trim();
-    const last4 = cleanAcc.slice(-4);
-    const maskedAccountNumber = `•••• •••• ${last4}`;
+    // Cryptographic Vault Operations
+    const encryptedAccount = encryptAccountNumber(cleanAcc);
+    const accountHash = hashAccountNumber(cleanAcc);
+    const maskedAccount = maskAccountNumber(cleanAcc);
 
-    // Insert new bank record with status 'BANK_CHANGE_PENDING' for fraud protection
+    // 48-Hour Anti-Takeover Security Hold
+    const holdUntil = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+    // Insert bank record: account_number column receives ONLY masked string to eliminate plaintext exposure
     const { data: newBank, error: bankErr } = await supabaseServer
       .from("seller_bank_accounts")
       .insert([{
         seller_id: sellerId,
-        account_holder_name: accountHolderName.trim(),
-        bank_name: bankName.trim(),
-        account_number: cleanAcc,
-        masked_account_number: maskedAccountNumber,
-        ifsc_code: ifscCode.trim().toUpperCase(),
-        upi_id: upiId ? upiId.trim() : null,
+        account_holder_name: cleanHolder,
+        bank_name: cleanBank,
+        account_number: maskedAccount, // legacy column populated with masked string
+        masked_account_number: maskedAccount,
+        encrypted_account_number: encryptedAccount,
+        account_number_hash: accountHash,
+        ifsc_code: cleanIfsc,
+        upi_id: cleanUpi,
         is_verified: false,
         status: "BANK_CHANGE_PENDING",
         change_requested_at: new Date().toISOString(),
-        notes: "Bank details updated by seller. Awaiting admin review."
+        last_payout_hold_until: holdUntil,
+        change_ip_address: ip,
+        change_user_agent: userAgent,
+        notes: "Bank credentials encrypted via AES-256-GCM. 48-hour security payout hold active."
       }])
       .select()
       .single();
 
     if (bankErr) {
-      console.error("[Bank Update Error]:", bankErr);
+      console.error("[Bank Vault Error]:", bankErr);
       return NextResponse.json({ success: false, error: bankErr.message }, { status: 500 });
     }
 
-    // Also mirror UPI to sellers table if provided
-    if (upiId) {
+    // Record immutable audit entry
+    try {
+      await supabaseServer
+        .from("seller_bank_audit_logs")
+        .insert([{
+          seller_id: sellerId,
+          actor_id: user.id,
+          action: "MODIFIED",
+          masked_account_number: maskedAccount,
+          ifsc_code: cleanIfsc,
+          bank_name: cleanBank,
+          account_holder_name: cleanHolder,
+          ip_address: ip,
+          user_agent: userAgent,
+          notes: "Bank update secured via AES-256-GCM. Payouts locked for 48-hour compliance review."
+        }]);
+    } catch (auditErr) {
+      // Non-blocking if table migration is pending
+      console.warn("[Bank Audit Warning]:", auditErr);
+    }
+
+    // Mirror UPI to sellers table if provided
+    if (cleanUpi) {
       await supabaseServer
         .from("sellers")
-        .update({ phonepay_number: upiId.trim(), phonepay_no: upiId.trim() })
+        .update({ phonepay_number: cleanUpi, phonepay_no: cleanUpi })
         .eq("id", sellerId);
     }
 
+    // Safe Response: Return strictly masked details, never plaintext or ciphertext
     return NextResponse.json({
       success: true,
-      message: "Bank details submitted successfully. Verification status: Review Pending.",
+      message: "Bank details encrypted and submitted successfully. A 48-hour security hold is active for fraud protection.",
       bankAccount: {
         id: newBank.id,
         bank_name: newBank.bank_name,
@@ -81,7 +173,8 @@ export async function POST(req: Request) {
         ifsc_code: newBank.ifsc_code,
         upi_id: newBank.upi_id,
         is_verified: false,
-        status: "BANK_CHANGE_PENDING"
+        status: "BANK_CHANGE_PENDING",
+        last_payout_hold_until: holdUntil
       }
     });
   } catch (err: any) {

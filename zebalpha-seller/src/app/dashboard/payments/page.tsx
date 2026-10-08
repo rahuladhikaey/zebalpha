@@ -21,6 +21,7 @@ import {
   Receipt,
   Scale,
   Eye,
+  EyeOff,
   X,
   ExternalLink,
   Lock,
@@ -30,7 +31,7 @@ import {
   ChevronDown,
   Info
 } from "lucide-react";
-import { LedgerTransaction, SellerLedgerBalances, DetailedSettlementRecord } from "@shared/types";
+import { LedgerTransaction, SellerLedgerBalances, DetailedSettlementRecord, SellerBankAccount } from "@shared/types";
 
 type PaymentTab = "settlements" | "ledger" | "reconciliation" | "bank";
 
@@ -57,7 +58,7 @@ export default function SellerPaymentsPage() {
 
   const [transactions, setTransactions] = useState<LedgerTransaction[]>([]);
   const [settlements, setSettlements] = useState<DetailedSettlementRecord[]>([]);
-  const [bankAccount, setBankAccount] = useState<any>(null);
+  const [bankAccount, setBankAccount] = useState<SellerBankAccount | null>(null);
 
   // Filters & Search
   const [ledgerSearch, setLedgerSearch] = useState("");
@@ -72,9 +73,11 @@ export default function SellerPaymentsPage() {
     accountHolderName: "",
     bankName: "",
     accountNumber: "",
+    confirmAccountNumber: "",
     ifscCode: "",
     upiId: ""
   });
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
   const [bankSubmitting, setBankSubmitting] = useState(false);
   const [bankMessage, setBankMessage] = useState("");
   const [bankError, setBankError] = useState("");
@@ -97,6 +100,7 @@ export default function SellerPaymentsPage() {
             accountHolderName: json.bankAccount.account_holder_name || "",
             bankName: json.bankAccount.bank_name || "",
             accountNumber: "",
+            confirmAccountNumber: "",
             ifscCode: json.bankAccount.ifsc_code || "",
             upiId: json.bankAccount.upi_id || ""
           });
@@ -139,25 +143,55 @@ export default function SellerPaymentsPage() {
     });
   }, [settlements, settlementFilter]);
 
-  // Handle Bank Submit
+  // Handle Bank Submit with client-side security checks
   async function handleBankSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBankSubmitting(true);
     setBankMessage("");
     setBankError("");
 
+    const cleanAcc = bankForm.accountNumber.replace(/\s+/g, "").trim();
+    const cleanConfirm = bankForm.confirmAccountNumber.replace(/\s+/g, "").trim();
+
+    if (!/^\d{9,18}$/.test(cleanAcc)) {
+      setBankError("Account number must be between 9 and 18 digits (numbers only, no spaces or special characters).");
+      setBankSubmitting(false);
+      return;
+    }
+
+    if (cleanAcc !== cleanConfirm) {
+      setBankError("Account numbers do not match. Please verify carefully.");
+      setBankSubmitting(false);
+      return;
+    }
+
+    const cleanIfsc = bankForm.ifscCode.replace(/\s+/g, "").toUpperCase().trim();
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(cleanIfsc)) {
+      setBankError("Invalid IFSC format. Expected standard format: 4 letters, '0', followed by 6 alphanumeric characters (e.g. HDFC0001234).");
+      setBankSubmitting(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/payments/bank", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bankForm)
+        body: JSON.stringify({
+          accountHolderName: bankForm.accountHolderName.trim(),
+          bankName: bankForm.bankName.trim(),
+          accountNumber: cleanAcc,
+          confirmAccountNumber: cleanConfirm,
+          ifscCode: cleanIfsc,
+          upiId: bankForm.upiId ? bankForm.upiId.trim() : null
+        })
       });
       const data = await res.json();
 
       if (data.success) {
-        setBankMessage(data.message || "Bank details submitted for verification.");
+        setBankMessage(data.message || "Bank details encrypted and submitted for verification.");
         setBankAccount(data.bankAccount);
-        setShowEditBank(false);
+        setBankForm(prev => ({ ...prev, accountNumber: "", confirmAccountNumber: "" }));
+        setTimeout(() => setShowEditBank(false), 2200);
       } else {
         setBankError(data.error || "Failed to submit bank details.");
       }
@@ -677,19 +711,28 @@ export default function SellerPaymentsPage() {
                 </div>
               </div>
 
-              {bankAccount?.status === "ACTIVE" && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  <ShieldCheck size={12} />
-                  Verified
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {bankAccount?.status === "ACTIVE" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    <ShieldCheck size={12} />
+                    Verified Vault
+                  </span>
+                )}
 
-              {bankAccount?.status === "BANK_CHANGE_PENDING" && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                  <Clock size={12} />
-                  Change Review Pending
-                </span>
-              )}
+                {bankAccount?.status === "BANK_CHANGE_PENDING" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    <Clock size={12} />
+                    Audit & Review Pending
+                  </span>
+                )}
+
+                {bankAccount?.last_payout_hold_until && new Date(bankAccount.last_payout_hold_until) > new Date() && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                    <Lock size={10} />
+                    48h Security Freeze
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Account Details Box */}
@@ -706,7 +749,8 @@ export default function SellerPaymentsPage() {
 
               <div className="flex items-center justify-between text-xs">
                 <span className="text-zinc-500 font-bold uppercase tracking-wider">Account Number</span>
-                <span className="font-mono text-emerald-400 font-bold tracking-widest">
+                <span className="font-mono text-emerald-400 font-bold tracking-widest flex items-center gap-2">
+                  <Lock size={11} className="text-emerald-500" />
                   {bankAccount?.masked_account_number || "•••• •••• —"}
                 </span>
               </div>
@@ -728,7 +772,7 @@ export default function SellerPaymentsPage() {
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
               <Lock size={16} className="text-amber-400 shrink-0 mt-0.5" />
               <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">
-                <strong className="text-amber-300">Marketplace Fraud Protection:</strong> Updating bank details requires manual verification by ZebAlpha compliance. Payouts remain locked to the existing verified account until changes are audited.
+                <strong className="text-amber-300">Marketplace Fraud & Hijack Protection:</strong> Updating bank details activates an automated 48-hour security hold and requires compliance audit. Payouts cannot be diverted to compromised accounts.
               </p>
             </div>
 
@@ -747,7 +791,10 @@ export default function SellerPaymentsPage() {
           {showEditBank && (
             <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 md:p-8 space-y-6 animate-in slide-in-from-bottom-2 duration-300">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-                <h3 className="text-base font-black text-white">Update Settlement Account</h3>
+                <div>
+                  <h3 className="text-base font-black text-white">Update Settlement Account</h3>
+                  <p className="text-xs text-zinc-500">Secured with AES-256-GCM Vault Encryption</p>
+                </div>
                 <button
                   onClick={() => setShowEditBank(false)}
                   className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900"
@@ -769,6 +816,13 @@ export default function SellerPaymentsPage() {
               )}
 
               <form onSubmit={handleBankSubmit} className="space-y-4">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 flex items-start gap-3 text-xs">
+                  <ShieldCheck size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="text-zinc-400 text-[11px] leading-relaxed">
+                    <strong className="text-emerald-400">Bank-Grade Vault Encryption:</strong> Bank credentials are encrypted via AES-256-GCM before database write. Plaintext account numbers are never stored on disk or exposed via API.
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-zinc-300">Account Holder Name (as in bank passbook)</label>
                   <input
@@ -793,27 +847,54 @@ export default function SellerPaymentsPage() {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-zinc-300">Account Number</label>
-                  <input
-                    type="text"
-                    required
-                    value={bankForm.accountNumber}
-                    onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
-                    placeholder="Enter full bank account number"
-                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-white transition"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-zinc-300">Account Number</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAccountNumber(!showAccountNumber)}
+                        className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 transition"
+                      >
+                        {showAccountNumber ? <EyeOff size={11} /> : <Eye size={11} />}
+                        {showAccountNumber ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                    <input
+                      type={showAccountNumber ? "text" : "password"}
+                      required
+                      value={bankForm.accountNumber}
+                      onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value.replace(/\D/g, "") })}
+                      placeholder="9 to 18 digits"
+                      maxLength={18}
+                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-white transition"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-300">Confirm Account Number</label>
+                    <input
+                      type={showAccountNumber ? "text" : "password"}
+                      required
+                      value={bankForm.confirmAccountNumber}
+                      onChange={(e) => setBankForm({ ...bankForm, confirmAccountNumber: e.target.value.replace(/\D/g, "") })}
+                      placeholder="Re-enter account number"
+                      maxLength={18}
+                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-white transition"
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-zinc-300">IFSC Code</label>
                     <input
                       type="text"
                       required
                       value={bankForm.ifscCode}
-                      onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase() })}
+                      onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })}
                       placeholder="e.g. HDFC0001234"
+                      maxLength={11}
                       className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono uppercase focus:outline-none focus:border-white transition"
                     />
                   </div>

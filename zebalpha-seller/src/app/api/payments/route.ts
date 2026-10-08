@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { supabaseServer } from "@shared/utils/supabaseServer";
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
 import { computeLedgerBalances, DEFAULT_FINANCIAL_RULES } from "@shared/services/financialLedgerService";
 import { LedgerTransaction } from "@shared/types/ledger";
 
@@ -7,31 +7,64 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
+ * Authenticates the user from session cookies or Bearer token header
+ */
+async function getAuthenticatedUser(req: NextRequest) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return user;
+  } catch (_) {}
+
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const { data: tokenUser } = await supabaseServer.auth.getUser(token);
+    if (tokenUser?.user) return tokenUser.user;
+  }
+
+  return null;
+}
+
+/**
  * GET /api/payments
  * Fetches real-time financial ledger transactions, settlements, bank account, and computed balances.
+ * Security hardened: Validates user identity and prevents IDOR (Insecure Direct Object Reference).
  */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const sellerIdParam = searchParams.get("sellerId");
-
-    // Fetch authenticated user
-    const { data: { user } } = await supabaseServer.auth.getUser();
-    if (!user && !sellerIdParam) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized access" }, { status: 401 });
     }
 
-    const currentUserId = user?.id;
+    const { searchParams } = new URL(req.url);
+    const requestedSellerId = searchParams.get("sellerId");
 
-    // Resolve seller ID
-    let sellerId = sellerIdParam;
-    if (!sellerId && currentUserId) {
+    // Check if the caller is an administrator if attempting to view another seller's financial data
+    let sellerId: string | null = null;
+    if (requestedSellerId) {
+      const { data: profile } = await supabaseServer
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+      if (isAdmin) {
+        sellerId = requestedSellerId;
+      }
+    }
+
+    // Default to the authenticated user's own seller record
+    if (!sellerId) {
       const { data: seller } = await supabaseServer
         .from("sellers")
         .select("id")
-        .eq("user_id", currentUserId)
+        .eq("user_id", user.id)
         .maybeSingle();
-      sellerId = seller?.id || currentUserId;
+
+      sellerId = seller?.id || user.id;
     }
 
     if (!sellerId) {
@@ -46,24 +79,24 @@ export async function GET(req: Request) {
         .select("*")
         .eq("seller_id", sellerId)
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(100);
 
-      if (!ledgerErr && ledgerRows) {
+      if (ledgerRows && !ledgerErr) {
         transactions = ledgerRows as LedgerTransaction[];
       }
     } catch (_) {}
 
-    // 2. Compute ledger balances
+    // 2. Compute dynamic financial balances from ledger
     let balances = computeLedgerBalances(transactions);
 
-    // If ledger is empty (or before first batch migration), calculate from actual completed orders
+    // Fallback: If no transactions yet, estimate from delivered orders
     if (transactions.length === 0) {
       try {
         const { data: orders } = await supabaseServer
           .from("orders")
-          .select("id, order_number, total_amount, payment_method, payment_status, order_status, created_at, items")
-          .or(`seller_id.eq.${sellerId},seller_id.eq.${currentUserId}`)
-          .in("order_status", ["delivered", "completed", "DELIVERED", "COMPLETED"]);
+          .select("id, total_amount, payment_method, order_status")
+          .eq("seller_id", sellerId)
+          .in("order_status", ["DELIVERED", "COMPLETED"]);
 
         if (orders && orders.length > 0) {
           let gross = 0;
@@ -112,7 +145,7 @@ export async function GET(req: Request) {
       const { data: sRows } = await supabaseServer
         .from("seller_settlements")
         .select("*")
-        .or(`seller_id.eq.${sellerId},seller_id.eq.${currentUserId}`)
+        .or(`seller_id.eq.${sellerId},seller_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
       if (sRows) {
@@ -120,13 +153,13 @@ export async function GET(req: Request) {
       }
     } catch (_) {}
 
-    // 4. Fetch bank account details
+    // 4. Fetch bank account details (Strictly masked fields; never expose raw credentials)
     let bankAccount: any = null;
     try {
       const { data: bRow } = await supabaseServer
         .from("seller_bank_accounts")
-        .select("id, bank_name, account_holder_name, masked_account_number, ifsc_code, upi_id, is_verified, status")
-        .or(`seller_id.eq.${sellerId},seller_id.eq.${currentUserId}`)
+        .select("id, bank_name, account_holder_name, masked_account_number, ifsc_code, upi_id, is_verified, status, last_payout_hold_until")
+        .or(`seller_id.eq.${sellerId},seller_id.eq.${user.id}`)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -163,7 +196,7 @@ export async function GET(req: Request) {
       transactions,
       settlements,
       bankAccount,
-      rules: DEFAULT_FINANCIAL_RULES
+      sellerId
     });
   } catch (err: any) {
     console.error("[Payments API Exception]:", err);
