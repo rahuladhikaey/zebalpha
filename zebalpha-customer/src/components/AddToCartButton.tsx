@@ -29,6 +29,11 @@ export function AddToCartButton({
       router.push(`/new-drops`);
       return;
     }
+    // If product has variants and is clicked from feed without a variant selected, open PDP
+    if (product.packages && product.packages.length > 0 && !(product as any).variant_id && !onBeforeAdd) {
+      router.push(`/products/${product.id}`);
+      return;
+    }
     if (onBeforeAdd) {
       const allowed = onBeforeAdd();
       if (!allowed) return;
