@@ -19,7 +19,10 @@ export function BuyNowButton({ product, className, isPreOrder = false }: { produ
       return;
     }
 
-    const cartItem = cart.find(item => item.id === product.id);
+    const targetKey = (product as any).cart_item_key;
+    const cartItem = cart.find((item) =>
+      targetKey ? item.cart_item_key === targetKey : item.id === product.id
+    );
     const quantity = cartItem?.quantity || 1;
 
     // Automatically add to cart if not already present and not a pre-order

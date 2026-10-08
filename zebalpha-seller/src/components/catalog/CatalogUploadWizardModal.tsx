@@ -74,11 +74,14 @@ export interface MasterCatalogFormState {
   target_drop_date: string;
   tier: string;
 
-  // Step 4
+  // Step 4: Variants & Size Chart
   has_variants: boolean;
   variants: CatalogVariant[];
   single_stock: string;
   single_sku: string;
+  size_chart_columns?: string[];
+  size_chart_notes?: string;
+  size_chart_image?: string;
 }
 
 const INITIAL_FORM_STATE: MasterCatalogFormState = {
@@ -95,6 +98,9 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
   measurement_unit: "inches",
   size_measurements: [],
   is_measurements_enabled: true,
+  size_chart_columns: ["Chest", "Length", "Shoulder", "Sleeve"],
+  size_chart_notes: "All measurements are garment dimensions in inches. Measure flat across chest from armhole to armhole.",
+  size_chart_image: "",
 
   fabric: "100% Pure Cotton",
   pattern: "Solid / Plain",
@@ -178,12 +184,15 @@ export default function CatalogUploadWizardModal({
         id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
         size: pkg.size || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[1] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[1] : pkg.name || "Free Size"),
         color: pkg.color || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[0] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[0] : "Black"),
+        color_hex: pkg.color_hex || undefined,
         sku: pkg.sku || "",
         stock: String(pkg.stock ?? 20),
         price: String(pkg.price ?? editingProduct.price ?? ""),
         defective_returns_price: String((editingProduct.specifications as any)?.defective_returns_price || ""),
         mrp: String(pkg.mrp ?? editingProduct.mrp ?? ""),
         image_url: pkg.image_url || undefined,
+        gallery: Array.isArray(pkg.gallery) ? pkg.gallery : pkg.image_url ? [pkg.image_url] : [],
+        is_active: pkg.stock === undefined || Number(pkg.stock) > 0,
       }));
 
       // Parse existing sizes and measurements for Step 1 Meesho-style tables
@@ -212,6 +221,11 @@ export default function CatalogUploadWizardModal({
 
       const existingSizeChart = specs.size_chart;
       const loadedUnit: MeasurementUnit = existingSizeChart?.unit === "cm" ? "cm" : "inches";
+      const loadedColumns: string[] = Array.isArray(existingSizeChart?.columns)
+        ? existingSizeChart.columns
+        : ["Chest", "Length", "Shoulder", "Sleeve"];
+      const loadedNotes: string = existingSizeChart?.notes || "";
+      const loadedChartImage: string = existingSizeChart?.chart_image || "";
       const loadedMeasurements: SizeMeasurementDetail[] = Array.isArray(existingSizeChart?.rows)
         ? existingSizeChart.rows.map((r: any) => ({
             size: r.size,
@@ -223,6 +237,7 @@ export default function CatalogUploadWizardModal({
             sleeve_length: r.sleeve_length || r.sleeve || "",
             inseam: r.inseam || "",
             thigh: r.thigh || "",
+            ...r,
           }))
         : [];
 
@@ -240,6 +255,9 @@ export default function CatalogUploadWizardModal({
         measurement_unit: loadedUnit,
         size_measurements: loadedMeasurements,
         is_measurements_enabled: Boolean(existingSizeChart && loadedMeasurements.length > 0),
+        size_chart_columns: loadedColumns,
+        size_chart_notes: loadedNotes,
+        size_chart_image: loadedChartImage,
 
         fabric: specs.fabric || "100% Pure Cotton",
         pattern: specs.pattern || "Solid / Plain",
@@ -465,21 +483,38 @@ export default function CatalogUploadWizardModal({
 
       const coverImageUrl = uploadedImagesList[0] || "";
 
-      // 2. Upload variant images if any are base64 strings
+      // 2. Upload variant images & color galleries if any are base64 strings
       let processedVariants = [...form.variants];
       if (form.has_variants && form.variants.length > 0) {
-        setUploadStatus("Processing variant photos...");
+        setUploadStatus("Processing color variant photos & galleries...");
         processedVariants = await Promise.all(
           form.variants.map(async (v) => {
+            let updatedV = { ...v };
             if (v.image_url && typeof v.image_url === "string" && v.image_url.startsWith("data:image/")) {
               try {
                 const cloudUrl = await uploadToCloudinary(v.image_url);
-                return { ...v, image_url: cloudUrl };
-              } catch (_) {
-                return v;
+                updatedV.image_url = cloudUrl;
+              } catch (_) {}
+            }
+            if (Array.isArray(v.gallery) && v.gallery.length > 0) {
+              const uploadedGallery = await Promise.all(
+                v.gallery.map(async (gImg) => {
+                  if (typeof gImg === "string" && gImg.startsWith("data:image/")) {
+                    try {
+                      return await uploadToCloudinary(gImg);
+                    } catch (_) {
+                      return gImg;
+                    }
+                  }
+                  return gImg;
+                })
+              );
+              updatedV.gallery = uploadedGallery;
+              if (!updatedV.image_url && uploadedGallery.length > 0) {
+                updatedV.image_url = uploadedGallery[0];
               }
             }
-            return v;
+            return updatedV;
           })
         );
       }
@@ -554,7 +589,10 @@ export default function CatalogUploadWizardModal({
       if (form.is_measurements_enabled && form.size_measurements && form.size_measurements.length > 0) {
         (specificationsData as any).size_chart = {
           unit: form.measurement_unit || "inches",
+          columns: form.size_chart_columns || ["Chest", "Length", "Shoulder", "Sleeve"],
           rows: form.size_measurements,
+          notes: form.size_chart_notes || "",
+          chart_image: form.size_chart_image || "",
         };
       }
 
@@ -604,12 +642,14 @@ export default function CatalogUploadWizardModal({
               ? `${v.color} / ${v.size}`
               : v.size || "Standard",
             color: v.color || "Default",
+            color_hex: v.color_hex || undefined,
             size: v.size || "Free Size",
             price: parseFloat(v.price) || effectivePrice || 0,
             mrp: parseFloat(v.mrp) || effectiveMrp || parseFloat(v.price) || 0,
-            stock: parseInt(v.stock) || 20,
+            stock: parseInt(v.stock) || 0,
             sku: v.sku || `${form.style_code || 'SKU'}_${v.color || 'COLOR'}_${v.size}`,
             image_url: v.image_url || coverImageUrl,
+            gallery: Array.isArray(v.gallery) && v.gallery.length > 0 ? v.gallery : (v.image_url ? [v.image_url] : [coverImageUrl]),
             isBestSeller: idx === 0,
           }))
         : hasSizeDetails

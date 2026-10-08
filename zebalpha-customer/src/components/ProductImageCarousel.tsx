@@ -24,6 +24,11 @@ export default function ProductImageCarousel({
   const itemsPerSlide = 1;
   const totalSlides = normalizedImages.length;
 
+  // Reset to first slide when image set changes (e.g. on color variant selection)
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [images]);
+
   // Sync state to ref for animation loop
   useEffect(() => {
     const translate = currentIndex * -100;

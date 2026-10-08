@@ -266,53 +266,86 @@ export default function CartPage() {
         {/* Cart Items */}
         <div className="bg-zinc-950 rounded-3xl p-4 sm:p-6 border border-zinc-800 shadow-xl">
           <div className="space-y-6">
-            {cart.map(item => {
+            {cart.map((item) => {
               const outOfStock = (item.stock ?? Infinity) <= 0;
-              return (
-              <div key={item.id} className={`flex gap-4 items-center ${outOfStock ? 'opacity-50 grayscale' : ''}`}>
-                <div className="h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 relative">
-                  {item.images && item.images.length > 0 ? (
-                    <img src={item.images[0]} alt={item.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-zinc-500">🛒</div>
-                  )}
-                  {outOfStock && (
-                    <div className="absolute inset-0 bg-rose-950/80 flex items-center justify-center backdrop-blur-[1px]">
-                      <span className="text-[8px] font-black text-rose-300 bg-black/80 px-1 py-0.5 rounded uppercase tracking-widest leading-none">OOS</span>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <h4 className={`text-sm font-black text-white truncate ${outOfStock ? 'line-through decoration-rose-500' : ''}`}>{item.name}</h4>
-                  <p className="text-xs font-bold text-zinc-400 mt-0.5">₹{item.price}</p>
-                  {outOfStock && <p className="text-[10px] font-bold text-rose-400 mt-0.5 uppercase tracking-widest">Out of Stock</p>}
-                </div>
+              const itemKey = item.cart_item_key || String(item.id);
+              const displayImg = item.selected_image || item.image_url || (item.images && item.images.length > 0 ? item.images[0] : "");
 
-                <div className="flex items-center gap-3 bg-zinc-900 px-3 py-1.5 rounded-xl border border-zinc-800 shrink-0">
-                  <button 
-                    onClick={() => {
-                      if (item.quantity > 1) {
-                        updateQuantity(item.id, item.quantity - 1);
-                      } else {
-                        removeFromCart(item.id);
-                      }
-                    }}
-                    className="h-6 w-6 rounded-lg bg-zinc-800 flex items-center justify-center text-white hover:bg-zinc-700 transition-colors shadow-sm"
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span className="text-xs font-black w-4 text-center text-white">{item.quantity}</span>
-                  <button 
-                    disabled={outOfStock}
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    className="h-6 w-6 rounded-lg bg-zinc-800 flex items-center justify-center text-white hover:bg-zinc-700 transition-colors shadow-sm disabled:opacity-50"
-                  >
-                    <Plus size={14} />
-                  </button>
+              return (
+                <div key={itemKey} className={`flex gap-4 items-center ${outOfStock ? "opacity-50 grayscale" : ""}`}>
+                  <div className="h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 relative">
+                    {displayImg ? (
+                      <img src={displayImg} alt={item.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-zinc-500">🛒</div>
+                    )}
+                    {outOfStock && (
+                      <div className="absolute inset-0 bg-rose-950/80 flex items-center justify-center backdrop-blur-[1px]">
+                        <span className="text-[8px] font-black text-rose-300 bg-black/80 px-1 py-0.5 rounded uppercase tracking-widest leading-none">
+                          OOS
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`text-sm font-black text-white truncate ${outOfStock ? "line-through decoration-rose-500" : ""}`}>
+                      {item.name}
+                    </h4>
+
+                    {(item.selected_color || item.selected_size) && (
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {item.selected_color && (
+                          <span className="text-[10px] font-bold text-zinc-300 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-md">
+                            Color: <strong className="text-white">{item.selected_color}</strong>
+                          </span>
+                        )}
+                        {item.selected_size && (
+                          <span className="text-[10px] font-bold text-zinc-300 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-md">
+                            Size: <strong className="text-white">{item.selected_size}</strong>
+                          </span>
+                        )}
+                        {item.selected_sku && (
+                          <span className="text-[9px] font-mono text-zinc-500">
+                            {item.selected_sku}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="text-xs font-bold text-zinc-400 mt-1">₹{item.price}</p>
+                    {outOfStock && (
+                      <p className="text-[10px] font-bold text-rose-400 mt-0.5 uppercase tracking-widest">
+                        Out of Stock
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 bg-zinc-900 px-3 py-1.5 rounded-xl border border-zinc-800 shrink-0">
+                    <button
+                      onClick={() => {
+                        if (item.quantity > 1) {
+                          updateQuantity(itemKey, item.quantity - 1);
+                        } else {
+                          removeFromCart(itemKey);
+                        }
+                      }}
+                      className="h-6 w-6 rounded-lg bg-zinc-800 flex items-center justify-center text-white hover:bg-zinc-700 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="text-xs font-black w-4 text-center text-white">{item.quantity}</span>
+                    <button
+                      disabled={outOfStock}
+                      onClick={() => updateQuantity(itemKey, item.quantity + 1)}
+                      className="h-6 w-6 rounded-lg bg-zinc-800 flex items-center justify-center text-white hover:bg-zinc-700 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )})}
+              );
+            })}
           </div>
         </div>
 

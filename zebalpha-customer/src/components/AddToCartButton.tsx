@@ -71,7 +71,11 @@ export function AddToCartButton({ product, className, compact }: { product: Prod
     );
   }
 
-  const cartItem = cart.find(item => item.id === product.id);
+  const targetKey = (product as any).cart_item_key;
+  const cartItem = cart.find((item) =>
+    targetKey ? item.cart_item_key === targetKey : item.id === product.id
+  );
+  const effectiveKey = cartItem?.cart_item_key || targetKey || product.id;
   const quantity = cartItem?.quantity || 0;
 
   if (quantity > 0) {
@@ -81,7 +85,7 @@ export function AddToCartButton({ product, className, compact }: { product: Prod
           className="flex h-8 w-20 items-center justify-between rounded-full bg-white text-xs font-black text-black shadow-lg overflow-hidden transition-all active:scale-95 sm:h-10 sm:w-24 sm:rounded-xl border border-neutral-200"
         >
           <button
-            onClick={() => quantity === 1 ? removeFromCart(product.id) : updateQuantity(product.id, quantity - 1)}
+            onClick={() => quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1)}
             className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors"
           >
             <span className="text-sm sm:text-base font-black">-</span>
@@ -90,7 +94,7 @@ export function AddToCartButton({ product, className, compact }: { product: Prod
             {quantity}
           </span>
           <button
-            onClick={() => updateQuantity(product.id, quantity + 1)}
+            onClick={() => updateQuantity(effectiveKey, quantity + 1)}
             className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors"
           >
             <span className="text-sm sm:text-base font-black">+</span>
@@ -104,7 +108,7 @@ export function AddToCartButton({ product, className, compact }: { product: Prod
         className={className || "flex h-10 w-24 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95"}
       >
         <button
-          onClick={() => quantity === 1 ? removeFromCart(product.id) : updateQuantity(product.id, quantity - 1)}
+          onClick={() => quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1)}
           className="flex h-full flex-1 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors"
         >
           <span className="text-base font-black">-</span>
@@ -113,7 +117,7 @@ export function AddToCartButton({ product, className, compact }: { product: Prod
           {quantity}
         </span>
         <button
-          onClick={() => updateQuantity(product.id, quantity + 1)}
+          onClick={() => updateQuantity(effectiveKey, quantity + 1)}
           className="flex h-full flex-1 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors"
         >
           <span className="text-base font-black">+</span>

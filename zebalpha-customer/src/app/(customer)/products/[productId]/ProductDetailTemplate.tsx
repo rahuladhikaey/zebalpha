@@ -43,21 +43,68 @@ export default function ProductDetailTemplate({
 
   const [selectedPackage, setSelectedPackage] = useState<ProductPackage | null>(
     normalizedPackages.length > 0
-      ? normalizedPackages.find(p => p.isBestSeller) || normalizedPackages[0]
+      ? normalizedPackages.find((p) => p.isBestSeller && (p.stock === undefined || Number(p.stock) > 0)) ||
+        normalizedPackages.find((p) => p.stock === undefined || Number(p.stock) > 0) ||
+        normalizedPackages[0]
       : null
   );
 
-  const images = useMemo(() => {
-    const rawImages = normalizeProductImages(product);
-    if (selectedPackage && selectedPackage.image_url && !rawImages.includes(selectedPackage.image_url)) {
-      return [selectedPackage.image_url, ...rawImages];
+  const [selectedColor, setSelectedColor] = useState<string>(
+    selectedPackage?.color || ""
+  );
+  const [validationError, setValidationError] = useState<string>("");
+
+  // Color-specific gallery switching: matches Meesho/Flipkart UX
+  const activeColorGallery = useMemo(() => {
+    const targetColor = (selectedPackage?.color || selectedColor || "").trim().toLowerCase();
+    if (!targetColor) return null;
+
+    // 1. Check if selected package has its own gallery array
+    if (
+      selectedPackage?.gallery &&
+      Array.isArray(selectedPackage.gallery) &&
+      selectedPackage.gallery.length > 0
+    ) {
+      return selectedPackage.gallery;
     }
-    if (selectedPackage && selectedPackage.image_url && rawImages.includes(selectedPackage.image_url)) {
-      const filtered = rawImages.filter((img) => img !== selectedPackage.image_url);
-      return [selectedPackage.image_url, ...filtered];
+
+    // 2. Check if another package with this color has a gallery array
+    const colorPkg = normalizedPackages.find(
+      (p) => (p.color || "").trim().toLowerCase() === targetColor && Array.isArray(p.gallery) && p.gallery.length > 0
+    );
+    if (colorPkg?.gallery && colorPkg.gallery.length > 0) {
+      return colorPkg.gallery;
+    }
+
+    // 3. Collect all unique image_urls of packages for this color
+    const colorImages = normalizedPackages
+      .filter((p) => (p.color || "").trim().toLowerCase() === targetColor && p.image_url)
+      .map((p) => p.image_url as string);
+
+    if (colorImages.length > 0) {
+      return Array.from(new Set(colorImages));
+    }
+
+    if (selectedPackage?.image_url) {
+      return [selectedPackage.image_url];
+    }
+
+    return null;
+  }, [selectedPackage, selectedColor, normalizedPackages]);
+
+  const images = useMemo(() => {
+    if (activeColorGallery && activeColorGallery.length > 0) {
+      return activeColorGallery;
+    }
+    const rawImages = normalizeProductImages(product);
+    if (selectedPackage && selectedPackage.image_url) {
+      if (!rawImages.includes(selectedPackage.image_url)) {
+        return [selectedPackage.image_url, ...rawImages];
+      }
+      return [selectedPackage.image_url, ...rawImages.filter((img) => img !== selectedPackage.image_url)];
     }
     return rawImages;
-  }, [product, selectedPackage]);
+  }, [product, selectedPackage, activeColorGallery]);
 
   const displayPrice = selectedPackage ? selectedPackage.price : product.price;
   const displayMrp = selectedPackage && selectedPackage.mrp ? selectedPackage.mrp : product.mrp;
@@ -65,13 +112,36 @@ export default function ProductDetailTemplate({
   const hasDiscount = displayMrp && displayMrp > displayPrice;
   const discountPercent = hasDiscount ? Math.round(((displayMrp! - displayPrice) / displayMrp!) * 100) : 0;
 
-  const computedProduct = {
-    ...product,
-    price: displayPrice,
-    mrp: displayMrp,
-    name: selectedPackage ? `${product.name} (${selectedPackage.name})` : product.name,
-    image_url: selectedPackage?.image_url || product.image_url,
-  };
+  const isCurrentVariantInStock = useMemo(() => {
+    if (selectedPackage && selectedPackage.stock !== undefined) {
+      return Number(selectedPackage.stock) > 0;
+    }
+    return product.stock !== undefined ? Number(product.stock) > 0 : true;
+  }, [selectedPackage, product.stock]);
+
+  const computedProduct = useMemo(() => {
+    const pkgName = selectedPackage ? selectedPackage.name : "Standard";
+    const pkgImg = selectedPackage?.image_url || activeColorGallery?.[0] || product.image_url;
+    const col = selectedPackage?.color || selectedColor || "";
+    const sz = selectedPackage?.size || "";
+    const skuVal = selectedPackage?.sku || product.sku || "";
+
+    return {
+      ...product,
+      price: displayPrice,
+      mrp: displayMrp,
+      stock: selectedPackage?.stock !== undefined ? selectedPackage.stock : product.stock,
+      name: selectedPackage && pkgName !== "Standard" ? `${product.name} (${pkgName})` : product.name,
+      package_name: pkgName,
+      variant_id: selectedPackage?.id,
+      selected_color: col,
+      selected_size: sz,
+      selected_sku: skuVal,
+      selected_image: pkgImg,
+      image_url: pkgImg,
+      cart_item_key: `${product.id}_${selectedPackage?.id || pkgName}`,
+    };
+  }, [product, selectedPackage, displayPrice, displayMrp, activeColorGallery, selectedColor]);
 
   const [reviews, setReviews] = useState<any[]>([]);
 
@@ -185,7 +255,7 @@ export default function ProductDetailTemplate({
                       Explore All Drops
                     </Link>
                   </div>
-                ) : product.stock && product.stock > 0 ? (
+                ) : isCurrentVariantInStock ? (
                   <>
                     <AddToCartButton
                       product={computedProduct}
@@ -271,8 +341,16 @@ export default function ProductDetailTemplate({
               <PackageSelection 
                 packages={normalizedPackages} 
                 selectedPackage={selectedPackage} 
-                onSelect={setSelectedPackage} 
+                onSelect={(pkg) => {
+                  setSelectedPackage(pkg);
+                  setValidationError("");
+                }} 
                 sizeChart={(product.specifications as any)?.size_chart}
+                validationError={validationError}
+                onColorChange={(col) => {
+                  setSelectedColor(col);
+                  setValidationError("");
+                }}
               />
             )}
 
@@ -517,7 +595,7 @@ export default function ProductDetailTemplate({
               Drops ⚡
             </Link>
           </div>
-        ) : product.stock && product.stock > 0 ? (
+        ) : isCurrentVariantInStock ? (
           <div className="grid grid-cols-2 h-11 flex-1 gap-2">
             <AddToCartButton
               product={computedProduct}

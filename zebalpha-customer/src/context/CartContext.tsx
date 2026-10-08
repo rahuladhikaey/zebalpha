@@ -140,24 +140,50 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             let price = p.price;
             let mrp = p.mrp;
             let displayName = p.name;
+            let selectedColor = "";
+            let selectedSize = "";
+            let selectedSku = "";
+            let selectedImage = p.image_url || p.images?.[0] || "";
+            let variantId = "";
 
             if (row.package_name && row.package_name !== "Standard" && p.packages) {
-              const pkg = p.packages.find((pkgItem: any) => pkgItem.name === row.package_name);
+              const pkg = p.packages.find(
+                (pkgItem: any) =>
+                  pkgItem.name === row.package_name ||
+                  pkgItem.id === row.package_name ||
+                  (pkgItem.color && pkgItem.size && `${pkgItem.color} / ${pkgItem.size}` === row.package_name)
+              );
               if (pkg) {
                 price = pkg.price;
                 mrp = pkg.mrp || p.mrp;
-                displayName = `${p.name} - ${row.package_name}`;
+                displayName = `${p.name} (${pkg.name})`;
+                selectedColor = pkg.color || "";
+                selectedSize = pkg.size || "";
+                selectedSku = pkg.sku || "";
+                selectedImage = pkg.image_url || selectedImage;
+                variantId = pkg.id;
+              } else {
+                displayName = `${p.name} (${row.package_name})`;
               }
             }
 
+            const itemKey = `${p.id}_${variantId || row.package_name || "Standard"}`;
+
             return {
               id: p.id,
+              cart_item_key: itemKey,
+              package_name: row.package_name || "Standard",
+              variant_id: variantId,
+              selected_color: selectedColor,
+              selected_size: selectedSize,
+              selected_sku: selectedSku,
+              selected_image: selectedImage,
               name: displayName,
               price: price,
               mrp: mrp,
               quantity: row.quantity,
               stock: p.stock ?? 100,
-              image_url: p.image_url || p.images?.[0] || "",
+              image_url: selectedImage,
               images: p.images || [],
             } as CartItem;
           });
@@ -168,16 +194,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const mergedMap = new Map<string, CartItem>();
 
         // Populate with DB items first
-        currentDbItems.forEach((it) => mergedMap.set(String(it.id), it));
+        currentDbItems.forEach((it) => {
+          const k = it.cart_item_key || `${it.id}_${it.package_name || "Standard"}`;
+          mergedMap.set(k, it);
+        });
 
         const batchUpsertMap = new Map<string, any>();
         const nowIso = new Date().toISOString();
 
         // Merge guest items
         for (const gItem of guestItems) {
-          const key = String(gItem.id);
+          const pkgName =
+            gItem.package_name ||
+            (gItem.name.includes(" - ")
+              ? gItem.name.split(" - ")[1]
+              : gItem.name.includes(" (")
+              ? gItem.name.split(" (")[1].replace(")", "")
+              : "Standard");
+          const key = gItem.cart_item_key || `${gItem.id}_${gItem.variant_id || pkgName}`;
           const maxStock = gItem.stock ?? 100;
-          const pkgName = gItem.name.includes(" - ") ? gItem.name.split(" - ")[1] : "Standard";
           const conflictKey = `${user.id}_${gItem.id}_${pkgName}`;
 
           let finalQty = gItem.quantity;
@@ -187,7 +222,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             mergedMap.set(key, { ...existing, quantity: finalQty });
           } else {
             finalQty = Math.min(gItem.quantity, maxStock);
-            mergedMap.set(key, { ...gItem, quantity: finalQty });
+            mergedMap.set(key, { ...gItem, cart_item_key: key, package_name: pkgName, quantity: finalQty });
           }
 
           batchUpsertMap.set(conflictKey, {
@@ -243,95 +278,176 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const maxStock = product.stock ?? Infinity;
     if (maxStock <= 0) return;
 
+    const prodAny = product as any;
+    const targetPkg =
+      prodAny.package_name ||
+      (product.name.includes(" - ")
+        ? product.name.split(" - ")[1]
+        : product.name.includes(" (")
+        ? product.name.split(" (")[1].replace(")", "")
+        : packageName);
+
+    const itemKey =
+      prodAny.cart_item_key ||
+      `${product.id}_${prodAny.variant_id || targetPkg}`;
+
+    const colorVal = prodAny.selected_color || (targetPkg.includes(" / ") ? targetPkg.split(" / ")[0] : "");
+    const sizeVal = prodAny.selected_size || (targetPkg.includes(" / ") ? targetPkg.split(" / ")[1] : "");
+    const imgVal = prodAny.selected_image || product.image_url || product.images?.[0] || "";
+
+    const itemToAdd: CartItem = {
+      ...product,
+      cart_item_key: itemKey,
+      package_name: targetPkg,
+      variant_id: prodAny.variant_id || "",
+      selected_color: colorVal,
+      selected_size: sizeVal,
+      selected_sku: prodAny.selected_sku || prodAny.sku || "",
+      selected_image: imgVal,
+      image_url: imgVal,
+      quantity: Math.min(quantity, maxStock),
+    };
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-      if (existing) {
+      const existingIdx = prev.findIndex(
+        (item) =>
+          item.cart_item_key === itemKey ||
+          (String(item.id) === String(product.id) && (item.package_name || "Standard") === targetPkg)
+      );
+
+      if (existingIdx >= 0) {
+        const existing = prev[existingIdx];
         const newQuantity = Math.min(existing.quantity + quantity, maxStock);
-        return prev.map((item) =>
-          item.id === product.id ? { ...item, quantity: newQuantity } : item
-        );
+        const updated = [...prev];
+        updated[existingIdx] = { ...existing, ...itemToAdd, quantity: newQuantity };
+        return updated;
       }
-      return [...prev, { ...product, quantity: Math.min(quantity, maxStock) }];
+      return [...prev, itemToAdd];
     });
 
     if (user) {
       try {
-        const targetPkg = product.name.includes(" - ") ? product.name.split(" - ")[1] : packageName;
-        const existingItem = cart.find((i) => i.id === product.id);
-        const finalQty = existingItem ? Math.min(existingItem.quantity + quantity, maxStock) : Math.min(quantity, maxStock);
+        const existingItem = cart.find(
+          (i) =>
+            i.cart_item_key === itemKey ||
+            (String(i.id) === String(product.id) && (i.package_name || "Standard") === targetPkg)
+        );
+        const finalQty = existingItem
+          ? Math.min(existingItem.quantity + quantity, maxStock)
+          : Math.min(quantity, maxStock);
 
-        await supabase.from("cart_items").upsert({
-          user_id: user.id,
-          product_id: product.id,
-          package_name: targetPkg,
-          quantity: finalQty,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id,product_id,package_name" });
+        await supabase.from("cart_items").upsert(
+          {
+            user_id: user.id,
+            product_id: product.id,
+            package_name: targetPkg,
+            quantity: finalQty,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,product_id,package_name" }
+        );
       } catch (err) {
         console.warn("[Cart DB Sync Error]:", err);
       }
     } else {
       const nextCart = (() => {
-        const existing = cart.find((item) => item.id === product.id);
-        if (existing) {
-          return cart.map((item) =>
-            item.id === product.id ? { ...item, quantity: Math.min(item.quantity + quantity, maxStock) } : item
-          );
+        const existingIdx = cart.findIndex(
+          (item) =>
+            item.cart_item_key === itemKey ||
+            (String(item.id) === String(product.id) && (item.package_name || "Standard") === targetPkg)
+        );
+        if (existingIdx >= 0) {
+          const existing = cart[existingIdx];
+          const updated = [...cart];
+          updated[existingIdx] = {
+            ...existing,
+            ...itemToAdd,
+            quantity: Math.min(existing.quantity + quantity, maxStock),
+          };
+          return updated;
         }
-        return [...cart, { ...product, quantity: Math.min(quantity, maxStock) }];
+        return [...cart, itemToAdd];
       })();
       saveGuestCart(nextCart);
     }
   };
 
   // Update Quantity Handler
-  const updateQuantity = async (productId: number | string, quantity: number) => {
-    const targetProduct = cart.find((i) => i.id === productId);
+  const updateQuantity = async (keyOrId: number | string, quantity: number) => {
+    const targetProduct = cart.find(
+      (i) => i.cart_item_key === keyOrId || String(i.id) === String(keyOrId)
+    );
     const maxStock = targetProduct?.stock ?? Infinity;
 
     if (quantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(keyOrId);
       return;
     }
 
     const safeQty = Math.min(quantity, maxStock);
 
     setCart((prev) =>
-      prev.map((item) => (item.id === productId ? { ...item, quantity: safeQty } : item))
+      prev.map((item) =>
+        item.cart_item_key === keyOrId || (targetProduct && item.cart_item_key === targetProduct.cart_item_key) || String(item.id) === String(keyOrId)
+          ? { ...item, quantity: safeQty }
+          : item
+      )
     );
 
-    if (user) {
+    if (user && targetProduct) {
       try {
         await supabase
           .from("cart_items")
           .update({ quantity: safeQty, updated_at: new Date().toISOString() })
           .eq("user_id", user.id)
-          .eq("product_id", productId);
+          .eq("product_id", targetProduct.id)
+          .eq("package_name", targetProduct.package_name || "Standard");
       } catch (err) {
         console.warn("[Cart DB Update Error]:", err);
       }
     } else {
-      const nextCart = cart.map((item) => (item.id === productId ? { ...item, quantity: safeQty } : item));
+      const nextCart = cart.map((item) =>
+        item.cart_item_key === keyOrId || (targetProduct && item.cart_item_key === targetProduct.cart_item_key) || String(item.id) === String(keyOrId)
+          ? { ...item, quantity: safeQty }
+          : item
+      );
       saveGuestCart(nextCart);
     }
   };
 
   // Remove Item Handler
-  const removeFromCart = async (productId: number | string) => {
-    setCart((prev) => prev.filter((item) => item.id !== productId));
+  const removeFromCart = async (keyOrId: number | string) => {
+    const targetItem = cart.find(
+      (i) => i.cart_item_key === keyOrId || String(i.id) === String(keyOrId)
+    );
 
-    if (user) {
+    setCart((prev) =>
+      prev.filter(
+        (item) =>
+          item.cart_item_key !== keyOrId &&
+          (!targetItem || item.cart_item_key !== targetItem.cart_item_key) &&
+          String(item.id) !== String(keyOrId)
+      )
+    );
+
+    if (user && targetItem) {
       try {
         await supabase
           .from("cart_items")
           .delete()
           .eq("user_id", user.id)
-          .eq("product_id", productId);
+          .eq("product_id", targetItem.id)
+          .eq("package_name", targetItem.package_name || "Standard");
       } catch (err) {
         console.warn("[Cart DB Delete Error]:", err);
       }
     } else {
-      const nextCart = cart.filter((item) => item.id !== productId);
+      const nextCart = cart.filter(
+        (item) =>
+          item.cart_item_key !== keyOrId &&
+          (!targetItem || item.cart_item_key !== targetItem.cart_item_key) &&
+          String(item.id) !== String(keyOrId)
+      );
       saveGuestCart(nextCart);
     }
   };

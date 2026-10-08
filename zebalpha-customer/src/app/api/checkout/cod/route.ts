@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     if (validProductIds.length > 0) {
       const { data, error: dbError } = await supabaseServer
         .from('products')
-        .select('id, name, price, mrp, is_active, stock')
+        .select('id, name, price, mrp, is_active, stock, packages')
         .in('id', validProductIds);
 
       if (dbError) {
@@ -55,7 +55,19 @@ export async function POST(req: Request) {
         if (dbProduct.is_active === false) {
           return NextResponse.json({ success: false, error: `Product "${dbProduct.name}" is currently unavailable` }, { status: 400 });
         }
-        item.price = Number(dbProduct.price ?? item.price);
+        let matchedPrice = dbProduct.price;
+        if (Array.isArray(dbProduct.packages) && dbProduct.packages.length > 0) {
+          const matchedPkg = dbProduct.packages.find((p: any) =>
+            (item.variant_id && String(p.id) === String(item.variant_id)) ||
+            (item.package_name && p.name === item.package_name) ||
+            (item.selected_sku && p.sku === item.selected_sku) ||
+            (item.name && item.name.includes(p.name))
+          );
+          if (matchedPkg && matchedPkg.price) {
+            matchedPrice = matchedPkg.price;
+          }
+        }
+        item.price = Number(matchedPrice ?? item.price);
         item.id = dbProduct.id;
         item.product_id = dbProduct.id;
       }

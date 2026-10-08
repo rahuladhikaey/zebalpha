@@ -199,10 +199,19 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
         } catch (_) {}
 
         // Batch insert all order items for this seller in a single operation
-        const itemsToInsert = sellerItems.map((si) => ({
+        const itemsToInsert = sellerItems.map((si: any) => ({
           parent_order_id: parentOrderId,
           seller_order_id: sellerOrder.id,
           product_id: si.id,
+          variant: si.variant || {
+            variant_id: si.variant_id || null,
+            color: si.selected_color || (si.name && si.name.includes(" / ") ? si.name.split(" / ")[0] : null),
+            size: si.selected_size || (si.name && si.name.includes(" / ") ? si.name.split(" / ")[1] : null),
+            sku: si.selected_sku || si.sku || null,
+            image_url: si.selected_image || si.image_url || null,
+            unit_price: si.price,
+            product_name: si.name,
+          },
           quantity: si.quantity,
           price: si.price,
           discount: 0,

@@ -16,9 +16,11 @@ export type ProductPackage = {
   price: number;
   mrp?: number;
   color?: string;
+  color_hex?: string;
   size?: string;
   stock?: number;
   image_url?: string;
+  gallery?: string[];
   sku?: string;
   isBestSeller?: boolean;
 };
@@ -35,7 +37,7 @@ export type Product = {
   category_name?: string;
   category?: string;
   offers?: string[];
-  specifications?: Record<string, string>;
+  specifications?: Record<string, any>;
   brand?: string;
   stock?: number;
   sku?: string;
@@ -68,6 +70,13 @@ export type Product = {
 
 export type CartItem = Product & {
   quantity: number;
+  cart_item_key?: string;
+  package_name?: string;
+  variant_id?: string;
+  selected_color?: string;
+  selected_size?: string;
+  selected_sku?: string;
+  selected_image?: string;
 };
 
 export type OrderPayload = {
