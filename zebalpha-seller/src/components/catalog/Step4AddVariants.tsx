@@ -271,6 +271,77 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
   };
 
   // ----------------------------------------------------------------------
+  // COLOR-SPECIFIC IMAGE GALLERY
+  // ----------------------------------------------------------------------
+  const handleUploadColorGalleryImages = (colorName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    const readers = fileList.map((file) => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve((e.target?.result as string) || "");
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(readers).then((dataUrls) => {
+      const validUrls = dataUrls.filter(Boolean);
+      if (validUrls.length === 0) return;
+
+      const updated = formData.variants.map((v) => {
+        if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
+          const existingGallery = v.gallery || (v.image_url ? [v.image_url] : []);
+          const combined = [...existingGallery, ...validUrls];
+          return {
+            ...v,
+            image_url: combined[0] || v.image_url,
+            gallery: combined,
+          };
+        }
+        return v;
+      });
+      onChange({ variants: updated });
+      showSuccessBanner(`Uploaded ${validUrls.length} photo(s) for ${colorName}`);
+    });
+  };
+
+  const removeColorGalleryImage = (colorName: string, indexToRemove: number) => {
+    const updated = formData.variants.map((v) => {
+      if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
+        const currentGallery = v.gallery || (v.image_url ? [v.image_url] : []);
+        const nextGallery = currentGallery.filter((_, idx) => idx !== indexToRemove);
+        return {
+          ...v,
+          image_url: nextGallery[0] || undefined,
+          gallery: nextGallery,
+        };
+      }
+      return v;
+    });
+    onChange({ variants: updated });
+  };
+
+  const setAsCoverImage = (colorName: string, indexToCover: number) => {
+    const updated = formData.variants.map((v) => {
+      if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
+        const currentGallery = [...(v.gallery || (v.image_url ? [v.image_url] : []))];
+        if (indexToCover < currentGallery.length) {
+          const item = currentGallery.splice(indexToCover, 1)[0];
+          currentGallery.unshift(item);
+          return {
+            ...v,
+            image_url: currentGallery[0],
+            gallery: currentGallery,
+          };
+        }
+      }
+      return v;
+    });
+    onChange({ variants: updated });
+  };
+
+  // ----------------------------------------------------------------------
   // INDEPENDENT PER-COLOR SIZE MANAGEMENT (Req #1, #2, #3, #6, #12)
   // ----------------------------------------------------------------------
   const toggleSizeForColor = (colorName: string, sizeName: string) => {
