@@ -105,14 +105,30 @@ const SIZE_CHART_TEMPLATES: Record<string, { columns: string[]; notes: string }>
 export default function Step4AddVariants({ formData, onChange }: Step4Props) {
   // Navigation tabs within Step 4
   const [activeTab, setActiveTab] = useState<"matrix" | "galleries" | "size_chart" | "preview">("matrix");
-  const [viewMode, setViewMode] = useState<"matrix_grid" | "detailed_table">("matrix_grid");
+  // Default to per_color_cards for easy visual per-color size management (Req #2 & #5)
+  const [viewMode, setViewMode] = useState<"per_color_cards" | "matrix_grid" | "detailed_table">("per_color_cards");
+
+  // Reusable Size Master (Req #12)
+  const [sizeMaster, setSizeMaster] = useState<string[]>(() => {
+    const base = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "Free Size", "28", "30", "32", "34", "36", "38", "40", "42"];
+    const existing = new Set<string>(base);
+    (formData.variants || []).forEach((v) => {
+      if (v.size) existing.add(v.size.trim());
+    });
+    return Array.from(existing);
+  });
 
   // Custom Color State
   const [customColorName, setCustomColorName] = useState("");
   const [customColorHex, setCustomColorHex] = useState("#3b82f6");
 
-  // Custom Size State
+  // Custom Size Input for Size Master
   const [customSizeInput, setCustomSizeInput] = useState("");
+
+  // Bulk Variant Modal States (Req #14)
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkSelectedColors, setBulkSelectedColors] = useState<string[]>([]);
+  const [bulkSelectedSizes, setBulkSelectedSizes] = useState<string[]>(["S", "M", "L", "XL"]);
 
   // Bulk Edit Dialog States
   const [bulkStockVal, setBulkStockVal] = useState("");
@@ -191,12 +207,15 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
   // ----------------------------------------------------------------------
   // COLOR MANAGEMENT
   // ----------------------------------------------------------------------
-  const addColorVariant = (colorName: string, colorHex?: string) => {
+  // ----------------------------------------------------------------------
+  // COLOR MANAGEMENT
+  // ----------------------------------------------------------------------
+  const addColorVariant = (colorName: string, colorHex?: string, initialSizes?: string[]) => {
     if (!colorName.trim()) return;
     const cleanName = colorName.trim();
 
     // Prevent duplicate color
-    if (formData.variants.some((v) => (v.color || "Black").trim().toLowerCase() === cleanName.toLowerCase())) {
+    if (colorGroups.some((g) => g.color.toLowerCase() === cleanName.toLowerCase())) {
       return;
     }
 
@@ -205,15 +224,15 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       PRESET_COLORS.find((c) => c.name.toLowerCase() === cleanName.toLowerCase())?.hex ||
       "#3b82f6";
 
-    // Inherit sizes from existing variants or fallback
-    const targetSizes = activeSizes.length > 0 ? activeSizes : ["S", "M", "L", "XL"];
+    // Start with specified sizes or standard baseline (Req #2)
+    const targetSizes = initialSizes || ["S", "M", "L", "XL"];
     const basePrice = formData.price || "499";
     const baseMrp = formData.mrp || String(Math.round(parseFloat(basePrice || "499") * 1.5));
     const cleanPrefix = formData.style_code ? formData.style_code.trim().toUpperCase() : "ZB";
     const cleanColTag = cleanName.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
     const newVariants: CatalogVariant[] = targetSizes.map((sz) => ({
-      id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}`,
+      id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
       color: cleanName,
       color_hex: assignedHex,
       size: sz,
@@ -252,123 +271,108 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
   };
 
   // ----------------------------------------------------------------------
-  // COLOR-SPECIFIC IMAGE GALLERY
+  // INDEPENDENT PER-COLOR SIZE MANAGEMENT (Req #1, #2, #3, #6, #12)
   // ----------------------------------------------------------------------
-  const handleUploadColorGalleryImages = (colorName: string, files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const toggleSizeForColor = (colorName: string, sizeName: string) => {
+    if (!colorName || !sizeName) return;
+    const cleanCol = colorName.trim();
+    const cleanSz = sizeName.trim();
 
-    const fileList = Array.from(files);
-    const readers = fileList.map((file) => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve((e.target?.result as string) || "");
-        reader.readAsDataURL(file);
-      });
-    });
+    const existingIndex = formData.variants.findIndex(
+      (v) =>
+        (v.color || "Black").trim().toLowerCase() === cleanCol.toLowerCase() &&
+        (v.size || "").trim().toLowerCase() === cleanSz.toLowerCase()
+    );
 
-    Promise.all(readers).then((dataUrls) => {
-      const validUrls = dataUrls.filter(Boolean);
-      if (validUrls.length === 0) return;
-
-      const updated = formData.variants.map((v) => {
-        if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
-          const existingGallery = v.gallery || (v.image_url ? [v.image_url] : []);
-          const combined = [...existingGallery, ...validUrls];
-          return {
-            ...v,
-            image_url: combined[0] || v.image_url,
-            gallery: combined,
-          };
-        }
-        return v;
-      });
-
+    if (existingIndex !== -1) {
+      // Remove this size from this color ONLY (Req #3: Do NOT keep non-existent variants)
+      const updated = formData.variants.filter((_, idx) => idx !== existingIndex);
       onChange({ variants: updated });
-      showSuccessBanner(`Uploaded ${validUrls.length} photo(s) for ${colorName}`);
-    });
-  };
-
-  const removeColorGalleryImage = (colorName: string, indexToRemove: number) => {
-    const updated = formData.variants.map((v) => {
-      if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
-        const currentGallery = v.gallery || (v.image_url ? [v.image_url] : []);
-        const nextGallery = currentGallery.filter((_, idx) => idx !== indexToRemove);
-        return {
-          ...v,
-          image_url: nextGallery[0] || undefined,
-          gallery: nextGallery,
-        };
-      }
-      return v;
-    });
-    onChange({ variants: updated });
-  };
-
-  const setAsCoverImage = (colorName: string, indexToCover: number) => {
-    const updated = formData.variants.map((v) => {
-      if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
-        const currentGallery = [...(v.gallery || (v.image_url ? [v.image_url] : []))];
-        if (indexToCover < currentGallery.length) {
-          const item = currentGallery.splice(indexToCover, 1)[0];
-          currentGallery.unshift(item);
-          return {
-            ...v,
-            image_url: currentGallery[0],
-            gallery: currentGallery,
-          };
-        }
-      }
-      return v;
-    });
-    onChange({ variants: updated });
-  };
-
-  // ----------------------------------------------------------------------
-  // SIZE MANAGEMENT (Add / Remove across all colors)
-  // ----------------------------------------------------------------------
-  const toggleGlobalSize = (sizeName: string) => {
-    if (!sizeName.trim()) return;
-    const cleanSize = sizeName.trim();
-    const isCurrentlyPresent = activeSizes.includes(cleanSize);
-
-    if (isCurrentlyPresent) {
-      // Remove this size across all colors
-      const updated = formData.variants.filter(
-        (v) => (v.size || "").toLowerCase() !== cleanSize.toLowerCase()
-      );
-      onChange({ variants: updated });
-      showSuccessBanner(`Removed size ${cleanSize}`);
+      showSuccessBanner(`Removed size ${cleanSz} from ${cleanCol}`);
     } else {
-      // Add this size across all current colors
-      const targetColors = colorGroups.length > 0 ? colorGroups.map((g) => g.color) : ["Black"];
+      // Add this size to this color ONLY
+      const grp = colorGroups.find((g) => g.color.toLowerCase() === cleanCol.toLowerCase());
       const basePrice = formData.price || "499";
       const baseMrp = formData.mrp || String(Math.round(parseFloat(basePrice || "499") * 1.5));
       const cleanPrefix = formData.style_code ? formData.style_code.trim().toUpperCase() : "ZB";
+      const cleanColTag = cleanCol.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-      const addedVariants: CatalogVariant[] = targetColors.map((col) => {
-        const grp = colorGroups.find((g) => g.color.toLowerCase() === col.toLowerCase());
-        const cleanColTag = col.toUpperCase().replace(/[^A-Z0-9]/g, "");
-        return {
-          id: `${cleanPrefix}_${cleanColTag}_${cleanSize.toUpperCase()}_${Date.now().toString(36).slice(-4)}`,
-          color: col,
-          color_hex: grp?.color_hex,
-          size: cleanSize,
-          stock: "20",
-          price: basePrice,
-          mrp: baseMrp,
-          sku: `${cleanPrefix}_${cleanColTag}_${cleanSize.toUpperCase()}`,
-          image_url: grp?.image_url,
-          gallery: grp?.gallery,
-          is_active: true,
-        };
-      });
+      const newVar: CatalogVariant = {
+        id: `${cleanPrefix}_${cleanColTag}_${cleanSz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
+        color: cleanCol,
+        color_hex: grp?.color_hex,
+        size: cleanSz,
+        stock: "20",
+        price: basePrice,
+        mrp: baseMrp,
+        defective_returns_price: formData.defective_returns_price || "",
+        sku: `${cleanPrefix}_${cleanColTag}_${cleanSz.toUpperCase()}`,
+        image_url: grp?.image_url,
+        gallery: grp?.gallery || [],
+        is_active: true,
+      };
 
       onChange({
         has_variants: true,
-        variants: [...formData.variants, ...addedVariants],
+        variants: [...formData.variants, newVar],
       });
-      showSuccessBanner(`Added size ${cleanSize} across ${targetColors.length} colors`);
+      showSuccessBanner(`Added size ${cleanSz} to ${cleanCol}`);
     }
+  };
+
+  // Add custom size to the Size Master (Req #12)
+  const addCustomSizeToMaster = (sizeName: string) => {
+    const clean = sizeName.trim();
+    if (!clean) return;
+    if (!sizeMaster.some((s) => s.toLowerCase() === clean.toLowerCase())) {
+      setSizeMaster((prev) => [...prev, clean]);
+      showSuccessBanner(`Added size "${clean}" to Size Master`);
+    }
+    setCustomSizeInput("");
+  };
+
+  // Bulk Variant Creation: "Apply these sizes to selected colors" (Req #14)
+  const applySizesToSelectedColors = (targetColors: string[], targetSizes: string[]) => {
+    if (!targetColors.length || !targetSizes.length) return;
+
+    let updated = [...formData.variants];
+    const cleanPrefix = formData.style_code ? formData.style_code.trim().toUpperCase() : "ZB";
+    const basePrice = formData.price || "499";
+    const baseMrp = formData.mrp || String(Math.round(parseFloat(basePrice || "499") * 1.5));
+
+    targetColors.forEach((col) => {
+      const grp = colorGroups.find((g) => g.color.toLowerCase() === col.toLowerCase());
+      const cleanColTag = col.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+      targetSizes.forEach((sz) => {
+        const alreadyExists = updated.some(
+          (v) =>
+            (v.color || "Black").trim().toLowerCase() === col.toLowerCase() &&
+            (v.size || "").trim().toLowerCase() === sz.toLowerCase()
+        );
+
+        if (!alreadyExists) {
+          updated.push({
+            id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
+            color: col,
+            color_hex: grp?.color_hex,
+            size: sz,
+            stock: "20",
+            price: basePrice,
+            mrp: baseMrp,
+            defective_returns_price: formData.defective_returns_price || "",
+            sku: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`,
+            image_url: grp?.image_url,
+            gallery: grp?.gallery || [],
+            is_active: true,
+          });
+        }
+      });
+    });
+
+    onChange({ has_variants: true, variants: updated });
+    showSuccessBanner(`Applied ${targetSizes.length} sizes to ${targetColors.length} colors`);
+    setShowBulkModal(false);
   };
 
   // ----------------------------------------------------------------------
@@ -394,6 +398,19 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
         (v.size || "").trim().toLowerCase() === sizeName.trim().toLowerCase()
       ) {
         return { ...v, price: newPrice };
+      }
+      return v;
+    });
+    onChange({ variants: updated });
+  };
+
+  const updateCellMrp = (colorName: string, sizeName: string, newMrp: string) => {
+    const updated = formData.variants.map((v) => {
+      if (
+        (v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase() &&
+        (v.size || "").trim().toLowerCase() === sizeName.trim().toLowerCase()
+      ) {
+        return { ...v, mrp: newMrp };
       }
       return v;
     });
@@ -735,100 +752,72 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                   </div>
                 </div>
 
-                {/* 2. Add Sizes Row */}
+                {/* 2. Reusable Size Master (Req #12) */}
                 <div className="border-t border-[#1e1e24] pt-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-zinc-300">
-                      Standard Clothing Sizes:
+                      Reusable Size Master Library:
                     </span>
                     <span className="text-[11px] text-zinc-500">
-                      {activeSizes.length} Active Sizes
+                      {sizeMaster.length} Master Sizes Available
                     </span>
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {PRESET_SIZES.map((sz) => {
-                      const isSelected = activeSizes.includes(sz);
-                      return (
-                        <button
-                          key={sz}
-                          type="button"
-                          onClick={() => toggleGlobalSize(sz)}
-                          className={`py-1 px-3 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-                            isSelected
-                              ? "bg-white text-black border-white shadow-sm"
-                              : "bg-[#141418] text-zinc-400 border-[#27272a] hover:border-zinc-500 hover:text-white"
-                          }`}
-                        >
-                          {sz}
-                        </button>
-                      );
-                    })}
-                  </div>
+                    {sizeMaster.map((sz) => (
+                      <span
+                        key={sz}
+                        className="py-1 px-2.5 rounded-lg text-xs font-bold bg-[#141418] text-zinc-300 border border-[#27272a]"
+                      >
+                        {sz}
+                      </span>
+                    ))}
 
-                  {/* Waist Sizes toggle */}
-                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                    <span className="text-[11px] text-zinc-500 font-medium">Waist:</span>
-                    {PRESET_WAIST_SIZES.map((sz) => {
-                      const isSelected = activeSizes.includes(sz);
-                      return (
-                        <button
-                          key={sz}
-                          type="button"
-                          onClick={() => toggleGlobalSize(sz)}
-                          className={`py-0.5 px-2 rounded-md text-[11px] font-bold transition-all border cursor-pointer ${
-                            isSelected
-                              ? "bg-white text-black border-white"
-                              : "bg-[#141418] text-zinc-400 border-[#27272a] hover:border-zinc-500"
-                          }`}
-                        >
-                          {sz}
-                        </button>
-                      );
-                    })}
-
-                    {/* Custom Size Tag Input */}
+                    {/* Add Custom Size to Master */}
                     <div className="flex items-center gap-1 ml-auto">
                       <input
                         type="text"
                         value={customSizeInput}
                         onChange={(e) => setCustomSizeInput(e.target.value)}
-                        placeholder="Custom Size"
+                        placeholder="New Size"
                         className="p-1 px-2 rounded-md bg-[#141418] border border-[#27272a] text-white text-xs w-24"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            if (customSizeInput.trim()) {
-                              toggleGlobalSize(customSizeInput.trim());
-                              setCustomSizeInput("");
-                            }
+                            addCustomSizeToMaster(customSizeInput);
                           }
                         }}
                       />
                       <button
                         type="button"
-                        onClick={() => {
-                          if (customSizeInput.trim()) {
-                            toggleGlobalSize(customSizeInput.trim());
-                            setCustomSizeInput("");
-                          }
-                        }}
-                        className="py-1 px-2 rounded-md bg-zinc-800 text-white text-xs font-semibold hover:bg-zinc-700 cursor-pointer"
+                        onClick={() => addCustomSizeToMaster(customSizeInput)}
+                        className="py-1 px-2.5 rounded-md bg-zinc-800 text-white text-xs font-semibold hover:bg-zinc-700 cursor-pointer"
                       >
-                        Add
+                        + Master Size
                       </button>
                     </div>
                   </div>
+                  <p className="text-[10px] text-zinc-500 mt-1.5">
+                    💡 Assign these sizes to each color below independently. A color only has the sizes you explicitly select.
+                  </p>
                 </div>
               </div>
 
-              {/* Bulk Actions Toolbar */}
+              {/* Bulk Actions & View Modes Toolbar */}
               <div className="p-3.5 rounded-xl bg-[#121216] border border-[#27272a] flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap text-xs">
-                  <span className="text-zinc-400 font-semibold flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    Bulk Apply:
-                  </span>
+                  {/* Bulk Assign Tool Button (Req #14) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkSelectedColors(colorGroups.map((g) => g.color));
+                      setShowBulkModal(true);
+                    }}
+                    className="py-1.5 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Apply Sizes to Multiple Colors</span>
+                  </button>
 
                   {/* Bulk Stock */}
                   <div className="flex items-center gap-1 bg-[#1a1a20] p-1 rounded-lg border border-[#2c2c36]">
@@ -844,7 +833,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                       onClick={applyBulkStockToAll}
                       className="py-1 px-2 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold cursor-pointer"
                     >
-                      Set All Stock
+                      Set Stock
                     </button>
                   </div>
 
@@ -863,7 +852,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                       onClick={applyBulkPriceToAll}
                       className="py-1 px-2 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold cursor-pointer"
                     >
-                      Set All Price
+                      Set Price
                     </button>
                   </div>
 
@@ -874,12 +863,24 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                     className="py-1.5 px-3 rounded-lg bg-[#1a1a20] border border-[#2c2c36] hover:border-zinc-400 text-zinc-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                   >
                     <RefreshCw className="w-3 h-3 text-cyan-400" />
-                    <span>Auto-Generate SKUs</span>
+                    <span>Auto-SKUs</span>
                   </button>
                 </div>
 
-                {/* Switch View Toggle */}
+                {/* 3 View Modes Switcher */}
                 <div className="flex items-center gap-1 bg-[#1a1a20] p-1 rounded-lg border border-[#2c2c36]">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("per_color_cards")}
+                    className={`py-1 px-2.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                      viewMode === "per_color_cards"
+                        ? "bg-white text-black shadow-sm"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Per-Color Cards</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setViewMode("matrix_grid")}
@@ -902,10 +903,215 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                     }`}
                   >
                     <List className="w-3.5 h-3.5" />
-                    <span>Granular Table</span>
+                    <span>Table</span>
                   </button>
                 </div>
               </div>
+
+              {/* VIEW 0: PER-COLOR CARDS (Default & Primary View - Req #2, #5, #6) */}
+              {viewMode === "per_color_cards" && (
+                <div className="space-y-5">
+                  {colorGroups.map((group) => {
+                    const colorSizes = group.items.map((v) => (v.size || "").trim());
+
+                    return (
+                      <div
+                        key={group.color}
+                        className="p-5 rounded-2xl bg-[#0d0d11] border border-[#27272a] space-y-4 shadow-lg"
+                      >
+                        {/* Header: Color Swatch + Name + Hex + Photo count + Remove */}
+                        <div className="flex items-center justify-between border-b border-[#222228] pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              {group.image_url ? (
+                                <img
+                                  src={group.image_url}
+                                  alt={group.color}
+                                  className="w-10 h-10 rounded-xl object-cover border border-[#3f3f46]"
+                                />
+                              ) : (
+                                <span
+                                  className="w-8 h-8 rounded-full border border-white/20 block"
+                                  style={{ backgroundColor: group.color_hex || "#000" }}
+                                />
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-base font-black text-white capitalize">
+                                  {group.color}
+                                </span>
+                                <input
+                                  type="color"
+                                  value={group.color_hex || "#000000"}
+                                  onChange={(e) => updateColorHex(group.color, e.target.value)}
+                                  className="w-5 h-5 rounded border-0 bg-transparent cursor-pointer p-0"
+                                  title="Change Swatch Color"
+                                />
+                              </div>
+                              <span className="text-xs text-zinc-400 font-medium">
+                                {colorSizes.length} {colorSizes.length === 1 ? "size configured" : "sizes configured"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeColorGroup(group.color)}
+                            className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            title={`Delete ${group.color} and all its sizes`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Available Sizes for this specific Color */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-zinc-300">
+                              Available Sizes for <strong className="text-white capitalize">{group.color}</strong>:
+                            </span>
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const standard = ["S", "M", "L", "XL"];
+                                  standard.forEach((sz) => {
+                                    if (!colorSizes.includes(sz)) toggleSizeForColor(group.color, sz);
+                                  });
+                                }}
+                                className="text-zinc-400 hover:text-white underline cursor-pointer"
+                              >
+                                + Standard (S-XL)
+                              </button>
+                              <span className="text-zinc-600">•</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  colorSizes.forEach((sz) => toggleSizeForColor(group.color, sz));
+                                }}
+                                className="text-zinc-500 hover:text-red-400 underline cursor-pointer"
+                              >
+                                Clear Sizes
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Interactive Size Pills for this Color */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {sizeMaster.map((sz) => {
+                              const isSelected = colorSizes.includes(sz);
+                              return (
+                                <button
+                                  key={sz}
+                                  type="button"
+                                  onClick={() => toggleSizeForColor(group.color, sz)}
+                                  className={`py-1.5 px-3.5 rounded-xl text-xs font-black transition-all border cursor-pointer flex items-center gap-1.5 ${
+                                    isSelected
+                                      ? "bg-white text-black border-white shadow-lg ring-1 ring-white/60 scale-105"
+                                      : "bg-[#141418] text-zinc-400 border-[#27272a] hover:border-zinc-500 hover:text-white"
+                                  }`}
+                                  title={isSelected ? `Remove ${sz} from ${group.color}` : `Add ${sz} to ${group.color}`}
+                                >
+                                  <span>{sz}</span>
+                                  {isSelected && <Check className="w-3 h-3 text-black stroke-[3]" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Variants Table for this specific Color */}
+                        {group.items.length > 0 ? (
+                          <div className="overflow-x-auto rounded-xl border border-[#222228] bg-[#09090c] pt-1">
+                            <table className="w-full text-left text-xs">
+                              <thead>
+                                <tr className="border-b border-[#222228] bg-[#121216] text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                                  <th className="py-2.5 px-3">Size</th>
+                                  <th className="py-2.5 px-3 w-28">Stock Qty</th>
+                                  <th className="py-2.5 px-3 w-32">Listing Price (₹)</th>
+                                  <th className="py-2.5 px-3 w-28">MRP (₹)</th>
+                                  <th className="py-2.5 px-3">SKU Identifier</th>
+                                  <th className="py-2.5 px-3 w-12 text-center">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#1e1e24]">
+                                {group.items.map((v) => {
+                                  const stockQty = parseInt(v.stock) || 0;
+                                  const isOutOfStock = stockQty <= 0;
+                                  return (
+                                    <tr key={v.id} className="hover:bg-[#141418]/60 transition-colors">
+                                      <td className="py-2 px-3">
+                                        <span className="px-2 py-1 rounded bg-zinc-800 text-white font-mono text-xs font-black">
+                                          {v.size}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <input
+                                          type="number"
+                                          value={v.stock}
+                                          onChange={(e) => updateCellStock(group.color, v.size, e.target.value)}
+                                          className={`w-full p-1.5 px-2 rounded-lg bg-[#141418] border text-xs font-bold ${
+                                            isOutOfStock ? "border-rose-900 text-rose-400" : "border-[#27272a] text-white"
+                                          }`}
+                                        />
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <div className="relative">
+                                          <span className="absolute left-2 top-1.5 text-zinc-500 text-xs">₹</span>
+                                          <input
+                                            type="number"
+                                            value={v.price}
+                                            onChange={(e) => updateCellPrice(group.color, v.size, e.target.value)}
+                                            className="w-full p-1.5 pl-5 rounded-lg bg-[#141418] border border-[#27272a] text-white text-xs font-bold"
+                                          />
+                                        </div>
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <div className="relative">
+                                          <span className="absolute left-2 top-1.5 text-zinc-500 text-xs">₹</span>
+                                          <input
+                                            type="number"
+                                            value={v.mrp}
+                                            onChange={(e) => updateCellMrp(group.color, v.size, e.target.value)}
+                                            className="w-full p-1.5 pl-5 rounded-lg bg-[#141418] border border-[#27272a] text-zinc-400 text-xs"
+                                          />
+                                        </div>
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <input
+                                          type="text"
+                                          value={v.sku}
+                                          onChange={(e) => updateCellSku(group.color, v.size, e.target.value)}
+                                          className="w-full p-1.5 px-2 rounded-lg bg-[#141418] border border-[#27272a] text-zinc-300 font-mono text-xs"
+                                        />
+                                      </td>
+                                      <td className="py-2 px-3 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleSizeForColor(group.color, v.size)}
+                                          className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer"
+                                          title={`Remove ${v.size} from ${group.color}`}
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="p-4 rounded-xl border border-dashed border-[#27272a] text-center text-xs text-zinc-500">
+                            No sizes selected for {group.color} yet. Click size pills above to add available sizes.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* VIEW 1: MATRIX GRID VIEW (As requested in User Prompt) */}
               {viewMode === "matrix_grid" && (
@@ -1014,7 +1220,14 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                                       )}
                                     </div>
                                   ) : (
-                                    <span className="text-zinc-600 text-[10px]">—</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleSizeForColor(group.color, sz)}
+                                      className="py-1 px-2 rounded border border-dashed border-[#27272a] hover:border-zinc-500 text-zinc-500 hover:text-white text-[10px] transition-colors cursor-pointer"
+                                      title={`Add ${sz} for ${group.color}`}
+                                    >
+                                      + Add
+                                    </button>
                                   )}
                                 </td>
                               );
@@ -1457,7 +1670,11 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                 const currentPreviewGrp = colorGroups.find(
                   (g) => g.color.toLowerCase() === currentPreviewCol.toLowerCase()
                 );
-                const currentPreviewSz = previewSize || activeSizes[0] || "M";
+                // CRITICAL: Available sizes strictly for this specific preview color (Req #7, #8, #15)
+                const availableSizesForPreview = currentPreviewGrp?.items.map((it) => it.size) || [];
+                const currentPreviewSz = availableSizesForPreview.includes(previewSize)
+                  ? previewSize
+                  : availableSizesForPreview[0] || "";
                 const currentPreviewVariant = currentPreviewGrp?.items.find(
                   (v) => (v.size || "").toLowerCase() === currentPreviewSz.toLowerCase()
                 );
@@ -1518,7 +1735,13 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                           <button
                             key={g.color}
                             type="button"
-                            onClick={() => setPreviewColor(g.color)}
+                            onClick={() => {
+                              setPreviewColor(g.color);
+                              const gSizes = g.items.map((it) => it.size);
+                              if (!gSizes.includes(previewSize)) {
+                                setPreviewSize(gSizes[0] || "");
+                              }
+                            }}
                             className={`p-1 rounded-xl border transition-all cursor-pointer ${
                               currentPreviewCol.toLowerCase() === g.color.toLowerCase()
                                 ? "border-white ring-2 ring-white scale-105"
@@ -1544,57 +1767,74 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                       </div>
                     </div>
 
-                    {/* Preview Size Selector */}
+                    {/* Preview Size Selector - strictly shows sizes existing for currentPreviewCol */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-zinc-400">Select Size:</span>
+                        <span className="font-bold text-zinc-400">
+                          Available Sizes for {currentPreviewCol} ({availableSizesForPreview.length}):
+                        </span>
                         <span className="text-white font-bold underline cursor-pointer">
                           Size Chart
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {activeSizes.map((sz) => {
-                          const v = currentPreviewGrp?.items.find(
-                            (it) => (it.size || "").toLowerCase() === sz.toLowerCase()
-                          );
-                          const szStock = v ? parseInt(v.stock) || 0 : 0;
-                          const szOOS = szStock <= 0;
-                          const isSzSelected =
-                            currentPreviewSz.toLowerCase() === sz.toLowerCase();
+                      {availableSizesForPreview.length > 0 ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {availableSizesForPreview.map((sz) => {
+                            const v = currentPreviewGrp?.items.find(
+                              (it) => (it.size || "").toLowerCase() === sz.toLowerCase()
+                            );
+                            const szStock = v ? parseInt(v.stock) || 0 : 0;
+                            const szOOS = szStock <= 0;
+                            const isSzSelected =
+                              currentPreviewSz.toLowerCase() === sz.toLowerCase();
 
-                          return (
-                            <button
-                              key={sz}
-                              type="button"
-                              onClick={() => !szOOS && setPreviewSize(sz)}
-                              disabled={szOOS}
-                              className={`py-2 px-3.5 rounded-xl border text-xs font-bold transition-all ${
-                                szOOS
-                                  ? "border-zinc-850 text-zinc-600 line-through opacity-40 cursor-not-allowed"
-                                  : isSzSelected
-                                  ? "bg-white text-black border-white scale-105 shadow-md"
-                                  : "border-zinc-800 text-zinc-300 hover:border-zinc-600 cursor-pointer"
-                              }`}
-                            >
-                              {sz}
-                            </button>
-                          );
-                        })}
-                      </div>
+                            return (
+                              <button
+                                key={sz}
+                                type="button"
+                                onClick={() => !szOOS && setPreviewSize(sz)}
+                                disabled={szOOS}
+                                className={`py-2 px-3.5 rounded-xl border text-xs font-bold transition-all ${
+                                  szOOS
+                                    ? "border-zinc-850 bg-zinc-950/40 text-zinc-600 line-through opacity-45 cursor-not-allowed"
+                                    : isSzSelected
+                                    ? "bg-white text-black border-white scale-105 shadow-md"
+                                    : "border-zinc-800 text-zinc-300 hover:border-zinc-600 cursor-pointer"
+                                }`}
+                              >
+                                {sz}
+                                {szOOS && (
+                                  <span className="text-[8px] font-bold text-rose-400 block uppercase tracking-tighter">
+                                    OOS
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-xl border border-dashed border-zinc-800 text-center text-xs text-zinc-500">
+                          No sizes selected for {currentPreviewCol}. Go to &quot;Variant Matrix &amp; Stock&quot; to pick sizes.
+                        </div>
+                      )}
                     </div>
 
                     {/* Preview Selected Summary */}
                     <div className="rounded-xl bg-zinc-950 border border-zinc-850 p-3 flex items-center justify-between text-xs">
                       <span className="text-zinc-400 font-semibold">
-                        {currentPreviewCol} • {currentPreviewSz}
+                        {currentPreviewCol} • {currentPreviewSz || "No Size Selected"}
                       </span>
                       {isOOS ? (
                         <span className="text-rose-400 font-bold uppercase text-[10px]">
                           Out of Stock
                         </span>
-                      ) : (
+                      ) : currentPreviewVariant ? (
                         <span className="text-emerald-400 font-bold uppercase text-[10px]">
-                          ✓ In Stock ({currentPreviewVariant?.stock || 20} left)
+                          ✓ In Stock ({currentPreviewVariant.stock || 20} left)
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500 uppercase text-[10px]">
+                          Select a size
                         </span>
                       )}
                     </div>
@@ -1602,9 +1842,9 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                     {/* Preview Add to Cart / Buy Now buttons */}
                     <div className="grid grid-cols-2 gap-3 pt-2">
                       <button
-                        disabled={isOOS}
+                        disabled={isOOS || !currentPreviewVariant}
                         className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider ${
-                          isOOS
+                          isOOS || !currentPreviewVariant
                             ? "bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800"
                             : "bg-zinc-900 text-white border border-zinc-700"
                         }`}
@@ -1612,9 +1852,9 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                         {isOOS ? "Out of Stock" : "Add to Cart"}
                       </button>
                       <button
-                        disabled={isOOS}
+                        disabled={isOOS || !currentPreviewVariant}
                         className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider ${
-                          isOOS
+                          isOOS || !currentPreviewVariant
                             ? "bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800"
                             : "bg-white text-black"
                         }`}
@@ -1627,6 +1867,164 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
               })()}
             </div>
           )}
+        </div>
+      )}
+
+      {/* BULK SIZE ASSIGNMENT MODAL (Req #14) */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121216] border border-[#27272a] rounded-2xl max-w-lg w-full p-5 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#222228] pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  Apply Sizes to Multiple Colors
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Quickly bulk-assign sizes to chosen colors. You can still customize each color independently afterward.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Step 1: Select Target Colors */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-zinc-300">
+                  1. Select Colors to Apply To:
+                </label>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setBulkSelectedColors(colorGroups.map((g) => g.color))}
+                    className="text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-zinc-600">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setBulkSelectedColors([])}
+                    className="text-zinc-500 hover:underline cursor-pointer"
+                  >
+                    Deselect All
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {colorGroups.map((g) => {
+                  const isChecked = bulkSelectedColors.some(
+                    (c) => c.toLowerCase() === g.color.toLowerCase()
+                  );
+                  return (
+                    <button
+                      key={g.color}
+                      type="button"
+                      onClick={() => {
+                        if (isChecked) {
+                          setBulkSelectedColors(
+                            bulkSelectedColors.filter(
+                              (c) => c.toLowerCase() !== g.color.toLowerCase()
+                            )
+                          );
+                        } else {
+                          setBulkSelectedColors([...bulkSelectedColors, g.color]);
+                        }
+                      }}
+                      className={`py-1.5 px-3 rounded-lg text-xs font-bold flex items-center gap-2 border transition-all cursor-pointer ${
+                        isChecked
+                          ? "bg-zinc-800 text-white border-white/80"
+                          : "bg-[#18181c] text-zinc-400 border-[#27272a] hover:border-zinc-500"
+                      }`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-white/20"
+                        style={{ backgroundColor: g.color_hex || "#3b82f6" }}
+                      />
+                      <span>{g.color}</span>
+                      {isChecked && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 2: Select Sizes */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-zinc-300">
+                  2. Choose Sizes from Size Master:
+                </label>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setBulkSelectedSizes([...sizeMaster])}
+                    className="text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-zinc-600">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setBulkSelectedSizes([])}
+                    className="text-zinc-500 hover:underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap max-h-48 overflow-y-auto p-1">
+                {sizeMaster.map((sz) => {
+                  const isChecked = bulkSelectedSizes.includes(sz);
+                  return (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => {
+                        if (isChecked) {
+                          setBulkSelectedSizes(bulkSelectedSizes.filter((s) => s !== sz));
+                        } else {
+                          setBulkSelectedSizes([...bulkSelectedSizes, sz]);
+                        }
+                      }}
+                      className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                        isChecked
+                          ? "bg-white text-black border-white shadow-sm"
+                          : "bg-[#18181c] text-zinc-400 border-[#27272a] hover:border-zinc-600"
+                      }`}
+                    >
+                      {sz}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#222228]">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="py-2 px-4 rounded-xl text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => applySizesToSelectedColors(bulkSelectedColors, bulkSelectedSizes)}
+                disabled={bulkSelectedColors.length === 0 || bulkSelectedSizes.length === 0}
+                className="py-2 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+              >
+                Apply to {bulkSelectedColors.length} Colors
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

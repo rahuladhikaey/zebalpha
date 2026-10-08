@@ -144,13 +144,40 @@ export function PackageSelection({
 
   // Packages under the currently active color
   const packagesInActiveColor = useMemo(() => {
-    return colorMap.get(selectedColor) || packages || [];
+    if (!selectedColor) return packages || [];
+    return colorMap.get(selectedColor) || [];
   }, [colorMap, selectedColor, packages]);
+
+  // Sizes strictly available for the active color (Req #7 & #8)
+  // When a color is selected, only show sizes that actually exist for that color.
+  // Non-existent combinations are hidden completely; created combinations with stock <= 0 show as OOS.
+  const activeSizesForDisplay = useMemo(() => {
+    if (selectedColor && colorMap.has(selectedColor)) {
+      const colorPkgs = colorMap.get(selectedColor) || [];
+      const distinctSizesForColor = Array.from(
+        new Set(colorPkgs.map((p) => (p.size || "").trim()).filter(Boolean))
+      );
+      return allDistinctSizes.filter((sz) => distinctSizesForColor.includes(sz));
+    }
+    return allDistinctSizes;
+  }, [selectedColor, colorMap, allDistinctSizes]);
 
   // Size chart extraction
   const chartRows = Array.isArray(sizeChart?.rows) ? sizeChart.rows : [];
   const hasValidChart = chartRows.length > 0;
   const baseChartUnit = sizeChart?.unit || "inches";
+
+  // Filter size chart rows relevant to the currently selected color's available sizes (Req #13)
+  const filteredChartRows = useMemo(() => {
+    if (!chartRows.length) return [];
+    if (!selectedColor) return chartRows;
+    const allowed = new Set(activeSizesForDisplay.map((s) => s.toLowerCase().trim()));
+    const filtered = chartRows.filter((r) => {
+      const sz = (r.size || r.Size || "").toLowerCase().trim();
+      return sz ? allowed.has(sz) : true;
+    });
+    return filtered.length > 0 ? filtered : chartRows;
+  }, [chartRows, selectedColor, activeSizesForDisplay]);
 
   // Dynamic columns: prioritize user-defined columns, or inspect row keys
   const dynamicColumns = useMemo(() => {
@@ -330,16 +357,15 @@ export function PackageSelection({
           )}
         </div>
 
-        {/* Size Buttons Grid */}
+        {/* Size Buttons Grid - Strictly per-color available sizes (Req #7 & #8) */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {allDistinctSizes.map((sizeName) => {
+          {activeSizesForDisplay.map((sizeName) => {
             const matchedPkg = packagesInActiveColor.find(
               (p) => (p.size || "").toLowerCase() === sizeName.toLowerCase()
             );
 
-            const isAvailableForColor = Boolean(matchedPkg);
             const stockQty = matchedPkg?.stock !== undefined ? Number(matchedPkg.stock) : 20;
-            const isOutOfStock = !isAvailableForColor || stockQty <= 0;
+            const isOutOfStock = stockQty <= 0;
             const isSelected =
               selectedSize.toLowerCase() === sizeName.toLowerCase() && !isOutOfStock;
 
@@ -543,7 +569,7 @@ export function PackageSelection({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-850 bg-zinc-950 font-mono text-xs">
-                  {chartRows.map((row, i) => {
+                  {filteredChartRows.map((row, i) => {
                     const rowSize = row.size || row.Size || `Size ${i + 1}`;
                     const isRowSelected =
                       selectedSize.toLowerCase() === String(rowSize).toLowerCase();
