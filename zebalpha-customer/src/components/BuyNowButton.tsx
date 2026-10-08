@@ -6,7 +6,17 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 
-export function BuyNowButton({ product, className, isPreOrder = false }: { product: Product, className?: string, isPreOrder?: boolean }) {
+export function BuyNowButton({ 
+  product, 
+  className, 
+  isPreOrder = false,
+  onBeforeBuy,
+}: { 
+  product: Product; 
+  className?: string; 
+  isPreOrder?: boolean;
+  onBeforeBuy?: () => boolean;
+}) {
   const { cart, addToCart } = useCart();
   const { session } = useAuth();
   const router = useRouter();
@@ -17,6 +27,11 @@ export function BuyNowButton({ product, className, isPreOrder = false }: { produ
     if (isUpcomingDrop) {
       router.push(`/new-drops`);
       return;
+    }
+
+    if (onBeforeBuy) {
+      const allowed = onBeforeBuy();
+      if (!allowed) return;
     }
 
     const targetKey = (product as any).cart_item_key;

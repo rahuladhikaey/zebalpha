@@ -27,121 +27,252 @@ export default function ProductDetailTemplate({
   relatedProductsSlot?: React.ReactNode;
 }) {
   const [isVtoOpen, setIsVtoOpen] = useState(false);
+  // 1. Normalize packages from product
   const normalizedPackages = useMemo(() => {
     if (!product.packages || product.packages.length === 0) return [];
     return product.packages.map((pkg, idx) => {
-      if (idx === 0) {
-        return {
-          ...pkg,
-          price: product.price,
-          mrp: product.mrp != null ? product.mrp : pkg.mrp
-        };
-      }
-      return pkg;
+      let col = (pkg.color || "").trim();
+      if (!col && pkg.name?.includes(" / ")) col = pkg.name.split(" / ")[0].trim();
+      else if (!col && pkg.name?.includes(" - ")) col = pkg.name.split(" - ")[0].trim();
+      col = col || "Default";
+
+      let sz = (pkg.size || "").trim();
+      if (!sz && pkg.name?.includes(" / ")) sz = pkg.name.split(" / ")[1].trim();
+      else if (!sz && pkg.name?.includes(" - ")) sz = pkg.name.split(" - ")[1].trim();
+      sz = sz || "Free Size";
+
+      return {
+        ...pkg,
+        color: col,
+        size: sz,
+        price: idx === 0 ? product.price : (pkg.price || product.price),
+        mrp: product.mrp != null ? product.mrp : (pkg.mrp || product.mrp),
+        gallery: pkg.gallery || (pkg.image_url ? [pkg.image_url] : []),
+      };
     });
   }, [product.packages, product.price, product.mrp]);
 
-  const [selectedPackage, setSelectedPackage] = useState<ProductPackage | null>(
-    normalizedPackages.length > 0
-      ? normalizedPackages.find((p) => p.isBestSeller && (p.stock === undefined || Number(p.stock) > 0)) ||
-        normalizedPackages.find((p) => p.stock === undefined || Number(p.stock) > 0) ||
-        normalizedPackages[0]
-      : null
-  );
+  // 2. Extract Color Groups & Available Colors
+  const { colorGroups, defaultColorName } = useMemo(() => {
+    const map = new Map<string, {
+      colorName: string;
+      colorHex?: string;
+      thumbnail?: string;
+      gallery: string[];
+      variants: ProductPackage[];
+      isAvailable: boolean;
+      basePrice: number;
+      baseMrp: number;
+    }>();
 
-  const [selectedColor, setSelectedColor] = useState<string>(
-    selectedPackage?.color || ""
-  );
+    normalizedPackages.forEach((pkg) => {
+      const col = pkg.color || "Default";
+      if (!map.has(col)) {
+        map.set(col, {
+          colorName: col,
+          colorHex: pkg.color_hex,
+          thumbnail: pkg.image_url || pkg.gallery?.[0],
+          gallery: [],
+          variants: [],
+          isAvailable: false,
+          basePrice: pkg.price,
+          baseMrp: pkg.mrp || pkg.price,
+        });
+      }
+      const grp = map.get(col)!;
+      grp.variants.push(pkg);
+      if (pkg.stock === undefined || Number(pkg.stock) > 0) {
+        grp.isAvailable = true;
+      }
+      if (pkg.price < grp.basePrice) grp.basePrice = pkg.price;
+      if (pkg.mrp && pkg.mrp > grp.baseMrp) grp.baseMrp = pkg.mrp;
+
+      if (pkg.gallery && Array.isArray(pkg.gallery)) {
+        pkg.gallery.forEach((g) => {
+          if (g && !grp.gallery.includes(g)) grp.gallery.push(g);
+        });
+      } else if (pkg.image_url && !grp.gallery.includes(pkg.image_url)) {
+        grp.gallery.push(pkg.image_url);
+      }
+    });
+
+    const groups = Array.from(map.values());
+    const available = groups.find((g) => g.isAvailable);
+    const defColor = available?.colorName || groups[0]?.colorName || "";
+
+    return { colorGroups: groups, defaultColorName: defColor };
+  }, [normalizedPackages]);
+
+  const hasVariants = normalizedPackages.length > 0;
+
+  // 3. Single Source of Truth State
+  const [selectedColor, setSelectedColor] = useState<string>(defaultColorName);
+  const [selectedSize, setSelectedSize] = useState<string>("");
   const [validationError, setValidationError] = useState<string>("");
 
-  // Color-specific gallery switching: matches Meesho/Flipkart UX
-  const activeColorGallery = useMemo(() => {
-    const targetColor = (selectedPackage?.color || selectedColor || "").trim().toLowerCase();
-    if (!targetColor) return null;
-
-    // 1. Check if selected package has its own gallery array
-    if (
-      selectedPackage?.gallery &&
-      Array.isArray(selectedPackage.gallery) &&
-      selectedPackage.gallery.length > 0
-    ) {
-      return selectedPackage.gallery;
+  // Sync selectedColor if defaultColorName is resolved asynchronously
+  useEffect(() => {
+    if (!selectedColor && defaultColorName) {
+      setSelectedColor(defaultColorName);
     }
+  }, [defaultColorName, selectedColor]);
 
-    // 2. Check if another package with this color has a gallery array
-    const colorPkg = normalizedPackages.find(
-      (p) => (p.color || "").trim().toLowerCase() === targetColor && Array.isArray(p.gallery) && p.gallery.length > 0
+  // Active color group
+  const currentColorGroup = useMemo(() => {
+    return (
+      colorGroups.find((g) => g.colorName.toLowerCase() === selectedColor.toLowerCase()) ||
+      colorGroups[0] ||
+      null
     );
-    if (colorPkg?.gallery && colorPkg.gallery.length > 0) {
-      return colorPkg.gallery;
-    }
+  }, [colorGroups, selectedColor]);
 
-    // 3. Collect all unique image_urls of packages for this color
-    const colorImages = normalizedPackages
-      .filter((p) => (p.color || "").trim().toLowerCase() === targetColor && p.image_url)
-      .map((p) => p.image_url as string);
+  // Exact selected variant combination
+  const selectedVariant = useMemo(() => {
+    if (!currentColorGroup || !selectedSize) return null;
+    return (
+      currentColorGroup.variants.find(
+        (v) => (v.size || "").toLowerCase() === selectedSize.toLowerCase()
+      ) || null
+    );
+  }, [currentColorGroup, selectedSize]);
 
-    if (colorImages.length > 0) {
-      return Array.from(new Set(colorImages));
-    }
+  // Handle color change:
+  // Immediately switch selected color, gallery and available sizes.
+  // Check if current selectedSize is available in the new color; if not, reset size selection.
+  const handleColorChange = (newColor: string) => {
+    setSelectedColor(newColor);
+    setValidationError("");
 
-    if (selectedPackage?.image_url) {
-      return [selectedPackage.image_url];
-    }
-
-    return null;
-  }, [selectedPackage, selectedColor, normalizedPackages]);
-
-  const images = useMemo(() => {
-    if (activeColorGallery && activeColorGallery.length > 0) {
-      return activeColorGallery;
-    }
-    const rawImages = normalizeProductImages(product);
-    if (selectedPackage && selectedPackage.image_url) {
-      if (!rawImages.includes(selectedPackage.image_url)) {
-        return [selectedPackage.image_url, ...rawImages];
+    const newGroup = colorGroups.find((g) => g.colorName.toLowerCase() === newColor.toLowerCase());
+    if (newGroup && selectedSize) {
+      const matched = newGroup.variants.find(
+        (v) => (v.size || "").toLowerCase() === selectedSize.toLowerCase()
+      );
+      if (matched && (matched.stock === undefined || Number(matched.stock) > 0)) {
+        // Size preserved
+      } else {
+        setSelectedSize("");
       }
-      return [selectedPackage.image_url, ...rawImages.filter((img) => img !== selectedPackage.image_url)];
     }
-    return rawImages;
-  }, [product, selectedPackage, activeColorGallery]);
+  };
 
-  const displayPrice = selectedPackage ? selectedPackage.price : product.price;
-  const displayMrp = selectedPackage && selectedPackage.mrp ? selectedPackage.mrp : product.mrp;
+  // Handle size selection
+  const handleSizeSelect = (newSize: string) => {
+    setSelectedSize(newSize);
+    setValidationError("");
+  };
+
+  // Color-specific gallery images for the main hero carousel
+  const images = useMemo(() => {
+    if (currentColorGroup && currentColorGroup.gallery.length > 0) {
+      if (selectedVariant?.image_url && currentColorGroup.gallery.includes(selectedVariant.image_url)) {
+        return [
+          selectedVariant.image_url,
+          ...currentColorGroup.gallery.filter((img) => img !== selectedVariant.image_url),
+        ];
+      }
+      return currentColorGroup.gallery;
+    }
+
+    if (currentColorGroup?.thumbnail) {
+      return [currentColorGroup.thumbnail];
+    }
+
+    return normalizeProductImages(product);
+  }, [currentColorGroup, selectedVariant, product]);
+
+  // Price & MRP
+  const displayPrice = selectedVariant
+    ? selectedVariant.price
+    : currentColorGroup
+    ? currentColorGroup.basePrice
+    : product.price;
+
+  const displayMrp = selectedVariant && selectedVariant.mrp
+    ? selectedVariant.mrp
+    : currentColorGroup
+    ? currentColorGroup.baseMrp
+    : product.mrp;
 
   const hasDiscount = displayMrp && displayMrp > displayPrice;
   const discountPercent = hasDiscount ? Math.round(((displayMrp! - displayPrice) / displayMrp!) * 100) : 0;
 
+  // Stock status
   const isCurrentVariantInStock = useMemo(() => {
-    if (selectedPackage && selectedPackage.stock !== undefined) {
-      return Number(selectedPackage.stock) > 0;
+    if (selectedVariant) {
+      return selectedVariant.stock !== undefined ? Number(selectedVariant.stock) > 0 : true;
+    }
+    if (hasVariants) {
+      return currentColorGroup ? currentColorGroup.isAvailable : true;
     }
     return product.stock !== undefined ? Number(product.stock) > 0 : true;
-  }, [selectedPackage, product.stock]);
+  }, [selectedVariant, hasVariants, currentColorGroup, product.stock]);
 
+  // Computed product object for Cart & Checkout
   const computedProduct = useMemo(() => {
-    const pkgName = selectedPackage ? selectedPackage.name : "Standard";
-    const pkgImg = selectedPackage?.image_url || activeColorGallery?.[0] || product.image_url;
-    const col = selectedPackage?.color || selectedColor || "";
-    const sz = selectedPackage?.size || "";
-    const skuVal = selectedPackage?.sku || product.sku || "";
+    const pkgName = selectedVariant
+      ? (selectedColor ? `${selectedColor} / ${selectedSize}` : selectedSize)
+      : (selectedColor || "Standard");
+
+    const pkgImg =
+      selectedVariant?.image_url ||
+      currentColorGroup?.thumbnail ||
+      images[0] ||
+      product.image_url;
+
+    const skuVal = selectedVariant?.sku || product.sku || "";
 
     return {
       ...product,
       price: displayPrice,
       mrp: displayMrp,
-      stock: selectedPackage?.stock !== undefined ? selectedPackage.stock : product.stock,
-      name: selectedPackage && pkgName !== "Standard" ? `${product.name} (${pkgName})` : product.name,
+      stock: selectedVariant?.stock !== undefined ? selectedVariant.stock : (currentColorGroup?.isAvailable ? 20 : 0),
+      name: selectedVariant
+        ? `${product.name} (${selectedColor ? `${selectedColor} - ` : ''}${selectedSize})`
+        : product.name,
       package_name: pkgName,
-      variant_id: selectedPackage?.id,
-      selected_color: col,
-      selected_size: sz,
+      variant_id: selectedVariant?.id,
+      selected_color: selectedColor,
+      selected_size: selectedSize,
       selected_sku: skuVal,
       selected_image: pkgImg,
       image_url: pkgImg,
-      cart_item_key: `${product.id}_${selectedPackage?.id || pkgName}`,
+      cart_item_key: `${product.id}_${selectedVariant?.id || pkgName}`,
     };
-  }, [product, selectedPackage, displayPrice, displayMrp, activeColorGallery, selectedColor]);
+  }, [
+    product,
+    selectedVariant,
+    selectedColor,
+    selectedSize,
+    displayPrice,
+    displayMrp,
+    currentColorGroup,
+    images,
+  ]);
+
+  // Validation before Add to Cart or Buy Now
+  const handleValidateAndProceed = () => {
+    if (hasVariants) {
+      if (!selectedColor) {
+        setValidationError("Please select a color");
+        const el = document.getElementById("color-selection-section");
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return false;
+      }
+      if (!selectedSize || !selectedVariant) {
+        setValidationError("Please select a size");
+        const el = document.getElementById("size-selection-section");
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return false;
+      }
+      if (selectedVariant.stock !== undefined && Number(selectedVariant.stock) <= 0) {
+        setValidationError("Selected variant is out of stock");
+        return false;
+      }
+    }
+    setValidationError("");
+    return true;
+  };
 
   const [reviews, setReviews] = useState<any[]>([]);
 
@@ -259,11 +390,13 @@ export default function ProductDetailTemplate({
                   <>
                     <AddToCartButton
                       product={computedProduct}
+                      onBeforeAdd={handleValidateAndProceed}
                       className="flex h-16 items-center justify-center gap-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-sm font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 active:scale-95 cursor-pointer"
                     />
                     <div className="w-full">
                       <BuyNowButton
                         product={computedProduct}
+                        onBeforeBuy={handleValidateAndProceed}
                         className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-white text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer"
                       />
                     </div>
@@ -337,20 +470,16 @@ export default function ProductDetailTemplate({
               </p>
             </div>
 
-            {normalizedPackages.length > 0 && (
+            {hasVariants && (
               <PackageSelection 
                 packages={normalizedPackages} 
-                selectedPackage={selectedPackage} 
-                onSelect={(pkg) => {
-                  setSelectedPackage(pkg);
-                  setValidationError("");
-                }} 
+                selectedColor={selectedColor}
+                selectedSize={selectedSize}
+                selectedVariant={selectedVariant}
+                onColorChange={handleColorChange}
+                onSizeSelect={handleSizeSelect}
                 sizeChart={(product.specifications as any)?.size_chart}
                 validationError={validationError}
-                onColorChange={(col) => {
-                  setSelectedColor(col);
-                  setValidationError("");
-                }}
               />
             )}
 
@@ -599,10 +728,12 @@ export default function ProductDetailTemplate({
           <div className="grid grid-cols-2 h-11 flex-1 gap-2">
             <AddToCartButton
               product={computedProduct}
+              onBeforeAdd={handleValidateAndProceed}
               className="flex h-full items-center justify-center rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors border border-zinc-800 cursor-pointer"
             />
             <BuyNowButton
               product={computedProduct}
+              onBeforeBuy={handleValidateAndProceed}
               className="flex h-full items-center justify-center rounded-xl bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors cursor-pointer"
             />
           </div>

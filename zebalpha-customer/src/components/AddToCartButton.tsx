@@ -6,7 +6,17 @@ import { Product } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
-export function AddToCartButton({ product, className, compact }: { product: Product; className?: string; compact?: boolean }) {
+export function AddToCartButton({ 
+  product, 
+  className, 
+  compact,
+  onBeforeAdd,
+}: { 
+  product: Product; 
+  className?: string; 
+  compact?: boolean;
+  onBeforeAdd?: () => boolean;
+}) {
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
   const { session } = useAuth();
   const router = useRouter();
@@ -18,6 +28,10 @@ export function AddToCartButton({ product, className, compact }: { product: Prod
     if (isUpcomingDrop) {
       router.push(`/new-drops`);
       return;
+    }
+    if (onBeforeAdd) {
+      const allowed = onBeforeAdd();
+      if (!allowed) return;
     }
     if (isOutOfStock) return;
     if (!session) {
