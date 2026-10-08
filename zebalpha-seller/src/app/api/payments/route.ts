@@ -190,12 +190,71 @@ export async function GET(req: NextRequest) {
       }
     } catch (_) {}
 
+    // 5. Fetch settlement methods (UPI and Bank)
+    let settlementMethods: any[] = [];
+    let activeSettlementMethod: any = null;
+    try {
+      const { data: methods } = await supabaseServer
+        .from("seller_settlement_methods")
+        .select("id, method_type, masked_destination, verified_name, is_verified, is_default, status, failure_reason, created_at")
+        .eq("seller_id", sellerId)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (methods && methods.length > 0) {
+        settlementMethods = methods;
+        activeSettlementMethod = methods.find((m: any) => m.is_default && m.is_verified) || methods[0];
+      }
+    } catch (_) {}
+
+    // Fallback: If no settlement method in new table yet, but bankAccount or profile UPI exists
+    if (!activeSettlementMethod) {
+      if (bankAccount?.upi_id) {
+        activeSettlementMethod = {
+          id: "profile-upi",
+          method_type: "UPI",
+          masked_destination: bankAccount.upi_id.includes("@") ? bankAccount.upi_id : `UPI: ${bankAccount.upi_id}`,
+          verified_name: bankAccount.account_holder_name || "Merchant",
+          is_verified: true,
+          status: "VERIFIED"
+        };
+        settlementMethods.push(activeSettlementMethod);
+      } else if (bankAccount) {
+        activeSettlementMethod = {
+          id: bankAccount.id,
+          method_type: "BANK",
+          masked_destination: bankAccount.masked_account_number,
+          verified_name: bankAccount.account_holder_name,
+          is_verified: bankAccount.is_verified,
+          status: bankAccount.status
+        };
+        settlementMethods.push(activeSettlementMethod);
+      }
+    }
+
+    // 6. Fetch Payout Requests History
+    let payoutRequests: any[] = [];
+    try {
+      const { data: pRows } = await supabaseServer
+        .from("seller_payout_requests")
+        .select("id, payout_number, method_type, destination_masked, beneficiary_name, amount, status, utr_number, failure_reason, initiated_at, processed_at, created_at")
+        .eq("seller_id", sellerId)
+        .order("created_at", { ascending: false });
+
+      if (pRows) {
+        payoutRequests = pRows;
+      }
+    } catch (_) {}
+
     return NextResponse.json({
       success: true,
       balances,
       transactions,
       settlements,
       bankAccount,
+      settlementMethods,
+      activeSettlementMethod,
+      payoutRequests,
       sellerId
     });
   } catch (err: any) {

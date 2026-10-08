@@ -41,3 +41,31 @@ export interface SellerBankAccount {
   created_at: string;
   updated_at?: string;
 }
+
+export interface SellerSettlementMethod {
+  id: string;
+  seller_id: string;
+  method_type: 'UPI' | 'BANK';
+  masked_destination: string;
+  verified_name?: string;
+  is_verified: boolean;
+  is_default: boolean;
+  status: 'PENDING' | 'VERIFIED' | 'FAILED' | 'REJECTED';
+  failure_reason?: string;
+  created_at: string;
+}
+
+export interface SellerPayoutRequest {
+  id: string;
+  payout_number: string;
+  method_type: 'UPI' | 'BANK';
+  destination_masked: string;
+  beneficiary_name?: string;
+  amount: number;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'REVERSED';
+  utr_number?: string;
+  failure_reason?: string;
+  initiated_at: string;
+  processed_at?: string;
+  created_at: string;
+}
