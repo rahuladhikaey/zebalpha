@@ -1,49 +1,38 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import { 
   IndianRupee, 
-  Sparkles, 
-  ShieldCheck, 
-  FileText, 
-  Building2, 
-  ArrowRight, 
-  TrendingUp, 
-  Download, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
   Clock, 
   CheckCircle2, 
   AlertCircle, 
-  RefreshCw, 
-  Search, 
+  Download, 
   Filter, 
-  CreditCard, 
+  RefreshCw, 
+  ChevronRight, 
+  Sparkles, 
   Receipt, 
-  Scale, 
-  Eye, 
-  EyeOff, 
+  Search, 
   X, 
-  ExternalLink, 
-  Lock, 
-  ArrowUpRight, 
-  ArrowDownRight, 
+  Scale, 
   SlidersHorizontal, 
   ChevronDown, 
-  Info,
-  Wallet,
-  Smartphone,
-  AlertTriangle
+  Info, 
+  Wallet, 
+  Smartphone, 
+  AlertTriangle 
 } from "lucide-react";
 import { 
   LedgerTransaction, 
   SellerLedgerBalances, 
   DetailedSettlementRecord, 
-  SellerBankAccount,
-  SellerSettlementMethod,
-  SellerPayoutRequest
-} from "@shared/types";
+  SellerSettlementMethod, 
+  SellerPayoutRequest 
+} from "@/shared/types";
 
-type PaymentTab = "settlements" | "ledger" | "reconciliation" | "bank";
+type PaymentTab = "settlements" | "ledger" | "reconciliation" | "upi";
 
 export default function SellerPaymentsPage() {
   const [activeTab, setActiveTab] = useState<PaymentTab>("settlements");
@@ -68,7 +57,6 @@ export default function SellerPaymentsPage() {
 
   const [transactions, setTransactions] = useState<LedgerTransaction[]>([]);
   const [settlements, setSettlements] = useState<DetailedSettlementRecord[]>([]);
-  const [bankAccount, setBankAccount] = useState<SellerBankAccount | null>(null);
   const [settlementMethods, setSettlementMethods] = useState<SellerSettlementMethod[]>([]);
   const [activeSettlementMethod, setActiveSettlementMethod] = useState<SellerSettlementMethod | null>(null);
   const [payoutRequests, setPayoutRequests] = useState<SellerPayoutRequest[]>([]);
@@ -79,31 +67,16 @@ export default function SellerPaymentsPage() {
   const [settlementFilter, setSettlementFilter] = useState("ALL");
 
   // Selected Settlement / Transaction Detail Modal
-  const [selectedSettlement, setSelectedSettlement] = useState<DetailedSettlementRecord | null>(null);
   const [selectedPayoutDetail, setSelectedPayoutDetail] = useState<any | null>(null);
 
-  // Settlement Method Modal State (UPI first, Bank optional)
+  // Settlement Method Modal State (Strictly UPI ONLY)
   const [showEditSettlementModal, setShowEditSettlementModal] = useState(false);
-  const [selectedMethodType, setSelectedMethodType] = useState<"UPI" | "BANK">("UPI");
-
-  // UPI Form State
   const [upiId, setUpiId] = useState("");
   const [upiVerifying, setUpiVerifying] = useState(false);
   const [upiVerified, setUpiVerified] = useState(false);
   const [upiVerifiedName, setUpiVerifiedName] = useState<string | null>(null);
   const [upiProviderRef, setUpiProviderRef] = useState<string | null>(null);
   const [upiError, setUpiError] = useState("");
-
-  // Bank Form State (Preserved)
-  const [bankForm, setBankForm] = useState({
-    accountHolderName: "",
-    bankName: "",
-    accountNumber: "",
-    confirmAccountNumber: "",
-    ifscCode: ""
-  });
-  const [showAccountNumber, setShowAccountNumber] = useState(false);
-
   const [methodSubmitting, setMethodSubmitting] = useState(false);
   const [methodMessage, setMethodMessage] = useState("");
   const [methodError, setMethodError] = useState("");
@@ -126,30 +99,16 @@ export default function SellerPaymentsPage() {
         if (json.balances) setBalances(json.balances);
         if (json.transactions) setTransactions(json.transactions);
         if (json.settlements) setSettlements(json.settlements);
-        if (json.bankAccount) setBankAccount(json.bankAccount);
         if (json.settlementMethods) setSettlementMethods(json.settlementMethods);
         if (json.activeSettlementMethod) {
           setActiveSettlementMethod(json.activeSettlementMethod);
-          if (json.activeSettlementMethod.method_type === "UPI") {
-            setSelectedMethodType("UPI");
-            if (json.activeSettlementMethod.destination_raw) {
-              setUpiId(json.activeSettlementMethod.destination_raw);
-              setUpiVerified(true);
-              setUpiVerifiedName(json.activeSettlementMethod.verified_name || null);
-            }
+          if (json.activeSettlementMethod.upi_id || json.activeSettlementMethod.destination_raw) {
+            setUpiId(json.activeSettlementMethod.upi_id || json.activeSettlementMethod.destination_raw);
+            setUpiVerified(true);
+            setUpiVerifiedName(json.activeSettlementMethod.verified_name || null);
           }
         }
         if (json.payoutRequests) setPayoutRequests(json.payoutRequests);
-
-        if (json.bankAccount) {
-          setBankForm({
-            accountHolderName: json.bankAccount.account_holder_name || "",
-            bankName: json.bankAccount.bank_name || "",
-            accountNumber: "",
-            confirmAccountNumber: "",
-            ifscCode: json.bankAccount.ifsc_code || ""
-          });
-        }
       }
     } catch (e) {
       console.error("Failed to load payments data:", e);
@@ -180,7 +139,7 @@ export default function SellerPaymentsPage() {
     });
   }, [transactions, ledgerSearch, ledgerTypeFilter]);
 
-  // Combined Settlement History (Weekly + On-Demand Withdrawals)
+  // Combined Settlement History (On-Demand Withdrawals + Historical Settlements)
   const combinedSettlements = useMemo(() => {
     const list: any[] = [];
 
@@ -189,7 +148,7 @@ export default function SellerPaymentsPage() {
       list.push({
         id: p.id,
         settlement_number: p.payout_number,
-        method_type: p.method_type || "UPI",
+        method_type: "UPI",
         destination_masked: p.destination_masked,
         beneficiary_name: p.beneficiary_name,
         created_at: p.initiated_at || p.created_at,
@@ -201,12 +160,13 @@ export default function SellerPaymentsPage() {
       });
     });
 
-    // Add weekly settlements (if not duplicate of payout)
+    // Add legacy settlements (if not duplicate of payout)
     settlements.forEach((s) => {
       if (!list.some(item => item.settlement_number === s.settlement_number)) {
         list.push({
           ...s,
-          method_type: s.utr_number?.startsWith("UPI") || s.notes?.includes("UPI") ? "UPI" : "BANK",
+          method_type: "UPI",
+          destination_masked: s.account_masked || activeSettlementMethod?.masked_destination || "Verified UPI",
           amount: Number(s.net_amount || 0),
           is_payout: false
         });
@@ -218,25 +178,26 @@ export default function SellerPaymentsPage() {
 
     if (settlementFilter === "ALL") return list;
     return list.filter(item => (item.status || "").toUpperCase() === settlementFilter.toUpperCase());
-  }, [payoutRequests, settlements, settlementFilter]);
+  }, [payoutRequests, settlements, settlementFilter, activeSettlementMethod]);
 
-  // Handle Verify UPI through Razorpay provider
+  // Handle Verify UPI through Razorpay-supported backend verification
   async function handleVerifyUpi() {
     const cleanVpa = upiId.trim().toLowerCase();
     if (!cleanVpa) {
-      setUpiError("Please enter a valid UPI ID (e.g. merchant@upi)");
+      setUpiError("Please enter a valid UPI ID (e.g. seller@upi)");
       return;
     }
 
     const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9.\-_]{2,64}$/;
     if (!upiRegex.test(cleanVpa)) {
-      setUpiError("Invalid UPI format. Expected format: username@bank (e.g. merchant@upi, merchant@paytm)");
+      setUpiError("Invalid UPI format. Expected format: username@bank (e.g. seller@oksbi, merchant@paytm)");
       return;
     }
 
     setUpiVerifying(true);
     setUpiError("");
     setUpiVerified(false);
+    setUpiVerifiedName(null);
 
     try {
       const res = await fetch("/api/payments/verify-upi", {
@@ -254,7 +215,7 @@ export default function SellerPaymentsPage() {
       } else {
         setUpiVerified(false);
         setUpiVerifiedName(null);
-        setUpiError(data.error || "Unable to verify this UPI ID. Please check the handle and try again.");
+        setUpiError(data.error || "Unable to verify this UPI ID with the banking network. Please check the handle and try again.");
       }
     } catch (err: any) {
       setUpiVerified(false);
@@ -265,91 +226,40 @@ export default function SellerPaymentsPage() {
     }
   }
 
-  // Handle Save Settlement Method
+  // Handle Save UPI Settlement Method
   async function handleSaveSettlementMethod(e: React.FormEvent) {
     e.preventDefault();
+    if (!upiVerified || !upiId.trim()) {
+      setMethodError("Please verify your UPI ID before saving.");
+      return;
+    }
+
     setMethodSubmitting(true);
     setMethodMessage("");
     setMethodError("");
 
     try {
-      if (selectedMethodType === "UPI") {
-        if (!upiVerified || !upiId.trim()) {
-          setMethodError("Please verify your UPI ID before saving.");
-          setMethodSubmitting(false);
-          return;
-        }
+      const res = await fetch("/api/payments/settlement-method", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          methodType: "UPI",
+          vpa: upiId.trim(),
+          verifiedName: upiVerifiedName,
+          providerReference: upiProviderRef
+        })
+      });
+      const data = await res.json();
 
-        const res = await fetch("/api/payments/settlement-method", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            methodType: "UPI",
-            vpa: upiId.trim(),
-            verifiedName: upiVerifiedName,
-            providerReference: upiProviderRef
-          })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          setMethodMessage("Settlement method saved and verified successfully!");
-          setActiveSettlementMethod(data.settlementMethod);
-          setTimeout(() => {
-            setShowEditSettlementModal(false);
-            loadFinancialData();
-          }, 1800);
-        } else {
-          setMethodError(data.error || "Failed to save UPI settlement method.");
-        }
+      if (data.success) {
+        setMethodMessage("✓ UPI Settlement Method saved and verified successfully!");
+        setActiveSettlementMethod(data.settlementMethod);
+        setTimeout(() => {
+          setShowEditSettlementModal(false);
+          loadFinancialData();
+        }, 1500);
       } else {
-        // Bank Account
-        const cleanAcc = bankForm.accountNumber.replace(/\s+/g, "").trim();
-        const cleanConfirm = bankForm.confirmAccountNumber.replace(/\s+/g, "").trim();
-
-        if (!/^\d{9,18}$/.test(cleanAcc)) {
-          setMethodError("Account number must be 9 to 18 digits (numbers only).");
-          setMethodSubmitting(false);
-          return;
-        }
-
-        if (cleanAcc !== cleanConfirm) {
-          setMethodError("Account numbers do not match.");
-          setMethodSubmitting(false);
-          return;
-        }
-
-        const cleanIfsc = bankForm.ifscCode.replace(/\s+/g, "").toUpperCase().trim();
-        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(cleanIfsc)) {
-          setMethodError("Invalid IFSC format. Expected standard format: 4 letters, '0', 6 alphanumeric characters (e.g. HDFC0001234).");
-          setMethodSubmitting(false);
-          return;
-        }
-
-        const res = await fetch("/api/payments/settlement-method", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            methodType: "BANK",
-            accountHolderName: bankForm.accountHolderName.trim(),
-            bankName: bankForm.bankName.trim(),
-            accountNumber: cleanAcc,
-            confirmAccountNumber: cleanConfirm,
-            ifscCode: cleanIfsc
-          })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          setMethodMessage("Bank settlement details saved for compliance review.");
-          setActiveSettlementMethod(data.settlementMethod);
-          setTimeout(() => {
-            setShowEditSettlementModal(false);
-            loadFinancialData();
-          }, 1800);
-        } else {
-          setMethodError(data.error || "Failed to save bank details.");
-        }
+        setMethodError(data.error || "Failed to save verified UPI settlement method.");
       }
     } catch (err: any) {
       setMethodError(err?.message || "An unexpected error occurred.");
@@ -366,6 +276,10 @@ export default function SellerPaymentsPage() {
       setWithdrawError("Please enter a valid amount to withdraw.");
       return;
     }
+    if (num < 100) {
+      setWithdrawError("Minimum withdrawal amount is ₹100.00.");
+      return;
+    }
     if (num > balances.available_balance) {
       setWithdrawError(`Amount exceeds your available balance of ₹${balances.available_balance.toFixed(2)}.`);
       return;
@@ -379,16 +293,19 @@ export default function SellerPaymentsPage() {
       const res = await fetch("/api/payments/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: num })
+        body: JSON.stringify({ 
+          amount: num,
+          idempotencyKey: `withdraw_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+        })
       });
       const data = await res.json();
 
       if (data.success) {
-        setWithdrawSuccessMessage(data.message || `Disbursement initiated successfully! Status: ${data.status}`);
+        setWithdrawSuccessMessage(data.message || `Withdrawal request submitted! Payout: ${data.payout?.payout_number || ""}`);
         setTimeout(() => {
           setShowWithdrawModal(false);
           loadFinancialData();
-        }, 2200);
+        }, 2000);
       } else {
         setWithdrawError(data.error || data.failureReason || "Withdrawal could not be processed. Please try again.");
       }
@@ -407,13 +324,13 @@ export default function SellerPaymentsPage() {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-400 mb-2">
             <Sparkles size={12} />
-            <span>Financial Operations & Settlement Engine</span>
+            <span>UPI Payouts & Settlement Engine</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             Payments, Settlements & Ledger
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 font-medium mt-1">
-            Real-time immutable audit trail, automated & on-demand UPI settlements.
+            Real-time immutable ledger, Razorpay UPI verification, and instant on-demand withdrawals.
           </p>
         </div>
 
@@ -448,11 +365,12 @@ export default function SellerPaymentsPage() {
 
       {/* ── REVENUE & SETTLEMENT KPI CARDS ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        
         {/* Available to Withdraw with Instant Withdraw Action */}
         <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-b from-emerald-950/30 via-zinc-950 to-zinc-950 p-4 sm:p-5 relative overflow-hidden group flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-xs font-black uppercase tracking-wider text-emerald-400">Available Settlement</span>
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-400">Available to Withdraw</span>
               <div className="h-8 w-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                 <Wallet size={16} />
               </div>
@@ -461,7 +379,7 @@ export default function SellerPaymentsPage() {
               ₹{balances.available_balance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
             <p className="text-[11px] text-zinc-400 font-medium mt-1">
-              Eligible for instant withdrawal
+              Ready for instant UPI payout
             </p>
           </div>
 
@@ -477,12 +395,12 @@ export default function SellerPaymentsPage() {
               className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
             >
               <ArrowUpRight size={14} />
-              <span>Withdraw Funds</span>
+              <span>Withdraw Money</span>
             </button>
           </div>
         </div>
 
-        {/* Pending Settlement */}
+        {/* Pending Escrow */}
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-zinc-400 mb-2">
@@ -495,7 +413,7 @@ export default function SellerPaymentsPage() {
               ₹{balances.pending_settlement.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
             <p className="text-[11px] text-zinc-400 font-medium mt-1">
-              In-transit or return policy window
+              Active withdrawal or in-transit
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-zinc-900 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
@@ -537,12 +455,12 @@ export default function SellerPaymentsPage() {
               ₹{balances.total_settled.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
             <p className="text-[11px] text-zinc-400 font-medium mt-1">
-              Disbursed to UPI / Bank
+              Disbursed directly via UPI
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-zinc-900 text-[10px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">
             <CheckCircle2 size={10} />
-            <span>100% Payout Reliability</span>
+            <span>100% UPI Settlement Rail</span>
           </div>
         </div>
       </div>
@@ -551,20 +469,20 @@ export default function SellerPaymentsPage() {
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="h-11 w-11 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-emerald-400 shrink-0">
-            {activeSettlementMethod?.method_type === "BANK" ? <Building2 size={20} /> : <Smartphone size={20} />}
+            <Smartphone size={22} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Settlement Account</span>
+              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Settlement Method</span>
               {activeSettlementMethod?.is_verified ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   <CheckCircle2 size={10} />
-                  ✓ Verified
+                  ✓ UPI Verified
                 </span>
               ) : activeSettlementMethod ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
                   <Clock size={10} />
-                  Pending Review
+                  Pending Verification
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-400">
@@ -574,9 +492,9 @@ export default function SellerPaymentsPage() {
             </div>
 
             {activeSettlementMethod ? (
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="text-sm font-black text-white font-mono">
-                  {activeSettlementMethod.method_type}: {activeSettlementMethod.masked_destination}
+                  UPI: {activeSettlementMethod.masked_destination}
                 </span>
                 {activeSettlementMethod.verified_name && (
                   <span className="text-xs text-zinc-400 font-medium">
@@ -586,7 +504,7 @@ export default function SellerPaymentsPage() {
               </div>
             ) : (
               <p className="text-xs text-zinc-400 font-medium mt-0.5">
-                Add a settlement method to receive eligible disbursements.
+                Add a verified UPI ID to receive instant seller payouts.
               </p>
             )}
           </div>
@@ -600,7 +518,7 @@ export default function SellerPaymentsPage() {
           }}
           className="px-4 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95 shrink-0"
         >
-          {activeSettlementMethod ? "Change" : "Set Up Settlement"}
+          {activeSettlementMethod ? "Change UPI ID" : "Set Up UPI"}
         </button>
       </div>
 
@@ -649,15 +567,15 @@ export default function SellerPaymentsPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("bank")}
+          onClick={() => setActiveTab("upi")}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${
-            activeTab === "bank"
+            activeTab === "upi"
               ? "bg-white text-black shadow-lg"
               : "text-zinc-400 hover:text-white hover:bg-zinc-900"
           }`}
         >
-          <Building2 size={14} />
-          <span>Settlement Methods</span>
+          <Smartphone size={14} />
+          <span>Settlement Account</span>
         </button>
       </div>
 
@@ -667,9 +585,9 @@ export default function SellerPaymentsPage() {
           
           {/* Filter Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-zinc-400">Filter Status:</span>
-              {(["ALL", "COMPLETED", "PROCESSING", "PAID", "FAILED"] as const).map((filterVal) => (
+              {(["ALL", "SUCCESS", "PROCESSING", "COMPLETED", "FAILED"] as const).map((filterVal) => (
                 <button
                   key={filterVal}
                   onClick={() => setSettlementFilter(filterVal)}
@@ -697,7 +615,7 @@ export default function SellerPaymentsPage() {
               </div>
               <h3 className="text-base font-black text-white">No Settlement Records Found</h3>
               <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                Disbursements generated from delivered orders past their return window will appear here.
+                UPI disbursements generated from delivered orders or requested withdrawals will appear here.
               </p>
             </div>
           ) : (
@@ -706,9 +624,9 @@ export default function SellerPaymentsPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-zinc-900/80 border-b border-zinc-800 text-[10px] font-black uppercase tracking-wider text-zinc-400">
                     <tr>
-                      <th className="py-3.5 px-4">Settlement ID</th>
+                      <th className="py-3.5 px-4">Settlement / Payout ID</th>
                       <th className="py-3.5 px-4">Method</th>
-                      <th className="py-3.5 px-4">Destination</th>
+                      <th className="py-3.5 px-4">Verified Destination</th>
                       <th className="py-3.5 px-4">Date</th>
                       <th className="py-3.5 px-4">Amount</th>
                       <th className="py-3.5 px-4">Status</th>
@@ -717,24 +635,24 @@ export default function SellerPaymentsPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-900">
                     {combinedSettlements.map((item) => {
-                      const isPaid = item.status === "PAID" || item.status === "COMPLETED";
+                      const isSuccess = item.status === "SUCCESS" || item.status === "COMPLETED" || item.status === "PAID";
                       const isFailed = item.status === "FAILED" || item.status === "REVERSED";
 
                       return (
                         <tr key={item.id} className="hover:bg-zinc-900/40 transition">
                           <td className="py-4 px-4 font-mono font-bold text-white">
-                            {item.settlement_number || `SET-${item.id.slice(0, 8)}`}
+                            {item.settlement_number || `WTH-${item.id.slice(0, 8)}`}
                           </td>
 
                           <td className="py-4 px-4">
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-zinc-900 border border-zinc-800 text-zinc-300">
-                              {item.method_type === "UPI" ? <Smartphone size={10} className="text-emerald-400" /> : <Building2 size={10} className="text-blue-400" />}
-                              {item.method_type}
+                              <Smartphone size={10} className="text-emerald-400" />
+                              UPI
                             </span>
                           </td>
 
                           <td className="py-4 px-4 font-mono text-zinc-400">
-                            {item.destination_masked || item.masked_account_number || activeSettlementMethod?.masked_destination || "Verified UPI"}
+                            {item.destination_masked || activeSettlementMethod?.masked_destination || "Verified UPI"}
                           </td>
 
                           <td className="py-4 px-4 text-zinc-300">
@@ -750,22 +668,22 @@ export default function SellerPaymentsPage() {
                           </td>
 
                           <td className="py-4 px-4">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              isPaid 
-                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                              isSuccess
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                                 : isFailed
-                                ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
-                                : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                                ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                : "bg-amber-500/10 text-amber-400 border-amber-500/30"
                             }`}>
-                              {isPaid ? <CheckCircle2 size={10} /> : isFailed ? <AlertTriangle size={10} /> : <Clock size={10} />}
-                              {item.status || "PENDING"}
+                              {isSuccess ? <CheckCircle2 size={10} /> : isFailed ? <AlertCircle size={10} /> : <Clock size={10} />}
+                              {item.status}
                             </span>
                           </td>
 
                           <td className="py-4 px-4 text-right">
                             <button
                               onClick={() => setSelectedPayoutDetail(item)}
-                              className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-zinc-200 transition"
+                              className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-[11px] font-bold text-zinc-200 transition"
                             >
                               View Details
                             </button>
@@ -781,39 +699,43 @@ export default function SellerPaymentsPage() {
         </div>
       )}
 
-      {/* ── TAB 2: TRANSACTIONS LEDGER ───────────────────────────────────────────── */}
+      {/* ── TAB 2: TRANSACTIONS LEDGER (IMMUTABLE AUDIT TRAIL) ────────────────────── */}
       {activeTab === "ledger" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          
+          {/* Search & Filters */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input
                 type="text"
+                placeholder="Search ledger entries, order IDs, UTRs..."
                 value={ledgerSearch}
                 onChange={(e) => setLedgerSearch(e.target.value)}
-                placeholder="Search transaction description, order ID, reference..."
-                className="w-full pl-10 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition"
+                className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-700 transition"
               />
             </div>
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-zinc-400">Type:</span>
-              {(["ALL", "SALE", "COMMISSION", "PAYOUT", "SHIPPING_FEE", "REFUND"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setLedgerTypeFilter(t)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${
-                    ledgerTypeFilter === t
-                      ? "bg-white text-black shadow-md"
-                      : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+              <select
+                value={ledgerTypeFilter}
+                onChange={(e) => setLedgerTypeFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-zinc-200 focus:outline-none focus:border-zinc-700 transition"
+              >
+                <option value="ALL">All Transaction Types</option>
+                <option value="SALE">SALE / SALE_CREDIT</option>
+                <option value="WITHDRAWAL_REQUESTED">WITHDRAWAL_REQUESTED</option>
+                <option value="WITHDRAWAL_SUCCESS">WITHDRAWAL_SUCCESS</option>
+                <option value="WITHDRAWAL_FAILED">WITHDRAWAL_FAILED</option>
+                <option value="COMMISSION">COMMISSION</option>
+                <option value="SHIPPING_FEE">SHIPPING_FEE</option>
+                <option value="RETURN_ADJUSTMENT">RETURN_ADJUSTMENT</option>
+              </select>
             </div>
           </div>
 
+          {/* Ledger Table */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -823,28 +745,54 @@ export default function SellerPaymentsPage() {
                     <th className="py-3.5 px-4">Type</th>
                     <th className="py-3.5 px-4">Description</th>
                     <th className="py-3.5 px-4">Reference</th>
-                    <th className="py-3.5 px-4 text-right">Amount</th>
+                    <th className="py-3.5 px-4 text-right">Debit</th>
+                    <th className="py-3.5 px-4 text-right">Credit</th>
+                    <th className="py-3.5 px-4 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900">
                   {filteredTransactions.map((tx) => {
-                    const isCredit = ["SALE", "REFUND_REVERSAL", "ADJUSTMENT"].includes(tx.transaction_type);
+                    const isCredit = tx.entry_type === "CREDIT" || ["SALE", "SALE_CREDIT", "ADJUSTMENT_CREDIT", "WITHDRAWAL_FAILED", "WITHDRAWAL_REVERSED"].includes(tx.transaction_type);
+
                     return (
                       <tr key={tx.id} className="hover:bg-zinc-900/40 transition">
-                        <td className="py-4 px-4 text-zinc-400 whitespace-nowrap">
-                          {new Date(tx.created_at).toLocaleDateString()} {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <td className="py-3.5 px-4 text-zinc-400 font-mono text-[11px]">
+                          {new Date(tx.created_at).toLocaleString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
                         </td>
-                        <td className="py-4 px-4">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            isCredit ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                            isCredit ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-300"
                           }`}>
                             {tx.transaction_type}
                           </span>
                         </td>
-                        <td className="py-4 px-4 text-white max-w-sm truncate">{tx.description}</td>
-                        <td className="py-4 px-4 font-mono text-zinc-400">{tx.reference_id || "—"}</td>
-                        <td className={`py-4 px-4 text-right font-black ${isCredit ? "text-emerald-400" : "text-rose-400"}`}>
-                          {isCredit ? "+" : "-"}₹{Number(tx.amount).toFixed(2)}
+
+                        <td className="py-3.5 px-4 text-zinc-200 max-w-xs truncate">
+                          {tx.description}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-mono text-zinc-400 text-[11px]">
+                          {tx.reference_id || tx.order_id || "—"}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-400">
+                          {!isCredit ? `₹${Number(tx.amount).toFixed(2)}` : "—"}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400">
+                          {isCredit ? `₹${Number(tx.amount).toFixed(2)}` : "—"}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-zinc-900 border border-zinc-800 text-zinc-400">
+                            {tx.status}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -860,9 +808,9 @@ export default function SellerPaymentsPage() {
       {activeTab === "reconciliation" && (
         <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-200">
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 space-y-6">
-            <h3 className="text-lg font-black text-white">Marketplace Deduction Formula</h3>
+            <h3 className="text-lg font-black text-white">Marketplace Deduction & Settlement Rules</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Every delivered order is audited with automated deductions according to transparent platform guidelines.
+              Every delivered order is audited with transparent platform guidelines and disbursed via UPI.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
@@ -873,32 +821,31 @@ export default function SellerPaymentsPage() {
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
                 <span className="text-[10px] font-black text-zinc-500 uppercase tracking-wider">Fixed Order Fee</span>
                 <p className="text-lg font-black text-white mt-1">₹15.00</p>
-                <p className="text-[11px] text-zinc-400">Fixed packaging & handling</p>
+                <p className="text-[11px] text-zinc-400">Packaging & handling</p>
               </div>
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-wider">Payment Gateway Fee</span>
-                <p className="text-lg font-black text-white mt-1">2.0%</p>
-                <p className="text-[11px] text-zinc-400">Razorpay collection charge</p>
+                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-wider">UPI Rail Payout</span>
+                <p className="text-lg font-black text-emerald-400 mt-1">Instant</p>
+                <p className="text-[11px] text-zinc-400">Direct to verified VPA</p>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── TAB 4: SETTLEMENT PROFILE & METHODS ──────────────────────────────────── */}
-      {activeTab === "bank" && (
+      {/* ── TAB 4: SETTLEMENT PROFILE & UPI METHOD ────────────────────────────────── */}
+      {activeTab === "upi" && (
         <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-200">
           
-          {/* Active Settlement Method Card */}
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 md:p-8 space-y-6 relative overflow-hidden">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  {activeSettlementMethod?.method_type === "BANK" ? <Building2 size={20} /> : <Smartphone size={20} />}
+                  <Smartphone size={20} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white">Configured Settlement Destination</h3>
-                  <p className="text-xs text-zinc-400 font-medium">Verified payout destination for all automatic and requested withdrawals</p>
+                  <h3 className="text-base font-black text-white">Configured UPI Settlement Method</h3>
+                  <p className="text-xs text-zinc-400 font-medium">Verified UPI ID used for all automated and on-demand payouts</p>
                 </div>
               </div>
 
@@ -913,35 +860,35 @@ export default function SellerPaymentsPage() {
             {activeSettlementMethod ? (
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 space-y-4">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500 font-bold uppercase tracking-wider">Method</span>
-                  <span className="text-white font-bold">{activeSettlementMethod.method_type}</span>
+                  <span className="text-zinc-500 font-bold uppercase tracking-wider">Settlement Method</span>
+                  <span className="text-emerald-400 font-bold uppercase">UPI (Unified Payments Interface)</span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-500 font-bold uppercase tracking-wider">
-                    {activeSettlementMethod.method_type === "UPI" ? "UPI ID" : "Account Number"}
+                    Verified UPI ID
                   </span>
-                  <span className="font-mono text-emerald-400 font-bold tracking-widest">
+                  <span className="font-mono text-white font-bold tracking-wider">
                     {activeSettlementMethod.masked_destination}
                   </span>
                 </div>
 
                 {activeSettlementMethod.verified_name && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Beneficiary Name</span>
+                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Registered Beneficiary Name</span>
                     <span className="text-white font-bold">{activeSettlementMethod.verified_name}</span>
                   </div>
                 )}
 
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500 font-bold uppercase tracking-wider">Status</span>
+                  <span className="text-zinc-500 font-bold uppercase tracking-wider">Verification Status</span>
                   <span className="text-emerald-400 font-bold uppercase">{activeSettlementMethod.status}</span>
                 </div>
               </div>
             ) : (
               <div className="text-center py-6 space-y-2">
-                <p className="text-sm font-bold text-white">No settlement method configured</p>
-                <p className="text-xs text-zinc-500">Configure your UPI ID to receive payouts</p>
+                <p className="text-sm font-bold text-white">No UPI ID configured</p>
+                <p className="text-xs text-zinc-500">Add and verify your UPI ID to enable seller withdrawals</p>
               </div>
             )}
 
@@ -951,60 +898,32 @@ export default function SellerPaymentsPage() {
                 setMethodMessage("");
                 setShowEditSettlementModal(true);
               }}
-              className="w-full py-3 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95"
+              className="w-full py-3 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95 flex items-center justify-center gap-2"
             >
-              {activeSettlementMethod ? "Update Settlement Account" : "Add Settlement Method"}
+              <Smartphone size={14} />
+              <span>{activeSettlementMethod ? "Update UPI ID" : "Add Verified UPI ID"}</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* ── MODAL 1: UPDATE SETTLEMENT ACCOUNT MODAL (UPI FIRST / BANK OPTIONAL) ── */}
+      {/* ── MODAL 1: SETTLEMENT ACCOUNT MODAL (STRICTLY UPI ONLY) ────────────────── */}
       {showEditSettlementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 space-y-5 shadow-2xl">
             
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-              <h3 className="text-base font-black text-white">Update Settlement Account</h3>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Settlement Method</span>
+                <h3 className="text-base font-black text-white">Set Up UPI ID</h3>
+              </div>
               <button
                 onClick={() => setShowEditSettlementModal(false)}
                 className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
               >
                 <X size={18} />
               </button>
-            </div>
-
-            {/* Settlement Method Selector */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Settlement Method</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedMethodType("UPI")}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${
-                    selectedMethodType === "UPI"
-                      ? "bg-white text-black shadow-lg"
-                      : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  <Smartphone size={14} />
-                  <span>UPI</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedMethodType("BANK")}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${
-                    selectedMethodType === "BANK"
-                      ? "bg-white text-black shadow-lg"
-                      : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  <Building2 size={14} />
-                  <span>Bank Account</span>
-                </button>
-              </div>
             </div>
 
             {/* Error & Success Alerts */}
@@ -1023,150 +942,70 @@ export default function SellerPaymentsPage() {
             {/* Form */}
             <form onSubmit={handleSaveSettlementMethod} className="space-y-4">
               
-              {/* ── UPI FORM (DEFAULT & PRIMARY) ── */}
-              {selectedMethodType === "UPI" && (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-300">UPI ID</label>
-                    <div className="flex items-center gap-2">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-300">UPI ID</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={upiId}
+                      onChange={(e) => {
+                        setUpiId(e.target.value);
+                        setUpiVerified(false);
+                        setUpiVerifiedName(null);
+                        setUpiError("");
+                      }}
+                      placeholder="e.g. seller@upi"
+                      className="flex-1 px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-white transition"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleVerifyUpi}
+                      disabled={upiVerifying || !upiId.trim() || upiVerified}
+                      className={`px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition active:scale-95 ${
+                        upiVerified
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 cursor-default"
+                          : "bg-emerald-500 hover:bg-emerald-400 text-black disabled:opacity-50"
+                      }`}
+                    >
+                      {upiVerifying ? "Verifying..." : upiVerified ? "✓ Verified" : "VERIFY UPI"}
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-zinc-500">
+                    ZebAlpha verifies this UPI ID in real-time with Razorpay banking rails.
+                  </p>
+                </div>
+
+                {/* Verification Status Alerts */}
+                {upiError && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs font-bold text-rose-400 flex items-start gap-2">
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    <span>{upiError}</span>
+                  </div>
+                )}
+
+                {upiVerified && (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-black uppercase tracking-wider">
+                      <CheckCircle2 size={14} />
+                      <span>✓ UPI Verified</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Beneficiary</label>
                       <input
                         type="text"
-                        required
-                        value={upiId}
-                        onChange={(e) => {
-                          setUpiId(e.target.value);
-                          setUpiVerified(false);
-                          setUpiVerifiedName(null);
-                          setUpiError("");
-                        }}
-                        placeholder="e.g. merchant@upi"
-                        className="flex-1 px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-white transition"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={handleVerifyUpi}
-                        disabled={upiVerifying || !upiId.trim() || upiVerified}
-                        className={`px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition active:scale-95 ${
-                          upiVerified
-                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 cursor-default"
-                            : "bg-emerald-500 hover:bg-emerald-400 text-black disabled:opacity-50"
-                        }`}
-                      >
-                        {upiVerifying ? "Verifying..." : upiVerified ? "✓ Verified" : "Verify UPI"}
-                      </button>
-                    </div>
-
-                    <p className="text-[11px] text-zinc-500">
-                      Enter the UPI ID where your eligible settlements will be credited.
-                    </p>
-                  </div>
-
-                  {/* Verification Status Alerts */}
-                  {upiError && (
-                    <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs font-bold text-rose-400 flex items-start gap-2">
-                      <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                      <span>{upiError}</span>
-                    </div>
-                  )}
-
-                  {upiVerified && (
-                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-2 animate-in fade-in duration-200">
-                      <div className="flex items-center gap-2 text-emerald-400 text-xs font-black uppercase tracking-wider">
-                        <CheckCircle2 size={14} />
-                        <span>✓ UPI Verified</span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Verified Name</label>
-                        <input
-                          type="text"
-                          readOnly
-                          value={upiVerifiedName || ""}
-                          className="w-full px-3 py-2 bg-zinc-900/80 border border-zinc-800 rounded-xl text-xs text-white font-bold cursor-not-allowed select-none"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── BANK ACCOUNT FORM (OPTIONAL) ── */}
-              {selectedMethodType === "BANK" && (
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-300">Account Holder Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={bankForm.accountHolderName}
-                      onChange={(e) => setBankForm({ ...bankForm, accountHolderName: e.target.value })}
-                      placeholder="e.g. Rahul Adhikary"
-                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-white transition"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-300">Bank Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={bankForm.bankName}
-                      onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })}
-                      placeholder="e.g. HDFC Bank, SBI, ICICI"
-                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-white transition"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-zinc-300">Account Number</label>
-                        <button
-                          type="button"
-                          onClick={() => setShowAccountNumber(!showAccountNumber)}
-                          className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1"
-                        >
-                          {showAccountNumber ? <EyeOff size={10} /> : <Eye size={10} />}
-                        </button>
-                      </div>
-                      <input
-                        type={showAccountNumber ? "text" : "password"}
-                        required
-                        value={bankForm.accountNumber}
-                        onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value.replace(/\D/g, "") })}
-                        placeholder="9 to 18 digits"
-                        className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-white transition"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-zinc-300">Confirm Account Number</label>
-                      <input
-                        type={showAccountNumber ? "text" : "password"}
-                        required
-                        value={bankForm.confirmAccountNumber}
-                        onChange={(e) => setBankForm({ ...bankForm, confirmAccountNumber: e.target.value.replace(/\D/g, "") })}
-                        placeholder="Re-enter number"
-                        className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-white transition"
+                        readOnly
+                        value={upiVerifiedName || ""}
+                        className="w-full px-3 py-2 bg-zinc-900/80 border border-zinc-800 rounded-xl text-xs text-white font-bold cursor-not-allowed select-none"
                       />
                     </div>
                   </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-300">IFSC Code</label>
-                    <input
-                      type="text"
-                      required
-                      value={bankForm.ifscCode}
-                      onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })}
-                      placeholder="e.g. HDFC0001234"
-                      maxLength={11}
-                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono uppercase focus:outline-none focus:border-white transition"
-                    />
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
@@ -1180,10 +1019,10 @@ export default function SellerPaymentsPage() {
 
                 <button
                   type="submit"
-                  disabled={methodSubmitting || (selectedMethodType === "UPI" && !upiVerified)}
+                  disabled={methodSubmitting || !upiVerified}
                   className="px-6 py-2.5 rounded-xl bg-white text-black text-xs font-black uppercase tracking-wider hover:bg-zinc-200 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {methodSubmitting ? "Saving..." : "Save Settlement Method"}
+                  {methodSubmitting ? "Saving..." : "SAVE UPI"}
                 </button>
               </div>
             </form>
@@ -1198,7 +1037,7 @@ export default function SellerPaymentsPage() {
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Instant Disbursement</span>
-                <h3 className="text-base font-black text-white">Withdraw Settlement Balance</h3>
+                <h3 className="text-base font-black text-white">Withdraw Money</h3>
               </div>
               <button
                 onClick={() => setShowWithdrawModal(false)}
@@ -1212,7 +1051,7 @@ export default function SellerPaymentsPage() {
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-xs font-bold text-emerald-400 space-y-1">
                 <div className="flex items-center gap-1.5 font-black uppercase tracking-wider">
                   <CheckCircle2 size={16} />
-                  <span>Payout Request Created</span>
+                  <span>Withdrawal Initiated</span>
                 </div>
                 <p className="text-[11px] text-zinc-300 font-medium">{withdrawSuccessMessage}</p>
               </div>
@@ -1235,9 +1074,9 @@ export default function SellerPaymentsPage() {
                 </div>
 
                 <div className="flex justify-between items-center text-zinc-400 border-t border-zinc-800/80 pt-2">
-                  <span>Settlement Destination:</span>
+                  <span>Verified UPI:</span>
                   <span className="text-emerald-400 font-bold font-mono">
-                    {activeSettlementMethod?.method_type || "UPI"} • {activeSettlementMethod?.masked_destination || "Verified UPI"}
+                    {activeSettlementMethod?.masked_destination || "Verified UPI"}
                   </span>
                 </div>
 
@@ -1251,7 +1090,7 @@ export default function SellerPaymentsPage() {
 
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-zinc-300">Withdrawal Amount (₹)</label>
+                  <label className="text-xs font-bold text-zinc-300">Amount (₹)</label>
                   <button
                     type="button"
                     onClick={() => setWithdrawAmount(String(balances.available_balance))}
@@ -1266,12 +1105,12 @@ export default function SellerPaymentsPage() {
                   <input
                     type="number"
                     step="0.01"
-                    min="1"
+                    min="100"
                     max={balances.available_balance}
                     required
                     value={withdrawAmount}
                     onChange={(e) => setWithdrawAmount(e.target.value)}
-                    placeholder="Enter amount"
+                    placeholder="Enter amount (min ₹100)"
                     className="w-full pl-8 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-base font-black text-white focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>
@@ -1288,10 +1127,10 @@ export default function SellerPaymentsPage() {
 
                 <button
                   type="submit"
-                  disabled={withdrawSubmitting || Number(withdrawAmount) <= 0 || Number(withdrawAmount) > balances.available_balance}
+                  disabled={withdrawSubmitting || Number(withdrawAmount) < 100 || Number(withdrawAmount) > balances.available_balance}
                   className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
                 >
-                  {withdrawSubmitting ? "Processing Payout..." : "Confirm Settlement"}
+                  {withdrawSubmitting ? "Processing UPI Payout..." : "WITHDRAW NOW"}
                 </button>
               </div>
             </form>
@@ -1307,7 +1146,7 @@ export default function SellerPaymentsPage() {
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Disbursement Record</span>
                 <h3 className="text-lg font-black text-white font-mono">
-                  {selectedPayoutDetail.settlement_number || `SET-${selectedPayoutDetail.id.slice(0, 8)}`}
+                  {selectedPayoutDetail.settlement_number || `WTH-${selectedPayoutDetail.id.slice(0, 8)}`}
                 </h3>
               </div>
 
@@ -1329,15 +1168,16 @@ export default function SellerPaymentsPage() {
 
               <div className="flex justify-between py-2 border-b border-zinc-900">
                 <span className="text-zinc-400">Settlement Method:</span>
-                <span className="text-white font-bold uppercase">
-                  {selectedPayoutDetail.method_type || "UPI"}
+                <span className="text-white font-bold uppercase flex items-center gap-1">
+                  <Smartphone size={12} className="text-emerald-400" />
+                  UPI
                 </span>
               </div>
 
               <div className="flex justify-between py-2 border-b border-zinc-900">
                 <span className="text-zinc-400">Destination (Masked):</span>
                 <span className="font-mono font-bold text-white">
-                  {selectedPayoutDetail.destination_masked || selectedPayoutDetail.masked_account_number || activeSettlementMethod?.masked_destination || "Verified UPI"}
+                  {selectedPayoutDetail.destination_masked || activeSettlementMethod?.masked_destination || "Verified UPI"}
                 </span>
               </div>
 
@@ -1351,7 +1191,7 @@ export default function SellerPaymentsPage() {
               <div className="flex justify-between py-2 border-b border-zinc-900">
                 <span className="text-zinc-400">Status:</span>
                 <span className={`font-black uppercase tracking-wider ${
-                  selectedPayoutDetail.status === "COMPLETED" || selectedPayoutDetail.status === "PAID"
+                  selectedPayoutDetail.status === "COMPLETED" || selectedPayoutDetail.status === "PAID" || selectedPayoutDetail.status === "SUCCESS"
                     ? "text-emerald-400"
                     : selectedPayoutDetail.status === "FAILED"
                     ? "text-rose-400"
@@ -1372,10 +1212,10 @@ export default function SellerPaymentsPage() {
                 <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2 mt-4 text-xs">
                   <div className="flex items-center gap-1.5 text-rose-400 font-black uppercase tracking-wider">
                     <AlertTriangle size={14} />
-                    <span>Settlement Failed</span>
+                    <span>Payout Failed</span>
                   </div>
                   <p className="text-zinc-300 text-[11px]">
-                    <strong>Reason:</strong> {selectedPayoutDetail.failure_reason || "The banking network could not credit the requested amount."}
+                    <strong>Reason:</strong> {selectedPayoutDetail.failure_reason || "The banking network could not credit the requested amount. The balance has been restored to your available balance."}
                   </p>
                   <button
                     onClick={() => {

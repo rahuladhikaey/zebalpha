@@ -126,9 +126,11 @@ export function computeLedgerBalances(
     if (tx.status === 'COMPLETED') {
       switch (tx.transaction_type) {
         case 'SALE':
+        case 'SALE_CREDIT':
           grossSales += amt;
           break;
         case 'COMMISSION':
+        case 'COMMISSION_DEDUCTION':
           commission += amt;
           break;
         case 'SHIPPING_FEE':
@@ -141,16 +143,24 @@ export function computeLedgerBalances(
           collectionFees += amt;
           break;
         case 'REFUND':
+        case 'REFUND_ADJUSTMENT':
         case 'PARTIAL_REFUND':
         case 'RETURN_FEE':
+        case 'RETURN_ADJUSTMENT':
         case 'RTO_FEE':
           returnsAndRefunds += amt;
           break;
         case 'SETTLEMENT':
+        case 'WITHDRAWAL_SUCCESS':
           totalSettled += amt;
           break;
         case 'SETTLEMENT_REVERSAL':
+        case 'WITHDRAWAL_REVERSED':
           totalSettled = Math.max(0, totalSettled - amt);
+          break;
+        case 'WITHDRAWAL_REQUESTED':
+        case 'WITHDRAWAL_PROCESSING':
+          pendingSettlement += amt;
           break;
         default:
           break;
@@ -160,7 +170,7 @@ export function computeLedgerBalances(
 
   const totalPlatformFees = Number((commission + fixedFees + collectionFees).toFixed(2));
   const netSellerEarnings = Number((grossSales - (totalPlatformFees + shippingFees + returnsAndRefunds)).toFixed(2));
-  const availableBalance = Number(Math.max(0, netSellerEarnings - totalSettled).toFixed(2));
+  const availableBalance = Number(Math.max(0, netSellerEarnings - totalSettled - pendingSettlement).toFixed(2));
 
   return {
     gross_sales: Number(grossSales.toFixed(2)),

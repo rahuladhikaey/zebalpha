@@ -45,7 +45,6 @@ export function maskUpiId(vpa: string): string {
 export function isValidUpiFormat(vpa: string): boolean {
   if (!vpa || typeof vpa !== "string") return false;
   const clean = vpa.trim().toLowerCase();
-  // Validates username (min 2, alphanumeric with . - _) @ provider handle (min 2 letters/digits)
   const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9.\-_]{2,64}$/;
   return upiRegex.test(clean);
 }
@@ -111,7 +110,6 @@ export async function verifyUpiWithProvider(vpa: string): Promise<UpiVerificatio
 
     // Handle test credentials or specific provider errors
     if (data.error) {
-      // In test mode, if Razorpay test keys reject non-whitelisted VPAs or sandbox limitations
       if (RAZORPAY_KEY_ID.startsWith("rzp_test_")) {
         const testBeneficiary = cleanVpa.split("@")[0].replace(/[^a-zA-Z]/g, " ").trim();
         const formattedName = testBeneficiary ? testBeneficiary.toUpperCase() : "VERIFIED MERCHANT";
@@ -179,8 +177,8 @@ export async function createProviderPayout(params: {
     const basicAuth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64");
     
     const payoutPayload = {
-      account_number: "2323230041641014",
-      amount: Math.round(amount * 100),
+      account_number: (process.env.RAZORPAY_ACCOUNT_NUMBER || "2323230041641014").trim(),
+      amount: Math.round(amount * 100), // amount in paise
       currency: "INR",
       mode: "UPI",
       purpose: "settlement",

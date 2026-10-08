@@ -182,7 +182,7 @@ export async function createProviderPayout(params: {
     
     // We attempt real Razorpay Payouts call
     const payoutPayload = {
-      account_number: "2323230041641014", // Standard RazorpayX virtual account or test pool
+      account_number: (process.env.RAZORPAY_ACCOUNT_NUMBER || "2323230041641014").trim(),
       amount: Math.round(amount * 100), // amount in paise
       currency: "INR",
       mode: "UPI",

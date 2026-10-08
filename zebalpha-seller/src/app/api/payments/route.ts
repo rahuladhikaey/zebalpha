@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
-import { computeLedgerBalances, DEFAULT_FINANCIAL_RULES } from "@shared/services/financialLedgerService";
-import { LedgerTransaction } from "@shared/types/ledger";
+import { supabaseServer, createSupabaseServerClient } from "@/shared/utils/supabaseServer";
+import { computeLedgerBalances, DEFAULT_FINANCIAL_RULES } from "@/shared/services/financialLedgerService";
+import { LedgerTransaction } from "@/shared/types/ledger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -28,8 +28,9 @@ async function getAuthenticatedUser(req: NextRequest) {
 
 /**
  * GET /api/payments
- * Fetches real-time financial ledger transactions, settlements, bank account, and computed balances.
- * Security hardened: Validates user identity and prevents IDOR (Insecure Direct Object Reference).
+ * ZebAlpha UPI-Only Seller Settlement & Financial Ledger API.
+ * Fetches real-time financial ledger transactions, verified UPI settlement methods,
+ * on-demand UPI payout history, and dynamic computed balances.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
     if (!sellerId) {
       const { data: seller } = await supabaseServer
         .from("sellers")
-        .select("id")
+        .select("id, business_name, phonepay_number, phonepay_no")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -139,7 +140,7 @@ export async function GET(req: NextRequest) {
       } catch (_) {}
     }
 
-    // 3. Fetch settlements history
+    // 3. Fetch settlements history (legacy and current)
     let settlements: any[] = [];
     try {
       const { data: sRows } = await supabaseServer
@@ -153,91 +154,65 @@ export async function GET(req: NextRequest) {
       }
     } catch (_) {}
 
-    // 4. Fetch bank account details (Strictly masked fields; never expose raw credentials)
-    let bankAccount: any = null;
+    // 4. Fetch Verified UPI Settlement Methods (UPI ONLY)
+    let settlementMethods: any[] = [];
+    let activeSettlementMethod: any = null;
     try {
-      const { data: bRow } = await supabaseServer
-        .from("seller_bank_accounts")
-        .select("id, bank_name, account_holder_name, masked_account_number, ifsc_code, upi_id, is_verified, status, last_payout_hold_until")
-        .or(`seller_id.eq.${sellerId},seller_id.eq.${user.id}`)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: methods } = await supabaseServer
+        .from("seller_settlement_methods")
+        .select("id, method_type, upi_id, masked_destination, verified_name, is_verified, is_default, status, failure_reason, provider_reference, created_at, updated_at")
+        .eq("seller_id", sellerId)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false });
 
-      if (bRow) {
-        bankAccount = bRow;
-      } else {
-        // Fallback to seller table profile upi
+      if (methods && methods.length > 0) {
+        // Enforce UPI method
+        const upiMethods = methods.filter((m: any) => (m.method_type || "UPI").toUpperCase() === "UPI");
+        settlementMethods = upiMethods.length > 0 ? upiMethods : methods;
+        activeSettlementMethod = settlementMethods.find((m: any) => m.is_default && m.is_verified) || settlementMethods[0];
+      }
+    } catch (_) {}
+
+    // Fallback: If no settlement method row yet, check seller profile's UPI
+    if (!activeSettlementMethod) {
+      try {
         const { data: sData } = await supabaseServer
           .from("sellers")
           .select("phonepay_number, phonepay_no, business_name")
           .eq("id", sellerId)
           .maybeSingle();
 
-        if (sData?.phonepay_number || sData?.phonepay_no) {
-          const upi = sData.phonepay_number || sData.phonepay_no;
-          bankAccount = {
-            id: "fallback-upi",
-            bank_name: "UPI / PhonePe",
-            account_holder_name: sData.business_name || "Merchant",
-            masked_account_number: `UPI: ${upi.slice(0, 3)}•••••@${upi.split('@')[1] || 'upi'}`,
-            ifsc_code: "UPI-DIRECT",
-            upi_id: upi,
+        const profileUpi = sData?.phonepay_number || sData?.phonepay_no;
+        if (profileUpi && profileUpi.includes("@")) {
+          const parts = profileUpi.split("@");
+          const username = parts[0];
+          const handle = parts[1];
+          const masked = username.length > 2
+            ? `${username[0]}****${username[username.length - 1]}@${handle}`
+            : `${username[0]}****@${handle}`;
+
+          activeSettlementMethod = {
+            id: "profile-upi",
+            method_type: "UPI",
+            upi_id: profileUpi,
+            masked_destination: masked,
+            verified_name: sData?.business_name || "Verified Merchant",
             is_verified: true,
-            status: "ACTIVE"
+            is_default: true,
+            status: "VERIFIED",
+            created_at: new Date().toISOString()
           };
+          settlementMethods.push(activeSettlementMethod);
         }
-      }
-    } catch (_) {}
-
-    // 5. Fetch settlement methods (UPI and Bank)
-    let settlementMethods: any[] = [];
-    let activeSettlementMethod: any = null;
-    try {
-      const { data: methods } = await supabaseServer
-        .from("seller_settlement_methods")
-        .select("id, method_type, masked_destination, verified_name, is_verified, is_default, status, failure_reason, created_at")
-        .eq("seller_id", sellerId)
-        .order("is_default", { ascending: false })
-        .order("created_at", { ascending: false });
-
-      if (methods && methods.length > 0) {
-        settlementMethods = methods;
-        activeSettlementMethod = methods.find((m: any) => m.is_default && m.is_verified) || methods[0];
-      }
-    } catch (_) {}
-
-    // Fallback: If no settlement method in new table yet, but bankAccount or profile UPI exists
-    if (!activeSettlementMethod) {
-      if (bankAccount?.upi_id) {
-        activeSettlementMethod = {
-          id: "profile-upi",
-          method_type: "UPI",
-          masked_destination: bankAccount.upi_id.includes("@") ? bankAccount.upi_id : `UPI: ${bankAccount.upi_id}`,
-          verified_name: bankAccount.account_holder_name || "Merchant",
-          is_verified: true,
-          status: "VERIFIED"
-        };
-        settlementMethods.push(activeSettlementMethod);
-      } else if (bankAccount) {
-        activeSettlementMethod = {
-          id: bankAccount.id,
-          method_type: "BANK",
-          masked_destination: bankAccount.masked_account_number,
-          verified_name: bankAccount.account_holder_name,
-          is_verified: bankAccount.is_verified,
-          status: bankAccount.status
-        };
-        settlementMethods.push(activeSettlementMethod);
-      }
+      } catch (_) {}
     }
 
-    // 6. Fetch Payout Requests History
+    // 5. Fetch On-Demand UPI Payout Requests History
     let payoutRequests: any[] = [];
     try {
       const { data: pRows } = await supabaseServer
         .from("seller_payout_requests")
-        .select("id, payout_number, method_type, destination_masked, beneficiary_name, amount, status, utr_number, failure_reason, initiated_at, processed_at, created_at")
+        .select("id, payout_number, method_type, destination_masked, destination_upi, beneficiary_name, amount, status, utr_number, failure_reason, initiated_at, processed_at, created_at")
         .eq("seller_id", sellerId)
         .order("created_at", { ascending: false });
 
@@ -251,7 +226,6 @@ export async function GET(req: NextRequest) {
       balances,
       transactions,
       settlements,
-      bankAccount,
       settlementMethods,
       activeSettlementMethod,
       payoutRequests,

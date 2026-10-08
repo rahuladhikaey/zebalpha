@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
+import { supabaseServer, createSupabaseServerClient } from "@/shared/utils/supabaseServer";
 import { maskUpiId, isValidUpiFormat, verifyUpiWithProvider } from "@/shared/services/razorpayPayoutService";
-import {
-  encryptAccountNumber,
-  hashAccountNumber,
-  maskAccountNumber,
-  validateBankInput
-} from "@/shared/services/bankSecurityService";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -30,7 +24,9 @@ async function getAuthenticatedUser(req: NextRequest) {
 
 /**
  * POST /api/payments/settlement-method
- * Saves verified settlement method (UPI or Bank Account) with full encryption and audit logging
+ * ZebAlpha UPI-Only Settlement Account Saver.
+ * Saves seller verified UPI ID as the settlement destination.
+ * Bank accounts are strictly not collected or stored.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -53,201 +49,105 @@ export async function POST(req: NextRequest) {
     const userAgent = req.headers.get("user-agent") || "unknown-agent";
 
     const body = await req.json();
-    const methodType = (body.methodType || "UPI").toUpperCase();
+    const vpa = String(body.vpa || body.upiId || body.upi_id || "").trim().toLowerCase();
+    let verifiedName = body.verifiedName || body.verified_name ? String(body.verifiedName || body.verified_name).trim() : null;
+    const providerReference = body.providerReference || body.provider_reference || null;
 
-    // ─────────────────────────────────────────────────────────────
-    // METHOD 1: UPI SETTLEMENT METHOD (PRIMARY)
-    // ─────────────────────────────────────────────────────────────
-    if (methodType === "UPI") {
-      const vpa = String(body.vpa || "").trim().toLowerCase();
-      let verifiedName = body.verifiedName ? String(body.verifiedName).trim() : null;
-
-      if (!isValidUpiFormat(vpa)) {
-        return NextResponse.json({
-          success: false,
-          error: "Invalid UPI ID. Format should be username@bank."
-        }, { status: 400 });
-      }
-
-      // If verifiedName is missing or requires verification, verify with Razorpay
-      if (!verifiedName) {
-        const verifyRes = await verifyUpiWithProvider(vpa);
-        if (!verifyRes.success || !verifyRes.verified) {
-          return NextResponse.json({
-            success: false,
-            error: verifyRes.error || "Unable to verify this UPI ID with the payment network."
-          }, { status: 400 });
-        }
-        verifiedName = verifyRes.verifiedName || seller?.business_name || "Verified Merchant";
-      }
-
-      const masked = maskUpiId(vpa);
-      const encrypted = encryptAccountNumber(vpa);
-      const hash = hashAccountNumber(vpa);
-
-      // Reset previous default methods for this seller
-      await supabaseServer
-        .from("seller_settlement_methods")
-        .update({ is_default: false })
-        .eq("seller_id", sellerId);
-
-      // Insert new verified UPI settlement method
-      const { data: methodRecord, error: methodErr } = await supabaseServer
-        .from("seller_settlement_methods")
-        .insert([{
-          seller_id: sellerId,
-          method_type: "UPI",
-          destination_raw: vpa,
-          masked_destination: masked,
-          encrypted_destination: encrypted,
-          destination_hash: hash,
-          verified_name: verifiedName,
-          provider: "RAZORPAY",
-          is_verified: true,
-          is_default: true,
-          status: "VERIFIED",
-          metadata: {
-            vpa,
-            maskedVpa: masked,
-            ip,
-            userAgent
-          }
-        }])
-        .select()
-        .single();
-
-      if (methodErr) {
-        console.error("[Settlement Method Insert Error]:", methodErr);
-        return NextResponse.json({ success: false, error: methodErr.message }, { status: 500 });
-      }
-
-      // Sync UPI to sellers profile table
-      await supabaseServer
-        .from("sellers")
-        .update({ phonepay_number: vpa, phonepay_no: vpa })
-        .eq("id", sellerId);
-
-      // Audit Log
-      try {
-        await supabaseServer.from("seller_bank_audit_logs").insert([{
-          seller_id: sellerId,
-          actor_id: user.id,
-          action: "UPI_METHOD_SAVED",
-          masked_account_number: masked,
-          ifsc_code: "UPI",
-          bank_name: "UPI / Razorpay",
-          account_holder_name: verifiedName,
-          ip_address: ip,
-          user_agent: userAgent,
-          notes: "Verified UPI settlement method activated successfully."
-        }]);
-      } catch (_) {}
-
+    if (!vpa) {
       return NextResponse.json({
-        success: true,
-        message: "UPI settlement method saved and verified successfully.",
-        settlementMethod: {
-          id: methodRecord.id,
-          method_type: "UPI",
-          masked_destination: methodRecord.masked_destination,
-          verified_name: methodRecord.verified_name,
-          is_verified: true,
-          status: "VERIFIED"
-        }
-      });
+        success: false,
+        error: "UPI ID is required."
+      }, { status: 400 });
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // METHOD 2: BANK ACCOUNT (OPTIONAL ALTERNATIVE)
-    // ─────────────────────────────────────────────────────────────
-    if (methodType === "BANK") {
-      const validation = validateBankInput({
-        accountHolderName: body.accountHolderName,
-        bankName: body.bankName,
-        accountNumber: body.accountNumber,
-        confirmAccountNumber: body.confirmAccountNumber,
-        ifscCode: body.ifscCode
-      });
-
-      if (!validation.valid || !validation.cleaned) {
-        return NextResponse.json({
-          success: false,
-          error: validation.error || "Invalid bank details provided"
-        }, { status: 400 });
-      }
-
-      const { accountHolderName, bankName, accountNumber, ifscCode } = validation.cleaned;
-      const masked = maskAccountNumber(accountNumber);
-      const encrypted = encryptAccountNumber(accountNumber);
-      const hash = hashAccountNumber(accountNumber);
-
-      await supabaseServer
-        .from("seller_settlement_methods")
-        .update({ is_default: false })
-        .eq("seller_id", sellerId);
-
-      const { data: methodRecord, error: methodErr } = await supabaseServer
-        .from("seller_settlement_methods")
-        .insert([{
-          seller_id: sellerId,
-          method_type: "BANK",
-          destination_raw: `${bankName} (${masked})`,
-          masked_destination: masked,
-          encrypted_destination: encrypted,
-          destination_hash: hash,
-          verified_name: accountHolderName,
-          provider: "BANK_TRANSFER",
-          is_verified: false,
-          is_default: true,
-          status: "PENDING",
-          metadata: {
-            bankName,
-            ifscCode,
-            ip,
-            userAgent
-          }
-        }])
-        .select()
-        .single();
-
-      if (methodErr) {
-        return NextResponse.json({ success: false, error: methodErr.message }, { status: 500 });
-      }
-
-      // Also maintain legacy seller_bank_accounts for backward compatibility
-      try {
-        await supabaseServer.from("seller_bank_accounts").insert([{
-          seller_id: sellerId,
-          account_holder_name: accountHolderName,
-          bank_name: bankName,
-          account_number: masked,
-          masked_account_number: masked,
-          encrypted_account_number: encrypted,
-          account_number_hash: hash,
-          ifsc_code: ifscCode,
-          is_verified: false,
-          status: "BANK_CHANGE_PENDING",
-          change_requested_at: new Date().toISOString()
-        }]);
-      } catch (_) {}
-
+    if (!isValidUpiFormat(vpa)) {
       return NextResponse.json({
-        success: true,
-        message: "Bank settlement method saved. Status: Compliance Review Pending.",
-        settlementMethod: {
-          id: methodRecord.id,
-          method_type: "BANK",
-          masked_destination: methodRecord.masked_destination,
-          verified_name: methodRecord.verified_name,
-          is_verified: false,
-          status: "PENDING"
-        }
-      });
+        success: false,
+        error: "Invalid UPI ID format. Format should be username@bank."
+      }, { status: 400 });
     }
 
-    return NextResponse.json({ success: false, error: "Unsupported settlement method type" }, { status: 400 });
+    // If verifiedName is missing, verify with Razorpay
+    if (!verifiedName) {
+      const verifyRes = await verifyUpiWithProvider(vpa);
+      if (!verifyRes.success || !verifyRes.verified) {
+        return NextResponse.json({
+          success: false,
+          error: verifyRes.error || "Unable to verify this UPI ID with the banking network."
+        }, { status: 400 });
+      }
+      verifiedName = verifyRes.verifiedName || seller?.business_name || "Verified Merchant";
+    }
+
+    const masked = maskUpiId(vpa);
+
+    // Reset previous default methods for this seller
+    await supabaseServer
+      .from("seller_settlement_methods")
+      .update({ is_default: false })
+      .eq("seller_id", sellerId);
+
+    // Insert new verified UPI settlement method
+    const { data: methodRecord, error: methodErr } = await supabaseServer
+      .from("seller_settlement_methods")
+      .insert([{
+        seller_id: sellerId,
+        method_type: "UPI",
+        upi_id: vpa,
+        destination_raw: vpa,
+        masked_destination: masked,
+        verified_name: verifiedName,
+        provider: "RAZORPAY",
+        provider_reference: providerReference,
+        is_verified: true,
+        is_default: true,
+        status: "VERIFIED",
+        metadata: {
+          vpa,
+          maskedVpa: masked,
+          ip,
+          userAgent,
+          verifiedAt: new Date().toISOString()
+        }
+      }])
+      .select()
+      .single();
+
+    if (methodErr) {
+      console.error("[Settlement Method Insert Error]:", methodErr);
+      return NextResponse.json({ success: false, error: methodErr.message }, { status: 500 });
+    }
+
+    // Sync UPI to seller profile table for quick referencing
+    await supabaseServer
+      .from("sellers")
+      .update({ 
+        phonepay_number: vpa, 
+        phonepay_no: vpa,
+        upi_id: vpa
+      })
+      .eq("id", sellerId);
+
+    return NextResponse.json({
+      success: true,
+      message: "Verified UPI settlement method saved successfully.",
+      settlementMethod: {
+        id: methodRecord.id,
+        method_type: "UPI",
+        upi_id: vpa,
+        masked_destination: methodRecord.masked_destination,
+        verified_name: methodRecord.verified_name,
+        is_verified: true,
+        is_default: true,
+        status: "VERIFIED",
+        created_at: methodRecord.created_at
+      }
+    });
   } catch (err: any) {
-    console.error("[Settlement Method Route Exception]:", err);
-    return NextResponse.json({ success: false, error: err?.message || "Internal server error" }, { status: 500 });
+    console.error("[Save Settlement Method Route Exception]:", err);
+    return NextResponse.json({
+      success: false,
+      error: err?.message || "Internal server error"
+    }, { status: 500 });
   }
 }

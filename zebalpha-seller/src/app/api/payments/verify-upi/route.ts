@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
+import { supabaseServer, createSupabaseServerClient } from "@/shared/utils/supabaseServer";
 import { verifyUpiWithProvider } from "@/shared/services/razorpayPayoutService";
 import { checkBankRateLimit } from "@/shared/services/bankSecurityService";
 

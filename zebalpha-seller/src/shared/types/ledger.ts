@@ -1,12 +1,16 @@
 export type LedgerTransactionType = 
   | 'SALE'
+  | 'SALE_CREDIT'
   | 'COMMISSION'
+  | 'COMMISSION_DEDUCTION'
   | 'FIXED_FEE'
   | 'SHIPPING_FEE'
   | 'COLLECTION_FEE'
   | 'RETURN_FEE'
   | 'RTO_FEE'
+  | 'RETURN_ADJUSTMENT'
   | 'REFUND'
+  | 'REFUND_ADJUSTMENT'
   | 'PARTIAL_REFUND'
   | 'CANCELLATION'
   | 'ADJUSTMENT_CREDIT'
@@ -15,6 +19,11 @@ export type LedgerTransactionType =
   | 'CHARGEBACK'
   | 'SETTLEMENT'
   | 'SETTLEMENT_REVERSAL'
+  | 'WITHDRAWAL_REQUESTED'
+  | 'WITHDRAWAL_PROCESSING'
+  | 'WITHDRAWAL_SUCCESS'
+  | 'WITHDRAWAL_FAILED'
+  | 'WITHDRAWAL_REVERSED'
   | 'PENALTY'
   | 'PROMOTIONAL_ADJUSTMENT';
 
@@ -84,18 +93,21 @@ export interface SellerBankAccount {
   seller_id: string;
   account_holder_name: string;
   bank_name: string;
-  account_number: string;
+  account_number?: string;
   masked_account_number: string;
+  encrypted_account_number?: string;
+  account_number_hash?: string;
   ifsc_code: string;
-  upi_id?: string;
+  upi_id?: string | null;
   is_verified: boolean;
   status: 'ACTIVE' | 'BANK_CHANGE_PENDING' | 'REJECTED';
   change_requested_at?: string;
+  last_payout_hold_until?: string;
   verified_at?: string;
   verified_by?: string;
   notes?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface ReturnQCDetails {
