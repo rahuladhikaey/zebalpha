@@ -108,6 +108,7 @@ export function computeLedgerBalances(
   let returnsAndRefunds = 0;
   let totalSettled = 0;
   let pendingSettlement = 0;
+  let reservedBalance = 0;
   let onHoldBalance = 0;
 
   for (const tx of transactions) {
@@ -119,7 +120,11 @@ export function computeLedgerBalances(
     }
 
     if (tx.status === 'PENDING') {
-      pendingSettlement += amt;
+      if (tx.transaction_type === 'WITHDRAWAL_REQUESTED' || tx.transaction_type === 'WITHDRAWAL_PROCESSING') {
+        reservedBalance += amt;
+      } else {
+        pendingSettlement += amt;
+      }
       continue;
     }
 
@@ -160,7 +165,7 @@ export function computeLedgerBalances(
           break;
         case 'WITHDRAWAL_REQUESTED':
         case 'WITHDRAWAL_PROCESSING':
-          pendingSettlement += amt;
+          reservedBalance += amt;
           break;
         default:
           break;
@@ -170,7 +175,7 @@ export function computeLedgerBalances(
 
   const totalPlatformFees = Number((commission + fixedFees + collectionFees).toFixed(2));
   const netSellerEarnings = Number((grossSales - (totalPlatformFees + shippingFees + returnsAndRefunds)).toFixed(2));
-  const availableBalance = Number(Math.max(0, netSellerEarnings - totalSettled - pendingSettlement).toFixed(2));
+  const availableBalance = Number(Math.max(0, netSellerEarnings - totalSettled - reservedBalance).toFixed(2));
 
   return {
     gross_sales: Number(grossSales.toFixed(2)),
@@ -183,6 +188,7 @@ export function computeLedgerBalances(
     net_seller_earnings: netSellerEarnings,
     total_settled: Number(totalSettled.toFixed(2)),
     available_balance: availableBalance,
+    reserved_balance: Number(reservedBalance.toFixed(2)),
     pending_settlement: Number(pendingSettlement.toFixed(2)),
     on_hold_balance: Number(onHoldBalance.toFixed(2))
   };

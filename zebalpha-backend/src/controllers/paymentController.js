@@ -4,6 +4,7 @@ import { config } from '../config/index.js';
 import { HTTP_STATUS } from '../constants/index.js';
 import { supabaseA } from '../lib/supabase.js';
 import { calculateOrderAmounts } from '../utils/orderCalculator.js';
+import { verifyWebhookSignature, storeWebhookEvent, drainWebhookQueue } from '../services/payoutWebhookService.js';
 
 const getRazorpayInstance = () => {
   const keyId = (config.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || '').trim();
@@ -170,115 +171,47 @@ export const verifyRazorpayPayment = async (req, res, next) => {
 };
 
 /**
- * Razorpay Webhook Handler
- * Processes asynchronous events: payment.captured, refund.processed, refund.failed
- * Cryptographically verifies x-razorpay-signature against RAZORPAY_WEBHOOK_SECRET
+ * Razorpay Webhook Handler (thin HTTP edge)
+ *  1. Verify HMAC-SHA256 over the RAW request bytes - nothing is trusted before this passes
+ *  2. Store the event once (duplicate event ids are acknowledged and ignored)
+ *  3. Acknowledge immediately; financial processing happens in the webhook worker
  */
-export const handleRazorpayWebhook = async (req, res, next) => {
+export const handleRazorpayWebhook = async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    const webhookSecret = (process.env.RAZORPAY_WEBHOOK_SECRET || config.razorpay?.webhookSecret || '').trim();
+    const rawBody = req.rawBody;
 
-    if (!signature || !webhookSecret) {
-      console.warn('[Security Alert] Razorpay webhook missing signature or secret.');
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: 'Missing required webhook signature or secret configuration.'
-      });
+    if (!config.razorpay?.webhookSecret) {
+      console.error('[Security] RAZORPAY_WEBHOOK_SECRET is not configured - rejecting webhook.');
+      return res.status(HTTP_STATUS.SERVICE_UNAVAILABLE || 503).json({ success: false, error: 'Webhook not configured' });
     }
 
-    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(rawBody)
-      .digest('hex');
-
-    const expectedBuf = Buffer.from(expectedSignature);
-    const providedBuf = Buffer.from(String(signature));
-
-    if (expectedBuf.length !== providedBuf.length || !crypto.timingSafeEqual(expectedBuf, providedBuf)) {
-      console.warn('[Security Alert] Razorpay webhook signature cryptographic mismatch.');
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: 'Cryptographic webhook signature verification failed.'
-      });
+    if (!signature || !rawBody || !verifyWebhookSignature(rawBody, signature)) {
+      console.warn('[Security Alert] Razorpay webhook signature verification failed.');
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Invalid webhook signature' });
     }
 
-    const { event, payload } = req.body || {};
-    console.log(`[Razorpay Webhook Received]: Event=${event}`);
+    const stored = await storeWebhookEvent({
+      rawBody,
+      signature,
+      body: req.body,
+      eventIdHeader: req.headers['x-razorpay-event-id']
+    });
 
-    if (event === 'refund.processed' && payload?.refund?.entity) {
-      const refund = payload.refund.entity;
-      const paymentId = refund.payment_id;
-      const refundId = refund.id;
-      const refundAmount = Number(refund.amount || 0) / 100;
-      const orderId = refund.notes?.order_id || refund.notes?.orderId;
-
-      console.log(`[Razorpay Refund Processed]: RefundId=${refundId}, PaymentId=${paymentId}, Amount=Rs.${refundAmount}`);
-
-      // Query order by payment_id or order_id
-      let query = supabaseA.from('orders').update({
-        refund_status: 'COMPLETED',
-        razorpay_refund_id: refundId,
-        refund_amount: refundAmount,
-        refund_completed_at: new Date().toISOString()
-      });
-
-      if (orderId) {
-        query = query.eq('id', orderId);
-      } else if (paymentId) {
-        query = query.eq('payment_id', paymentId);
-      }
-
-      await query;
-
-      // Also update order_returns table if present
-      if (orderId) {
-        try {
-          await supabaseA
-            .from('order_returns')
-            .update({
-              status: 'REFUNDED',
-              refund_id: refundId,
-              refund_amount: refundAmount,
-              updated_at: new Date().toISOString()
-            })
-            .eq('order_id', orderId);
-        } catch (_) {}
-      }
-    } else if (event === 'refund.failed' && payload?.refund?.entity) {
-      const refund = payload.refund.entity;
-      const paymentId = refund.payment_id;
-      const orderId = refund.notes?.order_id || refund.notes?.orderId;
-
-      console.warn(`[Razorpay Refund Failed]: RefundId=${refund.id}, Error=${refund.error_description}`);
-
-      let query = supabaseA.from('orders').update({
-        refund_status: 'FAILED'
-      });
-
-      if (orderId) {
-        query = query.eq('id', orderId);
-      } else if (paymentId) {
-        query = query.eq('payment_id', paymentId);
-      }
-
-      await query;
-    } else if (event === 'payment.captured' && payload?.payment?.entity) {
-      const payment = payload.payment.entity;
-      const orderId = payment.notes?.order_id || payment.notes?.orderId;
-      if (orderId) {
-        await supabaseA
-          .from('orders')
-          .update({ payment_status: 'COMPLETE', payment_id: payment.id })
-          .eq('id', orderId);
-      }
+    if (stored.duplicate) {
+      return res.status(HTTP_STATUS.OK).json({ status: 'ok', duplicate: true });
     }
 
-    return res.status(HTTP_STATUS.OK).json({ status: 'ok', received: true });
+    res.status(HTTP_STATUS.OK).json({ status: 'ok', received: true });
+
+    // Fire-and-forget: the cron worker will pick the event up if this process dies
+    setImmediate(() => {
+      drainWebhookQueue().catch(err => console.error('[Webhook Worker Error]:', err.message));
+    });
   } catch (err) {
+    // Event was NOT durably stored -> non-2xx so Razorpay retries delivery
     console.error('[Razorpay Webhook Error]:', err);
-    return res.status(HTTP_STATUS.OK).json({ status: 'error', error: err.message });
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR || 500).json({ status: 'error' });
   }
 };
 

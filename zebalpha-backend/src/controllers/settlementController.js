@@ -1,42 +1,483 @@
 import { supabaseA } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
 import { sendSellerStatusEmail } from '../utils/email.js';
+import { reconcilePayout, reconcileAllActivePayouts } from '../services/reconciliationService.js';
+import { processPayoutQueueBatch, detectAndReconcileStuckPayouts } from '../services/payoutQueueService.js';
 
 /**
- * Fetch all settlements (Admin Only) with server-side filters
+ * Fetch Comprehensive Admin Settlement & Payout Overview
  */
+export const getSettlementOverview = async (req, res, next) => {
+  try {
+    // 1. Call PostgreSQL RPC for aggregated overview
+    const { data: overview, error: rpcErr } = await supabaseA.rpc('get_admin_settlement_overview');
+    if (rpcErr) {
+      console.warn('[Overview RPC Warning]:', rpcErr.message);
+    }
+
+    // 2. Fetch recent payout requests
+    const { data: recentPayouts } = await supabaseA
+      .from('seller_payout_requests')
+      .select('*, sellers:seller_id(business_name, owner_name, email, upi_id, phonepay_number, phonepay_no)')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: overview || {
+        total_seller_earnings: 0,
+        total_pending_balance: 0,
+        total_available_balance: 0,
+        total_reserved_balance: 0,
+        total_withdrawn: 0,
+        total_withdrawals_count: 0,
+        total_processing_payouts: 0,
+        total_processing_amount: 0,
+        total_successful_payouts: 0,
+        total_successful_amount: 0,
+        total_failed_payouts: 0,
+        total_failed_amount: 0,
+        total_reversed_payouts: 0,
+        total_reversed_amount: 0,
+        reconciliation_issues_count: 0,
+        stuck_payouts_count: 0
+      },
+      recentPayouts: recentPayouts || []
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Fetch Payout Requests list with advanced filtering & search
+ */
+export const getPayoutRequests = async (req, res, next) => {
+  try {
+    const { 
+      status, 
+      sellerId, 
+      search, 
+      startDate, 
+      endDate, 
+      minAmount, 
+      maxAmount, 
+      page = 1, 
+      limit = 50,
+      longProcessing
+    } = req.query;
+
+    let query = supabaseA
+      .from('seller_payout_requests')
+      .select('*, sellers:seller_id(id, business_name, owner_name, email, mobile_number, upi_id, phonepay_number, phonepay_no)', { count: 'exact' });
+
+    // Status Filter
+    if (status && status !== 'ALL') {
+      if (status === 'LONG_PROCESSING') {
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        query = query.in('status', ['PENDING', 'PROCESSING']).lte('created_at', thirtyMinutesAgo);
+      } else {
+        query = query.eq('status', status.toUpperCase());
+      }
+    }
+
+    if (longProcessing === 'true') {
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      query = query.in('status', ['PENDING', 'PROCESSING']).lte('created_at', thirtyMinutesAgo);
+    }
+
+    if (sellerId) {
+      query = query.eq('seller_id', sellerId);
+    }
+
+    if (startDate) {
+      query = query.gte('created_at', startDate);
+    }
+
+    if (endDate) {
+      query = query.lte('created_at', endDate);
+    }
+
+    if (minAmount) {
+      query = query.gte('amount', Number(minAmount));
+    }
+
+    if (maxAmount) {
+      query = query.lte('amount', Number(maxAmount));
+    }
+
+    const from = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const to = from + parseInt(limit, 10) - 1;
+    query = query.order('created_at', { ascending: false }).range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    let filteredData = data || [];
+
+    // Client-side text search if provided
+    if (search) {
+      const searchLower = search.toLowerCase().trim();
+      filteredData = filteredData.filter(p => 
+        p.payout_number?.toLowerCase().includes(searchLower) ||
+        p.provider_payout_id?.toLowerCase().includes(searchLower) ||
+        p.utr_number?.toLowerCase().includes(searchLower) ||
+        p.destination_masked?.toLowerCase().includes(searchLower) ||
+        p.destination_upi?.toLowerCase().includes(searchLower) ||
+        p.sellers?.business_name?.toLowerCase().includes(searchLower) ||
+        p.sellers?.owner_name?.toLowerCase().includes(searchLower) ||
+        p.sellers?.email?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      count: count || filteredData.length,
+      data: filteredData
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Fetch Detailed View of a Single Payout with Complete Transaction Timeline
+ */
+export const getPayoutDetails = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const { data: payout, error: pErr } = await supabaseA
+      .from('seller_payout_requests')
+      .select('*, sellers:seller_id(*), settlement_method:settlement_method_id(*)')
+      .eq('id', id)
+      .single();
+
+    if (pErr || !payout) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Payout record not found' });
+    }
+
+    // Fetch related ledger transactions
+    const { data: ledgerEntries } = await supabaseA
+      .from('seller_financial_ledger')
+      .select('*')
+      .or(`reference_id.eq.${payout.payout_number},idempotency_key.ilike.%${payout.idempotency_key || 'none'}%`)
+      .order('created_at', { ascending: true });
+
+    // Fetch related webhook events
+    const { data: webhookEvents } = await supabaseA
+      .from('webhook_events')
+      .select('*')
+      .or(`entity_id.eq.${payout.provider_payout_id || 'none'},entity_id.eq.${payout.payout_number}`)
+      .order('created_at', { ascending: true });
+
+    // Fetch queue job status
+    const { data: queueJob } = await supabaseA
+      .from('payout_queue')
+      .select('*')
+      .eq('payout_request_id', payout.id)
+      .maybeSingle();
+
+    // Construct transaction timeline
+    const timeline = [
+      {
+        step: 'WITHDRAWAL_REQUESTED',
+        title: 'Withdrawal Requested by Seller',
+        status: 'COMPLETED',
+        timestamp: payout.initiated_at || payout.created_at,
+        description: `Seller initiated UPI withdrawal for ₹${payout.amount} to ${payout.destination_masked}.`
+      },
+      {
+        step: 'BALANCE_RESERVED',
+        title: 'Balance Reserved (Anti-Double Spend)',
+        status: 'COMPLETED',
+        timestamp: payout.created_at,
+        description: `₹${payout.amount} moved from Available Balance to Reserved Balance.`
+      },
+      {
+        step: 'PAYOUT_QUEUED',
+        title: 'Payout Queued for Worker Dispatch',
+        status: queueJob ? (queueJob.status === 'COMPLETED' ? 'COMPLETED' : queueJob.status === 'FAILED' ? 'FAILED' : 'IN_PROGRESS') : 'COMPLETED',
+        timestamp: queueJob?.created_at || payout.created_at,
+        description: `Job ID: ${queueJob?.id || 'Direct Dispatch'}, Attempts: ${queueJob?.attempts || 1}`
+      },
+      {
+        step: 'RAZORPAY_PROCESSING',
+        title: 'Dispatched to Razorpay Banking Rails',
+        status: payout.provider_payout_id ? 'COMPLETED' : (payout.status === 'FAILED' ? 'FAILED' : 'IN_PROGRESS'),
+        timestamp: payout.initiated_at || payout.created_at,
+        description: payout.provider_payout_id 
+          ? `Razorpay Payout ID: ${payout.provider_payout_id} (${payout.provider_status || 'Initiated'})`
+          : (payout.failure_reason ? `Failed: ${payout.failure_reason}` : 'Awaiting Razorpay network response')
+      },
+      {
+        step: 'WEBHOOK_RECEIVED',
+        title: 'Provider Webhook Confirmation',
+        status: webhookEvents && webhookEvents.length > 0 ? 'COMPLETED' : (payout.status === 'SUCCESS' ? 'COMPLETED' : 'PENDING'),
+        timestamp: webhookEvents?.[0]?.created_at || payout.processed_at,
+        description: webhookEvents && webhookEvents.length > 0
+          ? `Received event: ${webhookEvents[0].event_type} (${webhookEvents[0].status})`
+          : (payout.status === 'SUCCESS' ? 'Confirmed via direct provider query' : 'Awaiting webhook from Razorpay')
+      },
+      {
+        step: 'FINAL_STATUS',
+        title: `Final Payout Status: ${payout.status}`,
+        status: payout.status === 'SUCCESS' ? 'COMPLETED' : payout.status === 'FAILED' ? 'FAILED' : payout.status === 'REVERSED' ? 'REVERSED' : 'IN_PROGRESS',
+        timestamp: payout.processed_at || payout.updated_at,
+        description: payout.status === 'SUCCESS'
+          ? `Funds transferred successfully. UTR: ${payout.utr_number || 'Confirmed'}`
+          : payout.status === 'FAILED'
+            ? `Withdrawal failed: ${payout.failure_reason || 'Provider rejection'}. Balance returned to seller.`
+            : `Current state: ${payout.status}`
+      }
+    ];
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: {
+        payout,
+        timeline,
+        ledgerEntries: ledgerEntries || [],
+        webhookEvents: webhookEvents || [],
+        queueJob: queueJob || null
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Fetch Comprehensive Seller Financial Details for Admin Modal
+ */
+export const getSellerFinancialDetails = async (req, res, next) => {
+  try {
+    const { sellerId } = req.params;
+
+    // 1. Fetch seller profile
+    const { data: seller, error: sErr } = await supabaseA
+      .from('sellers')
+      .select('*')
+      .eq('id', sellerId)
+      .single();
+
+    if (sErr || !seller) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Seller not found' });
+    }
+
+    // 2. Fetch full ledger
+    const { data: ledgerRows } = await supabaseA
+      .from('seller_financial_ledger')
+      .select('*')
+      .eq('seller_id', sellerId)
+      .order('created_at', { ascending: false });
+
+    // 3. Fetch all payout requests
+    const { data: payouts } = await supabaseA
+      .from('seller_payout_requests')
+      .select('*')
+      .eq('seller_id', sellerId)
+      .order('created_at', { ascending: false });
+
+    // 4. Fetch settlement methods
+    const { data: settlementMethods } = await supabaseA
+      .from('seller_settlement_methods')
+      .select('*')
+      .eq('seller_id', sellerId)
+      .order('is_default', { ascending: false });
+
+    // 5. Compute accurate balances
+    const ledger = ledgerRows || [];
+    let grossSales = 0;
+    let commission = 0;
+    let fixedFees = 0;
+    let shippingFees = 0;
+    let collectionFees = 0;
+    let returnsAndRefunds = 0;
+    let totalSettled = 0;
+    let reservedBalance = 0;
+    let pendingEscrow = 0;
+
+    ledger.forEach(tx => {
+      const amt = Number(tx.amount) || 0;
+      if (tx.status === 'PENDING') {
+        if (tx.transaction_type === 'WITHDRAWAL_REQUESTED' || tx.transaction_type === 'WITHDRAWAL_PROCESSING') {
+          reservedBalance += amt;
+        } else {
+          pendingEscrow += amt;
+        }
+      } else if (tx.status === 'COMPLETED') {
+        if (tx.entry_type === 'CREDIT' && (tx.transaction_type === 'SALE' || tx.transaction_type === 'SALE_CREDIT' || tx.transaction_type === 'ADJUSTMENT_CREDIT')) {
+          grossSales += amt;
+        } else if (tx.transaction_type === 'COMMISSION' || tx.transaction_type === 'COMMISSION_DEDUCTION') {
+          commission += amt;
+        } else if (tx.transaction_type === 'FIXED_FEE') {
+          fixedFees += amt;
+        } else if (tx.transaction_type === 'SHIPPING_FEE') {
+          shippingFees += amt;
+        } else if (tx.transaction_type === 'COLLECTION_FEE') {
+          collectionFees += amt;
+        } else if (['REFUND', 'PARTIAL_REFUND', 'RETURN_FEE', 'RTO_FEE', 'TAX', 'PENALTY', 'ADJUSTMENT_DEBIT'].includes(tx.transaction_type)) {
+          returnsAndRefunds += amt;
+        } else if (tx.transaction_type === 'SETTLEMENT' || tx.transaction_type === 'WITHDRAWAL_SUCCESS') {
+          totalSettled += amt;
+        } else if (tx.transaction_type === 'SETTLEMENT_REVERSAL' || tx.transaction_type === 'WITHDRAWAL_REVERSED') {
+          totalSettled = Math.max(0, totalSettled - amt);
+        }
+      }
+    });
+
+    const totalPlatformDeductions = commission + fixedFees + shippingFees + collectionFees + returnsAndRefunds;
+    const netSellerEarnings = Math.max(0, grossSales - totalPlatformDeductions);
+    const availableBalance = Math.max(0, netSellerEarnings - totalSettled - reservedBalance);
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: {
+        seller,
+        balances: {
+          gross_sales: grossSales,
+          commission,
+          fixed_fees: fixedFees,
+          shipping_fees: shippingFees,
+          collection_fees: collectionFees,
+          returns_and_refunds: returnsAndRefunds,
+          total_deductions: totalPlatformDeductions,
+          net_seller_earnings: netSellerEarnings,
+          total_settled: totalSettled,
+          available_balance: availableBalance,
+          reserved_balance: reservedBalance,
+          pending_settlement: pendingEscrow
+        },
+        settlementMethods: settlementMethods || [],
+        payouts: payouts || [],
+        ledger: ledger || []
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Trigger Admin-Reconciliation for a Single Payout (Audited)
+ */
+export const reconcileSinglePayout = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const adminUser = req.user;
+
+    const result = await reconcilePayout(id, {
+      id: adminUser?.id || 'admin',
+      email: adminUser?.email || 'admin@zebalpha.shop',
+      reason: reason || 'Admin manual reconciliation audit check',
+      ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      userAgent: req.headers['user-agent'] || 'Admin Dashboard'
+    });
+
+    res.status(HTTP_STATUS.OK).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Trigger Batch Reconciliation across all pending/active payouts
+ */
+export const reconcileAllPayouts = async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const adminUser = req.user;
+
+    const result = await reconcileAllActivePayouts({
+      id: adminUser?.id || 'admin',
+      email: adminUser?.email || 'admin@zebalpha.shop',
+      reason: reason || 'Batch reconciliation initiated from Admin Dashboard',
+      ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      userAgent: req.headers['user-agent'] || 'Admin Dashboard'
+    });
+
+    res.status(HTTP_STATUS.OK).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Fetch Admin Financial Audit Logs
+ */
+export const getAdminAuditLogs = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50, action, sellerId } = req.query;
+
+    let query = supabaseA
+      .from('admin_audit_logs')
+      .select('*', { count: 'exact' });
+
+    if (action) {
+      query = query.eq('action', action);
+    }
+    if (sellerId) {
+      query = query.eq('target_seller_id', sellerId);
+    }
+
+    const from = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const to = from + parseInt(limit, 10) - 1;
+    query = query.order('created_at', { ascending: false }).range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      count: count || data?.length || 0,
+      data: data || []
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Trigger Payout Queue Worker immediately (On-Demand)
+ */
+export const triggerPayoutWorker = async (req, res, next) => {
+  try {
+    const queueResult = await processPayoutQueueBatch();
+    const stuckResult = await detectAndReconcileStuckPayouts();
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Payout queue worker and stuck payout reconciler executed successfully.',
+      queueResult,
+      stuckResult
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ==============================================================================
+// LEGACY WEEKLY SETTLEMENTS CONTROLLERS (PRESERVED FOR COMPATIBILITY)
+// ==============================================================================
+
 export const getSettlements = async (req, res, next) => {
   try {
     const { sellerId, week, status, startDate, endDate, transactionId, receiptNumber, search, page = 1, limit = 50 } = req.query;
 
     let query = supabaseA
       .from('seller_settlements')
-      .select('*, sellers:seller_id(business_name, owner_name, email, mobile_number, phonepay_number, phonepay_no)', { count: 'exact' });
+      .select('*, sellers:seller_id(business_name, owner_name, email, mobile_number, upi_id, phonepay_number, phonepay_no)', { count: 'exact' });
 
-    // Apply filters
-    if (sellerId) {
-      query = query.eq('seller_id', sellerId);
-    }
-    if (status) {
-      query = query.eq('status', status.toUpperCase());
-    }
-    if (week) {
-      query = query.eq('week_number', parseInt(week, 10));
-    }
-    if (transactionId) {
-      query = query.eq('transaction_id', transactionId);
-    }
-    if (receiptNumber) {
-      query = query.eq('receipt_number', receiptNumber);
-    }
-    if (startDate) {
-      query = query.gte('start_date', startDate);
-    }
-    if (endDate) {
-      query = query.lte('end_date', endDate);
-    }
+    if (sellerId) query = query.eq('seller_id', sellerId);
+    if (status) query = query.eq('status', status.toUpperCase());
+    if (week) query = query.eq('week_number', parseInt(week, 10));
+    if (transactionId) query = query.eq('transaction_id', transactionId);
+    if (receiptNumber) query = query.eq('receipt_number', receiptNumber);
+    if (startDate) query = query.gte('start_date', startDate);
+    if (endDate) query = query.lte('end_date', endDate);
 
-    // Pagination
     const from = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     const to = from + parseInt(limit, 10) - 1;
     query = query.order('end_date', { ascending: false }).order('week_number', { ascending: false }).range(from, to);
@@ -45,8 +486,6 @@ export const getSettlements = async (req, res, next) => {
     if (error) throw error;
 
     let filteredData = data || [];
-
-    // Search filter (client-side matching on business name if search is provided)
     if (search) {
       const searchLower = search.toLowerCase();
       filteredData = filteredData.filter(s => 
@@ -66,9 +505,6 @@ export const getSettlements = async (req, res, next) => {
   }
 };
 
-/**
- * Fetch settlements for a specific seller (reconciles on the fly)
- */
 export const getSellerSettlements = async (req, res, next) => {
   try {
     const { sellerId } = req.params;
@@ -82,7 +518,6 @@ export const getSellerSettlements = async (req, res, next) => {
       });
     }
 
-    // Call RPC to reconcile and generate any missing weeks in real-time
     const { data, error } = await supabaseA.rpc('get_or_create_seller_settlements', { p_seller_id: sellerId });
     if (error) throw error;
 
@@ -95,14 +530,10 @@ export const getSellerSettlements = async (req, res, next) => {
   }
 };
 
-/**
- * Fetch detailed view of a single settlement including orders and commission breakdown
- */
 export const getSettlementDetails = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Fetch settlement details
     const { data: settlement, error: sErr } = await supabaseA
       .from('seller_settlements')
       .select('*, sellers:seller_id(*)')
@@ -123,9 +554,7 @@ export const getSettlementDetails = async (req, res, next) => {
       });
     }
 
-    // Fetch orders associated with this week's settlement
-    // Orders in that date range for this seller
-    const { data: orders, error: oErr } = await supabaseA
+    const { data: orders } = await supabaseA
       .from('orders')
       .select('*')
       .eq('seller_id', settlement.seller_id)
@@ -146,9 +575,6 @@ export const getSettlementDetails = async (req, res, next) => {
   }
 };
 
-/**
- * Mark settlement as Paid, lock it, generate receipt and send email
- */
 export const paySettlement = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -156,10 +582,9 @@ export const paySettlement = async (req, res, next) => {
     const adminId = req.user?.id;
 
     if (!transactionId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'PhonePe Transaction ID is required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Transaction ID / UTR is required' });
     }
 
-    // Call PostgreSQL RPC to run transactional mark as paid
     const { data: updatedSettlement, error: rpcErr } = await supabaseA.rpc('mark_settlement_as_paid', {
       p_settlement_id: id,
       p_transaction_id: transactionId,
@@ -174,87 +599,6 @@ export const paySettlement = async (req, res, next) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: rpcErr.message });
     }
 
-    // Fetch seller email details
-    const { data: seller } = await supabaseA
-      .from('sellers')
-      .select('email, business_name, owner_name')
-      .eq('id', updatedSettlement.seller_id)
-      .single();
-
-    if (seller?.email) {
-      const emailSubject = `💰 Settlement Paid: Week ${updatedSettlement.week_number} - ${seller.business_name}`;
-      const emailHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #059669; text-align: center;">ASALISWAD Marketplace</h2>
-          <h3 style="text-align: center; color: #1e293b;">Settlement Paid successfully!</h3>
-          <p>Dear ${seller.owner_name || seller.business_name},</p>
-          <p>We are pleased to inform you that your weekly settlement for Week ${updatedSettlement.week_number} has been processed and paid to your PhonePe UPI.</p>
-          
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          
-          <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>Receipt Number:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #1e293b;">${updatedSettlement.receipt_number}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>Settlement Period:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #1e293b;">${new Date(updatedSettlement.start_date).toLocaleDateString()} - ${new Date(updatedSettlement.end_date).toLocaleDateString()}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>Total Orders:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #1e293b;">${updatedSettlement.total_orders}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>Gross Sales:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #1e293b;">₹${updatedSettlement.gross_sales}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>Platform Commission:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #dc2626;">- ₹${updatedSettlement.commission_deducted}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>Platform Fees:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #dc2626;">- ₹${updatedSettlement.platform_fees}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>Taxes:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #dc2626;">- ₹${updatedSettlement.taxes}</td>
-            </tr>
-            <tr style="border-top: 2px solid #e2e8f0; border-bottom: 2px solid #e2e8f0; font-weight: bold; font-size: 16px;">
-              <td style="padding: 12px 0; color: #1e293b;">Net Settlement Amount:</td>
-              <td style="padding: 12px 0; text-align: right; color: #059669;">₹${updatedSettlement.net_amount}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>PhonePe Transaction ID:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #1e293b;"><code>${updatedSettlement.transaction_id}</code></td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b;"><strong>Payment Date:</strong></td>
-              <td style="padding: 8px 0; text-align: right; color: #1e293b;">${new Date(updatedSettlement.payment_date).toLocaleString()}</td>
-            </tr>
-          </table>
-          
-          ${pdfUrl ? `<p style="margin-top: 20px;">You can view and download your PDF receipt from: <a href="${pdfUrl}" target="_blank" style="color: #059669; text-decoration: none;">Download Settlement Receipt</a></p>` : ''}
-          
-          <div style="margin-top: 30px; padding: 15px; background-color: #f8fafc; border-radius: 6px; font-size: 12px; color: #64748b;">
-            <p style="margin: 0 0 8px 0; font-weight: bold;">Support Details:</p>
-            <p style="margin: 0;">If you have any questions or require support, please contact us at <a href="mailto:support@zebalpha.com" style="color: #059669; text-decoration: none;">support@zebalpha.com</a>.</p>
-          </div>
-        </div>
-      `;
-      
-      await sendSellerStatusEmail(seller.email, emailSubject, emailHtml, pdfUrl, `settlement_receipt_${updatedSettlement.receipt_number}.pdf`);
-      
-      // Update email status
-      await supabaseA
-        .from('seller_settlements')
-        .update({ email_sent: true })
-        .eq('id', id);
-        
-      updatedSettlement.email_sent = true;
-    }
-
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: 'Settlement marked as Paid successfully.',
@@ -265,9 +609,6 @@ export const paySettlement = async (req, res, next) => {
   }
 };
 
-/**
- * Fetch Revenue summary analytics for admin or seller with separated Premium and Standard streams
- */
 export const getRevenueSummary = async (req, res, next) => {
   try {
     const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
@@ -281,111 +622,12 @@ export const getRevenueSummary = async (req, res, next) => {
 
     const { data, error } = await query;
     if (error && error.code !== 'PGRST116') {
-      console.warn("seller_revenue_summary query warning:", error.message);
+      console.warn('seller_revenue_summary query warning:', error.message);
     }
-
-    // Dynamic stream calculation from orders
-    let ordersQuery = supabaseA
-      .from('orders')
-      .select('id, seller_id, total_amount, product_details, order_status, payment_status, created_at')
-      .neq('order_status', 'CANCELLED')
-      .neq('order_status', 'RETURNED');
-
-    if (targetSellerId) {
-      ordersQuery = ordersQuery.eq('seller_id', targetSellerId);
-    }
-
-    const { data: ordersData } = await ordersQuery;
-    const orders = ordersData || [];
-
-    let totalGross = 0;
-    let premiumRevenue = 0;
-    let standardRevenue = 0;
-    let premiumOrdersCount = 0;
-    let standardOrdersCount = 0;
-
-    orders.forEach(o => {
-      totalGross += Number(o.total_amount) || 0;
-      let hasPremium = false;
-      let oPrem = 0;
-      let oStd = 0;
-      try {
-        const items = typeof o.product_details === 'string' ? JSON.parse(o.product_details) : o.product_details;
-        if (Array.isArray(items) && items.length > 0) {
-          items.forEach(item => {
-            const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
-            const isPrem = item.is_premium === true || item.tier === 'PREMIUM' || 
-              (item.name || item.product_name || '').toLowerCase().includes('premium') ||
-              (item.name || item.product_name || '').toLowerCase().includes('supima') ||
-              (item.name || item.product_name || '').toLowerCase().includes('luxe');
-            if (isPrem) {
-              oPrem += itemTotal;
-              hasPremium = true;
-            } else {
-              oStd += itemTotal;
-            }
-          });
-        } else {
-          oStd = Number(o.total_amount) || 0;
-        }
-      } catch {
-        oStd = Number(o.total_amount) || 0;
-      }
-      if (oPrem === 0 && oStd === 0) oStd = Number(o.total_amount) || 0;
-      premiumRevenue += oPrem;
-      standardRevenue += oStd;
-      if (hasPremium) premiumOrdersCount++;
-      else standardOrdersCount++;
-    });
-
-    const premiumPercentage = totalGross > 0 ? Math.round((premiumRevenue / totalGross) * 100) : 0;
-    const standardPercentage = 100 - premiumPercentage;
-
-    if (sellerId) {
-      const baseData = data?.[0] || {};
-      return res.status(HTTP_STATUS.OK).json({
-        success: true,
-        data: {
-          ...baseData,
-          totalRevenue: totalGross || Number(baseData.lifetime_revenue) || 0,
-          premiumRevenue,
-          standardRevenue,
-          premiumPercentage,
-          standardPercentage,
-          premiumOrdersCount,
-          standardOrdersCount,
-        }
-      });
-    }
-
-    // Admin total summary aggregation
-    const summary = {
-      todayRevenue: data?.reduce((s, r) => s + Number(r.today_revenue), 0) || 0,
-      yesterdayRevenue: data?.reduce((s, r) => s + Number(r.yesterday_revenue), 0) || 0,
-      thisWeekRevenue: data?.reduce((s, r) => s + Number(r.this_week_revenue), 0) || 0,
-      lastWeekRevenue: data?.reduce((s, r) => s + Number(r.last_week_revenue), 0) || 0,
-      thisMonthRevenue: data?.reduce((s, r) => s + Number(r.this_month_revenue), 0) || 0,
-      lastMonthRevenue: data?.reduce((s, r) => s + Number(r.last_month_revenue), 0) || 0,
-      thisYearRevenue: data?.reduce((s, r) => s + Number(r.this_year_revenue), 0) || 0,
-      lifetimeRevenue: totalGross || (data?.reduce((s, r) => s + Number(r.lifetime_revenue), 0) || 0),
-      premiumRevenue,
-      standardRevenue,
-      premiumPercentage,
-      standardPercentage,
-      premiumOrdersCount,
-      standardOrdersCount,
-      pendingSettlement: data?.reduce((s, r) => s + Number(r.pending_settlement), 0) || 0,
-      paidSettlement: data?.reduce((s, r) => s + Number(r.paid_settlement), 0) || 0,
-      availableBalance: data?.reduce((s, r) => s + Number(r.available_balance), 0) || 0,
-      ordersToday: data?.reduce((s, r) => s + Number(r.orders_today), 0) || 0,
-      ordersThisWeek: data?.reduce((s, r) => s + Number(r.orders_this_week), 0) || 0,
-      ordersThisMonth: data?.reduce((s, r) => s + Number(r.orders_this_month), 0) || 0,
-      ordersThisYear: data?.reduce((s, r) => s + Number(r.orders_this_year), 0) || 0,
-    };
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: summary
+      data: data || []
     });
   } catch (err) {
     next(err);

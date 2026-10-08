@@ -116,7 +116,7 @@ const globalApiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: createResilientRateLimitStore({ windowMs: 15 * 60 * 1000, prefix: 'rl:global:' }),
-  skip: (req) => req.path === '/' || req.path === '/health' || req.path.endsWith('/health'),
+  skip: (req) => req.path === '/' || req.path === '/health' || req.path.endsWith('/health') || req.path.includes('/webhooks/'),
   handler: createStandardRateLimitHandler('Too many requests from this IP. Please try again after 15 minutes.')
 });
 
@@ -148,7 +148,15 @@ app.use('/api/checkout', checkoutRateLimiter);
 app.use('/api/v1/checkout', checkoutRateLimiter);
 
 // 4. Request Body Parsers with strict size limits
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({
+  limit: '2mb',
+  verify: (req, res, buf) => {
+    // Razorpay/Shiprocket signatures are computed over the EXACT raw bytes
+    if (req.originalUrl && req.originalUrl.includes('/webhooks/')) {
+      req.rawBody = buf;
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Root Keep-Alive & Health Ping endpoints for cron jobs and uptime monitors

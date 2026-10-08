@@ -90,6 +90,21 @@ export async function GET(req: NextRequest) {
     // 2. Compute dynamic financial balances from ledger
     let balances = computeLedgerBalances(transactions);
 
+    // Fetch in-flight payouts to ensure reserved balance is 100% accurate
+    try {
+      const { data: inFlightPayouts } = await supabaseServer
+        .from("seller_payout_requests")
+        .select("amount")
+        .eq("seller_id", sellerId)
+        .in("status", ["PENDING", "PROCESSING"]);
+
+      if (inFlightPayouts && inFlightPayouts.length > 0) {
+        const totalInFlight = inFlightPayouts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        balances.reserved_balance = Number(totalInFlight.toFixed(2));
+        balances.available_balance = Number(Math.max(0, balances.net_seller_earnings - balances.total_settled - balances.reserved_balance).toFixed(2));
+      }
+    } catch (_) {}
+
     // Fallback: If no transactions yet, estimate from delivered orders
     if (transactions.length === 0) {
       try {
@@ -133,6 +148,7 @@ export async function GET(req: NextRequest) {
             net_seller_earnings: netEarnings,
             total_settled: 0,
             available_balance: netEarnings,
+            reserved_balance: 0,
             pending_settlement: 0,
             on_hold_balance: 0
           };

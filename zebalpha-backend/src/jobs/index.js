@@ -1,6 +1,8 @@
 import cron from 'node-cron';
 import { purgeExpiredDeletions } from '../controllers/sellerController.js';
 import { supabaseA, supabaseB } from '../lib/supabase.js';
+import { processPayoutQueueBatch, detectAndReconcileStuckPayouts, enqueueAutoSettlements } from '../services/payoutQueueService.js';
+import { drainWebhookQueue } from '../services/payoutWebhookService.js';
 
 /**
  * Auto-complete orders that have been marked as 'delivered' for more than 7 days
@@ -39,7 +41,7 @@ export const autoCompleteDeliveredOrders = async () => {
  * Initialize all automated background & cron jobs
  */
 export const initCronJobs = () => {
-  console.log('⏱️ Initializing ASALISWAD Cron Jobs...');
+  console.log('⏱️ Initializing ZEBALPHA Production Settlement & Background Jobs...');
 
   // Job 1: Purge expired seller accounts daily at midnight (00:00)
   cron.schedule('0 0 * * *', async () => {
@@ -77,6 +79,39 @@ export const initCronJobs = () => {
     }
   });
 
-  console.log('✅ Cron Jobs Scheduled: [Seller Purge @ 00:00, Order Auto-Completion @ 02:00, Settlement Reconcile @ 03:00]');
-};
+  // Overlap guard so a slow tick never stacks on top of itself (cross-instance safety is enforced in the DB)
+  const running = new Set();
+  const guarded = (name, fn) => async () => {
+    if (running.has(name)) return;
+    running.add(name);
+    try {
+      await fn();
+    } catch (err) {
+      console.error(`❌ [CRON] ${name} error:`, err.message);
+    } finally {
+      running.delete(name);
+    }
+  };
 
+  // Job 4: Payout Queue Worker (every 15s) - atomically claims jobs, reconciles before every dispatch
+  cron.schedule('*/15 * * * * *', guarded('payout-worker', () => processPayoutQueueBatch()));
+
+  // Job 5: Webhook Worker (every 15s) - processes stored, signature-verified Razorpay events exactly once
+  cron.schedule('*/15 * * * * *', guarded('webhook-worker', () => drainWebhookQueue()));
+
+  // Job 6: Stuck Withdrawal Detector & Razorpay reconciler (every 10 minutes)
+  cron.schedule('*/10 * * * *', guarded('stuck-payouts', async () => {
+    const result = await detectAndReconcileStuckPayouts();
+    if (result?.checked) console.log('⏰ [CRON] Stuck payout check:', result);
+  }));
+
+  // Job 7: Automatic settlements - enqueue only (reservation + queue + worker do the rest)
+  // Idempotency key per seller per day => at most one automatic payout per seller per day, even across instances.
+  cron.schedule('30 4 * * *', guarded('auto-settlement', async () => {
+    const result = await enqueueAutoSettlements();
+    console.log('⏰ [CRON] Auto-settlement enqueue:', result);
+  }), { timezone: 'Asia/Kolkata' });
+
+  console.log('✅ Cron Jobs Scheduled: [Seller Purge @ 00:00, Order Auto-Completion @ 02:00, Settlement Reconcile @ 03:00, Payout Worker @ 15s, Webhook Worker @ 15s, Stuck Payouts @ 10m, Auto-Settlement @ 04:30 IST]');
+
+};

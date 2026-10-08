@@ -61,6 +61,7 @@ export interface SellerLedgerBalances {
   net_seller_earnings: number;
   total_settled: number;
   available_balance: number;
+  reserved_balance: number;
   pending_settlement: number;
   on_hold_balance: number;
 }

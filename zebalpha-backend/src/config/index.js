@@ -61,8 +61,21 @@ export const config = {
   },
   razorpay: {
     keyId: (process.env.RAZORPAY_KEY_ID || '').trim(),
-    keySecret: (process.env.RAZORPAY_KEY_SECRET || '').trim()
+    keySecret: (process.env.RAZORPAY_KEY_SECRET || '').trim(),
+    // Dedicated webhook secret. Intentionally NOT falling back to the API key secret.
+    webhookSecret: (process.env.RAZORPAY_WEBHOOK_SECRET || '').trim(),
+    // RazorpayX account the payouts are debited from
+    accountNumber: (process.env.RAZORPAY_ACCOUNT_NUMBER || '').trim()
   },
+  payouts: {
+    stuckMinutes: parseInt(process.env.PAYOUT_STUCK_MINUTES || '30', 10),
+    maxAttempts: parseInt(process.env.PAYOUT_MAX_ATTEMPTS || '4', 10),
+    batchSize: parseInt(process.env.PAYOUT_WORKER_BATCH || '20', 10),
+    concurrency: parseInt(process.env.PAYOUT_WORKER_CONCURRENCY || '5', 10),
+    requestTimeoutMs: parseInt(process.env.PAYOUT_API_TIMEOUT_MS || '20000', 10),
+    autoSettlementMinAmount: parseFloat(process.env.AUTO_SETTLEMENT_MIN_AMOUNT || '500')
+  },
+
   shiprocket: {
     email: (process.env.SHIPROCKET_EMAIL || '').trim(),
     password: (process.env.SHIPROCKET_PASSWORD || '').trim().replace(/^["']|["']$/g, '')

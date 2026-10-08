@@ -33,7 +33,33 @@ export const apiService = {
   softDeleteSeller: (id: string, reason: string) => apiFetch(`/api/admin/sellers/${id}/soft-delete`, { method: 'POST', body: JSON.stringify({ reason }) }),
   permanentDeleteSeller: (id: string, passwordConfirm: string) => apiFetch(`/api/admin/sellers/${id}/permanent-delete`, { method: 'POST', body: JSON.stringify({ passwordConfirm }) }),
 
-  // Weekly Settlements & Revenue
+  // Production Settlement & Payout Engine
+  getSettlementOverview: () => apiFetch('/api/settlements/overview'),
+  getPayoutRequests: (params: any = {}) => {
+    const query = new URLSearchParams();
+    Object.keys(params).forEach(k => {
+      if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+        query.append(k, params[k]);
+      }
+    });
+    return apiFetch(`/api/settlements/payouts?${query.toString()}`);
+  },
+  getPayoutDetails: (id: string) => apiFetch(`/api/settlements/payouts/${id}`),
+  getSellerFinancialDetails: (sellerId: string) => apiFetch(`/api/settlements/seller-financials/${sellerId}`),
+  reconcileSinglePayout: (id: string, reason?: string) => apiFetch(`/api/settlements/reconcile/${id}`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  reconcileAllPayouts: (reason?: string) => apiFetch('/api/settlements/reconcile-all', { method: 'POST', body: JSON.stringify({ reason }) }),
+  getAdminAuditLogs: (params: any = {}) => {
+    const query = new URLSearchParams();
+    Object.keys(params).forEach(k => {
+      if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+        query.append(k, params[k]);
+      }
+    });
+    return apiFetch(`/api/settlements/audit-logs?${query.toString()}`);
+  },
+  triggerPayoutWorker: () => apiFetch('/api/settlements/worker/trigger', { method: 'POST' }),
+
+  // Legacy Weekly Settlements & Revenue
   getSettlements: (params: any = {}) => {
     const query = new URLSearchParams();
     Object.keys(params).forEach(k => {
@@ -52,3 +78,4 @@ export const apiService = {
     return apiFetch(`/api/settlements/revenue/summary?${query.toString()}`);
   }
 };
+
