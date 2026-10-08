@@ -3,12 +3,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@shared/utils/supabaseClient";
 import type { Product, Category } from "@shared/types";
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Package, 
-  Eye, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Package,
+  Eye,
   X,
   Upload,
   ShoppingBag,
@@ -44,7 +44,7 @@ export default function SellerProducts() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedMainCategory, setSelectedMainCategory] = useState("");
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
-  
+
   const [form, setForm] = useState({
     name: "",
     price: "",
@@ -322,7 +322,7 @@ export default function SellerProducts() {
     const matchedSubcategoryId = selectedCategory ? String(selectedCategory.id) : "";
     setSelectedMainCategory(matchedMainCategory);
     setSelectedSubcategoryId(matchedSubcategoryId);
-    
+
     // Format text areas
     const specsArray: string[] = [];
     if (product.specifications) {
@@ -385,7 +385,7 @@ export default function SellerProducts() {
         .eq("id", productId);
 
       if (error) throw error;
-      
+
       setProducts(products.filter(p => p.id !== productId));
       alert("Product deleted successfully.");
     } catch (e: any) {
@@ -671,26 +671,24 @@ export default function SellerProducts() {
 
       {/* Quick Stream Metrics Breakdown Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div 
+        <div
           onClick={() => { setActiveTab("ALL"); setCurrentPage(1); }}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-            activeTab === "ALL" 
-              ? "bg-zinc-900 border-white/40 shadow-md shadow-white/5" 
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "ALL"
+              ? "bg-zinc-900 border-white/40 shadow-md shadow-white/5"
               : "bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700"
-          }`}
+            }`}
         >
           <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">All Products</span>
           <p className="text-2xl font-black text-white mt-1">{products.length}</p>
           <span className="text-[10px] font-semibold text-zinc-500">Total catalog items</span>
         </div>
 
-        <div 
+        <div
           onClick={() => { setActiveTab("PREMIUM"); setCurrentPage(1); }}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-            activeTab === "PREMIUM" 
-              ? "bg-amber-950/40 border-amber-500/60 shadow-md shadow-amber-500/10" 
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "PREMIUM"
+              ? "bg-amber-950/40 border-amber-500/60 shadow-md shadow-amber-500/10"
               : "bg-zinc-950/80 border-zinc-800/80 hover:border-amber-500/30"
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">💎 Premium Store</span>
@@ -700,26 +698,24 @@ export default function SellerProducts() {
           <span className="text-[10px] font-semibold text-amber-500/80">Luxury atelier stream</span>
         </div>
 
-        <div 
+        <div
           onClick={() => { setActiveTab("NORMAL"); setCurrentPage(1); }}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-            activeTab === "NORMAL" 
-              ? "bg-sky-950/40 border-sky-500/60 shadow-md shadow-sky-500/10" 
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "NORMAL"
+              ? "bg-sky-950/40 border-sky-500/60 shadow-md shadow-sky-500/10"
               : "bg-zinc-950/80 border-zinc-800/80 hover:border-sky-500/30"
-          }`}
+            }`}
         >
           <span className="text-[10px] font-black uppercase tracking-wider text-sky-400">🏷️ Normal Apparel</span>
           <p className="text-2xl font-black text-white mt-1">{normalCount}</p>
           <span className="text-[10px] font-semibold text-sky-500/80">Standard everyday items</span>
         </div>
 
-        <div 
+        <div
           onClick={() => { setActiveTab("DROPS"); setCurrentPage(1); }}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-            activeTab === "DROPS" 
-              ? "bg-orange-950/40 border-orange-500/60 shadow-md shadow-orange-500/10" 
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "DROPS"
+              ? "bg-orange-950/40 border-orange-500/60 shadow-md shadow-orange-500/10"
               : "bg-zinc-950/80 border-zinc-800/80 hover:border-orange-500/30"
-          }`}
+            }`}
         >
           <span className="text-[10px] font-black uppercase tracking-wider text-orange-400">⚡ New Drops</span>
           <p className="text-2xl font-black text-white mt-1">{dropCount}</p>
@@ -741,11 +737,10 @@ export default function SellerProducts() {
               setActiveTab(tab.key as any);
               setCurrentPage(1);
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap border ${
-              activeTab === tab.key
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap border ${activeTab === tab.key
                 ? tab.highlight || "bg-white border-white text-black shadow-md shadow-white/10"
                 : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -792,11 +787,11 @@ export default function SellerProducts() {
             {activeTab === "PREMIUM" ? "No 💎 Premium Store Products Found" : activeTab === "DROPS" ? "No ⚡ New Drops Found" : "No Products Listed"}
           </h3>
           <p className="text-xs font-bold mt-1 max-w-sm mx-auto">
-            {activeTab === "PREMIUM" 
-              ? "Check 'Flag as Premium Store Item' when creating/editing products to list them here." 
+            {activeTab === "PREMIUM"
+              ? "Check 'Flag as Premium Store Item' when creating/editing products to list them here."
               : "Get started by creating your product listing for the ZEB-ALPHA storefront."}
           </p>
-          <button 
+          <button
             onClick={() => {
               setEditingProduct(null);
               setIsWizardModalOpen(true);
@@ -821,29 +816,27 @@ export default function SellerProducts() {
               </thead>
               <tbody className="divide-y divide-foreground/[0.04]">
                 {paginatedProducts.map((product) => (
-                  <tr 
-                    key={product.id} 
-                    className={`transition-all ${
-                      product.is_premium 
-                        ? "bg-amber-500/[0.02] hover:bg-amber-500/[0.05]" 
+                  <tr
+                    key={product.id}
+                    className={`transition-all ${product.is_premium
+                        ? "bg-amber-500/[0.02] hover:bg-amber-500/[0.05]"
                         : "hover:bg-foreground/[0.01]"
-                    }`}
+                      }`}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
                         <div className="relative">
-                          <img 
-                            src={(product as any).thumbnail_url || product.image_url} 
-                            alt={product.name} 
+                          <img
+                            src={(product as any).thumbnail_url || product.image_url}
+                            alt={product.name}
                             loading="lazy"
                             decoding="async"
                             width={56}
                             height={56}
-                            className={`h-14 w-14 rounded-2xl object-cover border ${
-                              product.is_premium 
-                                ? "border-amber-500/50 shadow-md shadow-amber-500/20" 
+                            className={`h-14 w-14 rounded-2xl object-cover border ${product.is_premium
+                                ? "border-amber-500/50 shadow-md shadow-amber-500/20"
                                 : "border-foreground/[0.08]"
-                            }`}
+                              }`}
                           />
                           {product.is_premium && (
                             <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-amber-400 text-black flex items-center justify-center text-[10px] shadow font-black" title="Premium Product">
@@ -854,7 +847,7 @@ export default function SellerProducts() {
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-black text-foreground text-sm">{product.name}</p>
-                            
+
                             {/* Prominent Stream Badge (Normal vs Premium) */}
                             {product.is_premium ? (
                               <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 text-amber-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm">
@@ -905,13 +898,12 @@ export default function SellerProducts() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className={`h-2.5 w-2.5 rounded-full ${
-                          (product.stock ?? 0) === 0
-                            ? "bg-rose-500" 
+                        <span className={`h-2.5 w-2.5 rounded-full ${(product.stock ?? 0) === 0
+                            ? "bg-rose-500"
                             : (product.stock ?? 0) <= (product.low_stock_limit ?? 5)
-                            ? "bg-amber-500" 
-                            : "bg-emerald-500"
-                        }`} />
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
+                          }`} />
                         <span className="font-bold text-text-secondary">
                           {product.stock ?? 0} in stock
                         </span>
@@ -965,11 +957,10 @@ export default function SellerProducts() {
                         <button
                           key={p}
                           onClick={() => setCurrentPage(p)}
-                          className={`h-8 w-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            currentPage === p
+                          className={`h-8 w-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentPage === p
                               ? "bg-white text-black font-black shadow-md"
                               : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                          }`}
+                            }`}
                         >
                           {p}
                         </button>
