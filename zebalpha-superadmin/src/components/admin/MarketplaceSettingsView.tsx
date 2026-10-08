@@ -20,7 +20,8 @@ import {
   ExternalLink,
   CreditCard,
   Eye,
-  AlertCircle
+  AlertCircle,
+  RotateCcw
 } from "lucide-react";
 
 export default function MarketplaceSettingsView() {
@@ -41,6 +42,16 @@ export default function MarketplaceSettingsView() {
     globalCommissionPct: "10",
     defaultShippingCost: "50",
     codEnabled: true,
+    fixedFee: "15",
+    collectionFeePct: "2.0",
+    reverseShippingFee: "70",
+    returnProcessingFee: "20",
+    rtoCharge: "50",
+    gstRatePct: "18.0",
+    settlementDelayDays: "7",
+    returnWindowDays: "7",
+    premiumCommissionDiscount: "2.5",
+    premiumSettlementDelay: "3",
   });
 
   const [products, setProducts] = useState<any[]>([]);
@@ -133,6 +144,21 @@ export default function MarketplaceSettingsView() {
               } catch (_) {}
             }
 
+            if (rulesMap.marketplace_financial_rules) {
+              const fin = rulesMap.marketplace_financial_rules;
+              setMarketplaceConfig(prev => ({
+                ...prev,
+                fixedFee: String(fin.fixed_fee_per_order ?? prev.fixedFee),
+                collectionFeePct: String(fin.payment_collection_fee_pct ?? prev.collectionFeePct),
+                reverseShippingFee: String(fin.reverse_shipping_fee ?? prev.reverseShippingFee),
+                rtoCharge: String(fin.rto_charge ?? prev.rtoCharge),
+                gstRatePct: String(fin.gst_on_platform_fees_pct ?? prev.gstRatePct),
+                settlementDelayDays: String(fin.settlement_delay_days ?? prev.settlementDelayDays),
+                returnWindowDays: String(fin.customer_return_window_days ?? prev.returnWindowDays),
+                defaultShippingCost: String(fin.standard_shipping_fee ?? prev.defaultShippingCost),
+              }));
+            }
+
             if (rulesMap.promotional_coupons) {
               setCoupons(Array.isArray(rulesMap.promotional_coupons) ? rulesMap.promotional_coupons : []);
             }
@@ -218,6 +244,31 @@ export default function MarketplaceSettingsView() {
 
     try {
       await saveSettingToDb("marketplace_rules", marketplaceConfig);
+
+      // Save complete financial ledger rules
+      const financialRules = {
+        commission_percentage: Number(marketplaceConfig.globalCommissionPct) || 5.0,
+        fixed_fee_per_order: Number(marketplaceConfig.fixedFee) || 15.0,
+        payment_collection_fee_pct: Number(marketplaceConfig.collectionFeePct) || 2.0,
+        cod_handling_fee: 25.0,
+        standard_shipping_fee: Number(marketplaceConfig.defaultShippingCost) || 60.0,
+        reverse_shipping_fee: Number(marketplaceConfig.reverseShippingFee) || 70.0,
+        rto_charge: Number(marketplaceConfig.rtoCharge) || 50.0,
+        gst_on_platform_fees_pct: Number(marketplaceConfig.gstRatePct) || 18.0,
+        settlement_delay_days: Number(marketplaceConfig.settlementDelayDays) || 7,
+        customer_return_window_days: Number(marketplaceConfig.returnWindowDays) || 7,
+        tiers: {
+          standard: {
+            commission_pct: Number(marketplaceConfig.globalCommissionPct) || 5.0,
+            settlement_delay_days: Number(marketplaceConfig.settlementDelayDays) || 7,
+          },
+          premium: {
+            commission_pct: Math.max(0, (Number(marketplaceConfig.globalCommissionPct) || 5.0) - (Number(marketplaceConfig.premiumCommissionDiscount) || 2.5)),
+            settlement_delay_days: Number(marketplaceConfig.premiumSettlementDelay) || 3,
+          }
+        }
+      };
+      await saveSettingToDb("marketplace_financial_rules", financialRules);
 
       // LocalStorage instant cache
       try {
@@ -646,6 +697,136 @@ export default function MarketplaceSettingsView() {
                       className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
                     />
                     <span className="text-[10px] text-slate-400">Base shipping & logistics cost allocated per parcel dispatch</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                      <span>Fixed Closing Fee (₹)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={marketplaceConfig.fixedFee}
+                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, fixedFee: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">Fixed marketplace closing fee charged per order item</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <Percent className="w-4 h-4 text-emerald-600" />
+                      <span>Payment Collection Fee (%)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.1"
+                      value={marketplaceConfig.collectionFeePct}
+                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, collectionFeePct: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">Payment gateway collection fee (Prepaid orders)</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-amber-500" />
+                      <span>Reverse Logistics Courier Fee (₹)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={marketplaceConfig.reverseShippingFee}
+                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, reverseShippingFee: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">Reverse courier fee charged on customer returns</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                      <span>RTO Handling Charge (₹)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={marketplaceConfig.rtoCharge}
+                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, rtoCharge: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">Courier penalty charge on Return to Origin</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <Percent className="w-4 h-4 text-indigo-500" />
+                      <span>Statutory GST on Fees (%)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={marketplaceConfig.gstRatePct}
+                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, gstRatePct: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">GST on Commission, Fixed fee, and Shipping service charges</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-purple-500" />
+                      <span>Settlement Escrow Delay (Days)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={marketplaceConfig.settlementDelayDays}
+                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, settlementDelayDays: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">Days after order delivery before payout becomes eligible</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <RotateCcw className="w-4 h-4 text-purple-500" />
+                      <span>Customer Return Window (Days)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={marketplaceConfig.returnWindowDays}
+                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, returnWindowDays: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">Window after delivery during which customer can initiate return</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-purple-500" />
+                      <span>Premium Tier Commission Discount (%)</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.5"
+                      value={marketplaceConfig.premiumCommissionDiscount}
+                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, premiumCommissionDiscount: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">Discount off standard commission for Premium Tier sellers</span>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2 flex flex-col justify-between">

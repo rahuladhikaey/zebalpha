@@ -173,7 +173,7 @@ export default function DashboardLayout({
     { name: "Orders",        href: "/dashboard/orders",        icon: Receipt },
     { name: "Return/RTO Orders", href: "/dashboard/returns",   icon: RotateCcw },
     { name: "Pickup Hubs",   href: "/dashboard/addresses",     icon: MapPin },
-    { name: "Settlements",   href: "/dashboard/payments",      icon: IndianRupee, badge: "Soon" },
+    { name: "Payments & Ledger", href: "/dashboard/payments",  icon: IndianRupee },
     { name: "Reports",       href: "/dashboard/reports",       icon: BarChart3 },
     { name: "Notifications", href: "/dashboard/notifications", icon: Bell },
     { name: "Settings",      href: "/dashboard/settings",      icon: Settings },

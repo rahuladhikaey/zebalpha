@@ -52,6 +52,22 @@ export default function SellerDashboard() {
   const [sellerProducts, setSellerProducts] = useState<Product[]>([]);
   const [lowStockCount, setLowStockCount] = useState(0);
 
+  // Financial Ledger live balances
+  const [ledgerBalances, setLedgerBalances] = useState({
+    gross_sales: 0,
+    commission: 0,
+    shipping_fees: 0,
+    fixed_fees: 0,
+    collection_fees: 0,
+    returns_and_refunds: 0,
+    total_platform_fees: 0,
+    net_seller_earnings: 0,
+    total_settled: 0,
+    available_balance: 0,
+    pending_settlement: 0,
+    on_hold_balance: 0
+  });
+
   // Filter controls state
   const [filterType, setFilterType] = useState<FilterType>("this_month");
   const [streamFilter, setStreamFilter] = useState<StreamFilterType>("all");
@@ -293,6 +309,14 @@ export default function SellerDashboard() {
         totalStandardUnits: totalStdUnits
       });
 
+      // 4. Fetch live financial ledger balances
+      try {
+        const payRes = await fetch("/api/payments").then(r => r.json());
+        if (payRes?.success && payRes.balances) {
+          setLedgerBalances(payRes.balances);
+        }
+      } catch (_) {}
+
     } catch (error) {
       console.error("Error fetching seller dashboard data:", error);
     } finally {
@@ -488,6 +512,42 @@ export default function SellerDashboard() {
       }
     };
   }, [allSellerOrders, filterType, streamFilter, selectedDate, selectedMonth, selectedYear, customStartDate, customEndDate]);
+
+  // Operational metrics aggregation
+  const opCounts = useMemo(() => {
+    let pending = 0;
+    let readyToShip = 0;
+    let shipped = 0;
+    let delivered = 0;
+    let cancelled = 0;
+    let returns = 0;
+    let rto = 0;
+
+    allSellerOrders.forEach(o => {
+      const st = String(o.order_status || "placed").toLowerCase();
+      const retSt = String(o.return_status || "").toLowerCase();
+
+      if (st === "placed" || st === "pending" || st === "processing") pending++;
+      else if (st === "ready_to_ship" || st === "confirmed" || st === "packed") readyToShip++;
+      else if (st === "shipped" || st === "in_transit" || st === "picked_up") shipped++;
+      else if (st === "delivered" || st === "completed") delivered++;
+      else if (st === "cancelled") cancelled++;
+
+      if (st.startsWith("return") || (retSt && retSt !== "none")) returns++;
+      if (st.startsWith("rto") || st.includes("rto")) rto++;
+    });
+
+    return {
+      total: allSellerOrders.length,
+      pending,
+      readyToShip,
+      shipped,
+      delivered,
+      cancelled,
+      returns,
+      rto
+    };
+  }, [allSellerOrders]);
 
   const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -711,6 +771,37 @@ export default function SellerDashboard() {
               <span>👕 Std: {fmt(quickKPIs.allTimeStandardRevenue)}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── SETTLEMENTS & ESCROW STATUS SNAPSHOT ── */}
+      <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 md:p-6 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <CheckCircle2 size={24} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Available For Settlement Payout</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-white mt-0.5">
+              ₹{Number(ledgerBalances.available_balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-zinc-400 font-medium mt-1">
+              Escrow Pending: ₹{Number(ledgerBalances.pending_settlement || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })} • Disputed Reserve: ₹{Number(ledgerBalances.on_hold_balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })} • Total Disbursed: ₹{Number(ledgerBalances.total_settled || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/payments"
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-black hover:bg-zinc-200 text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-lg shadow-white/10"
+          >
+            <span>View Ledger & Settlements</span>
+            <ArrowRight size={14} />
+          </Link>
         </div>
       </div>
 
@@ -959,62 +1050,162 @@ export default function SellerDashboard() {
         </div>
       </div>
 
-      {/* ── Operations Metric Cards ── */}
+      {/* ── Operations Command Center (12 Real Operational Cards) ── */}
       <div>
-        <div className="flex items-center gap-2 mb-4">
-          <Package size={16} className="text-primary" />
-          <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Operations Overview</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Package size={16} className="text-primary" />
+            <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Operations Overview</h2>
+          </div>
+          <span className="text-xs font-bold text-zinc-500">Click any card to inspect management queue</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
           {/* Total Orders */}
-          <div className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800">
+          <Link href="/dashboard/orders" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Total Orders</span>
-              <div className="h-8 w-8 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400">
+              <div className="h-8 w-8 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition">
                 <Receipt size={16} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black text-white">{quickKPIs.totalOrders}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">All Time</span>
-          </div>
+            <p className="mt-3 text-2xl font-black text-white">{opCounts.total}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">All Time Placed</span>
+          </Link>
 
           {/* Today's Orders */}
-          <div className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800">
+          <Link href="/dashboard/orders" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Today</span>
-              <div className="h-8 w-8 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400">
+              <div className="h-8 w-8 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400 group-hover:scale-110 transition">
                 <Clock size={16} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black text-white">{quickKPIs.todaysOrders}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Active Today</span>
-          </div>
+            <p className="mt-3 text-2xl font-black text-white">{quickKPIs.todaysOrders}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Active Checkouts</span>
+          </Link>
 
-          {/* Low Stock Warning */}
-          <div className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800">
+          {/* Pending Action */}
+          <Link href="/dashboard/orders?tab=pending" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Low Stock Alert</span>
-              <div className="h-8 w-8 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-400">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">Pending Action</span>
+              <div className="h-8 w-8 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-400 group-hover:scale-110 transition">
+                <Clock size={16} />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-black text-amber-400">{opCounts.pending}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Needs Confirmation</span>
+          </Link>
+
+          {/* Ready to Ship */}
+          <Link href="/dashboard/orders?tab=ready_to_ship" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Ready to Ship</span>
+              <div className="h-8 w-8 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition">
+                <Package size={16} />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-black text-emerald-400">{opCounts.readyToShip}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Manifest & Label Ready</span>
+          </Link>
+
+          {/* In Transit */}
+          <Link href="/dashboard/orders?tab=shipped" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">In Transit</span>
+              <div className="h-8 w-8 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition">
+                <Truck size={16} />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-black text-blue-400">{opCounts.shipped}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">With Courier Partner</span>
+          </Link>
+
+          {/* Delivered */}
+          <Link href="/dashboard/orders?tab=delivered" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Delivered</span>
+              <div className="h-8 w-8 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition">
+                <CheckCircle2 size={16} />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-black text-white">{opCounts.delivered}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Completed Orders</span>
+          </Link>
+
+          {/* Cancelled */}
+          <Link href="/dashboard/orders?tab=cancelled" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Cancelled</span>
+              <div className="h-8 w-8 rounded-2xl bg-zinc-900 flex items-center justify-center text-zinc-400 group-hover:scale-110 transition">
                 <AlertTriangle size={16} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black text-rose-400">{lowStockCount}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Need Restock</span>
-          </div>
+            <p className="mt-3 text-2xl font-black text-zinc-400">{opCounts.cancelled}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Customer/Seller Cancel</span>
+          </Link>
 
-          {/* Products Listed */}
-          <div className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800">
+          {/* Returns & RTO */}
+          <Link href="/dashboard/returns" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Active Products</span>
-              <div className="h-8 w-8 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+              <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">Returns & RTO</span>
+              <div className="h-8 w-8 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:scale-110 transition">
+                <AlertTriangle size={16} />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-black text-rose-400">{opCounts.returns + opCounts.rto}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Reverse Logistics & QC</span>
+          </Link>
+
+          {/* Low Stock Warning */}
+          <Link href="/dashboard/inventory" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">Low Stock Alert</span>
+              <div className="h-8 w-8 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-400 group-hover:scale-110 transition">
+                <AlertTriangle size={16} />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-black text-amber-400">{lowStockCount}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Requires Replenishment</span>
+          </Link>
+
+          {/* Active Products Listed */}
+          <Link href="/dashboard/products" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Active Products</span>
+              <div className="h-8 w-8 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition">
                 <Boxes size={16} />
               </div>
             </div>
-            <p className="mt-4 text-2xl font-black text-white">{sellerProducts.length}</p>
+            <p className="mt-3 text-2xl font-black text-white">{sellerProducts.length}</p>
             <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">
               {sellerProducts.filter(p => p.is_premium).length} 💎 Premium Items
             </span>
-          </div>
+          </Link>
+
+          {/* Settlements Hub */}
+          <Link href="/dashboard/payments" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Available Payout</span>
+              <div className="h-8 w-8 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition">
+                <IndianRupee size={16} />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-black text-emerald-400">₹{Number(ledgerBalances.available_balance || 0).toLocaleString("en-IN")}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Ready For Payout</span>
+          </Link>
+
+          {/* Reports Center */}
+          <Link href="/dashboard/reports" className="rounded-3xl bg-zinc-950 p-5 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition group">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Reports Center</span>
+              <div className="h-8 w-8 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400 group-hover:scale-110 transition">
+                <BarChart3 size={16} />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-black text-white">Exports</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">Ledger, P&L, Sales</span>
+          </Link>
         </div>
       </div>
     </div>
