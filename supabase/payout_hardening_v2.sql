@@ -54,8 +54,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_webhook_events_event_id ON public.webhook_e
 CREATE INDEX IF NOT EXISTS idx_webhook_events_queue ON public.webhook_events(status, received_at);
 
 -- Ledger columns used by withdrawal entries
+ALTER TABLE public.seller_financial_ledger ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR' NOT NULL;
 ALTER TABLE public.seller_financial_ledger ADD COLUMN IF NOT EXISTS balance_before NUMERIC(12, 2) DEFAULT 0.00;
+ALTER TABLE public.seller_financial_ledger ADD COLUMN IF NOT EXISTS balance_after NUMERIC(12, 2) DEFAULT 0.00;
+ALTER TABLE public.seller_financial_ledger ADD COLUMN IF NOT EXISTS reference_id VARCHAR(100);
 ALTER TABLE public.seller_financial_ledger ADD COLUMN IF NOT EXISTS reference_type VARCHAR(50);
+ALTER TABLE public.seller_financial_ledger ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(150);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uq_ledger_idempotency'
+    ) THEN
+        ALTER TABLE public.seller_financial_ledger ADD CONSTRAINT uq_ledger_idempotency UNIQUE (idempotency_key);
+    END IF;
+END $$;
 
 -- ------------------------------------------------------------------------------
 -- 2. APPEND-ONLY HISTORY TABLES
