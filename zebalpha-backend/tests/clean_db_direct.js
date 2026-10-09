@@ -28,11 +28,7 @@ async function cleanDbDirect() {
       DELETE FROM public.payout_events 
       WHERE payout_request_id IN (
         SELECT id FROM public.seller_payout_requests 
-        WHERE payout_number LIKE 'WTH-TEST-%' 
-           OR payout_number LIKE 'WTH-AUDIT-%' 
-           OR payout_number LIKE 'WTH-FAIL-%' 
-           OR payout_number LIKE 'WTH-REV-%' 
-           OR payout_number LIKE 'WTH-OVERDRAW-%'
+        WHERE payout_number LIKE 'WTH-%'
       );
     `);
     console.log("Deleted payout events:", resEvents.rowCount);
@@ -40,22 +36,14 @@ async function cleanDbDirect() {
     // 2. Delete test payout queue jobs
     const resQueue = await client.query(`
       DELETE FROM public.payout_queue 
-      WHERE payout_number LIKE 'WTH-TEST-%' 
-         OR payout_number LIKE 'WTH-AUDIT-%' 
-         OR payout_number LIKE 'WTH-FAIL-%' 
-         OR payout_number LIKE 'WTH-REV-%' 
-         OR payout_number LIKE 'WTH-OVERDRAW-%';
+      WHERE payout_number LIKE 'WTH-%';
     `);
     console.log("Deleted payout queue jobs:", resQueue.rowCount);
 
     // 3. Delete test payout requests
     const resPayouts = await client.query(`
       DELETE FROM public.seller_payout_requests 
-      WHERE payout_number LIKE 'WTH-TEST-%' 
-         OR payout_number LIKE 'WTH-AUDIT-%' 
-         OR payout_number LIKE 'WTH-FAIL-%' 
-         OR payout_number LIKE 'WTH-REV-%' 
-         OR payout_number LIKE 'WTH-OVERDRAW-%'
+      WHERE payout_number LIKE 'WTH-%'
          OR idempotency_key LIKE 'audit_test_%'
          OR idempotency_key LIKE 'test_math_%'
          OR idempotency_key LIKE 'test_overdraw_%'
@@ -63,21 +51,14 @@ async function cleanDbDirect() {
     `);
     console.log("Deleted seller payout requests:", resPayouts.rowCount);
 
-    // 4. Delete test ledger entries (including working capital test deposits)
+    // 4. Delete test ledger entries (including working capital test deposits and withdrawal requests)
     const resLedger = await client.query(`
       DELETE FROM public.seller_financial_ledger 
-      WHERE reference_id LIKE 'WTH-TEST-%' 
-         OR reference_id LIKE 'WTH-AUDIT-%' 
-         OR reference_id LIKE 'WTH-FAIL-%' 
-         OR reference_id LIKE 'WTH-REV-%' 
-         OR reference_id LIKE 'WTH-OVERDRAW-%'
+      WHERE reference_id LIKE 'WTH-%'
+         OR transaction_type LIKE 'WITHDRAWAL_%'
          OR reference_id = 'DEP-100000-ZEBALPHA'
          OR reference_id = 'REF-TEST-PAYOUT-100000'
-         OR idempotency_key LIKE 'LEDGER_RES_test_%'
-         OR idempotency_key LIKE 'LEDGER_SUCC_test_%'
-         OR idempotency_key LIKE 'LEDGER_FAIL_test_%'
-         OR idempotency_key LIKE 'LEDGER_REV_test_%'
-         OR idempotency_key LIKE 'LEDGER_RES_audit_%'
+         OR idempotency_key LIKE 'LEDGER_%'
          OR description LIKE '%Audit Test%'
          OR description LIKE '%working capital%';
     `);
