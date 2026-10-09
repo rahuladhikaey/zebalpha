@@ -17,6 +17,7 @@ import settlementRoutes from './settlementRoutes.js';
 import virtualTryOnRoutes from './virtualTryOnRoutes.js';
 import pickupAddressRoutes from './pickupAddressRoutes.js';
 import financeConfigRoutes from './financeConfigRoutes.js';
+import cacheRoutes from './cacheRoutes.js';
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use('/checkout', checkoutRoutes);
 router.use('/settlements', settlementRoutes);
 router.use('/finance', financeConfigRoutes);
 router.use('/virtual-try-on', virtualTryOnRoutes);
+router.use('/cache', cacheRoutes);
 
 export default router;

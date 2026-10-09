@@ -281,8 +281,12 @@ export async function POST(req: NextRequest) {
       }
     } catch (_) {}
 
-    // Invalidate customer storefront cache
+    // Invalidate customer storefront cache & L2 Redis caches
     await invalidateStorefrontCache();
+    try {
+      const { triggerCacheInvalidation } = await import("@shared/utils/cacheInvalidator");
+      await triggerCacheInvalidation({ target: "product", id: savedProduct.id, categoryId: savedProduct.category_id });
+    } catch (_) {}
 
     return NextResponse.json({
       success: true,
@@ -430,8 +434,12 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Invalidate customer storefront cache
+    // Invalidate customer storefront cache & L2 Redis caches
     await invalidateStorefrontCache();
+    try {
+      const { triggerCacheInvalidation } = await import("@shared/utils/cacheInvalidator");
+      await triggerCacheInvalidation({ target: "product", id: targetId, categoryId: updatedProduct?.category_id });
+    } catch (_) {}
 
     return NextResponse.json({
       success: true,
@@ -483,6 +491,87 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, message: error.message || "Error fetching products." },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/products — Delete or deactivate a product
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const productId = searchParams.get("id") || searchParams.get("productId");
+
+    if (!productId) {
+      return NextResponse.json(
+        { success: false, message: "Product ID is required." },
+        { status: 400 }
+      );
+    }
+
+    const { data: seller } = await supabaseServer
+      .from("sellers")
+      .select("id")
+      .or(`user_id.eq.${user.id},id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
+      .maybeSingle();
+
+    const allowedSellerIds = [user.id, seller?.id].filter(Boolean) as string[];
+
+    // Verify existence & ownership
+    const { data: existing } = await supabaseServer
+      .from("products")
+      .select("id, seller_id, category_id")
+      .eq("id", productId)
+      .maybeSingle();
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, message: "Product not found." },
+        { status: 404 }
+      );
+    }
+
+    if (existing.seller_id && !allowedSellerIds.includes(existing.seller_id)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: You cannot delete products belonging to another merchant." },
+        { status: 403 }
+      );
+    }
+
+    // Mark as inactive / soft-delete in DB
+    const { error: delError } = await supabaseServer
+      .from("products")
+      .update({ is_active: false, status: "DELETED", updated_at: new Date().toISOString() })
+      .eq("id", productId);
+
+    if (delError) {
+      // Hard delete fallback if soft delete constraint fails
+      await supabaseServer.from("products").delete().eq("id", productId);
+    }
+
+    // Invalidate customer storefront cache & L2 Redis caches
+    await invalidateStorefrontCache();
+    try {
+      const { triggerCacheInvalidation } = await import("@shared/utils/cacheInvalidator");
+      await triggerCacheInvalidation({ target: "product", id: productId, categoryId: existing.category_id });
+    } catch (_) {}
+
+    return NextResponse.json({
+      success: true,
+      message: "Product removed successfully.",
+    });
+  } catch (error: any) {
+    console.error("DELETE /api/products exception:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Internal server error." },
       { status: 500 }
     );
   }

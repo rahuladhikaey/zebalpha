@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { triggerCacheInvalidation } from "@shared/utils/cacheInvalidator";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  "Pragma": "no-cache",
+  "Expires": "0",
+};
 
 // GET /api/admin/sellers
 export async function GET(req: Request) {
   try {
     const adminSession = req.headers.get("cookie")?.includes("admin_session");
     if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await supabaseServer
@@ -16,13 +26,13 @@ export async function GET(req: Request) {
 
     if (error) {
       console.warn("Sellers fetch notice from DB:", error.message);
-      return NextResponse.json({ success: true, data: [] });
+      return NextResponse.json({ success: true, data: [] }, { headers: NO_STORE_HEADERS });
     }
 
-    return NextResponse.json({ success: true, data: data || [] });
+    return NextResponse.json({ success: true, data: data || [] }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     console.error("GET sellers API error:", error);
-    return NextResponse.json({ success: true, data: [] });
+    return NextResponse.json({ success: true, data: [] }, { headers: NO_STORE_HEADERS });
   }
 }
 
@@ -42,7 +52,12 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, data: data?.[0] });
+    const newSeller = data?.[0];
+    if (newSeller?.id) {
+      await triggerCacheInvalidation({ target: "seller", sellerId: newSeller.id });
+    }
+
+    return NextResponse.json({ success: true, data: newSeller });
   } catch (error: any) {
     console.error("POST seller API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
@@ -72,6 +87,8 @@ export async function PUT(req: Request) {
 
     if (error) throw error;
 
+    await triggerCacheInvalidation({ target: "seller", sellerId: id });
+
     return NextResponse.json({ success: true, data: data?.[0] });
   } catch (error: any) {
     console.error("PUT seller API error:", error);
@@ -100,6 +117,8 @@ export async function DELETE(req: Request) {
       .eq("id", id);
 
     if (error) throw error;
+
+    await triggerCacheInvalidation({ target: "seller_lifecycle", sellerId: id });
 
     return NextResponse.json({ success: true, message: "Seller deleted successfully" });
   } catch (error: any) {

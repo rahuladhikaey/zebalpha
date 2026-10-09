@@ -2,6 +2,12 @@
 
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
+function RealtimeSyncSubscriber() {
+  useRealtimeSync();
+  return null;
+}
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -9,16 +15,20 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // L1 Browser Cache Rules (Section 8)
-            staleTime: 5 * 60 * 1000, // 5 minutes before considering data stale
-            gcTime: 30 * 60 * 1000, // 30 minutes in garbage collection cache
-            refetchOnWindowFocus: false, // Prevent background refetches when user switches browser tabs
-            refetchOnReconnect: false, // Prevent jarring refetches on reconnect
+            staleTime: 30 * 1000, // 30 seconds fresh L1 cache (invalidated instantly by Realtime on DB mutations)
+            gcTime: 10 * 60 * 1000, // 10 minutes garbage collection retention
+            refetchOnWindowFocus: false, // Prevent unwanted focus refetches
+            refetchOnReconnect: true, // Reconcile authoritative state automatically upon network reconnect
             retry: 1, // Single retry on transient network error
           },
         },
       })
   );
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RealtimeSyncSubscriber />
+      {children}
+    </QueryClientProvider>
+  );
 }

@@ -257,8 +257,8 @@ export function usePaginatedProducts(params: PaginatedProductsParams) {
   return useQuery<PaginatedProductsResponse>({
     queryKey: ['products', normalizedParams],
     queryFn: () => fetchPaginatedProducts(normalizedParams),
-    staleTime: 5 * 60 * 1000, // 5 minutes fresh L1 cache
-    gcTime: 30 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 seconds L1 cache (invalidated instantly by Realtime on DB mutations)
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -289,8 +289,8 @@ export function useProducts(params?: {
       if (res.error) throw new Error(res.error);
       return res.data;
     },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
+    staleTime: 30 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -307,8 +307,8 @@ export function useProductDetail(productId: string | number) {
       return res.data;
     },
     enabled: !!productId,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
+    staleTime: 30 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
