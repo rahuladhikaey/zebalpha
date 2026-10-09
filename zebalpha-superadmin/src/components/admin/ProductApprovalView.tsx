@@ -83,15 +83,43 @@ export default function ProductApprovalView({
       const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, thumbnail_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, specifications, created_at";
       const SLIM_SELLER_FIELDS = "id, user_id, seller_id, seller_code, business_name, shop_name, name, full_name, owner_name";
 
-      const [{ data: productsData, error: prodErr }, { data: sellersData }] = await Promise.all([
-        supabase.from("products").select(SLIM_ADMIN_FIELDS).order("created_at", { ascending: false }),
-        supabase.from("sellers").select(SLIM_SELLER_FIELDS)
-      ]);
+      let productsList: any[] = [];
+      try {
+        const res = await fetch("/api/admin/products");
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          productsList = json.data;
+        }
+      } catch (apiErr) {
+        console.warn("Notice fetching admin products API, trying direct DB:", apiErr);
+      }
 
-      if (prodErr) throw prodErr;
+      if (productsList.length === 0) {
+        const { data: dbProducts, error: prodErr } = await supabase
+          .from("products")
+          .select(SLIM_ADMIN_FIELDS)
+          .order("created_at", { ascending: false });
+        if (!prodErr && dbProducts) {
+          productsList = dbProducts;
+        }
+      }
 
-      setSellersMap(buildSellersMap(sellersData));
-      setProducts(productsData || []);
+      let sellersList: any[] = [];
+      try {
+        const sRes = await fetch("/api/admin/sellers");
+        const sJson = await sRes.json();
+        if (sJson.success && Array.isArray(sJson.data)) {
+          sellersList = sJson.data;
+        }
+      } catch (_) {}
+
+      if (sellersList.length === 0) {
+        const { data: dbSellers } = await supabase.from("sellers").select(SLIM_SELLER_FIELDS);
+        if (dbSellers) sellersList = dbSellers;
+      }
+
+      setSellersMap(buildSellersMap(sellersList));
+      setProducts(productsList);
     } catch (e: any) {
       console.error("Error loading products:", e);
     } finally {
@@ -100,23 +128,36 @@ export default function ProductApprovalView({
   };
 
   useEffect(() => {
-    if (!initialProducts || !initialSellers) {
-      loadProducts();
-    }
-  }, [initialProducts, initialSellers]);
+    loadProducts();
+  }, []);
 
   const handleUpdateProductStatus = async (productId: string | number, updates: any) => {
     setActioningId(productId);
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .update(updates)
-        .eq("id", productId)
-        .select();
+      let updatedObj: any = null;
+      try {
+        const res = await fetch("/api/admin/products", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: productId, ...updates }),
+        });
+        const json = await res.json();
+        if (json.success && json.data) {
+          updatedObj = json.data;
+        }
+      } catch (_) {}
 
-      if (error) throw error;
+      if (!updatedObj) {
+        const { data, error } = await supabase
+          .from("products")
+          .update(updates)
+          .eq("id", productId)
+          .select();
 
-      const updatedObj = data?.[0] || { ...products.find(p => p.id === productId), ...updates };
+        if (error) throw error;
+        updatedObj = data?.[0] || { ...products.find(p => p.id === productId), ...updates };
+      }
+
       setProducts(products.map(p => p.id === productId ? updatedObj : p));
       if (selectedProduct?.id === productId) {
         setSelectedProduct(updatedObj);
@@ -138,8 +179,19 @@ export default function ProductApprovalView({
 
     setActioningId(productId);
     try {
-      const { error } = await supabase.from("products").delete().eq("id", productId);
-      if (error) throw error;
+      let deletedSuccess = false;
+      try {
+        const res = await fetch(`/api/admin/products?id=${productId}`, {
+          method: "DELETE",
+        });
+        const json = await res.json();
+        if (json.success) deletedSuccess = true;
+      } catch (_) {}
+
+      if (!deletedSuccess) {
+        const { error } = await supabase.from("products").delete().eq("id", productId);
+        if (error) throw error;
+      }
 
       setProducts(products.filter(p => p.id !== productId));
       if (selectedProduct?.id === productId) setSelectedProduct(null);

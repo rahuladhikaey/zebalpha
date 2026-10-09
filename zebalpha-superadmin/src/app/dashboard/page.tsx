@@ -82,6 +82,9 @@ export default function AdminPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("admin_active_tab", newTab);
     }
+    if (newTab === "products" || newTab === "sellers" || newTab === "dashboard" || newTab === "inventory") {
+      fetchData(false);
+    }
   };
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -106,10 +109,22 @@ export default function AdminPage() {
         }
       } catch (_) {}
 
-      const SLIM_DASHBOARD_PRODUCT_FIELDS = "id, name, brand, price, mrp, stock, low_stock_limit, status, is_premium, tier, is_new_drop, collection, target_drop_date, is_active, is_approved, approval_status, category_id, category, seller_id, created_at, image_url, thumbnail_url";
+      let productsData: any[] = [];
+      try {
+        const pFetch = await fetch("/api/admin/products");
+        const pJson = await pFetch.json();
+        if (pJson.success && Array.isArray(pJson.data)) {
+          productsData = pJson.data;
+        }
+      } catch (_) {}
 
-      const [pRes, cRes, oRes] = await Promise.all([
-        supabase.from("products").select(SLIM_DASHBOARD_PRODUCT_FIELDS).order("created_at", { ascending: false }),
+      if (productsData.length === 0) {
+        const SLIM_DASHBOARD_PRODUCT_FIELDS = "id, name, brand, price, mrp, stock, low_stock_limit, status, is_premium, tier, is_new_drop, collection, target_drop_date, is_active, is_approved, approval_status, category_id, category, seller_id, created_at, image_url, thumbnail_url";
+        const { data: directProds } = await supabase.from("products").select(SLIM_DASHBOARD_PRODUCT_FIELDS).order("created_at", { ascending: false });
+        if (directProds) productsData = directProds;
+      }
+
+      const [cRes, oRes] = await Promise.all([
         supabase.from("categories").select("*").order("name"),
         fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] }))
       ]);
@@ -133,8 +148,7 @@ export default function AdminPage() {
       });
 
       setOrders(deduplicatedOrders);
-
-      setProducts((pRes.data as any) || []);
+      setProducts(productsData || []);
       setCategories(cRes.data || []);
       setSellers(sellersData);
     } catch (e) {
