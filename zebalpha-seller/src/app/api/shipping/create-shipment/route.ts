@@ -336,12 +336,11 @@ export async function POST(req: Request) {
     }
 
     if (!liveSynced) {
-      // Local Fallback AWB generation when Shiprocket live credentials are not active/configured
-      awbNumber = `AWB-ZEB-${order.order_number || String(order.id).slice(0, 8).toUpperCase()}`;
-      courierName = preferredCourier || "Delhivery Surface";
-      shipmentId = `LOCAL-${String(order.id).slice(0, 8).toUpperCase()}`;
-      routingHub = "ZEB-DISPATCH-HUB-01";
-      labelUrl = `/api/orders/label?id=${order.id}`;
+      return NextResponse.json({
+        success: false,
+        liveSynced: false,
+        message: shiprocketError || "Could not push order to Shiprocket Live. Please verify SHIPROCKET_EMAIL & SHIPROCKET_PASSWORD in environment variables.",
+      }, { status: 400 });
     }
 
     const dispatchSla = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();

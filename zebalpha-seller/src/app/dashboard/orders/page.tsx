@@ -343,8 +343,8 @@ export default function SellerOrders() {
           shipping_label_url: resData.labelUrl || target.shipping_label_url,
         });
       } else {
-        // Fallback: transition state directly to confirmed/processing
-        await handleUpdateOrderStatus(orderId, "confirmed");
+        alert(`⚠️ Shiprocket Push Failed:\n\n${resData?.message || "Could not push order to Shiprocket. Please check your SHIPROCKET_EMAIL & SHIPROCKET_PASSWORD environment variables."}`);
+        setStatusMessage(`⚠️ Shiprocket Push Error: ${resData?.message || "Failed"}`);
       }
     } catch (err: any) {
       setStatusMessage(`Error: ${err.message}`);
