@@ -869,37 +869,12 @@ export default function OrderManagementView({
           </div>
         )}
 
-        {/* Bulk Action Bar */}
+        {/* Selected Orders Indicator */}
         {selectedOrderIds.length > 0 && (
-          <div className="p-3.5 rounded-2xl bg-purple-950/60 border border-purple-800/80 flex items-center justify-between gap-4 animate-in fade-in">
-            <span className="text-xs font-black text-purple-200">
+          <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/60 flex items-center justify-between gap-4 animate-in fade-in">
+            <span className="text-xs font-black text-purple-300">
               {selectedOrderIds.length} Order{selectedOrderIds.length > 1 ? "s" : ""} Selected
             </span>
-
-            <div className="flex items-center gap-3">
-              <select
-                value={bulkAction}
-                onChange={(e) => setBulkAction(e.target.value)}
-                className="bg-zinc-900 border border-purple-700/60 rounded-xl px-4 py-2 text-xs font-bold text-white outline-none"
-              >
-                <option value="">Select Bulk Action</option>
-                <option value="assign_courier">Assign Courier & Ready to Ship</option>
-                <option value="request_pickup">Schedule Bulk Pickup</option>
-                <option value="generate_label">Download Shipping Labels (PDF)</option>
-                <option value="hold">Put On Hold</option>
-                <option value="release_hold">Release From Hold</option>
-                <option value="cancel">Cancel Selected Orders</option>
-                <option value="delete">Delete Selected Orders (Permanent)</option>
-              </select>
-
-              <button
-                onClick={handleExecuteBulkAction}
-                disabled={!bulkAction || executingBulkAction}
-                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black shadow-lg shadow-purple-600/30 cursor-pointer disabled:opacity-50"
-              >
-                {executingBulkAction ? "Executing..." : "Apply Bulk Action"}
-              </button>
-            </div>
           </div>
         )}
       </div>
@@ -1063,38 +1038,13 @@ export default function OrderManagementView({
                         </span>
                       </td>
 
-                      {/* Action */}
-                      <td className="p-4 text-right pr-6 space-x-2">
+                      {/* Action - Admin read-only view */}
+                      <td className="p-4 text-right pr-6">
                         <button
                           onClick={() => setSelectedOrder(ord)}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white text-[11px] font-bold transition-all cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
                         >
                           View Details
-                        </button>
-
-                        {!ord.tracking_number ? (
-                          <button
-                            onClick={() => handleUpdateOrderStatus(ord.id, "ready_to_ship")}
-                            className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-black transition-all cursor-pointer"
-                          >
-                            Assign Courier
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handlePushShiprocket(ord.id)}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black transition-all cursor-pointer"
-                          >
-                            Download Label
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => handleDeleteOrder(ord.id)}
-                          title="Delete Order"
-                          className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-bold transition-all cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete</span>
                         </button>
                       </td>
                     </tr>
@@ -1192,33 +1142,20 @@ export default function OrderManagementView({
 
               {/* Courier & AWB section */}
               <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-800/40 space-y-2">
-                <span className="text-[10px] font-black uppercase text-purple-400">Logistics Tracking</span>
+                <span className="text-[10px] font-black uppercase text-purple-400">Logistics Tracking Statement</span>
                 <div className="flex items-center justify-between text-white">
                   <div>
                     <p className="font-mono text-sm font-black">{selectedOrder.tracking_number || "AWB Not Generated"}</p>
-                    <p className="text-zinc-400 text-[11px]">{selectedOrder.courier_name || "Delhivery Surface"}</p>
+                    <p className="text-zinc-400 text-[11px]">{selectedOrder.courier_name || "Courier Pending Assignment"}</p>
                   </div>
-                  <button
-                    onClick={() => handlePushShiprocket(selectedOrder.id)}
-                    disabled={pushingShiprocket}
-                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black transition-all cursor-pointer"
-                  >
-                    {pushingShiprocket ? "Syncing..." : "Sync Shiprocket"}
-                  </button>
+                  <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    {selectedOrder.order_status || "placed"}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-zinc-800 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => handleDeleteOrder(selectedOrder.id)}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 text-xs font-black transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete Order</span>
-              </button>
-
+            <div className="pt-4 border-t border-zinc-800 flex items-center justify-end">
               <button
                 onClick={() => setSelectedOrder(null)}
                 className="px-6 py-2.5 rounded-xl bg-white text-black text-xs font-black hover:bg-zinc-200 transition-all cursor-pointer"
