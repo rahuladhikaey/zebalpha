@@ -423,6 +423,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         isMeasurementsEnabled={formData.is_measurements_enabled ?? true}
         styleCode={formData.style_code}
         subcategoryName={formData.subcategory_name}
+        categoryName={selectedMainCat}
         defaultPrice={formData.price}
         defaultMrp={formData.mrp}
         onSizesChange={(newSizes) => onChange({ selected_sizes: newSizes })}

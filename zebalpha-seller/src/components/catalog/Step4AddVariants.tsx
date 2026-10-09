@@ -85,6 +85,7 @@ export const PRESET_COLORS = [
 
 const PRESET_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "Free Size"];
 const PRESET_WAIST_SIZES = ["28", "30", "32", "34", "36", "38", "40", "42"];
+const PRESET_KIDS_SIZES = ["0-6M", "6-12M", "1-2Y", "2-3Y", "3-4Y", "4-5Y", "5-6Y", "6-7Y", "7-8Y", "9-10Y", "11-12Y", "13-14Y"];
 
 const SIZE_CHART_TEMPLATES: Record<string, { columns: string[]; notes: string }> = {
   "Shirts & T-Shirts": {
@@ -103,6 +104,10 @@ const SIZE_CHART_TEMPLATES: Record<string, { columns: string[]; notes: string }>
     columns: ["Bust", "Waist", "Hip", "Length", "Shoulder"],
     notes: "Contemporary tailored fit. Measure around the fullest part of bust and hips.",
   },
+  "Kids & Infants": {
+    columns: ["Chest", "Length", "Shoulder", "Waist"],
+    notes: "All measurements are garment dimensions in inches. Standard kids age-based size chart.",
+  },
 };
 
 export default function Step4AddVariants({ formData, onChange }: Step4Props) {
@@ -113,7 +118,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
 
   // Reusable Size Master (Req #12)
   const [sizeMaster, setSizeMaster] = useState<string[]>(() => {
-    const base = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "Free Size", "28", "30", "32", "34", "36", "38", "40", "42"];
+    const base = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "Free Size", "28", "30", "32", "34", "36", "38", "40", "42", ...PRESET_KIDS_SIZES];
     const existing = new Set<string>(base);
     (formData.variants || []).forEach((v) => {
       if (v.size) existing.add(v.size.trim());

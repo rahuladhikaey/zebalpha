@@ -37,6 +37,7 @@ export interface SizeSpecificDetailsSectionProps {
   subcategoryName?: string;
   defaultPrice?: string;
   defaultMrp?: string;
+  categoryName?: string;
   onSizesChange: (newSizes: string[]) => void;
   onSizeDetailsChange: (newDetails: SizeVariantDetail[]) => void;
   onSizeMeasurementsChange: (newMeasurements: SizeMeasurementDetail[]) => void;
@@ -56,6 +57,7 @@ export default function SizeSpecificDetailsSection({
   isMeasurementsEnabled = true,
   styleCode = "",
   subcategoryName = "",
+  categoryName = "",
   defaultPrice = "",
   defaultMrp = "",
   onSizesChange,
@@ -69,8 +71,31 @@ export default function SizeSpecificDetailsSection({
 
   // Determine measurement category type based on subcategory name
   const subLower = (subcategoryName || "").toLowerCase();
+  const catLower = (categoryName || "").toLowerCase();
   const isLowerBody = subLower.includes("jean") || subLower.includes("trouser") || subLower.includes("pant") || subLower.includes("cargo") || subLower.includes("short") || subLower.includes("jogger") || subLower.includes("legging");
   const isDress = subLower.includes("dress") || subLower.includes("jumpsuit") || subLower.includes("gown") || subLower.includes("saree");
+
+  // Auto-switch size tab when Kids category is selected
+  React.useEffect(() => {
+    const isKids =
+      subLower.includes("kid") ||
+      subLower.includes("boy") ||
+      subLower.includes("girl") ||
+      subLower.includes("baby") ||
+      subLower.includes("infant") ||
+      subLower.includes("child") ||
+      catLower.includes("kid") ||
+      catLower.includes("boy") ||
+      catLower.includes("girl") ||
+      catLower.includes("baby") ||
+      catLower === "kids";
+
+    if (isKids) {
+      setSizeGroupTab("kids");
+    } else if (isLowerBody) {
+      setSizeGroupTab("waist");
+    }
+  }, [subcategoryName, categoryName, subLower, catLower, isLowerBody]);
 
   const showFeedback = (msg: string) => {
     setCopyFeedback(msg);
