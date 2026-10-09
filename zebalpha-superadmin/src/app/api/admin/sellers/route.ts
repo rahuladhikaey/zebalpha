@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
-import { triggerCacheInvalidation } from "@shared/utils/cacheInvalidator";
+import { triggerCacheInvalidation } from "@/shared/utils/cacheInvalidator";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

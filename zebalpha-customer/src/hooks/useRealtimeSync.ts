@@ -26,14 +26,17 @@ export function useRealtimeSync() {
           if (now - lastEventRef.current < 100) return;
           lastEventRef.current = now;
 
-          console.log('[Realtime Sync] Product mutation detected:', payload.eventType, payload.new?.id || payload.old?.id);
+          const newRecord = payload.new as Record<string, any> | undefined;
+          const oldRecord = payload.old as Record<string, any> | undefined;
+          const targetId = newRecord?.id || oldRecord?.id;
+
+          console.log('[Realtime Sync] Product mutation detected:', payload.eventType, targetId);
 
           // Invalidate list & search queries
           queryClient.invalidateQueries({ queryKey: ['products'] });
           queryClient.invalidateQueries({ queryKey: ['search'] });
 
           // Invalidate single product detail if ID is available
-          const targetId = payload.new?.id || payload.old?.id;
           if (targetId) {
             queryClient.invalidateQueries({ queryKey: ['product', String(targetId)] });
             queryClient.removeQueries({ queryKey: ['product', String(targetId)], exact: true });

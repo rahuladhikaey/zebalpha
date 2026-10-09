@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer, createSupabaseServerClient } from "@/shared/utils/supabaseServer";
+import { triggerCacheInvalidation } from "@/shared/utils/cacheInvalidator";
 
 // Helper to authenticate user from cookies or Authorization Bearer header
 async function getAuthenticatedUser(req: NextRequest) {
@@ -284,7 +285,6 @@ export async function POST(req: NextRequest) {
     // Invalidate customer storefront cache & L2 Redis caches
     await invalidateStorefrontCache();
     try {
-      const { triggerCacheInvalidation } = await import("@shared/utils/cacheInvalidator");
       await triggerCacheInvalidation({ target: "product", id: savedProduct.id, categoryId: savedProduct.category_id });
     } catch (_) {}
 
@@ -437,7 +437,6 @@ export async function PUT(req: NextRequest) {
     // Invalidate customer storefront cache & L2 Redis caches
     await invalidateStorefrontCache();
     try {
-      const { triggerCacheInvalidation } = await import("@shared/utils/cacheInvalidator");
       await triggerCacheInvalidation({ target: "product", id: targetId, categoryId: updatedProduct?.category_id });
     } catch (_) {}
 
@@ -560,7 +559,6 @@ export async function DELETE(req: NextRequest) {
     // Invalidate customer storefront cache & L2 Redis caches
     await invalidateStorefrontCache();
     try {
-      const { triggerCacheInvalidation } = await import("@shared/utils/cacheInvalidator");
       await triggerCacheInvalidation({ target: "product", id: productId, categoryId: existing.category_id });
     } catch (_) {}
 
