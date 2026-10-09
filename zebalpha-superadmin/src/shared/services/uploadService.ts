@@ -127,7 +127,7 @@ export async function uploadToSupabaseBucket(
     const { blob, contentType, ext } = await compressImageTo100KB(fileOrBase64, 100 * 1024);
 
     const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const fileName = customFileName || `product_${uniqueId}.${ext}`;
+    const fileName = customFileName || `catalog/product_${uniqueId}.${ext}`;
     const filePath = fileName;
 
     // Upload directly to Supabase Storage Bucket
