@@ -128,6 +128,7 @@ export async function POST(req: Request) {
 
       const response = NextResponse.json({
         success: true,
+        token: token,
         message: "Two-Factor Authentication successful. Authorized as SUPER_ADMIN."
       });
 

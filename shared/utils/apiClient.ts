@@ -21,7 +21,7 @@ interface ApiResponse<T = any> {
 
 const getStoredToken = (type: 'access' | 'refresh'): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(`zebalpha_${type}_token`);
+  return localStorage.getItem(`zebalpha_${type}_token`) || localStorage.getItem('admin_token') || localStorage.getItem('token');
 };
 
 const setStoredToken = (type: 'access' | 'refresh', token: string) => {

@@ -29,6 +29,10 @@ export default function AdminLoginPage() {
 			});
 			const data = await res.json();
 			if (res.ok && data.success) {
+				if (data.token) {
+					localStorage.setItem("zebalpha_access_token", data.token);
+					localStorage.setItem("admin_token", data.token);
+				}
 				window.location.href = "/dashboard";
 			} else {
 				setAuthError(data.message || "Invalid administrative security factors.");

@@ -90,10 +90,11 @@ export default function PlatformFeeConfig() {
 
       if (versionsRes?.success && Array.isArray(versionsRes.data)) {
         setVersions(versionsRes.data);
+      } else if (versionsRes?.error && (versionsRes.error.includes("Bearer token") || versionsRes.error.includes("Authentication required"))) {
+        console.warn("Version history requires admin Bearer token:", versionsRes.error);
       }
     } catch (err: any) {
       console.error("Failed to load platform finance configs:", err);
-      setActionMsg({ text: err.message || "Failed to load finance configurations", type: "error" });
     } finally {
       setLoading(false);
     }
