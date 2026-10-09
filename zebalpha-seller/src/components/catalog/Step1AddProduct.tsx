@@ -37,15 +37,58 @@ export interface Step1Props {
 }
 
 const CLOTHING_CATEGORIES = [
-  { id: "men", name: "Men's Apparel", subcategories: ["T-Shirts & Polos", "Shirts", "Hoodies & Sweatshirts", "Jeans & Trousers", "Jackets", "Ethnic Wear"] },
-  { id: "women", name: "Women's Apparel", subcategories: ["Dresses & Tops", "Ethnic & Sarees", "Jeans & Leggings", "Jackets & Blazers", "Innerwear"] },
-  { id: "unisex", name: "Unisex & Streetwear", subcategories: ["Oversized Tees", "Hoodies & Jackets", "Cargo Pants", "Accessories"] },
-  { id: "kids", name: "Kids & Boys/Girls", subcategories: ["Boy's Wear", "Girl's Wear", "Infants & Babies"] },
+  { 
+    id: "men", 
+    name: "Men's Fashion", 
+    subcategories: ["T-Shirts & Polos", "Shirts", "Hoodies & Sweatshirts", "Jeans & Trousers", "Jackets & Blazers", "Ethnic & Kurtas", "Innerwear & Sleepwear", "Activewear", "Casual & Sports Shoes", "Other Men's Apparel"] 
+  },
+  { 
+    id: "women", 
+    name: "Women's Fashion", 
+    subcategories: ["Sarees & Silk", "Kurtis & Suit Sets", "Dresses & Tops", "Jeans & Jeggings", "Ethnic Wear & Lehengas", "Jackets & Shrugs", "Innerwear & Nightwear", "Heels, Flats & Footwear", "Other Women's Apparel"] 
+  },
+  { 
+    id: "unisex", 
+    name: "Unisex & Streetwear", 
+    subcategories: ["Oversized Tees", "Hoodies & Jackets", "Cargo Pants", "Caps & Beanies", "Streetwear Accessories", "Other Unisex Item"] 
+  },
+  { 
+    id: "kids", 
+    name: "Kids & Baby Care", 
+    subcategories: ["Boy's Apparel", "Girl's Apparel", "Infant & Baby Clothing", "Toys & Games", "Baby Care & Accessories", "Other Kids Item"] 
+  },
+  { 
+    id: "home", 
+    name: "Home & Kitchen", 
+    subcategories: ["Bedding & Sheets", "Kitchen & Cooking Tools", "Home Decor & Crafts", "Storage & Organizers", "Curtains & Cushions", "Other Home Item"] 
+  },
+  { 
+    id: "beauty", 
+    name: "Beauty & Care", 
+    subcategories: ["Makeup & Cosmetics", "Skincare", "Haircare & Oils", "Fragrances & Deos", "Personal Grooming", "Other Beauty Item"] 
+  },
+  { 
+    id: "jewellery", 
+    name: "Jewellery & Bags", 
+    subcategories: ["Fashion Jewellery", "Traditional & Temple Jewellery", "Watches & Clocks", "Sunglasses & Frames", "Handbags & Wallets", "Other Accessory"] 
+  },
+  { 
+    id: "electronics", 
+    name: "Electronics & Accessories", 
+    subcategories: ["Earphones & Headphones", "Smartwatches", "Phone Cases & Covers", "Chargers & Cables", "Small Home Appliances", "Other Gadget"] 
+  },
+  { 
+    id: "custom", 
+    name: "✍️ Custom Category", 
+    subcategories: ["Custom Subcategory"] 
+  }
 ];
 
 export default function Step1AddProduct({ formData, categories, onChange }: Step1Props) {
   const [selectedMainCat, setSelectedMainCat] = useState<string>("men");
   const [imageError, setImageError] = useState<string>("");
+  const [isCustomSubcategory, setIsCustomSubcategory] = useState<boolean>(false);
+  const [customCategoryName, setCustomCategoryName] = useState<string>("");
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError("");
@@ -109,7 +152,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
                 : "bg-[#0d0d11] text-zinc-400 border-[#27272a] hover:text-white"
             }`}
           >
-            🏷️ Normal Apparel
+            🏷️ Standard Item
           </button>
 
           <button
@@ -137,22 +180,34 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
           </button>
         </div>
       </div>
-      {/* Category Selection */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-zinc-200 flex items-center gap-1">
-          Select Category <span className="text-red-400">*</span>
-        </label>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+
+      {/* Meesho-Style Comprehensive Category & Subcategory Selection */}
+      <div className="space-y-3 p-4 rounded-xl bg-[#141418] border border-[#27272a]">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-semibold text-zinc-200 flex items-center gap-1">
+            Product Main Category & Subcategory <span className="text-red-400">*</span>
+          </label>
+          <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+            Meesho-Style Category Engine
+          </span>
+        </div>
+
+        {/* Main Category Selector Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
           {CLOTHING_CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               type="button"
-              onClick={() => setSelectedMainCat(cat.id)}
-              className={`py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
+              onClick={() => {
+                setSelectedMainCat(cat.id);
+                if (cat.id === "custom") {
+                  setIsCustomSubcategory(true);
+                }
+              }}
+              className={`py-2 px-2.5 rounded-lg border text-xs font-bold transition-all text-center truncate ${
                 selectedMainCat === cat.id
                   ? "bg-white text-black border-white shadow-md shadow-white/10"
-                  : "bg-[#141418] text-zinc-300 border-[#27272a] hover:border-zinc-500"
+                  : "bg-[#0d0d11] text-zinc-300 border-[#27272a] hover:border-zinc-500"
               }`}
             >
               {cat.name}
@@ -160,25 +215,87 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
           ))}
         </div>
 
-        <select
-          value={formData.subcategory_name || ""}
-          onChange={(e) => {
-            const subName = e.target.value;
-            const foundCat = categories.find((c) => c.name.toLowerCase().includes(subName.toLowerCase())) || categories[0];
-            onChange({
-              subcategory_name: subName,
-              category_id: foundCat ? String(foundCat.id) : formData.category_id,
-            });
-          }}
-          className="w-full p-3 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white transition-colors"
-        >
-          <option value="">-- Select Apparel Type / Subcategory --</option>
-          {activeSubcats.map((sub, idx) => (
-            <option key={idx} value={sub}>
-              {sub}
-            </option>
-          ))}
-        </select>
+        {/* Custom Category Input if Custom Tab selected */}
+        {selectedMainCat === "custom" && (
+          <div className="pt-2">
+            <label className="text-xs font-semibold text-zinc-400 block mb-1">
+              Enter Custom Category Name (e.g. Handicrafts, Organic Food, Pet Supplies)
+            </label>
+            <input
+              type="text"
+              value={customCategoryName}
+              onChange={(e) => {
+                setCustomCategoryName(e.target.value);
+                const foundCat = categories.find((c) => c.name.toLowerCase().includes(e.target.value.toLowerCase())) || categories[0];
+                onChange({
+                  category_id: foundCat ? String(foundCat.id) : formData.category_id,
+                });
+              }}
+              placeholder="e.g. Handicrafts & Decor"
+              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white transition-colors"
+            />
+          </div>
+        )}
+
+        {/* Subcategory Selector & Custom Input Option */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-zinc-400">
+              {isCustomSubcategory ? "Type Custom Product Type / Subcategory Name:" : "Select Apparel Type / Subcategory:"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsCustomSubcategory(!isCustomSubcategory)}
+              className="text-xs text-indigo-400 hover:underline font-medium"
+            >
+              {isCustomSubcategory ? "← Pick from Preset Subcategories" : "+ Add Custom Subcategory Name"}
+            </button>
+          </div>
+
+          {!isCustomSubcategory ? (
+            <select
+              value={formData.subcategory_name || ""}
+              onChange={(e) => {
+                const subName = e.target.value;
+                if (subName === "__OTHER__") {
+                  setIsCustomSubcategory(true);
+                  return;
+                }
+                const foundCat = categories.find((c) => c.name.toLowerCase().includes(subName.toLowerCase())) || categories[0];
+                onChange({
+                  subcategory_name: subName,
+                  category_id: foundCat ? String(foundCat.id) : formData.category_id,
+                });
+              }}
+              className="w-full p-3 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white transition-colors"
+            >
+              <option value="">-- Select Product Type / Subcategory --</option>
+              {activeSubcats.map((sub, idx) => (
+                <option key={idx} value={sub}>
+                  {sub}
+                </option>
+              ))}
+              <option value="__OTHER__">+ Write Custom Product Subcategory...</option>
+            </select>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={formData.subcategory_name || ""}
+                onChange={(e) => {
+                  const subName = e.target.value;
+                  const foundCat = categories.find((c) => c.name.toLowerCase().includes(subName.toLowerCase())) || categories[0];
+                  onChange({
+                    subcategory_name: subName,
+                    category_id: foundCat ? String(foundCat.id) : formData.category_id,
+                  });
+                }}
+                placeholder="e.g. Designer Chaniya Choli, Wireless Earbuds, Ceramic Vases..."
+                className="w-full p-3 rounded-lg bg-[#0d0d11] border border-emerald-500/50 text-white text-sm focus:border-emerald-400 transition-colors"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Multi-Image Upload */}
