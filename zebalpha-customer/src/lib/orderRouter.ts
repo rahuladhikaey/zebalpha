@@ -61,7 +61,8 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
     }
     if (p) {
       prodMap[it.id] = p;
-    } else {
+    }
+    if (!p || !p.seller_id) {
       missingProductIds.push(it.id);
     }
   }
@@ -71,7 +72,32 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
       .from('products')
       .select('id, name, price, stock, status, seller_id')
       .in('id', missingProductIds as any);
-    (fetchedProducts || []).forEach((p: any) => { prodMap[p.id] = p; });
+    (fetchedProducts || []).forEach((p: any) => {
+      prodMap[p.id] = { ...(prodMap[p.id] || {}), ...p };
+    });
+  }
+
+  // Dual-layer Fallback: Ensure every single product item has a valid seller_id assigned
+  let fallbackSellerId: string | null = null;
+  for (const it of items) {
+    const p = prodMap[it.id];
+    const rawSeller = (p && p.seller_id) || it.seller_id;
+    const seller = (rawSeller && rawSeller !== 'null' && rawSeller !== 'undefined') ? rawSeller : null;
+    if (!seller && !fallbackSellerId) {
+      const { data: defaultSeller } = await supabaseServer
+        .from('sellers')
+        .select('id, user_id')
+        .limit(1)
+        .maybeSingle();
+      if (defaultSeller) {
+        fallbackSellerId = defaultSeller.user_id || defaultSeller.id;
+      }
+    }
+    const finalSeller = seller || fallbackSellerId;
+    if (finalSeller) {
+      if (p) p.seller_id = finalSeller;
+      it.seller_id = finalSeller;
+    }
   }
 
   for (const it of items) {

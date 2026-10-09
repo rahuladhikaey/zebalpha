@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     if (validProductIds.length > 0) {
       const { data, error: dbError } = await supabaseServer
         .from('products')
-        .select('id, name, price, mrp, is_active, stock, packages')
+        .select('id, name, price, mrp, is_active, stock, packages, seller_id')
         .in('id', validProductIds);
 
       if (dbError) {
