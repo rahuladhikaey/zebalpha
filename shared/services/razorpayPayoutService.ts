@@ -78,6 +78,17 @@ export async function verifyUpiWithProvider(vpa: string): Promise<UpiVerificatio
   const masked = maskUpiId(cleanVpa);
 
   // 2. Query Razorpay VPA Validation Endpoint
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    return {
+      success: false,
+      verified: false,
+      vpa: cleanVpa,
+      verifiedName: null,
+      maskedVpa: masked,
+      error: "Payment provider credentials missing. Cannot verify UPI ID."
+    };
+  }
+
   try {
     const basicAuth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64");
     const endpoint = `https://api.razorpay.com/v1/payments/validate/vpa?vpa=${encodeURIComponent(cleanVpa)}`;
@@ -93,51 +104,38 @@ export async function verifyUpiWithProvider(vpa: string): Promise<UpiVerificatio
 
     const data = await response.json();
 
-    if (response.ok && data.success === true) {
+    // 3. Strict Validation against Razorpay NPCI Banking Rails
+    if (response.ok && data && data.success === true && data.customer_name) {
       return {
         success: true,
         verified: true,
         vpa: cleanVpa,
-        verifiedName: data.customer_name || null,
+        verifiedName: String(data.customer_name).trim(),
         maskedVpa: masked,
         providerReference: data.id || `vpa_${Date.now()}`
       };
     }
 
-    // If Razorpay explicitly returned success: false or invalid VPA
-    if (data.success === false) {
+    // Explicit banking failure or invalid VPA handle
+    if (data && data.success === false) {
       return {
         success: false,
         verified: false,
         vpa: cleanVpa,
         verifiedName: null,
         maskedVpa: masked,
-        error: "Unable to verify this UPI ID with the banking network. Please check the handle and try again."
+        error: "UPI ID verification failed. This handle is invalid or not registered on the banking network."
       };
     }
 
-    // Handle test credentials or specific provider errors
-    if (data.error) {
-      if (RAZORPAY_KEY_ID.startsWith("rzp_test_")) {
-        const testBeneficiary = cleanVpa.split("@")[0].replace(/[^a-zA-Z]/g, " ").trim();
-        const formattedName = testBeneficiary ? testBeneficiary.toUpperCase() : "VERIFIED MERCHANT";
-        return {
-          success: true,
-          verified: true,
-          vpa: cleanVpa,
-          verifiedName: formattedName,
-          maskedVpa: masked,
-          providerReference: `test_vpa_${Date.now()}`
-        };
-      }
-
+    if (data && data.error) {
       return {
         success: false,
         verified: false,
         vpa: cleanVpa,
         verifiedName: null,
         maskedVpa: masked,
-        error: data.error.description || "Unable to verify this UPI ID."
+        error: data.error.description || data.error.message || "UPI ID verification failed on banking network."
       };
     }
 
@@ -147,17 +145,17 @@ export async function verifyUpiWithProvider(vpa: string): Promise<UpiVerificatio
       vpa: cleanVpa,
       verifiedName: null,
       maskedVpa: masked,
-      error: "Unable to verify UPI ID with payment provider."
+      error: "Unable to verify UPI ID with payment provider. Please check the handle and try again."
     };
   } catch (err: any) {
-    console.error("[Razorpay VPA Validation Exception]:", err);
+    console.error("[Razorpay VPA Validation Error]:", err);
     return {
       success: false,
       verified: false,
       vpa: cleanVpa,
       verifiedName: null,
       maskedVpa: masked,
-      error: "Network error during UPI validation. Please try again."
+      error: err?.message || "Network error while verifying UPI ID."
     };
   }
 }
