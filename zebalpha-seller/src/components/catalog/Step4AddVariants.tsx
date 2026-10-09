@@ -223,11 +223,19 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     for (const v of formData.variants) {
       const col = (v.color || "Black").trim() || "Black";
       if (!map.has(col)) {
+        const vGallery = Array.isArray(v.gallery) && v.gallery.length > 0
+          ? v.gallery
+          : v.image_url
+          ? [v.image_url]
+          : formData.images && formData.images.length > 0
+          ? formData.images
+          : [];
+
         const group = {
           color: col,
           color_hex: v.color_hex || PRESET_COLORS.find((c) => c.name.toLowerCase() === col.toLowerCase())?.hex || "#18181b",
-          image_url: v.image_url,
-          gallery: v.gallery || (v.image_url ? [v.image_url] : []),
+          image_url: v.image_url || vGallery[0],
+          gallery: vGallery,
           items: [],
         };
         map.set(col, group);
@@ -237,8 +245,11 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       if (v.image_url && !grp.image_url) {
         grp.image_url = v.image_url;
       }
-      if (Array.isArray(v.gallery) && v.gallery.length > 0 && (!grp.gallery || grp.gallery.length === 0)) {
-        grp.gallery = v.gallery;
+      if (Array.isArray(v.gallery) && v.gallery.length > 0) {
+        if (!grp.gallery || grp.gallery.length === 0 || (formData.images && grp.gallery === formData.images)) {
+          grp.gallery = v.gallery;
+          if (v.image_url) grp.image_url = v.image_url;
+        }
       }
       grp.items.push(v);
     }

@@ -173,31 +173,76 @@ export default function CatalogUploadWizardModal({
 
   React.useEffect(() => {
     if (editingProduct) {
-      const specs = (editingProduct.specifications as any) || {};
-      const imgList = Array.isArray(editingProduct.images) && editingProduct.images.length > 0
-        ? editingProduct.images
+      let specs = editingProduct.specifications;
+      if (typeof specs === "string") {
+        try {
+          specs = JSON.parse(specs);
+        } catch (_) {
+          specs = {};
+        }
+      }
+      specs = specs || {};
+
+      let rawImages = editingProduct.images;
+      if (typeof rawImages === "string") {
+        try {
+          rawImages = JSON.parse(rawImages);
+        } catch (_) {
+          rawImages = [rawImages];
+        }
+      }
+      const imgList: string[] = Array.isArray(rawImages) && rawImages.length > 0
+        ? rawImages.filter(Boolean)
         : editingProduct.image_url
         ? [editingProduct.image_url]
         : [];
 
       // Parse existing packages if editing
-      const existingPackages = Array.isArray(editingProduct.packages) ? editingProduct.packages : [];
+      let rawPackages = editingProduct.packages;
+      if (typeof rawPackages === "string") {
+        try {
+          rawPackages = JSON.parse(rawPackages);
+        } catch (_) {
+          rawPackages = [];
+        }
+      }
+      const existingPackages = Array.isArray(rawPackages) ? rawPackages : [];
       const hasVars = existingPackages.length > 0 && !(existingPackages.length === 1 && (existingPackages[0].name === "Standard" || existingPackages[0].name === "Standard Package"));
 
-      const loadedVariants: CatalogVariant[] = existingPackages.map((pkg: any) => ({
-        id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
-        size: pkg.size || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[1] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[1] : pkg.name || "Free Size"),
-        color: pkg.color || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[0] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[0] : "Black"),
-        color_hex: pkg.color_hex || undefined,
-        sku: pkg.sku || "",
-        stock: String(pkg.stock ?? 20),
-        price: String(pkg.price ?? editingProduct.price ?? ""),
-        defective_returns_price: String((editingProduct.specifications as any)?.defective_returns_price || ""),
-        mrp: String(pkg.mrp ?? editingProduct.mrp ?? ""),
-        image_url: pkg.image_url || undefined,
-        gallery: Array.isArray(pkg.gallery) ? pkg.gallery : pkg.image_url ? [pkg.image_url] : [],
-        is_active: pkg.stock === undefined || Number(pkg.stock) > 0,
-      }));
+      const loadedVariants: CatalogVariant[] = existingPackages.map((pkg: any) => {
+        let pkgGallery = pkg.gallery;
+        if (typeof pkgGallery === "string") {
+          try {
+            pkgGallery = JSON.parse(pkgGallery);
+          } catch (_) {
+            pkgGallery = [pkgGallery];
+          }
+        }
+        const galleryList = Array.isArray(pkgGallery) && pkgGallery.length > 0
+          ? pkgGallery.filter(Boolean)
+          : pkg.image_url
+          ? [pkg.image_url]
+          : imgList.length > 0
+          ? [...imgList]
+          : [];
+
+        const mainImgUrl = pkg.image_url || galleryList[0] || imgList[0] || undefined;
+
+        return {
+          id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
+          size: pkg.size || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[1] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[1] : pkg.name || "Free Size"),
+          color: pkg.color || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[0] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[0] : "Black"),
+          color_hex: pkg.color_hex || undefined,
+          sku: pkg.sku || "",
+          stock: String(pkg.stock ?? 20),
+          price: String(pkg.price ?? editingProduct.price ?? ""),
+          defective_returns_price: String((editingProduct.specifications as any)?.defective_returns_price || ""),
+          mrp: String(pkg.mrp ?? editingProduct.mrp ?? ""),
+          image_url: mainImgUrl,
+          gallery: galleryList,
+          is_active: pkg.stock === undefined || Number(pkg.stock) > 0,
+        };
+      });
 
       // Parse existing sizes and measurements for Step 1 Meesho-style tables
       const loadedSizes: string[] = Array.from(
