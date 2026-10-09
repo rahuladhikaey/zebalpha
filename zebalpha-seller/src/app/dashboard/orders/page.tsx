@@ -550,6 +550,11 @@ export default function SellerOrders() {
       ) : (
         <div className="space-y-4">
           {displayOrders.map((order) => {
+            const isExpanded = Boolean(expandedOrderIds[order.id]);
+            const orderStatus = String(order.order_status || "placed").toLowerCase();
+            const isCOD = String(order.payment_method || "").toUpperCase() === "COD";
+            const orderNum = order.order_number || String(order.id).slice(0, 10).toUpperCase();
+
             let parsedItems: any[] = [];
             const rawSource = order.seller_items || order.items || order.product_details;
             if (Array.isArray(rawSource)) {
@@ -571,11 +576,6 @@ export default function SellerOrders() {
               quantity: 1,
               sku: `SKU-${orderNum.slice(0, 5)}`
             }];
-
-            const isExpanded = Boolean(expandedOrderIds[order.id]);
-            const orderStatus = String(order.order_status || "placed").toLowerCase();
-            const isCOD = String(order.payment_method || "").toUpperCase() === "COD";
-            const orderNum = order.order_number || String(order.id).slice(0, 10).toUpperCase();
 
             // Settlement Status Calculation
             let settlementBadge = { text: "Pending Delivery", bg: "bg-zinc-800 text-zinc-400 border-zinc-700" };
