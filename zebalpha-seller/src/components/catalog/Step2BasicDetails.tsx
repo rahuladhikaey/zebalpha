@@ -38,6 +38,89 @@ const NECK_OPTIONS = ["Round Neck", "Hoodie with Drawstring", "Polo Collar", "V-
 const CARE_OPTIONS = ["Machine Wash Cold", "Hand Wash", "Dry Clean Only", "Do Not Bleach"];
 const GENDER_OPTIONS = ["Men", "Women", "Unisex", "Boys", "Girls"];
 
+interface CustomizableSelectProps {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (val: string) => void;
+  required?: boolean;
+}
+
+function CustomizableSelect({
+  label,
+  value,
+  options,
+  onChange,
+  required = false,
+}: CustomizableSelectProps) {
+  const [isCustom, setIsCustom] = React.useState<boolean>(() => {
+    return Boolean(value && !options.includes(value));
+  });
+
+  React.useEffect(() => {
+    if (value && !options.includes(value)) {
+      setIsCustom(true);
+    }
+  }, [value, options]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs font-medium text-zinc-300 block">
+          {label} {required && <span className="text-rose-400">*</span>}
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            setIsCustom(!isCustom);
+          }}
+          className="text-[10px] font-semibold text-emerald-400 hover:underline cursor-pointer"
+        >
+          {isCustom ? "← Select from List" : "+ Add Custom"}
+        </button>
+      </div>
+
+      {isCustom ? (
+        <div className="relative">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={`Type custom ${label.toLowerCase()}...`}
+            className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-emerald-500/60 text-white text-xs focus:border-emerald-400"
+          />
+        </div>
+      ) : (
+        <select
+          value={options.includes(value) ? value : value ? "__CUSTOM__" : ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "__CUSTOM__") {
+              setIsCustom(true);
+            } else {
+              onChange(val);
+            }
+          }}
+          className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white cursor-pointer"
+        >
+          <option value="">Select {label.replace(/ \*$/, "")}</option>
+          {options.map((opt, i) => (
+            <option key={i} value={opt}>
+              {opt}
+            </option>
+          ))}
+          {!options.includes(value) && value && (
+            <option value={value}>Custom: {value}</option>
+          )}
+          <option value="__CUSTOM__" className="text-emerald-400 font-bold">
+            ✍️ Add Custom Option...
+          </option>
+        </select>
+      )}
+    </div>
+  );
+}
+
 export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
   const sellerPriceNum = parseFloat(formData.price) || 0;
   const defectivePriceNum = parseFloat(formData.defective_returns_price) || 0;
@@ -75,89 +158,50 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Fabric / Material *</label>
-            <select
-              value={formData.fabric}
-              onChange={(e) => onChange({ fabric: e.target.value })}
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
-            >
-              <option value="">Select Fabric</option>
-              {FABRIC_OPTIONS.map((f, i) => (
-                <option key={i} value={f}>{f}</option>
-              ))}
-            </select>
-          </div>
+          <CustomizableSelect
+            label="Fabric / Material"
+            required
+            value={formData.fabric}
+            options={FABRIC_OPTIONS}
+            onChange={(val) => onChange({ fabric: val })}
+          />
 
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Fit Type *</label>
-            <select
-              value={formData.fit_type}
-              onChange={(e) => onChange({ fit_type: e.target.value })}
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
-            >
-              <option value="">Select Fit</option>
-              {FIT_OPTIONS.map((fit, i) => (
-                <option key={i} value={fit}>{fit}</option>
-              ))}
-            </select>
-          </div>
+          <CustomizableSelect
+            label="Fit Type"
+            required
+            value={formData.fit_type}
+            options={FIT_OPTIONS}
+            onChange={(val) => onChange({ fit_type: val })}
+          />
 
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Pattern *</label>
-            <select
-              value={formData.pattern}
-              onChange={(e) => onChange({ pattern: e.target.value })}
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
-            >
-              <option value="">Select Pattern</option>
-              {PATTERN_OPTIONS.map((p, i) => (
-                <option key={i} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
+          <CustomizableSelect
+            label="Pattern"
+            required
+            value={formData.pattern}
+            options={PATTERN_OPTIONS}
+            onChange={(val) => onChange({ pattern: val })}
+          />
 
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Sleeve Length / Type</label>
-            <select
-              value={formData.sleeve_type}
-              onChange={(e) => onChange({ sleeve_type: e.target.value })}
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
-            >
-              <option value="">Select Sleeve</option>
-              {SLEEVE_OPTIONS.map((s, i) => (
-                <option key={i} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+          <CustomizableSelect
+            label="Sleeve Length / Type"
+            value={formData.sleeve_type}
+            options={SLEEVE_OPTIONS}
+            onChange={(val) => onChange({ sleeve_type: val })}
+          />
 
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Neck / Collar Style</label>
-            <select
-              value={formData.neck_type}
-              onChange={(e) => onChange({ neck_type: e.target.value })}
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
-            >
-              <option value="">Select Neck Style</option>
-              {NECK_OPTIONS.map((n, i) => (
-                <option key={i} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
+          <CustomizableSelect
+            label="Neck / Collar Style"
+            value={formData.neck_type}
+            options={NECK_OPTIONS}
+            onChange={(val) => onChange({ neck_type: val })}
+          />
 
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Target Gender / Category</label>
-            <select
-              value={formData.target_gender}
-              onChange={(e) => onChange({ target_gender: e.target.value })}
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
-            >
-              <option value="">Select Gender</option>
-              {GENDER_OPTIONS.map((g, i) => (
-                <option key={i} value={g}>{g}</option>
-              ))}
-            </select>
-          </div>
+          <CustomizableSelect
+            label="Target Gender / Category"
+            value={formData.target_gender}
+            options={GENDER_OPTIONS}
+            onChange={(val) => onChange({ target_gender: val })}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
@@ -172,19 +216,12 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
             />
           </div>
 
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Care Instructions</label>
-            <select
-              value={formData.care_instructions}
-              onChange={(e) => onChange({ care_instructions: e.target.value })}
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
-            >
-              <option value="">Select Care Method</option>
-              {CARE_OPTIONS.map((c, i) => (
-                <option key={i} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
+          <CustomizableSelect
+            label="Care Instructions"
+            value={formData.care_instructions}
+            options={CARE_OPTIONS}
+            onChange={(val) => onChange({ care_instructions: val })}
+          />
         </div>
       </div>
 
