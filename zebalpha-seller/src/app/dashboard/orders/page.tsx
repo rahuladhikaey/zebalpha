@@ -306,6 +306,57 @@ export default function SellerOrders() {
     }
   };
 
+  // Delete single order record
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("Are you sure you want to delete this order record? This will permanently remove all associated order data.")) return;
+    setActionLoading(true);
+    setStatusMessage("Deleting order data...");
+    try {
+      await supabase.from("seller_orders").delete().or(`id.eq.${orderId},parent_order_id.eq.${orderId}`);
+      await supabase.from("order_items").delete().or(`seller_order_id.eq.${orderId},parent_order_id.eq.${orderId}`);
+      await supabase.from("shipments").delete().or(`seller_order_id.eq.${orderId},parent_order_id.eq.${orderId}`);
+      await supabase.from("orders").delete().eq("id", orderId);
+
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      if (selectedOrder?.id === orderId) setSelectedOrder(null);
+      setStatusMessage("✓ Order deleted successfully");
+    } catch (err: any) {
+      console.error("Error deleting order:", err);
+      alert("Failed to delete order: " + (err?.message || "Unknown error"));
+    } finally {
+      setActionLoading(false);
+      setTimeout(() => setStatusMessage(""), 4000);
+    }
+  };
+
+  // Delete all order records
+  const handleDeleteAllOrders = async () => {
+    if (!orders.length) return;
+    if (!confirm(`Are you sure you want to DELETE ALL ${orders.length} orders? This will permanently wipe all current order records from database.`)) return;
+
+    setActionLoading(true);
+    setStatusMessage("Deleting all order data...");
+    try {
+      const orderIds = orders.map(o => o.id).filter(Boolean);
+      if (orderIds.length > 0) {
+        await supabase.from("seller_orders").delete().in("parent_order_id", orderIds);
+        await supabase.from("seller_orders").delete().in("id", orderIds);
+        await supabase.from("order_items").delete().in("parent_order_id", orderIds);
+        await supabase.from("shipments").delete().in("parent_order_id", orderIds);
+        await supabase.from("orders").delete().in("id", orderIds);
+      }
+      setOrders([]);
+      setSelectedOrder(null);
+      setStatusMessage("✓ All order records deleted successfully");
+    } catch (err: any) {
+      console.error("Error deleting all orders:", err);
+      alert("Failed to delete all orders: " + (err?.message || "Unknown error"));
+    } finally {
+      setActionLoading(false);
+      setTimeout(() => setStatusMessage(""), 4000);
+    }
+  };
+
   // Logistics manifest & seller order acceptance
   const handleCreateShipment = async (orderId: string) => {
     const targetOrder = orders.find(o => o.id === orderId);
@@ -529,6 +580,17 @@ export default function SellerOrders() {
             <option value="prepaid">Prepaid (Razorpay/Online)</option>
             <option value="cod">Cash on Delivery (COD)</option>
           </select>
+
+          {orders.length > 0 && (
+            <button
+              onClick={handleDeleteAllOrders}
+              title="Delete All Order Data from Database"
+              className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5"
+            >
+              <Trash className="h-3.5 w-3.5" />
+              <span>Delete All Data</span>
+            </button>
+          )}
         </div>
 
         <div className="relative w-full lg:w-80">
@@ -662,6 +724,16 @@ export default function SellerOrders() {
                       className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-black uppercase tracking-wider transition cursor-pointer"
                     >
                       Details
+                    </button>
+
+                    {/* Delete Order Button */}
+                    <button
+                      onClick={() => handleDeleteOrder(order.id)}
+                      title="Delete Order Record"
+                      className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Trash className="h-3.5 w-3.5" />
+                      <span>Delete</span>
                     </button>
                   </div>
                 </div>
