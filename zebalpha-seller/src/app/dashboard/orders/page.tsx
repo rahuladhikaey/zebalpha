@@ -856,27 +856,20 @@ export default function SellerOrders() {
                       </button>
                     )}
 
-                    {/* Ready for Pickup -> Ship / Dispatch */}
+                    {/* Awaiting Courier Pickup & Barcode Scan */}
                     {(orderStatus === "ready_for_pickup" || orderStatus === "ready_to_ship") && (
-                      <button
-                        onClick={() => handleUpdateOrderStatus(order.id, "shipped")}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider transition cursor-pointer"
-                      >
-                        <Truck className="h-3.5 w-3.5" />
-                        Handover / Mark Shipped
-                      </button>
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold">
+                        <Truck className="h-3.5 w-3.5 animate-pulse" />
+                        <span>Awaiting Courier Pickup & AWB Scan</span>
+                      </span>
                     )}
 
-                    {/* Shipped / In Transit -> Deliver (For full end-to-end testing) */}
-                    {(orderStatus === "shipped" || orderStatus === "in_transit") && (
-                      <button
-                        onClick={() => handleUpdateOrderStatus(order.id, "delivered")}
-                        title="Simulate / Confirm Delivery and Trigger Escrow Settlement"
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 text-xs font-black uppercase tracking-wider transition cursor-pointer"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Confirm Delivery
-                      </button>
+                    {/* In Transit with Courier Carrier (Auto-updated via Courier Webhook) */}
+                    {(orderStatus === "shipped" || orderStatus === "in_transit" || orderStatus === "out_for_delivery") && (
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-bold">
+                        <Truck className="h-3.5 w-3.5" />
+                        <span>{orderStatus === "out_for_delivery" ? "Out for Delivery" : "In Transit (Auto-updated by Courier)"}</span>
+                      </span>
                     )}
 
                     {/* Return Action */}
