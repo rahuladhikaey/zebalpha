@@ -511,16 +511,34 @@ function CheckoutContent() {
         resolve(true);
         return;
       }
-      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
-      if (existingScript) {
-        resolve(true);
-        return;
+      let script = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]') as HTMLScriptElement;
+      if (!script) {
+        script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.async = true;
+        document.body.appendChild(script);
       }
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
+
+      let checkCount = 0;
+      const interval = setInterval(() => {
+        checkCount++;
+        if ((window as any).Razorpay) {
+          clearInterval(interval);
+          resolve(true);
+        } else if (checkCount >= 30) {
+          clearInterval(interval);
+          resolve(!!(window as any).Razorpay);
+        }
+      }, 100);
+
+      script.addEventListener("load", () => {
+        clearInterval(interval);
+        resolve(true);
+      });
+      script.addEventListener("error", () => {
+        clearInterval(interval);
+        resolve(false);
+      });
     });
   };
 
@@ -591,76 +609,94 @@ function CheckoutContent() {
         }
       };
 
-        const shippingAddressObj = {
-          name: name,
+      const shippingAddressObj = {
+        name: name,
+        phone: phone,
+        address: fullAddress,
+        address_line1: village || "City",
+        address_line2: postOffice || "Area",
+        city: village,
+        state: postOffice,
+        pincode: pincode,
+        landmark: addressDetail
+      };
+
+      if (paymentMethod === "COD") {
+        // Handle COD Flow (Try local API route first, remote fallback second)
+        const codPayload = {
+          customer_name: name,
           phone: phone,
           address: fullAddress,
-          address_line1: village || "City",
-          address_line2: postOffice || "Area",
           city: village,
           state: postOffice,
           pincode: pincode,
-          landmark: addressDetail
+          shipping_address: shippingAddressObj,
+          items: cart,
+          total: grandTotal,
+          user_id: userId,
+          applyAsCard: cardValidated,
+          couponCode: appliedCoupon ? appliedCoupon.code : "",
+          discount: totalDiscount,
         };
 
-        if (paymentMethod === "COD") {
-          // Handle COD Flow
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/checkout/cod`, {
+        let responseData: any = null;
+
+        try {
+          const localRes = await fetch("/api/checkout/cod", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              customer_name: name,
-              phone: phone,
-              address: fullAddress,
-              city: village,
-              state: postOffice,
-              pincode: pincode,
-              shipping_address: shippingAddressObj,
-              items: cart,
-              total: grandTotal,
-              user_id: userId,
-              applyAsCard: cardValidated,
-              couponCode: appliedCoupon ? appliedCoupon.code : "",
-              discount: totalDiscount,
-            }),
+            body: JSON.stringify(codPayload),
           });
-
-        let data: any = null;
-        try {
-          // Try parsing JSON if available
-          data = await response.json();
-        } catch (e) {
-          // Response was not JSON (server error or empty body)
-          console.error('COD response parse error', e);
-          setMessage(response.ok ? "Could not place COD order. Please try again." : `Server error (${response.status}). Please try again.`);
-          setSaving(false);
-          return;
+          if (localRes.ok) {
+            responseData = await localRes.json();
+          } else {
+            responseData = await localRes.json().catch(() => null);
+          }
+        } catch (localErr) {
+          console.warn("Local COD API fetch notice, trying remote fallback:", localErr);
         }
 
-        if (!response.ok) {
-          setMessage(data?.error ? `Could not place COD order: ${data.error}` : `Could not place COD order. (${response.status})`);
-          setSaving(false);
-          return;
+        if (!responseData?.success && process.env.NEXT_PUBLIC_API_URL) {
+          try {
+            const remoteRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/checkout/cod`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(codPayload),
+            });
+            if (remoteRes.ok) {
+              responseData = await remoteRes.json();
+            } else if (!responseData) {
+              responseData = await remoteRes.json().catch(() => null);
+            }
+          } catch (remoteErr) {
+            console.error("Remote COD API fetch error:", remoteErr);
+          }
         }
 
-        if (data && data.success) {
+        if (responseData && responseData.success) {
           orderPlacedRef.current = true;
           if (!isBuyNow) clearCart();
           saveUserAddress().catch((err) => console.warn("Background address save notice:", err));
-          const successUrl = `/order-success?order_id=${data.orderId}`;
+          const successUrl = `/order-success?order_id=${responseData.orderId || responseData.orderNumber}`;
           if (typeof window !== "undefined") {
             window.location.href = successUrl;
           } else {
             router.push(successUrl);
           }
         } else {
-          setMessage(data?.error ? `Could not place COD order: ${data.error}` : "Could not place COD order. Please try again.");
+          setMessage(responseData?.error ? `Could not place COD order: ${responseData.error}` : "Could not place COD order. Please try again.");
           setSaving(false);
         }
       } else {
         // Handle Online Flow (Razorpay)
-        const sdkLoaded = await loadRazorpay();
+        let sdkLoaded = await loadRazorpay();
         if (!sdkLoaded) {
+          // Retry once in case of slow script initialization
+          await new Promise((r) => setTimeout(r, 500));
+          sdkLoaded = await loadRazorpay();
+        }
+
+        if (!sdkLoaded && !(window as any).Razorpay) {
           setMessage("Razorpay SDK failed to load. Please check your internet connection.");
           setSaving(false);
           return;
