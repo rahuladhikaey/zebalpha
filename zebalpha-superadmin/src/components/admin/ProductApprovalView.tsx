@@ -80,7 +80,7 @@ export default function ProductApprovalView({
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, thumbnail_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, created_at";
+      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, thumbnail_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, specifications, created_at";
       const SLIM_SELLER_FIELDS = "id, user_id, seller_id, seller_code, business_name, shop_name, name, full_name, owner_name";
 
       const [{ data: productsData, error: prodErr }, { data: sellersData }] = await Promise.all([
@@ -150,12 +150,20 @@ export default function ProductApprovalView({
     setActioningId(null);
   };
 
+  const isProductPremium = (p: any) => {
+    return p.is_premium === true || p.tier === "PREMIUM" || String(p.tier).toUpperCase() === "PREMIUM" || (p.specifications as any)?.is_premium === "true" || (p.specifications as any)?.is_premium === true || (p.specifications as any)?.tier === "PREMIUM" || p.name?.toLowerCase().includes("premium") || p.name?.toLowerCase().includes("supima") || p.collection?.toLowerCase().includes("premium");
+  };
+
+  const isProductNewDrop = (p: any) => {
+    return p.is_new_drop === true || (p.specifications as any)?.is_new_drop === "true" || (p.specifications as any)?.is_new_drop === true || p.status === "COMING_SOON";
+  };
+
   const filteredProducts = products.filter(p => {
     let matchesTab = true;
     if (filterTab === "premium") {
-      matchesTab = p.is_premium === true || p.tier === "PREMIUM" || (p.specifications as any)?.is_premium === "true";
+      matchesTab = isProductPremium(p);
     } else if (filterTab === "new_drops") {
-      matchesTab = p.is_new_drop === true || p.status === "COMING_SOON" || (p.specifications as any)?.is_new_drop === "true";
+      matchesTab = isProductNewDrop(p);
     } else if (filterTab === "approved") {
       matchesTab = p.is_active !== false && (p.approval_status === "approved" || p.is_approved === true || !p.approval_status);
     } else if (filterTab === "hidden") {
@@ -202,8 +210,8 @@ export default function ProductApprovalView({
         <div className="flex gap-2 overflow-x-auto w-full sm:w-auto no-scrollbar">
           {[
             { id: "all", label: `All (${products.length})` },
-            { id: "premium", label: `💎 Premium Store (${products.filter(p => p.is_premium || p.tier === 'PREMIUM').length})` },
-            { id: "new_drops", label: `⚡ New Drops (${products.filter(p => p.is_new_drop).length})` },
+            { id: "premium", label: `💎 Premium Store (${products.filter(isProductPremium).length})` },
+            { id: "new_drops", label: `⚡ New Drops (${products.filter(isProductNewDrop).length})` },
             { id: "approved", label: "Approved" },
             { id: "hidden", label: "Hidden" }
           ].map(tab => (
