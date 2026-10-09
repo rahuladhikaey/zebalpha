@@ -40,7 +40,15 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    // 1-Hour Cancellation Window Check
+    // 1. Seller Acceptance Check: If seller has already accepted/confirmed the order, customer cannot cancel.
+    if (cancelled_by === "customer" && currentStatus !== "placed" && currentStatus !== "new") {
+      return NextResponse.json({
+        success: false,
+        message: "This order has already been accepted and confirmed by the seller. Cancellation is no longer available. You may request a Return or Exchange after delivery."
+      }, { status: 400 });
+    }
+
+    // 2. 1-Hour Cancellation Window Check
     if (cancelled_by === "customer" && orderData.created_at) {
       const orderCreatedAt = new Date(orderData.created_at).getTime();
       const diffMinutes = (Date.now() - orderCreatedAt) / (1000 * 60);
@@ -48,7 +56,7 @@ export async function POST(req: Request) {
       if (diffMinutes > 60) {
         return NextResponse.json({
           success: false,
-          message: "Orders can only be cancelled within 1 hour of placement. As your order has passed this window and is now confirmed for fulfillment, cancellation is closed. You may request a Return or Exchange after delivery."
+          message: "Orders can only be cancelled within 1 hour of placement. As your order has passed this window, cancellation is closed. You may request a Return or Exchange after delivery."
         }, { status: 400 });
       }
     }

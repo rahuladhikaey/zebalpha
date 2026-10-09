@@ -292,11 +292,11 @@ export default function OrderDetailPage() {
     return `${mins}m ${secs < 10 ? "0" : ""}${secs}s`;
   };
 
-  // Check Cancellation Eligibility
+  // Check Cancellation Eligibility (Only if order status is 'placed' or 'new' and within 1-hour window)
   const isEligibleForCancellation = useMemo(() => {
     if (!order) return false;
     const status = (order.order_status || "").toLowerCase();
-    if (["cancelled", "shipped", "out_for_delivery", "delivered", "rto", "return_requested"].includes(status)) {
+    if (status !== "placed" && status !== "new") {
       return false;
     }
     return cancelTimeRemaining !== null && cancelTimeRemaining > 0;

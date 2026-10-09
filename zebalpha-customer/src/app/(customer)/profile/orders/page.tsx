@@ -364,14 +364,14 @@ export default function MyOrdersPage() {
     }
   };
 
-  // Check if order is eligible for cancellation (Only within 1 hour of order placement & unfulfilled status)
+  // Check if order is eligible for cancellation (Only within 1 hour of order placement & before seller acceptance)
   const getCancellationInfo = (order: Order | null) => {
     if (!order) return { eligible: false, remainingMins: 0, reason: "" };
     const status = String(order.order_status || "").toLowerCase();
-    const cancellableStatuses = ["placed", "confirmed", "processing", "ready_to_ship", "pending"];
+    const cancellableStatuses = ["placed", "new", "pending"];
 
     if (!cancellableStatuses.includes(status)) {
-      return { eligible: false, remainingMins: 0, reason: "Order cannot be cancelled in its current status." };
+      return { eligible: false, remainingMins: 0, reason: "Order has already been accepted by seller and cannot be cancelled." };
     }
 
     if (!order.created_at) {

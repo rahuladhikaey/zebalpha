@@ -297,7 +297,7 @@ export default function SellerOrders() {
     }
   };
 
-  // Logistics manifest
+  // Logistics manifest & seller order acceptance
   const handleCreateShipment = async (orderId: string) => {
     const targetOrder = orders.find(o => o.id === orderId);
     if (targetOrder?.created_at) {
@@ -305,8 +305,8 @@ export default function SellerOrders() {
       const elapsedMins = (Date.now() - orderCreatedAt) / 60000;
       if (elapsedMins < 60) {
         const remaining = Math.max(1, Math.ceil(60 - elapsedMins));
-        alert(`⏱️ Order #${targetOrder.order_number || targetOrder.id} is in the 1-Hour Customer Cancellation Window.\n\nCustomers are allowed to cancel within 1 hour of placing the order. To prevent unnecessary courier fees and reverse logistics charges, orders can only be accepted after 1 hour has elapsed.\n\nTime remaining: ${remaining} minutes.`);
-        return;
+        const confirmAccept = confirm(`⏱️ Order #${targetOrder.order_number || targetOrder.id} is currently in the 1-Hour Customer Cancellation Window (${remaining} mins remaining).\n\nAccepting this order now will lock customer cancellation, generate the shipping AWB barcode label, and move it to your dispatch pipeline.\n\nDo you want to ACCEPT & CONFIRM this order now?`);
+        if (!confirmAccept) return;
       }
     }
 
