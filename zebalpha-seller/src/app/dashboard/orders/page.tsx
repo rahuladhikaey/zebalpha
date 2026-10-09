@@ -825,19 +825,6 @@ export default function SellerOrders() {
                       <Printer className="h-3.5 w-3.5 text-zinc-400" />
                       Label / Slip
                     </button>
-
-                    {/* Cancel button if pre-delivery */}
-                    {orderStatus !== "delivered" && orderStatus !== "cancelled" && !orderStatus.startsWith("return") && (
-                      <button
-                        onClick={() => {
-                          setCancelModalOrder(order);
-                          setCancelReason("");
-                        }}
-                        className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-black uppercase transition cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
