@@ -856,12 +856,15 @@ export default function SellerOrders() {
                       </button>
                     )}
 
-                    {/* Awaiting Courier Pickup & Barcode Scan */}
-                    {(orderStatus === "ready_for_pickup" || orderStatus === "ready_to_ship") && (
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold">
-                        <Truck className="h-3.5 w-3.5 animate-pulse" />
-                        <span>Awaiting Courier Pickup & AWB Scan</span>
-                      </span>
+                    {/* View / Print Shipping Label Button */}
+                    {(orderStatus === "ready_for_pickup" || orderStatus === "ready_to_ship" || orderStatus === "packed" || orderStatus === "shipped" || orderStatus === "in_transit" || order.tracking_number) && (
+                      <button
+                        onClick={() => setLabelModalOrder(order)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-md shadow-blue-600/20"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                        <span>View Label</span>
+                      </button>
                     )}
 
                     {/* In Transit with Courier Carrier (Auto-updated via Courier Webhook) */}
@@ -962,6 +965,18 @@ export default function SellerOrders() {
               <p className="text-zinc-400 font-medium">{typeof selectedOrder.shipping_address === "string" ? selectedOrder.shipping_address : (selectedOrder.shipping_address?.address || selectedOrder.address || "Address on File")}</p>
               <p className="text-zinc-500 font-mono">Pincode: {selectedOrder.pincode || selectedOrder.shipping_address?.pincode || "N/A"}</p>
             </div>
+
+            {/* View / Print Shipping Label inside Details Drawer */}
+            <button
+              onClick={() => {
+                setLabelModalOrder(selectedOrder);
+                setSelectedOrder(null);
+              }}
+              className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20"
+            >
+              <Printer className="h-4 w-4" />
+              <span>View & Print Shipping Label</span>
+            </button>
           </div>
         </div>
       )}
