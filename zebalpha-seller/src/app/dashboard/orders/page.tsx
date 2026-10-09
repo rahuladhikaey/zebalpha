@@ -120,7 +120,7 @@ export default function SellerOrders() {
         console.warn("seller_orders query notice:", soErr);
       }
 
-      // 3. Fetch orders
+      // 3. Fetch orders (direct, linked seller_orders, and recent fallback)
       const sellerIdFilters = sellerIdsToMatch.map(id => `seller_id.eq.${id}`).join(",");
       let directOrders: any[] = [];
       if (sellerIdFilters) {
@@ -146,9 +146,19 @@ export default function SellerOrders() {
         if (lOrders) linkedOrders = lOrders;
       }
 
+      let recentFallbackOrders: any[] = [];
+      try {
+        const { data: rOrders } = await supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (rOrders) recentFallbackOrders = rOrders;
+      } catch (_) {}
+
       // Merge and deduplicate by order id
       const orderMap = new Map<string, any>();
-      [...directOrders, ...linkedOrders].forEach(o => {
+      [...directOrders, ...linkedOrders, ...recentFallbackOrders].forEach(o => {
         if (o && o.id) orderMap.set(String(o.id), o);
       });
       const allOrders = Array.from(orderMap.values()) as Order[];
