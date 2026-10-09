@@ -17,6 +17,7 @@ const VirtualTryOnModal = dynamic(
   { ssr: false, loading: () => null }
 );
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
+import { supabase } from "@/lib/supabaseClient";
 export default function ProductDetailTemplate({
   product,
   relatedProducts = [],
@@ -330,20 +331,24 @@ export default function ProductDetailTemplate({
   const [reviews, setReviews] = useState<any[]>([]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("zebalpha_reviews") || localStorage.getItem("asali_swad_reviews");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          const productReviews = parsed.filter((r: any) => Number(r.product_id) === Number(product.id));
-          // Sort by newest first
-          productReviews.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          setReviews(productReviews);
-        } catch (e) {
-          console.error(e);
+    async function fetchReviews() {
+      try {
+        const { data, error } = await supabase
+          .from("reviews")
+          .select("*")
+          .eq("product_id", product.id)
+          .eq("is_approved", true)
+          .order("created_at", { ascending: false });
+        if (!error && Array.isArray(data)) {
+          setReviews(data);
+        } else {
+          setReviews([]);
         }
+      } catch (_) {
+        setReviews([]);
       }
     }
+    fetchReviews();
   }, [product.id]);
 
   const averageRating = useMemo(() => {

@@ -139,9 +139,6 @@ export default function MarketplaceSettingsView() {
                 ...prev,
                 ...rulesMap.marketplace_rules
               }));
-              try {
-                localStorage.setItem("asali_swad_marketplace_rules", JSON.stringify(rulesMap.marketplace_rules));
-              } catch (_) {}
             }
 
             if (rulesMap.marketplace_financial_rules) {
@@ -218,15 +215,7 @@ export default function MarketplaceSettingsView() {
         if (prodData) setProducts(prodData);
       }
 
-      // 3. Fallback to localStorage if state is empty
-      try {
-        const local = localStorage.getItem("asali_swad_marketplace_rules");
-        if (local) {
-          const parsed = JSON.parse(local);
-          setMarketplaceConfig(prev => ({ ...prev, ...parsed }));
-        }
-      } catch (_) {}
-    } catch (err: any) {
+      } catch (err: any) {
       console.error("Error loading marketplace settings:", err);
     } finally {
       setLoading(false);
@@ -269,11 +258,6 @@ export default function MarketplaceSettingsView() {
         }
       };
       await saveSettingToDb("marketplace_financial_rules", financialRules);
-
-      // LocalStorage instant cache
-      try {
-        localStorage.setItem("asali_swad_marketplace_rules", JSON.stringify(marketplaceConfig));
-      } catch (_) {}
 
       notify("🎉 Production settings & billing rules saved permanently to database!");
     } catch (err: any) {

@@ -6,8 +6,16 @@ import crypto from "crypto";
  * validation and on-demand merchant disbursements.
  */
 
-const RAZORPAY_KEY_ID = (process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_ShRpqbs6hVT6Ie").trim();
-const RAZORPAY_KEY_SECRET = (process.env.RAZORPAY_KEY_SECRET || "5LUjZ94LMDnjwlLyB9cUU5cb").trim();
+const RAZORPAY_KEY_ID = (process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "").trim();
+const RAZORPAY_KEY_SECRET = (process.env.RAZORPAY_KEY_SECRET || "").trim();
+
+if (!RAZORPAY_KEY_SECRET) {
+  throw new Error("Missing required environment variable: RAZORPAY_KEY_SECRET");
+}
+
+if (!RAZORPAY_KEY_ID) {
+  throw new Error("Missing required environment variable: RAZORPAY_KEY_ID");
+}
 
 export interface UpiVerificationResult {
   success: boolean;
@@ -216,16 +224,6 @@ export async function createProviderPayout(params: {
         status: isCompleted ? "COMPLETED" : "PROCESSING",
         providerPayoutId: data.id,
         utrNumber: data.utr || null
-      };
-    }
-
-    if (RAZORPAY_KEY_ID.startsWith("rzp_test_")) {
-      const simulatedUtr = `UTR${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 10000)}`;
-      return {
-        success: true,
-        status: "COMPLETED",
-        providerPayoutId: `pout_test_${Date.now()}`,
-        utrNumber: simulatedUtr
       };
     }
 

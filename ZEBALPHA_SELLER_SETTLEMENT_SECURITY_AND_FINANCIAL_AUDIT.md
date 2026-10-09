@@ -1,280 +1,222 @@
-# ZEBALPHA SELLER SETTLEMENT SECURITY & FINANCIAL AUDIT
+# ZEBALPHA — PRODUCTION-GRADE ADMIN-CONFIGURABLE FINANCE ENGINE & RAZORPAY ROUTE SETTLEMENT AUDIT
 
 **Target Ecosystem:** ZebAlpha Multi-Vendor E-Commerce Platform  
-**Integration Scope:** Razorpay Route / Marketplace-Linked-Account Automated Settlement Engine  
+**Integration Scope:** Admin-Configurable Versioned Finance Engine, Event-Based Fee Engine, Order Financial Snapshots & Razorpay Route Marketplace Settlement  
 **Execution Date:** 2026-10-08  
-**Architecture Classification:** Double-Entry Ledger, Minor-Unit (Paise) Integer Financial System, Deterministic Idempotency & Reconciliation  
+**Architecture Classification:** Institutional Double-Entry Ledger, Versioned Commercial Policies, Event-Based Deductions, Integer Minor Units (Paise), Deterministic Idempotency & Provider Reconciliation  
 
 ---
 
-## 1. ARCHITECTURE OVERVIEW
+## 1. END-TO-END FINANCIAL ARCHITECTURE
 
-The ZebAlpha Automated Seller Settlement System is built exclusively on **Razorpay Route (Marketplace Linked-Accounts)**, adhering to strict marketplace financial principles. It eliminates manual bank transfers, excel reconciliations, arbitrary UPI payouts, and fake database wallets.
-
-Money flows exclusively along real-world legal and financial rails:
+Money and accounting flow through a closed, authoritative financial lifecycle:
 
 ```
-[CUSTOMER CHECKOUT]
-       │
-       ▼
-[RAZORPAY PAYMENT GATEWAY] (Payment Captured)
-       │
-       ├────────────────────────────────────────┐
-       ▼                                        ▼
-[ZEBALPHA ORDER CREATED]             [IMMUTABLE FINANCIAL LEDGER]
-(Single/Multi-Vendor)                 - SALE (Credit: Total Amount)
-                                      - COMMISSION (Debit: Platform cut)
-                                      - FIXED_FEE (Debit: Marketplace fee)
-                                      - SELLER_PAYABLE (Pending: Net Seller Share)
-       │
-       ▼
-[SHIPROCKET LOGISTICS & DELIVERY]
-       │
-       ▼
-[RETURN / DISPUTE HOLD WINDOW] (Configurable, default 7 days)
-       │ (No active refund or dispute)
-       ▼
-[SETTLEMENT ELIGIBILITY WORKER] (Hourly cron / On-demand admin sweep)
-       │ (Payable status transitions from PENDING -> ELIGIBLE)
-       ▼
-[DETERMINISTIC SETTLEMENT BATCH]
-(Bundles eligible seller orders; locks ledger rows -> QUEUED)
-       │
-       ▼
-[RAZORPAY ROUTE API DISPATCH]
-(Direct transfer to Seller's verified Linked Account: Bank / UPI)
-       │
-       ▼
-[AUTHORITATIVE RAZORPAY WEBHOOK]
-(HMAC-SHA256 verified, Event-Deduplicated)
-       │
-       ├────────────────────────────────────────┐
-       ▼                                        ▼
-[SETTLEMENT FINALIZED: SETTLED]      [LEDGER RECONCILIATION]
-(Bank UTR & Transfer ID stored)       (Immutable SELLER_SETTLEMENT debit logged)
-                                      (Seller notified via in-app notification)
+                       [CUSTOMER CHECKOUT]
+                                │
+                                ▼
+                   [RAZORPAY PAYMENT GATEWAY] (Captured)
+                                │
+                                ▼
+                     [ZEBALPHA ORDER CREATED]
+                                │
+                                ▼
+         ┌──────────────────────────────────────────────┐
+         │ ACTIVE VERSIONED FINANCE CONFIG (Version N) │
+         │  - Commission % (e.g. 5.0%)                 │
+         │  - Fixed Fee (e.g. ₹15.00)                  │
+         │  - PG Collection Fee % (e.g. 2.0%, Prepaid) │
+         │  - COD Handling Fee (e.g. ₹25.00, COD only) │
+         │  - Shipping Responsibility (e.g. CUSTOMER)  │
+         │  - GST on Platform Fees % (e.g. 18.0%)      │
+         │  - Settlement Delay (e.g. 7 days post-deliv)│
+         └──────────────────────┬───────────────────────┘
+                                │
+                                ▼
+          [IMMUTABLE ORDER FINANCIAL SNAPSHOT]
+          (Permanent record bound to Config Version N)
+                                │
+                                ▼
+          [DOUBLE-ENTRY IMMUTABLE FINANCIAL LEDGER]
+          - SALE (Credit: Gross customer payment)
+          - COMMISSION (Debit: Platform commission)
+          - FIXED_FEE (Debit: Operational processing)
+          - COLLECTION_FEE (Debit: PG or COD fee)
+          - SHIPPING_FEE (Debit: only if SELLER/SHARED)
+          - SELLER_PAYABLE (Credit: Net seller share, PENDING)
+                                │
+                                ▼
+          [SHIPROCKET LOGISTICS: DELIVERY CONFIRMED]
+                                │
+                                ▼
+          [RETURN & DISPUTE HOLD WINDOW] (From Snapshot)
+          - Approved Return -> Reverse Shipping Fee Applied
+          - Confirmed RTO -> RTO Charge Applied
+                                │ (Hold window expires, no active refund/dispute)
+                                ▼
+          [SETTLEMENT ELIGIBILITY WORKER] (Hourly Cron / Admin Sweep)
+          - Payables transition: PENDING -> ELIGIBLE
+                                │
+                                ▼
+          [DETERMINISTIC SETTLEMENT BATCH]
+          (Locks rows: FOR UPDATE SKIP LOCKED -> QUEUED)
+                                │
+                                ▼
+          [RAZORPAY ROUTE LINKED ACCOUNT TRANSFER]
+          (Direct to Seller's verified Bank / UPI account)
+                                │
+                                ▼
+          [AUTHORITATIVE RAZORPAY WEBHOOK]
+          (HMAC-SHA256 verified, Event-Deduplicated)
+                                │
+          ┌─────────────────────┴─────────────────────┐
+          ▼                                           ▼
+[SETTLEMENT FINALIZED: SETTLED]              [LEDGER RECONCILIATION]
+(Bank UTR & Transfer ID stored)               (Immutable SELLER_SETTLEMENT debit logged)
+                                              (Seller notified in real-time)
 ```
 
 ---
 
-## 2. CORE FINANCIAL RULES & ATOMIC INTEGRITY
+## 2. CORE FINANCIAL PRINCIPLES
 
-1. **Pure Minor Units (Paise Integer Math):**  
-   All money amounts are stored and calculated strictly as integers in minor currency units (`BIGINT` paise in PostgreSQL, integer values in Node.js). JavaScript floating-point arithmetic is strictly forbidden in financial calculations.
-   - Example: ₹1,000.00 is stored as `100000` paise.
-   - Example: Platform Commission 10% on ₹1,000.00 is `10000` paise.
-   - Example: Platform Fixed Fee ₹15.00 is `1500` paise.
-   - Example: Net Seller Payable is `88500` paise (₹885.00).
-
-2. **Immutable Double-Entry Ledger (`seller_financial_ledger`):**  
-   Historical financial records are **NEVER deleted or mutated**. The database enforces this via the `enforce_ledger_immutability()` PostgreSQL trigger which raises an exception on any `DELETE` operation.
-
-3. **No Direct Balance Manipulation / No Fake Wallets:**  
-   Seller balances are strictly derived from immutable transaction records via the `seller_balance_summary(seller_id)` stored procedure and the `seller_route_financial_overview` database view.
-
-4. **Return & Dispute Window Dependency:**  
-   Orders are not eligible for settlement immediately upon payment. Funds enter `PENDING` state until the order is delivered via Shiprocket and the configurable return window (default 7 days) expires without dispute or refund request.
-
-5. **Refund-After-Settlement Handling:**  
-   If a customer returns an item after the seller has already received settlement, the system creates an immutable `ADJUSTMENT` debit in the financial ledger, offsetting future payouts. Historical records remain 100% intact.
+1. **Centralized Admin Configuration with Safe Versioning:**  
+   Commercial parameters are never hardcoded. Superadmins configure rules via `Superadmin -> Finance -> Platform Fee Engine`. Every change creates an immutable version (`platform_finance_configs`), preventing historical data corruption.
+2. **Order Financial Snapshot (`order_financial_snapshot`):**  
+   Every transaction is permanently bound to the active configuration version at payment capture time. When superadmins update commissions tomorrow, historical orders maintain their original calculation.
+3. **Event-Based Fee Engine:**  
+   - **Prepaid Orders:** Incurs Payment Collection Fee (e.g. 2%); COD handling fee is strictly ₹0.
+   - **COD Orders:** Incurs COD Handling Fee (e.g. ₹25); Payment Collection Fee is strictly ₹0.
+   - **Shipping Charges:** Deducted from seller only if `shipping_paid_by` is `SELLER` or `SHARED`. If `CUSTOMER` or `ZEBALPHA`, zero freight fee is deducted from seller.
+   - **Reverse Shipping:** Applied only upon approved return events via `record_return_shipping_event`.
+   - **RTO Charges:** Applied only upon confirmed carrier Return-to-Origin via `record_rto_charge_event`.
+4. **Integer Minor Units (Paise):**  
+   Zero floating-point arithmetic. Every monetary calculation is computed and stored as integer paise (`BIGINT` in PostgreSQL).
+5. **Double-Entry Ledger Immutability:**  
+   The `enforce_ledger_immutability()` PostgreSQL trigger forbids SQL `DELETE` queries on `seller_financial_ledger`. Compensating adjustments are recorded as new immutable entries.
+6. **Corrective Rollback Architecture:**  
+   Rollback does not rewrite history. It clones historical parameters into a brand new version `N+1` and activates it.
 
 ---
 
 ## 3. DATABASE SCHEMA & OBJECTS
 
-The migration file [razorpay_route_settlement_engine.sql](file:///d:/Full%20Folder%2077/supabase/razorpay_route_settlement_engine.sql) defines the schema:
+The migration file [platform_finance_configuration_and_snapshots.sql](file:///d:/Full%20Folder%2077/supabase/platform_finance_configuration_and_snapshots.sql) establishes:
 
-### A. Modified Tables
-- **`sellers`**:
-  - `razorpay_account_id VARCHAR(50)`: Razorpay Linked Account ID (e.g. `acc_xxxx`).
-  - `route_onboarding_status VARCHAR(50)`: `NOT_STARTED`, `ONBOARDING`, `PENDING_VERIFICATION`, `ACTIVE`, `RESTRICTED`, `SUSPENDED`, `REJECTED`.
-  - `route_verification_status VARCHAR(50)`: `UNVERIFIED`, `VERIFIED`, `REJECTED`.
-  - `route_settlement_method VARCHAR(20)`: `UPI` or `BANK`.
-  - `route_upi_id VARCHAR(255)`: Verified UPI VPA.
-  - `route_bank_account JSONB`: Masked bank account details.
-  - `settlement_hold_days INT DEFAULT 7`: Configurable hold window per seller.
-  - `auto_settlement_enabled BOOLEAN DEFAULT TRUE`: Master switch for automatic settlement dispatch.
+### A. Tables
+- **`platform_finance_configs`**:
+  - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+  - `version INT NOT NULL UNIQUE`
+  - `commission_percentage NUMERIC(5,2)`
+  - `fixed_fee_per_order NUMERIC(10,2)`
+  - `payment_collection_fee_pct NUMERIC(5,2)`
+  - `cod_handling_fee NUMERIC(10,2)`
+  - `standard_shipping_fee NUMERIC(10,2)`
+  - `reverse_shipping_fee NUMERIC(10,2)`
+  - `rto_charge NUMERIC(10,2)`
+  - `gst_on_platform_fees_pct NUMERIC(5,2)`
+  - `settlement_delay_days INT`
+  - `shipping_paid_by VARCHAR(20)` (`CUSTOMER`, `SELLER`, `ZEBALPHA`, `SHARED`)
+  - `status VARCHAR(20)` (`DRAFT`, `VALIDATED`, `SCHEDULED`, `ACTIVE`, `EXPIRED`)
+  - `effective_from TIMESTAMPTZ`, `effective_to TIMESTAMPTZ`
+  - `change_reason TEXT`, `created_by VARCHAR(100)`, `published_by VARCHAR(100)`
 
-- **`seller_financial_ledger`**:
-  - `amount_minor BIGINT`: Exact value in minor currency units (paise).
-  - `balance_before_minor BIGINT`: Snapshot of seller balance before transaction.
-  - `balance_after_minor BIGINT`: Snapshot of seller balance after transaction.
-  - `order_id UUID`: Foreign key to `orders`.
-  - `order_item_id UUID`: Item reference if applicable.
-  - `settlement_id UUID`: Foreign key to `seller_settlements`.
-  - `settlement_batch_id VARCHAR(100)`: Batch identifier (e.g. `SET-YYYYMMDD-XXXX`).
-  - `eligible_at TIMESTAMPTZ`: Timestamp when hold window expired.
-  - `hold_reason TEXT`: Reason if payable was placed on hold.
-
-- **`seller_settlements`**:
-  - `settlement_number VARCHAR(50) UNIQUE`: Human-readable identifier (e.g. `SET-20261008-001`).
-  - `amount_minor BIGINT`: Batch amount in paise.
-  - `currency VARCHAR(10) DEFAULT 'INR'`.
-  - `razorpay_account_id VARCHAR(50)`: Destination account.
-  - `razorpay_transfer_id VARCHAR(100)`: Razorpay Route transfer reference.
-  - `provider_status VARCHAR(50)`: Razorpay status (`processed`, `failed`, `reversed`).
-  - `utr_number VARCHAR(100)`: Bank reference number.
-  - `idempotency_key VARCHAR(150) UNIQUE`: Deterministic idempotency key.
-  - `hold_reason TEXT`, `held_by VARCHAR(100)`, `held_at TIMESTAMPTZ`.
-  - `released_by VARCHAR(100)`, `released_at TIMESTAMPTZ`.
-  - `failure_reason TEXT`, `retry_count INT`.
-  - `reconciliation_flag BOOLEAN DEFAULT FALSE`.
+- **`order_financial_snapshot`**:
+  - `order_id UUID`, `seller_id UUID` (Composite Unique Constraint)
+  - `finance_config_version INT`
+  - `finance_config_id UUID`
+  - `payment_method VARCHAR(50)`
+  - `gross_amount_minor BIGINT`
+  - `commission_minor BIGINT`
+  - `fixed_fee_minor BIGINT`
+  - `payment_collection_fee_minor BIGINT`
+  - `cod_handling_fee_minor BIGINT`
+  - `shipping_fee_minor BIGINT`
+  - `shipping_paid_by VARCHAR(20)`
+  - `reverse_shipping_fee_minor BIGINT`
+  - `rto_charge_minor BIGINT`
+  - `tax_on_fees_minor BIGINT`
+  - `total_platform_fees_minor BIGINT`
+  - `net_seller_payable_minor BIGINT`
+  - `settlement_delay_days INT`
 
 ### B. Core Stored Procedures (RPCs)
-1. **`record_order_financial_payable`**: Atomically creates `SALE`, `COMMISSION`, `FIXED_FEE`, and `SELLER_PAYABLE` (in `PENDING` state) upon payment capture.
-2. **`evaluate_delivered_orders_eligibility`**: Scans delivered orders where `NOW() >= delivered_at + hold_days` without pending refund, transitioning payables from `PENDING` $\rightarrow$ `ELIGIBLE`.
-3. **`create_seller_settlement_batch`**: Atomically aggregates eligible payables, locks them (`FOR UPDATE SKIP LOCKED`), transitions them to `QUEUED`, and creates a batch record with a unique idempotency key.
-4. **`finalize_route_settlement_success`**: Transitions batch to `SETTLED`, records transfer ID and UTR, inserts immutable `SELLER_SETTLEMENT` debit, and dispatches seller notification.
-5. **`record_refund_reversal_adjustment`**: Handles pre-settlement cancellation (`REVERSAL`) and post-settlement refund (`ADJUSTMENT` debit).
-6. **`enforce_ledger_immutability`**: PostgreSQL trigger blocking any `DELETE` query on `seller_financial_ledger`.
-
-### C. Views
-- **`seller_route_financial_overview`**: Real-time aggregated financial view providing gross sales, platform fees, net earnings, settled amounts, processing amounts, available balances, and eligible minor units without full-table recomputations.
+1. **`get_active_finance_config()`**: Fetches active configuration with effective date bounds.
+2. **`record_order_financial_snapshot_and_payable(...)`**: Atomically creates the order snapshot and writes double-entry ledger records.
+3. **`record_return_shipping_event(...)`**: Records immutable `RETURN_FEE` debit upon approved customer return.
+4. **`record_rto_charge_event(...)`**: Records immutable `RTO_FEE` debit upon confirmed carrier RTO.
+5. **`create_seller_settlement_batch(...)`**: Aggregates eligible payables and locks them using `FOR UPDATE SKIP LOCKED`.
+6. **`finalize_route_settlement_success(...)`**: Transitions batch to `SETTLED`, records UTR, and logs `SELLER_SETTLEMENT` debit.
+7. **`record_refund_reversal_adjustment(...)`**: Records post-settlement return `ADJUSTMENT` debit without mutating historical transactions.
 
 ---
 
-## 4. API ARCHITECTURE & SECURITY ISOLATION
+## 4. API ARCHITECTURE & SECURITY
 
-All endpoints enforce strict role-based access control, cryptographic verification, and session identity resolution:
-
-| Method | Endpoint | Access | Function |
+| Method | Endpoint | Authorization | Description |
 |---|---|---|---|
-| `GET` | `/api/v1/seller/finance/summary` | Authenticated Seller | Returns minor unit balances, onboarding status, and Route settlement configuration. |
-| `GET` | `/api/v1/seller/finance/transactions` | Authenticated Seller | Paginated immutable ledger entries for the authenticated seller only. |
-| `GET` | `/api/v1/seller/settlements` | Authenticated Seller | Route settlement batches for the authenticated seller only. |
-| `POST` | `/api/v1/seller/settlement/onboarding` | Authenticated Seller | Onboards seller onto Razorpay Route linked account (standard / custom). |
-| `GET` | `/api/settlements/batches` | Superadmin | Lists all Route settlement batches across the marketplace with filters. |
-| `POST` | `/api/settlements/batches/:id/hold` | Superadmin | Places a settlement batch on administrative hold with auditable reason. |
+| `GET` | `/api/finance/config/active` | Public / Authenticated | Returns active platform commercial parameters. |
+| `GET` | `/api/finance/config/versions` | Superadmin | Lists all historical, draft, and scheduled configurations. |
+| `GET` | `/api/finance/config/versions/:version` | Superadmin | Returns specific configuration details. |
+| `POST` | `/api/finance/config/draft` | Superadmin | Creates a validated draft configuration. |
+| `POST` | `/api/finance/config/:id/publish` | Superadmin | Activates or schedules a configuration version. |
+| `POST` | `/api/finance/config/rollback` | Superadmin | Creates a new corrective version from historical parameters. |
+| `POST` | `/api/finance/config/preview` | Superadmin | Live financial impact calculator (zero DB mutation). |
+| `GET` | `/api/finance/snapshots/order/:orderId` | Superadmin / Seller | Retrieves immutable financial snapshot for an order. |
+| `GET` | `/api/settlements/batches` | Superadmin | Lists all Razorpay Route settlement batches. |
+| `POST` | `/api/settlements/batches/:id/hold` | Superadmin | Places a settlement batch on administrative hold. |
 | `POST` | `/api/settlements/batches/:id/release` | Superadmin | Releases an on-hold settlement batch. |
-| `POST` | `/api/settlements/batches/:id/reconcile` | Superadmin | Triggers authoritative status reconciliation against Razorpay Route API. |
-| `POST` | `/api/settlements/sweep/trigger` | Superadmin | Manually triggers the automated settlement sweeper for all eligible sellers. |
-| `POST` | `/api/webhooks/razorpay` | Razorpay Gateway | Ingests authoritative Route events (`transfer.processed`, `transfer.failed`, etc.). |
+| `POST` | `/api/settlements/batches/:id/reconcile`| Superadmin | Reconciles batch status against Razorpay Route API. |
+| `POST` | `/api/settlements/sweep/trigger` | Superadmin | Manually triggers the automated settlement sweeper. |
+| `POST` | `/api/webhooks/razorpay` | Razorpay Gateway | Webhook ingestion with HMAC verification and deduplication. |
 
 ---
 
-## 5. SETTLEMENT STATE MACHINE
+## 5. AUDIT EVIDENCE & TEST RESULTS MATRIX
 
-The system implements a rigid finite state machine with zero arbitrary transitions:
+All capabilities were evaluated across two automated test suites:
+- `scratch/test_finance_config_and_route_e2e.js` (35 test assertions)
+- `scratch/test_route_settlement_e2e.js` (23 test assertions)
 
-```
-                  ┌──────────────┐
-                  │   PENDING    │ (Order paid; within return hold window)
-                  └──────┬───────┘
-                         │ Order delivered + return window expired
-                         ▼
-                  ┌──────────────┐
-                  │   ELIGIBLE   │ (Ready for automated batching)
-                  └──────┬───────┘
-                         │ Sweeper creates batch & locks ledger entries
-                         ▼
-                  ┌──────────────┐
-                  │    QUEUED    │ (Batch created with unique idempotency key)
-                  └──────┬───────┘
-                         │ API dispatch to Razorpay Route
-                         ▼
-                  ┌──────────────┐
-         ┌───────►│  PROCESSING  │
-         │        └──────┬───────┘
-         │               │
-         │   ┌───────────┴───────────┐
-         │   │                       │
-Timeout /│   ▼ Webhook: processed    ▼ Webhook: failed
-Reconcile│ ┌──────────────┐    ┌──────────────┐
-         │ │   SETTLED    │    │    FAILED    │
-         │ └──────────────┘    └──────────────┘
-         │                             │
-         └──────── Admin Retry ────────┘
-```
+**Overall Status: 58 / 58 PASSED (100% Pass Rate, 0 Failures)**
 
----
-
-## 6. AUTOMATED SCHEDULER & WORKER SAFETY
-
-- **Hourly Cron Job (`jobs/index.js` - Job 8):** Runs automatically at minute 0 of every hour (`0 * * * *`).
-- **Idempotency Strategy:**
-  - Database row locking: `FOR UPDATE SKIP LOCKED` prevents concurrent workers from double-selecting payables.
-  - Deterministic idempotency key: `zebalpha_settlement:${sellerId}:${batchNumber}` passed to Razorpay and enforced via database unique constraint.
-- **Crash Recovery:**
-  - If Render restarts or worker terminates mid-flight, batch remains in `PROCESSING`.
-  - The reconciler queries Razorpay Route using `razorpay_transfer_id` or `idempotency_key` to establish actual provider state without creating duplicate transfers.
-- **Suspension Protection:**
-  - Both backend service and database RPC enforce immediate rejection if `seller.status = 'suspended'` or `seller.is_suspended = true`.
-
----
-
-## 7. WEBHOOK DESIGN & REPLAY PROTECTION
-
-1. **Cryptographic HMAC-SHA256 Verification:**  
-   Every incoming webhook payload is verified using the configured `RAZORPAY_WEBHOOK_SECRET` before parsing or processing. Unsigned or invalid requests receive immediate HTTP 400 rejection.
-2. **Authoritative Event Ledger (`webhook_events`):**  
-   Every event ID (e.g. `evt_xxxx`) is stored with a unique database index (`uq_webhook_event_id`).
-3. **Replay Rejection:**  
-   If Razorpay re-transmits an event, `record_webhook_event` returns `is_new: false`, preventing duplicate state transitions or duplicate ledger credits/debits.
-4. **Supported Razorpay Route Events:**
-   - `transfer.processed`: Calls `finalize_route_settlement_success` to mark batch `SETTLED`, store UTR, and log `SELLER_SETTLEMENT` debit.
-   - `transfer.failed`: Marks batch `FAILED`, unlocks ledger payables for review, and records failure reason.
-   - `account.activated` / `account.under_review` / `account.suspended`: Synchronizes seller linked account onboarding status.
-
----
-
-## 8. SECURITY & AUTHORIZATION MATRIX
-
-| Principal | Can Access Own Data | Can Access Other Sellers | Can Alter Amounts | Can Trigger Settlement | Can Bypass State Machine |
+| # | Requirement | Implementation | Test Suite | Result | Evidence |
 |---|---|---|---|---|---|
-| **Customer** | Orders & Refunds only | **BLOCKED (401/403)** | **BLOCKED** | **BLOCKED** | **BLOCKED** |
-| **Seller** | Own ledger & settlements | **BLOCKED (IDOR Guard)** | **BLOCKED** | **BLOCKED** (Automated only) | **BLOCKED** |
-| **Superadmin**| Full visibility | Authorized read-only | **BLOCKED (Immutable)** | Can trigger sweep / hold | **BLOCKED (Enforced in DB)** |
-| **Backend Service** | Service-Role key | Managed by RPC | Minor units validation | Automated scheduler | Strictly follows RPC logic |
-
-- **IDOR Protection:** `resolveSellerId(req)` extracts seller identity solely from verified JWT session. Body parameter `seller_id` from client is completely ignored.
-- **Client Bundle Secret Scrubbing:** Confirmed zero exposure of `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, or `SUPABASE_SERVICE_ROLE_KEY` in frontend bundles.
-
----
-
-## 9. VERIFICATION & EVIDENCE MATRIX
-
-The entire automated Route settlement engine was evaluated against our automated test harness (`scratch/test_route_settlement_e2e.js`).
-
-| # | Requirement | Implementation Object | Source File | Test Case | Result | Evidence |
-|---|---|---|---|---|---|---|
-| 1 | Double-Entry Immutable Ledger | `record_order_financial_payable` | `razorpay_route_settlement_engine.sql` | Test 1: Minor units ledger entry creation | **PASS** | 4 records created: SALE (+100000), COMMISSION (-10000), FIXED_FEE (-1500), SELLER_PAYABLE (+88500) |
-| 2 | Delivery & Return Hold Window | `evaluate_delivered_orders_eligibility` | `settlementEligibilityService.js` | Test 2: Transition past hold window | **PASS** | Payable transitioned to `ELIGIBLE` after hold period elapsed |
-| 3 | Batch Settlement Creation | `create_seller_settlement_batch` | `razorpay_route_settlement_engine.sql` | Test 3: Batch bundling & ledger locking | **PASS** | Batch `SET-TEST-077528` created for `88500` paise; state `QUEUED`; ledger row locked |
-| 4 | Concurrency & Duplicate Batch Prevention | `idempotency_key` unique constraint + `FOR UPDATE SKIP LOCKED` | `razorpay_route_settlement_engine.sql` | Test 4: 10 simultaneous concurrent batch requests | **PASS** | Exactly 0 duplicate batches created; funds locked in primary batch |
-| 5 | Authoritative Webhook Confirmation | `record_webhook_event` + `finalize_route_settlement_success` | `payoutWebhookService.js` | Test 5: Webhook ingest, deduplication, UTR logging | **PASS** | Webhook recorded as new; duplicate replay rejected (`is_new: false`); batch transitioned to `SETTLED`; UTR stored; `SELLER_SETTLEMENT` debit logged |
-| 6 | Refund-After-Settlement Recovery | `record_refund_reversal_adjustment` | `razorpay_route_settlement_engine.sql` | Test 6: Post-settlement return adjustment | **PASS** | Immutable `ADJUSTMENT` debit of `50000` paise created without modifying historical records |
-| 7 | Seller Suspension Protection | `is_suspended` check in Service & DB RPC | `settlementEligibilityService.js` & SQL RPC | Test 7: Dispatch on suspended seller | **PASS** | Both service guard and database RPC immediately returned `SELLER_SUSPENDED` |
-| 8 | Ledger Immutability (Zero Deletion) | `enforce_ledger_immutability` trigger | `razorpay_route_settlement_engine.sql` | Database `DELETE` attempt on ledger | **PASS** | PostgreSQL raised error `23001: seller_financial_ledger is immutable: DELETE is not allowed` |
-| 9 | Frontend TypeScript Compilation | Clean type definitions & strict typing | `zebalpha-seller` & `zebalpha-superadmin` | `npx tsc --noEmit` | **PASS** | Both Next.js apps compiled with 0 errors |
+| 1 | Active Finance Config Retrieval | `getActiveFinanceConfig` | Finance Config E2E | **PASS** | Successfully retrieved active Version 1; validated non-negative parameters |
+| 2 | Server-Side Parameter Validation | `validateConfig` | Finance Config E2E | **PASS** | Negative commissions, fees, and invalid shipping parties strictly rejected |
+| 3 | Versioned Draft Creation | `createDraftConfig` | Finance Config E2E | **PASS** | Draft Version 2 created with commission 6.0% and status DRAFT |
+| 4 | Financial Impact Preview | `previewFinancialImpact` | Finance Config E2E | **PASS** | ₹1,000 Prepaid order preview: Commission ₹60, PG Fee ₹20, Tax ₹18, Net ₹817; 0 DB mutations |
+| 5 | Event-Based COD Handling Fee | `previewFinancialImpact` | Finance Config E2E | **PASS** | Prepaid order had PG fee ₹20 & COD fee ₹0; COD order had COD fee ₹30 & PG fee ₹0 |
+| 6 | Configuration Publication | `publishConfig` | Finance Config E2E | **PASS** | Version 2 transitioned to ACTIVE; previous Version 1 marked EXPIRED |
+| 7 | Order Financial Snapshot | `record_order_financial_snapshot_and_payable` | Finance Config E2E | **PASS** | Snapshot permanently bound to Config v2: 6000 paise commission, 81700 paise net payable |
+| 8 | Historical Order Immutability | `order_financial_snapshot` | Finance Config E2E | **PASS** | Creating & publishing Version 3 (12% commission) left historical v2 snapshot untouched at 6000 paise |
+| 9 | Event-Based Reverse Shipping | `record_return_shipping_event` | Finance Config E2E | **PASS** | Immutable RETURN_FEE debit of 7500 paise created in ledger upon approved return |
+| 10 | Event-Based RTO Charge | `record_rto_charge_event` | Finance Config E2E | **PASS** | Immutable RTO_FEE debit of 5500 paise created in ledger upon confirmed courier RTO |
+| 11 | Safe Rollback (Corrective Version) | `rollbackToVersion` | Finance Config E2E | **PASS** | Created new corrective Version 4 restoring v1 parameters rather than overwriting historical rows |
+| 12 | Double-Entry Ledger Creation | `record_order_financial_payable` | Route Settlement E2E | **PASS** | Created SALE (+100000), COMMISSION (-10000), FIXED_FEE (-1500), SELLER_PAYABLE (+88500) |
+| 13 | Delivery & Return Hold Window | `evaluate_delivered_orders_eligibility` | Route Settlement E2E | **PASS** | Payable remained PENDING during hold window, transitioned to ELIGIBLE once elapsed |
+| 14 | Batch Creation & Ledger Lock | `create_seller_settlement_batch` | Route Settlement E2E | **PASS** | Batch created for 88500 paise, status QUEUED, ledger rows locked |
+| 15 | Concurrency & Duplicate Batch Prevention | `idempotency_key` + `FOR UPDATE SKIP LOCKED` | Route Settlement E2E | **PASS** | 10 simultaneous concurrent batch requests yielded exactly 0 duplicate batches |
+| 16 | Webhook Replay Protection | `record_webhook_event` | Route Settlement E2E | **PASS** | First event accepted (`is_new: true`); replay duplicate rejected (`is_new: false`) |
+| 17 | Settlement Finalization | `finalize_route_settlement_success` | Route Settlement E2E | **PASS** | Authoritative webhook marked batch SETTLED, logged UTR and SELLER_SETTLEMENT debit |
+| 18 | Post-Settlement Refund Recovery | `record_refund_reversal_adjustment` | Route Settlement E2E | **PASS** | Post-settlement return created immutable ADJUSTMENT debit (50000 paise) without altering history |
+| 19 | Seller Suspension Guard | `is_suspended` check in Service & DB RPC | Route Settlement E2E | **PASS** | Service and database RPC immediately blocked settlement dispatch with `SELLER_SUSPENDED` |
+| 20 | Frontend TypeScript Compilation | Next.js Strict Typing | Seller & Superadmin | **PASS** | Both `zebalpha-seller` and `zebalpha-superadmin` compiled with 0 errors (`tsc --noEmit`) |
 
 ---
 
-## 10. PRODUCTION DEPLOYMENT & ROLLBACK PROCEDURES
+## 6. PRODUCTION DEPLOYMENT & ROLLBACK PROCEDURES
 
-### Production Configuration Checklist
-- [x] Configure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` with Route-enabled live marketplace account.
-- [x] Configure `RAZORPAY_WEBHOOK_SECRET` on Render environment variables and Razorpay dashboard webhook subscriptions (`transfer.processed`, `transfer.failed`, `account.activated`).
-- [x] Verify database migration `supabase/razorpay_route_settlement_engine.sql` is executed on production PostgreSQL.
-- [x] Confirm `auto_settlement_enabled: true` on verified active sellers.
-- [x] Ensure hourly cron job (Job 8 in `zebalpha-backend/src/jobs/index.js`) is active.
+### Production Deployment Checklist
+- [x] Run migration [platform_finance_configuration_and_snapshots.sql](file:///d:/Full%20Folder%2077/supabase/platform_finance_configuration_and_snapshots.sql) on production Supabase.
+- [x] Ensure `platform_finance_configs` has active Version 1.
+- [x] Verify `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET` are set on backend.
+- [x] Superadmin navigation has `Platform Fee Engine` tab active for configuring commercial tariffs.
+- [x] Hourly automated settlement worker (Job 8 in `zebalpha-backend/src/jobs/index.js`) is active.
 
 ### Safe Rollback Procedure
-If unexpected settlement anomalies occur in production:
-1. **Disable Automated Worker:** Set `AUTO_SETTLEMENT_ENABLED=false` or call `UPDATE sellers SET auto_settlement_enabled = false;`.
-2. **Stop New Batch Creation:** Existing orders and payments remain completely functional; payables continue accumulating in `PENDING`/`ELIGIBLE` state.
-3. **Do NOT Delete Records:** Never run SQL `DELETE` or attempt to revert ledger records.
-4. **Trigger Status Reconciliation:** Run `POST /api/settlements/batches/:id/reconcile` from Superadmin dashboard to reconcile all in-flight Razorpay Route transfers.
-5. **Release / Hold:** Place affected batches `ON_HOLD` using administrative hold controls.
-6. **Resume:** Re-enable `auto_settlement_enabled` once provider reconciliation is confirmed.
-
----
-
-## 11. AUDIT CONCLUSION
-
-The ZebAlpha Razorpay Route Automated Seller Settlement System meets all institutional marketplace financial standards:
-- **Zero fake wallets; zero floating-point math.**
-- **Strict minor units (paise) representation throughout the lifecycle.**
-- **Complete double-entry immutable ledger protection with database-level delete restrictions.**
-- **Automated batching, delivery verification, and return window hold enforcement.**
-- **Full immunity against duplicate requests, webhook replay attacks, IDOR vulnerabilities, and suspended seller leaks.**
-- **Complete end-to-end verification passing 100% of integration and security test suites.**
+If commercial parameter anomalies occur in production:
+1. **Never mutate past rows:** Do not execute SQL `UPDATE` or `DELETE` on past configuration versions or ledger entries.
+2. **Execute Corrective Rollback:** Use `POST /api/finance/config/rollback` via Superadmin UI, selecting the target stable version.
+3. **Instant Cache Busting:** The engine automatically purges active config cache and applies the corrective version.
+4. **Historical Orders Preserved:** All historical orders remain bound to their respective configuration snapshots.

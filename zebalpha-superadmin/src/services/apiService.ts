@@ -91,7 +91,17 @@ export const apiService = {
   holdRouteBatch: (id: string, reason: string) => apiFetch(`/api/settlements/batches/${id}/hold`, { method: 'POST', body: JSON.stringify({ reason }) }),
   releaseRouteBatch: (id: string, reason?: string) => apiFetch(`/api/settlements/batches/${id}/release`, { method: 'POST', body: JSON.stringify({ reason }) }),
   reconcileRouteBatch: (id: string) => apiFetch(`/api/settlements/batches/${id}/reconcile`, { method: 'POST' }),
-  triggerRouteSweep: () => apiFetch('/api/settlements/sweep/trigger', { method: 'POST' })
+  triggerRouteSweep: () => apiFetch('/api/settlements/sweep/trigger', { method: 'POST' }),
+
+  // Platform Finance Configuration & Versioning
+  getActiveFinanceConfig: () => apiFetch('/api/finance/config/active'),
+  listFinanceConfigVersions: () => apiFetch('/api/finance/config/versions'),
+  getFinanceConfigVersion: (version: number | string) => apiFetch(`/api/finance/config/versions/${version}`),
+  createDraftFinanceConfig: (data: any) => apiFetch('/api/finance/config/draft', { method: 'POST', body: JSON.stringify(data) }),
+  publishFinanceConfig: (id: string, data: any = {}) => apiFetch(`/api/finance/config/${id}/publish`, { method: 'POST', body: JSON.stringify(data) }),
+  rollbackFinanceConfig: (data: { targetVersion: number; reason: string }) => apiFetch('/api/finance/config/rollback', { method: 'POST', body: JSON.stringify(data) }),
+  previewFinanceImpact: (data: any) => apiFetch('/api/finance/config/preview', { method: 'POST', body: JSON.stringify(data) }),
+  getOrderFinancialSnapshot: (orderId: string) => apiFetch(`/api/finance/snapshots/order/${orderId}`)
 };
 
 

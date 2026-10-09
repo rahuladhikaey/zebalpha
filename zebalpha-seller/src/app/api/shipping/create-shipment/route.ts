@@ -68,7 +68,13 @@ export async function POST(req: Request) {
     }
 
     // 3. Resolve Seller Pickup Location
-    const sellerId = order.seller_id || user?.id || "default-seller";
+    const sellerId = order.seller_id || user?.id;
+    if (!sellerId) {
+      return NextResponse.json({
+        success: false,
+        message: "Cannot manifest shipment: Seller identification is required."
+      }, { status: 400 });
+    }
     let pickupLocationData: any = null;
 
     // A. Check seller_pickup_locations table
@@ -182,9 +188,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const orderItems = (rawItems.length > 0 ? rawItems : [{ name: "Apparel Item", price: order.total_amount || 499, quantity: 1 }]).map((it: any) => ({
+    const orderItems = (rawItems.length > 0 ? rawItems : [{ name: "Apparel Item", price: order.total_amount || 499, quantity: 1 }]).map((it: any, idx: number) => ({
       name: (it.name || it.title || "Apparel Item").slice(0, 50),
-      sku: (it.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`).slice(0, 30),
+      sku: String(it.sku || (it.product_id ? `SKU-${it.product_id}` : `SKU-ITEM-${idx + 1}`)).slice(0, 30),
       units: Number(it.quantity || it.qty || 1),
       selling_price: Number(it.price || it.subtotal || 100),
       discount: 0,

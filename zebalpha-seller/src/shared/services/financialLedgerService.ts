@@ -1,7 +1,7 @@
-import { 
-  MarketplaceFinancialRules, 
-  LedgerTransaction, 
-  SellerLedgerBalances 
+import {
+  MarketplaceFinancialRules,
+  LedgerTransaction,
+  SellerLedgerBalances
 } from '../types/ledger';
 
 export const DEFAULT_FINANCIAL_RULES: MarketplaceFinancialRules = {
@@ -413,3 +413,5 @@ export function generateRtoLedgerEntries(params: {
     metadata: { rto_fee: rtoFee }
   }];
 }
+
+

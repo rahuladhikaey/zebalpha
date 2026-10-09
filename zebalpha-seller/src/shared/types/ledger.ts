@@ -61,7 +61,7 @@ export interface SellerLedgerBalances {
   net_seller_earnings: number;
   total_settled: number;
   available_balance: number;
-  reserved_balance: number;
+  reserved_balance?: number;
   pending_settlement: number;
   on_hold_balance: number;
 }
@@ -77,6 +77,7 @@ export interface MarketplaceFinancialRules {
   gst_on_platform_fees_pct: number;
   settlement_delay_days: number;
   customer_return_window_days: number;
+  shipping_paid_by?: 'CUSTOMER' | 'SELLER' | 'ZEBALPHA' | 'SHARED';
   tiers?: {
     standard: {
       commission_pct: number;

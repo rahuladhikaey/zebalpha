@@ -17,7 +17,6 @@ type WishlistContextType = {
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
 const STORAGE_KEY = "zebalpha_wishlist";
-const LEGACY_STORAGE_KEY = "asali_swad_wishlist";
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -28,7 +27,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const getGuestWishlist = (): Product[] => {
     if (typeof window === "undefined") return [];
     try {
-      const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+      const stored = localStorage.getItem(STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -119,14 +118,12 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
             // Clean up guest local storage ONLY after successful database synchronization
             if (typeof window !== "undefined") {
               localStorage.removeItem(STORAGE_KEY);
-              localStorage.removeItem(LEGACY_STORAGE_KEY);
             }
           }
         } else {
           // All guest items were already in user's DB wishlist
           if (typeof window !== "undefined") {
             localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem(LEGACY_STORAGE_KEY);
           }
         }
 

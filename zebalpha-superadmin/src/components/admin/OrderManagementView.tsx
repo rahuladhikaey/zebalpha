@@ -431,14 +431,6 @@ export default function OrderManagementView({
         updated_at: new Date().toISOString() 
       };
 
-      if (["ready_to_ship", "dispatched", "shipped", "in_transit"].includes(newStatus.toLowerCase())) {
-        const ord = orders.find(o => o.id === orderId);
-        if (!ord?.tracking_number) {
-          updates.tracking_number = `DEL-${Math.floor(100000000 + Math.random() * 900000000)}`;
-          updates.courier_name = "Delhivery Surface";
-        }
-      }
-
       await fetch("/api/admin/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

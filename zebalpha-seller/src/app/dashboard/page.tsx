@@ -64,6 +64,7 @@ export default function SellerDashboard() {
     net_seller_earnings: 0,
     total_settled: 0,
     available_balance: 0,
+    reserved_balance: 0,
     pending_settlement: 0,
     on_hold_balance: 0
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { Star, Trash2, ShieldAlert, CheckCircle2, Search, MessageSquare } from "lucide-react";
 
 export default function ReviewsModerationView() {
@@ -8,24 +9,31 @@ export default function ReviewsModerationView() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("asali_swad_reviews");
-      if (stored) {
-        try {
-          setReviews(JSON.parse(stored));
-        } catch (e) {
-          console.error(e);
+    async function fetchReviews() {
+      try {
+        const { data, error } = await supabase
+          .from("reviews")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (!error && Array.isArray(data)) {
+          setReviews(data);
+        } else {
+          setReviews([]);
         }
+      } catch (_) {
+        setReviews([]);
       }
     }
+    fetchReviews();
   }, []);
 
-  const handleRemoveReview = (id: number | string) => {
+  const handleRemoveReview = async (id: number | string) => {
     if (!confirm("Are you sure you want to remove this customer review?")) return;
-    const updated = reviews.filter(r => r.id !== id);
-    setReviews(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("asali_swad_reviews", JSON.stringify(updated));
+    try {
+      await supabase.from("reviews").delete().eq("id", id);
+      setReviews(prev => prev.filter(r => r.id !== id));
+    } catch (e) {
+      console.error("Error removing review:", e);
     }
   };
 

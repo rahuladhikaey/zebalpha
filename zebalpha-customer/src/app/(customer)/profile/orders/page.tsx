@@ -1502,60 +1502,64 @@ function ProductRatingWidget({ productId, productName, user }: { productId: numb
   const [submitted, setSubmitted] = useState(false);
   const [savedReview, setSavedReview] = useState<any>(null);
 
-  // Load existing rating if any
+  // Load existing rating if any from Supabase
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("zebalpha_reviews") || localStorage.getItem("asali_swad_reviews");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          const existing = parsed.find(
-            (r: any) => Number(r.product_id) === Number(productId) && r.user_email === user.email
-          );
-          if (existing) {
-            setSavedReview(existing);
-            setRating(existing.rating);
-            setComment(existing.comment);
-            setSubmitted(true);
-          }
-        } catch (e) {
-          console.error(e);
+    async function loadReview() {
+      if (!productId || !user?.email) return;
+      try {
+        const { data, error } = await supabase
+          .from("reviews")
+          .select("*")
+          .eq("product_id", productId)
+          .eq("user_email", user.email)
+          .maybeSingle();
+
+        if (!error && data) {
+          setSavedReview(data);
+          setRating(data.rating);
+          setComment(data.comment || "");
+          setSubmitted(true);
         }
+      } catch (e) {
+        console.error("Error fetching review:", e);
       }
     }
-  }, [productId, user.email]);
+    loadReview();
+  }, [productId, user?.email]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rating === 0) return;
 
     const newReview = {
-      id: Math.random().toString(36).substr(2, 9),
-      product_id: Number(productId),
+      product_id: productId,
+      user_id: user?.id || null,
       user_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Customer",
       user_email: user.email,
       rating,
       comment: comment || "Excellent product!",
-      created_at: new Date().toISOString(),
+      is_approved: true
     };
 
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("zebalpha_reviews") || localStorage.getItem("asali_swad_reviews");
-      let list = [];
-      if (stored) {
-        try {
-          list = JSON.parse(stored);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      list = list.filter((r: any) => !(Number(r.product_id) === Number(productId) && r.user_email === user.email));
-      list.push(newReview);
-      localStorage.setItem("zebalpha_reviews", JSON.stringify(list));
-    }
+    try {
+      const { data, error } = await supabase
+        .from("reviews")
+        .insert([newReview])
+        .select()
+        .single();
 
-    setSavedReview(newReview);
-    setSubmitted(true);
+      if (!error && data) {
+        setSavedReview(data);
+        setSubmitted(true);
+      } else {
+        setSavedReview(newReview);
+        setSubmitted(true);
+      }
+    } catch (err) {
+      console.error("Error submitting review to Supabase:", err);
+      setSavedReview(newReview);
+      setSubmitted(true);
+    }
   };
 
   if (submitted && savedReview) {

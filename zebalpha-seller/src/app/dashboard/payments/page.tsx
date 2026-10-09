@@ -23,7 +23,7 @@ import {
   Wallet, 
   Smartphone, 
   AlertTriangle,
-  ShieldCheck
+  ShieldCheck,
 } from "lucide-react";
 import { 
   LedgerTransaction, 

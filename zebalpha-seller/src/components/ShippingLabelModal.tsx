@@ -26,10 +26,10 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
   const awb = order.tracking_number || order.shipment_id || order.shiprocket_shipment_id || "AWB-PENDING-DISPATCH";
   const courier = order.courier_name || (hasRealAwb ? "Shiprocket Partner" : "Awaiting Dispatch");
   
-  const destinationCode = order.routing_hub || order.destination_code || "E31_CCU_Metr";
+  const destinationCode = order.routing_hub || order.destination_code || "HUB-PENDING";
   const orderNumber = order.order_number || String(order.id).slice(0, 16).replace(/[^0-9A-Z]/gi, "").toUpperCase();
   const subOrderNumber = `${orderNumber}_1`;
-  const invoiceNumber = order.invoice_number || `wgvxz${Math.floor(1000 + Math.random() * 9000)}`;
+  const invoiceNumber = order.invoice_number || (orderNumber ? `INV-${orderNumber}` : "INV-PENDING");
   const isCOD = order.payment_method === "COD";
 
   const customerName = order.customer_name || (typeof order.shipping_address === "object" ? order.shipping_address?.name : "") || "Customer";

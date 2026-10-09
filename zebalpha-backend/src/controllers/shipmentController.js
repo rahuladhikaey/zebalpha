@@ -92,7 +92,13 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
     }
 
     // 2. Resolve Approved Pickup Address for this Seller (Immutable Snapshot)
-    const sellerId = order.seller_id || userId || 'default-seller';
+    const sellerId = order.seller_id || userId;
+    if (!sellerId) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'Seller identification could not be resolved for order.'
+      });
+    }
     
     // First try default pickup location
     let { data: pickupLocation } = await supabaseB
@@ -187,9 +193,9 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
       }
     }
 
-    const orderItems = (rawItems.length > 0 ? rawItems : [{ name: 'Apparel Item', price: order.total_amount || 499, quantity: 1 }]).map(item => ({
+    const orderItems = (rawItems.length > 0 ? rawItems : [{ name: 'Apparel Item', price: order.total_amount || 499, quantity: 1 }]).map((item, idx) => ({
       name: item.name || item.title || 'Apparel Product',
-      sku: item.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+      sku: item.sku || (item.product_id ? `SKU-${item.product_id}` : `SKU-ITEM-${idx + 1}`),
       units: Number(item.quantity || item.qty || 1),
       selling_price: Number(item.price || item.subtotal || 100),
       discount: 0,
@@ -331,8 +337,8 @@ export const acceptOrderAndCreateShipment = async (req, res, next) => {
       awb_code: awbNumber,
       courier_name: courierName,
       routing_hub: routingHub,
-      destination_code: `${destPincode.slice(0, 3)}_${customerAddressSnapshot.city.slice(0, 3).toUpperCase()}`,
-      return_code: `${pickupLocation.pincode},${Math.floor(1000000 + Math.random() * 9000000)}`,
+      destination_code: `${destPincode.slice(0, 3)}_${(customerAddressSnapshot.city || 'METRO').slice(0, 3).toUpperCase()}`,
+      return_code: `${pickupLocation.pincode},${(pickupLocation.city || 'RETURN').slice(0, 3).toUpperCase()}`,
       label_url: labelUrl || `https://apiv2.shiprocket.in/v1/external/shipments/print/label/${shipmentId}`,
       status: 'ready_to_ship',
       payment_mode: isCOD ? 'COD' : 'PREPAID',
@@ -506,19 +512,25 @@ export const getShippingLabel = async (req, res, next) => {
       .maybeSingle();
 
     const sellerStoreName = seller?.business_name || seller?.store_name || pickupAddress.contact_name || 'Zebalpha Verified Merchant';
-    const awb = order.tracking_number || shipment?.awb_code || `DEL-${Math.floor(100000000 + Math.random() * 900000000)}`;
-    const courier = order.courier_name || shipment?.courier_name || 'Delhivery Surface';
+    const awb = order.tracking_number || shipment?.awb_code;
+    if (!awb) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'Shipment has not been assigned an AWB tracking number yet. Please manifest shipment with carrier first.'
+      });
+    }
+    const courier = order.courier_name || shipment?.courier_name || 'Assigned Logistics Carrier';
 
     const labelData = {
       orderId: order.id,
       orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
       subOrderNumber: `${order.order_number || order.id.slice(0, 8).toUpperCase()}_1`,
-      invoiceNumber: order.invoice_number || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+      invoiceNumber: order.invoice_number || `INV-${order.order_number || order.id.slice(0, 8).toUpperCase()}`,
       awbNumber: awb,
       courierName: courier,
-      routingHub: order.routing_hub || shipment?.routing_hub || 'CCU/EAST-HUB-01',
-      destinationCode: shipment?.destination_code || `${customerAddress.pincode?.slice(0, 3)}_CCU`,
-      returnCode: shipment?.return_code || `${pickupAddress.pincode},${Math.floor(1000000 + Math.random() * 9000000)}`,
+      routingHub: order.routing_hub || shipment?.routing_hub || (customerAddress.pincode ? `HUB-${customerAddress.pincode.slice(0, 3)}` : 'STANDARD'),
+      destinationCode: shipment?.destination_code || (customerAddress.pincode ? `${customerAddress.pincode.slice(0, 3)}_DEST` : 'DEST_STANDARD'),
+      returnCode: shipment?.return_code || (pickupAddress.pincode ? `${pickupAddress.pincode}_RET` : 'RET_STANDARD'),
       orderDate: order.created_at,
       paymentMethod: order.payment_method === 'COD' ? 'CASH ON DELIVERY (COD)' : 'PREPAID',
       isCOD: order.payment_method === 'COD',

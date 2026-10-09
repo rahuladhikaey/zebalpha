@@ -65,33 +65,7 @@ export default function PaymentsCommissionView() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Check local storage cache first for instant initial load
-      const storedRules = typeof window !== "undefined" ? localStorage.getItem("asali_swad_marketplace_rules") : null;
-      if (storedRules) {
-        try {
-          const cachedVal = JSON.parse(storedRules);
-          if (cachedVal.globalCommissionPct) setCommissionRate(Number(cachedVal.globalCommissionPct));
-          setFeeConfig({
-            deliveryCharge: cachedVal.deliveryCharge || "40",
-            freeShippingThreshold: cachedVal.freeShippingThreshold || "999",
-            appCharge: cachedVal.appCharge || "5",
-            defaultShippingCost: cachedVal.defaultShippingCost || "50"
-          });
-        } catch (e) {
-          console.error("Local storage rules parse notice:", e);
-        }
-      }
-
-      const storedSets = typeof window !== "undefined" ? localStorage.getItem("asali_swad_all_seller_settlements") : null;
-      if (storedSets) {
-        try {
-          setSettlements(JSON.parse(storedSets));
-        } catch (e) {
-          console.error("Local storage settlements parse notice:", e);
-        }
-      }
-
-      // 2. Fetch fresh data from Supabase DB
+      // Fetch fresh data from Supabase DB and backend APIs
       let sellersList: any[] = [];
       try {
         const sRes = await fetch("/api/admin/sellers");
@@ -120,16 +94,10 @@ export default function PaymentsCommissionView() {
           defaultShippingCost: val.defaultShippingCost || "50"
         };
         setFeeConfig(updatedConfig);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("asali_swad_marketplace_rules", JSON.stringify({ ...val, ...updatedConfig }));
-        }
       }
 
-      if (!setRes.error && setRes.data && setRes.data.length > 0) {
+      if (!setRes.error && setRes.data) {
         setSettlements(setRes.data);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("asali_swad_all_seller_settlements", JSON.stringify(setRes.data));
-        }
       }
     } catch (e: any) {
       console.error("Error loading payment & settlement data:", e);
@@ -170,11 +138,6 @@ export default function PaymentsCommissionView() {
         appCharge: feeConfig.appCharge,
         defaultShippingCost: feeConfig.defaultShippingCost
       };
-
-      // Save to localStorage immediately so refresh NEVER resets values
-      if (typeof window !== "undefined") {
-        localStorage.setItem("asali_swad_marketplace_rules", JSON.stringify(updatedVal));
-      }
 
       // Save to Supabase DB store_settings table
       const { error } = await supabase.from("store_settings").upsert({
@@ -243,10 +206,8 @@ export default function PaymentsCommissionView() {
       console.warn("Could not insert into Supabase seller_settlements table:", e);
     }
 
-    // 2. Save to Local Storage fallback
     const updatedSets = [newSettlement, ...settlements];
     setSettlements(updatedSets);
-    localStorage.setItem("asali_swad_all_seller_settlements", JSON.stringify(updatedSets));
 
     // 3. Send official Transaction Receipt Email to seller's account opening email
     setPayoutStatusMessage("⏳ Recording payment & sending receipt email to " + sellerEmail + "...");
