@@ -110,15 +110,16 @@ export async function GET(req: NextRequest) {
 
       if (roData) {
         routeOverview = roData;
-        balances.gross_sales = Number((Number(roData.gross_sales_minor || 0) / 100).toFixed(2));
+        balances.gross_sales = Math.max(balances.gross_sales, Number((Number(roData.gross_sales_minor || 0) / 100).toFixed(2)));
         balances.commission = Number((Number(roData.platform_commission_minor || 0) / 100).toFixed(2));
         balances.fixed_fees = Number((Number(roData.fixed_fees_minor || 0) / 100).toFixed(2));
         balances.returns_and_refunds = Number((Number(roData.refund_adjustments_minor || 0) / 100).toFixed(2));
         balances.pending_settlement = Number((Number(roData.pending_settlement_minor || 0) / 100).toFixed(2));
         balances.total_settled = Number((Number(roData.settled_amount_minor || 0) / 100).toFixed(2));
         balances.reserved_balance = Number((Number(roData.reserved_balance_minor || 0) / 100).toFixed(2));
-        balances.net_seller_earnings = Number((Number(roData.net_earnings_minor || 0) / 100).toFixed(2));
-        balances.available_balance = Number((Number(roData.available_balance_minor || 0) / 100).toFixed(2));
+        balances.net_seller_earnings = Math.max(balances.net_seller_earnings, Number((Number(roData.net_earnings_minor || 0) / 100).toFixed(2)));
+        const roAvailable = Number((Number(roData.available_balance_minor || roData.available_to_settle || 0) / 100).toFixed(2));
+        balances.available_balance = Math.max(balances.available_balance, roAvailable);
       }
     } catch (_) {}
 

@@ -153,6 +153,11 @@ export function computeLedgerBalances(
         case 'SETTLEMENT':
         case 'WITHDRAWAL_SUCCESS':
           totalSettled += amt;
+          pendingSettlement = Math.max(0, pendingSettlement - amt);
+          break;
+        case 'WITHDRAWAL_FAILED':
+        case 'WITHDRAWAL_CANCELLED':
+          pendingSettlement = Math.max(0, pendingSettlement - amt);
           break;
         case 'SETTLEMENT_REVERSAL':
         case 'WITHDRAWAL_REVERSED':
