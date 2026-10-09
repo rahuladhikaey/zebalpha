@@ -493,7 +493,7 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 10. COMPREHENSIVE SELLER ROUTE FINANCIAL SUMMARY VIEW
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.seller_route_financial_overview AS
+CREATE OR REPLACE VIEW public.seller_route_financial_overview WITH (security_invoker = true) AS
 SELECT 
     s.id AS seller_id,
     s.business_name,
