@@ -64,7 +64,7 @@ export interface Step4Props {
   onChange: (updates: Partial<Step4Props["formData"]>) => void;
 }
 
-const PRESET_COLORS = [
+export const PRESET_COLORS = [
   { name: "Black", hex: "#000000" },
   { name: "White", hex: "#ffffff" },
   { name: "Maroon", hex: "#800000" },
@@ -150,6 +150,64 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     setBulkActionSuccess(msg);
     setTimeout(() => setBulkActionSuccess(""), 2600);
   };
+
+  // Auto-synchronize main product image and details from Step 1 as 1st Primary Variant (Index 0)
+  React.useEffect(() => {
+    const mainColor = (formData.default_color || formData.main_color || "Main Color").trim();
+    const mainHex = PRESET_COLORS.find((c) => c.name.toLowerCase() === mainColor.toLowerCase())?.hex || "#18181b";
+    const targetSizes = (formData.selected_sizes && formData.selected_sizes.length > 0)
+      ? formData.selected_sizes
+      : ["S", "M", "L", "XL"];
+    const basePrice = formData.price || "499";
+    const baseMrp = formData.mrp || String(Math.round(parseFloat(basePrice || "499") * 1.5));
+    const cleanPrefix = formData.style_code ? formData.style_code.trim().toUpperCase() : "ZB";
+    const cleanColTag = mainColor.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+    const mainGallery = formData.images && formData.images.length > 0 ? formData.images : [];
+    const mainCoverImg = mainGallery[0] || undefined;
+
+    if (!formData.variants || formData.variants.length === 0) {
+      const initialMainVariants: CatalogVariant[] = targetSizes.map((sz) => ({
+        id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
+        color: mainColor,
+        color_hex: mainHex,
+        size: sz,
+        stock: "20",
+        price: basePrice,
+        mrp: baseMrp,
+        defective_returns_price: formData.defective_returns_price || "",
+        sku: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`,
+        is_active: true,
+        image_url: mainCoverImg,
+        gallery: mainGallery,
+      }));
+
+      onChange({
+        has_variants: true,
+        default_color: mainColor,
+        main_color: mainColor,
+        variants: initialMainVariants,
+      });
+    } else if (mainGallery.length > 0) {
+      let needsUpdate = false;
+      const updated = formData.variants.map((v) => {
+        const isMainCol = (v.color || "").trim().toLowerCase() === mainColor.toLowerCase();
+        if (isMainCol && (!v.image_url || !v.gallery || v.gallery.length === 0) && mainCoverImg) {
+          needsUpdate = true;
+          return {
+            ...v,
+            image_url: mainCoverImg,
+            gallery: v.gallery && v.gallery.length > 0 ? v.gallery : mainGallery,
+          };
+        }
+        return v;
+      });
+
+      if (needsUpdate) {
+        onChange({ variants: updated });
+      }
+    }
+  }, [formData.images?.length, formData.variants?.length, formData.default_color, formData.main_color, formData.price, formData.mrp, formData.selected_sizes?.length]);
 
   // Group variants by color
   const colorGroups = useMemo(() => {

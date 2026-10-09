@@ -5,7 +5,7 @@ import { X, CheckCircle2, ChevronRight, ChevronLeft, UploadCloud, AlertTriangle 
 import Step1AddProduct from "./Step1AddProduct";
 import Step2BasicDetails from "./Step2BasicDetails";
 import Step3AdditionalDetails from "./Step3AdditionalDetails";
-import Step4AddVariants, { type CatalogVariant } from "./Step4AddVariants";
+import Step4AddVariants, { type CatalogVariant, PRESET_COLORS } from "./Step4AddVariants";
 import {
   type SizeVariantDetail,
   type SizeMeasurementDetail,
@@ -447,7 +447,45 @@ export default function CatalogUploadWizardModal({
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep((prev) => Math.min(4, prev + 1));
+      const nextStep = Math.min(4, currentStep + 1);
+      if (nextStep === 4 && (!form.variants || form.variants.length === 0)) {
+        const mainColor = (form.default_color || form.main_color || "Main Color").trim();
+        const mainHex = PRESET_COLORS.find((c) => c.name.toLowerCase() === mainColor.toLowerCase())?.hex || "#18181b";
+        const targetSizes = (form.selected_sizes && form.selected_sizes.length > 0)
+          ? form.selected_sizes
+          : ["S", "M", "L", "XL"];
+        const basePrice = form.price || "499";
+        const baseMrp = form.mrp || String(Math.round(parseFloat(basePrice || "499") * 1.5));
+        const cleanPrefix = form.style_code ? form.style_code.trim().toUpperCase() : "ZB";
+        const cleanColTag = mainColor.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+        const mainGallery = form.images && form.images.length > 0 ? form.images : [];
+        const mainCoverImg = mainGallery[0] || undefined;
+
+        const initialMainVariants: CatalogVariant[] = targetSizes.map((sz) => ({
+          id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
+          color: mainColor,
+          color_hex: mainHex,
+          size: sz,
+          stock: "20",
+          price: basePrice,
+          mrp: baseMrp,
+          defective_returns_price: form.defective_returns_price || "",
+          sku: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`,
+          is_active: true,
+          image_url: mainCoverImg,
+          gallery: mainGallery,
+        }));
+
+        setForm((prev) => ({
+          ...prev,
+          has_variants: true,
+          default_color: prev.default_color || mainColor,
+          main_color: prev.main_color || mainColor,
+          variants: initialMainVariants,
+        }));
+      }
+      setCurrentStep(nextStep);
     }
   };
 
