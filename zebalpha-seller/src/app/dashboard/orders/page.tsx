@@ -304,8 +304,8 @@ export default function SellerOrders() {
       const elapsedMins = (Date.now() - orderCreatedAt) / 60000;
       if (elapsedMins < 60) {
         const remaining = Math.max(1, Math.ceil(60 - elapsedMins));
-        const confirmAccept = confirm(`⏱️ Order #${targetOrder.order_number || targetOrder.id} is currently in the 1-Hour Customer Cancellation Window (${remaining} mins remaining).\n\nAccepting this order now will lock customer cancellation, generate the shipping AWB barcode label, and move it to your dispatch pipeline.\n\nDo you want to ACCEPT & CONFIRM this order now?`);
-        if (!confirmAccept) return;
+        alert(`⏱️ Order #${targetOrder.order_number || targetOrder.id} is currently in the 1-Hour Customer Cancellation Window (${remaining} mins remaining).\n\nCustomers are allowed to cancel within 1 hour of placing the order. To prevent unnecessary courier fees and reverse logistics charges, orders can only be accepted after 1 hour has elapsed.\n\nTime remaining: ${remaining} minutes.`);
+        return;
       }
     }
 
@@ -731,15 +731,26 @@ export default function SellerOrders() {
 
                   <div className="flex flex-wrap items-center gap-2">
                     {/* New -> Confirm */}
-                    {(orderStatus === "placed" || orderStatus === "new") && (
-                      <button
-                        onClick={() => handleCreateShipment(order.id)}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition shadow-lg shadow-emerald-500/20 cursor-pointer"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Accept & Confirm
-                      </button>
-                    )}
+                    {(orderStatus === "placed" || orderStatus === "new") && (() => {
+                      const createdAt = new Date(order.created_at || Date.now()).getTime();
+                      const elapsedMins = (Date.now() - createdAt) / 60000;
+                      const isLocked = elapsedMins < 60;
+                      const remaining = Math.max(1, Math.ceil(60 - elapsedMins));
+
+                      return (
+                        <button
+                          onClick={() => handleCreateShipment(order.id)}
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg cursor-pointer ${
+                            isLocked 
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30" 
+                              : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/20"
+                          }`}
+                        >
+                          {isLocked ? <Clock className="h-3.5 w-3.5 text-amber-400 animate-pulse" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          {isLocked ? `⏱️ Locked (${remaining}m Left)` : "Accept & Confirm"}
+                        </button>
+                      );
+                    })()}
 
                     {/* Confirmed -> Pack */}
                     {orderStatus === "confirmed" && (
