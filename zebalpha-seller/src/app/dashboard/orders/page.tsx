@@ -817,14 +817,6 @@ export default function SellerOrders() {
                       </button>
                     )}
 
-                    {/* Print Label & Invoice */}
-                    <button
-                      onClick={() => setLabelModalOrder(order)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-black uppercase tracking-wider transition cursor-pointer"
-                    >
-                      <Printer className="h-3.5 w-3.5 text-zinc-400" />
-                      Label / Slip
-                    </button>
                   </div>
                 </div>
               </div>
