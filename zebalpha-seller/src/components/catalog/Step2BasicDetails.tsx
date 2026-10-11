@@ -232,43 +232,75 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
           Pricing Details & Earnings Calculator
         </div>
 
+        {/* Dynamic Size-Based Price Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">
-              Listing Price (₹) * <span className="text-zinc-500 font-normal">(All returns allowed)</span>
-            </label>
-            <input
-              type="number"
-              value={formData.price}
-              onChange={(e) => onChange({ price: e.target.value })}
-              placeholder="e.g. 799"
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white"
-            />
+          <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-medium text-zinc-400">
+                Base Listing Price (₹) <span className="text-zinc-500 font-normal">(All returns allowed)</span>
+              </span>
+              <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                Auto
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold text-white">
+                {sellerPriceNum > 0 ? `₹${sellerPriceNum.toFixed(2)}` : "—"}
+              </span>
+              {sellerPriceNum > 0 && (
+                <span className="text-[10px] text-zinc-400">
+                  (Min size price)
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-zinc-500 mt-1 block">
+              Calculated from size pricing in Step 1
+            </span>
           </div>
 
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">
-              Wrong / Defective Return Price (₹)
-            </label>
-            <input
-              type="number"
-              value={formData.defective_returns_price}
-              onChange={(e) => onChange({ defective_returns_price: e.target.value })}
-              placeholder="e.g. 749"
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white"
-            />
-            <span className="text-[10px] text-zinc-400 mt-1 block">Discounted price if customer returns only wrong/defective items</span>
+          <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-medium text-zinc-400">
+                Wrong / Defective Return Price (₹)
+              </span>
+              <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                Auto
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold text-white">
+                {defectivePriceNum > 0
+                  ? `₹${defectivePriceNum.toFixed(2)}`
+                  : sellerPriceNum > 0
+                  ? `₹${Math.max(0, sellerPriceNum - 20).toFixed(2)}`
+                  : "—"}
+              </span>
+            </div>
+            <span className="text-[10px] text-zinc-500 mt-1 block">
+              Discounted defective return rate
+            </span>
           </div>
 
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">MRP (₹) *</label>
-            <input
-              type="number"
-              value={formData.mrp}
-              onChange={(e) => onChange({ mrp: e.target.value })}
-              placeholder="e.g. 1499"
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white"
-            />
+          <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-medium text-zinc-400">MRP (₹)</span>
+              <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                Auto
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold text-white">
+                {mrpNum > 0 ? `₹${mrpNum.toFixed(2)}` : "—"}
+              </span>
+              {mrpNum > sellerPriceNum && sellerPriceNum > 0 && (
+                <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                  {Math.round(((mrpNum - sellerPriceNum) / mrpNum) * 100)}% off
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-zinc-500 mt-1 block">
+              Max MRP configured in Step 1
+            </span>
           </div>
         </div>
 

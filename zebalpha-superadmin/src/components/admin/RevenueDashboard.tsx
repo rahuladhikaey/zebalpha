@@ -114,14 +114,19 @@ export default function RevenueDashboard() {
           .limit(200),
         supabase
           .from("products")
-          .select("id, name, is_premium, tier, category")
+          .select("id, name, is_premium, tier, category_id, specifications")
       ]);
 
       const fetchedOrders = ordersRes.data || [];
-      const fetchedProducts = productsRes.data || [];
+      let fetchedProducts = productsRes.data || [];
+      if (productsRes.error || fetchedProducts.length === 0) {
+        const { data: fallbackProds } = await supabase.from("products").select("*");
+        if (fallbackProds) fetchedProducts = fallbackProds;
+      }
+
       const premiumProductIdSet = new Set(
         fetchedProducts
-          .filter(p => p.is_premium === true || p.tier === "PREMIUM" || (p.category && p.category.toLowerCase().includes("premium")))
+          .filter(p => p.is_premium === true || p.tier === "PREMIUM" || ((p.specifications as any)?.category && String((p.specifications as any).category).toLowerCase().includes("premium")))
           .map(p => String(p.id))
       );
 

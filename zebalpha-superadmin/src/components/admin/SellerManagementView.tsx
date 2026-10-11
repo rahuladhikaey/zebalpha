@@ -91,7 +91,7 @@ export default function SellerManagementView({
   }, [initialSellers]);
 
   useEffect(() => {
-    if (initialProducts) setProducts(initialProducts);
+    if (initialProducts && initialProducts.length > 0) setProducts(initialProducts);
   }, [initialProducts]);
 
   useEffect(() => {
@@ -146,13 +146,24 @@ export default function SellerManagementView({
       }
 
       // 2. Fetch real products, orders, and pickup locations
-      const [pRes, oRes, locRes] = await Promise.all([
-        supabase.from("products").select("*").order("created_at", { ascending: false }),
+      let allProducts: any[] = [];
+      try {
+        const pFetch = await fetch("/api/admin/products");
+        const pJson = await pFetch.json();
+        if (pJson.success && Array.isArray(pJson.data) && pJson.data.length > 0) {
+          allProducts = pJson.data;
+        }
+      } catch (_) {}
+
+      const [pDbRes, oRes, locRes] = await Promise.all([
+        allProducts.length === 0 ? supabase.from("products").select("*").order("created_at", { ascending: false }) : Promise.resolve({ data: allProducts }),
         supabase.from("orders").select("*").order("created_at", { ascending: false }),
         supabase.from("seller_pickup_locations").select("*").order("created_at", { ascending: false })
       ]);
 
-      const allProducts = pRes.data || [];
+      if (allProducts.length === 0 && pDbRes.data) {
+        allProducts = pDbRes.data;
+      }
       const allOrders = oRes.data || [];
       const allLocations = locRes.data || [];
       let dbSellers = sellersData || [];
@@ -201,7 +212,7 @@ export default function SellerManagementView({
 
   useEffect(() => {
     // If parent passed initial sellers and products, avoid redundant initial full-table fetches
-    if (initialSellers && initialProducts && initialOrders) {
+    if (initialSellers && initialProducts && initialProducts.length > 0 && initialOrders) {
       supabase
         .from("seller_pickup_locations")
         .select("*")
@@ -243,16 +254,27 @@ export default function SellerManagementView({
   // ── Compute Real Metrics for Each Seller ─────────────────────────────────
   const sellersWithMetrics = useMemo(() => {
     return sellers.map((seller) => {
-      const sId = seller.id;
-      const sUserId = seller.user_id;
-      const isPrimary = seller.is_primary_brand || seller.email === "r.adhikary7777@gmail.com";
-
-      // Match products for this seller
-      const sellerProds = products.filter((p) => 
-        p.seller_id === sId || 
-        (sUserId && p.seller_id === sUserId) || 
-        (isPrimary && (!p.seller_id || p.seller_id === sId || p.brand?.toLowerCase() === "zebalpha"))
+      const sId = String(seller.id || "").trim().toLowerCase();
+      const sUserId = seller.user_id ? String(seller.user_id).trim().toLowerCase() : "";
+      const sSellerId = seller.seller_id ? String(seller.seller_id).trim().toLowerCase() : "";
+      const sSellerCode = seller.seller_code ? String(seller.seller_code).trim().toLowerCase() : "";
+      const isPrimary = Boolean(
+        seller.is_primary_brand || 
+        seller.email === "r.adhikary7777@gmail.com" || 
+        seller.email === "rahuladhikaey180@gmail.com"
       );
+
+      // Match products for this seller across all potential ID shapes
+      const sellerProds = products.filter((p) => {
+        const pSellerId = String(p.seller_id || "").trim().toLowerCase();
+        return (
+          (sId && pSellerId === sId) || 
+          (sUserId && pSellerId === sUserId) || 
+          (sSellerId && pSellerId === sSellerId) ||
+          (sSellerCode && pSellerId === sSellerCode) ||
+          (isPrimary && (!p.seller_id || pSellerId === sId || p.brand?.toLowerCase() === "zebalpha"))
+        );
+      });
 
       const sellerProdIds = new Set(sellerProds.map((p) => String(p.id)));
 
@@ -342,6 +364,12 @@ export default function SellerManagementView({
       };
     });
   }, [sellers, products, orders, pickupLocations]);
+
+  // Keep selected seller reactive to newly loaded products & metrics
+  const activeSeller = useMemo(() => {
+    if (!selectedSeller) return null;
+    return sellersWithMetrics.find((s) => String(s.id).toLowerCase() === String(selectedSeller.id).toLowerCase()) || selectedSeller;
+  }, [selectedSeller, sellersWithMetrics]);
 
   // ── Compute Platform-Wide Total Income & Revenue ──────────────────────────
   const platformSummary = useMemo(() => {
@@ -1030,8 +1058,10 @@ export default function SellerManagementView({
       </div>
 
       {/* ── 🌟 COMPREHENSIVE SELLER DETAILS DRAWER 🌟 ── */}
-      {selectedSeller && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm overflow-hidden animate-in fade-in duration-150">
+      {activeSeller && (() => {
+        const selectedSeller = activeSeller;
+        return (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm overflow-hidden animate-in fade-in duration-150">
           <div className="bg-zinc-950 border-l border-zinc-800 w-full max-w-2xl h-full shadow-2xl p-6 md:p-8 flex flex-col justify-between overflow-y-auto space-y-6">
             
             {/* Drawer Header */}
@@ -1395,7 +1425,8 @@ export default function SellerManagementView({
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── 🌟 EDIT MERCHANT MODAL ── */}
       {showEditSellerModal && editingSellerData && (

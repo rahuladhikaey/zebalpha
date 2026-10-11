@@ -354,7 +354,40 @@ export default function CatalogUploadWizardModal({
   if (!isOpen) return null;
 
   const updateForm = (updates: Partial<MasterCatalogFormState>) => {
-    setForm((prev) => ({ ...prev, ...updates }));
+    setForm((prev) => {
+      const merged = { ...prev, ...updates };
+      if (updates.size_details && updates.size_details.length > 0) {
+        const validPrices = updates.size_details
+          .map((d) => parseFloat(d.selling_price))
+          .filter((p) => !isNaN(p) && p > 0);
+        const validMrps = updates.size_details
+          .map((d) => parseFloat(d.mrp))
+          .filter((m) => !isNaN(m) && m > 0);
+        const validReturns = updates.size_details
+          .map((d) => parseFloat(d.return_price))
+          .filter((r) => !isNaN(r) && r > 0);
+        const totalStock = updates.size_details.reduce(
+          (acc, d) => acc + (parseInt(d.inventory) || 0),
+          0
+        );
+
+        if (validPrices.length > 0) {
+          merged.price = String(Math.min(...validPrices));
+        }
+        if (validMrps.length > 0) {
+          merged.mrp = String(Math.max(...validMrps));
+        } else if (merged.price) {
+          merged.mrp = merged.price;
+        }
+        if (validReturns.length > 0) {
+          merged.defective_returns_price = String(Math.min(...validReturns));
+        }
+        if (totalStock > 0) {
+          merged.single_stock = String(totalStock);
+        }
+      }
+      return merged;
+    });
   };
 
   const validateStep = (step: number): boolean => {
@@ -370,10 +403,16 @@ export default function CatalogUploadWizardModal({
         scrollModalToTop();
         return false;
       }
+      // Require at least one size for standard apparel
+      if (!form.is_new_drop && form.selected_sizes.length === 0) {
+        setErrorMsg("Please select at least 1 size in Step 1 to configure pricing and inventory.");
+        scrollModalToTop();
+        return false;
+      }
       // If sizes were selected, validate selling price on those rows
       if (form.selected_sizes.length > 0 && form.size_details.length > 0) {
         for (const sd of form.size_details) {
-          if (sd.selling_price && parseFloat(sd.selling_price) <= 0) {
+          if (!sd.selling_price || parseFloat(sd.selling_price) <= 0) {
             setErrorMsg(`Selling price for size ${sd.size} must be greater than 0.`);
             scrollModalToTop();
             return false;
@@ -396,12 +435,12 @@ export default function CatalogUploadWizardModal({
         (hasVariants ? form.variants[0]?.mrp || effectivePrice : "");
 
       if (!hasVariants && (!effectivePrice || parseFloat(effectivePrice) <= 0)) {
-        setErrorMsg("Please enter a valid listing price.");
+        setErrorMsg("Please configure size selling price in Step 1.");
         scrollModalToTop();
         return false;
       }
       if (!hasVariants && (!effectiveMrp || parseFloat(effectiveMrp) <= 0)) {
-        setErrorMsg("Please enter a valid MRP.");
+        setErrorMsg("Please configure size MRP in Step 1.");
         scrollModalToTop();
         return false;
       }
@@ -507,20 +546,31 @@ export default function CatalogUploadWizardModal({
         const mainGallery = form.images && form.images.length > 0 ? form.images : [];
         const mainCoverImg = mainGallery[0] || undefined;
 
-        const initialMainVariants: CatalogVariant[] = targetSizes.map((sz) => ({
-          id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
-          color: mainColor,
-          color_hex: mainHex,
-          size: sz,
-          stock: "20",
-          price: basePrice,
-          mrp: baseMrp,
-          defective_returns_price: form.defective_returns_price || "",
-          sku: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`,
-          is_active: true,
-          image_url: mainCoverImg,
-          gallery: mainGallery,
-        }));
+        const initialMainVariants: CatalogVariant[] = targetSizes.map((sz) => {
+          const matchedSizeDetail = form.size_details?.find(
+            (sd) => sd.size?.trim().toLowerCase() === sz.trim().toLowerCase()
+          );
+          const vPrice = matchedSizeDetail?.selling_price || basePrice;
+          const vMrp = matchedSizeDetail?.mrp || baseMrp;
+          const vStock = matchedSizeDetail?.inventory || "20";
+          const vReturnPrice = matchedSizeDetail?.return_price || form.defective_returns_price || "";
+          const vSku = matchedSizeDetail?.sku || `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`;
+
+          return {
+            id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
+            color: mainColor,
+            color_hex: mainHex,
+            size: sz,
+            stock: vStock,
+            price: vPrice,
+            mrp: vMrp,
+            defective_returns_price: vReturnPrice,
+            sku: vSku,
+            is_active: true,
+            image_url: mainCoverImg,
+            gallery: mainGallery,
+          };
+        });
 
         setForm((prev) => ({
           ...prev,
@@ -555,57 +605,115 @@ export default function CatalogUploadWizardModal({
       }
 
       // 1. Upload & optimize images to Supabase Storage if they are base64 strings
+      // Use an in-flight cache so identical base64 images are only uploaded ONCE
+      const uploadCache = new Map<string, string>();
+      const uploadCached = async (img: string): Promise<string> => {
+        if (!img || typeof img !== "string" || !img.startsWith("data:image/")) {
+          return img;
+        }
+        if (uploadCache.has(img)) {
+          return uploadCache.get(img)!;
+        }
+        try {
+          const cloudUrl = await uploadToCloudinary(img);
+          uploadCache.set(img, cloudUrl);
+          return cloudUrl;
+        } catch (err) {
+          console.warn("Notice compressing catalog image:", err);
+          return img;
+        }
+      };
+
       setUploadStatus("Uploading & optimizing product images...");
       const uploadedImagesList = await Promise.all(
-        orderedImages.map(async (img) => {
-          if (typeof img === "string" && img.startsWith("data:image/")) {
-            try {
-              return await uploadToCloudinary(img);
-            } catch (err) {
-              console.warn("Notice compressing catalog image:", err);
-              return img;
-            }
-          }
-          return img;
-        })
+        orderedImages.map((img) => uploadCached(img))
       );
 
       const coverImageUrl = uploadedImagesList[0] || "";
 
-      // 2. Upload variant images & color galleries if any are base64 strings
+      // 2. Upload variant images & color galleries with unified color-level synchronization
       let processedVariants = [...form.variants];
       if (form.has_variants && form.variants.length > 0) {
         setUploadStatus("Processing color variant photos & galleries...");
-        processedVariants = await Promise.all(
-          form.variants.map(async (v) => {
-            let updatedV = { ...v };
-            if (v.image_url && typeof v.image_url === "string" && v.image_url.startsWith("data:image/")) {
-              try {
-                const cloudUrl = await uploadToCloudinary(v.image_url);
-                updatedV.image_url = cloudUrl;
-              } catch (_) {}
-            }
+
+        const activeDefaultCol = (
+          form.default_color ||
+          form.main_color ||
+          form.variants[0]?.color ||
+          "Main Color"
+        ).trim().toLowerCase();
+
+        // Distinct colors present in variants
+        const distinctColors = Array.from(
+          new Set(form.variants.map((v) => (v.color || "Default").trim()))
+        );
+
+        // Upload and synchronize color galleries at the COLOR level
+        const colorGalleriesMap = new Map<string, string[]>();
+        const colorPrimaryMap = new Map<string, string>();
+
+        for (const col of distinctColors) {
+          const colKey = col.toLowerCase();
+          const colVariants = form.variants.filter(
+            (v) => (v.color || "Default").trim().toLowerCase() === colKey
+          );
+
+          // Find the best existing gallery for this color
+          let rawColGallery: string[] = [];
+          for (const v of colVariants) {
             if (Array.isArray(v.gallery) && v.gallery.length > 0) {
-              const uploadedGallery = await Promise.all(
-                v.gallery.map(async (gImg) => {
-                  if (typeof gImg === "string" && gImg.startsWith("data:image/")) {
-                    try {
-                      return await uploadToCloudinary(gImg);
-                    } catch (_) {
-                      return gImg;
-                    }
-                  }
-                  return gImg;
-                })
-              );
-              updatedV.gallery = uploadedGallery;
-              if (!updatedV.image_url && uploadedGallery.length > 0) {
-                updatedV.image_url = uploadedGallery[0];
+              rawColGallery = v.gallery;
+              break;
+            }
+          }
+
+          const isMainCol =
+            colKey === activeDefaultCol ||
+            colKey === "main color" ||
+            distinctColors[0].toLowerCase() === colKey;
+
+          if (rawColGallery.length === 0) {
+            if (isMainCol && uploadedImagesList.length > 0) {
+              rawColGallery = uploadedImagesList;
+            } else {
+              const firstWithImg = colVariants.find((v) => v.image_url);
+              if (firstWithImg?.image_url) {
+                rawColGallery = [firstWithImg.image_url];
               }
             }
-            return updatedV;
-          })
-        );
+          }
+
+          // Upload and deduplicate images in this color gallery
+          const uploadedColGallery: string[] = [];
+          for (const gImg of rawColGallery) {
+            if (gImg) {
+              const uploaded = await uploadCached(gImg);
+              if (uploaded && !uploadedColGallery.includes(uploaded)) {
+                uploadedColGallery.push(uploaded);
+              }
+            }
+          }
+
+          const primaryImg =
+            uploadedColGallery[0] ||
+            (isMainCol ? coverImageUrl : "");
+
+          colorGalleriesMap.set(colKey, uploadedColGallery);
+          colorPrimaryMap.set(colKey, primaryImg);
+        }
+
+        // Apply unified gallery and cover to all variants of each color
+        processedVariants = form.variants.map((v) => {
+          const colKey = (v.color || "Default").trim().toLowerCase();
+          const colGallery = colorGalleriesMap.get(colKey) || [];
+          const colCover = colorPrimaryMap.get(colKey) || coverImageUrl;
+
+          return {
+            ...v,
+            image_url: colCover || v.image_url || coverImageUrl,
+            gallery: colGallery.length > 0 ? colGallery : (colCover ? [colCover] : [coverImageUrl]),
+          };
+        });
       }
 
       // 3. Resolve seller ID & ensure seller profile exists to satisfy foreign key & RLS
@@ -701,27 +809,32 @@ export default function CatalogUploadWizardModal({
       const hasSizeDetails = form.size_details && form.size_details.length > 0;
       const hasVariants = form.has_variants && processedVariants.length > 0;
 
-      // Price and MRP resolution (prioritize variants or size details if global price empty)
-      let effectivePrice = parseFloat(form.price) || 0;
+      // Price and MRP resolution (derive strictly from size details or variants)
+      let effectivePrice = 0;
+      if (hasSizeDetails) {
+        const prices = form.size_details.map((sd) => parseFloat(sd.selling_price) || 0).filter((p) => p > 0);
+        if (prices.length > 0) effectivePrice = Math.min(...prices);
+      }
       if (!effectivePrice && hasVariants) {
         const prices = processedVariants.map((v) => parseFloat(v.price) || 0).filter((p) => p > 0);
         if (prices.length > 0) effectivePrice = Math.min(...prices);
       }
-      if (!effectivePrice && hasSizeDetails) {
-        const prices = form.size_details.map((sd) => parseFloat(sd.selling_price) || 0).filter((p) => p > 0);
-        if (prices.length > 0) effectivePrice = Math.min(...prices);
+      if (!effectivePrice) {
+        effectivePrice = parseFloat(form.price) || 0;
       }
 
-      let effectiveMrp = parseFloat(form.mrp) || 0;
+      let effectiveMrp = 0;
+      if (hasSizeDetails) {
+        const mrps = form.size_details.map((sd) => parseFloat(sd.mrp) || 0).filter((m) => m > 0);
+        if (mrps.length > 0) effectiveMrp = Math.max(...mrps);
+      }
       if (!effectiveMrp && hasVariants) {
         const mrps = processedVariants.map((v) => parseFloat(v.mrp) || 0).filter((m) => m > 0);
         if (mrps.length > 0) effectiveMrp = Math.max(...mrps);
       }
-      if (!effectiveMrp && hasSizeDetails) {
-        const mrps = form.size_details.map((sd) => parseFloat(sd.mrp) || 0).filter((m) => m > 0);
-        if (mrps.length > 0) effectiveMrp = Math.max(...mrps);
+      if (!effectiveMrp) {
+        effectiveMrp = parseFloat(form.mrp) || effectivePrice;
       }
-      if (!effectiveMrp) effectiveMrp = effectivePrice;
 
       // Resolve Main / Default Product Color (Req #1)
       const activeDefaultCol = (

@@ -75,9 +75,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               if (live) {
                 let livePrice = live.price;
                 let liveMrp = live.mrp;
-                if (item.name.includes(" - ") && live.packages) {
-                  const pkgName = item.name.split(" - ")[1];
-                  const pkg = live.packages.find((p: any) => p.name === pkgName);
+                if (live.packages && Array.isArray(live.packages)) {
+                  const pkg = live.packages.find((p: any) =>
+                    (item.variant_id && String(p.id) === String(item.variant_id)) ||
+                    (item.package_name && p.name === item.package_name) ||
+                    (item.package_name && `${p.color} / ${p.size}` === item.package_name) ||
+                    (item.selected_size && p.size === item.selected_size && (!item.selected_color || p.color === item.selected_color)) ||
+                    (item.name && p.name && item.name.includes(p.name))
+                  );
                   if (pkg) {
                     livePrice = pkg.price;
                     liveMrp = pkg.mrp || live.mrp;

@@ -28,7 +28,7 @@ export const getProducts = async (req, res, next) => {
 
     const { data: result, source } = await cacheService.fetchOrCache(cacheKey, async () => {
       // 1. Slim field selection ONLY (Prevents downloading long descriptions / metadata)
-      const SLIM_CARD_FIELDS = 'id, name, slug, price, mrp, image_url, thumbnail_url, card_image_url, brand, stock, is_active, is_approved, approval_status, created_at, category_id';
+      const SLIM_CARD_FIELDS = 'id, name, slug, price, mrp, image_url, brand, stock, is_active, is_approved, approval_status, created_at, category_id';
       
       let query = supabaseA.from('products').select(SLIM_CARD_FIELDS);
 

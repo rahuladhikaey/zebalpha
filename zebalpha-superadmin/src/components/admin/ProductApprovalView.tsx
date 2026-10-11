@@ -66,8 +66,9 @@ export default function ProductApprovalView({
 
   // Sync state if parent props change
   useEffect(() => {
-    if (initialProducts) {
+    if (initialProducts && initialProducts.length > 0) {
       setProducts(initialProducts);
+      setLoading(false);
     }
   }, [initialProducts]);
 
@@ -80,14 +81,14 @@ export default function ProductApprovalView({
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, thumbnail_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, specifications, created_at";
+      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, specifications, created_at";
       const SLIM_SELLER_FIELDS = "id, user_id, seller_id, seller_code, business_name, shop_name, name, full_name, owner_name";
 
       let productsList: any[] = [];
       try {
         const res = await fetch("/api/admin/products");
         const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           productsList = json.data;
         }
       } catch (apiErr) {
@@ -99,10 +100,21 @@ export default function ProductApprovalView({
           .from("products")
           .select(SLIM_ADMIN_FIELDS)
           .order("created_at", { ascending: false });
-        if (!prodErr && dbProducts) {
+        if (!prodErr && dbProducts && dbProducts.length > 0) {
           productsList = dbProducts;
+        } else {
+          const { data: allDbProds } = await supabase
+            .from("products")
+            .select("*")
+            .order("created_at", { ascending: false });
+          if (allDbProds) productsList = allDbProds;
         }
       }
+
+      productsList = productsList.map((p: any) => ({
+        ...p,
+        thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || ""
+      }));
 
       let sellersList: any[] = [];
       try {

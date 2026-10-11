@@ -172,20 +172,31 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     const mainCoverImg = mainGallery[0] || undefined;
 
     if (!formData.variants || formData.variants.length === 0) {
-      const initialMainVariants: CatalogVariant[] = targetSizes.map((sz) => ({
-        id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
-        color: mainColor,
-        color_hex: mainHex,
-        size: sz,
-        stock: "20",
-        price: basePrice,
-        mrp: baseMrp,
-        defective_returns_price: formData.defective_returns_price || "",
-        sku: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`,
-        is_active: true,
-        image_url: mainCoverImg,
-        gallery: mainGallery,
-      }));
+      const initialMainVariants: CatalogVariant[] = targetSizes.map((sz) => {
+        const matchedSizeDetail = formData.size_details?.find(
+          (sd: any) => sd.size?.trim().toLowerCase() === sz.trim().toLowerCase()
+        );
+        const vPrice = matchedSizeDetail?.selling_price || basePrice;
+        const vMrp = matchedSizeDetail?.mrp || baseMrp;
+        const vStock = matchedSizeDetail?.inventory || "20";
+        const vReturnPrice = matchedSizeDetail?.return_price || formData.defective_returns_price || "";
+        const vSku = matchedSizeDetail?.sku || `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`;
+
+        return {
+          id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
+          color: mainColor,
+          color_hex: mainHex,
+          size: sz,
+          stock: vStock,
+          price: vPrice,
+          mrp: vMrp,
+          defective_returns_price: vReturnPrice,
+          sku: vSku,
+          is_active: true,
+          image_url: mainCoverImg,
+          gallery: mainGallery,
+        };
+      });
 
       onChange({
         has_variants: true,
@@ -325,19 +336,30 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     const cleanPrefix = formData.style_code ? formData.style_code.trim().toUpperCase() : "ZB";
     const cleanColTag = cleanName.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-    const newVariants: CatalogVariant[] = targetSizes.map((sz) => ({
-      id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
-      color: cleanName,
-      color_hex: assignedHex,
-      size: sz,
-      stock: "20",
-      price: basePrice,
-      mrp: baseMrp,
-      defective_returns_price: formData.defective_returns_price || "",
-      sku: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`,
-      is_active: true,
-      gallery: [],
-    }));
+    const newVariants: CatalogVariant[] = targetSizes.map((sz) => {
+      const matchedSizeDetail = formData.size_details?.find(
+        (sd: any) => sd.size?.trim().toLowerCase() === sz.trim().toLowerCase()
+      );
+      const vPrice = matchedSizeDetail?.selling_price || basePrice;
+      const vMrp = matchedSizeDetail?.mrp || baseMrp;
+      const vStock = matchedSizeDetail?.inventory || "20";
+      const vReturnPrice = matchedSizeDetail?.return_price || formData.defective_returns_price || "";
+      const vSku = matchedSizeDetail?.sku || `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`;
+
+      return {
+        id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
+        color: cleanName,
+        color_hex: assignedHex,
+        size: sz,
+        stock: vStock,
+        price: vPrice,
+        mrp: vMrp,
+        defective_returns_price: vReturnPrice,
+        sku: vSku,
+        is_active: true,
+        gallery: [],
+      };
+    });
 
     const updates: Partial<Step4Props["formData"]> = {
       has_variants: true,
@@ -400,8 +422,10 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
 
       const updated = formData.variants.map((v) => {
         if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
-          const existingGallery = v.gallery || (v.image_url ? [v.image_url] : []);
-          const combined = [...existingGallery, ...validUrls];
+          const existingGallery = Array.isArray(v.gallery) && v.gallery.length > 0
+            ? v.gallery
+            : (v.image_url ? [v.image_url] : []);
+          const combined = Array.from(new Set([...existingGallery, ...validUrls].filter(Boolean)));
           return {
             ...v,
             image_url: combined[0] || v.image_url,
@@ -477,16 +501,25 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       const cleanPrefix = formData.style_code ? formData.style_code.trim().toUpperCase() : "ZB";
       const cleanColTag = cleanCol.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
+      const matchedSizeDetail = formData.size_details?.find(
+        (sd: any) => sd.size?.trim().toLowerCase() === cleanSz.trim().toLowerCase()
+      );
+      const vPrice = matchedSizeDetail?.selling_price || basePrice;
+      const vMrp = matchedSizeDetail?.mrp || baseMrp;
+      const vStock = matchedSizeDetail?.inventory || "20";
+      const vReturnPrice = matchedSizeDetail?.return_price || formData.defective_returns_price || "";
+      const vSku = matchedSizeDetail?.sku || `${cleanPrefix}_${cleanColTag}_${cleanSz.toUpperCase()}`;
+
       const newVar: CatalogVariant = {
         id: `${cleanPrefix}_${cleanColTag}_${cleanSz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
         color: cleanCol,
         color_hex: grp?.color_hex,
         size: cleanSz,
-        stock: "20",
-        price: basePrice,
-        mrp: baseMrp,
-        defective_returns_price: formData.defective_returns_price || "",
-        sku: `${cleanPrefix}_${cleanColTag}_${cleanSz.toUpperCase()}`,
+        stock: vStock,
+        price: vPrice,
+        mrp: vMrp,
+        defective_returns_price: vReturnPrice,
+        sku: vSku,
         image_url: grp?.image_url,
         gallery: grp?.gallery || [],
         is_active: true,
@@ -532,16 +565,25 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
         );
 
         if (!alreadyExists) {
+          const matchedSizeDetail = formData.size_details?.find(
+            (sd: any) => sd.size?.trim().toLowerCase() === sz.trim().toLowerCase()
+          );
+          const vPrice = matchedSizeDetail?.selling_price || basePrice;
+          const vMrp = matchedSizeDetail?.mrp || baseMrp;
+          const vStock = matchedSizeDetail?.inventory || "20";
+          const vReturnPrice = matchedSizeDetail?.return_price || formData.defective_returns_price || "";
+          const vSku = matchedSizeDetail?.sku || `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`;
+
           updated.push({
             id: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(-3)}`,
             color: col,
             color_hex: grp?.color_hex,
             size: sz,
-            stock: "20",
-            price: basePrice,
-            mrp: baseMrp,
-            defective_returns_price: formData.defective_returns_price || "",
-            sku: `${cleanPrefix}_${cleanColTag}_${sz.toUpperCase()}`,
+            stock: vStock,
+            price: vPrice,
+            mrp: vMrp,
+            defective_returns_price: vReturnPrice,
+            sku: vSku,
             image_url: grp?.image_url,
             gallery: grp?.gallery || [],
             is_active: true,

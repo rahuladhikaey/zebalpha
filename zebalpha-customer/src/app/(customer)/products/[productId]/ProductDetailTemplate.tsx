@@ -42,12 +42,21 @@ export default function ProductDetailTemplate({
       else if (!sz && pkg.name?.includes(" - ")) sz = pkg.name.split(" - ")[1].trim();
       sz = sz || "Free Size";
 
+      const pkgPriceNum =
+        pkg.price != null && !isNaN(Number(pkg.price)) && Number(pkg.price) > 0
+          ? Number(pkg.price)
+          : product.price;
+      const pkgMrpNum =
+        pkg.mrp != null && !isNaN(Number(pkg.mrp)) && Number(pkg.mrp) > 0
+          ? Number(pkg.mrp)
+          : (product.mrp != null && !isNaN(Number(product.mrp)) ? Number(product.mrp) : pkgPriceNum);
+
       return {
         ...pkg,
         color: col,
         size: sz,
-        price: idx === 0 ? product.price : (pkg.price || product.price),
-        mrp: product.mrp != null ? product.mrp : (pkg.mrp || product.mrp),
+        price: pkgPriceNum,
+        mrp: pkgMrpNum,
         gallery: pkg.gallery || (pkg.image_url ? [pkg.image_url] : []),
       };
     });
@@ -88,12 +97,20 @@ export default function ProductDetailTemplate({
       if (pkg.price < grp.basePrice) grp.basePrice = pkg.price;
       if (pkg.mrp && pkg.mrp > grp.baseMrp) grp.baseMrp = pkg.mrp;
 
-      if (pkg.gallery && Array.isArray(pkg.gallery)) {
-        pkg.gallery.forEach((g) => {
-          if (g && !grp.gallery.includes(g)) grp.gallery.push(g);
-        });
-      } else if (pkg.image_url && !grp.gallery.includes(pkg.image_url)) {
-        grp.gallery.push(pkg.image_url);
+      const pkgGallery = Array.isArray(pkg.gallery) && pkg.gallery.length > 0
+        ? pkg.gallery.filter(Boolean)
+        : pkg.image_url
+        ? [pkg.image_url]
+        : [];
+
+      // A photoshoot gallery belongs to the color group, not to individual sizes.
+      // We adopt the gallery from the variant that provides it, and if another variant
+      // has a richer gallery for this color, adopt the fuller gallery.
+      // We DO NOT concatenate duplicate photos across size variants!
+      if (grp.gallery.length === 0 && pkgGallery.length > 0) {
+        grp.gallery = [...pkgGallery];
+      } else if (pkgGallery.length > grp.gallery.length) {
+        grp.gallery = [...pkgGallery];
       }
     });
 
@@ -126,6 +143,19 @@ export default function ProductDetailTemplate({
         const [mainGrp] = groups.splice(mainIdx, 1);
         groups.unshift(mainGrp);
       }
+    }
+
+    // For default/main color, synchronize gallery with parent product images if parent images is fuller
+    const defaultGroup = groups.find(
+      (g) => g.colorName.toLowerCase() === mainColorIdentifier
+    ) || groups[0];
+
+    if (
+      defaultGroup &&
+      Array.isArray(product.images) &&
+      product.images.length > defaultGroup.gallery.length
+    ) {
+      defaultGroup.gallery = [...product.images.filter(Boolean)];
     }
 
     const defColor = groups[0]?.colorName || "";

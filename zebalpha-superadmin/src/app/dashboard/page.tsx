@@ -119,9 +119,22 @@ export default function AdminPage() {
       } catch (_) {}
 
       if (productsData.length === 0) {
-        const SLIM_DASHBOARD_PRODUCT_FIELDS = "id, name, brand, price, mrp, stock, low_stock_limit, status, is_premium, tier, is_new_drop, collection, target_drop_date, is_active, is_approved, approval_status, category_id, category, seller_id, created_at, image_url, thumbnail_url";
-        const { data: directProds } = await supabase.from("products").select(SLIM_DASHBOARD_PRODUCT_FIELDS).order("created_at", { ascending: false });
-        if (directProds) productsData = directProds;
+        const SLIM_DASHBOARD_PRODUCT_FIELDS = "id, name, brand, price, mrp, stock, low_stock_limit, status, is_premium, tier, is_new_drop, collection, target_drop_date, is_active, is_approved, approval_status, category_id, seller_id, created_at, image_url";
+        const { data: directProds, error: directErr } = await supabase.from("products").select(SLIM_DASHBOARD_PRODUCT_FIELDS).order("created_at", { ascending: false });
+        if (!directErr && directProds && directProds.length > 0) {
+          productsData = directProds;
+        } else {
+          const { data: allProds } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+          if (allProds) productsData = allProds;
+        }
+      }
+
+      // Ensure thumbnail_url is normalized for all components
+      if (Array.isArray(productsData)) {
+        productsData = productsData.map((p: any) => ({
+          ...p,
+          thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || ""
+        }));
       }
 
       const [cRes, oRes] = await Promise.all([

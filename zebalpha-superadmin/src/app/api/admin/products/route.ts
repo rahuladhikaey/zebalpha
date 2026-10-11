@@ -18,17 +18,36 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
-    const { data: products, error } = await supabaseServer
+    const VALID_ADMIN_PRODUCT_FIELDS = "id, name, slug, description, price, mrp, stock, low_stock_limit, status, is_premium, is_new_drop, tier, collection, target_drop_date, is_active, is_approved, approval_status, category_id, brand, seller_id, created_at, updated_at, image_url, images, specifications, packages";
+
+    let { data: products, error } = await supabaseServer
       .from("products")
-      .select("id, name, slug, description, price, mrp, stock, low_stock_limit, status, is_premium, is_new_drop, tier, collection, target_drop_date, is_active, is_approved, approval_status, category_id, brand, seller_id, created_at, updated_at, image_url, thumbnail_url, images, specifications, packages")
+      .select(VALID_ADMIN_PRODUCT_FIELDS)
       .order("created_at", { ascending: false });
+
+    if (error || !products) {
+      console.warn("Notice fetching specific product columns, retrying with select(*):", error?.message);
+      const fallback = await supabaseServer
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (fallback.data) {
+        products = fallback.data;
+        error = fallback.error;
+      }
+    }
 
     if (error) {
       console.warn("Products fetch notice from DB:", error.message);
       return NextResponse.json({ success: true, data: [] }, { headers: NO_STORE_HEADERS });
     }
 
-    return NextResponse.json({ success: true, data: products || [] }, { headers: NO_STORE_HEADERS });
+    const normalized = (products || []).map((p: any) => ({
+      ...p,
+      thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || ""
+    }));
+
+    return NextResponse.json({ success: true, data: normalized }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     console.error("GET admin products API error:", error);
     return NextResponse.json({ success: true, data: [] }, { headers: NO_STORE_HEADERS });

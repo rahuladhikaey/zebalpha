@@ -427,7 +427,33 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         defaultPrice={formData.price}
         defaultMrp={formData.mrp}
         onSizesChange={(newSizes) => onChange({ selected_sizes: newSizes })}
-        onSizeDetailsChange={(newDetails) => onChange({ size_details: newDetails })}
+        onSizeDetailsChange={(newDetails) => {
+          const validSellingPrices = newDetails
+            .map((d) => parseFloat(d.selling_price))
+            .filter((p) => !isNaN(p) && p > 0);
+          const validMrps = newDetails
+            .map((d) => parseFloat(d.mrp))
+            .filter((m) => !isNaN(m) && m > 0);
+          const validReturns = newDetails
+            .map((d) => parseFloat(d.return_price))
+            .filter((r) => !isNaN(r) && r > 0);
+          const totalStock = newDetails.reduce((sum, d) => {
+            const qty = parseInt(d.inventory);
+            return sum + (!isNaN(qty) && qty > 0 ? qty : 0);
+          }, 0);
+
+          const autoPrice = validSellingPrices.length > 0 ? Math.min(...validSellingPrices) : 0;
+          const autoMrp = validMrps.length > 0 ? Math.max(...validMrps) : autoPrice;
+          const autoReturn = validReturns.length > 0 ? Math.min(...validReturns) : 0;
+
+          onChange({
+            size_details: newDetails,
+            price: autoPrice > 0 ? String(autoPrice) : formData.price,
+            mrp: autoMrp > 0 ? String(autoMrp) : (autoPrice > 0 ? String(autoPrice) : formData.mrp),
+            defective_returns_price: autoReturn > 0 ? String(autoReturn) : formData.defective_returns_price,
+            single_stock: String(totalStock || 20),
+          });
+        }}
         onSizeMeasurementsChange={(newMeasurements) => onChange({ size_measurements: newMeasurements })}
         onMeasurementUnitChange={(unit) => onChange({ measurement_unit: unit })}
         onToggleMeasurements={(enabled) => onChange({ is_measurements_enabled: enabled })}
