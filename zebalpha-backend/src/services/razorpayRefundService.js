@@ -29,7 +29,7 @@ const getRazorpayInstance = () => {
  * @param {Object} [params.notes] - Key-value metadata for Razorpay dashboard
  * @returns {Promise<{ success: boolean, refundId?: string, error?: string, data?: any }>}
  */
-export const initiateRazorpayRefund = async ({ paymentId, amountInRupees, notes = {} }) => {
+export const initiateRazorpayRefund = async ({ paymentId, amountInRupees, notes = {}, idempotencyKey = null }) => {
   try {
     if (!paymentId) {
       return { success: false, error: 'Payment ID (razorpay_payment_id) is required for refund' };
@@ -45,13 +45,16 @@ export const initiateRazorpayRefund = async ({ paymentId, amountInRupees, notes 
       return { success: false, error: 'Invalid refund amount' };
     }
 
-    console.log(`[Razorpay Refund] Initiating refund of ₹${amountInRupees} (${amountInPaise} paise) for payment ${paymentId}...`);
+    const safeReceipt = idempotencyKey || `RET-REF-${paymentId.slice(0, 16)}-${Date.now()}`;
+    console.log(`[Razorpay Refund] Initiating refund of ₹${amountInRupees} (${amountInPaise} paise) for payment ${paymentId} (receipt: ${safeReceipt})...`);
 
     const refund = await instance.payments.refund(paymentId, {
       amount: amountInPaise,
       speed: 'normal',
+      receipt: safeReceipt,
       notes: {
         ...notes,
+        idempotency_key: safeReceipt,
         system: 'ZebAlpha Refund Engine',
         timestamp: new Date().toISOString()
       }
@@ -66,10 +69,35 @@ export const initiateRazorpayRefund = async ({ paymentId, amountInRupees, notes 
       data: refund
     };
   } catch (error) {
-    console.error('[Razorpay Refund Error]:', error?.error?.description || error?.message || error);
+    const errorDesc = error?.error?.description || error?.message || '';
+    console.error('[Razorpay Refund Error]:', errorDesc);
+
+    // Idempotent recovery: If Razorpay says payment already refunded or full refund processed, fetch existing refund
+    if (errorDesc.toLowerCase().includes('already refunded') || errorDesc.toLowerCase().includes('fully refunded')) {
+      try {
+        const instance = getRazorpayInstance();
+        if (instance) {
+          const refundsList = await instance.payments.refunds(paymentId);
+          if (refundsList && refundsList.items && refundsList.items.length > 0) {
+            const existingRefund = refundsList.items[0];
+            console.log(`[Razorpay Refund Reconciled] Found existing refund ${existingRefund.id} for payment ${paymentId}`);
+            return {
+              success: true,
+              refundId: existingRefund.id,
+              status: existingRefund.status || 'processed',
+              data: existingRefund,
+              reconciled: true
+            };
+          }
+        }
+      } catch (fetchErr) {
+        console.warn('[Razorpay Fetch Refunds Warning]:', fetchErr.message);
+      }
+    }
+
     return {
       success: false,
-      error: error?.error?.description || error?.message || 'Failed to process Razorpay refund'
+      error: errorDesc || 'Failed to process Razorpay refund'
     };
   }
 };

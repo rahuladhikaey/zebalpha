@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/shared/utils/supabaseServer";
+import { supabaseServer, createSupabaseServerClient } from "@/shared/utils/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +45,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Order not found." }, { status: 404 });
     }
 
+    // 2. Authentication & IDOR Protection
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userEmail = user?.email?.toLowerCase().trim();
+    const orderUserMatch = Boolean(
+      (user && orderData.user_id && String(orderData.user_id) === String(user.id)) ||
+      (userEmail && (
+        (orderData.email && orderData.email.toLowerCase().trim() === userEmail) ||
+        (orderData.customer_email && orderData.customer_email.toLowerCase().trim() === userEmail)
+      ))
+    );
+
+    if (!user || !orderUserMatch) {
+      return NextResponse.json({
+        success: false,
+        message: "Unauthorized: You do not have permission to request a return for this order."
+      }, { status: 403 });
+    }
+
+    // 3. Delivery status verification
     const currentStatus = String(orderData.order_status || "").toLowerCase();
     if (currentStatus !== "delivered") {
       return NextResponse.json({
@@ -53,7 +73,29 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    // Check return window
+    // 4. Duplicate Return Prevention
+    if (orderData.return_status && ["requested", "approved", "in_transit", "picked_up", "completed"].includes(String(orderData.return_status).toLowerCase())) {
+      return NextResponse.json({
+        success: false,
+        message: `A return or exchange request is already active for this order (Status: ${orderData.return_status.toUpperCase()}). Duplicate requests are not permitted.`
+      }, { status: 400 });
+    }
+
+    const { data: existingReturn } = await supabaseServer
+      .from("order_returns")
+      .select("id, status")
+      .or(`order_id.eq.${orderData.id},order_number.eq.${orderData.order_number}`)
+      .not("status", "in", '("REJECTED","CANCELLED")')
+      .maybeSingle();
+
+    if (existingReturn) {
+      return NextResponse.json({
+        success: false,
+        message: `A return request is already in progress for this order (Status: ${existingReturn.status}). Duplicate return requests are prohibited.`
+      }, { status: 400 });
+    }
+
+    // 5. Check return window (7 days standard, generous 10 days)
     const deliveryDate = orderData.delivered_at || orderData.updated_at || orderData.created_at;
     if (deliveryDate) {
       const daysSinceDelivery = (Date.now() - new Date(deliveryDate).getTime()) / (1000 * 60 * 60 * 24);
@@ -85,27 +127,31 @@ export async function POST(req: Request) {
     const returnRecord = {
       order_id: String(orderData.id),
       order_number: String(orderData.order_number || orderData.id),
-      user_id: orderData.user_id || null,
-      user_email: orderData.email || null,
+      user_id: orderData.user_id || user.id,
+      user_email: orderData.email || user.email || null,
       seller_id: orderData.seller_id || null,
-      return_type: return_type.toUpperCase() === "EXCHANGE" ? "EXCHANGE" : "RETURN",
+      return_type: return_type.toUpperCase() === "EXCHANGE" ? "EXCHANGE" : "CUSTOMER_RETURN",
+      policy_type: orderData.policy_type || "EASY_RETURN",
       status: "REQUESTED",
       items: returnItemsList,
       reason,
       sub_reason: sub_reason || reason,
       description: description || "",
       images: Array.isArray(images) ? images : [],
+      customer_images: Array.isArray(images) ? images : [],
+      customer_notes: description || reason,
       refund_mode: finalRefundMode,
       upi_id: cleanedUpiId,
       bank_details: cleanedUpiId ? { upi_id: cleanedUpiId } : null,
       exchange_details: exchange_details || null,
       refund_amount: calculatedRefundAmount > 0 ? calculatedRefundAmount : Number(orderData.total_amount) || 0,
       refund_status: "PENDING",
+      idempotency_key: `RETURN_REQ_${orderData.id}`,
       created_at: nowIso,
       updated_at: nowIso
     };
 
-    // Insert into order_returns table
+    // Insert into order_returns table with idempotency guard
     let returnId = null;
     try {
       const { data: insertedReturn, error: returnErr } = await supabaseServer
@@ -115,6 +161,8 @@ export async function POST(req: Request) {
 
       if (!returnErr && insertedReturn?.[0]) {
         returnId = insertedReturn[0].id;
+      } else if (returnErr) {
+        console.warn("order_returns insertion notice:", returnErr.message);
       }
     } catch (e: any) {
       console.warn("order_returns insertion notice:", e.message);

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@shared/utils/supabaseServer";
+import { supabaseServer } from "@/shared/utils/supabaseServer";
+import { getShiprocketToken, createShiprocketReturnOrder } from "@/shared/utils/shiprocket";
+import { initiateRazorpayRefund } from "@/shared/utils/razorpayRefund";
+import { generateReturnRefundLedgerEntries, DEFAULT_FINANCIAL_RULES } from "@/shared/services/financialLedgerService";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +41,13 @@ export async function PATCH(req: Request) {
     const returnUpdates: Record<string, any> = { updated_at: nowIso };
     const orderUpdates: Record<string, any> = { updated_at: nowIso };
 
+    // Fetch existing order record
+    const { data: orderData } = await supabaseServer
+      .from("orders")
+      .select("*")
+      .or(`id.eq.${targetId},order_number.eq.${targetId}`)
+      .maybeSingle();
+
     if (status) {
       const upper = status.toUpperCase();
       returnUpdates.status = upper;
@@ -46,6 +56,73 @@ export async function PATCH(req: Request) {
         orderUpdates.order_status = "return_approved";
         orderUpdates.return_status = "approved";
         orderUpdates.return_approved_at = nowIso;
+
+        // Trigger Shiprocket Reverse Pickup
+        if (orderData) {
+          try {
+            const token = await getShiprocketToken();
+            const { data: pickupLoc } = await supabaseServer
+              .from("seller_pickup_locations")
+              .select("*")
+              .eq("seller_id", orderData.seller_id)
+              .order("is_default", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const customerAddr = typeof orderData.shipping_address === "object" && orderData.shipping_address !== null
+              ? orderData.shipping_address
+              : {};
+
+            const returnPayload = {
+              order_id: `RET-${orderData.order_number || orderData.id}`,
+              order_number: `RET-${orderData.order_number || orderData.id}`,
+              customer_name: orderData.customer_name || customerAddr.full_name || customerAddr.name || "Customer",
+              customer_email: orderData.email || "customer@zebalpha.com",
+              customer_phone: String(orderData.phone || customerAddr.phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+              pickup_address: customerAddr.address_line1 || customerAddr.address || orderData.address || "Customer Doorstep",
+              pickup_landmark: customerAddr.landmark || customerAddr.address_line2 || "",
+              pickup_city: customerAddr.city || "City",
+              pickup_state: customerAddr.state || "State",
+              pickup_pincode: String(customerAddr.pincode || customerAddr.postal_code || orderData.pincode || "700001").replace(/\D/g, "").slice(0, 6),
+              warehouse_name: pickupLoc?.location_name || "Seller Return Hub",
+              warehouse_address: pickupLoc?.address_line1 || "Merchant Warehouse",
+              warehouse_city: pickupLoc?.city || "City",
+              warehouse_state: pickupLoc?.state || "State",
+              warehouse_pincode: String(pickupLoc?.pincode || "700001").replace(/\D/g, "").slice(0, 6),
+              warehouse_phone: String(pickupLoc?.contact_phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+              items: orderData.return_items || orderData.items || [],
+              refund_amount: Number(orderData.refund_amount || orderData.total_amount) || 0,
+              weight: 0.5,
+              length: 15,
+              breadth: 15,
+              height: 10
+            };
+
+            const srReturnRes = await createShiprocketReturnOrder(token, returnPayload);
+            if (srReturnRes && srReturnRes.success) {
+              if (srReturnRes.awb_code) {
+                orderUpdates.return_tracking_number = srReturnRes.awb_code;
+                returnUpdates.pickup_awb = srReturnRes.awb_code;
+                returnUpdates.awb_number = srReturnRes.awb_code;
+                returnUpdates.status = "IN_TRANSIT";
+              }
+              if (srReturnRes.courier_name) {
+                orderUpdates.return_courier_name = srReturnRes.courier_name;
+                returnUpdates.pickup_courier = srReturnRes.courier_name;
+                returnUpdates.courier_partner = srReturnRes.courier_name;
+              }
+              if (srReturnRes.shipment_id) {
+                returnUpdates.shiprocket_return_shipment_id = String(srReturnRes.shipment_id);
+              }
+              if (srReturnRes.order_id) {
+                returnUpdates.shiprocket_return_order_id = String(srReturnRes.order_id);
+              }
+            }
+          } catch (srErr: any) {
+            console.warn("Superadmin Shiprocket return creation notice:", srErr.message);
+          }
+        }
+
       } else if (upper === "REJECTED") {
         orderUpdates.order_status = "return_rejected";
         orderUpdates.return_status = "rejected";
@@ -61,6 +138,85 @@ export async function PATCH(req: Request) {
         orderUpdates.return_status = "completed";
         orderUpdates.return_completed_at = nowIso;
         orderUpdates.refund_status = "COMPLETED";
+        returnUpdates.status = "COMPLETED";
+        returnUpdates.refund_status = "COMPLETED";
+
+        // Atomic restocking & refund trigger if orderData exists
+        if (orderData && !orderData.is_restocked) {
+          const items = orderData.return_items || orderData.items || [];
+          if (Array.isArray(items)) {
+            for (const item of items) {
+              const pId = item.product_id || item.id;
+              const qty = Number(item.quantity) || 1;
+              if (pId) {
+                try {
+                  await supabaseServer.rpc("atomic_restock_order_item", {
+                    p_product_id: String(pId),
+                    p_quantity: qty,
+                    p_seller_id: orderData.seller_id,
+                    p_order_number: orderData.order_number || String(orderData.id),
+                    p_reason: `Admin return restock for Order #${orderData.order_number}`
+                  });
+                } catch (_) {}
+              }
+            }
+            orderUpdates.is_restocked = true;
+            orderUpdates.restocked_at = nowIso;
+            returnUpdates.is_restocked = true;
+            returnUpdates.restocked_at = nowIso;
+          }
+        }
+
+        // Process Razorpay refund if prepaid
+        const isPrepaid = orderData && String(orderData.payment_method || "").toUpperCase() !== "COD";
+        const paymentId = orderData?.payment_id || orderData?.razorpay_payment_id;
+
+        if (isPrepaid && paymentId && !orderData?.razorpay_refund_id) {
+          try {
+            const refundAmt = Number(refund_amount || orderData.refund_amount || orderData.total_amount) || 0;
+            const rzpRes = await initiateRazorpayRefund({
+              paymentId,
+              amountInRupees: refundAmt,
+              idempotencyKey: `RET_REF_${orderData.id}`,
+              notes: {
+                order_id: String(orderData.id),
+                order_number: String(orderData.order_number),
+                reason: "Admin Return Resolution & Refund"
+              }
+            });
+
+            if (rzpRes?.success) {
+              orderUpdates.razorpay_refund_id = rzpRes.refundId;
+              orderUpdates.refund_transaction_id = rzpRes.refundId;
+              returnUpdates.razorpay_refund_id = rzpRes.refundId;
+              returnUpdates.refund_transaction_id = rzpRes.refundId;
+            }
+          } catch (rfErr: any) {
+            console.warn("Admin refund processing notice:", rfErr.message);
+          }
+        }
+
+        // Generate Financial Ledger adjustment entries
+        if (orderData?.seller_id) {
+          try {
+            const refundAmt = Number(refund_amount || orderData.refund_amount || orderData.total_amount) || 0;
+            const ledgerEntries = generateReturnRefundLedgerEntries({
+              sellerId: orderData.seller_id,
+              orderId: orderData.id,
+              orderNumber: orderData.order_number || String(orderData.id),
+              returnId: `RET-${orderData.order_number || targetId}`,
+              refundAmount: refundAmt,
+              isSellerFault: false,
+              rules: DEFAULT_FINANCIAL_RULES
+            });
+
+            for (const entry of ledgerEntries) {
+              await supabaseServer
+                .from("seller_financial_ledger")
+                .upsert(entry, { onConflict: "idempotency_key" });
+            }
+          } catch (_) {}
+        }
       }
     }
 

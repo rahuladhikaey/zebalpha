@@ -331,3 +331,91 @@ export async function trackShipment(token: string, awbCode: string) {
   const data = await response.json();
   return data;
 }
+
+/**
+ * Step 11: Create Reverse Pickup / Return Order in Shiprocket
+ * POST /v1/external/orders/create/return
+ */
+export async function createShiprocketReturnOrder(token: string, returnData: any) {
+  const payload = {
+    order_id: String(returnData.order_id || returnData.order_number),
+    order_date: new Date().toISOString().split("T")[0],
+    channel_id: "",
+    pickup_customer_name: returnData.customer_name || "Customer",
+    pickup_last_name: "",
+    pickup_address: returnData.pickup_address || "Customer Address",
+    pickup_address_2: returnData.pickup_landmark || "",
+    pickup_city: returnData.pickup_city || "City",
+    pickup_state: returnData.pickup_state || "State",
+    pickup_country: "India",
+    pickup_pincode: String(returnData.pickup_pincode || "700001").replace(/\D/g, "").slice(0, 6),
+    pickup_email: returnData.customer_email || "customer@zebalpha.com",
+    pickup_phone: String(returnData.customer_phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+    shipping_customer_name: returnData.warehouse_name || "Seller Return Hub",
+    shipping_address: returnData.warehouse_address || "Merchant Warehouse",
+    shipping_city: returnData.warehouse_city || "City",
+    shipping_state: returnData.warehouse_state || "State",
+    shipping_country: "India",
+    shipping_pincode: String(returnData.warehouse_pincode || "700001").replace(/\D/g, "").slice(0, 6),
+    shipping_phone: String(returnData.warehouse_phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+    order_items: (returnData.items || []).map((item: any, idx: number) => ({
+      name: item.name || "Returned Item",
+      sku: item.sku || `RET-${idx}-${Date.now()}`,
+      units: Number(item.quantity) || 1,
+      selling_price: Number(item.price) || 0,
+      discount: 0,
+      qc_enable: true,
+      qc_size: item.size || "Free",
+      qc_product_name: item.name || "Product",
+    })),
+    payment_method: "PREPAID",
+    sub_total: Number(returnData.refund_amount || returnData.total_amount || 0),
+    length: Number(returnData.length) || 15,
+    breadth: Number(returnData.breadth || returnData.width) || 15,
+    height: Number(returnData.height) || 10,
+    weight: Number(returnData.weight) || 0.5,
+  };
+
+  const response = await fetch(`${SHIPROCKET_API}/orders/create/return`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  const respData = data?.response?.data || data;
+
+  if (!response.ok) {
+    const errorMsg = data.message || (typeof data.errors === "object" ? JSON.stringify(data.errors) : "Failed to create Shiprocket return order");
+    throw new Error(errorMsg);
+  }
+
+  let awbCode = respData?.awb_code || null;
+  let courierName = respData?.courier_name || null;
+  const shipmentId = respData?.shipment_id || respData?.order_id;
+
+  if (!awbCode && shipmentId) {
+    try {
+      const awbRes = await assignShiprocketAWB(token, shipmentId);
+      if (awbRes && awbRes.awb_code) {
+        awbCode = awbRes.awb_code;
+        courierName = awbRes.courier_name;
+      }
+    } catch (awbErr: any) {
+      console.warn("Notice auto-assigning reverse AWB:", awbErr.message);
+    }
+  }
+
+  return {
+    success: true,
+    shipment_id: shipmentId,
+    order_id: respData?.order_id,
+    awb_code: awbCode,
+    courier_name: courierName || "Reverse Logistics Express",
+    data: respData,
+  };
+}
+

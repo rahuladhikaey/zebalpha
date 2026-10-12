@@ -209,7 +209,15 @@ export default function CatalogUploadWizardModal({
       const existingPackages = Array.isArray(rawPackages) ? rawPackages : [];
       const hasVars = existingPackages.length > 0 && !(existingPackages.length === 1 && (existingPackages[0].name === "Standard" || existingPackages[0].name === "Standard Package"));
 
-      const loadedVariants: CatalogVariant[] = existingPackages.map((pkg: any) => {
+      const defaultCol = (
+        specs?.default_color ||
+        specs?.main_color ||
+        existingPackages[0]?.color ||
+        (existingPackages[0]?.name?.includes(" / ") ? existingPackages[0]?.name.split(" / ")[0] : "") ||
+        "Black"
+      ).trim().toLowerCase();
+
+      const loadedVariants: CatalogVariant[] = existingPackages.map((pkg: any, pkgIdx: number) => {
         let pkgGallery = pkg.gallery;
         if (typeof pkgGallery === "string") {
           try {
@@ -218,15 +226,32 @@ export default function CatalogUploadWizardModal({
             pkgGallery = [pkgGallery];
           }
         }
-        const galleryList = Array.isArray(pkgGallery) && pkgGallery.length > 0
+
+        const pkgCol = (
+          pkg.color ||
+          (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[0] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[0] : "") ||
+          ""
+        ).trim().toLowerCase();
+        const isMainPkg = pkgIdx === 0 || pkgCol === defaultCol || pkgCol === "main color";
+
+        let rawGallery = Array.isArray(pkgGallery) && pkgGallery.length > 0
           ? pkgGallery.filter(Boolean)
           : pkg.image_url
           ? [pkg.image_url]
-          : imgList.length > 0
+          : [];
+
+        // For non-main packages, strip any accidental inheritance of the main product photos (self-healing for previously saved buggy items)
+        if (!isMainPkg && imgList.length > 0) {
+          rawGallery = rawGallery.filter((img: string) => !imgList.includes(img));
+        }
+
+        const galleryList = rawGallery.length > 0
+          ? rawGallery
+          : isMainPkg && imgList.length > 0
           ? [...imgList]
           : [];
 
-        const mainImgUrl = pkg.image_url || galleryList[0] || imgList[0] || undefined;
+        const mainImgUrl = galleryList[0] || (isMainPkg ? (pkg.image_url || imgList[0] || undefined) : undefined);
 
         return {
           id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
@@ -658,6 +683,11 @@ export default function CatalogUploadWizardModal({
             (v) => (v.color || "Default").trim().toLowerCase() === colKey
           );
 
+          const isMainCol =
+            colKey === activeDefaultCol ||
+            colKey === "main color" ||
+            distinctColors[0]?.toLowerCase() === colKey;
+
           // Find the best existing gallery for this color
           let rawColGallery: string[] = [];
           for (const v of colVariants) {
@@ -667,16 +697,18 @@ export default function CatalogUploadWizardModal({
             }
           }
 
-          const isMainCol =
-            colKey === activeDefaultCol ||
-            colKey === "main color" ||
-            distinctColors[0].toLowerCase() === colKey;
+          // For non-main colors, strip any accidental main product images
+          if (!isMainCol && (uploadedImagesList.length > 0 || coverImageUrl)) {
+            const forbiddenImages = [...uploadedImagesList, coverImageUrl].filter(Boolean);
+            rawColGallery = rawColGallery.filter((img) => !forbiddenImages.includes(img));
+          }
 
           if (rawColGallery.length === 0) {
             if (isMainCol && uploadedImagesList.length > 0) {
               rawColGallery = uploadedImagesList;
-            } else {
-              const firstWithImg = colVariants.find((v) => v.image_url);
+            } else if (!isMainCol) {
+              const forbiddenImages = [...uploadedImagesList, coverImageUrl].filter(Boolean);
+              const firstWithImg = colVariants.find((v) => v.image_url && !forbiddenImages.includes(v.image_url));
               if (firstWithImg?.image_url) {
                 rawColGallery = [firstWithImg.image_url];
               }
@@ -705,13 +737,22 @@ export default function CatalogUploadWizardModal({
         // Apply unified gallery and cover to all variants of each color
         processedVariants = form.variants.map((v) => {
           const colKey = (v.color || "Default").trim().toLowerCase();
+          const isMainCol =
+            colKey === activeDefaultCol ||
+            colKey === "main color" ||
+            distinctColors[0]?.toLowerCase() === colKey;
           const colGallery = colorGalleriesMap.get(colKey) || [];
-          const colCover = colorPrimaryMap.get(colKey) || coverImageUrl;
+          const colCover = colorPrimaryMap.get(colKey);
+
+          const finalCover = colCover || (isMainCol ? coverImageUrl : undefined);
+          const finalGallery = colGallery.length > 0
+            ? colGallery
+            : (isMainCol && coverImageUrl ? [coverImageUrl] : []);
 
           return {
             ...v,
-            image_url: colCover || v.image_url || coverImageUrl,
-            gallery: colGallery.length > 0 ? colGallery : (colCover ? [colCover] : [coverImageUrl]),
+            image_url: finalCover,
+            gallery: finalGallery,
           };
         });
       }
@@ -866,22 +907,30 @@ export default function CatalogUploadWizardModal({
 
       // Build packages JSON array for multi-color and multi-size matrix
       const computedPackages = hasVariants
-        ? sortedVariants.map((v, idx) => ({
-            id: v.id || `pkg_${idx}_${Date.now()}`,
-            name: v.color && v.color !== "Default" && v.color !== "Standard"
-              ? `${v.color} / ${v.size}`
-              : v.size || "Standard",
-            color: v.color || "Default",
-            color_hex: v.color_hex || undefined,
-            size: v.size || "Free Size",
-            price: parseFloat(v.price) || effectivePrice || 0,
-            mrp: parseFloat(v.mrp) || effectiveMrp || parseFloat(v.price) || 0,
-            stock: parseInt(v.stock) || 0,
-            sku: v.sku || `${form.style_code || 'SKU'}_${v.color || 'COLOR'}_${v.size}`,
-            image_url: v.image_url || finalProductCover,
-            gallery: Array.isArray(v.gallery) && v.gallery.length > 0 ? v.gallery : (v.image_url ? [v.image_url] : [finalProductCover]),
-            isBestSeller: idx === 0,
-          }))
+        ? sortedVariants.map((v, idx) => {
+            const isMain = (v.color || "").trim().toLowerCase() === activeDefaultCol.toLowerCase();
+            const pkgImg = v.image_url || (isMain ? finalProductCover : undefined);
+            const pkgGallery = Array.isArray(v.gallery) && v.gallery.length > 0
+              ? v.gallery
+              : (pkgImg ? [pkgImg] : (isMain ? (finalProductCover ? [finalProductCover] : []) : []));
+
+            return {
+              id: v.id || `pkg_${idx}_${Date.now()}`,
+              name: v.color && v.color !== "Default" && v.color !== "Standard"
+                ? `${v.color} / ${v.size}`
+                : v.size || "Standard",
+              color: v.color || "Default",
+              color_hex: v.color_hex || undefined,
+              size: v.size || "Free Size",
+              price: parseFloat(v.price) || effectivePrice || 0,
+              mrp: parseFloat(v.mrp) || effectiveMrp || parseFloat(v.price) || 0,
+              stock: parseInt(v.stock) || 0,
+              sku: v.sku || `${form.style_code || 'SKU'}_${v.color || 'COLOR'}_${v.size}`,
+              image_url: pkgImg,
+              gallery: pkgGallery,
+              isBestSeller: idx === 0,
+            };
+          })
         : hasSizeDetails
         ? form.size_details.map((sd, idx) => ({
             id: sd.id || `pkg_${idx}_${Date.now()}`,

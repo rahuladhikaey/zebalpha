@@ -225,6 +225,41 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     }
   }, [formData.images?.length, formData.variants?.length, formData.default_color, formData.main_color, formData.price, formData.mrp, formData.selected_sizes?.length]);
 
+  // Self-healing sanitizer: If non-main colors were previously populated with the main product's Step 1 image,
+  // clean them up so they start with an empty gallery and seller can upload the true color photos.
+  React.useEffect(() => {
+    if (!formData.variants || formData.variants.length === 0) return;
+    const mainColor = (formData.default_color || formData.main_color || formData.variants[0]?.color || "Main Color").trim().toLowerCase();
+    const mainImages = formData.images || [];
+    if (mainImages.length === 0) return;
+
+    let hasContamination = false;
+    const sanitized = formData.variants.map((v) => {
+      const col = (v.color || "").trim().toLowerCase();
+      const isMain = col === mainColor || col === "main color";
+      if (!isMain) {
+        const rawGal = Array.isArray(v.gallery) ? v.gallery : (v.image_url ? [v.image_url] : []);
+        const filteredGallery = rawGal.filter((img) => !mainImages.includes(img));
+        const isCoverContaminated = v.image_url ? mainImages.includes(v.image_url) : false;
+        const hadContamination = rawGal.length !== filteredGallery.length || isCoverContaminated;
+
+        if (hadContamination) {
+          hasContamination = true;
+          return {
+            ...v,
+            image_url: filteredGallery[0] || undefined,
+            gallery: filteredGallery,
+          };
+        }
+      }
+      return v;
+    });
+
+    if (hasContamination) {
+      onChange({ variants: sanitized });
+    }
+  }, [formData.variants?.length, formData.default_color, formData.main_color, formData.images]);
+
   // Group variants by color
   const colorGroups = useMemo(() => {
     const groups: {
@@ -236,21 +271,32 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     }[] = [];
     const map = new Map<string, typeof groups[0]>();
 
+    const mainColName = (
+      formData.default_color ||
+      formData.main_color ||
+      formData.variants[0]?.color ||
+      "Main Color"
+    ).trim().toLowerCase();
+
     for (const v of formData.variants) {
       const col = (v.color || "Black").trim() || "Black";
+      const isMainCol = col.toLowerCase() === mainColName || col.toLowerCase() === "main color";
+
       if (!map.has(col)) {
+        // ONLY the main product color inherits formData.images from Step 1.
+        // Other colors (White, Maroon, etc.) MUST have their own independent gallery (empty until seller uploads photos for that color).
         const vGallery = Array.isArray(v.gallery) && v.gallery.length > 0
           ? v.gallery
           : v.image_url
           ? [v.image_url]
-          : formData.images && formData.images.length > 0
+          : isMainCol && formData.images && formData.images.length > 0
           ? formData.images
           : [];
 
         const group = {
           color: col,
           color_hex: v.color_hex || PRESET_COLORS.find((c) => c.name.toLowerCase() === col.toLowerCase())?.hex || "#18181b",
-          image_url: v.image_url || vGallery[0],
+          image_url: v.image_url || (isMainCol ? vGallery[0] : undefined),
           gallery: vGallery,
           items: [],
         };
@@ -262,7 +308,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
         grp.image_url = v.image_url;
       }
       if (Array.isArray(v.gallery) && v.gallery.length > 0) {
-        if (!grp.gallery || grp.gallery.length === 0 || (formData.images && grp.gallery === formData.images)) {
+        if (!grp.gallery || grp.gallery.length === 0) {
           grp.gallery = v.gallery;
           if (v.image_url) grp.image_url = v.image_url;
         }
@@ -281,7 +327,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     }
 
     return groups;
-  }, [formData.variants, formData.default_color, formData.main_color]);
+  }, [formData.variants, formData.default_color, formData.main_color, formData.images]);
 
   const activeDefaultColor =
     formData.default_color ||
@@ -420,15 +466,30 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       const validUrls = dataUrls.filter(Boolean);
       if (validUrls.length === 0) return;
 
+      const mainColName = (
+        formData.default_color ||
+        formData.main_color ||
+        formData.variants[0]?.color ||
+        "Main Color"
+      ).trim().toLowerCase();
+      const isTargetMainCol = colorName.trim().toLowerCase() === mainColName || colorName.trim().toLowerCase() === "main color";
+      const mainImages = formData.images || [];
+
       const updated = formData.variants.map((v) => {
         if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
-          const existingGallery = Array.isArray(v.gallery) && v.gallery.length > 0
+          // For non-main colors, strip any accidental main product images from existing gallery
+          let rawGallery = Array.isArray(v.gallery) && v.gallery.length > 0
             ? v.gallery
             : (v.image_url ? [v.image_url] : []);
-          const combined = Array.from(new Set([...existingGallery, ...validUrls].filter(Boolean)));
+
+          if (!isTargetMainCol && mainImages.length > 0) {
+            rawGallery = rawGallery.filter((img) => !mainImages.includes(img));
+          }
+
+          const combined = Array.from(new Set([...rawGallery, ...validUrls].filter(Boolean)));
           return {
             ...v,
-            image_url: combined[0] || v.image_url,
+            image_url: combined[0] || undefined,
             gallery: combined,
           };
         }
@@ -1665,6 +1726,9 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {colorGroups.map((grp) => {
+                  const isMainCol =
+                    grp.color.toLowerCase() === activeDefaultColor.toLowerCase() ||
+                    grp.color.toLowerCase() === "main color";
                   const gallery = grp.gallery || (grp.image_url ? [grp.image_url] : []);
 
                   return (
@@ -1680,8 +1744,20 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                             style={{ backgroundColor: grp.color_hex || "#3b82f6" }}
                           />
                           <h5 className="text-sm font-bold text-white">{grp.color}</h5>
-                          <span className="text-xs text-zinc-400">
-                            ({gallery.length} photo{gallery.length !== 1 ? "s" : ""})
+                          {isMainCol && (
+                            <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+                              ★ Main Color
+                            </span>
+                          )}
+                          <span
+                            className={`text-xs ${
+                              gallery.length === 0
+                                ? "text-amber-400/90 font-medium"
+                                : "text-zinc-400"
+                            }`}
+                          >
+                            ({gallery.length} photo{gallery.length !== 1 ? "s" : ""}
+                            {gallery.length === 0 ? " • upload needed" : ""})
                           </span>
                         </div>
 
@@ -1758,7 +1834,11 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                       </div>
 
                       <p className="text-[10px] text-zinc-500">
-                        💡 First photo is used as primary thumbnail for this color on the customer page.
+                        {gallery.length === 0
+                          ? "💡 No photos uploaded yet for this color. Click '+ Photo' to upload — the 1st photo will be used as this color's cover on the customer page."
+                          : isMainCol
+                          ? "💡 Primary thumbnail for Main Color (from Step 1). First photo is used as default storefront cover."
+                          : "💡 First photo is used as primary thumbnail for this color on the customer page."}
                       </p>
                     </div>
                   );
@@ -1960,10 +2040,16 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                   (v) => (v.size || "").toLowerCase() === currentPreviewSz.toLowerCase()
                 );
 
+                const isPreviewMainCol =
+                  currentPreviewCol.toLowerCase() === activeDefaultColor.toLowerCase() ||
+                  currentPreviewCol.toLowerCase() === "main color";
+
                 const previewGallery =
                   currentPreviewGrp?.gallery && currentPreviewGrp.gallery.length > 0
                     ? currentPreviewGrp.gallery
-                    : formData.images || [];
+                    : isPreviewMainCol
+                    ? (formData.images || [])
+                    : [];
 
                 const isOOS =
                   currentPreviewVariant?.stock !== undefined &&

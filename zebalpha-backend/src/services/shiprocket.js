@@ -377,17 +377,32 @@ export const parseShiprocketWebhookPayload = (payload) => {
 
   let mappedOrderStatus = 'processing';
   let paymentStatusUpdate = null;
+  let isRto = false;
+  let isReverseReturn = false;
 
-  // Shiprocket Status Code Mapping:
-  // 6: Shipped / Manifest Generated / Pickup Scheduled
-  // 13: Pickup Done / In Transit
-  // 18: In Transit
-  // 17: Out For Delivery
-  // 7: Delivered
-  // 9 / 14 / 21: RTO (Return to Origin)
-  // 10: Canceled
-
-  if (code === 7 || statusStr.includes('DELIVERED')) {
+  // IMPORTANT: Evaluate RTO and Reverse Return conditions BEFORE generic 'DELIVERED',
+  // because courier messages like 'RTO DELIVERED' contain 'DELIVERED'!
+  if (code === 9 || statusStr.includes('RTO INITIATED') || statusStr === 'RTO') {
+    mappedOrderStatus = 'rto_initiated';
+    isRto = true;
+  } else if (code === 14 || code === 38 || statusStr.includes('RTO IN TRANSIT') || statusStr.includes('RTO OUT FOR DELIVERY')) {
+    mappedOrderStatus = 'rto_in_transit';
+    isRto = true;
+  } else if (code === 21 || code === 22 || statusStr.includes('RTO DELIVERED') || statusStr.includes('RTO ACKNOWLEDGED')) {
+    mappedOrderStatus = 'rto_delivered';
+    isRto = true;
+  } else if (code === 46 || statusStr.includes('NDR') || statusStr.includes('UNDELIVERED')) {
+    mappedOrderStatus = 'ndr';
+  } else if (statusStr.includes('RETURN PICKED UP') || statusStr.includes('REVERSE PICKED UP')) {
+    mappedOrderStatus = 'return_picked_up';
+    isReverseReturn = true;
+  } else if (statusStr.includes('RETURN IN TRANSIT') || statusStr.includes('REVERSE IN TRANSIT')) {
+    mappedOrderStatus = 'return_in_transit';
+    isReverseReturn = true;
+  } else if (statusStr.includes('RETURN DELIVERED') || statusStr.includes('REVERSE DELIVERED')) {
+    mappedOrderStatus = 'return_delivered';
+    isReverseReturn = true;
+  } else if (code === 7 || statusStr.includes('DELIVERED')) {
     mappedOrderStatus = 'delivered';
     paymentStatusUpdate = 'PAID';
   } else if (code === 17 || statusStr.includes('OUT FOR DELIVERY')) {
@@ -396,8 +411,6 @@ export const parseShiprocketWebhookPayload = (payload) => {
     mappedOrderStatus = 'shipped';
   } else if (code === 6 || statusStr.includes('MANIFEST') || statusStr.includes('PICKUP SCHEDULED')) {
     mappedOrderStatus = 'ready_to_ship';
-  } else if (code === 9 || code === 14 || code === 21 || statusStr.includes('RTO')) {
-    mappedOrderStatus = 'rto';
   } else if (code === 10 || statusStr.includes('CANCELED') || statusStr.includes('CANCELLED')) {
     mappedOrderStatus = 'cancelled';
   }
@@ -415,6 +428,8 @@ export const parseShiprocketWebhookPayload = (payload) => {
     etd: etd || null,
     location: location || null,
     scans: scans || [],
+    is_rto: isRto,
+    is_reverse_return: isReverseReturn,
   };
 };
 
@@ -492,7 +507,7 @@ export const createShiprocketReturnOrder = async (returnData) => {
       shipping_state: returnData.warehouse_state || 'West Bengal',
       shipping_country: 'India',
       shipping_pincode: String(returnData.warehouse_pincode || '700001').replace(/\D/g, '').slice(0, 6),
-      shipping_phone: '9999999999',
+      shipping_phone: String(returnData.warehouse_phone || '9999999999').replace(/\D/g, '').slice(0, 10),
       order_items: (returnData.items || []).map((item, idx) => ({
         name: item.name || 'Returned Item',
         sku: item.sku || `RET-${idx}-${Date.now()}`,
@@ -505,10 +520,10 @@ export const createShiprocketReturnOrder = async (returnData) => {
       })),
       payment_method: 'PREPAID',
       sub_total: Number(returnData.refund_amount || returnData.total_amount || 0),
-      length: 15,
-      breadth: 15,
-      height: 10,
-      weight: 0.5
+      length: Number(returnData.length) || 15,
+      breadth: Number(returnData.breadth || returnData.width) || 15,
+      height: Number(returnData.height) || 10,
+      weight: Number(returnData.weight) || 0.5
     };
 
     const response = await axios.post(
@@ -524,12 +539,40 @@ export const createShiprocketReturnOrder = async (returnData) => {
     );
 
     const respData = response.data?.response?.data || response.data;
+    const shipmentId = respData?.shipment_id || respData?.order_id;
+    let awbCode = respData?.awb_code || null;
+    let courierName = respData?.courier_name || 'Reverse Logistics Express';
+
+    // Auto-assign reverse AWB if not returned in create/return response
+    if (!awbCode && shipmentId) {
+      try {
+        const awbAssignRes = await axios.post(
+          `${SHIPROCKET_BASE_URL}/courier/assign/awb`,
+          { shipment_id: shipmentId },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            timeout: 15000
+          }
+        );
+        const awbData = awbAssignRes.data?.response?.data || awbAssignRes.data;
+        if (awbData?.awb_code) {
+          awbCode = awbData.awb_code;
+          courierName = awbData.courier_name || courierName;
+        }
+      } catch (awbErr) {
+        console.warn('[Shiprocket Reverse AWB Assignment Notice]:', awbErr.response?.data?.message || awbErr.message);
+      }
+    }
+
     return {
       success: true,
-      shipment_id: respData?.shipment_id || respData?.order_id,
+      shipment_id: shipmentId,
       order_id: respData?.order_id,
-      awb_code: respData?.awb_code || null,
-      courier_name: respData?.courier_name || 'Reverse Logistics Express',
+      awb_code: awbCode,
+      courier_name: courierName,
       data: respData
     };
   } catch (error) {

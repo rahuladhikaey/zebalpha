@@ -7,6 +7,7 @@ import {
   parseShiprocketWebhookPayload,
   getShiprocketToken,
 } from '../services/shiprocket.js';
+import { initiateRazorpayRefund } from '../services/razorpayRefundService.js';
 
 /**
  * 1. Serviceability & Rate Check Handler
@@ -202,9 +203,33 @@ export const webhookHandler = async (req, res, next) => {
       raw_status,
       courier_name,
       location,
+      is_rto,
+      is_reverse_return,
     } = parsed;
 
-    // Search for order in Supabase by shipment_id, tracking_number (AWB), shiprocket_order_id, or order_number
+    // 1. Idempotency Check: Prevent duplicate event processing via webhook_events
+    const eventIdentifier = String(
+      payload.event_id ||
+      payload.id ||
+      `SR_${awb_code || shipment_id || order_id}_${raw_status || mapped_order_status}_${payload.current_timestamp || payload.event_time || payload.scans?.[0]?.date || ''}`
+    ).substring(0, 150);
+
+    const { data: existingEvent } = await supabaseA
+      .from('webhook_events')
+      .select('id, status')
+      .eq('provider', 'SHIPROCKET')
+      .eq('event_id', eventIdentifier)
+      .maybeSingle();
+
+    if (existingEvent && existingEvent.status === 'PROCESSED') {
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        message: 'Duplicate webhook event ignored (already processed).',
+        event_id: eventIdentifier,
+      });
+    }
+
+    // 2. Identify Target Order & Return
     let query = supabaseA.from('orders').select('*');
     if (shipment_id) {
       query = query.or(`shipment_id.eq.${shipment_id},shiprocket_shipment_id.eq.${shipment_id}`);
@@ -222,14 +247,48 @@ export const webhookHandler = async (req, res, next) => {
     const { data: order, error: findErr } = await query.maybeSingle();
 
     if (findErr || !order) {
-      console.warn(`[Shiprocket Webhook] No order matched in database for AWB: ${awb_code}, Shipment: ${shipment_id}, Order: ${order_id}`);
+      // Check if this matches a reverse return in order_returns by pickup_awb
+      if (awb_code || shipment_id) {
+        let retQuery = supabaseA.from('order_returns').select('*');
+        if (awb_code) retQuery = retQuery.eq('pickup_awb', awb_code);
+        else retQuery = retQuery.eq('shiprocket_return_shipment_id', shipment_id);
+        const { data: reverseRecord } = await retQuery.maybeSingle();
+
+        if (reverseRecord) {
+          const nowIso = new Date().toISOString();
+          let newRetStatus = 'PICKED_UP';
+          if (mapped_order_status === 'return_in_transit') newRetStatus = 'IN_TRANSIT';
+          if (mapped_order_status === 'return_delivered') newRetStatus = 'RECEIVED';
+
+          await supabaseA.from('order_returns').update({
+            status: newRetStatus,
+            updated_at: nowIso,
+          }).eq('id', reverseRecord.id);
+
+          await supabaseA.from('orders').update({
+            return_status: newRetStatus.toLowerCase(),
+            order_status: `return_${newRetStatus.toLowerCase()}`,
+            updated_at: nowIso,
+          }).or(`id.eq.${reverseRecord.order_id},order_number.eq.${reverseRecord.order_number}`);
+
+          return res.status(HTTP_STATUS.OK).json({
+            success: true,
+            message: `Reverse return #${reverseRecord.id} updated to ${newRetStatus}`,
+            return_status: newRetStatus,
+          });
+        }
+      }
+
+      console.warn(`[Shiprocket Webhook] No order or return matched in database for AWB: ${awb_code}, Shipment: ${shipment_id}, Order: ${order_id}`);
       return res.status(HTTP_STATUS.OK).json({
         success: true,
         message: 'Webhook acknowledged (Order record not found in system).',
       });
     }
 
-    // Define logistics status hierarchy to prevent out-of-order webhook regressions
+    const nowIso = new Date().toISOString();
+
+    // 3. Status Hierarchy & Out-of-Order Regression Protection
     const STATUS_HIERARCHY = {
       'placed': 1,
       'processing': 2,
@@ -237,58 +296,192 @@ export const webhookHandler = async (req, res, next) => {
       'shipped': 4,
       'out_for_delivery': 5,
       'delivered': 6,
-      'rto': 6,
-      'cancelled': 6
+      'rto_initiated': 6,
+      'rto_in_transit': 7,
+      'rto_delivered': 8,
+      'return_requested': 6,
+      'return_approved': 7,
+      'return_picked_up': 8,
+      'return_in_transit': 9,
+      'return_delivered': 10,
+      'returned': 11,
+      'cancelled': 6,
     };
 
     const currentRank = STATUS_HIERARCHY[String(order.order_status).toLowerCase()] || 0;
     const newRank = STATUS_HIERARCHY[String(mapped_order_status).toLowerCase()] || 0;
 
-    // Reject regressions from terminal or higher state (e.g. delivered -> shipped)
-    if (currentRank >= 6 && newRank < 6) {
+    // Reject regressions from terminal forward state (e.g. delivered -> shipped)
+    if (currentRank >= 6 && newRank < 6 && !is_rto && !is_reverse_return) {
       console.warn(`[Shiprocket Webhook] Ignoring backwards transition from '${order.order_status}' to '${mapped_order_status}' for order ${order.order_number}`);
       return res.status(HTTP_STATUS.OK).json({
         success: true,
         message: `Order is already in terminal/advanced status '${order.order_status}'. Status update skipped.`,
         order_id: order.id,
-        current_status: order.order_status
+        current_status: order.order_status,
       });
     }
 
-    // Build update object for order
-    const orderUpdate = {
-      order_status: mapped_order_status,
-      updated_at: new Date().toISOString(),
-    };
+    // 4. ROUTE CASE A: REVERSE RETURN WORKFLOW
+    if (is_reverse_return) {
+      let retQuery = supabaseA.from('order_returns').select('*');
+      if (awb_code) retQuery = retQuery.or(`pickup_awb.eq.${awb_code},order_id.eq.${order.id}`);
+      else retQuery = retQuery.eq('order_id', order.id);
+      const { data: activeReturn } = await retQuery.maybeSingle();
 
-    if (payment_status_update) {
-      orderUpdate.payment_status = payment_status_update;
+      let newReturnStatus = 'PICKED_UP';
+      if (mapped_order_status === 'return_in_transit') newReturnStatus = 'IN_TRANSIT';
+      if (mapped_order_status === 'return_delivered') newReturnStatus = 'RECEIVED';
+
+      if (activeReturn) {
+        await supabaseA.from('order_returns').update({
+          status: newReturnStatus,
+          pickup_awb: awb_code || activeReturn.pickup_awb,
+          updated_at: nowIso,
+        }).eq('id', activeReturn.id);
+      }
+
+      await supabaseA.from('orders').update({
+        return_status: newReturnStatus.toLowerCase(),
+        order_status: mapped_order_status,
+        updated_at: nowIso,
+      }).eq('id', order.id);
+      await supabaseB.from('orders').update({
+        return_status: newReturnStatus.toLowerCase(),
+        order_status: mapped_order_status,
+        updated_at: nowIso,
+      }).eq('id', order.id);
     }
-    if (courier_name) {
-      orderUpdate.courier_name = courier_name;
+    // 5. ROUTE CASE B: RTO (RETURN TO ORIGIN) WORKFLOW
+    else if (is_rto) {
+      const orderUpdate = {
+        order_status: mapped_order_status,
+        rto_awb: awb_code || order.rto_awb || order.tracking_number,
+        rto_reason: payload.rto_reason || payload.reason || raw_status,
+        updated_at: nowIso,
+      };
+
+      if (mapped_order_status === 'rto_initiated') {
+        orderUpdate.rto_initiated_at = order.rto_initiated_at || nowIso;
+      } else if (mapped_order_status === 'rto_delivered') {
+        orderUpdate.rto_delivered_at = order.rto_delivered_at || nowIso;
+
+        // Atomic restocking upon confirmed physical receipt at merchant hub
+        if (!order.is_restocked) {
+          const itemsToRestock = order.items || order.product_details || [];
+          if (Array.isArray(itemsToRestock)) {
+            for (const item of itemsToRestock) {
+              const pId = item.product_id || item.id;
+              const qty = Number(item.quantity || item.units || 1);
+              if (pId) {
+                try {
+                  await supabaseB.rpc('atomic_restock_order_item', {
+                    p_product_id: pId,
+                    p_quantity: qty,
+                    p_seller_id: order.seller_id || null,
+                    p_order_number: String(order.order_number || order.id),
+                    p_reason: 'RTO_DELIVERED_RESTOCK',
+                  });
+                } catch (rstErr) {
+                  console.warn(`[RTO Restock Warning] Product ${pId}:`, rstErr.message);
+                }
+              }
+            }
+          }
+          orderUpdate.is_restocked = true;
+          orderUpdate.restocked_at = nowIso;
+        }
+
+        // Refund policy:
+        // Prepaid: Refund customer through Razorpay
+        // COD: Uncollected COD receives NO refund
+        const isPrepaid = String(order.payment_method || '').toUpperCase() !== 'COD';
+        const isPaid = String(order.payment_status || '').toUpperCase() === 'PAID';
+
+        if (isPrepaid && (isPaid || order.payment_id) && !order.razorpay_refund_id) {
+          try {
+            const rzpRes = await initiateRazorpayRefund({
+              paymentId: order.payment_id || order.razorpay_payment_id,
+              amountInRupees: order.total_amount,
+              notes: {
+                order_id: String(order.id),
+                order_number: String(order.order_number),
+                reason: 'Customer RTO delivery - auto refund',
+              },
+              idempotencyKey: `rto_refund_${order.id}`,
+            });
+            if (rzpRes.success) {
+              orderUpdate.refund_status = 'COMPLETED';
+              orderUpdate.refund_completed_at = nowIso;
+              orderUpdate.razorpay_refund_id = rzpRes.refundId;
+              orderUpdate.refund_transaction_id = rzpRes.refundId;
+            }
+          } catch (rfErr) {
+            console.warn('[RTO Razorpay Refund Error]:', rfErr.message);
+          }
+        } else if (!isPrepaid) {
+          orderUpdate.refund_status = 'NOT_APPLICABLE';
+        }
+
+        // Debit Seller RTO shipping charge into seller_financial_ledger
+        if (order.seller_id) {
+          try {
+            await supabaseA.rpc('record_rto_charge_event', {
+              p_order_id: order.id,
+              p_seller_id: order.seller_id,
+              p_shipment_id: shipment_id || awb_code || 'RTO_SHIPMENT',
+              p_amount_minor: 6000, // Standard ₹60 RTO charge
+              p_reason: 'Courier Return-to-Origin (RTO) confirmed delivery fee',
+            });
+          } catch (ledgerErr) {
+            console.warn('[RTO Ledger Debit Warning]:', ledgerErr.message);
+          }
+        }
+      }
+
+      await supabaseA.from('orders').update(orderUpdate).eq('id', order.id);
+      await supabaseB.from('orders').update(orderUpdate).eq('id', order.id);
     }
-    if (awb_code) {
-      orderUpdate.tracking_number = awb_code;
+    // 6. ROUTE CASE C: FORWARD SHIPMENT WORKFLOW
+    else {
+      const orderUpdate = {
+        order_status: mapped_order_status,
+        updated_at: nowIso,
+      };
+
+      if (payment_status_update) {
+        orderUpdate.payment_status = payment_status_update;
+      }
+      if (courier_name) {
+        orderUpdate.courier_name = courier_name;
+      }
+      if (awb_code) {
+        orderUpdate.tracking_number = awb_code;
+      }
+      if (mapped_order_status === 'delivered') {
+        orderUpdate.delivered_at = nowIso;
+        if (String(order.payment_method || '').toUpperCase() === 'COD') {
+          orderUpdate.payment_status = 'PAID';
+        }
+      }
+
+      await supabaseA.from('orders').update(orderUpdate).eq('id', order.id);
+      await supabaseB.from('orders').update(orderUpdate).eq('id', order.id);
+
+      const shipmentUpdate = {
+        status: mapped_order_status,
+        updated_at: nowIso,
+      };
+      if (mapped_order_status === 'delivered') {
+        shipmentUpdate.delivered_at = nowIso;
+      }
+      await supabaseA.from('shipments').update(shipmentUpdate).eq('parent_order_id', order.id);
     }
 
-    // Update main order status in Supabase A & B
-    await supabaseA.from('orders').update(orderUpdate).eq('id', order.id);
-    await supabaseB.from('orders').update(orderUpdate).eq('id', order.id);
-
-    // Update shipments table
-    const shipmentUpdate = {
-      status: mapped_order_status,
-      updated_at: new Date().toISOString(),
-    };
-    if (mapped_order_status === 'delivered') {
-      shipmentUpdate.delivered_at = new Date().toISOString();
-    }
-    await supabaseA.from('shipments').update(shipmentUpdate).eq('parent_order_id', order.id);
-
-    // Insert tracking audit log into shipment_tracking / shipping_events
+    // 7. Audit Logging in shipment_tracking & shipping_events
     try {
       await supabaseA.from('shipment_tracking').insert([{
-        event_time: new Date().toISOString(),
+        event_time: nowIso,
         location: location || 'Transit Hub',
         status: raw_status || mapped_order_status,
         raw: payload,
@@ -304,9 +497,26 @@ export const webhookHandler = async (req, res, next) => {
         activity: `Shiprocket Update: ${raw_status || mapped_order_status}`,
         actor_role: 'shiprocket_webhook',
         raw_payload: payload,
-        event_timestamp: new Date().toISOString(),
+        event_timestamp: nowIso,
       }]);
     } catch (_) {}
+
+    // 8. Persist Webhook Event in webhook_events for Idempotency
+    try {
+      await supabaseA.from('webhook_events').upsert([{
+        provider: 'SHIPROCKET',
+        event_id: eventIdentifier,
+        event_type: raw_status || mapped_order_status,
+        entity_id: String(order.id),
+        awb_code: awb_code || null,
+        order_id: order.id,
+        payload: payload,
+        status: 'PROCESSED',
+        created_at: nowIso,
+      }], { onConflict: 'event_id' });
+    } catch (whErr) {
+      console.warn('[webhook_events Upsert Warning]:', whErr.message);
+    }
 
     console.log(`✓ [Shiprocket Webhook Handled] Order #${order.order_number || order.id} updated to status: ${mapped_order_status}`);
 

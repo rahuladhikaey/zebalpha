@@ -1,6 +1,6 @@
 import { supabaseA, supabaseB } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
-import { pushOrderToShiprocket, cancelShiprocketOrder } from '../services/shiprocket.js';
+import { pushOrderToShiprocket, cancelShiprocketOrder, createShiprocketReturnOrder } from '../services/shiprocket.js';
 import { initiateRazorpayRefund } from '../services/razorpayRefundService.js';
 import { cacheService } from '../services/cacheService.js';
 
@@ -701,6 +701,29 @@ export const requestReturn = async (req, res, next) => {
       });
     }
 
+    // Check for existing pending or active return to prevent duplicate requests
+    const activeReturnStatuses = ['requested', 'approved', 'picked_up', 'in_transit', 'received', 'completed'];
+    if (orderData.return_status && activeReturnStatuses.includes(String(orderData.return_status).toLowerCase())) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: `A return request has already been submitted for this order (Status: ${orderData.return_status}). Duplicate return requests are not permitted.`
+      });
+    }
+
+    const { data: existingReturnReq } = await supabaseA
+      .from('order_returns')
+      .select('id, status')
+      .eq('order_id', orderData.id)
+      .not('status', 'in', '("REJECTED","CANCELLED")')
+      .maybeSingle();
+
+    if (existingReturnReq) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: `An active return record (#${existingReturnReq.id}) already exists for this order. Duplicate return requests are not permitted.`
+      });
+    }
+
     // 7-day return window validation
     const deliveryDate = orderData.delivered_at || orderData.updated_at || orderData.created_at;
     if (deliveryDate) {
@@ -958,6 +981,47 @@ export const updateReturnStatus = async (req, res, next) => {
       orderUpdates.order_status = 'return_approved';
       orderUpdates.return_status = 'approved';
       orderUpdates.return_approved_at = nowIso;
+
+      // Auto-schedule Shiprocket reverse pickup if not already scheduled
+      if (!pickup_awb && !existingReturn?.pickup_awb && !existingReturn?.shiprocket_return_shipment_id) {
+        try {
+          const targetOrdKey = existingReturn?.order_id || existingReturn?.order_number || id;
+          const { data: ordForPickup } = await supabaseA
+            .from('orders')
+            .select('*')
+            .or(`id.eq.${targetOrdKey},order_number.eq.${targetOrdKey}`)
+            .maybeSingle();
+
+          if (ordForPickup) {
+            const shiprocketReturnRes = await createShiprocketReturnOrder({
+              order_id: ordForPickup.order_number || ordForPickup.id,
+              customer_name: ordForPickup.customer_name || 'Customer',
+              pickup_address: ordForPickup.address || ordForPickup.shipping_address?.address || 'Customer Address',
+              pickup_city: ordForPickup.city || 'Kolkata',
+              pickup_state: ordForPickup.state || 'West Bengal',
+              pickup_pincode: ordForPickup.pincode || '700001',
+              customer_phone: ordForPickup.phone || '9999999999',
+              customer_email: ordForPickup.email || ordForPickup.customer_email || 'customer@zebalpha.com',
+              items: existingReturn?.items || ordForPickup.items || [],
+              refund_amount: existingReturn?.refund_amount || ordForPickup.total_amount,
+            });
+
+            if (shiprocketReturnRes.success) {
+              pickup_awb = shiprocketReturnRes.awb_code;
+              pickup_courier = shiprocketReturnRes.courier_name;
+              returnUpdates.pickup_awb = shiprocketReturnRes.awb_code;
+              returnUpdates.shiprocket_return_shipment_id = shiprocketReturnRes.shipment_id;
+              returnUpdates.shiprocket_return_order_id = shiprocketReturnRes.order_id;
+              returnUpdates.pickup_courier = shiprocketReturnRes.courier_name;
+              orderUpdates.return_tracking_number = shiprocketReturnRes.awb_code;
+              orderUpdates.return_courier_name = shiprocketReturnRes.courier_name;
+            }
+          }
+        } catch (srErr) {
+          console.warn('[Shiprocket Return Auto-Schedule Warning]:', srErr.message);
+        }
+      }
+
       if (pickup_awb) orderUpdates.return_tracking_number = pickup_awb;
       if (pickup_courier) orderUpdates.return_courier_name = pickup_courier;
     } else if (upperStatus === 'REJECTED') {
@@ -1001,8 +1065,9 @@ export const updateReturnStatus = async (req, res, next) => {
               order_id: String(targetOrder.id),
               order_number: String(targetOrder.order_number),
               return_id: String(existingReturn?.id || id),
-              reason: existingReturn?.reason || 'Customer Return Completion'
-            }
+              reason: existingReturn?.reason || 'Customer Return Completion',
+            },
+            idempotencyKey: `ret_refund_${existingReturn?.id || id}`,
           });
           if (rzpRes.success) {
             orderUpdates.razorpay_refund_id = rzpRes.refundId;
@@ -1019,20 +1084,47 @@ export const updateReturnStatus = async (req, res, next) => {
         returnUpdates.refund_transaction_id = refund_transaction_id;
       }
 
-      // Restock inventory upon receiving returned item
-      if (existingReturn?.items && Array.isArray(existingReturn.items)) {
-        for (const item of existingReturn.items) {
-          const pId = item.product_id || item.id;
-          const qty = Number(item.quantity) || 1;
-          if (!pId) continue;
+      // Restock inventory atomically upon receiving returned item (guarded against double-restocking)
+      if (!existingReturn?.is_restocked) {
+        const itemsToRestock = existingReturn?.items || targetOrder?.items || [];
+        if (Array.isArray(itemsToRestock)) {
+          for (const item of itemsToRestock) {
+            const pId = item.product_id || item.id;
+            const qty = Number(item.quantity) || 1;
+            if (!pId) continue;
 
-          try {
-            const { data: prod } = await supabaseB.from('products').select('stock').eq('id', pId).maybeSingle();
-            if (prod) {
-              const newStock = (Number(prod.stock) || 0) + qty;
-              await supabaseB.from('products').update({ stock: newStock }).eq('id', pId);
+            try {
+              await supabaseB.rpc('atomic_restock_order_item', {
+                p_product_id: pId,
+                p_quantity: qty,
+                p_seller_id: existingReturn?.seller_id || targetOrder?.seller_id || null,
+                p_order_number: String(existingReturn?.order_number || targetOrder?.order_number || id),
+                p_reason: 'CUSTOMER_RETURN_CONFIRMED',
+              });
+            } catch (rstErr) {
+              console.warn(`[Return Restock Warning] Product ${pId}:`, rstErr.message);
             }
-          } catch (_) {}
+          }
+        }
+        returnUpdates.is_restocked = true;
+        returnUpdates.restocked_at = nowIso;
+        orderUpdates.is_restocked = true;
+        orderUpdates.restocked_at = nowIso;
+      }
+
+      // Debit Seller reverse logistics shipping charge in ledger
+      const sellerId = existingReturn?.seller_id || targetOrder?.seller_id;
+      if (sellerId) {
+        try {
+          await supabaseA.rpc('record_return_shipping_event', {
+            p_order_id: targetOrder?.id || existingReturn?.order_id,
+            p_seller_id: sellerId,
+            p_return_id: existingReturn?.id || null,
+            p_amount_minor: 6000,
+            p_reason: 'Approved customer return reverse logistics charge',
+          });
+        } catch (revLedgerErr) {
+          console.warn('[Return Ledger Charge Warning]:', revLedgerErr.message);
         }
       }
     }
