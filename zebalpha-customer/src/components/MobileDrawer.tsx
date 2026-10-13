@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { Store, ArrowUpRight } from "lucide-react";
 
 type MobileDrawerProps = {
   isOpen: boolean;
@@ -140,6 +141,30 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                     {item.name}
                   </Link>
                 ))}
+
+                {/* Supplier Hub Link */}
+                <div className="pt-2">
+                  <Link
+                    href="https://seller.zebalpha.shop/register"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={onClose}
+                    className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent border border-emerald-500/35 text-white hover:border-emerald-400 transition-all shadow-md group active:scale-95"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500 text-black">
+                        <Store className="h-3.5 w-3.5 stroke-[2.5]" />
+                      </span>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wider text-emerald-300 group-hover:text-emerald-200">
+                          Supplier Hub
+                        </p>
+                        <p className="text-[10px] text-neutral-400 font-medium">Create Seller Account</p>
+                      </div>
+                    </div>
+                    <ArrowUpRight className="h-4 w-4 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </Link>
+                </div>
               </nav>
             </div>
 

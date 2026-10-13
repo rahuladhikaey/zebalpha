@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { CreditCard, Mail, Sparkles, Shield, ArrowUpRight, Volume2, VolumeX, Flame } from "lucide-react";
+import { CreditCard, Mail, Sparkles, Shield, ArrowUpRight, Volume2, VolumeX, Flame, Store } from "lucide-react";
 import Link from "next/link";
 
 const FOOTER_VIDEOS = [
@@ -127,26 +127,43 @@ export function Footer() {
 
           </div>
 
-          <div className="hidden lg:block lg:col-span-3">
-            <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Collections</h3>
-            <ul className="mt-5 space-y-3.5 text-sm text-neutral-100 font-bold drop-shadow">
-              <li><Link href="/products?category=Polos" className="transition hover:text-white">Premium Zip Polos</Link></li>
-              <li><Link href="/products?category=T-Shirts" className="transition hover:text-white">Oversized Streetwear Tees</Link></li>
-              <li><Link href="/products?category=Hoodies" className="transition hover:text-white">Heavyweight Hoodies</Link></li>
-              <li><Link href="/products?category=Shirts" className="transition hover:text-white">Casual Collared Shirts</Link></li>
-              <li><Link href="/products" className="transition hover:text-white">New Releases 2026</Link></li>
-            </ul>
-          </div>
+          <div className="grid grid-cols-2 gap-8 sm:gap-10 lg:grid-cols-6 lg:col-span-6">
+            <div className="col-span-1 lg:col-span-3">
+              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Collections</h3>
+              <ul className="mt-5 space-y-3.5 text-sm text-neutral-100 font-bold drop-shadow">
+                <li><Link href="/products?category=Polos" className="transition hover:text-white">Premium Zip Polos</Link></li>
+                <li><Link href="/products?category=T-Shirts" className="transition hover:text-white">Oversized Streetwear Tees</Link></li>
+                <li><Link href="/products?category=Hoodies" className="transition hover:text-white">Heavyweight Hoodies</Link></li>
+                <li><Link href="/products?category=Shirts" className="transition hover:text-white">Casual Collared Shirts</Link></li>
+                <li><Link href="/products" className="transition hover:text-white">New Releases 2026</Link></li>
+                <li className="pt-1">
+                  <Link 
+                    href="https://seller.zebalpha.shop/register"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-transparent border border-emerald-400/35 hover:border-emerald-300 px-3 py-1.5 text-xs font-black tracking-wider text-emerald-300 hover:text-white hover:bg-emerald-500/30 transition-all shadow-[0_0_15px_rgba(52,211,153,0.15)] hover:shadow-[0_0_20px_rgba(52,211,153,0.3)] active:scale-95"
+                    title="Become a Seller on Zebalpha"
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-black shadow-sm group-hover:scale-110 transition-transform">
+                      <Store className="h-3.5 w-3.5 stroke-[2.5]" />
+                    </span>
+                    <span className="uppercase tracking-widest text-[11px] font-black">Supplier Hub</span>
+                    <ArrowUpRight className="h-3 w-3 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </Link>
+                </li>
+              </ul>
+            </div>
 
-          <div className="hidden lg:block lg:col-span-3">
-            <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Customer Support</h3>
-            <ul className="mt-5 space-y-3.5 text-sm text-neutral-100 font-bold drop-shadow">
-              <li><Link href="/wishlist" className="transition hover:text-white">Your Wishlist</Link></li>
-              <li><Link href="/profile/orders" className="transition hover:text-white">Track Your Order</Link></li>
-              <li><Link href="/about" className="transition hover:text-white">About Zebalpha</Link></li>
-              <li><Link href="/contact" className="transition hover:text-white">Contact Us</Link></li>
-              <li><Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link></li>
-            </ul>
+            <div className="col-span-1 lg:col-span-3">
+              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Customer Support</h3>
+              <ul className="mt-5 space-y-3.5 text-sm text-neutral-100 font-bold drop-shadow">
+                <li><Link href="/wishlist" className="transition hover:text-white">Your Wishlist</Link></li>
+                <li><Link href="/profile/orders" className="transition hover:text-white">Track Your Order</Link></li>
+                <li><Link href="/about" className="transition hover:text-white">About Zebalpha</Link></li>
+                <li><Link href="/contact" className="transition hover:text-white">Contact Us</Link></li>
+                <li><Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link></li>
+              </ul>
+            </div>
           </div>
         </div>
 
