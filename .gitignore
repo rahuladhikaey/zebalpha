@@ -45,4 +45,6 @@ scratch/
 **/scratch/
 test_sr.ps1
 implementation_plan*
+image_backups_pre_optimization/
+
 
