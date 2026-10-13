@@ -515,8 +515,8 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       });
       onChange({ variants: updated });
       showSuccessBanner(`Uploaded ${validUrls.length} photo(s) for ${colorName}`);
-    });
   };
+
 
   const removeColorGalleryImage = (colorName: string, indexToRemove: number) => {
     const updated = formData.variants.map((v) => {
