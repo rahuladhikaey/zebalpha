@@ -12,6 +12,7 @@ import {
   type MeasurementUnit,
 } from "./SizeSpecificDetailsSection";
 import type { Category } from "@shared/types";
+import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
 import { supabase } from "@shared/utils/supabaseClient";
 import { uploadToCloudinary } from "@shared/services";
 
@@ -50,6 +51,9 @@ export interface MasterCatalogFormState {
   care_instructions: string;
   target_gender: string;
   weight_grams: string;
+
+  // Dynamic category attributes
+  custom_attributes?: Record<string, string>;
 
   country_of_origin: string;
   manufacturer_name: string;
@@ -428,14 +432,17 @@ export default function CatalogUploadWizardModal({
         scrollModalToTop();
         return false;
       }
-      // Require at least one size for standard apparel
-      if (!form.is_new_drop && form.selected_sizes.length === 0) {
-        setErrorMsg("Please select at least 1 size in Step 1 to configure pricing and inventory.");
+      const activePt = resolveProductTypeConfig(form.category_id, form.subcategory_name);
+      const hasSizing = activePt.sizingSystem !== "none";
+
+      // Require at least one size ONLY for apparel / sized products
+      if (!form.is_new_drop && hasSizing && form.selected_sizes.length === 0) {
+        setErrorMsg(`Please select at least 1 size for ${activePt.name} in Step 1 to configure pricing and inventory.`);
         scrollModalToTop();
         return false;
       }
       // If sizes were selected, validate selling price on those rows
-      if (form.selected_sizes.length > 0 && form.size_details.length > 0) {
+      if (hasSizing && form.selected_sizes.length > 0 && form.size_details.length > 0) {
         for (const sd of form.size_details) {
           if (!sd.selling_price || parseFloat(sd.selling_price) <= 0) {
             setErrorMsg(`Selling price for size ${sd.size} must be greater than 0.`);
@@ -450,6 +457,8 @@ export default function CatalogUploadWizardModal({
         }
       }
     } else if (step === 2 && !form.is_new_drop) {
+      const activePt = resolveProductTypeConfig(form.category_id, form.subcategory_name);
+      const hasSizing = activePt.sizingSystem !== "none";
       const hasSizeDetails = form.size_details && form.size_details.length > 0;
       const hasVariants = form.has_variants && form.variants.length > 0;
       const effectivePrice = form.price || 
@@ -460,17 +469,12 @@ export default function CatalogUploadWizardModal({
         (hasVariants ? form.variants[0]?.mrp || effectivePrice : "");
 
       if (!hasVariants && (!effectivePrice || parseFloat(effectivePrice) <= 0)) {
-        setErrorMsg("Please configure size selling price in Step 1.");
+        setErrorMsg("Please configure a valid listing price (greater than ₹0).");
         scrollModalToTop();
         return false;
       }
       if (!hasVariants && (!effectiveMrp || parseFloat(effectiveMrp) <= 0)) {
-        setErrorMsg("Please configure size MRP in Step 1.");
-        scrollModalToTop();
-        return false;
-      }
-      if (!form.fabric) {
-        setErrorMsg("Please select fabric/material.");
+        setErrorMsg("Please configure a valid MRP.");
         scrollModalToTop();
         return false;
       }
@@ -798,6 +802,7 @@ export default function CatalogUploadWizardModal({
 
       // Specifications JSON payload
       const specificationsData = {
+        ...(form.custom_attributes || {}),
         fabric: form.fabric,
         pattern: form.pattern,
         fit_type: form.fit_type,

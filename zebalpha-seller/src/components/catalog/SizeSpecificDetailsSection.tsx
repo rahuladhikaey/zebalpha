@@ -48,6 +48,9 @@ export interface SizeSpecificDetailsSectionProps {
 const STANDARD_GARMENT_SIZES = ["Free Size", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
 const WAIST_NUMERIC_SIZES = ["26", "28", "30", "32", "34", "36", "38", "40", "42", "44"];
 const KIDS_SIZES = ["0-6M", "6-12M", "1-2Y", "2-3Y", "3-4Y", "4-5Y", "5-6Y", "6-7Y", "7-8Y", "9-10Y", "11-12Y", "13-14Y"];
+const FOOTWEAR_SIZES = ["UK 4", "UK 5", "UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11", "UK 12"];
+const BED_SIZES = ["Single", "Double", "Queen", "King"];
+const VOLUME_SIZES = ["250 ml", "500 ml", "750 ml", "1000 ml (1 L)", "1500 ml", "2000 ml (2 L)"];
 
 export default function SizeSpecificDetailsSection({
   selectedSizes = [],
@@ -66,7 +69,7 @@ export default function SizeSpecificDetailsSection({
   onMeasurementUnitChange,
   onToggleMeasurements,
 }: SizeSpecificDetailsSectionProps) {
-  const [sizeGroupTab, setSizeGroupTab] = useState<"standard" | "waist" | "kids">("standard");
+  const [sizeGroupTab, setSizeGroupTab] = useState<"standard" | "waist" | "kids" | "footwear" | "bed" | "volume">("standard");
   const [copyFeedback, setCopyFeedback] = useState<string>("");
 
   // Determine measurement category type based on subcategory name
@@ -74,8 +77,11 @@ export default function SizeSpecificDetailsSection({
   const catLower = (categoryName || "").toLowerCase();
   const isLowerBody = subLower.includes("jean") || subLower.includes("trouser") || subLower.includes("pant") || subLower.includes("cargo") || subLower.includes("short") || subLower.includes("jogger") || subLower.includes("legging");
   const isDress = subLower.includes("dress") || subLower.includes("jumpsuit") || subLower.includes("gown") || subLower.includes("saree");
+  const isFootwear = subLower.includes("shoe") || subLower.includes("sneaker") || subLower.includes("sandal") || subLower.includes("footwear") || subLower.includes("boot") || subLower.includes("heel");
+  const isBed = subLower.includes("bedsheet") || subLower.includes("bedding") || subLower.includes("mattress") || subLower.includes("cover");
+  const isVolume = subLower.includes("bottle") || subLower.includes("flask") || subLower.includes("tumbler") || subLower.includes("container") || subLower.includes("shaker");
 
-  // Auto-switch size tab when Kids category is selected
+  // Auto-switch size tab when category is selected
   React.useEffect(() => {
     const isKids =
       subLower.includes("kid") ||
@@ -90,12 +96,20 @@ export default function SizeSpecificDetailsSection({
       catLower.includes("baby") ||
       catLower === "kids";
 
-    if (isKids) {
+    if (isFootwear) {
+      setSizeGroupTab("footwear");
+    } else if (isBed) {
+      setSizeGroupTab("bed");
+    } else if (isVolume) {
+      setSizeGroupTab("volume");
+    } else if (isKids) {
       setSizeGroupTab("kids");
     } else if (isLowerBody) {
       setSizeGroupTab("waist");
+    } else {
+      setSizeGroupTab("standard");
     }
-  }, [subcategoryName, categoryName, subLower, catLower, isLowerBody]);
+  }, [subcategoryName, categoryName, subLower, catLower, isLowerBody, isFootwear, isBed, isVolume]);
 
   const showFeedback = (msg: string) => {
     setCopyFeedback(msg);
@@ -337,7 +351,7 @@ export default function SizeSpecificDetailsSection({
         </div>
 
         {/* Size Group Tabs */}
-        <div className="flex gap-2 text-xs font-bold border-b border-zinc-800/80 pb-2">
+        <div className="flex flex-wrap gap-2 text-xs font-bold border-b border-zinc-800/80 pb-2">
           <button
             type="button"
             onClick={() => setSizeGroupTab("standard")}
@@ -371,6 +385,39 @@ export default function SizeSpecificDetailsSection({
           >
             Kids & Infants
           </button>
+          <button
+            type="button"
+            onClick={() => setSizeGroupTab("footwear")}
+            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              sizeGroupTab === "footwear"
+                ? "bg-white text-black font-extrabold shadow-sm"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-850"
+            }`}
+          >
+            Footwear (UK 4–12)
+          </button>
+          <button
+            type="button"
+            onClick={() => setSizeGroupTab("bed")}
+            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              sizeGroupTab === "bed"
+                ? "bg-white text-black font-extrabold shadow-sm"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-850"
+            }`}
+          >
+            Bed Dimensions
+          </button>
+          <button
+            type="button"
+            onClick={() => setSizeGroupTab("volume")}
+            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              sizeGroupTab === "volume"
+                ? "bg-white text-black font-extrabold shadow-sm"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-850"
+            }`}
+          >
+            Volume & Capacity
+          </button>
         </div>
 
         {/* Size Pills Multi-Select */}
@@ -379,7 +426,13 @@ export default function SizeSpecificDetailsSection({
             ? STANDARD_GARMENT_SIZES
             : sizeGroupTab === "waist"
             ? WAIST_NUMERIC_SIZES
-            : KIDS_SIZES
+            : sizeGroupTab === "kids"
+            ? KIDS_SIZES
+            : sizeGroupTab === "footwear"
+            ? FOOTWEAR_SIZES
+            : sizeGroupTab === "bed"
+            ? BED_SIZES
+            : VOLUME_SIZES
           ).map((sz) => {
             const isSelected = selectedSizes.includes(sz);
             return (

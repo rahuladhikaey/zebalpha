@@ -1,8 +1,7 @@
-"use client";
-
-import React, { useState, useEffect } from "react";
-import { X, Save, Edit3, Image as ImageIcon, Upload, CheckCircle2, AlertCircle, Building2, Tag, Calculator } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { X, Save, Edit3, Image as ImageIcon, Upload, CheckCircle2, AlertCircle, Building2, Tag, Calculator, Sliders, Layers } from "lucide-react";
 import { supabaseA as supabase } from "@shared/utils/supabaseClient";
+import { DYNAMIC_CATEGORY_CATALOG, resolveProductTypeConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
 
 export interface AdminProductEditModalProps {
   isOpen: boolean;
@@ -35,6 +34,11 @@ export default function AdminProductEditModal({
     stock: "",
     sku: "",
     
+    // Category Hierarchy
+    category: "Men's Fashion",
+    subcategory: "Topwear",
+    product_type: "t_shirts",
+    
     // Specifications
     fabric: "100% Pure Cotton",
     pattern: "Solid / Plain",
@@ -44,6 +48,8 @@ export default function AdminProductEditModal({
     care_instructions: "Machine Wash Cold",
     target_gender: "Unisex",
     weight_grams: "300",
+    
+    custom_attributes: {} as Record<string, string>,
     
     country_of_origin: "India",
     manufacturer_name: "",
@@ -65,6 +71,7 @@ export default function AdminProductEditModal({
     front_image_index: 0,
   });
 
+
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -77,6 +84,11 @@ export default function AdminProductEditModal({
         ? [product.image_url] 
         : [];
 
+      const rawCat = product.category || specs.mainCategory || specs.category || "Men's Fashion";
+      const rawSub = specs.subcategory || "Topwear";
+      const rawPt = specs.product_type || "t_shirts";
+      const customAttrs = specs.custom_attributes || {};
+
       setForm({
         name: product.name || "",
         description: product.description || "",
@@ -87,6 +99,11 @@ export default function AdminProductEditModal({
         stock: String(product.stock ?? 20),
         sku: product.sku || "",
         
+        category: rawCat,
+        subcategory: rawSub,
+        product_type: rawPt,
+        custom_attributes: { ...customAttrs },
+
         fabric: specs.fabric || "100% Pure Cotton",
         pattern: specs.pattern || "Solid / Plain",
         fit_type: specs.fit_type || "Regular Fit",
@@ -117,6 +134,7 @@ export default function AdminProductEditModal({
       });
     }
   }, [product]);
+
 
   if (!isOpen || !product) return null;
 
@@ -176,6 +194,11 @@ export default function AdminProductEditModal({
 
       const updatedSpecifications = {
         ...(product.specifications || {}),
+        category: form.category,
+        mainCategory: form.category,
+        subcategory: form.subcategory,
+        product_type: form.product_type,
+        custom_attributes: form.custom_attributes,
         fabric: form.fabric,
         pattern: form.pattern,
         fit_type: form.fit_type,
@@ -194,7 +217,9 @@ export default function AdminProductEditModal({
         defective_returns_price: form.defective_returns_price,
         style_code: form.style_code,
         volumetric_weight: form.volumetric_weight,
+        ...form.custom_attributes,
       };
+
 
       const updatedPackages = Array.isArray(product.packages) && product.packages.length > 0
         ? product.packages.map((pkg: any, idx: number) => {
@@ -391,93 +416,148 @@ export default function AdminProductEditModal({
             </div>
           </div>
 
-          {/* Clothing Specifications */}
+          {/* Category & Product Type Hierarchy */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-white font-semibold text-sm border-b border-[#27272a] pb-2">
-              <Tag className="w-4 h-4 text-emerald-400" />
-              Clothing Specifications
+              <Layers className="w-4 h-4 text-amber-400" />
+              Category & Product Classification
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <label className="text-xs font-medium text-zinc-300 mb-1 block">Fabric / Material</label>
+                <label className="text-xs font-medium text-zinc-300 mb-1 block">Main Category</label>
                 <select
-                  value={form.fabric}
-                  onChange={(e) => setForm({ ...form, fabric: e.target.value })}
+                  value={form.category}
+                  onChange={(e) => {
+                    const newCat = e.target.value;
+                    const catObj = DYNAMIC_CATEGORY_CATALOG.find((c) => c.name === newCat);
+                    const defaultSub = catObj?.subcategories[0]?.name || "";
+                    const defaultPt = catObj?.subcategories[0]?.productTypes[0]?.id || "";
+                    setForm({
+                      ...form,
+                      category: newCat,
+                      subcategory: defaultSub,
+                      product_type: defaultPt,
+                    });
+                  }}
                   className="w-full p-2 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs"
                 >
-                  {FABRIC_OPTIONS.map((f, i) => (
-                    <option key={i} value={f}>{f}</option>
+                  {DYNAMIC_CATEGORY_CATALOG.map((cat) => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-zinc-300 mb-1 block">Fit Type</label>
+                <label className="text-xs font-medium text-zinc-300 mb-1 block">Subcategory</label>
                 <select
-                  value={form.fit_type}
-                  onChange={(e) => setForm({ ...form, fit_type: e.target.value })}
+                  value={form.subcategory}
+                  onChange={(e) => {
+                    const newSub = e.target.value;
+                    const catObj = DYNAMIC_CATEGORY_CATALOG.find((c) => c.name === form.category);
+                    const subObj = catObj?.subcategories.find((s) => s.name === newSub);
+                    const defaultPt = subObj?.productTypes[0]?.id || "";
+                    setForm({
+                      ...form,
+                      subcategory: newSub,
+                      product_type: defaultPt,
+                    });
+                  }}
                   className="w-full p-2 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs"
                 >
-                  {FIT_OPTIONS.map((f, i) => (
-                    <option key={i} value={f}>{f}</option>
-                  ))}
+                  {DYNAMIC_CATEGORY_CATALOG.find((c) => c.name === form.category)?.subcategories.map((sub) => (
+                    <option key={sub.id} value={sub.name}>{sub.name}</option>
+                  )) || <option value={form.subcategory}>{form.subcategory}</option>}
                 </select>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-zinc-300 mb-1 block">Pattern</label>
+                <label className="text-xs font-medium text-zinc-300 mb-1 block">Product Type</label>
                 <select
-                  value={form.pattern}
-                  onChange={(e) => setForm({ ...form, pattern: e.target.value })}
+                  value={form.product_type}
+                  onChange={(e) => setForm({ ...form, product_type: e.target.value })}
                   className="w-full p-2 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs"
                 >
-                  {PATTERN_OPTIONS.map((p, i) => (
-                    <option key={i} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-zinc-300 mb-1 block">Sleeve Length</label>
-                <select
-                  value={form.sleeve_type}
-                  onChange={(e) => setForm({ ...form, sleeve_type: e.target.value })}
-                  className="w-full p-2 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs"
-                >
-                  {SLEEVE_OPTIONS.map((s, i) => (
-                    <option key={i} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-zinc-300 mb-1 block">Neck / Collar</label>
-                <select
-                  value={form.neck_type}
-                  onChange={(e) => setForm({ ...form, neck_type: e.target.value })}
-                  className="w-full p-2 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs"
-                >
-                  {NECK_OPTIONS.map((n, i) => (
-                    <option key={i} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-zinc-300 mb-1 block">Target Gender</label>
-                <select
-                  value={form.target_gender}
-                  onChange={(e) => setForm({ ...form, target_gender: e.target.value })}
-                  className="w-full p-2 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs"
-                >
-                  {GENDER_OPTIONS.map((g, i) => (
-                    <option key={i} value={g}>{g}</option>
-                  ))}
+                  {DYNAMIC_CATEGORY_CATALOG.find((c) => c.name === form.category)
+                    ?.subcategories.find((s) => s.name === form.subcategory)
+                    ?.productTypes.map((pt) => (
+                      <option key={pt.id} value={pt.id}>{pt.label}</option>
+                    )) || <option value={form.product_type}>{form.product_type}</option>}
                 </select>
               </div>
             </div>
           </div>
+
+          {/* Dynamic Specifications */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-[#27272a] pb-2">
+              <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                <Sliders className="w-4 h-4 text-emerald-400" />
+                Dynamic Specifications ({resolveProductTypeConfig(form.category, form.product_type).label})
+              </div>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Sizing System: {resolveProductTypeConfig(form.category, form.product_type).sizingSystem}
+              </span>
+            </div>
+
+            {resolveProductTypeConfig(form.category, form.product_type).attributes.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {resolveProductTypeConfig(form.category, form.product_type).attributes.map((attr) => {
+                  const currVal = form.custom_attributes[attr.id] ?? (form as any)[attr.id] ?? attr.defaultValue ?? "";
+                  return (
+                    <div key={attr.id}>
+                      <label className="text-xs font-medium text-zinc-300 mb-1 flex items-center justify-between">
+                        <span>{attr.label}</span>
+                        {attr.unit && <span className="text-[10px] text-zinc-500">({attr.unit})</span>}
+                      </label>
+                      {attr.type === "select" && attr.options ? (
+                        <select
+                          value={currVal}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              custom_attributes: {
+                                ...form.custom_attributes,
+                                [attr.id]: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-full p-2 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs"
+                        >
+                          <option value="">Select {attr.label}</option>
+                          {attr.options.map((opt, i) => (
+                            <option key={i} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={attr.type === "number" ? "number" : "text"}
+                          value={currVal}
+                          placeholder={attr.placeholder || `Enter ${attr.label.toLowerCase()}`}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              custom_attributes: {
+                                ...form.custom_attributes,
+                                [attr.id]: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-full p-2 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs"
+                        />
+                      )}
+                      {attr.helpText && <p className="text-[10px] text-zinc-500 mt-0.5">{attr.helpText}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800 text-center text-xs text-zinc-400">
+                Standard single-configuration specifications. No special attributes required.
+              </div>
+            )}
+          </div>
+
 
           {/* Pricing & Stock */}
           <div className="space-y-4">

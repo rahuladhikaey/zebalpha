@@ -599,6 +599,53 @@ export default function ProductDetailTemplate({
               </div>
             </div>
 
+            {/* Dynamic Product Specifications (Category-driven) */}
+            {product.specifications && typeof product.specifications === "object" && (
+              <div className="space-y-4 pt-4 border-t border-zinc-800">
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-emerald-400" />
+                  Product Specifications & Details
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {Object.entries(product.specifications)
+                    .filter(([key, val]) => {
+                      if (!val || typeof val !== "string") return false;
+                      const skipKeys = [
+                        "size_chart",
+                        "is_premium",
+                        "is_new_drop",
+                        "collection",
+                        "target_drop_date",
+                        "tier",
+                        "mainColorId",
+                        "defaultColorId",
+                        "default_color",
+                        "main_color",
+                      ];
+                      return !skipKeys.includes(key);
+                    })
+                    .map(([key, val]) => {
+                      const cleanLabel = key
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (l) => l.toUpperCase());
+                      return (
+                        <div
+                          key={key}
+                          className="p-3 rounded-xl bg-zinc-950 border border-zinc-850 flex flex-col gap-0.5"
+                        >
+                          <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                            {cleanLabel}
+                          </span>
+                          <span className="text-xs font-bold text-white capitalize">
+                            {String(val)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
             {/* Seller / Retailer Info */}
             <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between shadow-xl">
               <div className="flex items-center gap-4">

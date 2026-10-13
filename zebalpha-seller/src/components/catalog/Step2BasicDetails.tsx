@@ -1,10 +1,11 @@
-"use client";
-
-import React from "react";
-import { Info, Calculator, Building2, Package, Tag, ShieldCheck } from "lucide-react";
+import React, { useMemo } from "react";
+import { Info, Calculator, Building2, Package, Tag, ShieldCheck, Sparkles } from "lucide-react";
+import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
 
 export interface Step2Props {
   formData: {
+    category_id?: string;
+    subcategory_name?: string;
     fabric: string;
     pattern: string;
     fit_type: string;
@@ -13,6 +14,9 @@ export interface Step2Props {
     care_instructions: string;
     target_gender: string;
     weight_grams: string;
+
+    // Dynamic attributes bag
+    custom_attributes?: Record<string, string>;
 
     country_of_origin: string;
     manufacturer_name: string;
@@ -148,65 +152,82 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
     }
   };
 
+  // Resolve active product type config from subcategory / category
+  const activeProductTypeConfig = useMemo(() => {
+    return resolveProductTypeConfig(formData.category_id, formData.subcategory_name);
+  }, [formData.category_id, formData.subcategory_name]);
+
+  const dynamicAttributes = activeProductTypeConfig.attributes || [];
+  const customAttrs = formData.custom_attributes || {};
+
+  const handleCustomAttrChange = (attrId: string, val: string) => {
+    const updated = { ...customAttrs, [attrId]: val };
+    const updates: any = { custom_attributes: updated };
+    // Also mirror common legacy fields for backward compatibility
+    if (attrId === "fabric") updates.fabric = val;
+    if (attrId === "pattern") updates.pattern = val;
+    if (attrId === "fit_type") updates.fit_type = val;
+    if (attrId === "sleeve_type") updates.sleeve_type = val;
+    if (attrId === "neck_type") updates.neck_type = val;
+    if (attrId === "care_instructions") updates.care_instructions = val;
+    onChange(updates);
+  };
+
   return (
     <div className="space-y-8">
-      {/* Clothing Specifications */}
+      {/* Dynamic Category Specifications (Meesho-Style) */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2 text-white font-semibold text-sm border-b border-[#27272a] pb-2">
-          <Tag className="w-4 h-4 text-emerald-400" />
-          Clothing Specifications
+        <div className="flex items-center justify-between border-b border-[#27272a] pb-2">
+          <div className="flex items-center gap-2 text-white font-semibold text-sm">
+            <Tag className="w-4 h-4 text-emerald-400" />
+            <span>{activeProductTypeConfig.name} Specifications</span>
+          </div>
+          <span className="text-[11px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-emerald-400" />
+            Category-Specific Fields Only
+          </span>
         </div>
 
+        {/* Dynamic Attributes Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <CustomizableSelect
-            label="Fabric / Material"
-            required
-            value={formData.fabric}
-            options={FABRIC_OPTIONS}
-            onChange={(val) => onChange({ fabric: val })}
-          />
-
-          <CustomizableSelect
-            label="Fit Type"
-            required
-            value={formData.fit_type}
-            options={FIT_OPTIONS}
-            onChange={(val) => onChange({ fit_type: val })}
-          />
-
-          <CustomizableSelect
-            label="Pattern"
-            required
-            value={formData.pattern}
-            options={PATTERN_OPTIONS}
-            onChange={(val) => onChange({ pattern: val })}
-          />
-
-          <CustomizableSelect
-            label="Sleeve Length / Type"
-            value={formData.sleeve_type}
-            options={SLEEVE_OPTIONS}
-            onChange={(val) => onChange({ sleeve_type: val })}
-          />
-
-          <CustomizableSelect
-            label="Neck / Collar Style"
-            value={formData.neck_type}
-            options={NECK_OPTIONS}
-            onChange={(val) => onChange({ neck_type: val })}
-          />
-
-          <CustomizableSelect
-            label="Target Gender / Category"
-            value={formData.target_gender}
-            options={GENDER_OPTIONS}
-            onChange={(val) => onChange({ target_gender: val })}
-          />
+          {dynamicAttributes.map((attr) => {
+            const currentVal = customAttrs[attr.id] || (formData as any)[attr.id] || "";
+            return (
+              <div key={attr.id}>
+                {attr.type === "select" && attr.options && attr.options.length > 0 ? (
+                  <CustomizableSelect
+                    label={attr.label}
+                    required={attr.required}
+                    value={currentVal}
+                    options={attr.options}
+                    onChange={(val) => handleCustomAttrChange(attr.id, val)}
+                  />
+                ) : (
+                  <div>
+                    <label className="text-xs font-medium text-zinc-300 mb-1 block">
+                      {attr.label} {attr.required && <span className="text-rose-400">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={currentVal}
+                      onChange={(e) => handleCustomAttrChange(attr.id, e.target.value)}
+                      placeholder={attr.placeholder || `Enter ${attr.label.toLowerCase()}...`}
+                      className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white transition-colors"
+                    />
+                    {attr.helpText && (
+                      <span className="text-[10px] text-zinc-500 mt-1 block">{attr.helpText}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
+        {/* Item Weight / Net Package Weight */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
           <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Garment Weight (Grams) *</label>
+            <label className="text-xs font-medium text-zinc-300 mb-1 block">Package Net Weight (Grams) *</label>
             <input
               type="number"
               value={formData.weight_grams}
@@ -214,14 +235,8 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
               placeholder="e.g. 350"
               className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
             />
+            <span className="text-[10px] text-zinc-500 mt-1 block">Accurate dead weight for courier label generation</span>
           </div>
-
-          <CustomizableSelect
-            label="Care Instructions"
-            value={formData.care_instructions}
-            options={CARE_OPTIONS}
-            onChange={(val) => onChange({ care_instructions: val })}
-          />
         </div>
       </div>
 

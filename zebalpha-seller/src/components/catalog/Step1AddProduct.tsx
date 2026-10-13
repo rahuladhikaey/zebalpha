@@ -1,8 +1,10 @@
-"use client";
-
-import React, { useState } from "react";
-import { Upload, X, CheckCircle2, AlertCircle } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Upload, X, CheckCircle2, AlertCircle, Layers } from "lucide-react";
 import type { Category } from "@shared/types";
+import {
+  DYNAMIC_CATEGORY_CATALOG,
+  resolveProductTypeConfig,
+} from "@shared/constants/productAttributeEngine";
 import SizeSpecificDetailsSection, {
   SizeVariantDetail,
   SizeMeasurementDetail,
@@ -31,64 +33,25 @@ export interface Step1Props {
     style_code?: string;
     price?: string;
     mrp?: string;
+    defective_returns_price?: string;
+    single_stock?: string;
   };
   categories: Category[];
   onChange: (updates: Partial<Step1Props["formData"]>) => void;
 }
-
-const CLOTHING_CATEGORIES = [
-  { 
-    id: "men", 
-    name: "Men's Fashion", 
-    subcategories: ["T-Shirts & Polos", "Shirts", "Hoodies & Sweatshirts", "Jeans & Trousers", "Jackets & Blazers", "Ethnic & Kurtas", "Innerwear & Sleepwear", "Activewear", "Casual & Sports Shoes", "Other Men's Apparel"] 
-  },
-  { 
-    id: "women", 
-    name: "Women's Fashion", 
-    subcategories: ["Sarees & Silk", "Kurtis & Suit Sets", "Dresses & Tops", "Jeans & Jeggings", "Ethnic Wear & Lehengas", "Jackets & Shrugs", "Innerwear & Nightwear", "Heels, Flats & Footwear", "Other Women's Apparel"] 
-  },
-  { 
-    id: "unisex", 
-    name: "Unisex & Streetwear", 
-    subcategories: ["Oversized Tees", "Hoodies & Jackets", "Cargo Pants", "Caps & Beanies", "Streetwear Accessories", "Other Unisex Item"] 
-  },
-  { 
-    id: "kids", 
-    name: "Kids & Baby Care", 
-    subcategories: ["Boy's Apparel", "Girl's Apparel", "Infant & Baby Clothing", "Toys & Games", "Baby Care & Accessories", "Other Kids Item"] 
-  },
-  { 
-    id: "home", 
-    name: "Home & Kitchen", 
-    subcategories: ["Bedding & Sheets", "Kitchen & Cooking Tools", "Home Decor & Crafts", "Storage & Organizers", "Curtains & Cushions", "Other Home Item"] 
-  },
-  { 
-    id: "beauty", 
-    name: "Beauty & Care", 
-    subcategories: ["Makeup & Cosmetics", "Skincare", "Haircare & Oils", "Fragrances & Deos", "Personal Grooming", "Other Beauty Item"] 
-  },
-  { 
-    id: "jewellery", 
-    name: "Jewellery & Bags", 
-    subcategories: ["Fashion Jewellery", "Traditional & Temple Jewellery", "Watches & Clocks", "Sunglasses & Frames", "Handbags & Wallets", "Other Accessory"] 
-  },
-  { 
-    id: "electronics", 
-    name: "Electronics & Accessories", 
-    subcategories: ["Earphones & Headphones", "Smartwatches", "Phone Cases & Covers", "Chargers & Cables", "Small Home Appliances", "Other Gadget"] 
-  },
-  { 
-    id: "custom", 
-    name: "✍️ Custom Category", 
-    subcategories: ["Custom Subcategory"] 
-  }
-];
 
 export default function Step1AddProduct({ formData, categories, onChange }: Step1Props) {
   const [selectedMainCat, setSelectedMainCat] = useState<string>("men");
   const [imageError, setImageError] = useState<string>("");
   const [isCustomSubcategory, setIsCustomSubcategory] = useState<boolean>(false);
   const [customCategoryName, setCustomCategoryName] = useState<string>("");
+
+  // Resolve current active product type configuration dynamically
+  const activeProductTypeConfig = useMemo(() => {
+    return resolveProductTypeConfig(selectedMainCat, formData.subcategory_name);
+  }, [selectedMainCat, formData.subcategory_name]);
+
+  const hasSizingSystem = activeProductTypeConfig.sizingSystem !== "none";
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError("");
@@ -132,14 +95,27 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
     onChange({ front_image_index: index });
   };
 
-  const activeSubcats = CLOTHING_CATEGORIES.find((c) => c.id === selectedMainCat)?.subcategories || [];
+  const currentMainCatConfig = useMemo(() => {
+    return DYNAMIC_CATEGORY_CATALOG.find((c) => c.id === selectedMainCat) || DYNAMIC_CATEGORY_CATALOG[0];
+  }, [selectedMainCat]);
+
+  // Flatten all product types for this main category to show in dropdown
+  const activeProductTypesList = useMemo(() => {
+    const list: { id: string; name: string; group: string }[] = [];
+    currentMainCatConfig.subcategories.forEach((sub) => {
+      sub.productTypes.forEach((pt) => {
+        list.push({ id: pt.id, name: pt.name, group: sub.name });
+      });
+    });
+    return list;
+  }, [currentMainCatConfig]);
 
   return (
     <div className="space-y-6">
       {/* Product Type / Placement Selector */}
       <div className="p-4 rounded-xl bg-[#141418] border border-[#27272a] space-y-2">
         <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
-          Product Category Type
+          Product Listing Tier & Placement
         </label>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -187,14 +163,14 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
           <label className="text-sm font-semibold text-zinc-200 flex items-center gap-1">
             Product Main Category & Subcategory <span className="text-red-400">*</span>
           </label>
-          <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
-            Meesho-Style Category Engine
+          <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+            <span>✨</span> Meesho Smart Engine
           </span>
         </div>
 
         {/* Main Category Selector Tabs */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-          {CLOTHING_CATEGORIES.map((cat) => (
+          {DYNAMIC_CATEGORY_CATALOG.map((cat) => (
             <button
               key={cat.id}
               type="button"
@@ -202,15 +178,18 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
                 setSelectedMainCat(cat.id);
                 if (cat.id === "custom") {
                   setIsCustomSubcategory(true);
+                } else {
+                  setIsCustomSubcategory(false);
                 }
               }}
-              className={`py-2 px-2.5 rounded-lg border text-xs font-bold transition-all text-center truncate ${
+              className={`py-2 px-2.5 rounded-lg border text-xs font-bold transition-all text-center truncate flex items-center justify-center gap-1.5 ${
                 selectedMainCat === cat.id
                   ? "bg-white text-black border-white shadow-md shadow-white/10"
                   : "bg-[#0d0d11] text-zinc-300 border-[#27272a] hover:border-zinc-500"
               }`}
             >
-              {cat.name}
+              <span>{cat.icon || "📦"}</span>
+              <span className="truncate">{cat.name}</span>
             </button>
           ))}
         </div>
@@ -269,13 +248,13 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
               }}
               className="w-full p-3 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white transition-colors"
             >
-              <option value="">-- Select Product Type / Subcategory --</option>
-              {activeSubcats.map((sub, idx) => (
-                <option key={idx} value={sub}>
-                  {sub}
+              <option value="">-- Select Product Type / Category Specifics --</option>
+              {activeProductTypesList.map((pt, idx) => (
+                <option key={idx} value={pt.name}>
+                  {pt.group}: {pt.name}
                 </option>
               ))}
-              <option value="__OTHER__">+ Write Custom Product Subcategory...</option>
+              <option value="__OTHER__">+ Write Custom Product Type...</option>
             </select>
           ) : (
             <div className="flex items-center gap-2">
@@ -414,50 +393,71 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         </div>
       )}
 
-      {/* Meesho-Style Size-Specific Details & Measurements */}
-      <SizeSpecificDetailsSection
-        selectedSizes={formData.selected_sizes || []}
-        sizeDetails={formData.size_details || []}
-        sizeMeasurements={formData.size_measurements || []}
-        measurementUnit={formData.measurement_unit || "inches"}
-        isMeasurementsEnabled={formData.is_measurements_enabled ?? true}
-        styleCode={formData.style_code}
-        subcategoryName={formData.subcategory_name}
-        categoryName={selectedMainCat}
-        defaultPrice={formData.price}
-        defaultMrp={formData.mrp}
-        onSizesChange={(newSizes) => onChange({ selected_sizes: newSizes })}
-        onSizeDetailsChange={(newDetails) => {
-          const validSellingPrices = newDetails
-            .map((d) => parseFloat(d.selling_price))
-            .filter((p) => !isNaN(p) && p > 0);
-          const validMrps = newDetails
-            .map((d) => parseFloat(d.mrp))
-            .filter((m) => !isNaN(m) && m > 0);
-          const validReturns = newDetails
-            .map((d) => parseFloat(d.return_price))
-            .filter((r) => !isNaN(r) && r > 0);
-          const totalStock = newDetails.reduce((sum, d) => {
-            const qty = parseInt(d.inventory);
-            return sum + (!isNaN(qty) && qty > 0 ? qty : 0);
-          }, 0);
+      {/* Meesho-Style Size-Specific Details & Measurements: Render ONLY if category has a sizing system */}
+      {hasSizingSystem ? (
+        <SizeSpecificDetailsSection
+          selectedSizes={formData.selected_sizes || []}
+          sizeDetails={formData.size_details || []}
+          sizeMeasurements={formData.size_measurements || []}
+          measurementUnit={formData.measurement_unit || "inches"}
+          isMeasurementsEnabled={formData.is_measurements_enabled ?? true}
+          styleCode={formData.style_code}
+          subcategoryName={formData.subcategory_name}
+          categoryName={selectedMainCat}
+          defaultPrice={formData.price}
+          defaultMrp={formData.mrp}
+          onSizesChange={(newSizes) => onChange({ selected_sizes: newSizes })}
+          onSizeDetailsChange={(newDetails) => {
+            const validSellingPrices = newDetails
+              .map((d) => parseFloat(d.selling_price))
+              .filter((p) => !isNaN(p) && p > 0);
+            const validMrps = newDetails
+              .map((d) => parseFloat(d.mrp))
+              .filter((m) => !isNaN(m) && m > 0);
+            const validReturns = newDetails
+              .map((d) => parseFloat(d.return_price))
+              .filter((r) => !isNaN(r) && r > 0);
+            const totalStock = newDetails.reduce((sum, d) => {
+              const qty = parseInt(d.inventory);
+              return sum + (!isNaN(qty) && qty > 0 ? qty : 0);
+            }, 0);
 
-          const autoPrice = validSellingPrices.length > 0 ? Math.min(...validSellingPrices) : 0;
-          const autoMrp = validMrps.length > 0 ? Math.max(...validMrps) : autoPrice;
-          const autoReturn = validReturns.length > 0 ? Math.min(...validReturns) : 0;
+            const autoPrice = validSellingPrices.length > 0 ? Math.min(...validSellingPrices) : 0;
+            const autoMrp = validMrps.length > 0 ? Math.max(...validMrps) : autoPrice;
+            const autoReturn = validReturns.length > 0 ? Math.min(...validReturns) : 0;
 
-          onChange({
-            size_details: newDetails,
-            price: autoPrice > 0 ? String(autoPrice) : formData.price,
-            mrp: autoMrp > 0 ? String(autoMrp) : (autoPrice > 0 ? String(autoPrice) : formData.mrp),
-            defective_returns_price: autoReturn > 0 ? String(autoReturn) : formData.defective_returns_price,
-            single_stock: String(totalStock || 20),
-          });
-        }}
-        onSizeMeasurementsChange={(newMeasurements) => onChange({ size_measurements: newMeasurements })}
-        onMeasurementUnitChange={(unit) => onChange({ measurement_unit: unit })}
-        onToggleMeasurements={(enabled) => onChange({ is_measurements_enabled: enabled })}
-      />
+            onChange({
+              size_details: newDetails,
+              price: autoPrice > 0 ? String(autoPrice) : formData.price,
+              mrp: autoMrp > 0 ? String(autoMrp) : (autoPrice > 0 ? String(autoPrice) : formData.mrp),
+              defective_returns_price: autoReturn > 0 ? String(autoReturn) : formData.defective_returns_price,
+              single_stock: String(totalStock || 20),
+            });
+          }}
+          onSizeMeasurementsChange={(newMeasurements) => onChange({ size_measurements: newMeasurements })}
+          onMeasurementUnitChange={(unit) => onChange({ measurement_unit: unit })}
+          onToggleMeasurements={(enabled) => onChange({ is_measurements_enabled: enabled })}
+        />
+      ) : (
+        <div className="p-4 rounded-xl bg-[#141418] border border-[#27272a] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <Layers className="w-4 h-4" />
+            </span>
+            <div>
+              <span className="text-xs font-bold text-white block">
+                Standard / Single Configuration Item
+              </span>
+              <span className="text-[11px] text-zinc-400">
+                {activeProductTypeConfig.name} does not require apparel sizing. You will configure product specifications in Step 2.
+              </span>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full uppercase tracking-wider">
+            No Sizes Needed
+          </span>
+        </div>
+      )}
 
       {/* Product Description */}
       <div className="space-y-2">

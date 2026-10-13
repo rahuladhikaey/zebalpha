@@ -12,6 +12,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "No image data provided" }, { status: 400 });
     }
 
+    // Strict 155 KB (158,720 bytes) Maximum Image Size Policy Enforcement
+    const MAX_ALLOWED_BYTES = 158720;
+    const base64Data = imageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, "");
+    const estimatedSizeBytes = Math.floor((base64Data.length * 3) / 4);
+    if (estimatedSizeBytes > MAX_ALLOWED_BYTES) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Image exceeds the platform maximum allowed size of 155 KB (158,720 bytes). Uploaded size: ${Math.round(estimatedSizeBytes / 1024)} KB. Please choose or compress a smaller image.`,
+        },
+        { status: 413 }
+      );
+    }
+
     // Try Cloudinary CDN if configured
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "p1ish280";
     const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || "zebalpha_products";

@@ -21,6 +21,7 @@ import {
   HelpCircle,
   Star,
 } from "lucide-react";
+import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
 
 export interface CatalogVariant {
   id: string;
@@ -57,6 +58,8 @@ export interface Step4Props {
     measurement_unit?: "inches" | "cm";
     size_measurements?: any[];
     is_measurements_enabled?: boolean;
+    category_id?: string;
+    subcategory_name?: string;
     size_chart_columns?: string[];
     size_chart_notes?: string;
     size_chart_image?: string;
@@ -111,7 +114,14 @@ const SIZE_CHART_TEMPLATES: Record<string, { columns: string[]; notes: string }>
 };
 
 export default function Step4AddVariants({ formData, onChange }: Step4Props) {
-  // Navigation tabs within Step 4
+  // Resolve active category config
+  const activeProductTypeConfig = useMemo(() => {
+    return resolveProductTypeConfig(formData.category_id, formData.subcategory_name);
+  }, [formData.category_id, formData.subcategory_name]);
+
+  const hasSizingSystem = activeProductTypeConfig.sizingSystem !== "none";
+
+  // Navigation tabs within Step 4 (hide size_chart if no sizing system)
   const [activeTab, setActiveTab] = useState<"matrix" | "galleries" | "size_chart" | "preview">("matrix");
   // Default to per_color_cards for easy visual per-color size management (Req #2 & #5)
   const [viewMode, setViewMode] = useState<"per_color_cards" | "matrix_grid" | "detailed_table">("per_color_cards");
@@ -928,18 +938,20 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
               <span>2. Color Galleries ({colorGroups.length} Colors)</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("size_chart")}
-              className={`py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-                activeTab === "size_chart"
-                  ? "bg-white text-black shadow-md"
-                  : "text-zinc-400 hover:text-white hover:bg-[#18181b]"
-              }`}
-            >
-              <Ruler className="w-3.5 h-3.5" />
-              <span>3. Size Chart Builder</span>
-            </button>
+            {hasSizingSystem && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("size_chart")}
+                className={`py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+                  activeTab === "size_chart"
+                    ? "bg-white text-black shadow-md"
+                    : "text-zinc-400 hover:text-white hover:bg-[#18181b]"
+                }`}
+              >
+                <Ruler className="w-3.5 h-3.5" />
+                <span>3. Size Chart Builder</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -1094,55 +1106,57 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                   </div>
                 )}
 
-                {/* 2. Reusable Size Master (Req #12) */}
-                <div className="border-t border-[#1e1e24] pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-zinc-300">
-                      Reusable Size Master Library:
-                    </span>
-                    <span className="text-[11px] text-zinc-500">
-                      {sizeMaster.length} Master Sizes Available
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {sizeMaster.map((sz) => (
-                      <span
-                        key={sz}
-                        className="py-1 px-2.5 rounded-lg text-xs font-bold bg-[#141418] text-zinc-300 border border-[#27272a]"
-                      >
-                        {sz}
+                {/* 2. Reusable Size Master: Only rendered for categories with a sizing system */}
+                {hasSizingSystem && (
+                  <div className="border-t border-[#1e1e24] pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-zinc-300">
+                        Reusable Size Master Library:
                       </span>
-                    ))}
-
-                    {/* Add Custom Size to Master */}
-                    <div className="flex items-center gap-1 ml-auto">
-                      <input
-                        type="text"
-                        value={customSizeInput}
-                        onChange={(e) => setCustomSizeInput(e.target.value)}
-                        placeholder="New Size"
-                        className="p-1 px-2 rounded-md bg-[#141418] border border-[#27272a] text-white text-xs w-24"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addCustomSizeToMaster(customSizeInput);
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => addCustomSizeToMaster(customSizeInput)}
-                        className="py-1 px-2.5 rounded-md bg-zinc-800 text-white text-xs font-semibold hover:bg-zinc-700 cursor-pointer"
-                      >
-                        + Master Size
-                      </button>
+                      <span className="text-[11px] text-zinc-500">
+                        {sizeMaster.length} Master Sizes Available
+                      </span>
                     </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {sizeMaster.map((sz) => (
+                        <span
+                          key={sz}
+                          className="py-1 px-2.5 rounded-lg text-xs font-bold bg-[#141418] text-zinc-300 border border-[#27272a]"
+                        >
+                          {sz}
+                        </span>
+                      ))}
+
+                      {/* Add Custom Size to Master */}
+                      <div className="flex items-center gap-1 ml-auto">
+                        <input
+                          type="text"
+                          value={customSizeInput}
+                          onChange={(e) => setCustomSizeInput(e.target.value)}
+                          placeholder="New Size"
+                          className="p-1 px-2 rounded-md bg-[#141418] border border-[#27272a] text-white text-xs w-24"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addCustomSizeToMaster(customSizeInput);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addCustomSizeToMaster(customSizeInput)}
+                          className="py-1 px-2.5 rounded-md bg-zinc-800 text-white text-xs font-semibold hover:bg-zinc-700 cursor-pointer"
+                        >
+                          + Master Size
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-1.5">
+                      💡 Assign these sizes to each color below independently. A color only has the sizes you explicitly select.
+                    </p>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-1.5">
-                    💡 Assign these sizes to each color below independently. A color only has the sizes you explicitly select.
-                  </p>
-                </div>
+                )}
               </div>
 
               {/* Bulk Actions & View Modes Toolbar */}

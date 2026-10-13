@@ -336,12 +336,13 @@ export function PackageSelection({
         </div>
       )}
 
-      {/* 2. SIZE SELECTION & SIZE CHART LINK */}
+      {/* 2. SIZE SELECTION & SIZE CHART LINK (Hide if only 1 default 'Free Size' or 'Standard' option) */}
+      {(allDistinctSizes.length > 1 || (allDistinctSizes.length === 1 && !["Free Size", "Standard", "Default"].includes(allDistinctSizes[0]))) && (
       <div id="size-selection-section" className="space-y-2.5">
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5">
             <span className="font-extrabold uppercase tracking-wider text-zinc-400">
-              SELECT SIZE
+              SELECT SIZE / OPTION
             </span>
             {selectedSize && (
               <span className="text-white font-black">: {selectedSize}</span>
@@ -428,6 +429,7 @@ export function PackageSelection({
           })}
         </div>
       </div>
+      )}
 
       {/* 3. CLEAN SELECTED VARIANT SUMMARY (NO TECHNICAL SKU / DEBUG INFO) */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950/90 p-4 space-y-3">
@@ -446,15 +448,17 @@ export function PackageSelection({
               >
                 Color: {selectedColor || "Select a color"}
               </span>
-              <span
-                className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
-                  selectedSize
-                    ? "text-white bg-zinc-900 border-zinc-800"
-                    : "text-amber-400 bg-amber-500/10 border-amber-500/30"
-                }`}
-              >
-                Size: {selectedSize || "Select a size"}
-              </span>
+              {(allDistinctSizes.length > 1 || (allDistinctSizes.length === 1 && !["Free Size", "Standard", "Default"].includes(allDistinctSizes[0]))) && (
+                <span
+                  className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
+                    selectedSize
+                      ? "text-white bg-zinc-900 border-zinc-800"
+                      : "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                  }`}
+                >
+                  Size: {selectedSize || "Select a size"}
+                </span>
+              )}
             </div>
           </div>
 

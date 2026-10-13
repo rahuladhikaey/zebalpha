@@ -888,9 +888,9 @@ export default function SellerManagementView({
                       {/* Merchant Brand */}
                       <td className="p-4 pl-6">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-2xl bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center font-black text-sm shrink-0 overflow-hidden">
+                          <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center font-black text-sm shrink-0 overflow-hidden shadow-sm">
                             {isPrimary ? (
-                              <img src="/official-logo.png" alt={sName} className="w-full h-full object-cover" />
+                              <img src="/official-logo.png" alt={sName} className="w-full h-full object-cover rounded-full" />
                             ) : (
                               <span>{sName[0]?.toUpperCase()}</span>
                             )}
@@ -1068,9 +1068,9 @@ export default function SellerManagementView({
             <div>
               <div className="flex items-center justify-between border-b border-zinc-800 pb-5">
                 <div className="flex items-center gap-3.5">
-                  <div className="h-12 w-12 rounded-2xl bg-zinc-900 border border-zinc-700 text-white font-black text-xl flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="h-12 w-12 rounded-full bg-zinc-900 border border-zinc-700 text-white font-black text-xl flex items-center justify-center overflow-hidden shrink-0 shadow-md">
                     {selectedSeller.is_primary_brand ? (
-                      <img src="/official-logo.png" alt="Logo" className="w-full h-full object-cover" />
+                      <img src="/official-logo.png" alt="Logo" className="w-full h-full object-cover rounded-full" />
                     ) : (
                       (selectedSeller.business_name || selectedSeller.full_name || "M")[0].toUpperCase()
                     )}
