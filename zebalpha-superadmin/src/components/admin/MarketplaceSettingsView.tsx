@@ -1325,9 +1325,14 @@ export default function MarketplaceSettingsView() {
                 ) : (
                   <p className="text-xs font-semibold text-slate-400 italic">No custom marquee items in database yet. Customer storefront uses default scrolling items.</p>
                 )}
+              </div>
+            </div>
+          )}
+
           {/* DYNAMIC CATEGORIES & ATTRIBUTES ENGINE TAB */}
           {activeTab === "categories" && (
             <div className="space-y-6">
+
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
