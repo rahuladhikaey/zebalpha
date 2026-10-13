@@ -466,9 +466,18 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files);
+    const MAX_ALLOWED_BYTES = 150 * 1024; // 150 KB
+
+    for (const file of fileList) {
+      if (file.size > MAX_ALLOWED_BYTES) {
+        alert(`❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is 150 KB. Please choose an image under 150 KB.`);
+        return;
+      }
+    }
+
     const compressedPromises = fileList.map(async (file) => {
       try {
-        const { blob } = await compressImageTo100KB(file, 150 * 1024);
+        const { blob } = await compressImageTo100KB(file, MAX_ALLOWED_BYTES);
         return new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve((e.target?.result as string) || "");
@@ -482,6 +491,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     const dataUrls = await Promise.all(compressedPromises);
     const validUrls = dataUrls.filter(Boolean);
     if (validUrls.length === 0) return;
+
 
 
       const mainColName = (

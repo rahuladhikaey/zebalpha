@@ -65,14 +65,27 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
       return;
     }
 
+    const MAX_ALLOWED_BYTES = 150 * 1024; // Strictly 150 KB (153,600 bytes)
+
+    // 1. Strict raw file size check: completely reject any file over 150 KB
+    for (const file of files) {
+      if (file.size > MAX_ALLOWED_BYTES) {
+        setImageError(
+          `❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is 150 KB. Please select an image under 150 KB.`
+        );
+        e.target.value = "";
+        return;
+      }
+    }
+
     const processedImages: string[] = [];
 
     for (const file of files) {
       try {
-        // Automatically compress to <= 150KB WebP
-        const { blob } = await compressImageTo100KB(file, 150 * 1024);
-        if (blob.size > 150 * 1024) {
-          setImageError(`Image "${file.name}" exceeds 150 KB limit (${(blob.size / 1024).toFixed(1)} KB).`);
+        const { blob } = await compressImageTo100KB(file, MAX_ALLOWED_BYTES);
+        if (blob.size > MAX_ALLOWED_BYTES) {
+          setImageError(`❌ Image "${file.name}" exceeds 150 KB (${(blob.size / 1024).toFixed(1)} KB). Please choose a smaller image.`);
+          e.target.value = "";
           return;
         }
 
@@ -87,6 +100,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         console.warn("Image compression notice:", err);
       }
     }
+
 
     if (processedImages.length > 0) {
       onChange({

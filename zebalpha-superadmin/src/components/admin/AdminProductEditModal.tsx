@@ -150,15 +150,27 @@ export default function AdminProductEditModal({
       return;
     }
 
+    const MAX_ALLOWED_BYTES = 150 * 1024; // 150 KB
+
+    for (const file of files) {
+      if (file.size > MAX_ALLOWED_BYTES) {
+        setErrorMsg(`❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is 150 KB. Please choose an image under 150 KB.`);
+        e.target.value = "";
+        return;
+      }
+    }
+
     const processedImages: string[] = [];
 
     for (const file of files) {
       try {
-        const { blob } = await compressImageTo100KB(file, 150 * 1024);
-        if (blob.size > 150 * 1024) {
-          setErrorMsg(`Image "${file.name}" exceeds 150 KB limit (${(blob.size / 1024).toFixed(1)} KB).`);
+        const { blob } = await compressImageTo100KB(file, MAX_ALLOWED_BYTES);
+        if (blob.size > MAX_ALLOWED_BYTES) {
+          setErrorMsg(`❌ Image "${file.name}" exceeds 150 KB (${(blob.size / 1024).toFixed(1)} KB). Please choose a smaller image.`);
+          e.target.value = "";
           return;
         }
+
 
         const b64 = await new Promise<string>((resolve) => {
           const reader = new FileReader();
