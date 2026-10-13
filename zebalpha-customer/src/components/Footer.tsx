@@ -127,10 +127,11 @@ export function Footer() {
 
           </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:gap-10 lg:grid-cols-6 lg:col-span-6 w-full">
+          {/* Desktop Only: Collections & Customer Support (On mobile, these are already in the drawer) */}
+          <div className="hidden lg:grid grid-cols-2 gap-10 lg:grid-cols-6 lg:col-span-6 w-full">
             <div className="col-span-1 lg:col-span-3">
-              <h3 className="text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] sm:tracking-[0.25em] text-white drop-shadow-md">Collections</h3>
-              <ul className="mt-3.5 sm:mt-5 space-y-2.5 sm:space-y-3.5 text-xs sm:text-sm text-neutral-100 font-bold drop-shadow">
+              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Collections</h3>
+              <ul className="mt-5 space-y-3.5 text-sm text-neutral-100 font-bold drop-shadow">
                 <li><Link href="/products?category=Polos" className="transition hover:text-white block">Premium Zip Polos</Link></li>
                 <li><Link href="/products?category=T-Shirts" className="transition hover:text-white block">Oversized Streetwear Tees</Link></li>
                 <li><Link href="/products?category=Hoodies" className="transition hover:text-white block">Heavyweight Hoodies</Link></li>
@@ -141,14 +142,14 @@ export function Footer() {
                     href="https://seller.zebalpha.shop/register"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group inline-flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 rounded-xl bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-transparent border border-emerald-400/35 hover:border-emerald-300 px-2.5 sm:px-3.5 py-2 text-xs font-black tracking-wider text-emerald-300 hover:text-white hover:bg-emerald-500/30 transition-all shadow-[0_0_15px_rgba(52,211,153,0.15)] hover:shadow-[0_0_20px_rgba(52,211,153,0.3)] active:scale-95 max-w-full sm:max-w-fit"
+                    className="group inline-flex items-center justify-between sm:justify-start gap-2.5 rounded-xl bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-transparent border border-emerald-400/35 hover:border-emerald-300 px-3.5 py-2 text-xs font-black tracking-wider text-emerald-300 hover:text-white hover:bg-emerald-500/30 transition-all shadow-[0_0_15px_rgba(52,211,153,0.15)] hover:shadow-[0_0_20px_rgba(52,211,153,0.3)] active:scale-95 max-w-fit"
                     title="Become a Seller on Zebalpha"
                   >
-                    <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="flex items-center gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-black shadow-sm group-hover:scale-110 transition-transform">
                         <Store className="h-3.5 w-3.5 stroke-[2.5]" />
                       </span>
-                      <span className="uppercase tracking-widest text-[10px] sm:text-[11px] font-black whitespace-nowrap">Supplier Hub</span>
+                      <span className="uppercase tracking-widest text-[11px] font-black whitespace-nowrap">Supplier Hub</span>
                     </div>
                     <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
                   </Link>
@@ -157,8 +158,8 @@ export function Footer() {
             </div>
 
             <div className="col-span-1 lg:col-span-3">
-              <h3 className="text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] sm:tracking-[0.25em] text-white drop-shadow-md">Customer Support</h3>
-              <ul className="mt-3.5 sm:mt-5 space-y-2.5 sm:space-y-3.5 text-xs sm:text-sm text-neutral-100 font-bold drop-shadow">
+              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Customer Support</h3>
+              <ul className="mt-5 space-y-3.5 text-sm text-neutral-100 font-bold drop-shadow">
                 <li><Link href="/wishlist" className="transition hover:text-white block">Your Wishlist</Link></li>
                 <li><Link href="/profile/orders" className="transition hover:text-white block">Track Your Order</Link></li>
                 <li><Link href="/about" className="transition hover:text-white block">About Zebalpha</Link></li>
