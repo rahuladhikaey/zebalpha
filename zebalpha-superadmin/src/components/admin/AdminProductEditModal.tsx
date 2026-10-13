@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { X, Save, Edit3, Image as ImageIcon, Upload, CheckCircle2, AlertCircle, Building2, Tag, Calculator, Sliders, Layers } from "lucide-react";
 import { supabaseA as supabase } from "@shared/utils/supabaseClient";
 import { DYNAMIC_CATEGORY_CATALOG, resolveProductTypeConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
+import { compressImageTo100KB } from "@shared/services";
+
 
 export interface AdminProductEditModalProps {
   isOpen: boolean;
@@ -138,7 +140,8 @@ export default function AdminProductEditModal({
 
   if (!isOpen || !product) return null;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMsg("");
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
@@ -147,20 +150,36 @@ export default function AdminProductEditModal({
       return;
     }
 
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        if (evt.target?.result) {
-          const b64 = evt.target.result as string;
-          setForm((prev) => ({
-            ...prev,
-            images: [...prev.images, b64].slice(0, 4),
-          }));
+    const processedImages: string[] = [];
+
+    for (const file of files) {
+      try {
+        const { blob } = await compressImageTo100KB(file, 150 * 1024);
+        if (blob.size > 150 * 1024) {
+          setErrorMsg(`Image "${file.name}" exceeds 150 KB limit (${(blob.size / 1024).toFixed(1)} KB).`);
+          return;
         }
-      };
-      reader.readAsDataURL(file);
-    });
+
+        const b64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => resolve((evt.target?.result as string) || "");
+          reader.readAsDataURL(blob);
+        });
+
+        if (b64) processedImages.push(b64);
+      } catch (err) {
+        console.warn("Image upload error:", err);
+      }
+    }
+
+    if (processedImages.length > 0) {
+      setForm((prev) => ({
+        ...prev,
+        images: [...prev.images, ...processedImages].slice(0, 4),
+      }));
+    }
   };
+
 
   const removeImage = (idx: number) => {
     setForm((prev) => ({

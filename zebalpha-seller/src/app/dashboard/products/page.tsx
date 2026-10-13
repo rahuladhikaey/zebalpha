@@ -14,8 +14,9 @@ import {
   ShoppingBag,
   AlertTriangle
 } from "lucide-react";
-import { uploadToCloudinary } from "@shared/services";
+import { uploadToCloudinary, compressImageTo100KB } from "@shared/services";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
+
 import dynamic from "next/dynamic";
 import { UploadCloud } from "lucide-react";
 
@@ -68,7 +69,7 @@ export default function SellerProducts() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [imageError, setImageError] = useState<string>("");
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError("");
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -78,26 +79,37 @@ export default function SellerProducts() {
       return;
     }
 
-    for (const file of files) {
-      if (file.size > 100 * 1024) {
-        setImageError(`❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is 100 KB.`);
-        return;
-      }
+    const processedImages: string[] = [];
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const base64Str = event.target.result as string;
-          setUploadedImages((prev) => {
-            const nextImages = [...prev, base64Str].slice(0, 4);
-            setForm((f) => ({ ...f, image_url: nextImages[0] || "" }));
-            return nextImages;
-          });
+    for (const file of files) {
+      try {
+        const { blob } = await compressImageTo100KB(file, 150 * 1024);
+        if (blob.size > 150 * 1024) {
+          setImageError(`❌ Image "${file.name}" exceeds 150 KB limit (${(blob.size / 1024).toFixed(1)} KB).`);
+          return;
         }
-      };
-      reader.readAsDataURL(file);
+
+        const b64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve((event.target?.result as string) || "");
+          reader.readAsDataURL(blob);
+        });
+
+        if (b64) processedImages.push(b64);
+      } catch (err) {
+        console.warn("Upload error:", err);
+      }
+    }
+
+    if (processedImages.length > 0) {
+      setUploadedImages((prev) => {
+        const nextImages = [...prev, ...processedImages].slice(0, 4);
+        setForm((f) => ({ ...f, image_url: nextImages[0] || "" }));
+        return nextImages;
+      });
     }
   };
+
 
   const removeImage = (index: number) => {
     const updated = uploadedImages.filter((_, i) => i !== index);

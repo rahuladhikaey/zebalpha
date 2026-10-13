@@ -5,11 +5,13 @@ import {
   DYNAMIC_CATEGORY_CATALOG,
   resolveProductTypeConfig,
 } from "@shared/constants/productAttributeEngine";
+import { compressImageTo100KB } from "@shared/services";
 import SizeSpecificDetailsSection, {
   SizeVariantDetail,
   SizeMeasurementDetail,
   MeasurementUnit,
 } from "./SizeSpecificDetailsSection";
+
 
 export interface Step1Props {
   formData: {
@@ -53,7 +55,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
 
   const hasSizingSystem = activeProductTypeConfig.sizingSystem !== "none";
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError("");
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -63,24 +65,36 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
       return;
     }
 
-    files.forEach((file) => {
-      if (file.size > 2 * 1024 * 1024) {
-        setImageError(`File "${file.name}" exceeds 2 MB limit.`);
-        return;
-      }
+    const processedImages: string[] = [];
 
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        if (evt.target?.result) {
-          const base64Str = evt.target.result as string;
-          onChange({
-            images: [...formData.images, base64Str].slice(0, 4),
-          });
+    for (const file of files) {
+      try {
+        // Automatically compress to <= 150KB WebP
+        const { blob } = await compressImageTo100KB(file, 150 * 1024);
+        if (blob.size > 150 * 1024) {
+          setImageError(`Image "${file.name}" exceeds 150 KB limit (${(blob.size / 1024).toFixed(1)} KB).`);
+          return;
         }
-      };
-      reader.readAsDataURL(file);
-    });
+
+        const b64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => resolve((evt.target?.result as string) || "");
+          reader.readAsDataURL(blob);
+        });
+
+        if (b64) processedImages.push(b64);
+      } catch (err) {
+        console.warn("Image compression notice:", err);
+      }
+    }
+
+    if (processedImages.length > 0) {
+      onChange({
+        images: [...formData.images, ...processedImages].slice(0, 4),
+      });
+    }
   };
+
 
   const removeImage = (index: number) => {
     const updated = formData.images.filter((_, i) => i !== index);

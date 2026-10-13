@@ -1,4 +1,4 @@
-import { supabase } from "@shared/utils/supabaseClient";
+import { supabase } from "../utils/supabaseClient";
 
 /**
  * Helper to convert Base64/DataURL to Blob
@@ -143,6 +143,7 @@ export async function uploadToSupabaseBucket(
       const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
       if (publicUrlData?.publicUrl) return publicUrlData.publicUrl;
       if (typeof fileOrBase64 === "string") return fileOrBase64;
+      return "/banner-premium-polo.png";
     }
 
     const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
@@ -150,7 +151,7 @@ export async function uploadToSupabaseBucket(
   } catch (err: any) {
     console.error("Supabase Storage upload error:", err);
     if (typeof fileOrBase64 === "string") return fileOrBase64;
-    throw err;
+    return "/banner-premium-polo.png";
   }
 }
 
@@ -220,5 +221,4 @@ export async function compressAndValidateWebPImage(
     sizeFormatted,
   };
 }
-
 

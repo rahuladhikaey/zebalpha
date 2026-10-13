@@ -22,6 +22,8 @@ import {
   Star,
 } from "lucide-react";
 import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
+import { compressImageTo100KB } from "@shared/services";
+
 
 export interface CatalogVariant {
   id: string;
@@ -460,21 +462,27 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
   // ----------------------------------------------------------------------
   // COLOR-SPECIFIC IMAGE GALLERY
   // ----------------------------------------------------------------------
-  const handleUploadColorGalleryImages = (colorName: string, files: FileList | null) => {
+  const handleUploadColorGalleryImages = async (colorName: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files);
-    const readers = fileList.map((file) => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve((e.target?.result as string) || "");
-        reader.readAsDataURL(file);
-      });
+    const compressedPromises = fileList.map(async (file) => {
+      try {
+        const { blob } = await compressImageTo100KB(file, 150 * 1024);
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target?.result as string) || "");
+          reader.readAsDataURL(blob);
+        });
+      } catch {
+        return "";
+      }
     });
 
-    Promise.all(readers).then((dataUrls) => {
-      const validUrls = dataUrls.filter(Boolean);
-      if (validUrls.length === 0) return;
+    const dataUrls = await Promise.all(compressedPromises);
+    const validUrls = dataUrls.filter(Boolean);
+    if (validUrls.length === 0) return;
+
 
       const mainColName = (
         formData.default_color ||
