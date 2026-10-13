@@ -303,8 +303,9 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         </div>
         <p className="text-xs text-zinc-400 flex items-center gap-1">
           <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-          Upload high-resolution apparel photos (Front, Back, Fabric Detail, Model).
+          Upload product photos (Front, Back, Detail, Model) — <strong className="text-emerald-400">Strict Max 150 KB per photo</strong>.
         </p>
+
 
         {imageError && (
           <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
@@ -362,7 +363,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
                 <Upload className="w-5 h-5 text-white" />
               </div>
               <span className="text-xs font-medium text-zinc-300">Upload Image</span>
-              <span className="text-[10px] text-zinc-500">PNG, JPG up to 2MB</span>
+              <span className="text-[10px] text-emerald-400 font-semibold">WebP, PNG, JPG (Max 150KB)</span>
               <input
                 type="file"
                 accept="image/*"
