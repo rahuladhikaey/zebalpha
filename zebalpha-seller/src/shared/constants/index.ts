@@ -6,3 +6,6 @@ export const USER_ROLES = {
   SELLER: 'seller',
   SUPER_ADMIN: 'super_admin',
 } as const;
+
+export * from './productAttributeEngine';
+
