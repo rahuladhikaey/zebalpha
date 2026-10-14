@@ -5,12 +5,21 @@ import { createMasterOrder } from "@/lib/orderRouter";
 import crypto from "crypto";
 
 function verifySignature(orderId: string, paymentId: string, signature: string, secret: string): boolean {
+  if (!orderId || !paymentId || !signature || !secret) {
+    return false;
+  }
   try {
     const generatedSignature = crypto
       .createHmac("sha256", secret)
       .update(`${orderId}|${paymentId}`)
       .digest("hex");
-    return generatedSignature === signature;
+
+    const genBuf = Buffer.from(generatedSignature, "utf-8");
+    const sigBuf = Buffer.from(signature, "utf-8");
+    if (genBuf.length !== sigBuf.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(genBuf, sigBuf);
   } catch (err) {
     console.error("Signature verification error:", err);
     return false;
@@ -36,25 +45,31 @@ export async function POST(req: Request) {
 
     const secret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
 
-    if (!razorpay_payment_id) {
-      return NextResponse.json({ success: false, message: "Missing required payment identifier" }, { status: 400 });
-    }
-
-    // 1. Cryptographic HMAC verification
-    let isAuthentic = false;
-    if (razorpay_signature === "direct_checkout_verified" || String(razorpay_order_id).startsWith("order_")) {
-      isAuthentic = true;
-    } else if (razorpay_order_id && razorpay_signature) {
-      isAuthentic = verifySignature(
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature,
-        secret
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return NextResponse.json(
+        { success: false, message: "Missing required payment verification parameters (order_id, payment_id, signature required)." },
+        { status: 400 }
       );
     }
 
+    if (!secret) {
+      console.error("[Razorpay Security] RAZORPAY_KEY_SECRET is not configured on server.");
+      return NextResponse.json(
+        { success: false, message: "Payment verification service is not properly configured on server." },
+        { status: 500 }
+      );
+    }
+
+    // 1. Strict Cryptographic HMAC verification using constant-time comparison
+    const isAuthentic = verifySignature(
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      secret
+    );
+
     if (!isAuthentic) {
-      console.warn("Invalid Razorpay signature for order:", razorpay_order_id);
+      console.warn("[Razorpay Security] Invalid payment signature for order:", razorpay_order_id);
       return NextResponse.json({ success: false, message: "Invalid payment signature" }, { status: 400 });
     }
 
@@ -136,6 +151,15 @@ export async function POST(req: Request) {
       }
     }
 
+    // Calculate server-verified authoritative total amount
+    const computedSubtotal = items.reduce((sum: number, it: any) => {
+      const itemPrice = Number(it.price) || 0;
+      const itemQty = Math.max(1, Number(it.quantity) || 1);
+      return sum + itemPrice * itemQty;
+    }, 0);
+    const verifiedDiscount = Math.max(0, Math.min(Number(discount) || 0, computedSubtotal));
+    const authoritativeTotal = Math.max(0, computedSubtotal - verifiedDiscount);
+
     // 2. Create Master Order (splits per seller, decrements stock, creates notifications)
     let createdOrder: any = null;
     let isMasterOrderCreated = false;
@@ -146,10 +170,10 @@ export async function POST(req: Request) {
         phone,
         address,
         items,
-        total,
+        total: authoritativeTotal,
         payment_method: "ONLINE",
         coupon_code: couponCode || null,
-        discount_amount: Number(discount) || 0,
+        discount_amount: verifiedDiscount,
         razorpay_order_id,
         razorpay_payment_id,
         razorpay_signature,
@@ -184,7 +208,7 @@ export async function POST(req: Request) {
             address: typeof address === "string" ? address : JSON.stringify(address),
             items: items || [],
             product_details: items || [],
-            total_amount: Number(total) || 0,
+            total_amount: authoritativeTotal,
             payment_method: "ONLINE",
             payment_status: "COMPLETE",
             order_status: "placed",

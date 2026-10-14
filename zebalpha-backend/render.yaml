@@ -19,10 +19,10 @@ services:
       - key: API_BASE_URL
         value: https://api.zebalpha.shop
       - key: RAZORPAY_KEY_ID
-        value: rzp_test_ShRpqbs6hVT6Ie
+        sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
       - key: SHIPROCKET_EMAIL
-        value: zebalpha7@gmail.com
+        sync: false
       - key: SHIPROCKET_PASSWORD
         sync: false

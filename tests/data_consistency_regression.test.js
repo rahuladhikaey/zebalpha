@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://qjpahzstldiatfbutvfc.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODU1MzQwNiwiZXhwIjoyMTA0MTI5NDA2fQ.cxVZ_pEUu3pKXAyO5RRjLhp4Zusjd8RctWpZkL3rVWs';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qjpahzstldiatfbutvfc.supabase.co';
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || '').trim();
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const BACKEND_URL = 'https://api.zebalpha.shop';
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('[Security Notice] SUPABASE_SERVICE_ROLE_KEY is not set in environment variables. Tests requiring database access will be skipped or mock-handled.');
+}
+
+const supabase = SUPABASE_SERVICE_ROLE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) : null;
+const BACKEND_URL = process.env.BACKEND_URL || 'https://api.zebalpha.shop';
 
 async function runDataConsistencyTestSuite() {
   console.log("===============================================================================");

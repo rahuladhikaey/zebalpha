@@ -78,14 +78,14 @@ app.use(
       if (!origin) {
         return callback(null, true);
       }
-      if (
+      const isAllowed =
         ALLOWED_ORIGINS.includes(origin) ||
-        origin.endsWith('.zebalpha.shop') ||
         origin === 'https://zebalpha.shop' ||
-        origin.endsWith('.onrender.com') ||
-        origin.endsWith('.vercel.app') ||
-        origin.endsWith('.zebalpha.com')
-      ) {
+        origin.endsWith('.zebalpha.shop') ||
+        origin === 'https://zebalpha.com' ||
+        origin.endsWith('.zebalpha.com');
+
+      if (isAllowed) {
         return callback(null, true);
       }
       return callback(new Error(`CORS policy violation: Origin '${origin}' is not permitted.`));

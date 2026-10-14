@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import crypto from "crypto";
 
-async function verifySignature(orderId: string, paymentId: string, signature: string, secret: string) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(orderId + "|" + paymentId);
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const hmac = await crypto.subtle.sign("HMAC", key, data);
-  const digest = Array.from(new Uint8Array(hmac))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return digest === signature;
+function verifySignature(orderId: string, paymentId: string, signature: string, secret: string): boolean {
+  if (!orderId || !paymentId || !signature || !secret) return false;
+  try {
+    const generated = crypto.createHmac("sha256", secret).update(`${orderId}|${paymentId}`).digest("hex");
+    const genBuf = Buffer.from(generated, "utf-8");
+    const sigBuf = Buffer.from(signature, "utf-8");
+    if (genBuf.length !== sigBuf.length) return false;
+    return crypto.timingSafeEqual(genBuf, sigBuf);
+  } catch (err) {
+    console.error("Preorder signature verification error:", err);
+    return false;
+  }
 }
 
 export async function POST(req: Request) {

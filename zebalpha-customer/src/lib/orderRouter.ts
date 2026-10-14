@@ -136,6 +136,12 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
   const normPaymentMethod = String(payment_method || 'COD').toUpperCase();
   const isCodOrder = normPaymentMethod === 'COD' || normPaymentMethod.includes('CASH');
 
+  // Authoritative server-side total verification
+  const computedSubtotal = items.reduce((acc, it) => acc + (Number(it.price) || 0) * (Math.max(1, Number(it.quantity) || 1)), 0);
+  const validDiscount = Math.max(0, Math.min(Number(discount_amount) || 0, computedSubtotal));
+  const authoritativeTotal = Math.max(0, computedSubtotal - validDiscount);
+  const finalTotal = authoritativeTotal > 0 ? authoritativeTotal : (Number(total) || 0);
+
   // Stage 3: Parent Order Creation with Direct Payment Identifiers
   const tParentStart = Date.now();
   const { data: parentOrder, error: insertErr } = await supabaseServer.from('orders').insert([{
@@ -147,8 +153,8 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
     address,
     items: items,
     product_details: items,
-    total_amount: total,
-    discount_amount: Number(discount_amount) || 0,
+    total_amount: finalTotal,
+    discount_amount: validDiscount,
     notes: coupon_code ? `Coupon Applied: ${coupon_code}` : (notes || null),
     payment_method: isCodOrder ? 'COD' : normPaymentMethod,
     payment_status: isCodOrder ? 'PENDING' : 'COMPLETE',

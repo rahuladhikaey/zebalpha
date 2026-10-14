@@ -1,5 +1,6 @@
 import { HTTP_STATUS } from '../constants/index.js';
 import { supabaseA, supabaseB } from '../lib/supabase.js';
+import crypto from 'crypto';
 import {
   checkServiceability,
   pushOrderToShiprocket,
@@ -183,6 +184,20 @@ export const pushOrderHandler = async (req, res, next) => {
  */
 export const webhookHandler = async (req, res, next) => {
   try {
+    const webhookSecret = process.env.SHIPROCKET_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const rawToken = req.headers['x-shiprocket-token'] || req.headers['x-api-key'] || req.headers['authorization'] || '';
+      const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7).trim() : rawToken.trim();
+      const expBuf = Buffer.from(webhookSecret);
+      const provBuf = Buffer.from(token);
+      if (expBuf.length !== provBuf.length || !crypto.timingSafeEqual(expBuf, provBuf)) {
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+          success: false,
+          message: 'Unauthorized: Invalid or missing Shiprocket webhook secret.',
+        });
+      }
+    }
+
     const payload = req.body;
     console.log('[Shiprocket Webhook Event Received]:', JSON.stringify(payload));
 

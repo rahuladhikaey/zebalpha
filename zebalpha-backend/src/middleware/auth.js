@@ -33,6 +33,9 @@ export const authenticateJWT = async (req, res, next) => {
       role: decoded.role || 'customer',
       ...decoded
     };
+    if (decoded.sellerId || decoded.seller_id) {
+      req.sellerId = decoded.sellerId || decoded.seller_id;
+    }
     return next();
   } catch (internalJwtErr) {
     // 2. If internal verification fails, verify cryptographically against Supabase Auth service

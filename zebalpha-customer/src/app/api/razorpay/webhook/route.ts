@@ -1,22 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { sendWhatsAppOrderConfirmation } from '@/lib/whatsapp';
+import crypto from 'crypto';
 
-async function verifyWebhookSignature(bodyText: string, signature: string, secret: string) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(bodyText);
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const hmac = await crypto.subtle.sign('HMAC', key, data);
-  const digest = Array.from(new Uint8Array(hmac))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return digest === signature;
+function verifyWebhookSignature(bodyText: string, signature: string, secret: string): boolean {
+  if (!bodyText || !signature || !secret) return false;
+  try {
+    const generated = crypto.createHmac('sha256', secret).update(bodyText).digest('hex');
+    const genBuf = Buffer.from(generated, 'utf-8');
+    const sigBuf = Buffer.from(signature, 'utf-8');
+    if (genBuf.length !== sigBuf.length) return false;
+    return crypto.timingSafeEqual(genBuf, sigBuf);
+  } catch (err) {
+    console.error('Webhook signature verification error:', err);
+    return false;
+  }
 }
 
 export async function POST(req: Request) {

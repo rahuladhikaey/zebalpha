@@ -101,6 +101,15 @@ export async function POST(req: Request) {
       }
     }
 
+    // Calculate server-verified authoritative total amount
+    const computedSubtotal = items.reduce((sum: number, it: any) => {
+      const itemPrice = Number(it.price) || 0;
+      const itemQty = Math.max(1, Number(it.quantity) || 1);
+      return sum + itemPrice * itemQty;
+    }, 0);
+    const verifiedDiscount = Math.max(0, Math.min(Number(discount) || 0, computedSubtotal));
+    const authoritativeTotal = Math.max(0, computedSubtotal - verifiedDiscount);
+
     // Delegate to master order creation which handles splitting, reservation and notifications
     const parentOrder = await createMasterOrder({
       user_id,
@@ -108,10 +117,10 @@ export async function POST(req: Request) {
       phone,
       address,
       items,
-      total,
+      total: authoritativeTotal,
       payment_method: 'COD',
       coupon_code: couponCode || null,
-      discount_amount: Number(discount) || 0,
+      discount_amount: verifiedDiscount,
       verifiedProductsMap: dbProductsMap,
     });
 
@@ -121,7 +130,7 @@ export async function POST(req: Request) {
         phone,
         orderId: parentOrder.id,
         customerName: customer_name,
-        totalAmount: total,
+        totalAmount: authoritativeTotal,
         items: items || [],
       }).catch((waError) => console.error("WhatsApp notification error:", waError));
     }

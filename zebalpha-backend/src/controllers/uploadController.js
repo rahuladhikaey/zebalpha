@@ -66,12 +66,19 @@ export const deleteSellerProductImage = async (req, res, next) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Cloudinary public_id required.' });
     }
 
-    // Update Supabase B Inventory table
-    if (productId && sellerId) {
+    const isSuperAdmin = req.user?.role === 'super_admin' || req.user?.role === 'admin';
+    const effectiveSellerId = isSuperAdmin ? (sellerId || req.sellerId) : (req.sellerId || req.user?.sellerId || req.user?.id);
+
+    if (!effectiveSellerId) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, message: 'Seller authentication required.' });
+    }
+
+    // Update Supabase B Inventory table strictly for caller's own seller record
+    if (productId) {
       await supabaseB
         .from('inventory')
         .update({ image_url: null, updated_at: new Date().toISOString() })
-        .match({ seller_id: sellerId, product_id: productId });
+        .match({ seller_id: effectiveSellerId, product_id: productId });
     }
 
     res.status(HTTP_STATUS.OK).json({

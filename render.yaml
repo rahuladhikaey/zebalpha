@@ -30,11 +30,11 @@ services:
       - key: RAZORPAY_KEY_SECRET
         sync: false
       - key: NEXT_PUBLIC_EMAILJS_SERVICE_ID
-        value: service_5apvm6b
+        sync: false
       - key: NEXT_PUBLIC_EMAILJS_TEMPLATE_ID
-        value: template_hhuloji
+        sync: false
       - key: NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
-        value: ZR5LIJWz_4EsCSc_a
+        sync: false
 
   # 2. Seller Merchant Portal (Next.js)
   - type: web
@@ -61,11 +61,11 @@ services:
       - key: NEXT_PUBLIC_API_BASE_URL
         value: https://api.zebalpha.shop
       - key: NEXT_PUBLIC_EMAILJS_SERVICE_ID
-        value: service_5apvm6b
+        sync: false
       - key: NEXT_PUBLIC_EMAILJS_TEMPLATE_ID
-        value: template_hhuloji
+        sync: false
       - key: NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
-        value: ZR5LIJWz_4EsCSc_a
+        sync: false
 
   # 3. Super Admin Management Portal (Next.js)
   - type: web

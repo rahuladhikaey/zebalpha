@@ -7,16 +7,37 @@ function isValidJwt(token?: string): boolean {
 }
 
 const VERIFIED_URL = "https://qjpahzstldiatfbutvfc.supabase.co";
-const VERIFIED_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || VERIFIED_URL;
-const supabaseAnonKey = isValidJwt(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! : VERIFIED_ANON_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || supabaseAnonKey;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || "").trim();
+
+let _serverClient: any = null;
+function getSupabaseServerInstance() {
+  if (!_serverClient) {
+    if (!supabaseServiceKey) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("[Security Alert] SUPABASE_SERVICE_ROLE_KEY is required for privileged server operations but is not configured.");
+      }
+      console.warn("[Security Alert] SUPABASE_SERVICE_ROLE_KEY is missing. Insecure fallback prevented.");
+      _serverClient = createClient(supabaseUrl, "unconfigured_service_role_key");
+    } else {
+      _serverClient = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      });
+    }
+  }
+  return _serverClient;
+}
 
 // Service role client to bypass RLS in secure server-side logic
-export const supabaseServer = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
+export const supabaseServer = new Proxy({} as any, {
+  get(_target, prop) {
+    const client = getSupabaseServerInstance();
+    const val = client[prop];
+    return typeof val === "function" ? val.bind(client) : val;
   }
 });
 

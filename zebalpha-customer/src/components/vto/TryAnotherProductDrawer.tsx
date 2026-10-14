@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Product } from "@/lib/types";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 import { Search, X, Shirt, Loader2, Sparkles } from "lucide-react";
 
 interface TryAnotherProductDrawerProps {
@@ -10,11 +10,6 @@ interface TryAnotherProductDrawerProps {
   onSelectProduct: (product: Product) => void;
   onClose: () => void;
 }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://qjpahzstldiatfbutvfc.supabase.co",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI"
-);
 
 export function TryAnotherProductDrawer({
   currentProductId,

@@ -211,7 +211,13 @@ function PreOrderContent() {
         orderData.key || 
         orderData.keyId || 
         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 
-        "rzp_test_ShRpqbs6hVT6Ie";
+        "";
+
+      if (!activeRazorpayKey) {
+        setMessage("Payment gateway configuration missing. Please contact support.");
+        setSaving(false);
+        return;
+      }
 
       const options = {
         key: activeRazorpayKey,

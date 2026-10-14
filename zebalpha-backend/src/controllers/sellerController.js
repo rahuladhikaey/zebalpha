@@ -1,5 +1,6 @@
 import { supabaseB } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
+import crypto from 'crypto';
 
 /**
  * Seller Registration (Enterprise Zero-Trust)
@@ -189,8 +190,17 @@ export const purgeExpiredDeletions = async (req, res, next) => {
   try {
     const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
     const cronSecret = process.env.CRON_SECRET;
-    const providedSecret = req.headers['authorization'] || req.headers['x-cron-secret'];
-    const isSecretValid = cronSecret && (providedSecret === cronSecret || providedSecret === `Bearer ${cronSecret}`);
+    const rawHeader = req.headers['authorization'] || req.headers['x-cron-secret'] || '';
+    const provided = rawHeader.startsWith('Bearer ') ? rawHeader.slice(7).trim() : rawHeader.trim();
+
+    let isSecretValid = false;
+    if (cronSecret && provided) {
+      const expBuf = Buffer.from(cronSecret);
+      const provBuf = Buffer.from(provided);
+      if (expBuf.length === provBuf.length && crypto.timingSafeEqual(expBuf, provBuf)) {
+        isSecretValid = true;
+      }
+    }
 
     if (!isSuperAdmin && !isSecretValid) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({

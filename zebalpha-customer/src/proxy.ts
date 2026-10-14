@@ -13,6 +13,43 @@ const ratelimit = redis
     })
   : null;
 
+// Trusted Origins Whitelist for CORS
+const ALLOWED_ORIGINS = [
+  'https://zebalpha.shop',
+  'https://www.zebalpha.shop',
+  'https://seller.zebalpha.shop',
+  'https://adm.in.zebalpha.shop',
+  'https://admin.zebalpha.shop',
+  'https://api.zebalpha.shop',
+  'https://zebalpha.com',
+  'https://www.zebalpha.com',
+  'https://seller.zebalpha.com',
+  'https://admin.zebalpha.com',
+  'https://api.zebalpha.com',
+  'https://zebalpha-zebalpha-customer.vercel.app',
+  'https://zebalpha-zebalpha-seller.vercel.app',
+  'https://zebalpha-zebalpha-superadmin.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+];
+
+function isOriginAllowed(origin: string): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (origin.endsWith('.zebalpha.shop') || origin.endsWith('.zebalpha.com')) return true;
+  return false;
+}
+
+function applyCorsHeaders(headers: Headers, origin: string) {
+  if (isOriginAllowed(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin);
+    headers.set('Access-Control-Allow-Credentials', 'true');
+    headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+  }
+}
+
 // Routes that require standard user authentication
 const protectedUserRoutes = [
   '/profile',
@@ -29,10 +66,7 @@ export async function proxy(request: NextRequest) {
   if (request.method === 'OPTIONS') {
     const origin = request.headers.get('origin') || '';
     const preflightResponse = new NextResponse(null, { status: 200 });
-    preflightResponse.headers.set('Access-Control-Allow-Origin', origin || '*');
-    preflightResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    preflightResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
-    preflightResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+    applyCorsHeaders(preflightResponse.headers, origin);
     return preflightResponse;
   }
 
@@ -104,10 +138,7 @@ export async function proxy(request: NextRequest) {
   if (isPublicCatalogRoute && !isProtectedUserRoute && !isProtectedApiRoute && !pathname.startsWith('/api/')) {
     const response = NextResponse.next({ request });
     const origin = request.headers.get('origin') || '';
-    response.headers.set('Access-Control-Allow-Origin', origin || '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    applyCorsHeaders(response.headers, origin);
     return response;
   }
 
@@ -129,12 +160,9 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Add CORS headers
+  // Add CORS headers safely
   const origin = request.headers.get('origin') || '';
-  response.headers.set('Access-Control-Allow-Origin', origin || '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
-  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  applyCorsHeaders(response.headers, origin);
 
   return response;
 }

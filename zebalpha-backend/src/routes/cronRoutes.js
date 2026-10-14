@@ -22,17 +22,12 @@ const verifyCronSecret = (req, res, next) => {
   }
 
   const rawHeader = req.headers['authorization'] || req.headers['x-cron-secret'] || '';
-  const querySecret = req.query?.secret || '';
-  let provided = querySecret;
-
-  if (!provided) {
-    provided = rawHeader.startsWith('Bearer ') ? rawHeader.slice(7).trim() : rawHeader.trim();
-  }
+  const provided = rawHeader.startsWith('Bearer ') ? rawHeader.slice(7).trim() : rawHeader.trim();
 
   if (!provided) {
     return res.status(HTTP_STATUS.UNAUTHORIZED).json({
       success: false,
-      message: 'Unauthorized: Missing cron authentication secret. Provide via Authorization header or ?secret= parameter.'
+      message: 'Unauthorized: Missing cron authentication secret. Provide via Authorization or x-cron-secret header.'
     });
   }
 

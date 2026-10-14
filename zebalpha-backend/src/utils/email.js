@@ -10,9 +10,9 @@ import axios from 'axios';
  * @returns {Promise<boolean>} - Success status
  */
 export async function sendSellerStatusEmail(toEmail, subject, messageHtml, attachmentUrl = null, attachmentName = 'receipt.pdf') {
-  const serviceId = (process.env.EMAILJS_SERVICE_ID || process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'service_5apvm6b').trim();
-  const templateId = (process.env.EMAILJS_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || 'template_hhuloji').trim();
-  const publicKey = (process.env.EMAILJS_PUBLIC_KEY || process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || 'ZR5LIJWz_4EsCSc_a').trim();
+  const serviceId = (process.env.EMAILJS_SERVICE_ID || process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '').trim();
+  const templateId = (process.env.EMAILJS_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '').trim();
+  const publicKey = (process.env.EMAILJS_PUBLIC_KEY || process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '').trim();
 
   if (!serviceId || !templateId || !publicKey) {
     console.warn('[EmailJS Warning] EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, or EMAILJS_PUBLIC_KEY is not configured in environment.');

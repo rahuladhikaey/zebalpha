@@ -92,8 +92,9 @@ router.post('/create-order', async (req, res, next) => {
     res.json = function (body) {
       if (body && body.success && body.orderId) {
         body.id = body.orderId;
-        body.key = body.key || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie';
-        body.keyId = body.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie';
+        const rzpKey = (process.env.RAZORPAY_KEY_ID || config.razorpay?.keyId || '').trim();
+        body.key = body.key || rzpKey;
+        body.keyId = body.keyId || rzpKey;
       }
       return originalJson.call(this, body);
     };

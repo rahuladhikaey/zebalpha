@@ -461,7 +461,13 @@ export default function CardsPage() {
         orderData.key || 
         orderData.keyId || 
         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 
-        "rzp_test_ShRpqbs6hVT6Ie";
+        "";
+
+      if (!activeRazorpayKey) {
+        setFormError("Payment gateway configuration missing. Please contact support.");
+        setIsSubmitting(false);
+        return;
+      }
 
       const options = {
         key: activeRazorpayKey,

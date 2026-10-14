@@ -9,19 +9,49 @@ const supabaseUrl =
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI";
+  "";
+
+// Trusted Origins Whitelist for CORS
+const ALLOWED_ORIGINS = [
+  "https://zebalpha.shop",
+  "https://www.zebalpha.shop",
+  "https://seller.zebalpha.shop",
+  "https://adm.in.zebalpha.shop",
+  "https://admin.zebalpha.shop",
+  "https://api.zebalpha.shop",
+  "https://zebalpha.com",
+  "https://www.zebalpha.com",
+  "https://seller.zebalpha.com",
+  "https://admin.zebalpha.com",
+  "https://api.zebalpha.com",
+  "https://zebalpha-zebalpha-customer.vercel.app",
+  "https://zebalpha-zebalpha-seller.vercel.app",
+  "https://zebalpha-zebalpha-superadmin.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+];
+
+function isOriginAllowed(origin: string): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (origin.endsWith(".zebalpha.shop") || origin.endsWith(".zebalpha.com")) return true;
+  return false;
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Handle CORS preflight requests
   if (request.method === "OPTIONS") {
-    const origin = request.headers.get("origin") || "*";
+    const origin = request.headers.get("origin") || "";
     const preflightResponse = new NextResponse(null, { status: 200 });
-    preflightResponse.headers.set("Access-Control-Allow-Origin", origin);
-    preflightResponse.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    preflightResponse.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-api-key");
-    preflightResponse.headers.set("Access-Control-Allow-Credentials", "true");
+    if (isOriginAllowed(origin)) {
+      preflightResponse.headers.set("Access-Control-Allow-Origin", origin);
+      preflightResponse.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      preflightResponse.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-api-key");
+      preflightResponse.headers.set("Access-Control-Allow-Credentials", "true");
+    }
     return preflightResponse;
   }
 

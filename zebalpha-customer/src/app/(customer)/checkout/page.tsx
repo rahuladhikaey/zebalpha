@@ -740,15 +740,23 @@ function CheckoutContent() {
           }
         }
 
-        const razorpayOrderId = orderData?.id || orderData?.orderId || `order_${Date.now()}`;
+        const razorpayOrderId = orderData?.id || orderData?.orderId;
+        if (!razorpayOrderId) {
+          setMessage(createOrderError || "Unable to initiate payment session with gateway. Please choose Cash on Delivery or try again.");
+          setSaving(false);
+          return;
+        }
+
         const amountInPaise = orderData?.amount || Math.round(grandTotal * 100);
 
-        // Active Razorpay key with multi-layer fallback
-        const activeRazorpayKey = 
-          (orderData?.key || 
-          orderData?.keyId || 
-          process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 
-          "rzp_test_ShRpqbs6hVT6Ie").trim();
+        // Active Razorpay key
+        const activeRazorpayKey = (orderData?.key || orderData?.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "").trim();
+
+        if (!activeRazorpayKey) {
+          setMessage("Payment gateway configuration error. Please select Cash on Delivery.");
+          setSaving(false);
+          return;
+        }
 
         const options: any = {
           key: activeRazorpayKey,
@@ -756,7 +764,7 @@ function CheckoutContent() {
           currency: orderData?.currency || "INR",
           name: "ZEBALPHA",
           description: "ZEBALPHA Order Payment",
-          order_id: razorpayOrderId.startsWith("order_") ? undefined : razorpayOrderId,
+          order_id: razorpayOrderId,
           prefill: {
             name: name,
             contact: phone,
@@ -766,10 +774,16 @@ function CheckoutContent() {
           },
           handler: async function (response: any) {
             try {
+              if (!response?.razorpay_signature || !response?.razorpay_payment_id) {
+                setMessage("Payment verification incomplete: Missing signature from gateway.");
+                setSaving(false);
+                return;
+              }
+
               const verifyPayload = {
                 razorpay_order_id: response.razorpay_order_id || razorpayOrderId,
-                razorpay_payment_id: response.razorpay_payment_id || `pay_${Date.now()}`,
-                razorpay_signature: response.razorpay_signature || "direct_checkout_verified",
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
                 customer_name: name,
                 phone: phone,
                 address: fullAddress,

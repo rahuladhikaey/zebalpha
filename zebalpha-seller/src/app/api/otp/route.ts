@@ -20,9 +20,14 @@ function generateExpiry(): number {
 
 async function sendEmailJsOtp(email: string, otp: string): Promise<boolean> {
   try {
-    const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_5apvm6b";
-    const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_hhuloji";
-    const userId = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "ZR5LIJWz_4EsCSc_a";
+    const serviceId = (process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || process.env.EMAILJS_SERVICE_ID || "").trim();
+    const templateId = (process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || process.env.EMAILJS_TEMPLATE_ID || "").trim();
+    const userId = (process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || process.env.EMAILJS_PUBLIC_KEY || "").trim();
+
+    if (!serviceId || !templateId || !userId) {
+      console.warn("[EmailJS Notice] EmailJS credentials not configured on server.");
+      return false;
+    }
 
     const timeStr = new Date().toLocaleTimeString("en-US", {
       hour: "numeric",

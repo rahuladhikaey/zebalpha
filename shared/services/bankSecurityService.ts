@@ -6,9 +6,8 @@ import crypto from "crypto";
  * anti-tamper verification, and rate limiting for seller financial data.
  */
 
-// Secret salt used for key derivation if BANK_ENCRYPTION_KEY is not explicitly set
+// Secret salt used for key derivation if BANK_ENCRYPTION_KEY is not a 64-char hex key
 const VAULT_SALT = "zebalpha_seller_bank_vault_salt_2026";
-const MASTER_SECRET = process.env.BANK_ENCRYPTION_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "zebalpha-enterprise-bank-vault-master-key-998877";
 
 /**
  * Derives a deterministic 256-bit (32-byte) AES key using PBKDF2-HMAC-SHA256
@@ -17,7 +16,11 @@ function getDerivedKey(): Buffer {
   if (process.env.BANK_ENCRYPTION_KEY && process.env.BANK_ENCRYPTION_KEY.length === 64) {
     return Buffer.from(process.env.BANK_ENCRYPTION_KEY, "hex");
   }
-  return crypto.pbkdf2Sync(MASTER_SECRET, VAULT_SALT, 100000, 32, "sha256");
+  const masterSecret = (process.env.BANK_ENCRYPTION_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!masterSecret) {
+    throw new Error("CRITICAL SECURITY ERROR: Neither BANK_ENCRYPTION_KEY nor SUPABASE_SERVICE_ROLE_KEY is configured. Bank vault operations require a valid key in environment variables.");
+  }
+  return crypto.pbkdf2Sync(masterSecret, VAULT_SALT, 100000, 32, "sha256");
 }
 
 /**
@@ -37,7 +40,54 @@ export function encryptAccountNumber(accountNumber: string): string {
 }
 
 /**
+ * Returns an array of candidate decryption keys to enable zero-downtime key rotation
+ * and seamless decryption of legacy records encrypted before BANK_ENCRYPTION_KEY was set.
+ */
+function getCandidateDecryptionKeys(): Buffer[] {
+  const keys: Buffer[] = [];
+  const seenHex = new Set<string>();
+
+  function addKey(buf: Buffer | null) {
+    if (buf && buf.length === 32) {
+      const hex = buf.toString("hex");
+      if (!seenHex.has(hex)) {
+        seenHex.add(hex);
+        keys.push(buf);
+      }
+    }
+  }
+
+  // 1. Primary configured key
+  try {
+    addKey(getDerivedKey());
+  } catch {}
+
+  // 2. Explicit legacy/previous keys if specified
+  const prevKey = (process.env.PREVIOUS_BANK_ENCRYPTION_KEY || process.env.LEGACY_BANK_ENCRYPTION_KEY || "").trim();
+  if (prevKey) {
+    if (prevKey.length === 64) {
+      addKey(Buffer.from(prevKey, "hex"));
+    } else {
+      addKey(crypto.pbkdf2Sync(prevKey, VAULT_SALT, 100000, 32, "sha256"));
+    }
+  }
+
+  // 3. Supabase service role key (if used previously)
+  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || "").trim();
+  if (serviceKey) {
+    addKey(crypto.pbkdf2Sync(serviceKey, VAULT_SALT, 100000, 32, "sha256"));
+  }
+
+  // 4. Historical default key for backward compatibility during migration
+  const LEGACY_DEFAULT_MASTER = "zebalpha-enterprise-bank-vault-master-key-998877";
+  addKey(crypto.pbkdf2Sync(LEGACY_DEFAULT_MASTER, VAULT_SALT, 100000, 32, "sha256"));
+
+  return keys;
+}
+
+/**
  * Decrypts an encrypted account number payload.
+ * Supports multi-key resolution: tries active key first, then fallback keys.
  * Throws an error if tampered with or corrupted (Authentication failure).
  */
 export function decryptAccountNumber(encryptedPayload: string): string {
@@ -53,13 +103,35 @@ export function decryptAccountNumber(encryptedPayload: string): string {
   const iv = Buffer.from(parts[2], "hex");
   const authTag = Buffer.from(parts[3], "hex");
   const ciphertext = Buffer.from(parts[4], "hex");
-  const key = getDerivedKey();
 
-  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
-  decipher.setAuthTag(authTag);
+  const candidateKeys = getCandidateDecryptionKeys();
+  if (candidateKeys.length === 0) {
+    throw new Error("No decryption keys available to decrypt bank account number.");
+  }
 
-  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-  return decrypted.toString("utf8");
+  let lastError: Error | null = null;
+  for (const key of candidateKeys) {
+    try {
+      const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+      decipher.setAuthTag(authTag);
+      const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+      return decrypted.toString("utf8");
+    } catch (err: any) {
+      lastError = err;
+      // In AES-GCM, incorrect key fails authTag verification; try next candidate key
+    }
+  }
+
+  throw new Error(`Authentication failure: Unable to decrypt bank account payload with any configured or legacy keys (${lastError?.message || 'GCM auth failure'})`);
+}
+
+/**
+ * Re-encrypts an old encrypted bank account payload with the current primary key.
+ * Used for zero-downtime key rotation.
+ */
+export function reEncryptAccountNumber(encryptedPayload: string): string {
+  const plaintext = decryptAccountNumber(encryptedPayload);
+  return encryptAccountNumber(plaintext);
 }
 
 /**

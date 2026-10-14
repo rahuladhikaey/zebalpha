@@ -88,8 +88,18 @@ export const getPayoutRequests = async (req, res, next) => {
       query = query.in('status', ['PENDING', 'PROCESSING']).lte('created_at', thirtyMinutesAgo);
     }
 
-    if (sellerId) {
-      query = query.eq('seller_id', sellerId);
+    const isSuperAdmin = req.user?.role === 'super_admin' || req.user?.role === 'admin';
+    const effectiveSellerId = isSuperAdmin ? sellerId : (req.sellerId || req.user?.sellerId || req.user?.id);
+
+    if (!isSuperAdmin && !effectiveSellerId) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Forbidden: Seller identity could not be verified.'
+      });
+    }
+
+    if (effectiveSellerId) {
+      query = query.eq('seller_id', effectiveSellerId);
     }
 
     if (startDate) {
@@ -157,6 +167,15 @@ export const getPayoutDetails = async (req, res, next) => {
 
     if (pErr || !payout) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: 'Payout record not found' });
+    }
+
+    const isSuperAdmin = req.user?.role === 'super_admin' || req.user?.role === 'admin';
+    const callerSellerId = req.sellerId || req.user?.sellerId || req.user?.id;
+    if (!isSuperAdmin && String(payout.seller_id) !== String(callerSellerId)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Access denied: You do not have permission to view this payout record.'
+      });
     }
 
     // Fetch related ledger transactions
@@ -255,6 +274,15 @@ export const getPayoutDetails = async (req, res, next) => {
 export const getSellerFinancialDetails = async (req, res, next) => {
   try {
     const { sellerId } = req.params;
+
+    const isSuperAdmin = req.user?.role === 'super_admin' || req.user?.role === 'admin';
+    const callerSellerId = req.sellerId || req.user?.sellerId || req.user?.id;
+    if (!isSuperAdmin && String(sellerId) !== String(callerSellerId)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Access denied: You do not have permission to view financials for this seller.'
+      });
+    }
 
     // 1. Fetch seller profile
     const { data: seller, error: sErr } = await supabaseA
