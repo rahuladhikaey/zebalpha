@@ -138,11 +138,16 @@ export function isValidUpiFormat(vpa: string): boolean {
   return upiRegex.test(clean);
 }
 
+const RAZORPAY_ACCOUNT_NUMBER = (process.env.RAZORPAY_ACCOUNT_NUMBER || process.env.RAZORPAYX_ACCOUNT_NUMBER || "").trim();
+
 /**
  * Real-time UPI VPA Verification via Razorpay banking validation API
  * Performs conservative Beneficiary Name Matching against seller's registered legal/business name.
  */
-export async function verifyUpiWithProvider(vpa: string, sellerName?: string): Promise<UpiVerificationResult> {
+export async function verifyUpiWithProvider(
+  vpa: string, 
+  sellerNameOrCandidates?: string | string[]
+): Promise<UpiVerificationResult> {
   const cleanVpa = String(vpa || "").trim().toLowerCase();
 
   // 1. Initial Format Verification
@@ -160,6 +165,13 @@ export async function verifyUpiWithProvider(vpa: string, sellerName?: string): P
 
   const masked = maskUpiId(cleanVpa);
 
+  // Normalize candidate names
+  const candidateNames: string[] = Array.isArray(sellerNameOrCandidates)
+    ? sellerNameOrCandidates.map(n => String(n || '').trim()).filter(Boolean)
+    : sellerNameOrCandidates
+      ? [String(sellerNameOrCandidates).trim()].filter(Boolean)
+      : [];
+
   // 2. Query Razorpay VPA Validation Endpoint
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
     return {
@@ -173,29 +185,179 @@ export async function verifyUpiWithProvider(vpa: string, sellerName?: string): P
     };
   }
 
+  const isTestMode = RAZORPAY_KEY_ID.startsWith("rzp_test_");
+
   try {
     const basicAuth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64");
-    const endpoint = `https://api.razorpay.com/v1/payments/validate/vpa?vpa=${encodeURIComponent(cleanVpa)}`;
 
-    const response = await fetch(endpoint, {
-      method: "GET",
-      headers: {
-        Authorization: `Basic ${basicAuth}`,
-        "Content-Type": "application/json"
-      },
-      cache: "no-store"
-    });
+    // 3. Register or Retrieve Contact on RazorpayX
+    const primaryName = candidateNames[0] || "Zebalpha Seller";
+    const refId = `sel_${cleanVpa.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30)}`;
 
-    const data = await response.json();
+    let contactId = "";
+    try {
+      const contactRes = await fetch("https://api.razorpay.com/v1/contacts", {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: primaryName,
+          type: "vendor",
+          reference_id: refId,
+          notes: { purpose: "seller_settlement", vpa: cleanVpa }
+        })
+      });
+      const contactData = await contactRes.json();
+      if (contactRes.ok && contactData?.id) {
+        contactId = contactData.id;
+      }
+    } catch (cErr) {
+      console.warn("[Razorpay Contact Info]:", cErr);
+    }
 
-    // 3. Strict Validation against Razorpay NPCI Banking Rails
-    if (response.ok && data && data.success === true && data.customer_name) {
-      const customerName = String(data.customer_name).trim();
+    // 4. Create Fund Account for VPA
+    let fundAccountId = "";
+    let providerRef = `vpa_${Date.now()}`;
+
+    if (contactId) {
+      try {
+        const faRes = await fetch("https://api.razorpay.com/v1/fund_accounts", {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${basicAuth}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            contact_id: contactId,
+            account_type: "vpa",
+            vpa: { address: cleanVpa }
+          })
+        });
+        const faData = await faRes.json();
+        if (faRes.ok && faData?.id) {
+          fundAccountId = faData.id;
+          providerRef = faData.id;
+        } else if (faData?.error) {
+          const desc = faData.error.description || "";
+          if (desc.toLowerCase().includes("vpa") || desc.toLowerCase().includes("address") || desc.toLowerCase().includes("invalid")) {
+            return {
+              success: false,
+              verified: false,
+              vpa: cleanVpa,
+              verifiedName: null,
+              maskedVpa: masked,
+              verificationStatus: 'inactive',
+              error: desc || "Invalid UPI address or handle is not recognized on banking network."
+            };
+          }
+        }
+      } catch (fErr) {
+        console.warn("[Razorpay Fund Account Info]:", fErr);
+      }
+    }
+
+    // 5. Beneficiary Name Lookup / Validation
+    let customerName = "";
+
+    // Rail A: Live FAV (Fund Account Validation penny drop) if in Live Mode and account number configured
+    if (!isTestMode && fundAccountId && RAZORPAY_ACCOUNT_NUMBER) {
+      try {
+        const favRes = await fetch("https://api.razorpay.com/v1/fund_accounts/validations", {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${basicAuth}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            account_number: RAZORPAY_ACCOUNT_NUMBER,
+            fund_account: { id: fundAccountId },
+            amount: 100,
+            currency: "INR"
+          })
+        });
+        const favData = await favRes.json();
+        if (favRes.ok) {
+          customerName = favData.results?.registered_name || favData.results?.beneficiary_name || "";
+        }
+      } catch (favErr) {
+        console.warn("[Razorpay FAV Live Error]:", favErr);
+      }
+    }
+
+    // Rail B: Live POST validate/vpa if standard payment gateway endpoint is enabled
+    if (!isTestMode && !customerName) {
+      try {
+        const vpaRes = await fetch("https://api.razorpay.com/v1/payments/validate/vpa", {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${basicAuth}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ vpa: cleanVpa })
+        });
+        const vpaData = await vpaRes.json();
+        if (vpaRes.ok && vpaData?.success && vpaData?.customer_name) {
+          customerName = String(vpaData.customer_name).trim();
+        } else if (vpaData?.success === false) {
+          return {
+            success: false,
+            verified: false,
+            vpa: cleanVpa,
+            verifiedName: null,
+            maskedVpa: masked,
+            verificationStatus: 'inactive',
+            error: "UPI ID verification failed. This handle is inactive or not registered on NPCI rails."
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Rail C: Test Mode Simulation for rzp_test_ keys
+    if (isTestMode && !customerName) {
+      if (cleanVpa.includes("mismatch") || cleanVpa.includes("fake")) {
+        customerName = "Unregistered Third Party";
+      } else if (cleanVpa.includes("inactive") || cleanVpa.includes("blocked")) {
+        return {
+          success: false,
+          verified: false,
+          vpa: cleanVpa,
+          verifiedName: null,
+          maskedVpa: masked,
+          verificationStatus: 'inactive',
+          error: "UPI ID is inactive on NPCI banking network."
+        };
+      } else if (cleanVpa.includes("review")) {
+        customerName = (candidateNames[0] || "Seller") + " Enterprise Trading";
+      } else {
+        // Preferred candidate: owner_name or full_name (e.g. "Rahul Adhikary") over store name
+        customerName = candidateNames.find(n => !n.toLowerCase().includes("zebalpha")) || candidateNames[0] || "Rahul Adhikary";
+      }
+    }
+
+    // 6. Name Matching Engine against Candidate Names
+    if (customerName) {
       const maskedName = maskBeneficiaryName(customerName);
 
-      if (sellerName) {
-        const matchRes = matchBeneficiaryName(sellerName, customerName);
-        if (matchRes.match) {
+      if (candidateNames.length > 0) {
+        let bestMatch: any = null;
+        let bestCandidate = candidateNames[0];
+
+        for (const candidate of candidateNames) {
+          const matchRes = matchBeneficiaryName(candidate, customerName);
+          if (matchRes.match) {
+            bestMatch = matchRes;
+            bestCandidate = candidate;
+            break; // Immediate match found!
+          }
+          if (!bestMatch || (matchRes.score > (bestMatch.score || 0))) {
+            bestMatch = matchRes;
+            bestCandidate = candidate;
+          }
+        }
+
+        if (bestMatch && bestMatch.match) {
           return {
             success: true,
             verified: true,
@@ -203,11 +365,11 @@ export async function verifyUpiWithProvider(vpa: string, sellerName?: string): P
             verifiedName: customerName,
             beneficiaryNameMasked: maskedName,
             verificationStatus: 'verified',
-            matchResult: matchRes,
+            matchResult: bestMatch,
             maskedVpa: masked,
-            providerReference: data.id || `vpa_${Date.now()}`
+            providerReference: providerRef
           };
-        } else if (matchRes.isReview) {
+        } else if (bestMatch && bestMatch.isReview) {
           return {
             success: false,
             verified: false,
@@ -215,10 +377,10 @@ export async function verifyUpiWithProvider(vpa: string, sellerName?: string): P
             verifiedName: customerName,
             beneficiaryNameMasked: maskedName,
             verificationStatus: 'manual_review',
-            matchResult: matchRes,
+            matchResult: bestMatch,
             maskedVpa: masked,
-            providerReference: data.id || `vpa_${Date.now()}`,
-            error: matchRes.reason
+            providerReference: providerRef,
+            error: bestMatch.reason || `Partial name match between "${customerName}" and "${bestCandidate}". Submitted for manual review.`
           };
         } else {
           return {
@@ -228,10 +390,10 @@ export async function verifyUpiWithProvider(vpa: string, sellerName?: string): P
             verifiedName: customerName,
             beneficiaryNameMasked: maskedName,
             verificationStatus: 'name_mismatch',
-            matchResult: matchRes,
+            matchResult: bestMatch,
             maskedVpa: masked,
-            providerReference: data.id || `vpa_${Date.now()}`,
-            error: matchRes.reason
+            providerReference: providerRef,
+            error: `Name Mismatch: Bank account name "${customerName}" does not match registered name "${bestCandidate}". Payouts require matching names.`
           };
         }
       }
@@ -244,32 +406,21 @@ export async function verifyUpiWithProvider(vpa: string, sellerName?: string): P
         beneficiaryNameMasked: maskedName,
         verificationStatus: 'verified',
         maskedVpa: masked,
-        providerReference: data.id || `vpa_${Date.now()}`
+        providerReference: providerRef
       };
     }
 
-    // Explicit banking failure or invalid VPA handle
-    if (data && data.success === false) {
+    // In Live Mode: if neither FAV nor validate/vpa returned a name, but fund account was created
+    if (!isTestMode && fundAccountId) {
       return {
         success: false,
         verified: false,
         vpa: cleanVpa,
         verifiedName: null,
         maskedVpa: masked,
-        verificationStatus: 'inactive',
-        error: "UPI ID verification failed. This handle is invalid or not registered on the banking network."
-      };
-    }
-
-    if (data && data.error) {
-      return {
-        success: false,
-        verified: false,
-        vpa: cleanVpa,
-        verifiedName: null,
-        maskedVpa: masked,
-        verificationStatus: 'failed',
-        error: data.error.description || data.error.message || "UPI ID verification failed on banking network."
+        verificationStatus: 'manual_review',
+        providerReference: fundAccountId,
+        error: "Real-time bank beneficiary validation is pending with RazorpayX. Account registered and submitted for manual review."
       };
     }
 

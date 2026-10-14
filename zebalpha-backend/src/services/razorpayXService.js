@@ -309,6 +309,13 @@ export async function createVpaFundAccount(contactId, vpa) {
 export async function validateUpiAccount({ contactId, fundAccountId, vpa, seller }) {
   const { keyId, accountNumber } = getRazorpayXCredentials();
   const sellerLegalName = seller.owner_name || seller.full_name || seller.business_name || '';
+  const candidateNames = Array.from(new Set([
+    seller.owner_name,
+    seller.full_name,
+    seller.business_name
+  ].map(n => String(n || '').trim()).filter(Boolean)));
+
+  const isTestMode = !keyId || keyId.startsWith('rzp_test_');
 
   // Mock fallback if keys not provided
   if (!keyId) {
@@ -330,7 +337,7 @@ export async function validateUpiAccount({ contactId, fundAccountId, vpa, seller
   let validationId = null;
 
   // 1. Attempt Fund Account Validation if account number is configured
-  if (fundAccountId && accountNumber) {
+  if (fundAccountId && accountNumber && !isTestMode) {
     try {
       validationRes = await callRazorpayApi('/fund_accounts/validations', {
         method: 'POST',
@@ -354,14 +361,17 @@ export async function validateUpiAccount({ contactId, fundAccountId, vpa, seller
   }
 
   // 2. Fallback to standard Razorpay VPA validation if FAV didn't return a name
-  if (!beneficiaryName) {
+  if (!beneficiaryName && !isTestMode) {
     try {
-      const vpaRes = await callRazorpayApi(`/payments/validate/vpa?vpa=${encodeURIComponent(vpa)}`);
+      const vpaRes = await callRazorpayApi('/payments/validate/vpa', {
+        method: 'POST',
+        body: { vpa }
+      });
       validationId = validationId || `vpa_val_${Date.now()}`;
-      if (vpaRes.valid) {
+      if (vpaRes.success && vpaRes.customer_name) {
         accountActive = true;
         beneficiaryName = vpaRes.customer_name || '';
-      } else {
+      } else if (vpaRes.success === false) {
         return {
           success: false,
           validationId,
@@ -373,16 +383,33 @@ export async function validateUpiAccount({ contactId, fundAccountId, vpa, seller
         };
       }
     } catch (vpaErr) {
-      console.error('[Razorpay VPA Validation Error]:', vpaErr.message);
+      console.warn('[Razorpay VPA Fallback]:', vpaErr.message);
+    }
+  }
+
+  // 3. Test Mode / Sandbox Simulation for rzp_test_ keys
+  if (isTestMode && !beneficiaryName) {
+    validationId = validationId || `vpa_val_${Date.now()}`;
+    if (vpa.includes('mismatch') || vpa.includes('fake')) {
+      beneficiaryName = 'Unregistered Third Party';
+      accountActive = true;
+    } else if (vpa.includes('inactive') || vpa.includes('blocked')) {
+      accountActive = false;
       return {
         success: false,
         validationId,
-        accountStatus: 'failed',
+        accountStatus: 'inactive',
         beneficiaryName: '',
-        matchResult: { match: false, isReview: false, score: 0, reason: vpaErr.message },
-        verificationStatus: 'failed',
-        reason: vpaErr.message || 'Unable to verify UPI ID with banking rails'
+        matchResult: { match: false, isReview: false, score: 0, reason: 'UPI Account is inactive' },
+        verificationStatus: 'inactive',
+        reason: 'UPI Account is inactive or blocked by provider bank'
       };
+    } else if (vpa.includes('review')) {
+      beneficiaryName = (candidateNames[0] || 'Seller') + ' Enterprise Trading';
+      accountActive = true;
+    } else {
+      beneficiaryName = candidateNames.find(n => !n.toLowerCase().includes('zebalpha')) || candidateNames[0] || 'Rahul Adhikary';
+      accountActive = true;
     }
   }
 
@@ -398,19 +425,33 @@ export async function validateUpiAccount({ contactId, fundAccountId, vpa, seller
     };
   }
 
-  // 3. Conservative Beneficiary Name Matching
-  const matchResult = matchBeneficiaryName(sellerLegalName, beneficiaryName);
+  // 4. Conservative Beneficiary Name Matching against Candidate Names
+  let bestMatch = null;
+  let bestCandidate = candidateNames[0] || sellerLegalName;
+
+  for (const candidate of (candidateNames.length ? candidateNames : [sellerLegalName])) {
+    const res = matchBeneficiaryName(candidate, beneficiaryName);
+    if (res.match) {
+      bestMatch = res;
+      bestCandidate = candidate;
+      break;
+    }
+    if (!bestMatch || (res.score > (bestMatch.score || 0))) {
+      bestMatch = res;
+      bestCandidate = candidate;
+    }
+  }
 
   let verificationStatus = 'verified';
   let reason = 'Beneficiary name verified successfully';
 
-  if (!matchResult.match) {
-    if (matchResult.isReview) {
+  if (!bestMatch.match) {
+    if (bestMatch.isReview) {
       verificationStatus = 'manual_review';
-      reason = matchResult.reason;
+      reason = bestMatch.reason;
     } else {
       verificationStatus = 'name_mismatch';
-      reason = matchResult.reason;
+      reason = bestMatch.reason;
     }
   }
 
@@ -419,7 +460,7 @@ export async function validateUpiAccount({ contactId, fundAccountId, vpa, seller
     validationId,
     accountStatus: 'active',
     beneficiaryName,
-    matchResult,
+    matchResult: bestMatch,
     verificationStatus,
     reason
   };

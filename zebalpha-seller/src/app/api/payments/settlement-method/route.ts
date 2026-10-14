@@ -36,15 +36,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized access" }, { status: 401 });
     }
 
-    // Resolve seller ID and registered business name
+    // Resolve seller ID and candidate registered names
     const { data: seller } = await supabaseServer
       .from("sellers")
       .select("id, owner_name, full_name, business_name")
       .eq("user_id", user.id)
       .maybeSingle();
 
+    const { data: profile } = await supabaseServer
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
     const sellerId = seller?.id || user.id;
-    const sellerLegalName = seller?.owner_name || seller?.full_name || seller?.business_name || "";
+    const candidateNames = Array.from(new Set([
+      seller?.owner_name,
+      seller?.full_name,
+      profile?.full_name,
+      seller?.business_name
+    ].map(n => String(n || "").trim()).filter(Boolean)));
+    const sellerLegalName = candidateNames[0] || seller?.business_name || "";
 
     const forwarded = req.headers.get("x-forwarded-for");
     const ip = (forwarded ? forwarded.split(",")[0] : req.headers.get("x-real-ip")) || "unknown-ip";
@@ -68,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Real-time verification with NPCI banking network and conservative name matching
-    const verifyRes = await verifyUpiWithProvider(vpa, sellerLegalName);
+    const verifyRes = await verifyUpiWithProvider(vpa, candidateNames.length > 0 ? candidateNames : sellerLegalName);
     const masked = maskUpiId(vpa);
     const verifiedBeneficiaryName = verifyRes.verifiedName || null;
     const maskedBeneficiary = maskBeneficiaryName(verifiedBeneficiaryName || "");

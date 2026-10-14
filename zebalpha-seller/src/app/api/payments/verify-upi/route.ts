@@ -48,16 +48,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "UPI ID is required" }, { status: 400 });
     }
 
-    // Resolve seller's registered legal/business name
+    // Resolve seller's registered legal/business name and profile name
     const { data: seller } = await supabaseServer
       .from("sellers")
       .select("owner_name, full_name, business_name")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const sellerName = seller?.owner_name || seller?.full_name || seller?.business_name || "";
+    const { data: profile } = await supabaseServer
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    const result = await verifyUpiWithProvider(vpa, sellerName);
+    const candidateNames = Array.from(new Set([
+      seller?.owner_name,
+      seller?.full_name,
+      profile?.full_name,
+      seller?.business_name
+    ].map(n => String(n || "").trim()).filter(Boolean)));
+
+    const primarySellerName = seller?.business_name || seller?.owner_name || profile?.full_name || "Merchant";
+
+    const result = await verifyUpiWithProvider(vpa, candidateNames.length > 0 ? candidateNames : primarySellerName);
 
     if (!result.success || !result.verified) {
       return NextResponse.json({
@@ -66,7 +79,7 @@ export async function POST(req: NextRequest) {
         verificationStatus: result.verificationStatus || 'failed',
         beneficiaryNameMasked: result.beneficiaryNameMasked,
         verifiedName: result.verifiedName,
-        registeredSellerName: sellerName,
+        registeredSellerName: primarySellerName,
         matchResult: result.matchResult,
         error: result.error || "Unable to verify this UPI ID with the banking network."
       }, { status: 400 });
@@ -80,7 +93,7 @@ export async function POST(req: NextRequest) {
       maskedVpa: result.maskedVpa,
       verifiedName: result.verifiedName,
       beneficiaryNameMasked: result.beneficiaryNameMasked,
-      registeredSellerName: sellerName,
+      registeredSellerName: primarySellerName,
       matchResult: result.matchResult,
       providerReference: result.providerReference
     });
