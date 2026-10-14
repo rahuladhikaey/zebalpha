@@ -24,6 +24,9 @@ import {
   Smartphone, 
   AlertTriangle,
   ShieldCheck,
+  ShieldAlert,
+  Lock,
+  CheckCircle,
 } from "lucide-react";
 import { 
   LedgerTransaction, 
@@ -39,6 +42,18 @@ export default function SellerPaymentsPage() {
   const [activeTab, setActiveTab] = useState<PaymentTab>("settlements");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [reverifying, setReverifying] = useState(false);
+
+  // Authoritative RazorpayX Payout Account State
+  const [payoutAccount, setPayoutAccount] = useState<{
+    id: string;
+    account_type: string;
+    masked_upi_id: string;
+    beneficiary_name: string | null;
+    verification_status: "not_added" | "pending" | "verified" | "name_mismatch" | "inactive" | "failed" | "manual_review";
+    verification_reason?: string;
+    verified_at?: string;
+  } | null>(null);
 
   // Financial state
   const [balances, setBalances] = useState<SellerLedgerBalances>({
@@ -107,7 +122,14 @@ export default function SellerPaymentsPage() {
         if (json.settlementMethods) setSettlementMethods(json.settlementMethods);
         if (json.sellerConfig) setSellerConfig(json.sellerConfig);
         if (json.routeOverview) setRouteOverview(json.routeOverview);
-        if (json.activeSettlementMethod) {
+        if (json.payoutAccount) {
+          setPayoutAccount(json.payoutAccount);
+          if (json.payoutAccount.masked_upi_id) {
+            setUpiId(json.payoutAccount.masked_upi_id);
+            setUpiVerified(json.payoutAccount.verification_status === "verified");
+            setUpiVerifiedName(json.payoutAccount.beneficiary_name || null);
+          }
+        } else if (json.activeSettlementMethod) {
           setActiveSettlementMethod(json.activeSettlementMethod);
           if (json.activeSettlementMethod.upi_id || json.activeSettlementMethod.destination_raw) {
             setUpiId(json.activeSettlementMethod.upi_id || json.activeSettlementMethod.destination_raw);
@@ -221,8 +243,14 @@ export default function SellerPaymentsPage() {
         setUpiError("");
       } else {
         setUpiVerified(false);
-        setUpiVerifiedName(null);
-        setUpiError(data.error || "Unable to verify this UPI ID with the banking network. Please check the handle and try again.");
+        setUpiVerifiedName(data.verifiedName || null);
+        if (data.verificationStatus === 'name_mismatch') {
+          const registered = data.registeredSellerName || sellerConfig?.owner_name || sellerConfig?.business_name || 'your registered store name';
+          const bankName = data.verifiedName || 'different name';
+          setUpiError(`Name Mismatch: This UPI account belongs to "${bankName}", which does not match your registered store name "${registered}". For security, payouts can only be sent to UPI IDs matching your business name.`);
+        } else {
+          setUpiError(data.error || "Unable to verify this UPI ID with the banking network. Please check the handle and try again.");
+        }
       }
     } catch (err: any) {
       setUpiVerified(false);
@@ -230,6 +258,25 @@ export default function SellerPaymentsPage() {
       setUpiError(err?.message || "Network error while verifying UPI ID.");
     } finally {
       setUpiVerifying(false);
+    }
+  }
+
+  // Handle Re-verify existing active account
+  async function handleReverifyAccount() {
+    setReverifying(true);
+    try {
+      const vpaToVerify = upiId || payoutAccount?.masked_upi_id || activeSettlementMethod?.masked_destination;
+      if (!vpaToVerify) return;
+      await fetch("/api/payments/verify-upi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vpa: vpaToVerify })
+      });
+      await loadFinancialData();
+    } catch (e) {
+      console.error("Reverify error:", e);
+    } finally {
+      setReverifying(false);
     }
   }
 
@@ -514,62 +561,138 @@ export default function SellerPaymentsPage() {
         </div>
       </div>
 
-      {/* ── SETTLEMENT ACCOUNT WIDGET (DASHBOARD HIGHLIGHT) ────────────────────────── */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="h-11 w-11 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-emerald-400 shrink-0">
-            <Smartphone size={22} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Settlement Method</span>
-              {activeSettlementMethod?.is_verified ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  <CheckCircle2 size={10} />
-                  ✓ UPI Verified
-                </span>
-              ) : activeSettlementMethod ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                  <Clock size={10} />
-                  Pending Verification
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-400">
-                  Not Set Up
-                </span>
-              )}
+      {/* ── BANK & UPI DETAILS WIDGET (RAZORPAYX SELLER VERIFICATION ENGINE) ────────────────── */}
+      {(() => {
+        const status = payoutAccount?.verification_status || (activeSettlementMethod?.is_verified ? "verified" : (activeSettlementMethod ? "pending" : "not_added"));
+        const registeredName = sellerConfig?.owner_name || sellerConfig?.full_name || sellerConfig?.business_name || "Registered Merchant";
+        const maskedUpi = payoutAccount?.masked_upi_id || activeSettlementMethod?.masked_destination;
+        const beneficiaryName = payoutAccount?.beneficiary_name || activeSettlementMethod?.verified_name;
+
+        return (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                  status === "verified"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : status === "name_mismatch" || status === "inactive" || status === "failed"
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                    : status === "manual_review"
+                    ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                }`}>
+                  <Smartphone size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-black text-white">Bank & UPI Settlement Account</span>
+                    {status === "verified" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        <CheckCircle2 size={11} />
+                        ✓ Verified by NPCI
+                      </span>
+                    )}
+                    {status === "name_mismatch" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                        <AlertTriangle size={11} />
+                        ⚠️ Name Mismatch
+                      </span>
+                    )}
+                    {status === "inactive" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                        <AlertCircle size={11} />
+                        ❌ Inactive UPI ID
+                      </span>
+                    )}
+                    {status === "manual_review" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                        <Clock size={11} />
+                        ⏳ Under Finance Review
+                      </span>
+                    )}
+                    {status === "pending" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                        <Clock size={11} />
+                        Verifying with Bank...
+                      </span>
+                    )}
+                    {status === "not_added" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-400 border border-zinc-700">
+                        <Lock size={11} />
+                        Not Set Up
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400 flex-wrap">
+                    <span>Registered Store: <strong className="text-zinc-200">{registeredName}</strong></span>
+                    {maskedUpi && (
+                      <span>• UPI: <strong className="text-white font-mono">{maskedUpi}</strong></span>
+                    )}
+                    {beneficiaryName && (
+                      <span>• Beneficiary: <strong className="text-emerald-400">{beneficiaryName}</strong></span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {maskedUpi && (
+                  <button
+                    onClick={handleReverifyAccount}
+                    disabled={reverifying}
+                    className="px-3.5 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-zinc-300 transition active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} className={reverifying ? "animate-spin" : ""} />
+                    <span>{reverifying ? "Checking..." : "Re-verify"}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setMethodError("");
+                    setMethodMessage("");
+                    setShowEditSettlementModal(true);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95"
+                >
+                  {maskedUpi ? "Update UPI ID" : "Set Up UPI"}
+                </button>
+              </div>
             </div>
 
-            {activeSettlementMethod ? (
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className="text-sm font-black text-white font-mono">
-                  UPI: {activeSettlementMethod.masked_destination}
-                </span>
-                {activeSettlementMethod.verified_name && (
-                  <span className="text-xs text-zinc-400 font-medium">
-                    ({activeSettlementMethod.verified_name})
-                  </span>
-                )}
+            {/* Payout Eligibility Indicator Banner */}
+            {status === "verified" ? (
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
+                <CheckCircle size={14} className="shrink-0" />
+                <span>Payouts Active: Automated earnings disbursements and on-demand withdrawals are enabled to this verified account.</span>
+              </div>
+            ) : status === "name_mismatch" ? (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
+                <ShieldAlert size={16} className="shrink-0 text-rose-400 mt-0.5" />
+                <div>
+                  <span className="font-bold text-rose-400">Payouts Blocked (Beneficiary Name Mismatch): </span>
+                  <span>The bank account holder name returned by NPCI rails does not match your registered store name ({registeredName}). To prevent fraud and unauthorized withdrawals, payouts remain locked. Please link a UPI ID matching your registered name.</span>
+                </div>
+              </div>
+            ) : status === "manual_review" ? (
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 font-medium">
+                <Clock size={14} className="shrink-0 text-indigo-400" />
+                <span>Under Review: Partial name match detected. Zebalpha Finance is conducting manual verification.</span>
+              </div>
+            ) : status === "inactive" ? (
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 font-medium">
+                <AlertCircle size={14} className="shrink-0 text-rose-400" />
+                <span>Payouts Blocked: This UPI ID is inactive or not recognized on banking rails. Please provide an active UPI ID.</span>
               </div>
             ) : (
-              <p className="text-xs text-zinc-400 font-medium mt-0.5">
-                Add a verified UPI ID to receive instant seller payouts.
-              </p>
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-400 font-medium">
+                <Lock size={14} className="shrink-0 text-zinc-500" />
+                <span>Payouts Blocked: Please add and verify your UPI ID to enable seller withdrawals and automated settlements.</span>
+              </div>
             )}
           </div>
-        </div>
-
-        <button
-          onClick={() => {
-            setMethodError("");
-            setMethodMessage("");
-            setShowEditSettlementModal(true);
-          }}
-          className="px-4 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95 shrink-0"
-        >
-          {activeSettlementMethod ? "Change UPI ID" : "Set Up UPI"}
-        </button>
-      </div>
+        );
+      })()}
 
       {/* ── TABS NAVIGATION ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 border-b border-zinc-800 overflow-x-auto pb-1 scrollbar-none">
@@ -883,78 +1006,151 @@ export default function SellerPaymentsPage() {
       )}
 
       {/* ── TAB 4: SETTLEMENT PROFILE & UPI METHOD ────────────────────────────────── */}
-      {activeTab === "upi" && (
-        <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-200">
-          
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 md:p-8 space-y-6 relative overflow-hidden">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <Smartphone size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white">Configured UPI Settlement Method</h3>
-                  <p className="text-xs text-zinc-400 font-medium">Verified UPI ID used for all automated and on-demand payouts</p>
-                </div>
-              </div>
+      {activeTab === "upi" && (() => {
+        const status = payoutAccount?.verification_status || (activeSettlementMethod?.is_verified ? "verified" : (activeSettlementMethod ? "pending" : "not_added"));
+        const registeredName = sellerConfig?.owner_name || sellerConfig?.full_name || sellerConfig?.business_name || "Registered Merchant";
+        const maskedUpi = payoutAccount?.masked_upi_id || activeSettlementMethod?.masked_destination;
+        const beneficiaryName = payoutAccount?.beneficiary_name || activeSettlementMethod?.verified_name;
 
-              {activeSettlementMethod?.is_verified && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  <CheckCircle2 size={12} />
-                  ✓ Verified
-                </span>
-              )}
-            </div>
-
-            {activeSettlementMethod ? (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 space-y-4">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500 font-bold uppercase tracking-wider">Settlement Method</span>
-                  <span className="text-emerald-400 font-bold uppercase">UPI (Unified Payments Interface)</span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500 font-bold uppercase tracking-wider">
-                    Verified UPI ID
-                  </span>
-                  <span className="font-mono text-white font-bold tracking-wider">
-                    {activeSettlementMethod.masked_destination}
-                  </span>
-                </div>
-
-                {activeSettlementMethod.verified_name && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Registered Beneficiary Name</span>
-                    <span className="text-white font-bold">{activeSettlementMethod.verified_name}</span>
+        return (
+          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-200">
+            <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 md:p-8 space-y-6 relative overflow-hidden">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`h-11 w-11 rounded-2xl flex items-center justify-center border ${
+                    status === "verified"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                      : status === "name_mismatch" || status === "inactive" || status === "failed"
+                      ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                      : status === "manual_review"
+                      ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
+                      : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                  }`}>
+                    <Smartphone size={22} />
                   </div>
-                )}
-
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500 font-bold uppercase tracking-wider">Verification Status</span>
-                  <span className="text-emerald-400 font-bold uppercase">{activeSettlementMethod.status}</span>
+                  <div>
+                    <h3 className="text-base font-black text-white">Bank & UPI Settlement Method</h3>
+                    <p className="text-xs text-zinc-400 font-medium">NPCI-verified UPI ID for automated and on-demand payouts</p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-6 space-y-2">
-                <p className="text-sm font-bold text-white">No UPI ID configured</p>
-                <p className="text-xs text-zinc-500">Add and verify your UPI ID to enable seller withdrawals</p>
-              </div>
-            )}
 
-            <button
-              onClick={() => {
-                setMethodError("");
-                setMethodMessage("");
-                setShowEditSettlementModal(true);
-              }}
-              className="w-full py-3 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95 flex items-center justify-center gap-2"
-            >
-              <Smartphone size={14} />
-              <span>{activeSettlementMethod ? "Update UPI ID" : "Add Verified UPI ID"}</span>
-            </button>
+                {status === "verified" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    <CheckCircle2 size={12} />
+                    ✓ Verified
+                  </span>
+                )}
+                {status === "name_mismatch" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                    <AlertTriangle size={12} />
+                    ⚠️ Name Mismatch
+                  </span>
+                )}
+                {status === "inactive" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                    <AlertCircle size={12} />
+                    ❌ Inactive UPI
+                  </span>
+                )}
+                {status === "manual_review" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                    <Clock size={12} />
+                    ⏳ In Review
+                  </span>
+                )}
+                {status === "not_added" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    <Lock size={12} />
+                    Not Set Up
+                  </span>
+                )}
+              </div>
+
+              {maskedUpi ? (
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 space-y-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Settlement Method</span>
+                    <span className="text-emerald-400 font-bold uppercase">UPI (Unified Payments Interface)</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Verified UPI ID</span>
+                    <span className="font-mono text-white font-bold tracking-wider">{maskedUpi}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Registered Store Name</span>
+                    <span className="text-white font-bold">{registeredName}</span>
+                  </div>
+
+                  {beneficiaryName && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-500 font-bold uppercase tracking-wider">Bank Beneficiary Name</span>
+                      <span className={`font-bold ${status === 'name_mismatch' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        {beneficiaryName}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Verification Status</span>
+                    <span className={`font-bold uppercase ${
+                      status === 'verified' ? 'text-emerald-400' : status === 'name_mismatch' ? 'text-rose-400' : 'text-amber-400'
+                    }`}>
+                      {status.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 space-y-2">
+                  <p className="text-sm font-bold text-white">No UPI ID configured</p>
+                  <p className="text-xs text-zinc-500">Add and verify your UPI ID to enable automated and on-demand payouts</p>
+                </div>
+              )}
+
+              {/* Status Alert Banner */}
+              {status === "verified" ? (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+                  <CheckCircle size={14} className="shrink-0" />
+                  <span>Payouts Active: All eligible seller earnings will be deposited directly to {maskedUpi}.</span>
+                </div>
+              ) : status === "name_mismatch" ? (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
+                  <ShieldAlert size={16} className="shrink-0 text-rose-400 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-rose-400">Payouts Blocked (Name Mismatch): </span>
+                    <span>The name returned by NPCI rails ({beneficiaryName}) does not match your registered store name ({registeredName}). Payouts are locked for security. Please update to a UPI ID registered under your name.</span>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex items-center gap-3">
+                {maskedUpi && (
+                  <button
+                    onClick={handleReverifyAccount}
+                    disabled={reverifying}
+                    className="flex-1 py-3 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <RefreshCw size={14} className={reverifying ? "animate-spin" : ""} />
+                    <span>{reverifying ? "Verifying..." : "Re-verify Status"}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setMethodError("");
+                    setMethodMessage("");
+                    setShowEditSettlementModal(true);
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Smartphone size={14} />
+                  <span>{maskedUpi ? "Change UPI ID" : "Add Verified UPI ID"}</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── MODAL 1: SETTLEMENT ACCOUNT MODAL (STRICTLY UPI ONLY) ────────────────── */}
       {showEditSettlementModal && (
@@ -964,7 +1160,7 @@ export default function SellerPaymentsPage() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Settlement Method</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">RazorpayX Verification</span>
                 <h3 className="text-base font-black text-white">Set Up UPI ID</h3>
               </div>
               <button
@@ -973,6 +1169,15 @@ export default function SellerPaymentsPage() {
               >
                 <X size={18} />
               </button>
+            </div>
+
+            {/* Registered Name Policy Banner */}
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 text-xs space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Security Rule: Name Match Required</span>
+              <p className="text-[11px] text-zinc-300">
+                Registered Store: <strong className="text-white">{sellerConfig?.owner_name || sellerConfig?.full_name || sellerConfig?.business_name || "Merchant"}</strong>.
+                The bank account holder name on your UPI ID must match this name for payouts to be enabled.
+              </p>
             </div>
 
             {/* Error & Success Alerts */}

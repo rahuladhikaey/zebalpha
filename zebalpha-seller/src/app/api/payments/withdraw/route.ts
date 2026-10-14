@@ -61,42 +61,32 @@ export async function POST(req: NextRequest) {
 
     const sellerId = seller.id;
 
-    // 2. Fetch and confirm verified UPI settlement method
-    let settlementMethod: any = null;
-    const { data: methods } = await supabaseServer
-      .from("seller_settlement_methods")
+    // 2. Fetch and confirm verified UPI payout account (Strict Verification & Name Matching Guard)
+    const { data: payoutAccount } = await supabaseServer
+      .from("seller_payout_accounts")
       .select("*")
       .eq("seller_id", sellerId)
-      .eq("method_type", "UPI")
-      .eq("is_verified", true)
-      .eq("status", "VERIFIED")
-      .order("is_default", { ascending: false })
-      .limit(1);
+      .eq("is_active", true)
+      .maybeSingle();
 
-    if (methods && methods.length > 0) {
-      settlementMethod = methods[0];
-    } else if (seller.phonepay_number || seller.phonepay_no) {
-      const upi = seller.phonepay_number || seller.phonepay_no;
-      if (upi.includes("@")) {
-        settlementMethod = {
-          id: null,
-          method_type: "UPI",
-          upi_id: upi,
-          destination_raw: upi,
-          masked_destination: upi,
-          verified_name: seller.business_name || "Verified Merchant",
-          is_verified: true,
-          status: "VERIFIED"
-        };
-      }
-    }
-
-    if (!settlementMethod || !settlementMethod.is_verified) {
+    if (!payoutAccount || payoutAccount.verification_status !== "verified") {
+      const reason = payoutAccount?.verification_reason || "UPI ID is not verified or beneficiary name does not match.";
       return NextResponse.json({
         success: false,
-        error: "No verified UPI ID found. Please add and verify your UPI ID before requesting a withdrawal."
+        error: `Payout locked: ${reason}. For security, payouts are strictly allowed only to verified UPI accounts where the bank account name matches your registered business name.`
       }, { status: 400 });
     }
+
+    const settlementMethod = {
+      id: payoutAccount.id,
+      method_type: "UPI",
+      upi_id: payoutAccount.masked_upi_id,
+      destination_raw: payoutAccount.masked_upi_id,
+      masked_destination: payoutAccount.masked_upi_id,
+      verified_name: payoutAccount.beneficiary_name || seller.business_name || "Verified Merchant",
+      is_verified: true,
+      status: "VERIFIED"
+    };
 
     const body = await req.json().catch(() => ({}));
     const requestedAmount = Number(body.amount);
@@ -119,7 +109,7 @@ export async function POST(req: NextRequest) {
     const uniqueSuffix = `${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const payoutNumber = `WTH-${uniqueSuffix}`;
     const idempotencyKey = String(body.idempotencyKey || req.headers.get("x-idempotency-key") || `withdraw_${sellerId}_${uniqueSuffix}`);
-    const destinationUpi = settlementMethod.upi_id || settlementMethod.destination_raw || settlementMethod.metadata?.vpa;
+    const destinationUpi = settlementMethod.upi_id || settlementMethod.destination_raw || (settlementMethod as any)?.metadata?.vpa;
 
     // 4. ATOMIC CONCURRENCY-SAFE BALANCE RESERVATION (RPC with Row-Level Locking)
     const { data: reserveResult, error: reserveErr } = await supabaseServer.rpc('reserve_seller_balance_for_withdrawal', {

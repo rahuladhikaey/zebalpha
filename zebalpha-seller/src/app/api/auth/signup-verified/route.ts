@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         try {
           const { data: userList } = await supabaseServer.auth.admin.listUsers();
           const existingAuthUser = userList?.users?.find(
-            (u) => u.email?.toLowerCase() === normalizedEmail
+            (u: any) => u.email?.toLowerCase() === normalizedEmail
           );
           if (existingAuthUser) {
             const { data: updateRes, error: updateErr } = await supabaseServer.auth.admin.updateUserById(

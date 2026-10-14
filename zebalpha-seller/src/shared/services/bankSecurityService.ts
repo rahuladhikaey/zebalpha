@@ -283,3 +283,14 @@ export function checkBankRateLimit(identifier: string, maxAttempts = 3, windowMs
 
   return { allowed: true };
 }
+
+export const encryptSensitiveData = encryptAccountNumber;
+export const decryptSensitiveData = decryptAccountNumber;
+
+export function createDeterministicFingerprint(plainText: string): string {
+  if (!plainText) return "";
+  const key = getDerivedKey();
+  return crypto.createHmac("sha256", key).update(String(plainText).trim().toLowerCase()).digest("hex");
+}
+
+

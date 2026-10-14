@@ -33,7 +33,7 @@ export async function GET(req: Request) {
         .or(`seller_id.eq.${sellerId},seller_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
-      const rows = (orders || []).map((o) => {
+      const rows = (orders || []).map((o: any) => {
         return [
           o.order_number || o.id,
           new Date(o.created_at).toISOString().split("T")[0],
@@ -66,7 +66,7 @@ export async function GET(req: Request) {
         .or(`seller_id.eq.${sellerId},seller_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
-      const rows = (settlements || []).map((s) => {
+      const rows = (settlements || []).map((s: any) => {
         return [
           s.settlement_number || `SET-${s.week_number || s.id}`,
           new Date(s.start_date).toISOString().split("T")[0],
@@ -100,7 +100,7 @@ export async function GET(req: Request) {
         .eq("seller_id", sellerId)
         .order("created_at", { ascending: false });
 
-      const rows = (ledger || []).map((l) => {
+      const rows = (ledger || []).map((l: any) => {
         return [
           l.id,
           new Date(l.created_at).toISOString(),

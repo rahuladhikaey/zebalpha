@@ -36,7 +36,7 @@ export async function GET(req: Request) {
         .order("is_default", { ascending: false });
 
       if (locData && locData.length > 0) {
-        locations = locData.map((loc) => ({
+        locations = locData.map((loc: any) => ({
           id: loc.id,
           seller_id: loc.seller_id,
           name: loc.name || loc.location_name || "Primary Warehouse",

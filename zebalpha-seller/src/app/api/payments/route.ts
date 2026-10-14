@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
         .in("status", ["PENDING", "PROCESSING"]);
 
       if (inFlightPayouts && inFlightPayouts.length > 0) {
-        const totalInFlight = inFlightPayouts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const totalInFlight = inFlightPayouts.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
         balances.reserved_balance = Number(totalInFlight.toFixed(2));
         balances.available_balance = Number(Math.max(0, balances.net_seller_earnings - balances.total_settled - balances.reserved_balance).toFixed(2));
       }
@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
           let shipping = 0;
           let collection = 0;
 
-          orders.forEach((o) => {
+          orders.forEach((o: any) => {
             const tot = Number(o.total_amount) || 0;
             gross += tot;
             commission += Number(((tot * (DEFAULT_FINANCIAL_RULES.commission_percentage || 5)) / 100).toFixed(2));
@@ -203,7 +203,22 @@ export async function GET(req: NextRequest) {
       }
     } catch (_) {}
 
-    // 4. Fetch Verified UPI Settlement Methods (UPI ONLY)
+    // 4. Fetch Authoritative Verified UPI Payout Account (seller_payout_accounts)
+    let payoutAccount: any = null;
+    try {
+      const { data: pAccount } = await supabaseServer
+        .from("seller_payout_accounts")
+        .select("id, account_type, masked_upi_id, beneficiary_name, verification_status, verification_reason, verified_at, created_at, updated_at")
+        .eq("seller_id", sellerId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (pAccount) {
+        payoutAccount = pAccount;
+      }
+    } catch (_) {}
+
+    // 4b. Fetch Verified UPI Settlement Methods (UPI ONLY)
     let settlementMethods: any[] = [];
     let activeSettlementMethod: any = null;
     try {
@@ -215,46 +230,11 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: false });
 
       if (methods && methods.length > 0) {
-        // Enforce UPI method
         const upiMethods = methods.filter((m: any) => (m.method_type || "UPI").toUpperCase() === "UPI");
         settlementMethods = upiMethods.length > 0 ? upiMethods : methods;
         activeSettlementMethod = settlementMethods.find((m: any) => m.is_default && m.is_verified) || settlementMethods[0];
       }
     } catch (_) {}
-
-    // Fallback: If no settlement method row yet, check seller profile's UPI
-    if (!activeSettlementMethod) {
-      try {
-        const { data: sData } = await supabaseServer
-          .from("sellers")
-          .select("phonepay_number, phonepay_no, business_name")
-          .eq("id", sellerId)
-          .maybeSingle();
-
-        const profileUpi = sData?.phonepay_number || sData?.phonepay_no;
-        if (profileUpi && profileUpi.includes("@")) {
-          const parts = profileUpi.split("@");
-          const username = parts[0];
-          const handle = parts[1];
-          const masked = username.length > 2
-            ? `${username[0]}****${username[username.length - 1]}@${handle}`
-            : `${username[0]}****@${handle}`;
-
-          activeSettlementMethod = {
-            id: "profile-upi",
-            method_type: "UPI",
-            upi_id: profileUpi,
-            masked_destination: masked,
-            verified_name: sData?.business_name || "Verified Merchant",
-            is_verified: true,
-            is_default: true,
-            status: "VERIFIED",
-            created_at: new Date().toISOString()
-          };
-          settlementMethods.push(activeSettlementMethod);
-        }
-      } catch (_) {}
-    }
 
     // 5. Fetch On-Demand UPI Payout Requests History
     let payoutRequests: any[] = [];
@@ -277,6 +257,7 @@ export async function GET(req: NextRequest) {
       settlements,
       settlementMethods,
       activeSettlementMethod,
+      payoutAccount,
       payoutRequests,
       routeOverview,
       sellerConfig: sellerRecord,

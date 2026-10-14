@@ -48,12 +48,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "UPI ID is required" }, { status: 400 });
     }
 
-    const result = await verifyUpiWithProvider(vpa);
+    // Resolve seller's registered legal/business name
+    const { data: seller } = await supabaseServer
+      .from("sellers")
+      .select("owner_name, full_name, business_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const sellerName = seller?.owner_name || seller?.full_name || seller?.business_name || "";
+
+    const result = await verifyUpiWithProvider(vpa, sellerName);
 
     if (!result.success || !result.verified) {
       return NextResponse.json({
         success: false,
         verified: false,
+        verificationStatus: result.verificationStatus || 'failed',
+        beneficiaryNameMasked: result.beneficiaryNameMasked,
+        verifiedName: result.verifiedName,
+        registeredSellerName: sellerName,
+        matchResult: result.matchResult,
         error: result.error || "Unable to verify this UPI ID with the banking network."
       }, { status: 400 });
     }
@@ -61,9 +75,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       verified: true,
+      verificationStatus: 'verified',
       vpa: result.vpa,
       maskedVpa: result.maskedVpa,
       verifiedName: result.verifiedName,
+      beneficiaryNameMasked: result.beneficiaryNameMasked,
+      registeredSellerName: sellerName,
+      matchResult: result.matchResult,
       providerReference: result.providerReference
     });
   } catch (err: any) {
