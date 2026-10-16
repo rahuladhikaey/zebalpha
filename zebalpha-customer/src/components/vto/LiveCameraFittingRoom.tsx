@@ -179,6 +179,23 @@ export function LiveCameraFittingRoom({
     [facingMode, stopCameraTracks]
   );
 
+  // Handle Resize for Canvases
+  const updateCanvasSizes = useCallback(() => {
+    if (!videoRef.current) return;
+    const w = videoRef.current.clientWidth || videoRef.current.videoWidth || 640;
+    const h = videoRef.current.clientHeight || videoRef.current.videoHeight || 850;
+
+    if (arCanvasRef.current) {
+      arCanvasRef.current.width = w;
+      arCanvasRef.current.height = h;
+      garmentRendererRef.current?.resize(w, h);
+    }
+    if (guideCanvasRef.current) {
+      guideCanvasRef.current.width = w;
+      guideCanvasRef.current.height = h;
+    }
+  }, []);
+
   /**
    * INITIALIZE COMPUTER VISION & THREE.JS ENGINES
    */
@@ -190,8 +207,8 @@ export function LiveCameraFittingRoom({
       bodyTrackerRef.current = new LiveBodyTracker((pose) => {
         setPoseData(pose);
 
-        // Update 3D Garment Pose
-        if (garmentRendererRef.current && hasLive3DFitting) {
+        // Update 3D Garment Pose directly
+        if (garmentRendererRef.current) {
           garmentRendererRef.current.updatePose(pose);
         }
 
@@ -217,12 +234,17 @@ export function LiveCameraFittingRoom({
       garmentRendererRef.current.updateConfig({
         category: eligibility.categoryType || "upper_body",
         colorName: activeColor,
+        colorHex: selectedVariant?.color_hex,
         size: activeSize,
         productName: selectedProduct?.name,
+        garmentImageUrl: activeGarmentImage,
       });
       garmentRendererRef.current.start();
+
+      // Immediately sync dimensions
+      setTimeout(updateCanvasSizes, 50);
     }
-  }, [activeColor, activeSize, eligibility.categoryType, hasLive3DFitting, selectedProduct?.name]);
+  }, [activeColor, activeGarmentImage, activeSize, eligibility.categoryType, selectedProduct?.name, selectedVariant?.color_hex, updateCanvasSizes]);
 
   /**
    * FLIP CAMERA (Front / Rear)
@@ -273,28 +295,13 @@ export function LiveCameraFittingRoom({
       garmentRendererRef.current.updateConfig({
         category: eligibility.categoryType || "upper_body",
         colorName: activeColor,
+        colorHex: selectedVariant?.color_hex,
         size: activeSize,
         productName: selectedProduct.name,
+        garmentImageUrl: activeGarmentImage,
       });
     }
-  }, [selectedProduct, activeColor, activeSize, eligibility.categoryType]);
-
-  // Handle Resize for Canvases
-  const updateCanvasSizes = useCallback(() => {
-    if (!videoRef.current) return;
-    const w = videoRef.current.clientWidth || 640;
-    const h = videoRef.current.clientHeight || 480;
-
-    if (arCanvasRef.current) {
-      arCanvasRef.current.width = w;
-      arCanvasRef.current.height = h;
-      garmentRendererRef.current?.resize(w, h);
-    }
-    if (guideCanvasRef.current) {
-      guideCanvasRef.current.width = w;
-      guideCanvasRef.current.height = h;
-    }
-  }, []);
+  }, [selectedProduct, activeColor, activeSize, eligibility.categoryType, selectedVariant?.color_hex, activeGarmentImage]);
 
   useEffect(() => {
     window.addEventListener("resize", updateCanvasSizes);
@@ -391,25 +398,28 @@ export function LiveCameraFittingRoom({
           autoPlay
           muted
           onLoadedMetadata={updateCanvasSizes}
+          onLoadedData={updateCanvasSizes}
+          onCanPlay={updateCanvasSizes}
+          onPlay={updateCanvasSizes}
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
             cameraStatus === "active" ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
           style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
         />
 
-        {/* Middle Layer: Three.js WebGL 3D Garment Render Canvas */}
+        {/* Middle Layer: Three.js WebGL 3D Garment Render Canvas (z-10) */}
         <canvas
           ref={arCanvasRef}
-          className={`absolute inset-0 h-full w-full pointer-events-none transition-opacity duration-300 ${
+          className={`absolute inset-0 h-full w-full pointer-events-none transition-opacity duration-300 z-10 ${
             cameraStatus === "active" && hasLive3DFitting ? "opacity-100" : "opacity-0"
           }`}
           style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
         />
 
-        {/* Top Layer: 2D Body Alignment Guides Canvas */}
+        {/* Top Layer: 2D Body Alignment Guides Canvas (z-20) */}
         <canvas
           ref={guideCanvasRef}
-          className={`absolute inset-0 h-full w-full pointer-events-none transition-opacity duration-300 ${
+          className={`absolute inset-0 h-full w-full pointer-events-none transition-opacity duration-300 z-20 ${
             cameraStatus === "active" ? "opacity-100" : "opacity-0"
           }`}
           style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
