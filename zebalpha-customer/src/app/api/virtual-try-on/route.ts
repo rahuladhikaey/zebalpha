@@ -1,55 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL || 'http://localhost:5000';
-
+/**
+ * ZEBALPHA — STRICT VIEW-ONLY PRIVACY ENFORCEMENT
+ * 
+ * PHOTO UPLOADS AND FRAME TRANSMISSIONS ARE PERMANENTLY PROHIBITED.
+ * All virtual fitting room experiences run 100% locally in browser runtime memory.
+ */
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { personImage, productId, garmentImage, category } = body;
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Photo upload and external AI frame processing are permanently disabled. Zebalpha operates exclusively on a live, real-time view-only fitting room with zero photo storage.',
+      isLiveOnly: true,
+    },
+    { status: 410 } // 410 Gone
+  );
+}
 
-    if (!personImage) {
-      return NextResponse.json(
-        { success: false, error: 'Person photo is required.' },
-        { status: 400 }
-      );
-    }
-
-    // Try forwarding to Express backend service first
-    try {
-      const backendRes = await fetch(`${BACKEND_URL}/api/virtual-try-on`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personImage, productId, garmentImage, category }),
-        signal: AbortSignal.timeout(65000),
-      });
-
-      if (backendRes.ok) {
-        const backendData = await backendRes.json();
-        return NextResponse.json(backendData);
-      }
-    } catch (backendError) {
-      console.warn('[VTO Next.js Proxy] Express backend unreachable, using direct engine fallback:', (backendError as any)?.message);
-    }
-
-    // Fallback: If express backend is not currently running in local dev, provide safe fallback
-    const resolvedGarment = garmentImage || personImage;
-
-    return NextResponse.json({
-      success: true,
-      imageUrl: resolvedGarment,
-      productId,
-      processingTimeMs: 2200,
-      provider: 'nextjs-vto-engine',
-      notice: 'Running on Next.js VTO engine. Connect to Express backend or set VIRTUAL_TRYON_API_KEY in .env for production models.',
-    });
-  } catch (error: any) {
-    console.error('[VTO Next.js Route Error]', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Virtual Try-On processing encountered an error.',
-      },
-      { status: 500 }
-    );
-  }
+export async function GET(req: NextRequest) {
+  return NextResponse.json({
+    status: 'active',
+    mode: 'live_view_only',
+    privacy: 'zero_retention_local_processing',
+    notice: 'Your camera is used for a live virtual-fitting preview. Zebalpha does not upload or save your camera images. You can turn off the camera or exit at any time.',
+  });
 }

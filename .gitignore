@@ -1,4 +1,4 @@
-# Environment files
+# Environment & Secret files
 .env
 .env.*
 !.env.example
@@ -7,6 +7,8 @@ env
 client_secret*.json
 *.pem
 *.key
+*rzp*
+*.csv
 
 # Node dependencies
 node_modules/

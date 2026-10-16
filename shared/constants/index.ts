@@ -8,3 +8,4 @@ export const USER_ROLES = {
 } as const;
 
 export * from './productAttributeEngine';
+export * from './tryOnEligibility';

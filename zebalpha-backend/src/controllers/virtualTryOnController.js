@@ -1,15 +1,19 @@
 import { HTTP_STATUS } from '../constants/index.js';
 import { supabaseA } from '../lib/supabase.js';
 import { virtualTryOnService } from '../services/vto/VirtualTryOnService.js';
+import { evaluateProductTryOnEligibility } from '../services/vto/tryOnEligibility.js';
 
 const MAX_IMAGE_PAYLOAD_SIZE = 12 * 1024 * 1024; // 12MB base64 string safety limit
 
 /**
  * Executes a Virtual Try-On inference
  * POST /api/virtual-try-on
+ * 
+ * Enforces centralized product eligibility policy (Requirement 1 & 5).
+ * Validates against restricted intimate apparel and indeterminate products.
  */
 export const executeVirtualTryOn = async (req, res, next) => {
-  let { personImage, productId, garmentImage, category = 'upper_body' } = req.body;
+  let { personImage, productId, garmentImage, category = 'upper_body', variantId, packageName } = req.body;
 
   try {
     if (!personImage) {
@@ -26,51 +30,87 @@ export const executeVirtualTryOn = async (req, res, next) => {
       });
     }
 
-    // Resolve garment image from product if productId is provided
-    let resolvedGarmentImage = garmentImage;
-    let resolvedCategory = category;
+    if (!productId) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'A valid catalogue product ID is required to verify Virtual Try-On eligibility.'
+      });
+    }
 
-    if (productId) {
-      const { data: product, error: prodErr } = await supabaseA
-        .from('products')
-        .select('id, name, image_url, images, virtual_tryon_image, virtual_tryon_category')
-        .eq('id', productId)
-        .maybeSingle();
+    // 1. Fetch full product metadata for server-side eligibility verification
+    const { data: product, error: prodErr } = await supabaseA
+      .from('products')
+      .select('id, name, description, category_id, image_url, images, specifications, packages, is_vto_enabled, virtual_tryon_category, virtual_tryon_image')
+      .eq('id', productId)
+      .maybeSingle();
 
-      if (!prodErr && product) {
-        // Priority 1: dedicated virtual_tryon_image
-        // Priority 2: primary product image
-        // Priority 3: first item in images array
-        resolvedGarmentImage = product.virtual_tryon_image 
-          || product.image_url 
-          || (Array.isArray(product.images) && product.images[0])
-          || resolvedGarmentImage;
+    if (prodErr || !product) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
+        success: false,
+        error: 'The requested product could not be found in the Zebalpha catalogue.'
+      });
+    }
 
-        if (product.virtual_tryon_category) {
-          resolvedCategory = product.virtual_tryon_category;
-        }
+    // 2. Resolve variant if specified
+    let selectedVariant = null;
+    if (product.packages && Array.isArray(product.packages)) {
+      if (variantId) {
+        selectedVariant = product.packages.find((p) => String(p.id) === String(variantId));
+      } else if (packageName) {
+        selectedVariant = product.packages.find((p) => p.name === packageName || `${p.color} / ${p.size}` === packageName);
       }
     }
+
+    // 3. Centralized Server-Enforced Product Eligibility Policy Check
+    const eligibility = evaluateProductTryOnEligibility(product, selectedVariant);
+
+    if (!eligibility.isEligible) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        isEligible: false,
+        isRestrictedIntimate: eligibility.isRestrictedIntimate,
+        error: eligibility.reason,
+        code: eligibility.isRestrictedIntimate ? 'INTIMATE_APPAREL_RESTRICTED' : 'PRODUCT_NOT_ELIGIBLE',
+        detectedCategory: eligibility.detectedCategory
+      });
+    }
+
+    // 4. Resolve garment image according to priority:
+    // Priority 1: Variant specific image (if user picked a specific colour)
+    // Priority 2: Dedicated clean flat-lay virtual_tryon_image
+    // Priority 3: Primary product image
+    // Priority 4: First item in images array
+    // Priority 5: Passed garment image
+    let resolvedGarmentImage = 
+      selectedVariant?.image_url ||
+      product.virtual_tryon_image ||
+      product.image_url ||
+      (Array.isArray(product.images) && product.images[0]) ||
+      garmentImage;
 
     if (!resolvedGarmentImage) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        error: 'Unable to locate clothing product image for this item.'
+        error: 'Unable to locate a high-resolution garment image for this clothing item.'
       });
     }
 
-    // Run AI Virtual Try-On
+    // Use AI category mode resolved by the eligibility engine (upper_body, lower_body, dresses)
+    const resolvedCategory = eligibility.categoryType || product.virtual_tryon_category || category;
+
+    // 5. Run AI Virtual Try-On inference (Zero-Retention Ephemeral Pipeline)
     const result = await virtualTryOnService.processVirtualTryOn({
       personImage,
       garmentImage: resolvedGarmentImage,
       category: resolvedCategory,
-      productId
+      productId: product.id
     });
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
       imageUrl: result.imageUrl,
-      productId,
+      productId: product.id,
+      category: resolvedCategory,
       processingTimeMs: result.processingTimeMs,
       provider: result.provider,
       notice: result.notice || undefined,
@@ -79,8 +119,11 @@ export const executeVirtualTryOn = async (req, res, next) => {
   } catch (err) {
     next(err);
   } finally {
-    // Zero-retention: Purge memory reference
+    // Zero-retention: Immediately purge in-memory references to expedite V8 garbage collection
     personImage = null;
+    if (req.body) {
+      req.body.personImage = null;
+    }
   }
 };
 
@@ -89,24 +132,31 @@ export const executeVirtualTryOn = async (req, res, next) => {
  * GET /api/virtual-try-on/config
  */
 export const getVTOConfig = (req, res) => {
-  const activeProvider = virtualTryOnService.getActiveProvider();
+  let activeProviderName = 'Configured AI Engine';
+  try {
+    const activeProvider = virtualTryOnService.getActiveProvider();
+    activeProviderName = activeProvider.name;
+  } catch (e) {
+    activeProviderName = 'Setup Required';
+  }
+
   res.status(HTTP_STATUS.OK).json({
     success: true,
     isAvailable: true,
-    provider: activeProvider.name,
+    provider: activeProviderName,
     supportedCategories: [
       { id: 'upper_body', name: 'T-Shirts, Shirts & Tops' },
       { id: 'hoodies', name: 'Hoodies & Sweatshirts' },
       { id: 'outerwear', name: 'Jackets & Coats' },
       { id: 'dresses', name: 'Dresses & One-Pieces' },
-      { id: 'lower_body', name: 'Pants & Bottoms' }
+      { id: 'lower_body', name: 'Pants, Jeans & Bottoms' }
     ],
     guidelines: [
-      'Face the camera directly',
-      'Keep your upper body clearly visible',
-      'Ensure good indoor/outdoor lighting',
-      'Avoid heavy clothing obstructions',
-      'Only one person in the photo'
+      'Face the camera directly in good lighting',
+      'Wear fitted clothing for best AI silhouette mapping',
+      'For full-body outfits (dresses, jeans), upload a full-length photo',
+      'Ensure clear visibility with only one person in the photo',
+      'Your photo is processed in memory and never stored permanently'
     ]
   });
 };

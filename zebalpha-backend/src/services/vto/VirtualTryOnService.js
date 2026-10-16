@@ -27,16 +27,19 @@ class VirtualTryOnService {
     const configuredProvider = (config.virtualTryOn?.provider || 'mock').toLowerCase();
     const apiKey = config.virtualTryOn?.apiKey;
 
-    // If a live provider is requested but no API key is provided, log warning and use mock provider
+    // If a live provider is requested but no API key is provided, do NOT fabricate fake results
     if (configuredProvider !== 'mock' && !apiKey) {
-      console.warn(`[VirtualTryOnService] Configured provider '${configuredProvider}' lacks VIRTUAL_TRYON_API_KEY. Falling back to MockDevEngine.`);
-      return this.providers.get('mock');
+      throw new Error(`Virtual Try-On AI model (${configuredProvider}) is not configured. Please set VIRTUAL_TRYON_API_KEY in backend environment variables.`);
+    }
+
+    // In production, mock provider is strictly disallowed
+    if (configuredProvider === 'mock' && config.env === 'production') {
+      throw new Error('Virtual Try-On requires an active AI provider (Replicate, Fashn, or Fal) in production. Please set VIRTUAL_TRYON_PROVIDER and VIRTUAL_TRYON_API_KEY.');
     }
 
     const provider = this.providers.get(configuredProvider);
     if (!provider) {
-      console.warn(`[VirtualTryOnService] Unknown provider '${configuredProvider}'. Using MockDevEngine.`);
-      return this.providers.get('mock');
+      throw new Error(`Virtual Try-On provider '${configuredProvider}' is not supported. Use replicate, fashn, or fal.`);
     }
 
     return provider;

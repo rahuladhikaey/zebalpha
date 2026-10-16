@@ -11,13 +11,10 @@ import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
 import { normalizeProductImages } from "@/lib/productImageUtils";
 import { VirtualTryOnButton } from "@/components/vto/VirtualTryOnButton";
-import dynamic from "next/dynamic";
-const VirtualTryOnModal = dynamic(
-  () => import("@/components/vto/VirtualTryOnModal").then((mod) => mod.VirtualTryOnModal),
-  { ssr: false, loading: () => null }
-);
+
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 import { supabase } from "@/lib/supabaseClient";
+import { evaluateProductTryOnEligibility } from "@/shared/constants/tryOnEligibility";
 export default function ProductDetailTemplate({
   product,
   relatedProducts = [],
@@ -27,7 +24,6 @@ export default function ProductDetailTemplate({
   relatedProducts?: Product[];
   relatedProductsSlot?: React.ReactNode;
 }) {
-  const [isVtoOpen, setIsVtoOpen] = useState(false);
   // 1. Normalize packages from product
   const normalizedPackages = useMemo(() => {
     if (!product.packages || product.packages.length === 0) return [];
@@ -334,6 +330,26 @@ export default function ProductDetailTemplate({
     images,
   ]);
 
+  // Virtual Try-On Centralized Product Eligibility
+  const tryOnEligibility = useMemo(() => {
+    return evaluateProductTryOnEligibility(product, selectedVariant);
+  }, [product, selectedVariant]);
+
+  const tryOnUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("productId", String(product.id));
+    if (selectedColor && selectedColor !== "Default") {
+      params.set("color", selectedColor);
+    }
+    if (selectedSize && selectedSize !== "Free Size") {
+      params.set("size", selectedSize);
+    }
+    if (selectedVariant?.id) {
+      params.set("variantId", String(selectedVariant.id));
+    }
+    return `/virtual-try-on?${params.toString()}`;
+  }, [product.id, selectedColor, selectedSize, selectedVariant]);
+
   // Validation before Add to Cart or Buy Now
   const handleValidateAndProceed = () => {
     if (hasVariants) {
@@ -520,6 +536,18 @@ export default function ProductDetailTemplate({
                 displayPrice={displayPrice}
                 displayMrp={displayMrp}
               />
+            )}
+
+            {/* ✨ VIRTUAL TRY-ON BUTTON - Available for all eligible apparel products */}
+            {tryOnEligibility.isEligible && (
+              <div className="pt-2 pb-1">
+                <VirtualTryOnButton
+                  href={tryOnUrl}
+                  label="TRY IT ON ✨"
+                  subtitle={`See how this ${product.name.split(" ").slice(0, 3).join(" ")} looks on you in AI Fitting Room`}
+                  variant="pdp"
+                />
+              </div>
             )}
 
             {/* Action Buttons: [ Add to Cart ] [ Buy Now ] */}
@@ -855,17 +883,29 @@ export default function ProductDetailTemplate({
             </Link>
           </div>
         ) : isCurrentVariantInStock ? (
-          <div className="grid grid-cols-2 h-11 flex-1 gap-2">
-            <AddToCartButton
-              product={computedProduct}
-              onBeforeAdd={handleValidateAndProceed}
-              className="flex h-full items-center justify-center rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors border border-zinc-800 cursor-pointer"
-            />
-            <BuyNowButton
-              product={computedProduct}
-              onBeforeBuy={handleValidateAndProceed}
-              className="flex h-full items-center justify-center rounded-xl bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors cursor-pointer"
-            />
+          <div className="flex h-11 flex-1 gap-2 items-center">
+            {tryOnEligibility.isEligible && (
+              <Link
+                href={tryOnUrl}
+                className="flex items-center justify-center px-3 h-full rounded-xl bg-gradient-to-r from-zinc-900 to-zinc-850 border border-zinc-700/80 text-white text-[10px] font-black uppercase tracking-wider hover:border-white transition-all shadow-md active:scale-95 shrink-0"
+                aria-label="Virtual Try-On"
+              >
+                <Sparkles size={12} className="text-white mr-1 animate-pulse" />
+                <span>Try On</span>
+              </Link>
+            )}
+            <div className="grid grid-cols-2 h-full flex-1 gap-2">
+              <AddToCartButton
+                product={computedProduct}
+                onBeforeAdd={handleValidateAndProceed}
+                className="flex h-full items-center justify-center rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors border border-zinc-800 cursor-pointer"
+              />
+              <BuyNowButton
+                product={computedProduct}
+                onBeforeBuy={handleValidateAndProceed}
+                className="flex h-full items-center justify-center rounded-xl bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors cursor-pointer"
+              />
+            </div>
           </div>
         ) : (
           <div className="flex-1 h-11">
@@ -878,13 +918,6 @@ export default function ProductDetailTemplate({
 
       {/* Padding for bottom bar on mobile */}
       <div className="h-20 lg:hidden" />
-
-      {/* ✨ MASTER VIRTUAL TRY-ON MODAL */}
-      <VirtualTryOnModal
-        isOpen={isVtoOpen}
-        onClose={() => setIsVtoOpen(false)}
-        product={computedProduct}
-      />
     </div>
   );
 }
