@@ -1,0 +1,28 @@
+# ZEB-ALPHA
+
+> Premium Streetwear, 100% Combed Cotton Polos & 0% Commission Fashion Marketplace
+
+## Overview
+ZEBALPHA (https://zebalpha.shop) is a direct-to-consumer apparel brand and transparent multi-vendor fashion platform headquartered in India. We engineer heavyweight luxury streetwear essentials including 100% combed cotton zip polos, 240+ GSM oversized t-shirts, and heavyweight hoodies.
+
+We also operate the Zebalpha Seller Hub, empowering independent fashion makers and clothing manufacturers with a 0% commission marketplace model.
+
+## Navigation & Core Resources
+- Storefront: https://zebalpha.shop
+- All Products: https://zebalpha.shop/products
+- New Releases: https://zebalpha.shop/new-drops
+- Premium Store: https://zebalpha.shop/premium-store
+- Supplier Hub (0% Commission Seller Portal): https://seller.zebalpha.shop/register
+- Editorial & Insights (Blogs): https://zebalpha.shop/blogs
+- Contact Support: https://zebalpha.shop/contact
+
+## Apparel Specifications
+- Fabrics: 100% long-staple combed cotton, Supima cotton blends
+- GSM Tiers: 220-280 GSM heavyweight streetwear knits
+- Styling: Custom die-cast metallic zip pulls, reinforced collar ribs, drop-shoulder silhouettes
+- Shipping: Pan-India express delivery with real-time tracking
+- Payouts: 0% marketplace commission with 100% revenue retention for verified sellers
+
+## Sitemaps & Structured Feeds
+- XML Sitemap: https://zebalpha.shop/sitemap.xml
+- AI Catalog: https://zebalpha.shop/ai-catalog.json

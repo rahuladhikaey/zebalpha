@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "ZEBALPHA Apparel Catalog",
+  "description": "Premium Streetwear, Combed Cotton Zip Polos & Zero-Commission Marketplace",
+  "url": "https://zebalpha.shop",
+  "currency": "INR",
+  "brand": {
+    "name": "ZEBALPHA",
+    "url": "https://zebalpha.shop",
+    "logo": "https://zebalpha.shop/official-logo.png"
+  },
+  "categories": [
+    {
+      "id": "polos",
+      "name": "Polos",
+      "description": "100% Combed Cotton Textured Knit Zip Polos",
+      "url": "https://zebalpha.shop/products?category=Polos"
+    },
+    {
+      "id": "t-shirts",
+      "name": "T-Shirts",
+      "description": "Heavyweight Oversized Streetwear Tees (240+ GSM)",
+      "url": "https://zebalpha.shop/products?category=T-Shirts"
+    },
+    {
+      "id": "hoodies",
+      "name": "Hoodies",
+      "description": "Heavyweight Brushed Fleece Streetwear Hoodies",
+      "url": "https://zebalpha.shop/products?category=Hoodies"
+    },
+    {
+      "id": "shirts",
+      "name": "Shirts",
+      "description": "Casual Collared Relaxed Fit Modern Shirts",
+      "url": "https://zebalpha.shop/products?category=Shirts"
+    }
+  ],
+  "seller_hub": {
+    "name": "Zebalpha Supplier Hub",
+    "commission_rate": "0%",
+    "url": "https://seller.zebalpha.shop/register"
+  }
+}

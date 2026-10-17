@@ -74,7 +74,7 @@ export function MovingOfferBanner() {
   );
 
   return (
-    <div className="w-full overflow-hidden bg-black text-white py-2.5 flex items-center border-y border-neutral-800 shadow-[0_4px_20px_rgba(0,0,0,0.8)] relative z-10">
+    <div className="w-full h-10 min-h-[40px] overflow-hidden bg-black text-white flex items-center border-y border-neutral-800 shadow-[0_4px_20px_rgba(0,0,0,0.8)] relative z-10">
       <div className="flex animate-[marquee_28s_linear_infinite] whitespace-nowrap items-center w-[200%]">
         <BannerContent />
         <BannerContent />

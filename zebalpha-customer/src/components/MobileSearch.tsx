@@ -50,8 +50,8 @@ export function MobileSearch() {
   const hasResults = Array.isArray(searchResults) && searchResults.length > 0;
 
   return (
-    <div ref={containerRef} className="mt-4 relative flex w-full flex-col">
-      <div className="relative flex w-full items-center rounded-2xl border border-neutral-800 bg-neutral-900/90 px-4 py-2.5 shadow-xl transition-all focus-within:border-white focus-within:bg-black">
+    <div ref={containerRef} className="mt-4 relative flex w-full flex-col min-h-[48px]">
+      <div className="relative flex w-full h-[48px] items-center rounded-2xl border border-neutral-800 bg-neutral-900/90 px-4 shadow-xl transition-all focus-within:border-white focus-within:bg-black">
         <Search className="mr-2.5 h-5 w-5 text-neutral-400 flex-shrink-0" />
         
         <div className="relative flex-1 h-6 overflow-hidden flex items-center">

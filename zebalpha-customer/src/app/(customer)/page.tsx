@@ -11,23 +11,23 @@ import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
 import { getCachedCuratedCollections, getCachedHomeCategories, getCachedHomeProducts, getCachedEditorialCards } from "@/lib/cachedQueries";
 
-// --- SKELETON LOADERS FOR PROGRESSIVE SECTIONS ---
+// --- SKELETON LOADERS FOR PROGRESSIVE SECTIONS (MATCHES DOM EXACTLY TO PREVENT CLS) ---
 
 function CategoriesSkeleton() {
   return (
-    <div className="mt-10 sm:mt-14 space-y-4 animate-pulse">
-      <div className="flex items-center gap-2.5">
-        <div className="h-6 w-48 rounded-xl bg-neutral-900 border border-neutral-800" />
+    <div className="mt-10 sm:mt-14 space-y-4 animate-pulse select-none">
+      <div className="flex items-center justify-between gap-4 mb-5">
+        <div className="h-7 w-56 rounded-xl bg-neutral-900 border border-neutral-800" />
       </div>
-      <div className="flex gap-2 overflow-hidden pb-2">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="h-8 w-20 rounded-full bg-neutral-900 border border-neutral-800 shrink-0" />
-        ))}
-      </div>
-      <div className="grid grid-cols-6 gap-3 sm:gap-4 overflow-hidden">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="aspect-square rounded-2xl bg-neutral-900/80 border border-neutral-800 p-2" />
-        ))}
+      <div className="w-full overflow-hidden pb-2 pt-1">
+        <div className="grid grid-cols-6 gap-3 sm:gap-4 min-w-[840px] lg:min-w-full">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="rounded-3xl bg-neutral-900/90 border border-neutral-800 p-3 flex flex-col items-center">
+              <div className="w-full aspect-square rounded-2xl bg-neutral-800/80" />
+              <div className="mt-2.5 h-3 w-16 bg-neutral-800 rounded" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -50,11 +50,15 @@ function ProductFeedSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-5 animate-pulse">
       {[...Array(10)].map((_, i) => (
-        <div key={i} className="space-y-3 rounded-2xl md:rounded-3xl bg-neutral-900/60 p-3.5 border border-neutral-800">
-          <div className="aspect-square rounded-xl bg-neutral-800" />
-          <div className="h-3 w-16 bg-neutral-800 rounded" />
-          <div className="h-4 w-3/4 bg-neutral-800 rounded" />
-          <div className="h-4 w-1/3 bg-neutral-800 rounded mt-2" />
+        <div key={i} className="flex flex-col overflow-hidden rounded-2xl md:rounded-3xl bg-neutral-900/60 border border-neutral-800">
+          <div className="aspect-square w-full bg-neutral-800" />
+          <div className="p-3.5 sm:p-4 space-y-2 flex-1 flex flex-col justify-between">
+            <div className="space-y-1.5">
+              <div className="h-2.5 w-16 bg-neutral-800 rounded" />
+              <div className="h-3.5 w-3/4 bg-neutral-800 rounded" />
+            </div>
+            <div className="h-4 w-20 bg-neutral-800 rounded mt-2" />
+          </div>
         </div>
       ))}
     </div>
