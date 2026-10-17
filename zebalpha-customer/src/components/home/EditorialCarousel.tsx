@@ -54,10 +54,20 @@ export function EditorialCarousel({
   const canScroll = containerWidth > 0 && totalContentWidth > containerWidth - 32;
   const maxScroll = Math.max(0, totalContentWidth - containerWidth + 64);
 
+  const [hasStartedAutoGlide, setHasStartedAutoGlide] = useState(false);
+
+  useEffect(() => {
+    // Delay autoscroll by 2.5s to ensure initial paint and metric measurement are completely stable (0 CLS)
+    const timeout = setTimeout(() => {
+      setHasStartedAutoGlide(true);
+    }, 2500);
+    return () => clearTimeout(timeout);
+  }, []);
+
   // Smooth Gentle Auto-glide across cards if content overflows (no item duplication)
   const animate = useCallback(
     (time: number) => {
-      if (lastTimeRef.current !== null && !isPaused && !isDragging && !isReducedMotion && canScroll && maxScroll > 0) {
+      if (hasStartedAutoGlide && lastTimeRef.current !== null && !isPaused && !isDragging && !isReducedMotion && canScroll && maxScroll > 0) {
         const delta = (time - lastTimeRef.current) / 1000;
         setScrollPos((prev) => {
           let next = prev + speed * delta * scrollDir;
@@ -74,7 +84,7 @@ export function EditorialCarousel({
       lastTimeRef.current = time;
       requestRef.current = requestAnimationFrame(animate);
     },
-    [isPaused, isDragging, isReducedMotion, speed, canScroll, maxScroll, scrollDir]
+    [hasStartedAutoGlide, isPaused, isDragging, isReducedMotion, speed, canScroll, maxScroll, scrollDir]
   );
 
   useEffect(() => {
@@ -161,9 +171,9 @@ export function EditorialCarousel({
         </>
       )}
 
-      {/* Interactive Curved Tray */}
+      {/* Interactive Curved Tray (Explicit height prevents CLS reflow) */}
       <div
-        className={`relative w-full min-h-[280px] sm:min-h-[360px] md:min-h-[420px] flex items-center touch-pan-y ${
+        className={`relative w-full h-[320px] sm:h-[380px] md:h-[440px] flex items-center touch-pan-y ${
           canScroll ? "cursor-grab active:cursor-grabbing" : "justify-center"
         } overflow-hidden px-4`}
         onPointerDown={canScroll ? handlePointerDown : undefined}
@@ -172,9 +182,10 @@ export function EditorialCarousel({
         onPointerCancel={canScroll ? handlePointerUp : undefined}
       >
         <div
-          className={`flex items-center ${canScroll ? "absolute left-0" : "relative justify-center"}`}
+          className="flex items-center absolute left-0 top-0 bottom-0"
           style={{
             gap: `${cardGap}px`,
+            left: canScroll ? "0px" : `max(0px, calc(50% - ${totalContentWidth / 2}px))`,
             transform: canScroll ? `translateX(${-scrollPos}px)` : "none",
             willChange: canScroll ? "transform" : "auto",
           }}

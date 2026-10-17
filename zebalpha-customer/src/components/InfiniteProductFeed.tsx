@@ -245,7 +245,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                         ₹{product.price}
                       </span>
                       {hasDiscount && (
-                        <span className="text-xs font-semibold text-neutral-500 line-through">
+                        <span className="text-xs font-semibold text-neutral-400 line-through">
                           ₹{effectiveMrp}
                         </span>
                       )}

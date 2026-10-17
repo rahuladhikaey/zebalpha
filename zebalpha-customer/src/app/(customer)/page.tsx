@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { MobileSearch } from "@/components/MobileSearch";
 import { Suspense } from "react";
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
 import { MovingOfferBanner } from "@/components/MovingOfferBanner";

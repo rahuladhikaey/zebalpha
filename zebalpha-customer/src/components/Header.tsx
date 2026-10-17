@@ -51,7 +51,7 @@ export function Header({
             <Link href="/" className="flex items-center gap-3 transition-transform hover:scale-105 group">
               <div className="relative h-10 w-10 md:h-11 md:w-11 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-800 shadow-[0_0_15px_rgba(255,255,255,0.15)] group-hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all">
                 <Image
-                  src="/official-logo.png"
+                  src="/official-logo-sm.png"
                   alt="ZEBALPHA Official Logo"
                   width={44}
                   height={44}

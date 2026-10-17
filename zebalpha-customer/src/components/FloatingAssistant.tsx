@@ -145,7 +145,7 @@ export default function FloatingAssistant() {
           <div className="bg-black border-b border-neutral-800 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative h-10 w-10 rounded-full bg-white flex items-center justify-center text-black font-black text-xs shadow-md border border-neutral-700 overflow-hidden">
-                <img src="/official-logo.png" alt="Alpha AI" className="h-full w-full object-cover rounded-full" />
+                <img src="/official-logo-sm.png" alt="Alpha AI" className="h-full w-full object-cover rounded-full" />
               </div>
               <div className="min-w-0">
                 <h4 className="text-sm font-black tracking-tight leading-none text-white flex items-center gap-1.5">
@@ -285,7 +285,7 @@ export default function FloatingAssistant() {
         aria-label="Open Alpha AI Assistant"
       >
         <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center bg-black p-1 border border-zinc-800">
-          <img src="/official-logo.png" alt="Alpha AI" className="h-full w-full object-cover rounded-full" />
+          <img src="/official-logo-sm.png" alt="Alpha AI" className="h-full w-full object-cover rounded-full" />
         </div>
         <span className="absolute -top-1 -right-1 flex h-4 w-4">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

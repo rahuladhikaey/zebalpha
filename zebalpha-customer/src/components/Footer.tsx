@@ -20,23 +20,42 @@ const FOOTER_VIDEOS = [
 export function Footer() {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const footerRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Lazy load video only when footer is near viewport (eliminates 4.2MB initial payload)
+  useEffect(() => {
+    if (!footerRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoadVideo(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(footerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Auto-cycle background videos every 12 seconds
   useEffect(() => {
+    if (!shouldLoadVideo) return;
     const interval = setInterval(() => {
       setCurrentVideoIndex((prev) => (prev + 1) % FOOTER_VIDEOS.length);
     }, 12000);
     return () => clearInterval(interval);
-  }, []);
+  }, [shouldLoadVideo]);
 
   // Update video src and play when currentVideoIndex changes
   useEffect(() => {
-    if (videoRef.current) {
+    if (shouldLoadVideo && videoRef.current) {
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(() => {});
     }
-  }, [currentVideoIndex]);
+  }, [currentVideoIndex, shouldLoadVideo]);
 
   const toggleMute = () => {
     const nextMuted = !isMuted;
@@ -49,19 +68,24 @@ export function Footer() {
   const currentMeta = FOOTER_VIDEOS[currentVideoIndex];
 
   return (
-    <footer className="relative overflow-hidden border-t border-neutral-800/80 bg-black text-white selection:bg-white selection:text-black min-h-[480px]">
+    <footer ref={footerRef} className="relative overflow-hidden border-t border-neutral-800/80 bg-black text-white selection:bg-white selection:text-black min-h-[480px]">
       
-      {/* 1st Layer: Vivid Visible Background Video Player */}
-      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden z-0">
-        <video
-          ref={videoRef}
-          src={currentMeta.src}
-          autoPlay
-          muted={isMuted}
-          loop
-          playsInline
-          className="w-full h-full object-cover object-center filter brightness-90 saturate-115 transition-opacity duration-1000 opacity-90"
-        />
+      {/* 1st Layer: Vivid Visible Background Video Player (Lazy-loaded) */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden z-0 bg-neutral-950">
+        {shouldLoadVideo && (
+          <video
+            ref={videoRef}
+            src={currentMeta.src}
+            autoPlay
+            muted={isMuted}
+            loop
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover object-center filter brightness-90 saturate-115 transition-opacity duration-1000 opacity-90"
+          >
+            <track kind="captions" srcLang="en" label="English" />
+          </video>
+        )}
         {/* Subtle Semi-Transparent Overlay for Clear Contrast & Vivid Video Visibility */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60 pointer-events-none" />
         <div className="absolute inset-0 bg-black/30 pointer-events-none" />

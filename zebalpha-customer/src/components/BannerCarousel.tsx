@@ -124,12 +124,6 @@ export function BannerCarousel() {
                   : "opacity-0 scale-[1.03] pointer-events-none z-0"
               }`}
             >
-              {/* Blurred Ambient Backdrop for Full Content Consistency */}
-              <div 
-                className="absolute inset-0 bg-cover bg-center filter blur-xl opacity-40 scale-110"
-                style={{ backgroundImage: `url(${banner.src})` }}
-              />
-
               {/* Main Banner Image / Video with Actual Proportions and Clean Sizing */}
               <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
                 {banner.src.endsWith(".mp4") ? (
@@ -149,7 +143,6 @@ export function BannerCarousel() {
                     priority={index === 0}
                     sizes="(max-width: 640px) 100vw, (max-width: 1400px) 100vw, 1400px"
                     className="w-full h-full object-cover object-center rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] transition-transform duration-1000 ease-out group-hover:scale-[1.015]"
-                    unoptimized
                   />
                 )}
               </div>
@@ -162,22 +155,24 @@ export function BannerCarousel() {
       </div>
 
       {/* Modern Royal Progress Indicators */}
-      <div className="absolute bottom-3 sm:bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 sm:gap-2.5 px-4 w-full max-w-[240px] sm:max-w-[280px]">
+      <div className="absolute bottom-1 sm:bottom-2 left-1/2 z-20 flex -translate-x-1/2 gap-2 sm:gap-2.5 px-4 w-full max-w-[240px] sm:max-w-[280px]">
         {banners.map((_, index) => (
           <button
             key={index}
             onClick={() => setCurrentIndex(index)}
-            className="group/dot relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/30 backdrop-blur-sm transition-all hover:bg-white/50"
+            className="group/dot relative py-3.5 flex-1 flex items-center justify-center transition-all cursor-pointer"
             aria-label={`Go to slide ${index + 1}`}
           >
-            <div
-              className={`absolute inset-0 bg-white transition-all ease-linear ${
-                index === currentIndex ? "w-full" : "w-0"
-              }`}
-              style={{ 
-                transitionDuration: index === currentIndex && !isHovered ? '5000ms' : '0ms' 
-              }}
-            />
+            <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/30 backdrop-blur-sm">
+              <div
+                className={`absolute inset-0 bg-white transition-all ease-linear ${
+                  index === currentIndex ? "w-full" : "w-0"
+                }`}
+                style={{ 
+                  transitionDuration: index === currentIndex && !isHovered ? '5000ms' : '0ms' 
+                }}
+              />
+            </div>
           </button>
         ))}
       </div>
