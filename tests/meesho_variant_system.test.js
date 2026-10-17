@@ -190,6 +190,40 @@ it("Allows non-variant products to directly add without variant modal", () => {
   assert.strictEqual(cart[0].package_name, "Standard");
 });
 
+// 7. Outside Card In-Cart Quantity & Badge Resolution
+it("Correctly matches and displays in-cart quantity on outside product cards when variant is added", () => {
+  const cart = [
+    {
+      id: multiVariantProduct.id,
+      name: "Men Regular Fit Cotton T-Shirt",
+      selected_size: "XL",
+      selected_color: "Main Color",
+      variant_id: "var_main_xl",
+      quantity: 1,
+      cart_item_key: "prod_tshirt_101_var_main_xl",
+    },
+  ];
+
+  // The base product on the outside feed card has no pre-selected variant:
+  const outsideFeedProduct = {
+    id: multiVariantProduct.id,
+    name: multiVariantProduct.name,
+    price: multiVariantProduct.price,
+  };
+
+  const matchingCartItems = cart.filter((item) => String(item.id) === String(outsideFeedProduct.id));
+  const isSpecificVariant = Boolean(outsideFeedProduct.cart_item_key || outsideFeedProduct.variant_id || outsideFeedProduct.selected_size);
+  const totalProductQuantity = matchingCartItems.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0);
+  const quantity = isSpecificVariant ? 0 : totalProductQuantity;
+
+  assert.strictEqual(quantity, 1, "Outside card must recognize product is in cart with quantity 1");
+  assert.strictEqual(matchingCartItems[0].selected_size, "XL");
+
+  const singleSize = !isSpecificVariant && matchingCartItems.length === 1 ? matchingCartItems[0].selected_size : "";
+  const badgeText = singleSize ? `${quantity} (${singleSize})` : quantity;
+  assert.strictEqual(badgeText, "1 (XL)", "Outside card badge text should show '1 (XL)'");
+});
+
 console.log(`\n=================================================================`);
 console.log(`  TEST RESULTS: ${passed} / ${total} TESTS PASSED (100% SUCCESS)`);
 console.log(`=================================================================\n`);

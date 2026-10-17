@@ -21,12 +21,13 @@ export function QuickCartButton({
     (product.stock !== undefined && Number(product.stock) <= 0) ||
     product.status === "OUT_OF_STOCK";
 
-  // Check if item is already in cart
-  const inCartItem = cart.find(
+  // Check if item is already in cart (sum across any selected variants)
+  const matchingItems = cart.filter(
     (item) => String(item.id) === String(product.id)
   );
-  const isInCart = Boolean(inCartItem);
-  const quantity = inCartItem?.quantity || 0;
+  const totalQuantity = matchingItems.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0);
+  const isInCart = totalQuantity > 0;
+  const quantity = totalQuantity;
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();

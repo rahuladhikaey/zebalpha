@@ -109,57 +109,116 @@ export function AddToCartButton({
   const targetSize = prodAny.selected_size;
   const targetColor = prodAny.selected_color;
 
-  const cartItem = cart.find((item) => {
+  // 1. All matching items for this product in cart
+  const matchingCartItems = cart.filter((item) => String(item.id) === String(product.id));
+
+  // 2. Determine if caller requested a specific variant (e.g. PDP size button or bottom sheet)
+  const isSpecificVariant = Boolean(targetKey || targetVariantId || targetSize || targetPkg);
+
+  const exactCartItem = matchingCartItems.find((item) => {
     if (targetKey && item.cart_item_key === targetKey) return true;
     if (targetVariantId && item.variant_id && String(item.variant_id) === String(targetVariantId)) return true;
-    if (targetPkg && String(item.id) === String(product.id) && item.package_name === targetPkg) return true;
-    if (targetSize && String(item.id) === String(product.id)) {
+    if (targetPkg && item.package_name === targetPkg) return true;
+    if (targetSize) {
       const matchSize = (item.selected_size || "").toLowerCase() === targetSize.toLowerCase();
       const matchColor = !targetColor || !item.selected_color || item.selected_color.toLowerCase() === targetColor.toLowerCase();
       if (matchSize && matchColor) return true;
     }
-    if (!targetKey && !targetVariantId && !targetSize && !item.variant_id && !item.selected_size) {
-      return String(item.id) === String(product.id);
-    }
     return false;
   });
-  const effectiveKey = cartItem?.cart_item_key || targetKey || product.id;
-  const quantity = cartItem?.quantity || 0;
+
+  // 3. Resolve active item, quantity, and effective key
+  const activeCartItem = isSpecificVariant ? exactCartItem : (matchingCartItems[0] || null);
+  const totalProductQuantity = matchingCartItems.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0);
+  const quantity = isSpecificVariant ? (exactCartItem?.quantity || 0) : totalProductQuantity;
+  const effectiveKey = activeCartItem?.cart_item_key || activeCartItem?.id || targetKey || product.id;
+
+  const handleDecrement = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isSpecificVariant && matchingCartItems.length > 1) {
+      openVariantSelector(product);
+      return;
+    }
+
+    if (activeCartItem) {
+      const currentQty = activeCartItem.quantity || 1;
+      const key = activeCartItem.cart_item_key || activeCartItem.id;
+      if (currentQty <= 1) {
+        removeFromCart(key);
+      } else {
+        updateQuantity(key, currentQty - 1);
+      }
+    }
+  };
+
+  const handleIncrement = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const pkgs = product.packages;
+    const hasMultiplePkgs = Array.isArray(pkgs) && pkgs.length > 1;
+    const hasUnselectedPkg = Array.isArray(pkgs) && pkgs.length > 0 && !(product as any).variant_id;
+    const mightHaveVariants = !pkgs && (product.category_id || (product as any).specifications?.size_chart);
+
+    if (!onBeforeAdd && (hasMultiplePkgs || hasUnselectedPkg || mightHaveVariants)) {
+      openVariantSelector(product);
+      return;
+    }
+
+    if (activeCartItem) {
+      const key = activeCartItem.cart_item_key || activeCartItem.id;
+      updateQuantity(key, (activeCartItem.quantity || 1) + 1);
+    } else {
+      addToCart(product, 1);
+    }
+  };
+
+  const handleCenterClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const pkgs = product.packages;
+    const hasMultiplePkgs = Array.isArray(pkgs) && pkgs.length > 1;
+    const mightHaveVariants = !pkgs && (product.category_id || (product as any).specifications?.size_chart);
+
+    if (!onBeforeAdd && (hasMultiplePkgs || mightHaveVariants)) {
+      openVariantSelector(product);
+    } else {
+      router.push('/cart');
+    }
+  };
 
   if (quantity > 0) {
+    const singleSize = !isSpecificVariant && matchingCartItems.length === 1 ? matchingCartItems[0].selected_size : "";
+    const badgeText = singleSize ? `${quantity} (${singleSize})` : (matchingCartItems.length > 1 && !isSpecificVariant ? `${quantity} in cart` : quantity);
+
     if (compact) {
       return (
         <div 
           className="flex h-8 w-20 items-center justify-between rounded-full bg-white text-xs font-black text-black shadow-lg overflow-hidden transition-all active:scale-95 sm:h-10 sm:w-24 sm:rounded-xl border border-neutral-200"
         >
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1);
-            }}
-            className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors cursor-pointer"
+            type="button"
+            onClick={handleDecrement}
+            className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors cursor-pointer select-none"
+            aria-label="Decrease quantity"
           >
             <span className="text-sm sm:text-base font-black">-</span>
           </button>
           <span 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              router.push('/cart');
-            }}
-            title="Click to view cart"
-            className="flex h-full flex-1 items-center justify-center bg-black text-white text-xs font-black cursor-pointer hover:bg-neutral-800 transition-colors"
+            onClick={handleCenterClick}
+            title="Click to view cart or change size"
+            className="flex h-full flex-1 items-center justify-center bg-black text-white text-[11px] sm:text-xs font-black cursor-pointer hover:bg-neutral-800 transition-colors select-none px-1"
           >
             {quantity}
           </span>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              updateQuantity(effectiveKey, quantity + 1);
-            }}
-            className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors cursor-pointer"
+            type="button"
+            onClick={handleIncrement}
+            className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors cursor-pointer select-none"
+            aria-label="Increase quantity"
           >
             <span className="text-sm sm:text-base font-black">+</span>
           </button>
@@ -169,36 +228,28 @@ export function AddToCartButton({
 
     return (
       <div 
-        className={className || "flex h-10 w-24 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95"}
+        className={className || "flex h-10 min-w-[6.5rem] px-1 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95"}
       >
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1);
-          }}
-          className="flex h-full flex-1 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors cursor-pointer"
+          type="button"
+          onClick={handleDecrement}
+          className="flex h-full w-7 sm:w-8 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors cursor-pointer select-none"
+          aria-label="Decrease quantity"
         >
           <span className="text-base font-black">-</span>
         </button>
         <span 
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            router.push('/cart');
-          }}
-          title="Click to view cart"
-          className="flex h-full flex-1 items-center justify-center bg-white text-black text-sm font-black animate-in zoom-in-50 duration-200 cursor-pointer hover:bg-neutral-200 transition-colors"
+          onClick={handleCenterClick}
+          title="Click to view cart or change size"
+          className="flex h-full flex-1 items-center justify-center bg-white text-black text-xs sm:text-sm font-black px-2 py-0.5 rounded-lg mx-1 animate-in zoom-in-50 duration-200 cursor-pointer hover:bg-neutral-200 transition-colors select-none whitespace-nowrap"
         >
-          {quantity}
+          {badgeText}
         </span>
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            updateQuantity(effectiveKey, quantity + 1);
-          }}
-          className="flex h-full flex-1 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors cursor-pointer"
+          type="button"
+          onClick={handleIncrement}
+          className="flex h-full w-7 sm:w-8 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors cursor-pointer select-none"
+          aria-label="Increase quantity"
         >
           <span className="text-base font-black">+</span>
         </button>
