@@ -1,28 +1,32 @@
 # ZEB-ALPHA
 
-> Premium Streetwear, 100% Combed Cotton Polos & 0% Commission Fashion Marketplace
+> Premium Streetwear, 100% Combed Cotton Zip Polos & Zero-Commission Fashion Marketplace in India.
 
-## Overview
-ZEBALPHA (https://zebalpha.shop) is a direct-to-consumer apparel brand and transparent multi-vendor fashion platform headquartered in India. We engineer heavyweight luxury streetwear essentials including 100% combed cotton zip polos, 240+ GSM oversized t-shirts, and heavyweight hoodies.
+ZEBALPHA (https://zebalpha.shop) is an Indian direct-to-consumer apparel brand and transparent multi-vendor marketplace. We engineer heavyweight luxury streetwear essentials including 100% combed cotton zip polos, 240+ GSM oversized t-shirts, and heavyweight hoodies. We also operate the Zebalpha Seller Hub, empowering independent fashion makers with a 0% commission marketplace model.
 
-We also operate the Zebalpha Seller Hub, empowering independent fashion makers and clothing manufacturers with a 0% commission marketplace model.
+## Core Pages
 
-## Navigation & Core Resources
-- Storefront: https://zebalpha.shop
-- All Products: https://zebalpha.shop/products
-- New Releases: https://zebalpha.shop/new-drops
-- Premium Store: https://zebalpha.shop/premium-store
-- Supplier Hub (0% Commission Seller Portal): https://seller.zebalpha.shop/register
-- Editorial & Insights (Blogs): https://zebalpha.shop/blogs
-- Contact Support: https://zebalpha.shop/contact
+- [Storefront](https://zebalpha.shop/): Official Zebalpha online storefront and collection drops.
+- [All Products](https://zebalpha.shop/products): Full catalog of premium streetwear, polos, oversized tees, and hoodies.
+- [Men's Polos](https://zebalpha.shop/products?category=Polos): Textured 100% combed cotton zip collar polo t-shirts.
+- [Oversized T-Shirts](https://zebalpha.shop/products?category=T-Shirts): Heavyweight 240+ GSM drop-shoulder streetwear graphic and solid tees.
+- [Hoodies & Sweatshirts](https://zebalpha.shop/products?category=Hoodies): Heavyweight brushed fleece streetwear hoodies.
+- [Smart Casual Shirts](https://zebalpha.shop/products?category=Shirts): Relaxed fit collared casual apparel.
+- [Virtual Try-On Room](https://zebalpha.shop/virtual-try-on): AI-powered live virtual fitting room to visualize fits.
+- [Blog & Editorial Guides](https://zebalpha.shop/blogs): Streetwear styling guides, fabric care tutorials, and marketplace industry insights.
 
-## Apparel Specifications
-- Fabrics: 100% long-staple combed cotton, Supima cotton blends
-- GSM Tiers: 220-280 GSM heavyweight streetwear knits
-- Styling: Custom die-cast metallic zip pulls, reinforced collar ribs, drop-shoulder silhouettes
-- Shipping: Pan-India express delivery with real-time tracking
-- Payouts: 0% marketplace commission with 100% revenue retention for verified sellers
+## Marketplace & Seller Hub
 
-## Sitemaps & Structured Feeds
-- XML Sitemap: https://zebalpha.shop/sitemap.xml
-- AI Catalog: https://zebalpha.shop/ai-catalog.json
+- [Supplier Registration](https://seller.zebalpha.shop/register): Join the Zebalpha 0% commission seller marketplace for apparel makers.
+- [Zero Commission Guide](https://zebalpha.shop/blogs/sell-online-zero-commission-small-brands-guide): Comprehensive guide on how small clothing manufacturers sell online with 0% commission.
+
+## Machine Feeds & Specifications
+
+- [AI Product Catalog](https://zebalpha.shop/ai-catalog.json): Structured JSON schema catalog of Zebalpha collections and brand information.
+- [XML Sitemap](https://zebalpha.shop/sitemap.xml): Machine-readable XML index of all storefront and editorial URLs.
+
+## Optional
+
+- [Contact Support](https://zebalpha.shop/contact): Customer service and order inquiries.
+- [Privacy Policy](https://zebalpha.shop/privacy): Privacy policy and customer data handling standards.
+- [Terms & Conditions](https://zebalpha.shop/terms): Storefront and marketplace terms of service.
