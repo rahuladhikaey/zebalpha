@@ -165,6 +165,8 @@ export function Footer() {
                 <li><Link href="/about" className="transition hover:text-white block">About Zebalpha</Link></li>
                 <li><Link href="/contact" className="transition hover:text-white block">Contact Us</Link></li>
                 <li><Link href="/privacy-policy" className="transition hover:text-white block">Privacy Policy</Link></li>
+                <li><Link href="/terms-and-conditions" className="transition hover:text-white block">Terms & Conditions</Link></li>
+                <li><Link href="/blogs" className="transition hover:text-white block">Blogs & Seller Guides</Link></li>
               </ul>
             </div>
           </div>

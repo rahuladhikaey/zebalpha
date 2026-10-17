@@ -177,6 +177,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                   { name: "Contact & Support", href: "/contact" },
                   { name: "Privacy Policy", href: "/privacy-policy" },
                   { name: "Terms & Conditions", href: "/terms-and-conditions" },
+                  { name: "Blogs & Seller Guides", href: "/blogs" },
                 ].map((item) => (
                   <Link
                     key={item.name}

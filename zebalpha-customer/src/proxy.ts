@@ -132,7 +132,10 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/search') ||
     pathname.startsWith('/legal') ||
     pathname.startsWith('/privacy') ||
-    pathname.startsWith('/terms');
+    pathname.startsWith('/terms') ||
+    pathname.startsWith('/blogs') ||
+    pathname.startsWith('/about') ||
+    pathname.startsWith('/contact');
 
   // If public catalog route (page route only, never an API route), return immediately with zero remote auth network latency
   if (isPublicCatalogRoute && !isProtectedUserRoute && !isProtectedApiRoute && !pathname.startsWith('/api/')) {
