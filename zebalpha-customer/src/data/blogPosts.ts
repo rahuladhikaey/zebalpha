@@ -537,9 +537,15 @@ export const BLOG_POSTS: BlogPost[] = [
 ];
 
 export function getBlogPostBySlug(slug: string): BlogPost | undefined {
+  if (slug === "zero-commission-fashion-revolution-2026") {
+    return BLOG_POSTS.find((post) => post.slug === "sell-online-zero-commission-small-brands-guide");
+  }
   return BLOG_POSTS.find((post) => post.slug === slug);
 }
 
 export function getAllBlogSlugs(): string[] {
-  return BLOG_POSTS.map((post) => post.slug);
+  return [
+    ...BLOG_POSTS.map((post) => post.slug),
+    "zero-commission-fashion-revolution-2026",
+  ];
 }

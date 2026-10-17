@@ -26,7 +26,13 @@ const nextConfig: NextConfig = {
   },
 
   async redirects() {
-    return [];
+    return [
+      {
+        source: "/blogs/zero-commission-fashion-revolution-2026",
+        destination: "/blogs/sell-online-zero-commission-small-brands-guide",
+        permanent: true,
+      },
+    ];
   },
 
   async headers() {
