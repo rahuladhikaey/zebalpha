@@ -35,7 +35,7 @@ export async function getCachedCuratedCollections(): Promise<CuratedCollection[]
       }
       return [];
     },
-    1 // 1 sec TTL for real-time responsiveness
+    300 // 5 min TTL
   );
 }
 
@@ -122,7 +122,7 @@ export async function getCachedEditorialCards(): Promise<EditorialCard[]> {
       }
       return [];
     },
-    1 // 1 sec TTL for real-time responsiveness
+    300 // 5 min TTL
   );
 }
 
@@ -192,7 +192,7 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
         };
       }) as unknown as Product[];
     },
-    5 // 5 sec TTL for real-time responsiveness when sellers add products
+    120 // 2 min TTL
   );
 }
 

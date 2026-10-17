@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
+
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(process.cwd(), ".."),
   typescript: {
@@ -8,7 +10,8 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ["razorpay"],
   images: {
-    unoptimized: true,
+    unoptimized: isCapacitorBuild,
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: "https",
@@ -63,6 +66,10 @@ const nextConfig: NextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin'
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups'
           }
         ]
       }

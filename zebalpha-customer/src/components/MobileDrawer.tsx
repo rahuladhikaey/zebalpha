@@ -55,7 +55,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-800">
                 <img
-                  src="/official-logo.png"
+                  src="/official-logo-sm.png"
                   alt="ZEBALPHA Logo"
                   className="h-full w-full object-cover rounded-full"
                 />

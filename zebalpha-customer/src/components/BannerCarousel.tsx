@@ -103,7 +103,7 @@ export function BannerCarousel() {
             <SlideWrapper
               key={banner.id || index}
               {...(wrapperProps as any)}
-              className={`absolute inset-0 w-full h-full transition-all duration-700 ease-in-out ${
+              className={`absolute inset-0 w-full h-full transition-[opacity,transform] duration-700 ease-in-out ${
                 isActive
                   ? "opacity-100 scale-100 z-10 pointer-events-auto"
                   : "opacity-0 scale-[1.03] pointer-events-none z-0"
@@ -126,6 +126,7 @@ export function BannerCarousel() {
                     alt={banner.alt || "Zeb-alpha Banner"}
                     fill
                     priority={index === 0}
+                    fetchPriority={index === 0 ? "high" : "auto"}
                     sizes="(max-width: 640px) 100vw, (max-width: 1400px) 100vw, 1400px"
                     className="w-full h-full object-cover object-center rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] transition-transform duration-1000 ease-out group-hover:scale-[1.015]"
                   />
@@ -150,10 +151,9 @@ export function BannerCarousel() {
           >
             <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/30 backdrop-blur-sm">
               <div
-                className={`absolute inset-0 bg-white transition-all ease-linear ${
-                  index === currentIndex ? "w-full" : "w-0"
-                }`}
+                className="absolute inset-0 bg-white origin-left transition-transform ease-linear will-change-transform"
                 style={{ 
+                  transform: index === currentIndex ? 'scaleX(1)' : 'scaleX(0)',
                   transitionDuration: index === currentIndex && !isHovered ? '5000ms' : '0ms' 
                 }}
               />

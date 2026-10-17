@@ -123,7 +123,7 @@ export function Footer() {
             <Link href="/" className="inline-flex items-center gap-3 text-2xl font-black text-white tracking-[0.2em] uppercase group drop-shadow-md">
               <div className="relative h-10 w-10 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-white/30 shadow-[0_0_15px_rgba(255,255,255,0.25)] group-hover:scale-105 transition-transform">
                 <img
-                  src="/official-logo.png"
+                  src="/official-logo-sm.png"
                   alt="ZEBALPHA Logo"
                   className="h-full w-full object-cover rounded-full"
                 />
