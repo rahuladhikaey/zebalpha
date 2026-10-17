@@ -196,10 +196,20 @@ export default function SellerDashboard() {
             let premUnits = 0;
             let stdUnits = 0;
 
+            const orderTotalAmt = Number(order.total_amount) || 0;
+            const explicitDiscount = Number(order.discount_amount) || 0;
+            const rawGrossSum = sellerItems.reduce((s: number, it: any) => s + (Number(it.price || 0) * (Number(it.quantity || 1))), 0);
+            const totalDiscount = explicitDiscount > 0
+              ? explicitDiscount
+              : (orderTotalAmt > 0 && rawGrossSum > orderTotalAmt ? (rawGrossSum - orderTotalAmt) : 0);
+
             sellerItems.forEach((item: any) => {
               const itemId = String(item.product_id || item.id || "");
-              const itemTotal = item.subtotal || (item.price * item.quantity) || 0;
               const qty = Number(item.quantity) || 1;
+              const rawPrice = Number(item.price) || 0;
+              const gross = rawPrice * qty;
+              const disc = Number(item.discount) || (rawGrossSum > 0 ? Math.round((gross / rawGrossSum) * totalDiscount) : 0);
+              const itemTotal = Number(item.subtotal) || Math.max(0, gross - disc);
               const isPrem = 
                 item.is_premium === true || 
                 item.tier === "PREMIUM" || 
@@ -217,7 +227,9 @@ export default function SellerDashboard() {
             });
 
             const itemsRevenue = premRev + stdRev;
-            const orderRevenue = itemsRevenue > 0 ? itemsRevenue : (Number(order.total_amount) || 0);
+            const orderRevenue = (orderTotalAmt > 0 && orderTotalAmt < itemsRevenue)
+              ? orderTotalAmt
+              : (itemsRevenue > 0 ? itemsRevenue : orderTotalAmt);
             const totalUnits = premUnits + stdUnits || 1;
 
             processedSellerOrders.push({

@@ -66,10 +66,38 @@ export default function SellerOrders() {
   const [processingReturn, setProcessingReturn] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
+  const [financialRules, setFinancialRules] = useState<any>(DEFAULT_FINANCIAL_RULES);
 
   const loadData = async () => {
     setLoading(true);
     try {
+      // Load active platform finance configuration from Supabase
+      try {
+        const { data: activeCfg } = await supabase
+          .from("platform_finance_configs")
+          .select("*")
+          .eq("status", "ACTIVE")
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (activeCfg) {
+          setFinancialRules({
+            commission_percentage: Number(activeCfg.commission_percentage) || 0,
+            fixed_fee_per_order: Number(activeCfg.fixed_fee_per_order) || 0,
+            payment_collection_fee_pct: Number(activeCfg.payment_collection_fee_pct) || 0,
+            cod_handling_fee: Number(activeCfg.cod_handling_fee) || 0,
+            standard_shipping_fee: Number(activeCfg.standard_shipping_fee) || 0,
+            reverse_shipping_fee: Number(activeCfg.reverse_shipping_fee) || 0,
+            rto_charge: Number(activeCfg.rto_charge) || 0,
+            gst_on_platform_fees_pct: Number(activeCfg.gst_on_platform_fees_pct) || 18,
+            settlement_delay_days: Number(activeCfg.settlement_delay_days) || 7,
+            customer_return_window_days: 7,
+            shipping_paid_by: activeCfg.shipping_paid_by || "CUSTOMER"
+          });
+        }
+      } catch (_) {}
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -202,14 +230,27 @@ export default function SellerOrders() {
           const finalItems = sellerItems.length > 0 ? sellerItems : rawItems;
 
           if (isDirectSellerOrder || finalItems.length > 0) {
-            const sellerTotal = finalItems.reduce((sum: number, item: any) => 
-              sum + (Number(item.subtotal) || ((Number(item.price) || 0) * (Number(item.quantity) || 1))), 0);
+            const rawGross = finalItems.reduce((sum: number, item: any) => 
+              sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+            const orderTotalAmt = Number(order.total_amount) || 0;
+            const explicitDiscount = Number(order.discount_amount) || 0;
+            const totalDiscount = explicitDiscount > 0
+              ? explicitDiscount
+              : (orderTotalAmt > 0 && rawGross > orderTotalAmt ? (rawGross - orderTotalAmt) : 0);
+
+            const sellerTotal = finalItems.reduce((sum: number, item: any) => {
+              const qty = Number(item.quantity) || 1;
+              const p = Number(item.price) || 0;
+              const gross = p * qty;
+              const disc = Number(item.discount) || (rawGross > 0 ? Math.round((gross / rawGross) * totalDiscount) : 0);
+              return sum + (Number(item.subtotal) || Math.max(0, gross - disc));
+            }, 0);
 
             filteredOrders.push({
               ...order,
               items: finalItems,
               seller_items: finalItems,
-              seller_total: sellerTotal > 0 ? sellerTotal : (Number(order.total_amount) || 0)
+              seller_total: (orderTotalAmt > 0 && orderTotalAmt < sellerTotal) ? orderTotalAmt : (sellerTotal > 0 ? sellerTotal : orderTotalAmt)
             });
           }
         } catch (e) {
@@ -744,10 +785,20 @@ export default function SellerOrders() {
                     const prodFallback = sellerProducts.find(p => String(p.id) === String(item.product_id || item.id));
                     const itemImage = item.image_url || item.image || (Array.isArray(item.images) ? item.images[0] : null) || prodFallback?.image_url;
                     const itemQty = Number(item.quantity || item.qty || item.units) || 1;
-                    const rawPrice = Number(item.price || item.selling_price || item.unit_price);
-                    const itemPrice = rawPrice > 0 ? rawPrice : (Number(order.seller_total || order.total_amount || 0) / itemQty);
-                    const itemSubtotal = item.subtotal || (itemPrice * itemQty);
-                    const feeBreakdown = calculateOrderItemFee(itemPrice, itemQty, DEFAULT_FINANCIAL_RULES);
+                    const rawPrice = Number(item.price || item.selling_price || item.unit_price || 0);
+                    const itemGross = (rawPrice > 0 ? rawPrice : (Number(order.seller_total || order.total_amount || 0) / itemQty)) * itemQty;
+
+                    // Account for discount on item or order level
+                    const orderItemsGross = items.reduce((s: number, it: any) => s + (Number(it.price || 0) * (Number(it.quantity || 1))), 0);
+                    const explicitDiscount = Number(order.discount_amount || 0);
+                    const orderTotAmt = Number(order.seller_total || order.total_amount || 0);
+                    const orderDiscount = explicitDiscount > 0
+                      ? explicitDiscount
+                      : (orderTotAmt > 0 && orderItemsGross > orderTotAmt ? (orderItemsGross - orderTotAmt) : 0);
+                    const itemDiscount = Number(item.discount) || (orderItemsGross > 0 ? Math.round((itemGross / orderItemsGross) * orderDiscount) : 0);
+                    const netItemSubtotal = item.subtotal ? Number(item.subtotal) : Math.max(0, itemGross - itemDiscount);
+                    const netItemPrice = itemQty > 0 ? (netItemSubtotal / itemQty) : 0;
+                    const feeBreakdown = calculateOrderItemFee(netItemPrice, itemQty, financialRules);
                     const itemName = item.name || item.title || prodFallback?.name || "Apparel Product";
 
                     return (
@@ -786,7 +837,10 @@ export default function SellerOrders() {
                         <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-zinc-800">
                           <div className="text-right">
                             <span className="text-[10px] font-bold text-zinc-400">Selling Price</span>
-                            <p className="text-xs font-black text-white">₹{itemSubtotal.toLocaleString("en-IN")}</p>
+                            <p className="text-xs font-black text-white">₹{netItemSubtotal.toLocaleString("en-IN")}</p>
+                            {itemDiscount > 0 && (
+                              <span className="text-[9px] font-bold text-zinc-500 line-through">MRP: ₹{itemGross.toLocaleString("en-IN")}</span>
+                            )}
                           </div>
                           <div className="text-right">
                             <span className="text-[10px] font-bold text-emerald-400">Est. Seller Payout</span>
@@ -920,14 +974,31 @@ export default function SellerOrders() {
               {(() => {
                 const rawItems = selectedOrder.items || selectedOrder.seller_items || [];
                 const items = Array.isArray(rawItems) ? rawItems : [];
-                const gross = items.reduce((sum: number, it: any) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
-                const feeBreakdown = calculateOrderItemFee(gross, 1, DEFAULT_FINANCIAL_RULES);
+                const catalogGross = items.reduce((sum: number, it: any) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
+                const orderTotAmt = Number(selectedOrder.seller_total || selectedOrder.total_amount || 0);
+                const explicitDiscount = Number(selectedOrder.discount_amount || 0);
+                const discount = explicitDiscount > 0 
+                  ? explicitDiscount 
+                  : (orderTotAmt > 0 && catalogGross > orderTotAmt ? (catalogGross - orderTotAmt) : 0);
+                const netGross = Math.max(0, catalogGross - discount);
+                const effectiveGross = netGross > 0 ? netGross : (orderTotAmt > 0 ? orderTotAmt : catalogGross);
+                const feeBreakdown = calculateOrderItemFee(effectiveGross, 1, financialRules);
 
                 return (
                   <div className="space-y-2 text-xs divide-y divide-zinc-800">
                     <div className="flex justify-between py-1.5 text-zinc-300 font-bold">
-                      <span>Gross Customer Selling Price</span>
-                      <span className="text-white font-black">₹{feeBreakdown.gross_amount.toLocaleString("en-IN")}</span>
+                      <span>Listing / Catalog Price</span>
+                      <span className="text-white font-black">₹{catalogGross.toLocaleString("en-IN")}</span>
+                    </div>
+                    {discount > 0 && (
+                      <div className="flex justify-between py-1.5 text-amber-400 font-medium">
+                        <span>Offer / Coupon Discount</span>
+                        <span className="font-bold">-₹{discount.toLocaleString("en-IN")}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-1.5 text-zinc-300 font-bold">
+                      <span>Net Customer Selling Price</span>
+                      <span className="text-emerald-400 font-black">₹{effectiveGross.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
                       <span>Platform Commission ({feeBreakdown.effective_commission_pct}%)</span>

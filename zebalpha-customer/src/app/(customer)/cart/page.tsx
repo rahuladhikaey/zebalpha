@@ -13,16 +13,12 @@ export default function CartPage() {
   
   const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
   const [billingSettings, setBillingSettings] = useState({
-    deliveryFee: 29,
-    freeDeliveryThreshold: 100,
-    packagingFee: 9,
-    tax: 3
+    deliveryFee: 0,
+    freeDeliveryThreshold: 0,
+    packagingFee: 0,
+    tax: 0
   });
-  const [cartOffer, setCartOffer] = useState({
-    threshold: 139,
-    percentage: 50,
-    isActive: true
-  });
+  const [cartOffer, setCartOffer] = useState<{ threshold: number; percentage: number; isActive: boolean } | null>(null);
 
   // Promotional Coupon State
   const [couponInput, setCouponInput] = useState("");
@@ -35,17 +31,32 @@ export default function CartPage() {
   
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').single();
+      const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').maybeSingle();
       if (data && data.value) {
-        setBillingSettings(data.value);
+        setBillingSettings({
+          deliveryFee: Number(data.value.deliveryFee) || 0,
+          freeDeliveryThreshold: Number(data.value.freeDeliveryThreshold) || 0,
+          packagingFee: Number(data.value.packagingFee) || 0,
+          tax: Number(data.value.tax) || 0,
+        });
       }
     };
     fetchSettings();
 
     const fetchOffer = async () => {
-      const { data } = await supabase.from('store_settings').select('value').eq('key', 'global_cart_offer').single();
-      if (data && data.value) {
-        setCartOffer(data.value);
+      try {
+        const { data } = await supabase.from('store_settings').select('value').eq('key', 'global_cart_offer').maybeSingle();
+        if (data && data.value && data.value.isActive === true && Number(data.value.threshold) > 0 && Number(data.value.percentage) > 0) {
+          setCartOffer({
+            threshold: Number(data.value.threshold),
+            percentage: Number(data.value.percentage),
+            isActive: true
+          });
+        } else {
+          setCartOffer(null);
+        }
+      } catch (_) {
+        setCartOffer(null);
       }
     };
     fetchOffer();
@@ -107,16 +118,6 @@ export default function CartPage() {
       let matched = couponList.find(
         (c) => c.code && String(c.code).trim().toUpperCase() === rawCode && c.active !== false
       );
-
-      if (!matched && rawCode === "WELCOME10") {
-        matched = {
-          code: "WELCOME10",
-          discount: "10%",
-          type: "Percentage",
-          minOrderAmount: 0,
-          active: true
-        };
-      }
 
       if (!matched) {
         setCouponError(`Coupon code "${rawCode}" is invalid or inactive.`);
@@ -218,8 +219,8 @@ export default function CartPage() {
     );
   }
 
-  const offerApplied = cartOffer.isActive && totalValue >= cartOffer.threshold;
-  const discountAmount = offerApplied ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
+  const offerApplied = Boolean(cartOffer && cartOffer.isActive && cartOffer.threshold > 0 && totalValue >= cartOffer.threshold && cartOffer.percentage > 0);
+  const discountAmount = offerApplied && cartOffer ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
   const totalDiscount = discountAmount + couponDiscount;
   const discountedSubtotal = Math.max(0, totalValue - totalDiscount);
 
@@ -489,7 +490,7 @@ export default function CartPage() {
               <span className={`font-black ${offerApplied || (appliedCoupon && couponDiscount > 0) ? 'text-zinc-500 line-through' : 'text-white'}`}>₹{totalValue}</span>
             </div>
             
-            {offerApplied && (
+            {offerApplied && cartOffer && (
               <div className="flex items-center justify-between text-sm">
                 <span className="font-bold text-white flex items-center gap-2">
                   🎉 {cartOffer.percentage}% Off

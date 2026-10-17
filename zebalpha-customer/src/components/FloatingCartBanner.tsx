@@ -11,18 +11,24 @@ export default function FloatingCartBanner() {
   const router = useRouter();
   const pathname = usePathname();
   
-  const [offerThreshold, setOfferThreshold] = useState(139);
-  const [offerPercentage, setOfferPercentage] = useState(50);
-  const [isOfferActive, setIsOfferActive] = useState(true);
+  const [offerThreshold, setOfferThreshold] = useState(0);
+  const [offerPercentage, setOfferPercentage] = useState(0);
+  const [isOfferActive, setIsOfferActive] = useState(false);
 
   useEffect(() => {
     // Load global cart offer from Supabase settings
     const fetchOffer = async () => {
-      const { data } = await supabase.from('store_settings').select('value').eq('key', 'global_cart_offer').single();
-      if (data && data.value) {
-        setOfferThreshold(Number(data.value.threshold) || 139);
-        setOfferPercentage(Number(data.value.percentage) || 50);
-        setIsOfferActive(data.value.isActive !== false);
+      try {
+        const { data } = await supabase.from('store_settings').select('value').eq('key', 'global_cart_offer').maybeSingle();
+        if (data && data.value && data.value.isActive === true && Number(data.value.threshold) > 0 && Number(data.value.percentage) > 0) {
+          setOfferThreshold(Number(data.value.threshold));
+          setOfferPercentage(Number(data.value.percentage));
+          setIsOfferActive(true);
+        } else {
+          setIsOfferActive(false);
+        }
+      } catch (_) {
+        setIsOfferActive(false);
       }
     };
     fetchOffer();
@@ -32,10 +38,12 @@ export default function FloatingCartBanner() {
       .channel('public:store_settings')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings', filter: "key=eq.'global_cart_offer'" }, payload => {
         const value = (payload.new as any).value;
-        if (value) {
-          setOfferThreshold(Number(value.threshold) || 139);
-          setOfferPercentage(Number(value.percentage) || 50);
-          setIsOfferActive(value.isActive !== false);
+        if (value && value.isActive === true && Number(value.threshold) > 0 && Number(value.percentage) > 0) {
+          setOfferThreshold(Number(value.threshold));
+          setOfferPercentage(Number(value.percentage));
+          setIsOfferActive(true);
+        } else {
+          setIsOfferActive(false);
         }
       })
       .subscribe();
@@ -45,8 +53,8 @@ export default function FloatingCartBanner() {
     };
   }, []);
 
-  // Hide on cart and checkout pages (they have their own bottom bars)
-  if (cart.length === 0 || pathname === '/cart' || pathname === '/checkout') return null;
+  // Hide on cart and checkout pages or if no offer is active
+  if (cart.length === 0 || pathname === '/cart' || pathname === '/checkout' || !isOfferActive || offerThreshold <= 0) return null;
 
   // Calculate progress
   const progressPercent = Math.min((totalValue / offerThreshold) * 100, 100);

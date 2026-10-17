@@ -142,6 +142,19 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
   const authoritativeTotal = Math.max(0, computedSubtotal - validDiscount);
   const finalTotal = authoritativeTotal > 0 ? authoritativeTotal : (Number(total) || 0);
 
+  // Distribute order discount proportionally across items
+  const enrichedItems = items.map((it) => {
+    const itemQty = Math.max(1, Number(it.quantity) || 1);
+    const itemGross = (Number(it.price) || 0) * itemQty;
+    const itemDiscount = computedSubtotal > 0 ? Math.round((itemGross / computedSubtotal) * validDiscount) : 0;
+    const itemSubtotal = Math.max(0, itemGross - itemDiscount);
+    return {
+      ...it,
+      discount: itemDiscount,
+      subtotal: itemSubtotal
+    };
+  });
+
   // Stage 3: Parent Order Creation with Direct Payment Identifiers
   const tParentStart = Date.now();
   const { data: parentOrder, error: insertErr } = await supabaseServer.from('orders').insert([{
@@ -151,8 +164,8 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
     customer_name,
     phone,
     address,
-    items: items,
-    product_details: items,
+    items: enrichedItems,
+    product_details: enrichedItems,
     total_amount: finalTotal,
     discount_amount: validDiscount,
     notes: coupon_code ? `Coupon Applied: ${coupon_code}` : (notes || null),
@@ -195,8 +208,16 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
       const sellerItems = bySeller[sellerId];
       const sellerOrderNumber = `SO-${Date.now()}-${Math.floor(1000+Math.random()*9000)}`;
 
-      let sellerTotal = 0;
-      for (const si of sellerItems) sellerTotal += Number(si.price) * (si.quantity || 1);
+      let sellerGross = 0;
+      let sellerDiscount = 0;
+      for (const si of sellerItems) {
+        const itemQty = Math.max(1, Number(si.quantity) || 1);
+        const itemGross = (Number(si.price) || 0) * itemQty;
+        const itemDiscount = computedSubtotal > 0 ? Math.round((itemGross / computedSubtotal) * validDiscount) : 0;
+        sellerGross += itemGross;
+        sellerDiscount += itemDiscount;
+      }
+      const sellerNetTotal = Math.max(0, sellerGross - sellerDiscount);
 
       const pickupPin = sellerPickupMap[sellerId] || "700001";
       const sellerEDD = calculateFallbackEDD(pickupPin, deliveryPincode, new Date());
@@ -206,7 +227,7 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
         seller_id: sellerId,
         parent_order_id: parentOrderId,
         seller_order_number: sellerOrderNumber,
-        total_amount: sellerTotal,
+        total_amount: sellerNetTotal,
         expected_delivery_from: sellerEDD.expected_delivery_from,
         expected_delivery_to: sellerEDD.expected_delivery_to,
         expected_delivery_date: sellerEDD.expected_delivery_date,
@@ -231,25 +252,30 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
         } catch (_) {}
 
         // Batch insert all order items for this seller in a single operation
-        const itemsToInsert = sellerItems.map((si: any) => ({
-          parent_order_id: parentOrderId,
-          seller_order_id: sellerOrder.id,
-          product_id: si.id,
-          variant: si.variant || {
-            variant_id: si.variant_id || null,
-            color: si.selected_color || (si.name && si.name.includes(" / ") ? si.name.split(" / ")[0] : null),
-            size: si.selected_size || (si.name && si.name.includes(" / ") ? si.name.split(" / ")[1] : null),
-            sku: si.selected_sku || si.sku || null,
-            image_url: si.selected_image || si.image_url || null,
-            unit_price: si.price,
-            product_name: si.name,
-          },
-          quantity: si.quantity,
-          price: si.price,
-          discount: 0,
-          gst: 0,
-          seller_id: sellerId,
-        }));
+        const itemsToInsert = sellerItems.map((si: any) => {
+          const itemQty = Math.max(1, Number(si.quantity) || 1);
+          const itemGross = (Number(si.price) || 0) * itemQty;
+          const itemDiscount = computedSubtotal > 0 ? Math.round((itemGross / computedSubtotal) * validDiscount) : 0;
+          return {
+            parent_order_id: parentOrderId,
+            seller_order_id: sellerOrder.id,
+            product_id: si.id,
+            variant: si.variant || {
+              variant_id: si.variant_id || null,
+              color: si.selected_color || (si.name && si.name.includes(" / ") ? si.name.split(" / ")[0] : null),
+              size: si.selected_size || (si.name && si.name.includes(" / ") ? si.name.split(" / ")[1] : null),
+              sku: si.selected_sku || si.sku || null,
+              image_url: si.selected_image || si.image_url || null,
+              unit_price: si.price,
+              product_name: si.name,
+            },
+            quantity: itemQty,
+            price: si.price,
+            discount: itemDiscount,
+            gst: 0,
+            seller_id: sellerId,
+          };
+        });
 
         if (itemsToInsert.length > 0) {
           try {

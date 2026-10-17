@@ -12,30 +12,41 @@ export default function DesktopSideCart() {
   const { cart, updateQuantity, removeFromCart, totalValue, totalItems } = useCart();
   
   const [billingSettings, setBillingSettings] = useState({
-    deliveryFee: 29,
-    freeDeliveryThreshold: 100,
-    packagingFee: 9,
-    tax: 3
+    deliveryFee: 0,
+    freeDeliveryThreshold: 0,
+    packagingFee: 0,
+    tax: 0
   });
-  const [cartOffer, setCartOffer] = useState({
-    threshold: 139,
-    percentage: 50,
-    isActive: true
-  });
+  const [cartOffer, setCartOffer] = useState<{ threshold: number; percentage: number; isActive: boolean } | null>(null);
   
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').single();
+      const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').maybeSingle();
       if (data && data.value) {
-        setBillingSettings(data.value);
+        setBillingSettings({
+          deliveryFee: Number(data.value.deliveryFee) || 0,
+          freeDeliveryThreshold: Number(data.value.freeDeliveryThreshold) || 0,
+          packagingFee: Number(data.value.packagingFee) || 0,
+          tax: Number(data.value.tax) || 0,
+        });
       }
     };
     fetchSettings();
 
     const fetchOffer = async () => {
-      const { data } = await supabase.from('store_settings').select('value').eq('key', 'global_cart_offer').single();
-      if (data && data.value) {
-        setCartOffer(data.value);
+      try {
+        const { data } = await supabase.from('store_settings').select('value').eq('key', 'global_cart_offer').maybeSingle();
+        if (data && data.value && data.value.isActive === true && Number(data.value.threshold) > 0 && Number(data.value.percentage) > 0) {
+          setCartOffer({
+            threshold: Number(data.value.threshold),
+            percentage: Number(data.value.percentage),
+            isActive: true
+          });
+        } else {
+          setCartOffer(null);
+        }
+      } catch (_) {
+        setCartOffer(null);
       }
     };
     fetchOffer();
@@ -45,13 +56,14 @@ export default function DesktopSideCart() {
     return null; // Side cart only shows when items are in cart, and is hidden on checkout/cart pages
   }
 
-  const offerApplied = cartOffer.isActive && totalValue >= cartOffer.threshold;
-  const discountAmount = offerApplied ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
+  const offerApplied = Boolean(cartOffer && cartOffer.isActive && cartOffer.threshold > 0 && totalValue >= cartOffer.threshold && cartOffer.percentage > 0);
+  const discountAmount = offerApplied && cartOffer ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
   const discountedSubtotal = totalValue - discountAmount;
 
-  const deliveryCost = discountedSubtotal >= billingSettings.freeDeliveryThreshold ? 0 : billingSettings.deliveryFee;
+  const isFreeDelivery = billingSettings.freeDeliveryThreshold > 0 && discountedSubtotal >= billingSettings.freeDeliveryThreshold;
+  const deliveryCost = isFreeDelivery ? 0 : billingSettings.deliveryFee;
   const grandTotal = discountedSubtotal + deliveryCost + billingSettings.packagingFee + billingSettings.tax;
-  const amountToFreeDelivery = Math.max(0, billingSettings.freeDeliveryThreshold - discountedSubtotal);
+  const amountToFreeDelivery = billingSettings.freeDeliveryThreshold > 0 ? Math.max(0, billingSettings.freeDeliveryThreshold - discountedSubtotal) : 0;
 
   return (
     <aside className="hidden lg:flex w-96 xl:w-[400px] shrink-0 border-l border-zinc-800 bg-black text-white flex-col h-full sticky top-0 overflow-hidden shadow-2xl">
@@ -136,7 +148,7 @@ export default function DesktopSideCart() {
               <span className={`font-black ${offerApplied ? 'text-zinc-500 line-through' : 'text-white'}`}>₹{totalValue}</span>
             </div>
             
-            {offerApplied && (
+            {offerApplied && cartOffer && (
               <div className="flex items-center justify-between text-sm">
                 <span className="font-bold text-white flex items-center gap-2">
                   🎉 {cartOffer.percentage}% Off

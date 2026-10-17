@@ -74,16 +74,12 @@ function CheckoutContent() {
 
   // Billing Settings State
   const [billingSettings, setBillingSettings] = useState({
-    deliveryFee: 29,
-    freeDeliveryThreshold: 100,
-    packagingFee: 9,
-    tax: 3
+    deliveryFee: 0,
+    freeDeliveryThreshold: 0,
+    packagingFee: 0,
+    tax: 0
   });
-  const [cartOffer, setCartOffer] = useState({
-    threshold: 139,
-    percentage: 50,
-    isActive: true
-  });
+  const [cartOffer, setCartOffer] = useState<{ threshold: number; percentage: number; isActive: boolean } | null>(null);
 
   // Promotional Coupon State
   const [couponInput, setCouponInput] = useState("");
@@ -101,9 +97,14 @@ function CheckoutContent() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').single();
+        const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').maybeSingle();
         if (data && data.value) {
-          setBillingSettings(data.value);
+          setBillingSettings({
+            deliveryFee: Number(data.value.deliveryFee) || 0,
+            freeDeliveryThreshold: Number(data.value.freeDeliveryThreshold) || 0,
+            packagingFee: Number(data.value.packagingFee) || 0,
+            tax: Number(data.value.tax) || 0,
+          });
         }
       } catch (err) {
         console.error("Error fetching billing settings", err);
@@ -113,12 +114,19 @@ function CheckoutContent() {
 
     const fetchOffer = async () => {
       try {
-        const { data } = await supabase.from('store_settings').select('value').eq('key', 'global_cart_offer').single();
-        if (data && data.value) {
-          setCartOffer(data.value);
+        const { data } = await supabase.from('store_settings').select('value').eq('key', 'global_cart_offer').maybeSingle();
+        if (data && data.value && data.value.isActive === true && Number(data.value.threshold) > 0 && Number(data.value.percentage) > 0) {
+          setCartOffer({
+            threshold: Number(data.value.threshold),
+            percentage: Number(data.value.percentage),
+            isActive: true
+          });
+        } else {
+          setCartOffer(null);
         }
       } catch (err) {
         console.error("Error fetching cart offer", err);
+        setCartOffer(null);
       }
     };
     fetchOffer();
@@ -324,15 +332,15 @@ function CheckoutContent() {
     : contextTotalValue;
 
   // Offer discount applies ONLY on subtotal (item prices)
-  const offerApplied = cartOffer.isActive && totalValue >= cartOffer.threshold;
-  const discountAmount = offerApplied ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
+  const offerApplied = Boolean(cartOffer && cartOffer.isActive && cartOffer.threshold > 0 && totalValue >= cartOffer.threshold && cartOffer.percentage > 0);
+  const discountAmount = offerApplied && cartOffer ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
 
   // Total discounts combined (Cart Offer + Coupon)
   const totalDiscount = discountAmount + couponDiscount;
   const discountedSubtotal = Math.max(0, totalValue - totalDiscount);
 
   // Calculate final totals based on billing settings
-  const isFreeDeliveryByThreshold = discountedSubtotal >= billingSettings.freeDeliveryThreshold;
+  const isFreeDeliveryByThreshold = billingSettings.freeDeliveryThreshold > 0 && discountedSubtotal >= billingSettings.freeDeliveryThreshold;
   const isFreeDeliveryByCoupon = appliedCoupon?.type === "Flat Shipping Off";
   const deliveryCost = (isFreeDeliveryByThreshold || isFreeDeliveryByCoupon) ? 0 : billingSettings.deliveryFee;
   const grandTotal = discountedSubtotal + deliveryCost + billingSettings.packagingFee + billingSettings.tax;
@@ -353,17 +361,6 @@ function CheckoutContent() {
       let matched = couponList.find(
         (c) => c.code && String(c.code).trim().toUpperCase() === rawCode && c.active !== false
       );
-
-      // Built-in WELCOME10 fallback
-      if (!matched && rawCode === "WELCOME10") {
-        matched = {
-          code: "WELCOME10",
-          discount: "10%",
-          type: "Percentage",
-          minOrderAmount: 0,
-          active: true
-        };
-      }
 
       if (!matched) {
         setCouponError(`Coupon code "${rawCode}" is invalid or inactive.`);
@@ -1334,7 +1331,7 @@ function CheckoutContent() {
                   <span className="text-[11px] font-bold uppercase tracking-widest">Subtotal</span>
                   <span className={`font-bold ${offerApplied || (appliedCoupon && couponDiscount > 0) ? 'line-through text-zinc-500' : 'text-white'}`}>₹{totalValue}</span>
                 </div>
-                {offerApplied && (
+                {offerApplied && cartOffer && (
                   <div className="flex items-center justify-between text-white">
                     <span className="text-[11px] font-bold uppercase tracking-widest">🎉 {cartOffer.percentage}% Off</span>
                     <span className="font-bold">-₹{discountAmount}</span>

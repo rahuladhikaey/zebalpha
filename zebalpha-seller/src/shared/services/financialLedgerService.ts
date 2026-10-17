@@ -71,8 +71,9 @@ export function calculateOrderItemFee(
     collectionFee = Number(((gross * (rules.payment_collection_fee_pct || 2)) / 100).toFixed(2));
   }
 
-  // 4. Shipping fee allocated to order item
-  const shippingFee = Number((rules.standard_shipping_fee || 60).toFixed(2));
+  // 4. Shipping fee allocated to order item (0 if paid by customer or platform)
+  const isCustomerShipping = (rules as any).shipping_paid_by === 'CUSTOMER' || (rules as any).shipping_paid_by === 'ZEBALPHA';
+  const shippingFee = isCustomerShipping ? 0 : Number((rules.standard_shipping_fee || 0).toFixed(2));
 
   // 5. Taxes (GST 18%) on marketplace service fees (Commission + Fixed + Collection)
   const taxableServiceFees = commissionFee + fixedFee + collectionFee;

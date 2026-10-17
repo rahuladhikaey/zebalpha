@@ -1,15 +1,15 @@
 import { supabaseA } from '../lib/supabase.js';
 
 const defaultRules = {
-  deliveryCharge: 40,
-  freeShippingThreshold: 999,
-  appCharge: 5,
-  globalCommissionPct: 10,
-  defaultShippingCost: 50,
+  deliveryCharge: 0,
+  freeShippingThreshold: 0,
+  appCharge: 0,
+  globalCommissionPct: 0,
+  defaultShippingCost: 0,
   codEnabled: true,
-  packagingCharge: 10,
-  platformCharge: 5,
-  codCharge: 15
+  packagingCharge: 0,
+  platformCharge: 0,
+  codCharge: 0
 };
 
 /**
@@ -167,13 +167,9 @@ export async function calculateOrderAmounts({ items = [], paymentMethod = 'COD',
           const flatVal = parseFloat(discountStr.replace(/[^0-9.]/g, '')) || 0;
           couponDiscount = Math.min(subtotal - asCardDiscount, flatVal);
         }
-      } else if (upperCode === 'WELCOME10') {
-        couponDiscount = Math.round((subtotal - asCardDiscount) * 0.10 * 100) / 100;
       }
     } catch (e) {
-      if (upperCode === 'WELCOME10') {
-        couponDiscount = Math.round((subtotal - asCardDiscount) * 0.10 * 100) / 100;
-      }
+      // Coupon invalid or failed to check
     }
   }
 
