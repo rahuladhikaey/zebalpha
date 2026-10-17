@@ -11,6 +11,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 
 import { Header } from "@/components/Header";
 import { WishlistButton } from "@/components/WishlistButton";
+import { QuickCartButton } from "@/components/QuickCartButton";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 import { Search, ShoppingBag, Sparkles } from "lucide-react";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
@@ -247,8 +248,9 @@ function ProductsContent() {
                             isPremium={product.is_premium || product.tier === "PREMIUM" || (product.specifications as any)?.is_premium === "true"}
                             isAboveTheFold={idx < 4}
                           />
-                          <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3">
+                          <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3 flex flex-col gap-1.5 items-center">
                             <WishlistButton product={product} />
+                            <QuickCartButton product={product} />
                           </div>
                         </div>
                         

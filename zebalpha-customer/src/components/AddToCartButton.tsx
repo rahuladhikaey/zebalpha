@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
+import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { Product } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
@@ -18,22 +19,37 @@ export function AddToCartButton({
   onBeforeAdd?: () => boolean;
 }) {
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
+  const { openVariantSelector } = useVariantSelector();
   const { session } = useAuth();
   const router = useRouter();
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
   const isOutOfStock = !isUpcomingDrop && ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK");
 
-  const handleAdd = () => {
+  const handleAdd = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (isUpcomingDrop) {
       router.push(`/new-drops`);
       return;
     }
-    // If product has variants and is clicked from feed without a variant selected, open PDP
-    if (product.packages && product.packages.length > 0 && !(product as any).variant_id && !onBeforeAdd) {
-      router.push(`/products/${product.id}`);
-      return;
+
+    // If clicked on feed/card without onBeforeAdd (which is only present on PDP):
+    if (!onBeforeAdd) {
+      const pkgs = product.packages;
+      const hasMultiplePkgs = Array.isArray(pkgs) && pkgs.length > 1;
+      const hasUnselectedPkg = Array.isArray(pkgs) && pkgs.length > 0 && !(product as any).variant_id;
+      const mightHaveVariants = !pkgs && (product.category_id || (product as any).specifications?.size_chart);
+
+      // Intelligently open Meesho variant selection bottom sheet!
+      if (hasMultiplePkgs || hasUnselectedPkg || mightHaveVariants) {
+        openVariantSelector(product);
+        return;
+      }
     }
+
     if (onBeforeAdd) {
       const allowed = onBeforeAdd();
       if (!allowed) return;
@@ -117,20 +133,32 @@ export function AddToCartButton({
           className="flex h-8 w-20 items-center justify-between rounded-full bg-white text-xs font-black text-black shadow-lg overflow-hidden transition-all active:scale-95 sm:h-10 sm:w-24 sm:rounded-xl border border-neutral-200"
         >
           <button
-            onClick={() => quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1);
+            }}
             className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors cursor-pointer"
           >
             <span className="text-sm sm:text-base font-black">-</span>
           </button>
           <span 
-            onClick={() => router.push('/cart')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push('/cart');
+            }}
             title="Click to view cart"
             className="flex h-full flex-1 items-center justify-center bg-black text-white text-xs font-black cursor-pointer hover:bg-neutral-800 transition-colors"
           >
             {quantity}
           </span>
           <button
-            onClick={() => updateQuantity(effectiveKey, quantity + 1)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              updateQuantity(effectiveKey, quantity + 1);
+            }}
             className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors cursor-pointer"
           >
             <span className="text-sm sm:text-base font-black">+</span>
@@ -144,20 +172,32 @@ export function AddToCartButton({
         className={className || "flex h-10 w-24 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95"}
       >
         <button
-          onClick={() => quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1);
+          }}
           className="flex h-full flex-1 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors cursor-pointer"
         >
           <span className="text-base font-black">-</span>
         </button>
         <span 
-          onClick={() => router.push('/cart')}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            router.push('/cart');
+          }}
           title="Click to view cart"
           className="flex h-full flex-1 items-center justify-center bg-white text-black text-sm font-black animate-in zoom-in-50 duration-200 cursor-pointer hover:bg-neutral-200 transition-colors"
         >
           {quantity}
         </span>
         <button
-          onClick={() => updateQuantity(effectiveKey, quantity + 1)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            updateQuantity(effectiveKey, quantity + 1);
+          }}
           className="flex h-full flex-1 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors cursor-pointer"
         >
           <span className="text-base font-black">+</span>

@@ -6,6 +6,7 @@ import { Product } from "@/lib/types";
 import { ProductCardImageSlider } from "./ProductCardImageSlider";
 import { AddToCartButton } from "./AddToCartButton";
 import { WishlistButton } from "./WishlistButton";
+import { QuickCartButton } from "./QuickCartButton";
 import { supabase } from "@/lib/supabaseClient";
 import { SLIM_PRODUCT_CARD_FIELDS } from "@/hooks/useCatalogQueries";
 
@@ -208,8 +209,9 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                   }
                   isAboveTheFold={idx < 4}
                 />
-                <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3">
+                <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3 flex flex-col gap-1.5 items-center">
                   <WishlistButton product={product} />
+                  <QuickCartButton product={product} />
                 </div>
               </div>
 
