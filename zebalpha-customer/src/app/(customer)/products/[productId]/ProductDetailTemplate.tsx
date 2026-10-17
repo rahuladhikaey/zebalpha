@@ -5,7 +5,7 @@ import { Product, ProductPackage } from "@/lib/types";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, Star, Bell, CheckCircle2, Sparkles, Flame, Minus, Plus, ShoppingCart } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, Star, Bell, CheckCircle2, Sparkles, Flame } from "lucide-react";
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
@@ -424,13 +424,6 @@ export default function ProductDetailTemplate({
 
   const [isDropNotified, setIsDropNotified] = useState(false);
   const [dropToast, setDropToast] = useState("");
-  const [cartToast, setCartToast] = useState("");
-  const [selectedQty, setSelectedQty] = useState(1);
-
-  const triggerCartToast = (msg?: string) => {
-    setCartToast(msg || `Added ${product.name} to your cart! 🛒`);
-    setTimeout(() => setCartToast(""), 4500);
-  };
 
   const isNewDrop = useMemo(() => isProductNewDrop(product), [product]);
   const isLive = useMemo(() => isDropLive(product), [product]);
@@ -448,23 +441,6 @@ export default function ProductDetailTemplate({
       {dropToast && (
         <div className="sticky top-[68px] z-50 bg-emerald-950/90 border-b border-emerald-500/50 backdrop-blur-xl px-4 py-3 text-center text-xs font-black text-emerald-200 animate-in fade-in slide-in-from-top-2 duration-300">
           {dropToast}
-        </div>
-      )}
-
-      {cartToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[70] max-w-sm w-[92%] bg-zinc-900/95 border border-zinc-700 text-white px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shrink-0">
-              <CheckCircle2 size={16} />
-            </span>
-            <span className="text-xs font-bold truncate">{cartToast}</span>
-          </div>
-          <Link
-            href="/cart"
-            className="rounded-xl bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-colors shrink-0 shadow-md"
-          >
-            View Cart →
-          </Link>
         </div>
       )}
 
@@ -599,51 +575,17 @@ export default function ProductDetailTemplate({
                   )}
                 </button>
               ) : isCurrentVariantInStock ? (
-                <div className="space-y-4">
-                  {/* Desktop Quantity Stepper */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Quantity:</span>
-                    <div className="flex h-10 items-center rounded-xl border border-zinc-800 bg-zinc-950 p-1">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedQty((q) => Math.max(1, q - 1))}
-                        disabled={selectedQty <= 1}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        aria-label="Decrease quantity"
-                      >
-                        <Minus size={14} strokeWidth={2.5} />
-                      </button>
-                      <span className="w-10 text-center text-sm font-black text-white">
-                        {selectedQty}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedQty((q) => q + 1)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
-                        aria-label="Increase quantity"
-                      >
-                        <Plus size={14} strokeWidth={2.5} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dual Action Buttons */}
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <AddToCartButton
-                      product={computedProduct}
-                      quantity={selectedQty}
-                      mode="pdp"
-                      onBeforeAdd={handleValidateAndProceed}
-                      onAfterAdd={() => triggerCartToast(`Added ${selectedQty > 1 ? `${selectedQty}x ` : ""}${computedProduct.name} to cart! 🛒`)}
-                      className="flex h-14 sm:h-16 items-center justify-center gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs sm:text-sm font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 active:scale-95 cursor-pointer transition-all"
-                    />
-                    <BuyNowButton
-                      product={computedProduct}
-                      quantity={selectedQty}
-                      onBeforeBuy={handleValidateAndProceed}
-                      className="flex h-14 sm:h-16 w-full items-center justify-center gap-2 rounded-2xl bg-white text-xs sm:text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <AddToCartButton
+                    product={computedProduct}
+                    onBeforeAdd={handleValidateAndProceed}
+                    className="flex h-14 sm:h-16 items-center justify-center gap-2 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs sm:text-sm font-black uppercase tracking-widest text-white shadow-xl hover:bg-zinc-800 active:scale-95 cursor-pointer"
+                  />
+                  <BuyNowButton
+                    product={computedProduct}
+                    onBeforeBuy={handleValidateAndProceed}
+                    className="flex h-14 sm:h-16 w-full items-center justify-center gap-2 rounded-2xl bg-white text-xs sm:text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer"
+                  />
                 </div>
               ) : (
                 <button disabled className="flex h-14 sm:h-16 w-full items-center justify-center rounded-2xl bg-zinc-900 text-sm font-black uppercase tracking-widest text-zinc-500 border border-zinc-800 cursor-not-allowed">
@@ -955,17 +897,13 @@ export default function ProductDetailTemplate({
             <div className="grid grid-cols-2 h-full flex-1 gap-2">
               <AddToCartButton
                 product={computedProduct}
-                quantity={1}
-                mode="pdp"
                 onBeforeAdd={handleValidateAndProceed}
-                onAfterAdd={() => triggerCartToast(`Added ${computedProduct.name} to cart! 🛒`)}
-                className="flex h-full items-center justify-center gap-1.5 rounded-xl bg-zinc-900 text-white text-[10px] sm:text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors border border-zinc-800 cursor-pointer"
+                className="flex h-full items-center justify-center rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors border border-zinc-800 cursor-pointer"
               />
               <BuyNowButton
                 product={computedProduct}
-                quantity={1}
                 onBeforeBuy={handleValidateAndProceed}
-                className="flex h-full items-center justify-center gap-1.5 rounded-xl bg-white text-black text-[10px] sm:text-xs font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors cursor-pointer shadow-lg shadow-white/10"
+                className="flex h-full items-center justify-center rounded-xl bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors cursor-pointer"
               />
             </div>
           </div>
