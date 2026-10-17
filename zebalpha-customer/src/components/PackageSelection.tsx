@@ -22,6 +22,7 @@ interface PackageSelectionProps {
   displayPrice?: number;
   displayMrp?: number;
   defaultColorName?: string;
+  inCartVariants?: any[];
 }
 
 const COLOR_HEX_MAP: Record<string, string> = {
@@ -62,6 +63,7 @@ export function PackageSelection({
   displayPrice,
   displayMrp,
   defaultColorName,
+  inCartVariants = [],
 }: PackageSelectionProps) {
   const [showChartModal, setShowChartModal] = useState(false);
   const [activeUnit, setActiveUnit] = useState<"inches" | "cm">(
@@ -226,6 +228,19 @@ export function PackageSelection({
     return String(num);
   };
 
+  // Check how many items of current selected variant are in cart
+  const selectedVariantInCartQty = useMemo(() => {
+    if (!selectedSize) return 0;
+    const item = (inCartVariants || []).find((it: any) => {
+      const itemSize = (it.selected_size || it.size || "").toLowerCase().trim();
+      const itemColor = (it.selected_color || it.color || "").toLowerCase().trim();
+      const sizeMatches = itemSize === selectedSize.toLowerCase().trim();
+      const colorMatches = !selectedColor || !itemColor || itemColor === selectedColor.toLowerCase().trim();
+      return sizeMatches && colorMatches;
+    });
+    return item?.quantity || 0;
+  }, [inCartVariants, selectedSize, selectedColor]);
+
   return (
     <div className="space-y-5 pt-4 border-t border-zinc-800/80">
       {/* Inline Validation Alert */}
@@ -274,6 +289,9 @@ export function PackageSelection({
               const isAnyInStock = colorPackages.some(
                 (p) => p.stock === undefined || Number(p.stock) > 0
               );
+              const colorCartQty = (inCartVariants || [])
+                .filter((it: any) => (it.selected_color || it.color || "").toLowerCase().trim() === col.toLowerCase().trim())
+                .reduce((acc: number, it: any) => acc + (it.quantity || 1), 0);
 
               return (
                 <button
@@ -325,6 +343,10 @@ export function PackageSelection({
                       <span className="text-[9px] font-bold text-rose-400 uppercase tracking-tight">
                         Out of Stock
                       </span>
+                    ) : colorCartQty > 0 ? (
+                      <span className="text-[9px] font-bold text-emerald-400">
+                        {colorCartQty} in Cart
+                      </span>
                     ) : isSelected ? (
                       <span className="text-[9px] font-bold text-emerald-400">Selected</span>
                     ) : null}
@@ -373,6 +395,15 @@ export function PackageSelection({
             const isSelected =
               selectedSize.toLowerCase() === sizeName.toLowerCase() && !isOutOfStock;
 
+            const inCartItem = (inCartVariants || []).find((it: any) => {
+              const itemSize = (it.selected_size || it.size || "").toLowerCase().trim();
+              const itemColor = (it.selected_color || it.color || "").toLowerCase().trim();
+              const sizeMatches = itemSize === sizeName.toLowerCase().trim();
+              const colorMatches = !selectedColor || !itemColor || itemColor === selectedColor.toLowerCase().trim();
+              return sizeMatches && colorMatches;
+            });
+            const cartQty = inCartItem?.quantity || 0;
+
             return (
               <button
                 key={sizeName}
@@ -389,6 +420,8 @@ export function PackageSelection({
                 title={
                   isOutOfStock
                     ? `${sizeName} is Out of Stock${selectedColor ? ` for ${selectedColor}` : ""}`
+                    : cartQty > 0
+                    ? `${cartQty} in cart. Select size ${sizeName}`
                     : `Select size ${sizeName}`
                 }
               >
@@ -396,6 +429,16 @@ export function PackageSelection({
                 {isOutOfStock && (
                   <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <span className="w-[120%] h-[1.5px] bg-rose-500/70 rotate-[-25deg]" />
+                  </span>
+                )}
+
+                {/* In-Cart Quantity Badge */}
+                {cartQty > 0 && (
+                  <span
+                    title={`${cartQty} in cart`}
+                    className="absolute -top-1.5 -right-1.5 z-10 min-w-[18px] h-[18px] px-1 bg-emerald-500 text-black text-[9px] font-black rounded-full shadow-md border border-zinc-950 flex items-center justify-center"
+                  >
+                    {cartQty}
                   </span>
                 )}
 
@@ -462,8 +505,13 @@ export function PackageSelection({
             </div>
           </div>
 
-          {/* Dynamic Stock Indicator */}
-          <div>
+          {/* Dynamic Stock & In-Cart Indicator */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedVariantInCartQty > 0 && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full shadow-sm">
+                🛒 {selectedVariantInCartQty} in cart
+              </span>
+            )}
             {selectedVariant ? (
               selectedVariant.stock !== undefined && Number(selectedVariant.stock) <= 0 ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 rounded-full">

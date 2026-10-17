@@ -53,20 +53,17 @@ export default function FloatingCartBanner() {
     };
   }, []);
 
-  // Hide on cart and checkout pages or if cart is empty
-  if (cart.length === 0 || pathname === '/cart' || pathname === '/checkout') return null;
+  // Hide on cart, checkout pages, or product detail pages (where the product has its own dedicated bottom bar)
+  const isProductDetailPage = pathname.startsWith('/products/') && pathname.length > '/products/'.length;
+  if (cart.length === 0 || pathname === '/cart' || pathname === '/checkout' || isProductDetailPage) return null;
 
   // Calculate progress for offer if active
   const hasValidOffer = isOfferActive && offerThreshold > 0;
   const progressPercent = hasValidOffer ? Math.min((totalValue / offerThreshold) * 100, 100) : 0;
   const amountRemaining = hasValidOffer ? Math.max(offerThreshold - totalValue, 0) : 0;
 
-  // Push up on product details page to avoid overlapping the mobile Buy Now bar
-  const isProductDetailPage = pathname.startsWith('/products/') && pathname.length > '/products/'.length;
-  const bottomPositionClass = isProductDetailPage ? "bottom-20 lg:bottom-0" : "bottom-3 sm:bottom-4";
-
   return (
-    <div className={`fixed left-0 right-0 z-50 px-3 sm:px-6 transition-all duration-300 lg:hidden ${bottomPositionClass}`}>
+    <div className="fixed left-0 right-0 z-50 px-3 sm:px-6 transition-all duration-300 lg:hidden bottom-3 sm:bottom-4">
       <div className="max-w-xl mx-auto bg-zinc-950/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-2xl border border-zinc-800 flex flex-col gap-2.5">
         {/* Offer Section (Only when active) */}
         {hasValidOffer && (

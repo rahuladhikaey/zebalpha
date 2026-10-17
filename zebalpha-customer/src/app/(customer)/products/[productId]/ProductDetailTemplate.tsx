@@ -5,6 +5,7 @@ import { Product, ProductPackage } from "@/lib/types";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
+import { useCart } from "@/context/CartContext";
 import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, Star, Bell, CheckCircle2, Sparkles, Flame } from "lucide-react";
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
@@ -171,6 +172,16 @@ export default function ProductDetailTemplate({
   }, [colorGroups]);
 
   // 3. Single Source of Truth State
+  const { cart } = useCart();
+
+  // Find all variants of this product currently in customer's cart
+  const inCartVariants = useMemo(() => {
+    return cart.filter((item) => 
+      String(item.id) === String(product.id) || 
+      (item.cart_item_key && item.cart_item_key.startsWith(`${product.id}_`))
+    );
+  }, [cart, product.id]);
+
   // Initial color: The Main / Default Product Color is ALWAYS loaded first (Req #1)
   const [selectedColor, setSelectedColor] = useState<string>(defaultColorName);
   const [selectedSize, setSelectedSize] = useState<string>("");
@@ -191,6 +202,39 @@ export default function ProductDetailTemplate({
       null
     );
   }, [colorGroups, selectedColor]);
+
+  // Auto-select size on mount or when returning from Buy Now / checkout
+  useEffect(() => {
+    if (!currentColorGroup || currentColorGroup.variants.length === 0) return;
+
+    // A. If an item for this product is already in the cart, prioritize that variant!
+    if (inCartVariants.length > 0 && !selectedSize) {
+      const matchInColor = inCartVariants.find(it => 
+        (it.selected_color || "").toLowerCase() === currentColorGroup.colorName.toLowerCase()
+      ) || inCartVariants[0];
+
+      if (matchInColor) {
+        if (matchInColor.selected_color && matchInColor.selected_color.toLowerCase() !== selectedColor.toLowerCase()) {
+          setSelectedColor(matchInColor.selected_color);
+        }
+        if (matchInColor.selected_size) {
+          setSelectedSize(matchInColor.selected_size);
+          return;
+        }
+      }
+    }
+
+    // B. Otherwise auto-select the first in-stock variant size so customer immediately sees accurate pricing/stock
+    if (!selectedSize) {
+      const firstInStock = currentColorGroup.variants.find(
+        (v) => v.stock === undefined || Number(v.stock) > 0
+      ) || currentColorGroup.variants[0];
+
+      if (firstInStock?.size) {
+        setSelectedSize(firstInStock.size);
+      }
+    }
+  }, [currentColorGroup, inCartVariants, selectedSize, selectedColor]);
 
   // Exact selected variant combination
   const selectedVariant = useMemo(() => {
@@ -535,6 +579,7 @@ export default function ProductDetailTemplate({
                 validationError={validationError}
                 displayPrice={displayPrice}
                 displayMrp={displayMrp}
+                inCartVariants={inCartVariants}
               />
             )}
 

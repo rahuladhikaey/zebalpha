@@ -34,10 +34,27 @@ export function BuyNowButton({
       if (!allowed) return;
     }
 
-    const targetKey = (product as any).cart_item_key;
-    const cartItem = cart.find((item) =>
-      targetKey ? item.cart_item_key === targetKey : item.id === product.id
-    );
+    const prodAny = product as any;
+    const targetKey = prodAny.cart_item_key;
+    const targetPkg = prodAny.package_name;
+    const targetVariantId = prodAny.variant_id;
+    const targetSize = prodAny.selected_size;
+    const targetColor = prodAny.selected_color;
+
+    const cartItem = cart.find((item) => {
+      if (targetKey && item.cart_item_key === targetKey) return true;
+      if (targetVariantId && item.variant_id && String(item.variant_id) === String(targetVariantId)) return true;
+      if (targetPkg && String(item.id) === String(product.id) && item.package_name === targetPkg) return true;
+      if (targetSize && String(item.id) === String(product.id)) {
+        const matchSize = (item.selected_size || "").toLowerCase() === targetSize.toLowerCase();
+        const matchColor = !targetColor || !item.selected_color || item.selected_color.toLowerCase() === targetColor.toLowerCase();
+        if (matchSize && matchColor) return true;
+      }
+      if (!targetKey && !targetVariantId && !targetSize && !item.variant_id && !item.selected_size) {
+        return String(item.id) === String(product.id);
+      }
+      return false;
+    });
     const quantity = cartItem?.quantity || 1;
 
     // Automatically add to cart if not already present and not a pre-order
