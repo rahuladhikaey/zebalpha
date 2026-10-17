@@ -4,25 +4,43 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { Product } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
-import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
+import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
+import { ShoppingCart, Check, Minus, Plus } from "lucide-react";
+import { useState } from "react";
 
 export function AddToCartButton({ 
   product, 
   className, 
   compact,
   onBeforeAdd,
+  onAfterAdd,
+  quantity: quantityProp = 1,
+  mode = "card",
+  showGoToCart = true,
 }: { 
   product: Product; 
   className?: string; 
   compact?: boolean;
   onBeforeAdd?: () => boolean;
+  onAfterAdd?: () => void;
+  quantity?: number;
+  mode?: "card" | "pdp";
+  showGoToCart?: boolean;
 }) {
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
   const { session } = useAuth();
   const router = useRouter();
+  const [justAdded, setJustAdded] = useState(false);
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
   const isOutOfStock = !isUpcomingDrop && ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK");
+
+  const targetKey = (product as any).cart_item_key;
+  const cartItem = cart.find((item) =>
+    targetKey ? item.cart_item_key === targetKey : item.id === product.id
+  );
+  const effectiveKey = cartItem?.cart_item_key || targetKey || product.id;
+  const inCartQuantity = cartItem?.quantity || 0;
 
   const handleAdd = () => {
     if (isUpcomingDrop) {
@@ -39,13 +57,18 @@ export function AddToCartButton({
       if (!allowed) return;
     }
     if (isOutOfStock) return;
-    if (!session) {
-      router.push("/login");
-      return;
+
+    // Support both guest cart and authenticated cart
+    addToCart(product, quantityProp);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 2500);
+
+    if (onAfterAdd) {
+      onAfterAdd();
     }
-    addToCart(product, 1);
   };
 
+  // State: Upcoming Drop
   if (isUpcomingDrop) {
     if (compact) {
       return (
@@ -69,6 +92,7 @@ export function AddToCartButton({
     );
   }
 
+  // State: Out of Stock
   if (isOutOfStock) {
     if (compact) {
       return (
@@ -90,33 +114,66 @@ export function AddToCartButton({
     );
   }
 
-  const targetKey = (product as any).cart_item_key;
-  const cartItem = cart.find((item) =>
-    targetKey ? item.cart_item_key === targetKey : item.id === product.id
-  );
-  const effectiveKey = cartItem?.cart_item_key || targetKey || product.id;
-  const quantity = cartItem?.quantity || 0;
+  // PDP MODE (Product Detail Page)
+  if (mode === "pdp") {
+    // If item is already in cart and showGoToCart is true
+    if (inCartQuantity > 0 && showGoToCart) {
+      return (
+        <button
+          type="button"
+          onClick={() => router.push("/cart")}
+          className={className || "flex h-12 sm:h-14 w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 border border-emerald-500/50 text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 shadow-xl hover:bg-zinc-850 active:scale-95 transition-all cursor-pointer"}
+        >
+          <Check size={16} className="text-emerald-400" />
+          <span>Go to Cart ({inCartQuantity})</span>
+        </button>
+      );
+    }
 
-  if (quantity > 0) {
+    return (
+      <button
+        type="button"
+        onClick={handleAdd}
+        className={className || "flex h-12 sm:h-14 w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 border border-zinc-700 text-xs sm:text-sm font-black uppercase tracking-wider text-white shadow-xl hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer"}
+      >
+        {justAdded ? (
+          <>
+            <Check size={16} className="text-emerald-400" />
+            <span className="text-emerald-400">Added to Cart</span>
+          </>
+        ) : (
+          <>
+            <ShoppingCart size={16} className="text-white" />
+            <span>Add to Cart</span>
+          </>
+        )}
+      </button>
+    );
+  }
+
+  // CARD / FEED MODE
+  if (inCartQuantity > 0) {
     if (compact) {
       return (
         <div 
-          className="flex h-8 w-20 items-center justify-between rounded-full bg-white text-xs font-black text-black shadow-lg overflow-hidden transition-all active:scale-95 sm:h-10 sm:w-24 sm:rounded-xl border border-neutral-200"
+          className="flex h-8 sm:h-9 items-center justify-between rounded-xl bg-zinc-900 text-xs font-black text-white shadow-md border border-zinc-700 overflow-hidden transition-all"
         >
           <button
-            onClick={() => quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1)}
-            className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors"
+            onClick={() => inCartQuantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, inCartQuantity - 1)}
+            className="flex h-full px-2 items-center justify-center hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+            aria-label="Decrease quantity"
           >
-            <span className="text-sm sm:text-base font-black">-</span>
+            <Minus size={12} strokeWidth={2.5} />
           </button>
-          <span className="flex h-full flex-1 items-center justify-center bg-black text-white text-xs font-black">
-            {quantity}
+          <span className="flex h-full px-2 items-center justify-center bg-white text-black text-xs font-black min-w-[24px]">
+            {inCartQuantity}
           </span>
           <button
-            onClick={() => updateQuantity(effectiveKey, quantity + 1)}
-            className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors"
+            onClick={() => updateQuantity(effectiveKey, inCartQuantity + 1)}
+            className="flex h-full px-2 items-center justify-center hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+            aria-label="Increase quantity"
           >
-            <span className="text-sm sm:text-base font-black">+</span>
+            <Plus size={12} strokeWidth={2.5} />
           </button>
         </div>
       );
@@ -124,22 +181,25 @@ export function AddToCartButton({
 
     return (
       <div 
-        className={className || "flex h-10 w-24 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95"}
+        className={className || "flex h-9 sm:h-10 items-center justify-between rounded-xl border border-zinc-750 bg-zinc-900 text-xs font-black text-white shadow-md overflow-hidden transition-all"}
       >
         <button
-          onClick={() => quantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, quantity - 1)}
-          className="flex h-full flex-1 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors"
+          onClick={() => inCartQuantity === 1 ? removeFromCart(effectiveKey) : updateQuantity(effectiveKey, inCartQuantity - 1)}
+          className="flex h-full px-3 items-center justify-center hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+          aria-label="Decrease quantity"
         >
-          <span className="text-base font-black">-</span>
+          <Minus size={13} strokeWidth={2.5} />
         </button>
-        <span className="flex h-full flex-1 items-center justify-center bg-white text-black text-sm font-black animate-in zoom-in-50 duration-200">
-          {quantity}
+        <span className="flex h-full px-2.5 items-center justify-center bg-white text-black text-xs font-black gap-1 min-w-[32px]">
+          <ShoppingCart size={11} className="text-black" />
+          <span>{inCartQuantity}</span>
         </span>
         <button
-          onClick={() => updateQuantity(effectiveKey, quantity + 1)}
-          className="flex h-full flex-1 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors"
+          onClick={() => updateQuantity(effectiveKey, inCartQuantity + 1)}
+          className="flex h-full px-3 items-center justify-center hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+          aria-label="Increase quantity"
         >
-          <span className="text-base font-black">+</span>
+          <Plus size={13} strokeWidth={2.5} />
         </button>
       </div>
     );
@@ -150,11 +210,11 @@ export function AddToCartButton({
       <button
         type="button"
         onClick={handleAdd}
-        className="flex h-8 w-8 sm:h-10 sm:w-24 items-center justify-center rounded-full sm:rounded-xl border border-white/20 bg-white text-black font-black text-sm shadow-md hover:bg-neutral-200 transition-all active:scale-95 cursor-pointer"
+        className="flex h-8 sm:h-9 px-3 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white text-black font-black text-xs shadow-md hover:bg-neutral-200 transition-all active:scale-95 cursor-pointer"
         aria-label="Add to cart"
       >
-        <span className="hidden sm:inline text-xs tracking-wider">ADD</span>
-        <span className="sm:hidden text-base leading-none">+</span>
+        <ShoppingCart size={13} className="text-black" />
+        <span className="text-[11px] font-black uppercase tracking-wider">Add</span>
       </button>
     );
   }
@@ -163,9 +223,10 @@ export function AddToCartButton({
     <button
       type="button"
       onClick={handleAdd}
-      className={className || "flex h-10 w-24 items-center justify-center rounded-xl bg-white text-black font-black text-xs uppercase tracking-widest shadow-md hover:bg-neutral-200 hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all active:scale-95"}
+      className={className || "flex h-9 sm:h-10 px-4 items-center justify-center gap-1.5 rounded-xl bg-white text-black font-black text-xs uppercase tracking-wider shadow-md hover:bg-neutral-200 hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all active:scale-95 cursor-pointer"}
     >
-      ADD +
+      <ShoppingCart size={14} className="text-black" />
+      <span>Add to Cart</span>
     </button>
   );
 }
