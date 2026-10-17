@@ -54,7 +54,7 @@ export function BannerCarousel() {
           .from("store_settings")
           .select("value")
           .eq("key", "hero_banners")
-          .single();
+          .maybeSingle();
 
         if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
           setBanners(data.value);
@@ -64,21 +64,6 @@ export function BannerCarousel() {
       }
     };
     fetchBanners();
-
-    const channel = supabase
-      .channel("banner-carousel-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "store_settings", filter: "key=eq.hero_banners" }, (payload) => {
-        const value = (payload.new as any)?.value;
-        if (value && Array.isArray(value) && value.length > 0) {
-          setBanners(value);
-          setCurrentIndex(0);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   useEffect(() => {

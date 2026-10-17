@@ -37,9 +37,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full font-sans bg-black text-white overflow-x-hidden">
+      <body suppressHydrationWarning className="min-h-full font-sans bg-black text-white overflow-x-hidden">
         <QueryProvider>
           {children}
         </QueryProvider>

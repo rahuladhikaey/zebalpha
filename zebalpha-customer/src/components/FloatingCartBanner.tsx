@@ -32,25 +32,6 @@ export default function FloatingCartBanner() {
       }
     };
     fetchOffer();
-
-    // Subscribe to real-time changes
-    const channel = supabase
-      .channel('public:store_settings')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings', filter: "key=eq.'global_cart_offer'" }, payload => {
-        const value = (payload.new as any).value;
-        if (value && value.isActive === true && Number(value.threshold) > 0 && Number(value.percentage) > 0) {
-          setOfferThreshold(Number(value.threshold));
-          setOfferPercentage(Number(value.percentage));
-          setIsOfferActive(true);
-        } else {
-          setIsOfferActive(false);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   // Hide on cart, checkout pages, or product detail pages (where the product has its own dedicated bottom bar)

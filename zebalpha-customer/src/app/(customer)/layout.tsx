@@ -150,9 +150,9 @@ export default function RootLayout({
         `}
       </Script>
       <Providers>
-        <main className="min-h-screen">
+        <div className="min-h-screen">
           {children}
-        </main>
+        </div>
         <ClientAssistant />
       </Providers>
     </>

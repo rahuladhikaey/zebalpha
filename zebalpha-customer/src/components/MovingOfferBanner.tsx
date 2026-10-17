@@ -31,7 +31,7 @@ export function MovingOfferBanner() {
           .from("store_settings")
           .select("value")
           .eq("key", "marquee_banner")
-          .single();
+          .maybeSingle();
 
         if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
           setItems(data.value);
@@ -41,20 +41,6 @@ export function MovingOfferBanner() {
       }
     };
     fetchMarquee();
-
-    const channel = supabase
-      .channel("marquee-banner-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "store_settings", filter: "key=eq.marquee_banner" }, (payload) => {
-        const value = (payload.new as any)?.value;
-        if (value && Array.isArray(value) && value.length > 0) {
-          setItems(value);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const BannerContent = () => (
