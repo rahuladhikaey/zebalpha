@@ -7,6 +7,8 @@ import { useState } from "react";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import AnimatedSearchBar from "./AnimatedSearchBar";
+import { useCart } from "@/context/CartContext";
+import { ShoppingBag } from "lucide-react";
 import dynamicImport from "next/dynamic";
 const MobileDrawer = dynamicImport(() => import("./MobileDrawer").then((mod) => mod.MobileDrawer), {
   ssr: false,
@@ -24,6 +26,7 @@ export function Header({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { totalItems } = useCart();
   const isAdmin = pathname.startsWith("/admin");
   const isHome = pathname === "/";
 
@@ -92,6 +95,20 @@ export function Header({
 
           {/* Right Side: Actions & Drawer Trigger */}
           <div className="flex items-center gap-2 md:gap-3.5 shrink-0">
+            {/* Shopping Cart Button */}
+            <Link
+              href="/cart"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800 text-white hover:bg-neutral-800 transition-all active:scale-95 cursor-pointer shadow-md"
+              aria-label="View Shopping Cart"
+            >
+              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-[18px] px-1 items-center justify-center rounded-full bg-white text-black text-[9px] font-black shadow-md">
+                  {totalItems}
+                </span>
+              )}
+            </Link>
+
             {/* Mobile / Tablet Menu Trigger */}
             <button
               onClick={() => setIsDrawerOpen(true)}

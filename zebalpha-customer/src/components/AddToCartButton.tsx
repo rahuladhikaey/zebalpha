@@ -105,7 +105,11 @@ export function AddToCartButton({
           >
             <span className="text-sm sm:text-base font-black">-</span>
           </button>
-          <span className="flex h-full flex-1 items-center justify-center bg-black text-white text-xs font-black">
+          <span 
+            onClick={() => router.push('/cart')}
+            title="Click to view cart"
+            className="flex h-full flex-1 items-center justify-center bg-black text-white text-xs font-black cursor-pointer hover:bg-neutral-800 transition-colors"
+          >
             {quantity}
           </span>
           <button
@@ -128,7 +132,11 @@ export function AddToCartButton({
         >
           <span className="text-base font-black">-</span>
         </button>
-        <span className="flex h-full flex-1 items-center justify-center bg-white text-black text-sm font-black animate-in zoom-in-50 duration-200">
+        <span 
+          onClick={() => router.push('/cart')}
+          title="Click to view cart"
+          className="flex h-full flex-1 items-center justify-center bg-white text-black text-sm font-black animate-in zoom-in-50 duration-200 cursor-pointer hover:bg-neutral-200 transition-colors"
+        >
           {quantity}
         </span>
         <button

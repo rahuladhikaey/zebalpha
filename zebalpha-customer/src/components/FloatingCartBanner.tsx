@@ -3,7 +3,7 @@
 import { useCart } from "@/context/CartContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, ShoppingBag, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function FloatingCartBanner() {
@@ -53,31 +53,32 @@ export default function FloatingCartBanner() {
     };
   }, []);
 
-  // Hide on cart and checkout pages or if no offer is active
-  if (cart.length === 0 || pathname === '/cart' || pathname === '/checkout' || !isOfferActive || offerThreshold <= 0) return null;
+  // Hide on cart and checkout pages or if cart is empty
+  if (cart.length === 0 || pathname === '/cart' || pathname === '/checkout') return null;
 
-  // Calculate progress
-  const progressPercent = Math.min((totalValue / offerThreshold) * 100, 100);
-  const amountRemaining = Math.max(offerThreshold - totalValue, 0);
+  // Calculate progress for offer if active
+  const hasValidOffer = isOfferActive && offerThreshold > 0;
+  const progressPercent = hasValidOffer ? Math.min((totalValue / offerThreshold) * 100, 100) : 0;
+  const amountRemaining = hasValidOffer ? Math.max(offerThreshold - totalValue, 0) : 0;
 
   // Push up on product details page to avoid overlapping the mobile Buy Now bar
   const isProductDetailPage = pathname.startsWith('/products/') && pathname.length > '/products/'.length;
-  const bottomPositionClass = isProductDetailPage ? "bottom-16 lg:bottom-0" : "bottom-0";
+  const bottomPositionClass = isProductDetailPage ? "bottom-20 lg:bottom-0" : "bottom-3 sm:bottom-4";
 
   return (
-    <div className={`fixed left-0 right-0 z-50 p-2 sm:p-4 bg-black/80 backdrop-blur-md transition-all duration-300 lg:hidden ${bottomPositionClass}`}>
-      <div className="max-w-2xl mx-auto bg-zinc-950 rounded-3xl p-4 shadow-2xl border border-zinc-800">
-        {/* Offer Section */}
-        {isOfferActive && (
-          <div className="mb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-black bg-white p-1.5 rounded-full">
-                <Lock size={16} />
+    <div className={`fixed left-0 right-0 z-50 px-3 sm:px-6 transition-all duration-300 lg:hidden ${bottomPositionClass}`}>
+      <div className="max-w-xl mx-auto bg-zinc-950/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-2xl border border-zinc-800 flex flex-col gap-2.5">
+        {/* Offer Section (Only when active) */}
+        {hasValidOffer && (
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-black bg-white p-1 rounded-full">
+                <Lock size={13} />
               </span>
-              <p className="text-white font-black text-sm md:text-base tracking-tight">
+              <p className="text-white font-black text-xs sm:text-sm tracking-tight truncate">
                 {amountRemaining > 0
-                  ? `Add items for ₹${amountRemaining.toFixed(0)} to get ${offerPercentage}% Off`
-                  : `You've unlocked ${offerPercentage}% Off!`}
+                  ? `Add items for ₹${amountRemaining.toFixed(0)} to unlock ${offerPercentage}% OFF`
+                  : `🎉 You've unlocked ${offerPercentage}% OFF!`}
               </p>
             </div>
             
@@ -91,25 +92,29 @@ export default function FloatingCartBanner() {
           </div>
         )}
 
-        {/* Cart Info & Action */}
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-800">
-          <div className="flex flex-col">
-            <span className="text-white font-black text-base md:text-lg tracking-tight">
-              {totalItems} item{totalItems !== 1 && 's'}
-            </span>
-            <span className="text-zinc-400 font-bold text-sm">
-              ₹{totalValue.toFixed(0)}
-            </span>
+        {/* Cart Info & Action Button */}
+        <div className={`flex items-center justify-between gap-3 ${hasValidOffer ? "pt-2 border-t border-zinc-800/80" : ""}`}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/20 shrink-0">
+              <ShoppingBag size={18} />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-white font-black text-xs sm:text-sm tracking-tight truncate">
+                {totalItems} {totalItems === 1 ? 'Item' : 'Items'} in Cart
+              </span>
+              <span className="text-emerald-400 font-black text-xs sm:text-sm">
+                ₹{totalValue.toLocaleString("en-IN")}
+              </span>
+            </div>
           </div>
 
           <button 
+            type="button"
             onClick={() => router.push('/cart')}
-            className="bg-white hover:bg-zinc-200 transition-colors text-black px-6 py-3 rounded-2xl font-black text-sm md:text-base tracking-wide flex items-center gap-2 shadow-lg shadow-white/10 cursor-pointer"
+            className="bg-white hover:bg-zinc-200 active:scale-95 transition-all text-black px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm tracking-wider uppercase flex items-center gap-1.5 shadow-lg shadow-white/20 shrink-0 cursor-pointer"
           >
-            View Cart
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
+            <span>View Cart</span>
+            <ArrowRight size={14} strokeWidth={2.5} />
           </button>
         </div>
       </div>
