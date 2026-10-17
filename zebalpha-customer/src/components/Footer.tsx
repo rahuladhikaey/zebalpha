@@ -13,7 +13,7 @@ const FOOTER_VIDEOS = [
   {
     src: "/create_best_ad_video_best_the.mp4",
     title: "EXCLUSIVE CAMPAIGN DROP",
-    subtitle: "FLAT 50% OFF ON ESSENTIALS",
+    subtitle: "SIGNATURE STREETWEAR ESSENTIALS",
   }
 ];
 

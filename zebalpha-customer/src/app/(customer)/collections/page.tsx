@@ -159,7 +159,7 @@ export default function CollectionsPage() {
                 {/* Background Image Container with Overlay */}
                 <div className="absolute inset-0 z-0 opacity-25 transition-transform duration-700 group-hover:scale-110">
                   <Image
-                    src={cardImage}
+                    src={cardImage || "/placeholder.jpg"}
                     alt={col.title}
                     fill
                     className="object-cover"

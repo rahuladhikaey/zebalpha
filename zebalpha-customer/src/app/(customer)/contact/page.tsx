@@ -96,7 +96,7 @@ export default function ContactPage() {
                     </svg>
                     LinkedIn
                   </p>
-                  <a href="https://www.linkedin.com/in/asali-swad-6a167940b" target="_blank" rel="noopener noreferrer" className="mt-3 text-sm font-medium leading-7 text-white underline transition-colors flex items-center gap-1 group">
+                  <a href="mailto:support@zebalpha.com" className="mt-3 text-sm font-medium leading-7 text-white underline transition-colors flex items-center gap-1 group">
                     Connect with us
                     <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />

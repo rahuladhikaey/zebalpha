@@ -218,7 +218,7 @@ function CheckoutContent() {
         } else {
           // Fallback to localStorage
           if (typeof window !== "undefined") {
-            const savedLocal = window.localStorage.getItem("asali-swad-user-address");
+            const savedLocal = window.localStorage.getItem("zebalpha-user-address") || window.localStorage.getItem("asali-swad-user-address");
             if (savedLocal) {
               try {
                 const parsed = JSON.parse(savedLocal);
@@ -498,7 +498,7 @@ function CheckoutContent() {
     // 2. LocalStorage fallback
     if (typeof window !== "undefined") {
       try {
-        const stored = localStorage.getItem("asali-swad-card-applications");
+        const stored = localStorage.getItem("zebalpha-card-applications") || localStorage.getItem("asali-swad-card-applications");
         if (stored) {
           const list = JSON.parse(stored);
           const found = list.find((a: any) => 
@@ -596,7 +596,7 @@ function CheckoutContent() {
               pincode,
               addressDetail
             };
-            window.localStorage.setItem("asali-swad-user-address", JSON.stringify(localObj));
+            window.localStorage.setItem("zebalpha-user-address", JSON.stringify(localObj));
           } catch (e) { }
         }
 

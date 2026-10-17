@@ -237,18 +237,18 @@ export function AdShowcaseSection() {
                   SEASON INTRODUCTORY DROP
                 </span>
                 <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black uppercase tracking-tight text-white leading-tight drop-shadow-md">
-                  FLAT 50% OFF <br />
+                  SIGNATURE DROP <br />
                   <span className="bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-500 bg-clip-text text-transparent font-black">
-                    ON SIGNATURE ESSENTIALS
+                    ON ESSENTIAL STREETWEAR
                   </span>
                 </h3>
               </div>
 
-              {/* Promo Code Display Badge */}
+              {/* Collection Badge */}
               <div className="flex items-center gap-3 flex-wrap pt-0.5">
                 <div className="inline-flex items-center bg-black/80 border border-amber-400/60 rounded-xl px-3.5 py-1.5 backdrop-blur-md shadow-xl">
-                  <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-neutral-400 mr-2">Promo Code:</span>
-                  <span className="text-sm sm:text-base font-black tracking-[0.25em] text-amber-300 font-mono">ZEB50</span>
+                  <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-neutral-400 mr-2">Edition:</span>
+                  <span className="text-sm sm:text-base font-black tracking-[0.25em] text-amber-300 font-mono">ZEB-ORIGINALS</span>
                 </div>
               </div>
 

@@ -323,13 +323,21 @@ export default function PremiumStorePage() {
                     <div>
                       {/* Rating & Stock */}
                       <div className="flex items-center justify-between text-xs mb-2.5">
-                        <div className="flex items-center gap-1 text-amber-400 font-black">
-                          <Star size={13} className="fill-amber-400 text-amber-400" />
-                          <span>{product.rating || "4.9"}</span>
-                          <span className="text-[10px] text-zinc-500 font-bold">({product.review_count || "120+"})</span>
-                        </div>
+                        {product.rating && Number(product.rating) > 0 ? (
+                          <div className="flex items-center gap-1 text-amber-400 font-black">
+                            <Star size={13} className="fill-amber-400 text-amber-400" />
+                            <span>{product.rating}</span>
+                            {product.review_count && (
+                              <span className="text-[10px] text-zinc-500 font-bold">({product.review_count})</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                            ★ VERIFIED DROP
+                          </span>
+                        )}
                         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full">
-                          In Stock ({product.stock || 20})
+                          {product.stock !== undefined ? `In Stock (${product.stock})` : "In Stock"}
                         </span>
                       </div>
 

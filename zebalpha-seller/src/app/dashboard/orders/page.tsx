@@ -286,7 +286,7 @@ export default function SellerOrders() {
             const rawGross = finalItems.reduce((sum: number, item: any) => 
               sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
             const orderTotalAmt = Number(order.total_amount) || 0;
-            const explicitDiscount = Number(order.discount_amount) || 0;
+            const explicitDiscount = Number((order as any).discount_amount) || 0;
             const totalDiscount = explicitDiscount > 0
               ? explicitDiscount
               : (orderTotalAmt > 0 && rawGross > orderTotalAmt ? (rawGross - orderTotalAmt) : 0);

@@ -181,10 +181,10 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
       {/* Product Grid */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-5">
         {products.map((product, idx) => {
-          const effectiveMrp =
-            product.mrp && product.mrp > product.price ? product.mrp : Math.round(product.price * 1.25);
-          const discountAmount = effectiveMrp - product.price;
-          const discountPercent = Math.round((discountAmount / effectiveMrp) * 100);
+          const hasDiscount = Boolean(product.mrp && product.mrp > product.price);
+          const effectiveMrp = hasDiscount ? product.mrp! : 0;
+          const discountAmount = hasDiscount ? effectiveMrp - product.price : 0;
+          const discountPercent = hasDiscount ? Math.round((discountAmount / effectiveMrp) * 100) : 0;
 
           return (
             <article
@@ -244,14 +244,14 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                       <span className="text-base sm:text-lg font-black text-white tracking-tight">
                         ₹{product.price}
                       </span>
-                      {effectiveMrp > product.price && (
+                      {hasDiscount && (
                         <span className="text-xs font-semibold text-neutral-500 line-through">
                           ₹{effectiveMrp}
                         </span>
                       )}
                     </div>
 
-                    {discountAmount > 0 && (
+                    {hasDiscount && (
                       <span className="text-[9px] font-black uppercase text-neutral-300 bg-white/10 border border-white/10 px-2 py-0.5 rounded-full inline-block w-fit mt-1">
                         Save ₹{discountAmount}
                       </span>

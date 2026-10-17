@@ -251,7 +251,6 @@ export default function CardsPage() {
           setApplications(normalized);
           try {
             window.localStorage.setItem("zebalpha-card-applications", JSON.stringify(normalized));
-            window.localStorage.setItem("asali-swad-card-applications", JSON.stringify(normalized));
           } catch (e) {}
         } else {
           // Re-check local cache for current user before clearing
@@ -382,7 +381,6 @@ export default function CardsPage() {
 
       try {
         window.localStorage.setItem("zebalpha-card-applications", JSON.stringify(updatedApps));
-        window.localStorage.setItem("asali-swad-card-applications", JSON.stringify(updatedApps));
       } catch (e) {
         // ignore
       }
@@ -521,7 +519,7 @@ export default function CardsPage() {
                 if (refreshed) {
                   const normalized = refreshed.map(normalizeCardApplication);
                   setApplications(normalized as any[]);
-                  try { window.localStorage.setItem('asali-swad-card-applications', JSON.stringify(normalized)); } catch(e){}
+                  try { window.localStorage.setItem('zebalpha-card-applications', JSON.stringify(normalized)); } catch(e){}
                 }
               } catch (e) {
                 console.error('Error persisting renewal:', e);

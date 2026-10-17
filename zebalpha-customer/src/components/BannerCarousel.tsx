@@ -26,10 +26,10 @@ const DEFAULT_BANNERS: BannerItem[] = [
   { 
     id: 2, 
     src: "/banner-retro-cream.png", 
-    alt: "Zebalpha Limited Release 50% Off - Clothing For The Culture",
+    alt: "Zebalpha Limited Release - Clothing For The Culture",
     title: "Limited Edition Drop",
-    tagline: "50% OFF INTRODUCTORY DROP • TIMELESS FIT",
-    link: "/products?discount=50"
+    tagline: "TIMELESS STREETWEAR • PREMIUM URBAN FIT",
+    link: "/products"
   },
   { 
     id: 3, 

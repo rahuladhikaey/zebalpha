@@ -1,6 +1,7 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Info, Calculator, Building2, Package, Tag, ShieldCheck, Sparkles } from "lucide-react";
 import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
+import { supabase } from "@shared/utils/supabaseClient";
 
 export interface Step2Props {
   formData: {
@@ -130,12 +131,46 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
   const defectivePriceNum = parseFloat(formData.defective_returns_price) || 0;
   const mrpNum = parseFloat(formData.mrp) || 0;
 
-  // Shipping & Bank Settlement calculation (no GST)
-  const estimatedShippingFee = sellerPriceNum > 0 ? (sellerPriceNum > 500 ? 0 : 70) : 0;
+  const [platformRules, setPlatformRules] = useState<{
+    commissionPct: number;
+    collectionPct: number;
+    shippingFee: number;
+  }>({
+    commissionPct: 0,
+    collectionPct: 0,
+    shippingFee: 0,
+  });
+
+  useEffect(() => {
+    async function loadRules() {
+      try {
+        const { data } = await supabase
+          .from("store_settings")
+          .select("value")
+          .eq("key", "marketplace_rules")
+          .maybeSingle();
+
+        if (data?.value) {
+          const val = data.value;
+          setPlatformRules({
+            commissionPct: parseFloat(val.globalCommissionPct ?? "0") || 0,
+            collectionPct: parseFloat(val.collectionFeePct ?? "0") || 0,
+            shippingFee: parseFloat(val.defaultShippingCost ?? "0") || 0,
+          });
+        }
+      } catch {
+        // Fallback to 0 commission (Meesho zero-commission standard)
+      }
+    }
+    loadRules();
+  }, []);
+
+  // Meesho / Flipkart model: Customer listing price is the seller base price!
+  const estimatedShippingFee = platformRules.shippingFee;
   const customerPrice = sellerPriceNum + estimatedShippingFee;
   
-  const platformCommission = sellerPriceNum * 0.05; // 5%
-  const paymentGatewayFee = sellerPriceNum * 0.02; // 2%
+  const platformCommission = (sellerPriceNum * platformRules.commissionPct) / 100;
+  const paymentGatewayFee = (sellerPriceNum * platformRules.collectionPct) / 100;
   const estimatedBankSettlement = Math.max(0, sellerPriceNum - platformCommission - paymentGatewayFee);
 
   const handleSameAsManufacturerToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -342,13 +377,17 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
               <span className="text-emerald-400 font-bold text-base">₹{estimatedBankSettlement.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-[11px] text-zinc-400">
-              <span>Platform Fee (5%)</span>
-              <span>-₹{platformCommission.toFixed(2)}</span>
+              <span>Platform Commission ({platformRules.commissionPct}%)</span>
+              <span className={platformCommission === 0 ? "text-emerald-400 font-semibold" : ""}>
+                {platformCommission === 0 ? "₹0.00 (Zero Commission)" : `-₹${platformCommission.toFixed(2)}`}
+              </span>
             </div>
-            <div className="flex justify-between items-center text-[11px] text-zinc-400">
-              <span>Payment Gateway (2%)</span>
-              <span>-₹{paymentGatewayFee.toFixed(2)}</span>
-            </div>
+            {platformRules.collectionPct > 0 && (
+              <div className="flex justify-between items-center text-[11px] text-zinc-400">
+                <span>Payment Gateway ({platformRules.collectionPct}%)</span>
+                <span>-₹{paymentGatewayFee.toFixed(2)}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -197,7 +197,7 @@ export default function SellerDashboard() {
             let stdUnits = 0;
 
             const orderTotalAmt = Number(order.total_amount) || 0;
-            const explicitDiscount = Number(order.discount_amount) || 0;
+            const explicitDiscount = Number((order as any).discount_amount) || 0;
             const rawGrossSum = sellerItems.reduce((s: number, it: any) => s + (Number(it.price || 0) * (Number(it.quantity || 1))), 0);
             const totalDiscount = explicitDiscount > 0
               ? explicitDiscount

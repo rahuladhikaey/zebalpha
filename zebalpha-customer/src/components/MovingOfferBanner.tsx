@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 const DEFAULT_ITEMS = [
   { icon: "crown", text: "ZEBALPHA • CLOTHING FOR THE CULTURE" },
-  { icon: "flame", text: "LIMITED TIME DROP • 50% OFF" },
+  { icon: "flame", text: "NEW SEASON DROP • AUTHENTIC STREETWEAR" },
   { icon: "sparkles", text: "100% PREMIUM COMBED COTTON" },
   { icon: "truck", text: "FREE EXPRESS SHIPPING ON ORDERS OVER ₹999" },
   { icon: "shield", text: "QUALITY EMBROIDERY & RELAXED FIT" },

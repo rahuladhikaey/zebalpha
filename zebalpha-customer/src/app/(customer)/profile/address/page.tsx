@@ -81,7 +81,7 @@ export default function AddressPage() {
         } else {
           // Fallback to localStorage
           if (typeof window !== "undefined") {
-            const saved = window.localStorage.getItem("asali-swad-user-address");
+            const saved = window.localStorage.getItem("zebalpha-user-address") || window.localStorage.getItem("asali-swad-user-address");
             if (saved) {
               try {
                 const parsed = JSON.parse(saved);
@@ -121,7 +121,7 @@ export default function AddressPage() {
 
     if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem("asali-swad-user-address", JSON.stringify(newAddressObj));
+        window.localStorage.setItem("zebalpha-user-address", JSON.stringify(newAddressObj));
       } catch (e) {}
       setSavedAddress(newAddressObj);
 

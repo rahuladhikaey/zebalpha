@@ -61,9 +61,9 @@ export default function NewDropsPage() {
             category: item.collection || (item.specifications as any)?.collection || item.category_name || item.category || "Streetwear Drop",
             price: Number(item.price || 0),
             isLive: live,
-            initialRating: 4.9,
-            initialVotes: 320 + idx * 45,
-            demandPercentage: live ? 98 : 92,
+            initialRating: Number(item.rating || 0),
+            initialVotes: Number(item.review_count || 0),
+            demandPercentage: 100,
           };
         });
 
@@ -285,7 +285,9 @@ export default function NewDropsPage() {
                   <div className="mt-6 rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-base font-black text-amber-400">{item.initialRating}</span>
+                        <span className="text-base font-black text-amber-400">
+                          {item.initialRating > 0 ? item.initialRating : "★"}
+                        </span>
                         <div className="flex items-center gap-1">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <button
@@ -306,7 +308,7 @@ export default function NewDropsPage() {
                         </div>
                       </div>
                       <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                        {item.initialVotes.toLocaleString()} Hype Votes
+                        {item.initialVotes > 0 ? `${item.initialVotes.toLocaleString()} Hype Votes` : "Be the first to vote!"}
                       </span>
                     </div>
 
