@@ -150,6 +150,7 @@ export default function MarketplaceSettingsView() {
               const fin = rulesMap.marketplace_financial_rules;
               setMarketplaceConfig(prev => ({
                 ...prev,
+                globalCommissionPct: String(fin.commission_percentage ?? prev.globalCommissionPct),
                 fixedFee: String(fin.fixed_fee_per_order ?? prev.fixedFee),
                 collectionFeePct: String(fin.payment_collection_fee_pct ?? prev.collectionFeePct),
                 reverseShippingFee: String(fin.reverse_shipping_fee ?? prev.reverseShippingFee),
@@ -201,6 +202,21 @@ export default function MarketplaceSettingsView() {
           if (rulesMap.marketplace_rules) {
             setMarketplaceConfig(prev => ({ ...prev, ...rulesMap.marketplace_rules }));
           }
+          if (rulesMap.marketplace_financial_rules) {
+            const fin = rulesMap.marketplace_financial_rules;
+            setMarketplaceConfig(prev => ({
+              ...prev,
+              globalCommissionPct: String(fin.commission_percentage ?? prev.globalCommissionPct),
+              fixedFee: String(fin.fixed_fee_per_order ?? prev.fixedFee),
+              collectionFeePct: String(fin.payment_collection_fee_pct ?? prev.collectionFeePct),
+              reverseShippingFee: String(fin.reverse_shipping_fee ?? prev.reverseShippingFee),
+              rtoCharge: String(fin.rto_charge ?? prev.rtoCharge),
+              gstRatePct: String(fin.gst_on_platform_fees_pct ?? prev.gstRatePct),
+              settlementDelayDays: String(fin.settlement_delay_days ?? prev.settlementDelayDays),
+              returnWindowDays: String(fin.customer_return_window_days ?? prev.returnWindowDays),
+              defaultShippingCost: String(fin.standard_shipping_fee ?? prev.defaultShippingCost),
+            }));
+          }
           if (rulesMap.promotional_coupons) {
             setCoupons(Array.isArray(rulesMap.promotional_coupons) ? rulesMap.promotional_coupons : []);
           }
@@ -239,26 +255,45 @@ export default function MarketplaceSettingsView() {
     try {
       await saveSettingToDb("marketplace_rules", marketplaceConfig);
 
-      // Save complete financial ledger rules
+      const parseNum = (val: any, fallback = 0) => {
+        if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+          return Number(val);
+        }
+        return fallback;
+      };
+
+      const comm = parseNum(marketplaceConfig.globalCommissionPct, 0);
+      const fixed = parseNum(marketplaceConfig.fixedFee, 0);
+      const col = parseNum(marketplaceConfig.collectionFeePct, 0);
+      const ship = parseNum(marketplaceConfig.defaultShippingCost, 0);
+      const revShip = parseNum(marketplaceConfig.reverseShippingFee, 0);
+      const rto = parseNum(marketplaceConfig.rtoCharge, 50.0);
+      const gst = parseNum(marketplaceConfig.gstRatePct, 3.0);
+      const escrow = parseNum(marketplaceConfig.settlementDelayDays, 7);
+      const returnWin = parseNum(marketplaceConfig.returnWindowDays, 5);
+      const premDiscount = parseNum(marketplaceConfig.premiumCommissionDiscount, 0);
+
+      // Save complete financial ledger rules (0 values are preserved accurately)
       const financialRules = {
-        commission_percentage: Number(marketplaceConfig.globalCommissionPct) || 5.0,
-        fixed_fee_per_order: Number(marketplaceConfig.fixedFee) || 15.0,
-        payment_collection_fee_pct: Number(marketplaceConfig.collectionFeePct) || 2.0,
+        commission_percentage: comm,
+        fixed_fee_per_order: fixed,
+        payment_collection_fee_pct: col,
         cod_handling_fee: 25.0,
-        standard_shipping_fee: Number(marketplaceConfig.defaultShippingCost) || 60.0,
-        reverse_shipping_fee: Number(marketplaceConfig.reverseShippingFee) || 70.0,
-        rto_charge: Number(marketplaceConfig.rtoCharge) || 50.0,
-        gst_on_platform_fees_pct: Number(marketplaceConfig.gstRatePct) || 18.0,
-        settlement_delay_days: Number(marketplaceConfig.settlementDelayDays) || 7,
-        customer_return_window_days: Number(marketplaceConfig.returnWindowDays) || 7,
+        standard_shipping_fee: ship,
+        reverse_shipping_fee: revShip,
+        rto_charge: rto,
+        gst_on_platform_fees_pct: gst,
+        settlement_delay_days: escrow,
+        customer_return_window_days: returnWin,
+        shipping_paid_by: ship === 0 ? "CUSTOMER" : "SELLER",
         tiers: {
           standard: {
-            commission_pct: Number(marketplaceConfig.globalCommissionPct) || 5.0,
-            settlement_delay_days: Number(marketplaceConfig.settlementDelayDays) || 7,
+            commission_pct: comm,
+            settlement_delay_days: escrow,
           },
           premium: {
-            commission_pct: Math.max(0, (Number(marketplaceConfig.globalCommissionPct) || 5.0) - (Number(marketplaceConfig.premiumCommissionDiscount) || 2.5)),
-            settlement_delay_days: Number(marketplaceConfig.premiumSettlementDelay) || 3,
+            commission_pct: Math.max(0, comm - premDiscount),
+            settlement_delay_days: parseNum(marketplaceConfig.premiumSettlementDelay, 3),
           }
         }
       };

@@ -71,32 +71,85 @@ export default function SellerOrders() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load active platform finance configuration from Supabase
+      // Load active platform finance configuration from Supabase store_settings (primary) and platform_finance_configs (fallback)
       try {
-        const { data: activeCfg } = await supabase
-          .from("platform_finance_configs")
-          .select("*")
-          .eq("status", "ACTIVE")
-          .order("version", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const { data: storeSettingsList } = await supabase
+          .from("store_settings")
+          .select("key, value")
+          .in("key", ["marketplace_financial_rules", "marketplace_rules"]);
 
-        if (activeCfg) {
+        const settingsMap: Record<string, any> = {};
+        (storeSettingsList || []).forEach((row: any) => {
+          if (row.key) settingsMap[row.key] = row.value;
+        });
+
+        const finRules = settingsMap.marketplace_financial_rules || {};
+        const mktRules = settingsMap.marketplace_rules || {};
+
+        const parseNum = (val: any, fallback: number = 0) => {
+          if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+            return Number(val);
+          }
+          return fallback;
+        };
+
+        if (settingsMap.marketplace_financial_rules || settingsMap.marketplace_rules) {
+          const comm = parseNum(finRules.commission_percentage ?? mktRules.globalCommissionPct, 0);
+          const fixed = parseNum(finRules.fixed_fee_per_order ?? mktRules.fixedFee, 0);
+          const colFee = parseNum(finRules.payment_collection_fee_pct ?? mktRules.collectionFeePct, 0);
+          const codFee = parseNum(finRules.cod_handling_fee, 0);
+          const shipFee = parseNum(finRules.standard_shipping_fee ?? mktRules.defaultShippingCost, 0);
+          const revShip = parseNum(finRules.reverse_shipping_fee ?? mktRules.reverseShippingFee, 0);
+          const rto = parseNum(finRules.rto_charge ?? mktRules.rtoCharge, 50);
+          const gst = parseNum(finRules.gst_on_platform_fees_pct ?? mktRules.gstRatePct, 3);
+          const escrow = parseNum(finRules.settlement_delay_days ?? mktRules.settlementDelayDays, 7);
+          const returnWin = parseNum(finRules.customer_return_window_days ?? mktRules.returnWindowDays, 5);
+
           setFinancialRules({
-            commission_percentage: Number(activeCfg.commission_percentage) || 0,
-            fixed_fee_per_order: Number(activeCfg.fixed_fee_per_order) || 0,
-            payment_collection_fee_pct: Number(activeCfg.payment_collection_fee_pct) || 0,
-            cod_handling_fee: Number(activeCfg.cod_handling_fee) || 0,
-            standard_shipping_fee: Number(activeCfg.standard_shipping_fee) || 0,
-            reverse_shipping_fee: Number(activeCfg.reverse_shipping_fee) || 0,
-            rto_charge: Number(activeCfg.rto_charge) || 0,
-            gst_on_platform_fees_pct: Number(activeCfg.gst_on_platform_fees_pct) || 18,
-            settlement_delay_days: Number(activeCfg.settlement_delay_days) || 7,
-            customer_return_window_days: 7,
-            shipping_paid_by: activeCfg.shipping_paid_by || "CUSTOMER"
+            commission_percentage: comm,
+            fixed_fee_per_order: fixed,
+            payment_collection_fee_pct: colFee,
+            cod_handling_fee: codFee,
+            standard_shipping_fee: shipFee,
+            reverse_shipping_fee: revShip,
+            rto_charge: rto,
+            gst_on_platform_fees_pct: gst,
+            settlement_delay_days: escrow,
+            customer_return_window_days: returnWin,
+            shipping_paid_by: finRules.shipping_paid_by || (shipFee === 0 ? "CUSTOMER" : "SELLER"),
+            tiers: {
+              standard: { commission_pct: comm, settlement_delay_days: escrow },
+              premium: { commission_pct: Math.max(0, comm - parseNum(mktRules.premiumCommissionDiscount, 0)), settlement_delay_days: 3 }
+            }
           });
+        } else {
+          const { data: activeCfg } = await supabase
+            .from("platform_finance_configs")
+            .select("*")
+            .eq("status", "ACTIVE")
+            .order("version", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (activeCfg) {
+            setFinancialRules({
+              commission_percentage: parseNum(activeCfg.commission_percentage, 0),
+              fixed_fee_per_order: parseNum(activeCfg.fixed_fee_per_order, 0),
+              payment_collection_fee_pct: parseNum(activeCfg.payment_collection_fee_pct, 0),
+              cod_handling_fee: parseNum(activeCfg.cod_handling_fee, 0),
+              standard_shipping_fee: parseNum(activeCfg.standard_shipping_fee, 0),
+              reverse_shipping_fee: parseNum(activeCfg.reverse_shipping_fee, 0),
+              rto_charge: parseNum(activeCfg.rto_charge, 50),
+              gst_on_platform_fees_pct: parseNum(activeCfg.gst_on_platform_fees_pct, 3),
+              settlement_delay_days: parseNum(activeCfg.settlement_delay_days, 7),
+              customer_return_window_days: 7,
+              shipping_paid_by: activeCfg.shipping_paid_by || "CUSTOMER"
+            });
+          }
         }
-      } catch (_) {}
+      } catch (finErr) {
+        console.warn("[Orders Page] Finance rules fetch notice:", finErr);
+      }
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -1017,7 +1070,7 @@ export default function SellerOrders() {
                       <span className="text-rose-400 font-bold">-₹{feeBreakdown.shipping_fee}</span>
                     </div>
                     <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
-                      <span>GST (18%) on Marketplace Fees</span>
+                      <span>GST ({financialRules.gst_on_platform_fees_pct !== undefined ? financialRules.gst_on_platform_fees_pct : 3}%) on Marketplace Fees</span>
                       <span className="text-rose-400 font-bold">-₹{feeBreakdown.tax_on_fees}</span>
                     </div>
                     <div className="flex justify-between pt-3 text-sm font-black border-t border-zinc-700">

@@ -97,15 +97,34 @@ function CheckoutContent() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data } = await supabase.from('store_settings').select('value').eq('key', 'billing').maybeSingle();
-        if (data && data.value) {
-          setBillingSettings({
-            deliveryFee: Number(data.value.deliveryFee) || 0,
-            freeDeliveryThreshold: Number(data.value.freeDeliveryThreshold) || 0,
-            packagingFee: Number(data.value.packagingFee) || 0,
-            tax: Number(data.value.tax) || 0,
-          });
-        }
+        const { data: bData } = await supabase
+          .from('store_settings')
+          .select('key, value')
+          .in('key', ['billing', 'marketplace_rules']);
+
+        const map: Record<string, any> = {};
+        (bData || []).forEach((row: any) => { map[row.key] = row.value; });
+        const b = map.billing || {};
+        const m = map.marketplace_rules || {};
+
+        const parseNum = (val: any, fallback = 0) => {
+          if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+            return Number(val);
+          }
+          return fallback;
+        };
+
+        const delivery = parseNum(m.deliveryCharge ?? b.deliveryFee, 0);
+        const freeThresh = parseNum(m.freeShippingThreshold ?? b.freeDeliveryThreshold, 0);
+        const appFee = parseNum(m.appCharge ?? b.packagingFee, 0);
+        const tax = parseNum(b.tax, 0);
+
+        setBillingSettings({
+          deliveryFee: delivery,
+          freeDeliveryThreshold: freeThresh,
+          packagingFee: appFee,
+          tax: tax
+        });
       } catch (err) {
         console.error("Error fetching billing settings", err);
       }

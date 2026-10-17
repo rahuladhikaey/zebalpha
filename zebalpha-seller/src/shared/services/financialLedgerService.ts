@@ -5,23 +5,23 @@ import {
 } from '../types/ledger';
 
 export const DEFAULT_FINANCIAL_RULES: MarketplaceFinancialRules = {
-  commission_percentage: 5.0,
-  fixed_fee_per_order: 15.0,
-  payment_collection_fee_pct: 2.0,
-  cod_handling_fee: 25.0,
-  standard_shipping_fee: 60.0,
-  reverse_shipping_fee: 70.0,
+  commission_percentage: 0.0,
+  fixed_fee_per_order: 0.0,
+  payment_collection_fee_pct: 0.0,
+  cod_handling_fee: 0.0,
+  standard_shipping_fee: 0.0,
+  reverse_shipping_fee: 0.0,
   rto_charge: 50.0,
-  gst_on_platform_fees_pct: 18.0,
+  gst_on_platform_fees_pct: 3.0,
   settlement_delay_days: 7,
-  customer_return_window_days: 7,
+  customer_return_window_days: 5,
   tiers: {
     standard: {
-      commission_pct: 5.0,
+      commission_pct: 0.0,
       settlement_delay_days: 7
     },
     premium: {
-      commission_pct: 3.5,
+      commission_pct: 0.0,
       settlement_delay_days: 4
     }
   }
@@ -53,31 +53,44 @@ export function calculateOrderItemFee(
 ): OrderItemFeeBreakdown {
   const gross = Math.max(0, Number(price) * Number(quantity));
 
+  const getNumeric = (val: any, fallback: number = 0): number => {
+    if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+      return Number(val);
+    }
+    return fallback;
+  };
+
   // 1. Commission
-  let commPct = rules.commission_percentage;
+  let commPct = getNumeric(rules.commission_percentage, 0);
   if (tier === 'premium' || isPremiumProduct) {
-    commPct = rules.tiers?.premium?.commission_pct ?? 3.5;
+    if (rules.tiers?.premium?.commission_pct !== undefined && rules.tiers?.premium?.commission_pct !== null) {
+      commPct = Number(rules.tiers.premium.commission_pct);
+    } else {
+      commPct = Math.max(0, commPct - 2.5);
+    }
   }
   const commissionFee = Number(((gross * commPct) / 100).toFixed(2));
 
   // 2. Fixed platform fee
-  const fixedFee = Number((rules.fixed_fee_per_order || 15).toFixed(2));
+  const fixedFee = Number(getNumeric(rules.fixed_fee_per_order, 0).toFixed(2));
 
   // 3. Collection fee
   let collectionFee = 0;
   if ((paymentMethod || '').toUpperCase() === 'COD') {
-    collectionFee = Number((rules.cod_handling_fee || 25).toFixed(2));
+    collectionFee = Number(getNumeric(rules.cod_handling_fee, 0).toFixed(2));
   } else {
-    collectionFee = Number(((gross * (rules.payment_collection_fee_pct || 2)) / 100).toFixed(2));
+    const colPct = getNumeric(rules.payment_collection_fee_pct, 0);
+    collectionFee = Number(((gross * colPct) / 100).toFixed(2));
   }
 
-  // 4. Shipping fee allocated to order item (0 if paid by customer or platform)
-  const isCustomerShipping = (rules as any).shipping_paid_by === 'CUSTOMER' || (rules as any).shipping_paid_by === 'ZEBALPHA';
-  const shippingFee = isCustomerShipping ? 0 : Number((rules.standard_shipping_fee || 0).toFixed(2));
+  // 4. Shipping fee allocated to order item (0 if paid by customer or platform or 0 default)
+  const isCustomerShipping = (rules as any).shipping_paid_by === 'CUSTOMER' || (rules as any).shipping_paid_by === 'ZEBALPHA' || Number(rules.standard_shipping_fee) === 0;
+  const shippingFee = isCustomerShipping ? 0 : Number(getNumeric(rules.standard_shipping_fee, 0).toFixed(2));
 
-  // 5. Taxes (GST 18%) on marketplace service fees (Commission + Fixed + Collection)
+  // 5. Taxes (GST) on marketplace service fees (Commission + Fixed + Collection)
   const taxableServiceFees = commissionFee + fixedFee + collectionFee;
-  const taxOnFees = Number(((taxableServiceFees * (rules.gst_on_platform_fees_pct || 18)) / 100).toFixed(2));
+  const gstPct = getNumeric(rules.gst_on_platform_fees_pct, 3);
+  const taxOnFees = Number(((taxableServiceFees * gstPct) / 100).toFixed(2));
 
   const totalDeductions = Number((commissionFee + fixedFee + collectionFee + shippingFee + taxOnFees).toFixed(2));
   const netSellerEarnings = Number(Math.max(0, gross - totalDeductions).toFixed(2));

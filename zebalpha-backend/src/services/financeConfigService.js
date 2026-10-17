@@ -78,18 +78,25 @@ export async function getActiveFinanceConfig(forceFresh = false) {
   try {
     const { data, error } = await supabaseA.rpc('get_active_finance_config');
     if (!error && data) {
+      const getNum = (v, fallback = 0) => {
+        if (v !== undefined && v !== null && v !== "" && !isNaN(Number(v))) {
+          return Number(v);
+        }
+        return fallback;
+      };
+
       cachedActiveConfig = {
         id: data.id,
-        version: Number(data.version) || 1,
-        commission_percentage: Number(data.commission_percentage) || 5.0,
-        fixed_fee_per_order: Number(data.fixed_fee_per_order) || 15.0,
-        payment_collection_fee_pct: Number(data.payment_collection_fee_pct) || 2.0,
-        cod_handling_fee: Number(data.cod_handling_fee) || 25.0,
-        standard_shipping_fee: Number(data.standard_shipping_fee) || 60.0,
-        reverse_shipping_fee: Number(data.reverse_shipping_fee) || 70.0,
-        rto_charge: Number(data.rto_charge) || 50.0,
-        gst_on_platform_fees_pct: Number(data.gst_on_platform_fees_pct) || 18.0,
-        settlement_delay_days: Number(data.settlement_delay_days) || 7,
+        version: getNum(data.version, 1),
+        commission_percentage: getNum(data.commission_percentage, 0.0),
+        fixed_fee_per_order: getNum(data.fixed_fee_per_order, 0.0),
+        payment_collection_fee_pct: getNum(data.payment_collection_fee_pct, 0.0),
+        cod_handling_fee: getNum(data.cod_handling_fee, 0.0),
+        standard_shipping_fee: getNum(data.standard_shipping_fee, 0.0),
+        reverse_shipping_fee: getNum(data.reverse_shipping_fee, 0.0),
+        rto_charge: getNum(data.rto_charge, 50.0),
+        gst_on_platform_fees_pct: getNum(data.gst_on_platform_fees_pct, 3.0),
+        settlement_delay_days: getNum(data.settlement_delay_days, 7),
         shipping_paid_by: data.shipping_paid_by || 'CUSTOMER',
         status: data.status || 'ACTIVE',
         effective_from: data.effective_from,
@@ -105,14 +112,14 @@ export async function getActiveFinanceConfig(forceFresh = false) {
   // Safe fallback default configuration
   return {
     version: 1,
-    commission_percentage: 5.0,
-    fixed_fee_per_order: 15.0,
-    payment_collection_fee_pct: 2.0,
-    cod_handling_fee: 25.0,
-    standard_shipping_fee: 60.0,
-    reverse_shipping_fee: 70.0,
+    commission_percentage: 0.0,
+    fixed_fee_per_order: 0.0,
+    payment_collection_fee_pct: 0.0,
+    cod_handling_fee: 0.0,
+    standard_shipping_fee: 0.0,
+    reverse_shipping_fee: 0.0,
     rto_charge: 50.0,
-    gst_on_platform_fees_pct: 18.0,
+    gst_on_platform_fees_pct: 3.0,
     settlement_delay_days: 7,
     shipping_paid_by: 'CUSTOMER',
     status: 'ACTIVE'
@@ -318,14 +325,14 @@ export function previewFinancialImpact({
   config = null
 }) {
   const active = config || {
-    commission_percentage: 5.0,
-    fixed_fee_per_order: 15.0,
-    payment_collection_fee_pct: 2.0,
-    cod_handling_fee: 25.0,
-    standard_shipping_fee: 60.0,
-    reverse_shipping_fee: 70.0,
+    commission_percentage: 0.0,
+    fixed_fee_per_order: 0.0,
+    payment_collection_fee_pct: 0.0,
+    cod_handling_fee: 0.0,
+    standard_shipping_fee: 0.0,
+    reverse_shipping_fee: 0.0,
     rto_charge: 50.0,
-    gst_on_platform_fees_pct: 18.0,
+    gst_on_platform_fees_pct: 3.0,
     settlement_delay_days: 7,
     shipping_paid_by: 'CUSTOMER'
   };

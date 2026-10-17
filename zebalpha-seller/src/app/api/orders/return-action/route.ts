@@ -296,6 +296,39 @@ export async function POST(req: Request) {
             const isSellerFault = (orderData.return_reason || "").toLowerCase().includes("defective") ||
                                   (orderData.return_reason || "").toLowerCase().includes("wrong");
 
+            let activeRules = DEFAULT_FINANCIAL_RULES;
+            try {
+              const { data: storeSettingsList } = await supabaseServer
+                .from("store_settings")
+                .select("key, value")
+                .in("key", ["marketplace_financial_rules", "marketplace_rules"]);
+              if (storeSettingsList && storeSettingsList.length > 0) {
+                const settingsMap: Record<string, any> = {};
+                storeSettingsList.forEach((row: any) => { if (row.key) settingsMap[row.key] = row.value; });
+                const finRules = settingsMap.marketplace_financial_rules || {};
+                const mktRules = settingsMap.marketplace_rules || {};
+                const getVal = (v1: any, v2: any, fallback: number) => {
+                  if (v1 !== undefined && v1 !== null && v1 !== "" && !isNaN(Number(v1))) return Number(v1);
+                  if (v2 !== undefined && v2 !== null && v2 !== "" && !isNaN(Number(v2))) return Number(v2);
+                  return fallback;
+                };
+                activeRules = {
+                  ...DEFAULT_FINANCIAL_RULES,
+                  ...finRules,
+                  commission_percentage: getVal(finRules.commission_percentage, mktRules.globalCommissionPct, 0),
+                  fixed_fee_per_order: getVal(finRules.fixed_fee_per_order, mktRules.fixedFee, 0),
+                  payment_collection_fee_pct: getVal(finRules.payment_collection_fee_pct, mktRules.collectionFeePct, 0),
+                  cod_handling_fee: getVal(finRules.cod_handling_fee, null, 0),
+                  standard_shipping_fee: getVal(finRules.standard_shipping_fee, mktRules.defaultShippingCost, 0),
+                  reverse_shipping_fee: getVal(finRules.reverse_shipping_fee, mktRules.reverseShippingFee, 0),
+                  rto_charge: getVal(finRules.rto_charge, mktRules.rtoCharge, 50),
+                  gst_on_platform_fees_pct: getVal(finRules.gst_on_platform_fees_pct, mktRules.gstRatePct, 3),
+                  settlement_delay_days: getVal(finRules.settlement_delay_days, mktRules.settlementDelayDays, 7),
+                  customer_return_window_days: getVal(finRules.customer_return_window_days, mktRules.returnWindowDays, 5),
+                };
+              }
+            } catch (_) {}
+
             const ledgerEntries = generateReturnRefundLedgerEntries({
               sellerId,
               orderId: orderData.id,
@@ -303,7 +336,7 @@ export async function POST(req: Request) {
               returnId,
               refundAmount: refundAmt,
               isSellerFault,
-              rules: DEFAULT_FINANCIAL_RULES
+              rules: activeRules
             });
 
             for (const entry of ledgerEntries) {

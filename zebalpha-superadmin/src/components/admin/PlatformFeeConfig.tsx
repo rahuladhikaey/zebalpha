@@ -31,14 +31,14 @@ export default function PlatformFeeConfig() {
 
   // Draft / Edit Form State
   const [formData, setFormData] = useState({
-    commission_percentage: 5.0,
-    fixed_fee_per_order: 15.0,
-    payment_collection_fee_pct: 2.0,
-    cod_handling_fee: 25.0,
-    standard_shipping_fee: 60.0,
-    reverse_shipping_fee: 70.0,
+    commission_percentage: 0.0,
+    fixed_fee_per_order: 0.0,
+    payment_collection_fee_pct: 0.0,
+    cod_handling_fee: 0.0,
+    standard_shipping_fee: 0.0,
+    reverse_shipping_fee: 0.0,
     rto_charge: 50.0,
-    gst_on_platform_fees_pct: 18.0,
+    gst_on_platform_fees_pct: 3.0,
     settlement_delay_days: 7,
     shipping_paid_by: "CUSTOMER",
     change_reason: ""
@@ -74,15 +74,15 @@ export default function PlatformFeeConfig() {
       if (activeRes?.success && activeRes.data) {
         setActiveConfig(activeRes.data);
         setFormData({
-          commission_percentage: Number(activeRes.data.commission_percentage) || 5.0,
-          fixed_fee_per_order: Number(activeRes.data.fixed_fee_per_order) || 15.0,
-          payment_collection_fee_pct: Number(activeRes.data.payment_collection_fee_pct) || 2.0,
-          cod_handling_fee: Number(activeRes.data.cod_handling_fee) || 25.0,
-          standard_shipping_fee: Number(activeRes.data.standard_shipping_fee) || 60.0,
-          reverse_shipping_fee: Number(activeRes.data.reverse_shipping_fee) || 70.0,
-          rto_charge: Number(activeRes.data.rto_charge) || 50.0,
-          gst_on_platform_fees_pct: Number(activeRes.data.gst_on_platform_fees_pct) || 18.0,
-          settlement_delay_days: Number(activeRes.data.settlement_delay_days) || 7,
+          commission_percentage: activeRes.data.commission_percentage !== undefined && activeRes.data.commission_percentage !== null ? Number(activeRes.data.commission_percentage) : 0.0,
+          fixed_fee_per_order: activeRes.data.fixed_fee_per_order !== undefined && activeRes.data.fixed_fee_per_order !== null ? Number(activeRes.data.fixed_fee_per_order) : 0.0,
+          payment_collection_fee_pct: activeRes.data.payment_collection_fee_pct !== undefined && activeRes.data.payment_collection_fee_pct !== null ? Number(activeRes.data.payment_collection_fee_pct) : 0.0,
+          cod_handling_fee: activeRes.data.cod_handling_fee !== undefined && activeRes.data.cod_handling_fee !== null ? Number(activeRes.data.cod_handling_fee) : 0.0,
+          standard_shipping_fee: activeRes.data.standard_shipping_fee !== undefined && activeRes.data.standard_shipping_fee !== null ? Number(activeRes.data.standard_shipping_fee) : 0.0,
+          reverse_shipping_fee: activeRes.data.reverse_shipping_fee !== undefined && activeRes.data.reverse_shipping_fee !== null ? Number(activeRes.data.reverse_shipping_fee) : 0.0,
+          rto_charge: activeRes.data.rto_charge !== undefined && activeRes.data.rto_charge !== null ? Number(activeRes.data.rto_charge) : 50.0,
+          gst_on_platform_fees_pct: activeRes.data.gst_on_platform_fees_pct !== undefined && activeRes.data.gst_on_platform_fees_pct !== null ? Number(activeRes.data.gst_on_platform_fees_pct) : 3.0,
+          settlement_delay_days: activeRes.data.settlement_delay_days !== undefined && activeRes.data.settlement_delay_days !== null ? Number(activeRes.data.settlement_delay_days) : 7,
           shipping_paid_by: activeRes.data.shipping_paid_by || "CUSTOMER",
           change_reason: ""
         });

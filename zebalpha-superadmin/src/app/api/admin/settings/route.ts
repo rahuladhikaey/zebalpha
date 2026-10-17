@@ -128,13 +128,40 @@ export async function POST(req: Request) {
 
       // Auto-synchronize linked customer store configurations
       if (key === "marketplace_rules" && value) {
+        const parseNum = (val: any, fallback = 0) => {
+          if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+            return Number(val);
+          }
+          return fallback;
+        };
+
         const billingPayload = {
-          deliveryFee: Number(value.deliveryCharge) || 40,
-          freeDeliveryThreshold: Number(value.freeShippingThreshold) || 999,
-          packagingFee: Number(value.appCharge) || 5,
+          deliveryFee: parseNum(value.deliveryCharge, 0),
+          freeDeliveryThreshold: parseNum(value.freeShippingThreshold, 659),
+          packagingFee: parseNum(value.appCharge, 0),
           tax: 0
         };
         await upsertSetting("billing", billingPayload);
+      } else if (key === "marketplace_financial_rules" && value) {
+        // Also sync platform_finance_configs if exists
+        try {
+          await supabaseServer
+            .from("platform_finance_configs")
+            .update({
+              commission_percentage: value.commission_percentage,
+              fixed_fee_per_order: value.fixed_fee_per_order,
+              payment_collection_fee_pct: value.payment_collection_fee_pct,
+              cod_handling_fee: value.cod_handling_fee,
+              standard_shipping_fee: value.standard_shipping_fee,
+              reverse_shipping_fee: value.reverse_shipping_fee,
+              rto_charge: value.rto_charge,
+              gst_on_platform_fees_pct: value.gst_on_platform_fees_pct,
+              settlement_delay_days: value.settlement_delay_days,
+              shipping_paid_by: value.shipping_paid_by || (Number(value.standard_shipping_fee) === 0 ? "CUSTOMER" : "SELLER"),
+              updated_at: new Date().toISOString()
+            })
+            .eq("status", "ACTIVE");
+        } catch (_) {}
       } else if (key === "special_offers_list" && Array.isArray(value)) {
         // Also sync primary active offer to special_offers_bogo
         const primaryOffer = value.find((o: any) => o.is_active !== false);
