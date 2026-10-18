@@ -84,12 +84,49 @@ async function ProductFeedContainer({ brandParam }: { brandParam?: string }) {
 
 // --- MAIN HOMEPAGE (HERO RENDERS IMMEDIATELY WITHOUT BLOCKING) ---
 
+import { buildOrganizationSchema, buildWebSiteSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGenerator";
+import { AeoAnswerBox } from "@/components/aeo/AeoAnswerBox";
+import { DynamicFaqSection } from "@/components/aeo/DynamicFaqSection";
+import { ZEBALPHA_BRAND_ENTITY } from "@/lib/aeo-geo/brandEntity";
+
+const homeFaqs = [
+  {
+    question: "What is ZEBALPHA?",
+    answer: "ZEBALPHA is an Indian direct-to-consumer apparel brand and transparent multi-vendor marketplace engineering luxury streetwear essentials, 100% combed cotton zip polos, and 240+ GSM oversized t-shirts with 0% commission for verified apparel makers."
+  },
+  {
+    question: "What fabrics does ZEBALPHA use for streetwear and polos?",
+    answer: "We source exclusively 100% combed cotton, Supima cotton, and heavyweight brushed cotton fleece ranging from 220 GSM to 380 GSM. All fabrics are bio-washed and pre-shrunk."
+  },
+  {
+    question: "How long does delivery take across India?",
+    answer: `Orders dispatch within 24 to 48 hours and arrive in 2 to 5 business days via Shiprocket and express air couriers. Free shipping applies on all orders above ₹${ZEBALPHA_BRAND_ENTITY.freeShippingThreshold}.`
+  },
+  {
+    question: "What is the return and exchange policy?",
+    answer: "We provide a 7-day hassle-free return and exchange window from the delivery date, with zero-cost doorstep reverse pickup."
+  }
+];
+
 export default async function HomePage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const resolvedParams = await props.searchParams;
   const brandParam = typeof resolvedParams?.brand === 'string' ? resolvedParams.brand : undefined;
 
+  const jsonLdGraph = {
+    "@context": "https://schema.org",
+    "@graph": [
+      buildOrganizationSchema(),
+      buildWebSiteSchema(),
+      buildFaqSchema(homeFaqs)
+    ]
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph) }}
+      />
       <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-hidden">
         {/* P0 IMMEDIATE: Header & Promotional Bar */}
         <Header title="ZEBALPHA" subtitle="CLOTHING FOR THE CULTURE ✦" />
@@ -118,6 +155,21 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
           <Suspense fallback={<EditorialSkeleton />}>
             <EditorialContainer brandParam={brandParam} />
           </Suspense>
+
+          {/* AEO Brand Direct Answer Box */}
+          <div className="mt-14">
+            <AeoAnswerBox
+              title="ZEBALPHA — Luxury Streetwear & 100% Combed Cotton Apparel"
+              directAnswer="ZEBALPHA (https://zebalpha.shop) is an authentic Indian apparel brand and direct-from-maker marketplace. We engineer heavyweight luxury streetwear essentials including 100% combed cotton zip polos, 240+ GSM oversized t-shirts, and heavyweight fleece hoodies with fast pan-India dispatch."
+              highlightChips={[
+                { label: "Fabric", value: "100% Combed Cotton" },
+                { label: "Dispatch", value: "24-48 Hours" },
+                { label: "Exchanges", value: "7 Days Free" },
+                { label: "Delivery", value: "Free above ₹999" }
+              ]}
+              sourceLabel="OFFICIAL BRAND DIRECTORY"
+            />
+          </div>
 
           {/* P1/P2 PROGRESSIVE: Featured Clothing Drops Grid with Infinite Scroll */}
           <section className="mt-14 mb-16">
@@ -150,6 +202,15 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
               </Link>
             </div>
           </section>
+
+          {/* Homepage Crawlable FAQ Section */}
+          <div className="mb-16">
+            <DynamicFaqSection
+              title="Frequently Asked Questions about ZEBALPHA"
+              subtitle="Everything you need to know about our fabrics, sizing, shipping, and marketplace model"
+              faqs={homeFaqs}
+            />
+          </div>
         </div>
       </main>
       <Footer />

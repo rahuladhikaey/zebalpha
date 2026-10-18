@@ -2,15 +2,38 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Metadata } from "next";
 
+import { buildOrganizationSchema, buildBreadcrumbSchema } from "@/lib/aeo-geo/schemaGenerator";
+
 export const metadata: Metadata = {
-  title: "About Us | ZEBALPHA",
-  description: "Crafting modern streetwear, premium polos, and timeless apparel. Discover the ZEBALPHA story and our commitment to design excellence.",
+  title: "About Us | ZEBALPHA — Luxury Streetwear & 100% Combed Cotton Apparel",
+  description: "Learn about ZEBALPHA: Indian direct-to-consumer apparel brand engineering 100% combed cotton zip polos, 240+ GSM oversized t-shirts, and 0% commission marketplace for makers.",
+  alternates: {
+    canonical: "https://zebalpha.shop/about",
+  },
 };
 
 export default function AboutPage() {
+  const breadcrumbs = [
+    { name: "Company", url: "/about" },
+    { name: "About Us", url: "https://zebalpha.shop/about" }
+  ];
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      buildBreadcrumbSchema(breadcrumbs),
+      buildOrganizationSchema()
+    ]
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Header title="ZEBALPHA" subtitle="Brand Story ✦" />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <div className="min-h-screen bg-black text-white">
+        <Header title="ZEBALPHA" subtitle="Brand Story ✦" />
       <main className="px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-12">
           <section className="overflow-hidden rounded-[2rem] bg-neutral-900 border border-neutral-800 p-8 shadow-xl sm:p-12">
@@ -102,6 +125,7 @@ export default function AboutPage() {
         </div>
       </main>
     </div>
-  );
+  </>
+);
 }
 

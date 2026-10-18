@@ -3,15 +3,52 @@ import Image from "next/image";
 import qrImage from "./QR.png";
 import { Metadata } from "next";
 
+import { buildBreadcrumbSchema } from "@/lib/aeo-geo/schemaGenerator";
+import { ZEBALPHA_BRAND_ENTITY } from "@/lib/aeo-geo/brandEntity";
+
 export const metadata: Metadata = {
-  title: "Contact Us | ZEBALPHA",
-  description: "Reach out to our customer experience and support team for orders, support, or merchant inquiries. Connect with ZEBALPHA.",
+  title: "Contact Customer Support & Merchant Desk | ZEBALPHA",
+  description: "Reach the official ZEBALPHA support desk: email support@zebalpha.shop, hours 9 AM - 11 PM Mon-Sun, order inquiries, and supplier registration.",
+  alternates: {
+    canonical: "https://zebalpha.shop/contact",
+  },
 };
 
 export default function ContactPage() {
+  const breadcrumbs = [
+    { name: "Company", url: "/about" },
+    { name: "Contact Us", url: "https://zebalpha.shop/contact" }
+  ];
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      buildBreadcrumbSchema(breadcrumbs),
+      {
+        "@type": "ContactPage",
+        "@id": "https://zebalpha.shop/contact/#webpage",
+        "url": "https://zebalpha.shop/contact",
+        "name": "ZEBALPHA Customer Support & Contact Center",
+        "description": "Official contact channels, support hours, and inquiries desk for ZEBALPHA.",
+        "mainEntity": {
+          "@type": "Organization",
+          "name": ZEBALPHA_BRAND_ENTITY.name,
+          "email": ZEBALPHA_BRAND_ENTITY.supportEmail,
+          "telephone": ZEBALPHA_BRAND_ENTITY.supportPhone,
+          "openingHours": "Mo-Su 09:00-23:00"
+        }
+      }
+    ]
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Header title="Contact Us" subtitle="Get in Touch" />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <div className="min-h-screen bg-black text-white">
+        <Header title="Contact Us" subtitle="Get in Touch" />
       <main className="px-4 py-10 text-white sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-10">
           <section className="overflow-hidden rounded-[2.5rem] bg-zinc-950 p-8 shadow-2xl sm:p-12 border border-zinc-800">
@@ -109,6 +146,7 @@ export default function ContactPage() {
         </div>
       </main>
     </div>
+    </>
   );
 }
 

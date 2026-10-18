@@ -194,26 +194,67 @@ async function RelatedProductsSection({
   );
 }
 
+import { extractProductAeoData } from "@/lib/aeo-geo/productAeo";
+import { buildProductSchema, buildBreadcrumbSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGenerator";
+import { AeoAnswerBox } from "@/components/aeo/AeoAnswerBox";
+import { ProductSpecificationsTable } from "@/components/aeo/ProductSpecificationsTable";
+import { VariantAeoMatrix } from "@/components/aeo/VariantAeoMatrix";
+import { DynamicFaqSection } from "@/components/aeo/DynamicFaqSection";
+import { BreadcrumbsNav } from "@/components/aeo/BreadcrumbsNav";
+import { resolveCategoryAeo } from "@/lib/aeo-geo/categoryAeo";
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { productId } = await params;
   const product = await getProduct(productId);
 
   if (!product) {
     return {
-      title: "Product Not Found",
+      title: "Product Not Found | ZEBALPHA",
+      robots: { index: false, follow: false },
     };
   }
 
-  const sellerName = product.seller_name || product.brand || "ZEBALPHA";
+  const aeo = extractProductAeoData(product);
+  const images = Array.isArray(product.images) && product.images.length > 0 ? product.images : [product.image_url].filter(Boolean);
 
   return {
-    title: `${product.name} | ${sellerName}`,
-    description: product.description || `Buy ${product.name} online at ZEBALPHA. Premium quality apparel, streetwear & lifestyle.`,
-    keywords: [product.name, "zebalpha", "zeb-alpha", sellerName, product.category_name || "", "buy online"],
+    title: `${aeo.name} | ${aeo.brand}`,
+    description: aeo.shortDirectAnswer,
+    alternates: {
+      canonical: `https://zebalpha.shop/products/${product.id}`,
+    },
+    keywords: [
+      aeo.name,
+      aeo.brand,
+      aeo.categoryName,
+      aeo.material,
+      aeo.fitType,
+      "streetwear India",
+      "buy online",
+      ...aeo.colors,
+      ...aeo.sizes
+    ],
     openGraph: {
-      title: product.name,
-      description: product.description,
-      images: [product.image_url],
+      title: `${aeo.name} | ${aeo.brand}`,
+      description: aeo.shortDirectAnswer,
+      url: `https://zebalpha.shop/products/${product.id}`,
+      siteName: "ZEBALPHA",
+      images: images.map(img => ({ url: img, alt: aeo.name })),
+      locale: "en_IN",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${aeo.name} | ${aeo.brand}`,
+      description: aeo.shortDirectAnswer,
+      images: images,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
     },
   };
 }
@@ -237,54 +278,120 @@ export default async function ProductDetailPage({ params }: PageProps) {
     );
   }
 
-  const sellerDisplayName = product.seller_name || product.business_name || product.brand || "ZEBALPHA Official Store";
+  const aeo = extractProductAeoData(product);
+  const images = Array.isArray(product.images) && product.images.length > 0
+    ? product.images
+    : [product.image_url].filter(Boolean);
 
-  const jsonLd = {
+  const breadcrumbs = [
+    { name: "Collections", url: "https://zebalpha.shop/products" },
+    { name: aeo.categoryName, url: `https://zebalpha.shop/category/${aeo.categorySlug}` },
+    { name: aeo.name, url: aeo.canonicalUrl },
+  ];
+
+  const categoryData = resolveCategoryAeo(aeo.categorySlug);
+
+  const breadcrumbSchema = buildBreadcrumbSchema(breadcrumbs);
+  const productSchema = buildProductSchema(aeo, images);
+  const faqSchema = buildFaqSchema(aeo.faqs);
+
+  const jsonLdGraph = {
     "@context": "https://schema.org",
-    "@type": "Product",
-    "name": product.name,
-    "image": product.images || [product.image_url],
-    "description": product.description,
-    "brand": {
-      "@type": "Brand",
-      "name": product.brand || "ZEB-ALPHA"
-    },
-    "offers": {
-      "@type": "Offer",
-      "url": `https://zebalpha.shop/products/${product.id}`,
-      "priceCurrency": "INR",
-      "price": product.price,
-      "priceValidUntil": new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-      "itemCondition": "https://schema.org/NewCondition",
-      "availability": "https://schema.org/InStock",
-      "seller": {
-        "@type": "Organization",
-        "name": sellerDisplayName
-      }
-    }
+    "@graph": [
+      breadcrumbSchema,
+      productSchema,
+      ...(faqSchema ? [faqSchema] : [])
+    ]
   };
 
   return (
-    <main className="min-h-screen bg-white text-slate-900 overflow-x-hidden">
+    <main className="min-h-screen bg-black text-white overflow-x-hidden selection:bg-white selection:text-black">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph) }}
       />
-      <Header title={product.name} subtitle={product.category_name || "Premium Quality"} />
+      <Header title={product.name} subtitle={aeo.categoryName || "Premium Quality"} />
 
-      <ProductDetailTemplate
-        product={product}
-        relatedProductsSlot={
-          product.category_id ? (
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+        {/* Visible Breadcrumbs */}
+        <BreadcrumbsNav items={breadcrumbs} className="pt-3 pb-2" />
+
+        {/* Existing Product Interactive Template (Photos, Variants, Cart, Buy Now) */}
+        <ProductDetailTemplate
+          product={product}
+          relatedProductsSlot={null}
+        />
+
+        {/* AEO / GEO Section: Factual Answer Box */}
+        <div className="mt-12 space-y-8 pb-16">
+          <AeoAnswerBox
+            title={`About the ${aeo.name}`}
+            directAnswer={aeo.shortDirectAnswer}
+            highlightChips={[
+              { label: "Fabric", value: aeo.material },
+              { label: "Weight", value: String(aeo.gsm || "Heavyweight") },
+              { label: "Fit", value: aeo.fitType },
+              { label: "Dispatch", value: "24-48 Hours" },
+              { label: "Exchange", value: "7 Days" }
+            ]}
+          />
+
+          {/* Technical Specifications & Real Variant Stock Availability */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ProductSpecificationsTable productAeo={aeo} />
+            <VariantAeoMatrix colorVariants={aeo.colorVariants} />
+          </div>
+
+          {/* Dynamic Crawlable Product FAQs */}
+          <DynamicFaqSection
+            title={`Frequently Asked Questions: ${aeo.name}`}
+            subtitle="Verified technical specifications, sizing accuracy, shipping details, and fabric care"
+            faqs={aeo.faqs}
+          />
+
+          {/* Related Category Internal Linking Anchor Cards */}
+          {categoryData.relatedCategories.length > 0 && (
+            <div className="rounded-2xl border border-neutral-900 bg-neutral-950 p-6">
+              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-neutral-400 mb-3">
+                Explore Related Collections
+              </h3>
+              <div className="flex flex-wrap gap-2.5">
+                <Link
+                  href={`/category/${categoryData.slug}`}
+                  className="rounded-full bg-white text-black text-xs font-black px-4 py-2 hover:bg-neutral-200 transition-colors"
+                >
+                  {categoryData.name} Hub →
+                </Link>
+                {categoryData.relatedCategories.map((rc, i) => (
+                  <Link
+                    key={i}
+                    href={`/category/${rc.slug}`}
+                    className="rounded-full bg-neutral-900 text-neutral-200 border border-neutral-800 text-xs font-bold px-4 py-2 hover:bg-neutral-800 hover:text-white transition-colors"
+                  >
+                    {rc.name}
+                  </Link>
+                ))}
+                <Link
+                  href="/guides/t-shirt-size-guide"
+                  className="rounded-full bg-neutral-900 text-neutral-200 border border-neutral-800 text-xs font-bold px-4 py-2 hover:bg-neutral-800 hover:text-white transition-colors"
+                >
+                  Size & Fit Guide
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Related Products Feed */}
+          {product.category_id && (
             <Suspense fallback={<RelatedProductsSkeleton />}>
               <RelatedProductsSection
                 categoryId={product.category_id}
                 currentProductId={product.id}
               />
             </Suspense>
-          ) : null
-        }
-      />
+          )}
+        </div>
+      </div>
     </main>
   );
 }

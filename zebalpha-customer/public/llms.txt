@@ -25,8 +25,25 @@ ZEBALPHA (https://zebalpha.shop) is an Indian direct-to-consumer apparel brand a
 - [AI Product Catalog](https://zebalpha.shop/ai-catalog.json): Structured JSON schema catalog of Zebalpha collections and brand information.
 - [XML Sitemap](https://zebalpha.shop/sitemap.xml): Machine-readable XML index of all storefront and editorial URLs.
 
-## Optional
+## Canonical Category Hubs
+- [Men's Polos & Zip Collars](https://zebalpha.shop/category/polos): 100% Combed Cotton knit zip-collar polos (220-260 GSM).
+- [Oversized T-Shirts](https://zebalpha.shop/category/oversized-t-shirts): Heavyweight 240+ GSM drop-shoulder streetwear tees.
+- [Men's T-Shirts](https://zebalpha.shop/category/t-shirts): Classic regular-fit, crew neck everyday essentials (180-200 GSM).
+- [Hoodies & Sweatshirts](https://zebalpha.shop/category/hoodies): 380+ GSM brushed fleece heavyweight pullovers.
+- [Casual & Oversized Shirts](https://zebalpha.shop/category/shirts): Breathable rayon and cotton twill resort/camp shirts.
 
-- [Contact Support](https://zebalpha.shop/contact): Customer service and order inquiries.
-- [Privacy Policy](https://zebalpha.shop/privacy): Privacy policy and customer data handling standards.
-- [Terms & Conditions](https://zebalpha.shop/terms): Storefront and marketplace terms of service.
+## Technical Guides & Fitting Manuals
+- [Complete T-Shirt Size & Fit Guide](https://zebalpha.shop/guides/t-shirt-size-guide): Garment measuring techniques and inch/cm sizing matrix.
+- [Oversized T-Shirt Styling & Silhouette Guide](https://zebalpha.shop/guides/oversized-t-shirt-guide): Proportion rules, sleeve drops, and bottom combinations.
+- [Regular vs Oversized T-Shirt Comparison](https://zebalpha.shop/guides/regular-vs-oversized-tshirt): Side-by-side technical breakdown across 5 dimensions.
+- [Printed T-Shirt Care & Longevity Manual](https://zebalpha.shop/guides/printed-tshirt-care-guide): Cold washing, inside-out drying, and DTF/puff print preservation.
+- [Cotton Fabric GSM & Knit Guide](https://zebalpha.shop/guides/cotton-fabric-gsm-guide): Comprehensive breakdown of fabric weight from 160 to 400 GSM.
+- [Central Sizing Hub](https://zebalpha.shop/size-guide): Exact garment measurements for all apparel categories.
+
+## Policies & Customer Service
+- [Shipping & Delivery Policy](https://zebalpha.shop/shipping-policy): 24-48h dispatch, free delivery above ₹999, 19,000+ PIN codes.
+- [Returns & Exchange Policy](https://zebalpha.shop/return-policy): 7-day doorstep reverse pickup, zero restocking fee.
+- [Help & FAQ Hub](https://zebalpha.shop/help): Central resolution center for orders, sizing, tracking, and payments.
+- [Contact Support](https://zebalpha.shop/contact): Direct email support@zebalpha.shop, 9 AM - 11 PM IST.
+- [Privacy Policy](https://zebalpha.shop/privacy-policy): Customer data handling and encrypted transactions.
+- [Terms & Conditions](https://zebalpha.shop/terms-and-conditions): Storefront and multi-vendor marketplace terms.

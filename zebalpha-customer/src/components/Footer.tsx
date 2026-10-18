@@ -151,16 +151,17 @@ export function Footer() {
 
           </div>
 
-          {/* Desktop Only: Collections & Customer Support (On mobile, these are already in the drawer) */}
+          {/* Desktop Only: Collections & Customer Support */}
           <div className="hidden lg:grid grid-cols-2 gap-10 lg:grid-cols-6 lg:col-span-6 w-full">
             <div className="col-span-1 lg:col-span-3">
               <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Collections</h3>
-              <ul className="mt-5 space-y-3.5 text-sm text-neutral-100 font-bold drop-shadow">
-                <li><Link href="/products?category=Polos" className="transition hover:text-white block">Premium Zip Polos</Link></li>
-                <li><Link href="/products?category=T-Shirts" className="transition hover:text-white block">Oversized Streetwear Tees</Link></li>
-                <li><Link href="/products?category=Hoodies" className="transition hover:text-white block">Heavyweight Hoodies</Link></li>
-                <li><Link href="/products?category=Shirts" className="transition hover:text-white block">Casual Collared Shirts</Link></li>
-                <li><Link href="/products" className="transition hover:text-white block">New Releases 2026</Link></li>
+              <ul className="mt-5 space-y-3 text-sm text-neutral-100 font-bold drop-shadow">
+                <li><Link href="/category/polos" className="transition hover:text-white block">Premium Zip Polos</Link></li>
+                <li><Link href="/category/oversized-t-shirts" className="transition hover:text-white block">Oversized Streetwear Tees</Link></li>
+                <li><Link href="/category/hoodies" className="transition hover:text-white block">Heavyweight Hoodies</Link></li>
+                <li><Link href="/category/shirts" className="transition hover:text-white block">Casual Collared Shirts</Link></li>
+                <li><Link href="/guides" className="transition hover:text-white block">Buying Guides & Fabric Manuals</Link></li>
+                <li><Link href="/size-guide" className="transition hover:text-white block">Garment Sizing Charts</Link></li>
                 <li className="pt-2">
                   <Link 
                     href="https://seller.zebalpha.shop/register"
@@ -183,14 +184,15 @@ export function Footer() {
 
             <div className="col-span-1 lg:col-span-3">
               <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Customer Support</h3>
-              <ul className="mt-5 space-y-3.5 text-sm text-neutral-100 font-bold drop-shadow">
-                <li><Link href="/wishlist" className="transition hover:text-white block">Your Wishlist</Link></li>
+              <ul className="mt-5 space-y-3 text-sm text-neutral-100 font-bold drop-shadow">
                 <li><Link href="/profile/orders" className="transition hover:text-white block">Track Your Order</Link></li>
+                <li><Link href="/shipping-policy" className="transition hover:text-white block">Shipping & Delivery Policy</Link></li>
+                <li><Link href="/return-policy" className="transition hover:text-white block">7-Day Return & Exchange</Link></li>
+                <li><Link href="/help" className="transition hover:text-white block">Help & Support Desk</Link></li>
                 <li><Link href="/about" className="transition hover:text-white block">About Zebalpha</Link></li>
                 <li><Link href="/contact" className="transition hover:text-white block">Contact Us</Link></li>
                 <li><Link href="/privacy-policy" className="transition hover:text-white block">Privacy Policy</Link></li>
                 <li><Link href="/terms-and-conditions" className="transition hover:text-white block">Terms & Conditions</Link></li>
-                <li><Link href="/blogs" className="transition hover:text-white block">Blogs & Seller Guides</Link></li>
               </ul>
             </div>
           </div>
