@@ -223,7 +223,7 @@ export default function AeoGeoManagementView({
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>("polos");
 
   // Product Inspector Selection
-  const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?.id || "");
+  const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?.id ? String(products[0].id) : "");
   const [productSearch, setProductSearch] = useState("");
 
   const notify = (msg: string, type: "success" | "error" = "success") => {
@@ -354,7 +354,7 @@ export default function AeoGeoManagementView({
 
   // Selected Product Details for Inspector
   const inspectedProduct = useMemo(() => {
-    return products.find(p => p.id === selectedProductId) || products[0];
+    return products.find(p => String(p.id) === String(selectedProductId)) || products[0];
   }, [products, selectedProductId]);
 
   // Extracted Product Variant Matrix
@@ -388,7 +388,7 @@ export default function AeoGeoManagementView({
       "@type": "Product",
       "name": inspectedProduct.name,
       "description": inspectedProduct.description || `${inspectedProduct.name} by ZEBALPHA.`,
-      "sku": (inspectedProduct as any).sku || `ZEB-${inspectedProduct.id.slice(0, 8)}`,
+      "sku": (inspectedProduct as any).sku || `ZEB-${String(inspectedProduct.id).slice(0, 8)}`,
       "brand": {
         "@type": "Brand",
         "name": inspectedProduct.brand || "ZEBALPHA"
@@ -577,7 +577,7 @@ export default function AeoGeoManagementView({
                     </span>
                     <button
                       onClick={() => {
-                        setSelectedProductId(item.id);
+                        setSelectedProductId(String(item.id));
                         setActiveSubTab("products");
                       }}
                       className="text-xs text-zinc-400 hover:text-white underline font-medium"
@@ -949,7 +949,7 @@ export default function AeoGeoManagementView({
               {products
                 .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()))
                 .map(p => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.id} value={String(p.id)}>
                     {p.name} (₹{p.price})
                   </option>
                 ))}
