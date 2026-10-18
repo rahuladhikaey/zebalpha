@@ -317,6 +317,32 @@ export default function SellerPaymentsPage() {
     }
   }
 
+  // Export Combined Settlements to Excel/CSV
+  function handleExportSettlementsCSV() {
+    if (combinedSettlements.length === 0) return;
+
+    const headers = ["Settlement ID", "Payment Method", "Target UPI / Account", "Date", "Amount (INR)", "Status", "UTR / Ref Number", "Failure Reason"];
+    const rows = combinedSettlements.map((item) => [
+      `"${item.settlement_number || `WTH-${item.id.slice(0, 8)}`}"`,
+      `"UPI"`,
+      `"${item.destination_masked || activeSettlementMethod?.masked_destination || 'UPI'}"`,
+      `"${new Date(item.created_at || item.start_date).toLocaleDateString('en-IN')}"`,
+      Number(item.amount || item.net_amount || 0).toFixed(2),
+      `"${item.status}"`,
+      `"${item.utr_number || 'N/A'}"`,
+      `"${item.failure_reason || ''}"`
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `ZebAlpha_Settlements_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto py-6 px-2 sm:px-4 md:px-6">
       
@@ -713,8 +739,18 @@ export default function SellerPaymentsPage() {
               ))}
             </div>
 
-            <div className="text-xs text-zinc-500 font-bold">
-              Showing {combinedSettlements.length} settlement transactions
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-500 font-bold hidden sm:inline">
+                Showing {combinedSettlements.length} settlement transactions
+              </span>
+              <button
+                onClick={handleExportSettlementsCSV}
+                disabled={combinedSettlements.length === 0}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-zinc-200 transition active:scale-95 disabled:opacity-40"
+              >
+                <Download size={13} className="text-emerald-400" />
+                <span>Export to Excel / CSV</span>
+              </button>
             </div>
           </div>
 

@@ -202,6 +202,25 @@ export default function PaymentsCommissionView() {
     // 1. Save to Supabase DB
     try {
       await supabase.from("seller_settlements").insert([newSettlement]);
+
+      // 2. Also finalize any in-flight withdrawal request in seller_payout_requests
+      const { data: pReq } = await supabase
+        .from("seller_payout_requests")
+        .select("id")
+        .eq("seller_id", selectedSellerForPayment.id)
+        .in("status", ["PENDING", "PROCESSING"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pReq) {
+        await supabase.rpc("finalize_payout_success", {
+          p_payout_id: pReq.id,
+          p_provider_payout_id: payoutForm.utr_number.trim(),
+          p_utr_number: payoutForm.utr_number.trim(),
+          p_source: "ADMIN_MANUAL"
+        });
+      }
     } catch (e) {
       console.warn("Could not insert into Supabase seller_settlements table:", e);
     }
