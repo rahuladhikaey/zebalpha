@@ -584,20 +584,12 @@ export default function SellerPaymentsPage() {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {maskedUpi && (
-                  <button
-                    onClick={handleReverifyAccount}
-                    disabled={reverifying}
-                    className="px-3.5 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-zinc-300 transition active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    <RefreshCw size={12} className={reverifying ? "animate-spin" : ""} />
-                    <span>{reverifying ? "Checking..." : "Re-verify"}</span>
-                  </button>
-                )}
                 <button
                   onClick={() => {
                     setMethodError("");
                     setMethodMessage("");
+                    setAccountHolderName(payoutAccount?.beneficiary_name || activeSettlementMethod?.verified_name || sellerConfig?.owner_name || sellerConfig?.full_name || "");
+                    setUpiId("");
                     setShowEditSettlementModal(true);
                   }}
                   className="px-4 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95"
