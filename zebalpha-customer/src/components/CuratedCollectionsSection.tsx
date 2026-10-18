@@ -69,6 +69,12 @@ export function CuratedCollectionsSection({
     return null;
   }
 
+  // Split items into rows of up to 6 items per row (Row 1: 1-6, Row 2: 7-12, Row 3: 13-18, etc.)
+  const rowGroups: (typeof displayItems)[] = [];
+  for (let i = 0; i < displayItems.length; i += 6) {
+    rowGroups.push(displayItems.slice(i, i + 6));
+  }
+
   return (
     <section className="mt-10 sm:mt-14 relative select-none" id="curated-collections-section">
       {/* 1. Header with Verified Badge */}
@@ -81,52 +87,59 @@ export function CuratedCollectionsSection({
         </div>
       </div>
 
-      {/* 2. Strict 6-Column Grid: Exactly 6 cards per row on Phone, Tablet & Desktop (auto-wraps every 6 cards) */}
-      <div className="w-full">
-        <div className="grid grid-cols-6 gap-1.5 sm:gap-3 md:gap-4 w-full">
-          {displayItems.map((item, idx) => {
-            const keyId = String(item.id || idx);
+      {/* 2. 6-Item Row Structure: Row-level horizontal scroll on Phone & Tablet, standard grid on Desktop */}
+      <div className="space-y-4 sm:space-y-6">
+        {rowGroups.map((group, rowIndex) => (
+          <div
+            key={`row-${rowIndex}`}
+            className="w-full overflow-x-auto pb-2 pt-1 no-scrollbar scroll-smooth"
+          >
+            <div className="flex lg:grid lg:grid-cols-6 gap-3 sm:gap-4 w-max lg:w-full">
+              {group.map((item, idx) => {
+                const keyId = String(item.id || `${rowIndex}-${idx}`);
 
-            return (
-              <Link
-                key={keyId}
-                href={item.href}
-                className="group relative flex flex-col items-center rounded-xl sm:rounded-2xl md:rounded-3xl bg-neutral-900/90 border border-neutral-800 hover:border-violet-500/50 hover:bg-neutral-850 shadow-lg hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-1 sm:p-2 md:p-3"
-              >
-                {/* Clean Highlight Shimmer */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-violet-500/10 to-transparent transition-opacity duration-300 pointer-events-none rounded-xl sm:rounded-2xl md:rounded-3xl" />
+                return (
+                  <Link
+                    key={keyId}
+                    href={item.href}
+                    className="group relative flex flex-col items-center rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 hover:border-violet-500/50 hover:bg-neutral-850 shadow-lg hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-2.5 sm:p-3 w-[126px] sm:w-[136px] lg:w-auto shrink-0 lg:shrink"
+                  >
+                    {/* Clean Highlight Shimmer */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-violet-500/10 to-transparent transition-opacity duration-300 pointer-events-none rounded-2xl sm:rounded-3xl" />
 
-                {/* 1:1 Aspect Ratio Curved Cover Image Box */}
-                <div className="relative w-full aspect-square rounded-lg sm:rounded-xl md:rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner p-1 sm:p-1.5 md:p-2">
-                  {failedImages[keyId] ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900 rounded-md sm:rounded-lg md:rounded-xl text-neutral-500 p-0.5">
-                      <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-violet-400 mb-0.5" />
-                      <span className="text-[7px] sm:text-[8px] md:text-[9px] font-bold uppercase tracking-wider text-neutral-400 text-center truncate max-w-full">
-                        {item.title}
-                      </span>
+                    {/* 1:1 Aspect Ratio Curved Cover Image Box */}
+                    <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner p-1.5 sm:p-2">
+                      {failedImages[keyId] ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900 rounded-lg sm:rounded-xl text-neutral-500 p-1">
+                          <Sparkles className="w-5 h-5 text-violet-400 mb-1" />
+                          <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-neutral-400 text-center truncate max-w-full">
+                            {item.title}
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={item.image_url}
+                          alt={item.title}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 rounded-lg sm:rounded-xl"
+                          onError={() => {
+                            setFailedImages((prev) => ({ ...prev, [keyId]: true }));
+                          }}
+                        />
+                      )}
                     </div>
-                  ) : (
-                    <img
-                      src={item.image_url}
-                      alt={item.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 rounded-md sm:rounded-lg md:rounded-xl"
-                      onError={() => {
-                        setFailedImages((prev) => ({ ...prev, [keyId]: true }));
-                      }}
-                    />
-                  )}
-                </div>
 
-                {/* Collection Title */}
-                <span className="mt-1 sm:mt-1.5 md:mt-2 text-[8px] sm:text-[9px] md:text-[11px] font-black uppercase tracking-wider text-neutral-300 group-hover:text-white transition-colors truncate max-w-full px-0.5">
-                  {item.title}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
+                    {/* Collection Title */}
+                    <span className="mt-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-neutral-300 group-hover:text-white transition-colors truncate max-w-full px-1">
+                      {item.title}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
