@@ -28,7 +28,7 @@ export interface EditorialCardRecord {
   updated_at?: string;
 }
 
-const MAX_IMAGE_SIZE_BYTES = 120 * 1024; // Strictly 120 KB PER IMAGE
+const MAX_IMAGE_SIZE_BYTES = 95 * 1024; // Strictly 95 KB PER IMAGE
 const ALLOWED_IMAGE_TYPES = ["image/webp", "image/jpeg", "image/png"];
 
 export default function EditorialCardsView() {
@@ -92,10 +92,10 @@ export default function EditorialCardsView() {
     setStatusMessage("");
     setErrorMessage("");
 
-    // 1. Strict File Size Validation (<= 120 KB)
+    // 1. Strict File Size Validation (<= 95 KB)
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
       const actualKb = (file.size / 1024).toFixed(1);
-      setErrorMessage(`Image must be 120 KB or smaller. (Selected: ${actualKb} KB). Upload rejected.`);
+      setErrorMessage(`Image must be 95 KB or smaller. (Selected: ${actualKb} KB). Upload rejected.`);
       e.target.value = "";
       return;
     }
@@ -157,7 +157,7 @@ export default function EditorialCardsView() {
         filePath: data.filePath,
         isVerified: true,
       });
-      setStatusMessage(`✓ Verified image uploaded (${data.formattedSize} ≤ 120 KB)`);
+      setStatusMessage(`✓ Verified image uploaded (${data.formattedSize} ≤ 95 KB)`);
     } catch (err: any) {
       console.error("Upload error:", err);
       setErrorMessage(err.message || "Upload failed. Image rejected.");
@@ -169,7 +169,7 @@ export default function EditorialCardsView() {
   const handleSaveCard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!imageUrl.trim()) {
-      setErrorMessage("A verified Image (≤ 120 KB) is required. Please select and upload an image.");
+      setErrorMessage("A verified Image (≤ 95 KB) is required. Please select and upload an image.");
       return;
     }
 
@@ -332,7 +332,7 @@ export default function EditorialCardsView() {
             Woven Editorial Cards Manager
           </h1>
           <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
-            Upload and configure high-fashion editorial cards for the homepage curved carousel. Enforces strict ≤ 120 KB validation, WebP/JPEG/PNG format check, and zero fake demo content.
+            Upload and configure high-fashion editorial cards for the homepage curved carousel. Enforces strict ≤ 95 KB validation, WebP/JPEG/PNG format check, and zero fake demo content.
           </p>
         </div>
 
@@ -386,14 +386,14 @@ export default function EditorialCardsView() {
           </div>
 
           <form onSubmit={handleSaveCard} className="space-y-4">
-            {/* Image Upload Box with Strict 120 KB Limit */}
+            {/* Image Upload Box with Strict 95 KB Limit */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-zinc-300">
                   Image: [ Upload ]
                 </label>
                 <span className="text-[10px] font-mono text-zinc-400">
-                  Maximum: <strong className="text-amber-300">120 KB</strong>
+                  Maximum: <strong className="text-amber-300">95 KB</strong>
                 </span>
               </div>
 
@@ -425,7 +425,7 @@ export default function EditorialCardsView() {
                       {uploadingImage ? "Validating & Uploading..." : "Click to Upload Editorial Image"}
                     </span>
                     <span className="text-[10px] text-zinc-400 mt-1">
-                      Maximum: <strong>120 KB</strong>
+                      Maximum: <strong>95 KB</strong>
                     </span>
                     <span className="text-[10px] text-zinc-500">
                       Accepted: <strong>WebP / JPEG / PNG</strong> (3:4 Aspect Ratio)
@@ -443,7 +443,7 @@ export default function EditorialCardsView() {
 
               {imageUrl && (
                 <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 px-1">
-                  <span>Status: <strong className="text-emerald-400">Verified ≤ 120 KB</strong></span>
+                  <span>Status: <strong className="text-emerald-400">Verified ≤ 95 KB</strong></span>
                   <label className="text-rose-400 hover:text-rose-300 font-bold cursor-pointer underline text-[10px]">
                     Replace Image
                     <input
@@ -574,7 +574,7 @@ export default function EditorialCardsView() {
           ) : cards.length === 0 ? (
             <div className="p-12 text-center border border-dashed border-zinc-800 rounded-3xl bg-zinc-950/50">
               <p className="text-xs font-bold text-zinc-400">No Woven editorial cards in database yet.</p>
-              <p className="text-[11px] text-zinc-600 mt-1">Upload an image (≤ 120 KB) to publish your first card.</p>
+              <p className="text-[11px] text-zinc-600 mt-1">Upload an image (≤ 95 KB) to publish your first card.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

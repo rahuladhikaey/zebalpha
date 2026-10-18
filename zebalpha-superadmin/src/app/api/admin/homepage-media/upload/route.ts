@@ -3,7 +3,7 @@ import { supabaseServer } from "@shared/utils/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
-const MAX_IMAGE_SIZE_BYTES = 120 * 1024; // Strictly 120 KB PER IMAGE
+const MAX_IMAGE_SIZE_BYTES = 95 * 1024; // Strictly 95 KB PER IMAGE
 const ALLOWED_MIME_TYPES = ["image/webp", "image/jpeg", "image/png"];
 
 // Inspect file magic bytes for tamper detection
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: `Image must be 120 KB or smaller. Uploaded file is ${sizeKb} KB. Please compress or optimize before uploading.`,
+          message: `Image must be 95 KB or smaller. Uploaded file is ${sizeKb} KB. Please compress or optimize before uploading.`,
           actualSize: actualSizeBytes,
           maxAllowed: MAX_IMAGE_SIZE_BYTES,
         },

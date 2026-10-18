@@ -27,7 +27,7 @@ export interface CuratedCollectionRecord {
   updated_at?: string;
 }
 
-const MAX_IMAGE_SIZE_BYTES = 120 * 1024; // 120 KB Max Limit
+const MAX_IMAGE_SIZE_BYTES = 95 * 1024; // 95 KB Max Limit
 const ALLOWED_IMAGE_TYPES = ["image/webp", "image/jpeg", "image/png"];
 
 export default function CuratedCollectionsView() {
@@ -89,10 +89,10 @@ export default function CuratedCollectionsView() {
     setStatusMessage("");
     setErrorMessage("");
 
-    // 1. Strict File Size Validation (<= 120 KB)
+    // 1. Strict File Size Validation (<= 95 KB)
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
       const actualKb = (file.size / 1024).toFixed(1);
-      setErrorMessage(`Image must be 120 KB or smaller. (Selected: ${actualKb} KB). Upload rejected.`);
+      setErrorMessage(`Image must be 95 KB or smaller. (Selected: ${actualKb} KB). Upload rejected.`);
       e.target.value = "";
       return;
     }
@@ -155,7 +155,7 @@ export default function CuratedCollectionsView() {
         filePath: data.filePath,
         isVerified: true,
       });
-      setStatusMessage(`✓ Verified image uploaded (${data.formattedSize} ≤ 120 KB)`);
+      setStatusMessage(`✓ Verified image uploaded (${data.formattedSize} ≤ 95 KB)`);
     } catch (err: any) {
       console.error("Upload error:", err);
       setErrorMessage(err.message || "Upload failed. Image rejected.");
@@ -329,7 +329,7 @@ export default function CuratedCollectionsView() {
             Curated Collections Manager
           </h1>
           <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
-            Upload and manage 1:1 square curated collection covers for the customer homepage. Enforces strict ≤ 120 KB validation, WebP/JPEG/PNG format check, and instant cache updates.
+            Upload and manage 1:1 square curated collection covers for the customer homepage. Enforces strict ≤ 95 KB validation, WebP/JPEG/PNG format check, and instant cache updates.
           </p>
         </div>
 
@@ -383,14 +383,14 @@ export default function CuratedCollectionsView() {
           </div>
 
           <form onSubmit={handleSaveCollection} className="space-y-4">
-            {/* Image Upload Box with Explicit 120 KB UI */}
+            {/* Image Upload Box with Explicit 95 KB UI */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-zinc-300">
                   Image: [ Upload ]
                 </label>
                 <span className="text-[10px] font-mono text-zinc-400">
-                  Maximum: <strong className="text-amber-300">120 KB</strong>
+                  Maximum: <strong className="text-amber-300">95 KB</strong>
                 </span>
               </div>
 
@@ -422,7 +422,7 @@ export default function CuratedCollectionsView() {
                       {uploadingImage ? "Validating & Uploading..." : "Click to Upload Collection Cover"}
                     </span>
                     <span className="text-[10px] text-zinc-400 mt-1">
-                      Maximum: <strong>120 KB</strong>
+                      Maximum: <strong>95 KB</strong>
                     </span>
                     <span className="text-[10px] text-zinc-500">
                       Accepted: <strong>WebP / JPEG / PNG</strong> (1:1 Aspect Ratio)
@@ -440,7 +440,7 @@ export default function CuratedCollectionsView() {
 
               {imageUrl && (
                 <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 px-1">
-                  <span>Status: <strong className="text-emerald-400">Verified ≤ 120 KB</strong></span>
+                  <span>Status: <strong className="text-emerald-400">Verified ≤ 95 KB</strong></span>
                   <label className="text-violet-400 hover:text-violet-300 font-bold cursor-pointer underline text-[10px]">
                     Replace Image
                     <input
@@ -531,7 +531,7 @@ export default function CuratedCollectionsView() {
           ) : collections.length === 0 ? (
             <div className="p-12 text-center border border-dashed border-zinc-800 rounded-3xl bg-zinc-950/50">
               <p className="text-xs font-bold text-zinc-400">No curated collections in database yet.</p>
-              <p className="text-[11px] text-zinc-600 mt-1">Upload an image (≤ 120 KB) to publish your first collection.</p>
+              <p className="text-[11px] text-zinc-600 mt-1">Upload an image (≤ 95 KB) to publish your first collection.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
