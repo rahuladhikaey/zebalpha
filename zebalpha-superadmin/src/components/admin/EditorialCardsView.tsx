@@ -65,6 +65,9 @@ export default function EditorialCardsView() {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setCards(json.data);
+        if (!editingId) {
+          setDisplayOrder(json.data.length + 1);
+        }
       } else {
         setCards([]);
       }
@@ -165,8 +168,8 @@ export default function EditorialCardsView() {
 
   const handleSaveCard = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !imageUrl.trim()) {
-      setErrorMessage("Title and a verified Image are required.");
+    if (!imageUrl.trim()) {
+      setErrorMessage("A verified Image (≤ 120 KB) is required. Please select and upload an image.");
       return;
     }
 
@@ -175,8 +178,9 @@ export default function EditorialCardsView() {
     setErrorMessage("");
 
     const parsedPrice = price !== "" ? parseFloat(price) : null;
+    const effectiveTitle = title.trim() || category.trim() || "ZEBALPHA EDIT";
     const cardData = {
-      title: title.trim().toUpperCase(),
+      title: effectiveTitle.toUpperCase(),
       category: category.trim().toUpperCase() || "ZEBALPHA EDIT",
       price: parsedPrice,
       image_url: imageUrl.trim(),
@@ -456,13 +460,15 @@ export default function EditorialCardsView() {
 
             {/* Title */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-zinc-300">Card Title *</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-zinc-300">Card Title</label>
+                <span className="text-[10px] text-zinc-500 font-mono">Optional (Defaults to ZEBALPHA EDIT)</span>
+              </div>
               <input
                 type="text"
-                required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. OBSIDIAN OVERSIZED TEE"
+                placeholder="e.g. OBSIDIAN OVERSIZED TEE (Optional)"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-extrabold uppercase text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
               />
             </div>

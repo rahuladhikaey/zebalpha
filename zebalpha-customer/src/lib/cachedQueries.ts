@@ -122,7 +122,7 @@ export async function getCachedEditorialCards(): Promise<EditorialCard[]> {
       }
       return [];
     },
-    300 // 5 min TTL
+    10 // 10s TTL for real-time admin sync
   );
 }
 

@@ -42,19 +42,21 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { title, image_url, category, price, badge, href, display_order = 0, is_active = true } = body;
 
-    if (!title || !title.trim() || !image_url || !image_url.trim()) {
+    if (!image_url || !image_url.trim()) {
       return NextResponse.json(
-        { success: false, message: "Title and Image URL are required." },
+        { success: false, message: "A verified Image URL is required." },
         { status: 400 }
       );
     }
 
+    const effectiveTitle = (title && title.trim()) || (category && category.trim()) || "ZEBALPHA EDIT";
+
     const newRecord = {
-      title: title.trim().toUpperCase(),
-      category: category ? category.trim().toUpperCase() : "ZEBALPHA EDIT",
+      title: effectiveTitle.toUpperCase(),
+      category: category && category.trim() ? category.trim().toUpperCase() : "ZEBALPHA EDIT",
       price: price !== undefined && price !== "" ? Number(price) : null,
-      badge: badge ? badge.trim().toUpperCase() : "EDITORIAL DROP",
-      href: href ? href.trim() : "/products",
+      badge: badge && badge.trim() ? badge.trim().toUpperCase() : "EDITORIAL DROP",
+      href: href && href.trim() ? href.trim() : "/products",
       image_url: image_url.trim(),
       display_order: Number(display_order) || 0,
       is_active: Boolean(is_active),
