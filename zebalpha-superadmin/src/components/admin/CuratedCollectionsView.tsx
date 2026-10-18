@@ -47,8 +47,10 @@ export default function CuratedCollectionsView() {
   const [displayOrder, setDisplayOrder] = useState(1);
   const [isActive, setIsActive] = useState(true);
 
-  // Upload & Replace State
+  // Upload & Replace State (Deferred Storage Upload)
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
   const [uploadedFileInfo, setUploadedFileInfo] = useState<{
     fileSizeFormatted: string;
     filePath?: string;
@@ -81,7 +83,7 @@ export default function CuratedCollectionsView() {
     fetchCollections();
   }, []);
 
-  // Strict Client-Side 120 KB & Type Validation BEFORE Upload
+  // Strict Client-Side 95 KB & Type Validation BEFORE Upload (Deferred Storage Upload)
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -92,7 +94,7 @@ export default function CuratedCollectionsView() {
     // 1. Strict File Size Validation (<= 95 KB)
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
       const actualKb = (file.size / 1024).toFixed(1);
-      setErrorMessage(`Image must be 95 KB or smaller. (Selected: ${actualKb} KB). Upload rejected.`);
+      setErrorMessage(`Image must be 95 KB or smaller. (Selected: ${actualKb} KB). Please compress or choose another image.`);
       e.target.value = "";
       return;
     }
@@ -125,43 +127,23 @@ export default function CuratedCollectionsView() {
       return;
     }
 
-    // 4. Proceed with server upload
-    setUploadingImage(true);
-    setStatusMessage("Uploading and verifying image on server...");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("section", "curated-collections");
-
-      const res = await fetch("/api/admin/homepage-media/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || "Server upload validation failed.");
-      }
-
-      // If replacing an existing image, track previous URL for clean removal AFTER DB commit
-      if (imageUrl && imageUrl !== data.publicUrl) {
-        setPreviousImageUrl(imageUrl);
-      }
-
-      setImageUrl(data.publicUrl);
-      setUploadedFileInfo({
-        fileSizeFormatted: data.formattedSize,
-        filePath: data.filePath,
-        isVerified: true,
-      });
-      setStatusMessage(`✓ Verified image uploaded (${data.formattedSize} ≤ 95 KB)`);
-    } catch (err: any) {
-      console.error("Upload error:", err);
-      setErrorMessage(err.message || "Upload failed. Image rejected.");
-    } finally {
-      setUploadingImage(false);
+    // 4. Deferred Upload: Create instant local browser preview without hitting storage/database yet
+    if (previewUrl && previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(previewUrl);
     }
+
+    const localBlob = URL.createObjectURL(file);
+    const actualKb = (file.size / 1024).toFixed(1);
+
+    setSelectedFile(file);
+    setPreviewUrl(localBlob);
+    setImageUrl(localBlob);
+    setUploadedFileInfo({
+      fileSizeFormatted: `${actualKb} KB (Ready to Save)`,
+      isVerified: true,
+    });
+    setStatusMessage(`✓ Verified cover selected (${actualKb} KB ≤ 95 KB) — Cover will be permanently uploaded when you click "Save Curated Collection".`);
+    e.target.value = "";
   };
 
   const handleSaveCollection = async (e: React.FormEvent) => {
@@ -175,12 +157,51 @@ export default function CuratedCollectionsView() {
     setStatusMessage("Saving collection to database...");
     setErrorMessage("");
 
+    let finalImageUrl = imageUrl.trim();
+
+    // 1. DEFERRED UPLOAD: Upload image file to storage NOW only upon clicking Save
+    if (selectedFile) {
+      setUploadingImage(true);
+      setStatusMessage("Uploading verified cover (≤ 95 KB) to storage...");
+      try {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("section", "curated-collections");
+
+        const res = await fetch("/api/admin/homepage-media/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!data.success || !data.publicUrl) {
+          throw new Error(data.message || "Server upload validation failed.");
+        }
+
+        finalImageUrl = data.publicUrl;
+      } catch (uploadErr: any) {
+        setSaving(false);
+        setUploadingImage(false);
+        setErrorMessage(uploadErr.message || "Image upload failed. Collection not saved.");
+        return;
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+
+    // Guard against saving unresolved blob URLs
+    if (!finalImageUrl || finalImageUrl.startsWith("blob:")) {
+      setSaving(false);
+      setErrorMessage("Image URL could not be resolved. Please re-select the image.");
+      return;
+    }
+
     const payload = {
       title: title.trim(),
       slug: slug.trim() || title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       link_url: linkUrl.trim() || `/products?category=${encodeURIComponent(title.trim())}`,
       short_description: shortDescription.trim() || null,
-      image_url: imageUrl.trim(),
+      image_url: finalImageUrl,
       display_order: Number(displayOrder) || collections.length + 1,
       is_active: isActive,
     };
@@ -199,7 +220,7 @@ export default function CuratedCollectionsView() {
         savedResult = resJson.data;
 
         // DELETE / REPLACE SAFETY: Clean old image from storage only AFTER DB update succeeded
-        if (previousFilePath) {
+        if (previousFilePath && selectedFile) {
           fetch("/api/admin/homepage-media/delete", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -280,6 +301,11 @@ export default function CuratedCollectionsView() {
   };
 
   const startEdit = (col: CuratedCollectionRecord) => {
+    if (previewUrl && previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
+    setPreviewUrl("");
     setEditingId(col.id);
     setTitle(col.title);
     setSlug(col.slug || "");
@@ -301,12 +327,17 @@ export default function CuratedCollectionsView() {
   };
 
   const resetForm = () => {
+    if (previewUrl && previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setEditingId(null);
     setTitle("");
     setSlug("");
     setLinkUrl("");
     setShortDescription("");
     setImageUrl("");
+    setPreviewUrl("");
+    setSelectedFile(null);
     setDisplayOrder(collections.length + 1);
     setIsActive(true);
     setUploadedFileInfo(null);
@@ -401,7 +432,12 @@ export default function CuratedCollectionsView() {
                     <button
                       type="button"
                       onClick={() => {
+                        if (previewUrl && previewUrl.startsWith("blob:")) {
+                          URL.revokeObjectURL(previewUrl);
+                        }
                         setImageUrl("");
+                        setPreviewUrl("");
+                        setSelectedFile(null);
                         setUploadedFileInfo(null);
                       }}
                       className="absolute top-2 right-2 p-1.5 rounded-full bg-black/80 text-white hover:bg-rose-600 transition-colors cursor-pointer"
@@ -511,7 +547,7 @@ export default function CuratedCollectionsView() {
               disabled={saving || uploadingImage}
               className="w-full py-3.5 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors shadow-lg active:scale-98 disabled:opacity-50 cursor-pointer"
             >
-              {saving ? "Saving Collection..." : editingId ? "Update Collection" : "Save Curated Collection"}
+              {saving ? (uploadingImage ? "Uploading Cover to Storage..." : "Saving Collection...") : editingId ? "Update Collection" : "Save Curated Collection"}
             </button>
           </form>
         </div>
