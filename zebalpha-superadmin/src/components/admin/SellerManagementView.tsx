@@ -166,39 +166,7 @@ export default function SellerManagementView({
       }
       const allOrders = oRes.data || [];
       const allLocations = locRes.data || [];
-      let dbSellers = sellersData || [];
-
-      // If no sellers exist in DB yet, add the primary 1st-party brand record seamlessly
-      if (dbSellers.length === 0) {
-        const defaultBrand = {
-          id: "primary-zebalpha-merchant",
-          seller_id: "ZEB-BRAND-01",
-          full_name: "Rahul Adhikary",
-          business_name: "ZEBALPHA Official Brand Store",
-          owner_name: "Rahul Adhikary",
-          email: "rahuladhikaey180@gmail.com",
-          phone_number: "+91 9883637054",
-          mobile_number: "+91 9883637054",
-          category: "Luxury Clothing & Streetwear",
-          business_category: "Luxury Clothing & Streetwear",
-          upi_id: "rahuladhikary@phonepe",
-          phonepay_no: "rahuladhikary@phonepe",
-          phonepay_number: "rahuladhikary@phonepe",
-          pickup_location: "Primary",
-          city: "Nadia",
-          state: "West Bengal",
-          pincode: "741254",
-          warehouse_address: "Kalinarayanpur Junction, Gobindopur radhakrishna mander Opposite house",
-          pickup_address: "Kalinarayanpur Junction, Gobindopur radhakrishna mander Opposite house",
-          gstin: "19ABCDE1234F1Z5",
-          account_status: "Active",
-          status: "approved",
-          is_primary_brand: true,
-          created_at: new Date().toISOString()
-        };
-        dbSellers = [defaultBrand];
-      }
-
+      const dbSellers = sellersData || [];
       setSellers(dbSellers);
       setProducts(allProducts);
       setOrders(allOrders);
@@ -531,6 +499,36 @@ export default function SellerManagementView({
     }
   };
 
+  // Delete Merchant Action
+  const handleDeleteSeller = async (sellerId: string, businessName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete merchant "${businessName || "this merchant"}"? All associated seller records will be removed.`)) {
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/admin/sellers?id=${encodeURIComponent(sellerId)}`, {
+        method: "DELETE"
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        const { error: sbErr } = await supabase.from("sellers").delete().eq("id", sellerId);
+        if (sbErr && !res.ok) throw new Error(data.message || sbErr.message);
+      }
+
+      setStatusMessage(`🗑️ Merchant "${businessName || "selected merchant"}" permanently deleted.`);
+      if (selectedSeller?.id === sellerId) {
+        setSelectedSeller(null);
+      }
+      await loadData();
+      onRefresh?.();
+    } catch (err: any) {
+      console.error("Error deleting merchant:", err);
+      alert(err.message || "Failed to delete merchant.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Create New Merchant Action
   const handleCreateSeller = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -641,8 +639,8 @@ export default function SellerManagementView({
   const handleExportSellersExcel = () => {
     const exportData = filteredSellers.map((s) => ({
       "Merchant ID": s.seller_id || s.id,
-      "Brand / Store Name": s.business_name || s.full_name || "ZEBALPHA Brand Store",
-      "Owner Name": s.owner_name || s.full_name || "Rahul Adhikary",
+      "Brand / Store Name": s.business_name || s.full_name || "Merchant Store",
+      "Owner Name": s.owner_name || s.full_name || "N/A",
       "Merchant Type": s.is_primary_brand ? "1st-Party Direct Brand" : "3rd-Party Marketplace Merchant",
       "Phone Number": s.phone_number || s.mobile_number || "N/A",
       "Email": s.email || "N/A",
@@ -855,8 +853,16 @@ export default function SellerManagementView({
         ) : filteredSellers.length === 0 ? (
           <div className="p-16 text-center text-zinc-400 font-bold text-xs space-y-2">
             <Building2 className="w-8 h-8 text-zinc-600 mx-auto" />
-            <p className="text-white font-black text-sm">No Merchants Found</p>
-            <p className="text-zinc-500">No merchant matches the selected status or search filter.</p>
+            <p className="text-white font-black text-sm">
+              {searchQuery || filterStatus !== "all" || filterCategory !== "all"
+                ? "No Merchants Found"
+                : "No Merchants Registered Yet"}
+            </p>
+            <p className="text-zinc-500 max-w-sm mx-auto">
+              {searchQuery || filterStatus !== "all" || filterCategory !== "all"
+                ? "No merchant matches the selected status or search filter."
+                : "Ready for fresh launch. Newly registered merchants will appear here automatically."}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -876,8 +882,8 @@ export default function SellerManagementView({
               </thead>
               <tbody className="divide-y divide-zinc-800/80 text-xs font-bold text-zinc-300">
                 {filteredSellers.map((seller) => {
-                  const sName = seller.business_name || seller.full_name || "ZEBALPHA Store";
-                  const sOwner = seller.owner_name || seller.full_name || "Rahul Adhikary";
+                  const sName = seller.business_name || seller.full_name || "Merchant Store";
+                  const sOwner = seller.owner_name || seller.full_name || "Merchant Owner";
                   const sUpi = seller.phonepay_no || seller.phonepay_number || seller.upi_id || (seller.mobile_number ? `${seller.mobile_number}@phonepe` : "Not provided");
                   const sCategory = cleanCategory(seller.category || seller.business_category);
                   const isPrimary = seller.is_primary_brand;
@@ -1027,26 +1033,32 @@ export default function SellerManagementView({
                           <Edit3 className="w-4 h-4" />
                         </button>
 
-                        {!isPrimary && (
-                          <button
-                            onClick={() => {
-                              if (isSuspended) {
-                                handleReactivateSeller(seller.id);
-                              } else {
-                                setTargetSellerId(seller.id);
-                                setShowSuspendModal(true);
-                              }
-                            }}
-                            className={`p-2 rounded-xl transition-colors border ${
-                              isSuspended
-                                ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/30"
-                                : "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border-rose-500/20"
-                            }`}
-                            title={isSuspended ? "Reactivate Seller" : "Suspend Seller"}
-                          >
-                            <ShieldAlert className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            if (isSuspended) {
+                              handleReactivateSeller(seller.id);
+                            } else {
+                              setTargetSellerId(seller.id);
+                              setShowSuspendModal(true);
+                            }
+                          }}
+                          className={`p-2 rounded-xl transition-colors border ${
+                            isSuspended
+                              ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/30"
+                              : "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border-rose-500/20"
+                          }`}
+                          title={isSuspended ? "Reactivate Seller" : "Suspend Seller"}
+                        >
+                          <ShieldAlert className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteSeller(seller.id, sName)}
+                          className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/10 transition-colors"
+                          title="Delete Merchant"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -1396,25 +1408,35 @@ export default function SellerManagementView({
 
             {/* Drawer Footer Actions */}
             <div className="pt-4 border-t border-zinc-800 flex items-center justify-between gap-3">
-              {!selectedSeller.is_primary_brand && (
+              <div className="flex items-center gap-2">
+                {!selectedSeller.is_primary_brand && (
+                  <button
+                    onClick={() => {
+                      if (selectedSeller.is_suspended) {
+                        handleReactivateSeller(selectedSeller.id);
+                      } else {
+                        setTargetSellerId(selectedSeller.id);
+                        setShowSuspendModal(true);
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      selectedSeller.is_suspended
+                        ? "bg-emerald-500 text-black hover:bg-emerald-400 shadow-md shadow-emerald-500/20"
+                        : "bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20"
+                    }`}
+                  >
+                    {selectedSeller.is_suspended ? "Reactivate Merchant" : "Suspend Merchant"}
+                  </button>
+                )}
+
                 <button
-                  onClick={() => {
-                    if (selectedSeller.is_suspended) {
-                      handleReactivateSeller(selectedSeller.id);
-                    } else {
-                      setTargetSellerId(selectedSeller.id);
-                      setShowSuspendModal(true);
-                    }
-                  }}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                    selectedSeller.is_suspended
-                      ? "bg-emerald-500 text-black hover:bg-emerald-400 shadow-md shadow-emerald-500/20"
-                      : "bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20"
-                  }`}
+                  onClick={() => handleDeleteSeller(selectedSeller.id, selectedSeller.business_name || selectedSeller.full_name)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 flex items-center gap-1.5"
                 >
-                  {selectedSeller.is_suspended ? "Reactivate Merchant" : "Suspend Merchant"}
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Merchant</span>
                 </button>
-              )}
+              </div>
 
               <button
                 onClick={() => setSelectedSeller(null)}

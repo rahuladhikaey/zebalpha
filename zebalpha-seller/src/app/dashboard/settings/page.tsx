@@ -241,8 +241,8 @@ export default function SellerSettings() {
 
       const payload = {
         business_name: form.business_name.trim(),
-        owner_name: (form.owner_name || "").trim() || "Rahul Adhikary",
-        full_name: (form.owner_name || "").trim() || "Rahul Adhikary",
+        owner_name: (form.owner_name || "").trim() || (form.business_name || "").trim() || "Store Owner",
+        full_name: (form.owner_name || "").trim() || (form.business_name || "").trim() || "Store Owner",
         mobile_number: form.mobile_number.trim(),
         phone_number: form.mobile_number.trim(),
         email: form.email.trim().toLowerCase(),
