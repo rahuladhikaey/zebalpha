@@ -134,7 +134,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
 
         {/* Hero Section Container — CRITICAL / IMMEDIATE (NEVER LAZY-LOADED) */}
         <div className="mx-auto w-full max-w-[1400px] px-4 md:px-8">
-          {/* 2D Animated Carousel Showcase */}
+          {/* Carousel Showcase */}
           <div className="pt-2">
             <BannerCarousel />
           </div>

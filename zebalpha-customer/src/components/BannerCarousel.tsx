@@ -80,7 +80,7 @@ export function BannerCarousel() {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* 2D Animated Corner Royal Accents */}
+      {/* Corner Royal Accents */}
       <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-2 bg-black/75 backdrop-blur-md px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-white/20 shadow-lg">
         <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-400 animate-ping" />
         <span className="text-[9px] sm:text-[10px] font-black tracking-[0.2em] uppercase text-white">

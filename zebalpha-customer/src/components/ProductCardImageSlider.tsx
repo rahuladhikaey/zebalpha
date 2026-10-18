@@ -98,7 +98,7 @@ export function ProductCardImageSlider({
         ))}
       </Link>
 
-      {/* 2D Animated Discount Badge */}
+      {/* Discount Badge */}
       {discountPercent !== undefined && discountPercent > 0 && (
         <div className="absolute top-2.5 left-2.5 z-20 bg-white text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[10px] shadow-lg pointer-events-none">
           {discountPercent}% OFF

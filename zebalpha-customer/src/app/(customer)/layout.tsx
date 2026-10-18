@@ -24,15 +24,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.zeb-alpha.in"),
+  metadataBase: new URL("https://zebalpha.shop"),
   title: {
-    default: "ZEB-ALPHA | Premium 2D Animated Clothing, Polos & Streetwear",
-    template: "%s | ZEB-ALPHA",
+    default: "ZEBALPHA | Luxury Clothing, Polos & Streetwear",
+    template: "%s | ZEBALPHA",
   },
   description:
-    "Discover Zeb-alpha premium clothing and streetwear. Shop 100% combed cotton polos, oversized tees, hoodies and smart casuals with express pan-India shipping.",
+    "Discover ZebAlpha premium clothing and streetwear. Shop 100% combed cotton polos, oversized tees, hoodies and smart casuals with express pan-India shipping.",
   keywords: [
-    "zeb-alpha",
+    "zebalpha",
     "zeb alpha",
     "polo t-shirts",
     "men polo",
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     "designer apparel",
     "buy clothing online",
   ],
-  authors: [{ name: "ZEB-ALPHA", url: "https://www.zeb-alpha.in" }],
+  authors: [{ name: "ZEBALPHA", url: "https://zebalpha.shop" }],
   creator: "ZEB-ALPHA",
   publisher: "ZEB-ALPHA",
   formatDetection: {
@@ -136,7 +136,7 @@ export default function RootLayout({
             "url": "https://zebalpha.shop",
             "logo": "https://zebalpha.shop/icon.png",
             "image": "https://zebalpha.shop/banner-premium-polo.png",
-            "description": "Premium brand offering authentic luxury 2D animated streetwear, polo t-shirts, oversized tees, and designer apparel.",
+            "description": "Premium brand offering authentic luxury streetwear, polo t-shirts, oversized tees, and designer apparel.",
             "sameAs": [
               "https://www.instagram.com/zebalpha.clothing"
             ],
