@@ -42,6 +42,18 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} h-full antialiased dark`}
     >
       <head>
+        {/* Google Tag Manager */}
+        <Script id="google-tag-manager" strategy="afterInteractive">
+          {`
+            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','GTM-N8D7FHNT');
+          `}
+        </Script>
+        {/* End Google Tag Manager */}
+
         {/* Google tag (gtag.js) */}
         <Script
           async
@@ -59,6 +71,17 @@ export default function RootLayout({
         </Script>
       </head>
       <body suppressHydrationWarning className="min-h-full font-sans bg-black text-white overflow-x-hidden">
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-N8D7FHNT"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
+        {/* End Google Tag Manager (noscript) */}
+
         <QueryProvider>
           {children}
         </QueryProvider>
