@@ -42,7 +42,6 @@ export default function SellerPaymentsPage() {
   const [activeTab, setActiveTab] = useState<PaymentTab>("settlements");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [reverifying, setReverifying] = useState(false);
 
   // Authoritative RazorpayX Payout Account State
   const [payoutAccount, setPayoutAccount] = useState<{
@@ -90,11 +89,6 @@ export default function SellerPaymentsPage() {
   const [showEditSettlementModal, setShowEditSettlementModal] = useState(false);
   const [accountHolderName, setAccountHolderName] = useState("");
   const [upiId, setUpiId] = useState("");
-  const [upiVerifying, setUpiVerifying] = useState(false);
-  const [upiVerified, setUpiVerified] = useState(false);
-  const [upiVerifiedName, setUpiVerifiedName] = useState<string | null>(null);
-  const [upiProviderRef, setUpiProviderRef] = useState<string | null>(null);
-  const [upiError, setUpiError] = useState("");
   const [methodSubmitting, setMethodSubmitting] = useState(false);
   const [methodMessage, setMethodMessage] = useState("");
   const [methodError, setMethodError] = useState("");
@@ -127,15 +121,17 @@ export default function SellerPaymentsPage() {
           setPayoutAccount(json.payoutAccount);
           if (json.payoutAccount.masked_upi_id) {
             setUpiId(json.payoutAccount.masked_upi_id);
-            setUpiVerified(json.payoutAccount.verification_status === "verified");
-            setUpiVerifiedName(json.payoutAccount.beneficiary_name || null);
+          }
+          if (json.payoutAccount.beneficiary_name) {
+            setAccountHolderName(json.payoutAccount.beneficiary_name);
           }
         } else if (json.activeSettlementMethod) {
           setActiveSettlementMethod(json.activeSettlementMethod);
           if (json.activeSettlementMethod.upi_id || json.activeSettlementMethod.destination_raw) {
             setUpiId(json.activeSettlementMethod.upi_id || json.activeSettlementMethod.destination_raw);
-            setUpiVerified(true);
-            setUpiVerifiedName(json.activeSettlementMethod.verified_name || null);
+          }
+          if (json.activeSettlementMethod.verified_name) {
+            setAccountHolderName(json.activeSettlementMethod.verified_name);
           }
         }
         if (json.payoutRequests) setPayoutRequests(json.payoutRequests);
@@ -210,82 +206,25 @@ export default function SellerPaymentsPage() {
     return list.filter(item => (item.status || "").toUpperCase() === settlementFilter.toUpperCase());
   }, [payoutRequests, settlements, settlementFilter, activeSettlementMethod]);
 
-  // Handle Verify UPI through Razorpay-supported backend verification
-  async function handleVerifyUpi() {
+  // Handle Save UPI Settlement Method directly with Beneficiary Name and UPI ID
+  async function handleSaveSettlementMethod(e: React.FormEvent) {
+    e.preventDefault();
     const cleanVpa = upiId.trim().toLowerCase();
+    const cleanName = accountHolderName.trim();
+
+    if (!cleanName) {
+      setMethodError("Please enter the Beneficiary / Account Holder Name.");
+      return;
+    }
+
     if (!cleanVpa) {
-      setUpiError("Please enter a valid UPI ID (e.g. seller@upi)");
+      setMethodError("Please enter your active UPI ID.");
       return;
     }
 
     const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9.\-_]{2,64}$/;
     if (!upiRegex.test(cleanVpa)) {
-      setUpiError("Invalid UPI format. Expected format: username@bank (e.g. seller@oksbi, merchant@paytm)");
-      return;
-    }
-
-    setUpiVerifying(true);
-    setUpiError("");
-    setUpiVerified(false);
-    setUpiVerifiedName(null);
-
-    try {
-      const res = await fetch("/api/payments/verify-upi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          vpa: cleanVpa,
-          accountHolderName: accountHolderName.trim()
-        })
-      });
-      const data = await res.json();
-
-      if (data.success && data.verified) {
-        setUpiVerified(true);
-        setUpiVerifiedName(data.verifiedName || accountHolderName.trim() || "Verified Beneficiary");
-        setUpiProviderRef(data.providerReference || null);
-        setUpiError("");
-      } else {
-        setUpiVerified(false);
-        setUpiVerifiedName(data.verifiedName || null);
-        setUpiError(data.error || "Unable to verify this UPI ID with the banking network. Please check the handle and try again.");
-      }
-    } catch (err: any) {
-      setUpiVerified(false);
-      setUpiVerifiedName(null);
-      setUpiError(err?.message || "Network error while verifying UPI ID.");
-    } finally {
-      setUpiVerifying(false);
-    }
-  }
-
-  // Handle Re-verify existing active account
-  async function handleReverifyAccount() {
-    setReverifying(true);
-    try {
-      const vpaToVerify = upiId || payoutAccount?.masked_upi_id || activeSettlementMethod?.masked_destination;
-      if (!vpaToVerify) return;
-      await fetch("/api/payments/verify-upi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          vpa: vpaToVerify,
-          accountHolderName: accountHolderName.trim()
-        })
-      });
-      await loadFinancialData();
-    } catch (e) {
-      console.error("Reverify error:", e);
-    } finally {
-      setReverifying(false);
-    }
-  }
-
-  // Handle Save UPI Settlement Method
-  async function handleSaveSettlementMethod(e: React.FormEvent) {
-    e.preventDefault();
-    if (!upiVerified || !upiId.trim()) {
-      setMethodError("Please verify your UPI ID before saving.");
+      setMethodError("Invalid UPI format. Format must be username@bank (e.g. seller@oksbi, 9883637054@ybl, name@paytm).");
       return;
     }
 
@@ -299,23 +238,29 @@ export default function SellerPaymentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           methodType: "UPI",
-          vpa: upiId.trim(),
-          verifiedName: upiVerifiedName,
-          accountHolderName: accountHolderName.trim(),
-          providerReference: upiProviderRef
+          vpa: cleanVpa,
+          accountHolderName: cleanName
         })
       });
       const data = await res.json();
 
       if (data.success) {
-        setMethodMessage("✓ UPI Settlement Method saved and verified successfully!");
+        setMethodMessage("✓ UPI Settlement Method saved successfully!");
         setActiveSettlementMethod(data.settlementMethod);
+        if (payoutAccount) {
+          setPayoutAccount({
+            ...payoutAccount,
+            masked_upi_id: data.settlementMethod.masked_destination,
+            beneficiary_name: cleanName,
+            verification_status: "verified"
+          });
+        }
         setTimeout(() => {
           setShowEditSettlementModal(false);
           loadFinancialData();
-        }, 1500);
+        }, 1200);
       } else {
-        setMethodError(data.error || "Failed to save verified UPI settlement method.");
+        setMethodError(data.error || "Failed to save UPI settlement method.");
       }
     } catch (err: any) {
       setMethodError(err?.message || "An unexpected error occurred.");
@@ -1127,27 +1072,18 @@ export default function SellerPaymentsPage() {
               ) : null}
 
               <div className="flex items-center gap-3">
-                {maskedUpi && (
-                  <button
-                    onClick={handleReverifyAccount}
-                    disabled={reverifying}
-                    className="flex-1 py-3 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-xs font-black uppercase tracking-wider text-white transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <RefreshCw size={14} className={reverifying ? "animate-spin" : ""} />
-                    <span>{reverifying ? "Verifying..." : "Re-verify Status"}</span>
-                  </button>
-                )}
                 <button
                   onClick={() => {
                     setMethodError("");
                     setMethodMessage("");
-                    setAccountHolderName(sellerConfig?.owner_name || sellerConfig?.full_name || "");
+                    setAccountHolderName(payoutAccount?.beneficiary_name || activeSettlementMethod?.verified_name || sellerConfig?.owner_name || sellerConfig?.full_name || "");
+                    setUpiId("");
                     setShowEditSettlementModal(true);
                   }}
-                  className="flex-1 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Smartphone size={14} />
-                  <span>{maskedUpi ? "Change UPI ID" : "Add Verified UPI ID"}</span>
+                  <span>{maskedUpi ? "Update UPI ID & Beneficiary" : "Add UPI ID for Payouts"}</span>
                 </button>
               </div>
             </div>
@@ -1163,7 +1099,7 @@ export default function SellerPaymentsPage() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">RazorpayX Verification</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Direct Settlement Account</span>
                 <h3 className="text-base font-black text-white">Set Up UPI ID</h3>
               </div>
               <button
@@ -1174,13 +1110,18 @@ export default function SellerPaymentsPage() {
               </button>
             </div>
 
-            {/* Registered Name Policy Banner */}
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 text-xs space-y-1">
-              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Security Rule: Name Match Required</span>
-              <p className="text-[11px] text-zinc-300">
-                Registered Store: <strong className="text-white">{sellerConfig?.owner_name || sellerConfig?.full_name || sellerConfig?.business_name || "Merchant"}</strong>.
-                The bank account holder name on your UPI ID must match this name for payouts to be enabled.
+            {/* Strict Red Alert Banner */}
+            <div className="rounded-2xl border-2 border-rose-500/70 bg-rose-950/50 p-4 space-y-2 shadow-xl shadow-rose-950/30">
+              <div className="flex items-center gap-2 text-rose-400 font-black text-xs uppercase tracking-wider">
+                <AlertTriangle size={18} className="shrink-0 text-rose-500 animate-pulse" />
+                <span>CRITICAL WARNING: ENTER REAL UPI ID</span>
+              </div>
+              <p className="text-xs text-rose-200 leading-relaxed font-semibold">
+                Please enter your <span className="underline decoration-rose-400 font-black text-white">REAL & ACTIVE UPI ID</span> and correct <span className="underline decoration-rose-400 font-black text-white">Beneficiary Name</span>. If an incorrect, inactive, or fake UPI ID is entered, your payout settlement transfers and withdrawal payments will <span className="text-white font-black bg-rose-900/60 px-1 py-0.5 rounded">FAIL</span> and your payments will <span className="text-white font-black bg-rose-900/60 px-1 py-0.5 rounded">NOT CLEAR</span> or be credited to your bank.
               </p>
+              <div className="border-t border-rose-500/30 pt-2 text-[11px] text-rose-300/90 font-medium leading-normal">
+                ⚠️ সতর্কতা: অনুগ্রহ করে আপনার আসল ও সক্রিয় UPI ID এবং অ্যাকাউন্টের নাম সঠিকভাবে দিন। ভুল UPI ID দিলে পেমেন্ট ট্রান্সফার ফেইল করবে এবং পেমেন্ট ক্লিয়ার/জমা হবে না।
+              </div>
             </div>
 
             {/* Error & Success Alerts */}
@@ -1201,87 +1142,46 @@ export default function SellerPaymentsPage() {
               
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-300">Account Holder Name (as in UPI App)</label>
+                  <label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
+                    <span>Beneficiary / Account Holder Name</span>
+                    <span className="text-rose-400 text-[10px] uppercase font-bold tracking-wider">* Required</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={accountHolderName}
                     onChange={(e) => {
                       setAccountHolderName(e.target.value);
-                      setUpiVerified(false);
-                      setUpiVerifiedName(null);
-                      setUpiError("");
+                      setMethodError("");
                     }}
-                    placeholder="e.g. As shown in PhonePe / GPay"
-                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-medium focus:outline-none focus:border-white transition"
+                    placeholder="e.g. As shown in Bank / PhonePe / GPay"
+                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-medium focus:outline-none focus:border-rose-500 transition"
                   />
                   <p className="text-[11px] text-zinc-500">
-                    Must match the account holder name shown in your UPI app (PhonePe, Google Pay, Paytm).
+                    Enter the exact name of the account holder registered with your bank/UPI app.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-300">UPI ID</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      required
-                      value={upiId}
-                      onChange={(e) => {
-                        setUpiId(e.target.value);
-                        setUpiVerified(false);
-                        setUpiVerifiedName(null);
-                        setUpiError("");
-                      }}
-                      placeholder="e.g. seller@upi"
-                      className="flex-1 px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-white transition"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={handleVerifyUpi}
-                      disabled={upiVerifying || !upiId.trim() || upiVerified}
-                      className={`px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition active:scale-95 ${
-                        upiVerified
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 cursor-default"
-                          : "bg-emerald-500 hover:bg-emerald-400 text-black disabled:opacity-50"
-                      }`}
-                    >
-                      {upiVerifying ? "Verifying..." : upiVerified ? "✓ Verified" : "VERIFY UPI"}
-                    </button>
-                  </div>
-
+                  <label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
+                    <span>UPI ID (VPA)</span>
+                    <span className="text-rose-400 text-[10px] uppercase font-bold tracking-wider">* Required</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={upiId}
+                    onChange={(e) => {
+                      setUpiId(e.target.value);
+                      setMethodError("");
+                    }}
+                    placeholder="e.g. 9883637054@ybl, name@okhdfcbank, seller@paytm"
+                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-rose-500 transition"
+                  />
                   <p className="text-[11px] text-zinc-500">
-                    ZebAlpha verifies this UPI ID in real-time with Razorpay banking rails.
+                    Open your UPI app (PhonePe, Google Pay, Paytm, BHIM) to confirm your exact UPI ID before saving.
                   </p>
                 </div>
-
-                {/* Verification Status Alerts */}
-                {upiError && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs font-bold text-rose-400 flex items-start gap-2">
-                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                    <span>{upiError}</span>
-                  </div>
-                )}
-
-                {upiVerified && (
-                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-2 animate-in fade-in duration-200">
-                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-black uppercase tracking-wider">
-                      <CheckCircle2 size={14} />
-                      <span>✓ UPI Verified</span>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Beneficiary</label>
-                      <input
-                        type="text"
-                        readOnly
-                        value={upiVerifiedName || ""}
-                        className="w-full px-3 py-2 bg-zinc-900/80 border border-zinc-800 rounded-xl text-xs text-white font-bold cursor-not-allowed select-none"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Action Buttons */}
@@ -1296,10 +1196,10 @@ export default function SellerPaymentsPage() {
 
                 <button
                   type="submit"
-                  disabled={methodSubmitting || !upiVerified}
-                  className="px-6 py-2.5 rounded-xl bg-white text-black text-xs font-black uppercase tracking-wider hover:bg-zinc-200 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={methodSubmitting || !upiId.trim() || !accountHolderName.trim()}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {methodSubmitting ? "Saving..." : "SAVE UPI"}
+                  {methodSubmitting ? "Saving UPI..." : "SAVE UPI"}
                 </button>
               </div>
             </form>

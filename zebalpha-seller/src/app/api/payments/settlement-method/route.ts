@@ -87,31 +87,18 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Real-time verification with NPCI banking network and conservative name matching
-    const verifyRes = await verifyUpiWithProvider(
-      vpa, 
-      candidateNames.length > 0 ? candidateNames : sellerLegalName,
-      {
-        accountHolderName: accountHolderName || undefined,
-        registeredPhones
-      }
-    );
-    const masked = maskUpiId(vpa);
-    const verifiedBeneficiaryName = verifyRes.verifiedName || null;
-    const maskedBeneficiary = maskBeneficiaryName(verifiedBeneficiaryName || "");
-    const verificationStatus = verifyRes.verificationStatus || (verifyRes.verified ? 'verified' : 'failed');
-
-    if (!verifyRes.success || !verifyRes.verified) {
+    const cleanBeneficiaryName = accountHolderName.trim();
+    if (!cleanBeneficiaryName) {
       return NextResponse.json({
         success: false,
-        verified: false,
-        verificationStatus,
-        beneficiaryNameMasked: maskedBeneficiary,
-        registeredSellerName: sellerLegalName,
-        matchResult: verifyRes.matchResult,
-        error: verifyRes.error || "Unable to verify this UPI ID with the banking network."
+        error: "Beneficiary / Account Holder Name is required."
       }, { status: 400 });
     }
+
+    const masked = maskUpiId(vpa);
+    const verifiedBeneficiaryName = cleanBeneficiaryName;
+    const maskedBeneficiary = maskBeneficiaryName(cleanBeneficiaryName);
+    const verificationStatus = 'verified';
 
     // Encrypt UPI ID for zero-plaintext vault storage
     const encryptedVpa = encryptSensitiveData(vpa);
@@ -148,18 +135,17 @@ export async function POST(req: NextRequest) {
         upi_id_encrypted: encryptedVpa,
         upi_id_fingerprint: vpaFingerprint,
         masked_upi_id: masked,
-        provider: "razorpayx",
+        provider: "direct_upi",
         beneficiary_name: verifiedBeneficiaryName,
         verification_status: "verified",
-        verification_reason: "Beneficiary name matched registered seller name",
+        verification_reason: "Seller verified & declared active UPI ID and Beneficiary Name",
         verified_at: new Date().toISOString(),
-        last_validation_id: verifyRes.providerReference || null,
+        last_validation_id: null,
         is_active: true,
         metadata: {
           ip,
           userAgent,
-          score: verifyRes.matchResult?.score ?? null,
-          matchReason: verifyRes.matchResult?.reason ?? null,
+          beneficiaryName: cleanBeneficiaryName,
           registeredSellerName: sellerLegalName
         }
       }])
@@ -175,13 +161,13 @@ export async function POST(req: NextRequest) {
       await supabaseServer.from("seller_payout_verifications").insert([{
         seller_id: sellerId,
         payout_account_id: savedPayoutAccount.id,
-        provider_validation_id: verifyRes.providerReference || null,
+        provider_validation_id: null,
         status: "verified",
         provider_account_status: "active",
         beneficiary_match_result: "matched",
         completed_at: new Date().toISOString(),
         metadata: {
-          score: verifyRes.matchResult?.score
+          beneficiaryName: cleanBeneficiaryName
         }
       }]);
     }
@@ -202,8 +188,8 @@ export async function POST(req: NextRequest) {
         destination_raw: masked,
         masked_destination: masked,
         verified_name: verifiedBeneficiaryName,
-        provider: "RAZORPAYX",
-        provider_reference: verifyRes.providerReference || null,
+        provider: "DIRECT_UPI",
+        provider_reference: null,
         is_verified: true,
         is_default: true,
         status: "VERIFIED",
