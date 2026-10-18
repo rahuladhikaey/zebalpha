@@ -16,15 +16,15 @@ import { getCachedCuratedCollections, getCachedHomeCategories, getCachedHomeProd
 function CategoriesSkeleton() {
   return (
     <div className="mt-10 sm:mt-14 space-y-4 animate-pulse select-none">
-      <div className="flex items-center justify-between gap-4 mb-5">
+      <div className="flex items-center justify-between gap-4 mb-4 sm:mb-5">
         <div className="h-7 w-56 rounded-xl bg-neutral-900 border border-neutral-800" />
       </div>
-      <div className="w-full overflow-hidden pb-2 pt-1">
-        <div className="grid grid-cols-6 gap-3 sm:gap-4 min-w-[840px] lg:min-w-full">
+      <div className="w-full">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5 sm:gap-4 w-full">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="rounded-3xl bg-neutral-900/90 border border-neutral-800 p-3 flex flex-col items-center">
-              <div className="w-full aspect-square rounded-2xl bg-neutral-800/80" />
-              <div className="mt-2.5 h-3 w-16 bg-neutral-800 rounded" />
+            <div key={i} className="rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 p-2 sm:p-3 flex flex-col items-center">
+              <div className="w-full aspect-square rounded-xl sm:rounded-2xl bg-neutral-800/80" />
+              <div className="mt-2 h-3 w-14 sm:w-16 bg-neutral-800 rounded" />
             </div>
           ))}
         </div>
