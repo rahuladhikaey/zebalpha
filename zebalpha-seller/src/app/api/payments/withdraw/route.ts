@@ -163,8 +163,7 @@ export async function POST(req: NextRequest) {
 
     const payoutRequestId = reserveResult.payout_id;
 
-    // 5. Asynchronously dispatch / process with Razorpay Provider
-    // The background queue is also watching `payout_queue`, but we attempt direct dispatch for lowest latency
+    // 5. Asynchronously dispatch / process with Razorpay Provider if available
     createProviderPayout({
       sellerId,
       amount: requestedAmount,
@@ -179,11 +178,16 @@ export async function POST(req: NextRequest) {
           p_provider_payout_id: providerResult.providerPayoutId || null,
           p_utr_number: providerResult.utrNumber || null
         });
-      } else if (providerResult.status === "FAILED") {
-        await supabaseServer.rpc('finalize_payout_failure', {
-          p_payout_id: payoutRequestId,
-          p_failure_reason: providerResult.failureReason || "Provider rejection"
-        });
+      } else {
+        // Keep in PROCESSING status so Admin can disburse manually via PhonePe / GPay / NetBanking
+        console.log(`[Withdrawal ${payoutNumber}]: Queued for Admin disbursement to ${destinationUpi}. Reason: ${providerResult.failureReason || "Manual mode"}`);
+        await supabaseServer
+          .from("seller_payout_requests")
+          .update({
+            notes: `Queued for Admin UPI Settlement (${destinationUpi})`,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", payoutRequestId);
       }
     }).catch(e => {
       console.warn("[Background Payout Dispatch Notice]:", e.message);
