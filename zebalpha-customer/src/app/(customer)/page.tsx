@@ -85,7 +85,6 @@ async function ProductFeedContainer({ brandParam }: { brandParam?: string }) {
 // --- MAIN HOMEPAGE (HERO RENDERS IMMEDIATELY WITHOUT BLOCKING) ---
 
 import { buildOrganizationSchema, buildWebSiteSchema } from "@/lib/aeo-geo/schemaGenerator";
-import { AeoAnswerBox } from "@/components/aeo/AeoAnswerBox";
 
 export default async function HomePage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const resolvedParams = await props.searchParams;
@@ -133,21 +132,6 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
           <Suspense fallback={<EditorialSkeleton />}>
             <EditorialContainer brandParam={brandParam} />
           </Suspense>
-
-          {/* AEO Brand Direct Answer Box */}
-          <div className="mt-14">
-            <AeoAnswerBox
-              title="ZEBALPHA — Luxury Streetwear & 100% Combed Cotton Apparel"
-              directAnswer="ZEBALPHA (https://zebalpha.shop) is an authentic Indian apparel brand and direct-from-maker marketplace. We engineer heavyweight luxury streetwear essentials including 100% combed cotton zip polos, 240+ GSM oversized t-shirts, and heavyweight fleece hoodies with fast pan-India dispatch."
-              highlightChips={[
-                { label: "Fabric", value: "100% Combed Cotton" },
-                { label: "Dispatch", value: "24-48 Hours" },
-                { label: "Exchanges", value: "7 Days Free" },
-                { label: "Delivery", value: "Free above ₹999" }
-              ]}
-              sourceLabel="OFFICIAL BRAND DIRECTORY"
-            />
-          </div>
 
           {/* P1/P2 PROGRESSIVE: Featured Clothing Drops Grid with Infinite Scroll */}
           <section className="mt-14 mb-16">
