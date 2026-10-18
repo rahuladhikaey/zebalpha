@@ -20,11 +20,11 @@ function CategoriesSkeleton() {
         <div className="h-7 w-56 rounded-xl bg-neutral-900 border border-neutral-800" />
       </div>
       <div className="w-full">
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5 sm:gap-4 w-full">
+        <div className="grid grid-cols-6 gap-1.5 sm:gap-3 md:gap-4 w-full">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 p-2 sm:p-3 flex flex-col items-center">
-              <div className="w-full aspect-square rounded-xl sm:rounded-2xl bg-neutral-800/80" />
-              <div className="mt-2 h-3 w-14 sm:w-16 bg-neutral-800 rounded" />
+            <div key={i} className="rounded-xl sm:rounded-2xl md:rounded-3xl bg-neutral-900/90 border border-neutral-800 p-1 sm:p-2 md:p-3 flex flex-col items-center">
+              <div className="w-full aspect-square rounded-lg sm:rounded-xl md:rounded-2xl bg-neutral-800/80" />
+              <div className="mt-1 sm:mt-2 h-2.5 sm:h-3 w-8 sm:w-14 md:w-16 bg-neutral-800 rounded" />
             </div>
           ))}
         </div>
