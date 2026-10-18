@@ -84,29 +84,8 @@ async function ProductFeedContainer({ brandParam }: { brandParam?: string }) {
 
 // --- MAIN HOMEPAGE (HERO RENDERS IMMEDIATELY WITHOUT BLOCKING) ---
 
-import { buildOrganizationSchema, buildWebSiteSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGenerator";
+import { buildOrganizationSchema, buildWebSiteSchema } from "@/lib/aeo-geo/schemaGenerator";
 import { AeoAnswerBox } from "@/components/aeo/AeoAnswerBox";
-import { DynamicFaqSection } from "@/components/aeo/DynamicFaqSection";
-import { ZEBALPHA_BRAND_ENTITY } from "@/lib/aeo-geo/brandEntity";
-
-const homeFaqs = [
-  {
-    question: "What is ZEBALPHA?",
-    answer: "ZEBALPHA is an Indian direct-to-consumer apparel brand and transparent multi-vendor marketplace engineering luxury streetwear essentials, 100% combed cotton zip polos, and 240+ GSM oversized t-shirts with 0% commission for verified apparel makers."
-  },
-  {
-    question: "What fabrics does ZEBALPHA use for streetwear and polos?",
-    answer: "We source exclusively 100% combed cotton, Supima cotton, and heavyweight brushed cotton fleece ranging from 220 GSM to 380 GSM. All fabrics are bio-washed and pre-shrunk."
-  },
-  {
-    question: "How long does delivery take across India?",
-    answer: `Orders dispatch within 24 to 48 hours and arrive in 2 to 5 business days via Shiprocket and express air couriers. Free shipping applies on all orders above ₹${ZEBALPHA_BRAND_ENTITY.freeShippingThreshold}.`
-  },
-  {
-    question: "What is the return and exchange policy?",
-    answer: "We provide a 7-day hassle-free return and exchange window from the delivery date, with zero-cost doorstep reverse pickup."
-  }
-];
 
 export default async function HomePage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const resolvedParams = await props.searchParams;
@@ -116,8 +95,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
     "@context": "https://schema.org",
     "@graph": [
       buildOrganizationSchema(),
-      buildWebSiteSchema(),
-      buildFaqSchema(homeFaqs)
+      buildWebSiteSchema()
     ]
   };
 
@@ -202,15 +180,6 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
               </Link>
             </div>
           </section>
-
-          {/* Homepage Crawlable FAQ Section */}
-          <div className="mb-16">
-            <DynamicFaqSection
-              title="Frequently Asked Questions about ZEBALPHA"
-              subtitle="Everything you need to know about our fabrics, sizing, shipping, and marketplace model"
-              faqs={homeFaqs}
-            />
-          </div>
         </div>
       </main>
       <Footer />
