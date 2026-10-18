@@ -19,8 +19,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "ZEBALPHA",
-  description: "ZEBALPHA | Luxury Clothing, Polos & Streetwear",
+  metadataBase: new URL("https://zebalpha.shop"),
+  title: {
+    default: "ZEBALPHA | Luxury Streetwear, 100% Combed Cotton Zip Polos & Indian Fashion Marketplace",
+    template: "%s | ZEBALPHA"
+  },
+  description: "ZEBALPHA (Zeb Alpha) is an Indian direct-to-consumer apparel brand and 0% commission fashion marketplace engineering 100% combed cotton zip polos, 240+ GSM oversized t-shirts, and heavyweight hoodies.",
+  keywords: [
+    "ZEBALPHA",
+    "Zeb Alpha",
+    "zebalpha.shop",
+    "Zebalpha clothing",
+    "Zebalpha fashion",
+    "oversized t-shirts India",
+    "zip collar polo",
+    "heavyweight streetwear India"
+  ],
+  alternates: {
+    canonical: "https://zebalpha.shop"
+  },
   icons: {
     icon: "/official-logo.png",
     shortcut: "/official-logo.png",

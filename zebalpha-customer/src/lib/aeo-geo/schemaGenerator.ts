@@ -10,6 +10,7 @@ export function buildOrganizationSchema() {
     "@type": "Organization",
     "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization`,
     "name": ZEBALPHA_BRAND_ENTITY.name,
+    "alternateName": ["Zeb Alpha", "ZebAlpha", "ZEB-ALPHA", "Zebalpha Clothing", "Zebalpha Shop"],
     "legalName": ZEBALPHA_BRAND_ENTITY.legalName,
     "url": ZEBALPHA_BRAND_ENTITY.url,
     "logo": {
@@ -47,6 +48,7 @@ export function buildWebSiteSchema() {
     "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#website`,
     "url": ZEBALPHA_BRAND_ENTITY.url,
     "name": ZEBALPHA_BRAND_ENTITY.name,
+    "alternateName": ["Zeb Alpha", "ZebAlpha", "ZEB-ALPHA"],
     "description": ZEBALPHA_BRAND_ENTITY.description,
     "publisher": {
       "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization`
