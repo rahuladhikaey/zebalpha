@@ -88,6 +88,7 @@ export default function SellerPaymentsPage() {
 
   // Settlement Method Modal State (Strictly UPI ONLY)
   const [showEditSettlementModal, setShowEditSettlementModal] = useState(false);
+  const [accountHolderName, setAccountHolderName] = useState("");
   const [upiId, setUpiId] = useState("");
   const [upiVerifying, setUpiVerifying] = useState(false);
   const [upiVerified, setUpiVerified] = useState(false);
@@ -232,25 +233,22 @@ export default function SellerPaymentsPage() {
       const res = await fetch("/api/payments/verify-upi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vpa: cleanVpa })
+        body: JSON.stringify({ 
+          vpa: cleanVpa,
+          accountHolderName: accountHolderName.trim()
+        })
       });
       const data = await res.json();
 
       if (data.success && data.verified) {
         setUpiVerified(true);
-        setUpiVerifiedName(data.verifiedName || "Verified Beneficiary");
+        setUpiVerifiedName(data.verifiedName || accountHolderName.trim() || "Verified Beneficiary");
         setUpiProviderRef(data.providerReference || null);
         setUpiError("");
       } else {
         setUpiVerified(false);
         setUpiVerifiedName(data.verifiedName || null);
-        if (data.verificationStatus === 'name_mismatch') {
-          const registered = data.registeredSellerName || sellerConfig?.owner_name || sellerConfig?.business_name || 'your registered store name';
-          const bankName = data.verifiedName || 'different name';
-          setUpiError(`Name Mismatch: This UPI account belongs to "${bankName}", which does not match your registered store name "${registered}". For security, payouts can only be sent to UPI IDs matching your business name.`);
-        } else {
-          setUpiError(data.error || "Unable to verify this UPI ID with the banking network. Please check the handle and try again.");
-        }
+        setUpiError(data.error || "Unable to verify this UPI ID with the banking network. Please check the handle and try again.");
       }
     } catch (err: any) {
       setUpiVerified(false);
@@ -270,7 +268,10 @@ export default function SellerPaymentsPage() {
       await fetch("/api/payments/verify-upi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vpa: vpaToVerify })
+        body: JSON.stringify({ 
+          vpa: vpaToVerify,
+          accountHolderName: accountHolderName.trim()
+        })
       });
       await loadFinancialData();
     } catch (e) {
@@ -300,6 +301,7 @@ export default function SellerPaymentsPage() {
           methodType: "UPI",
           vpa: upiId.trim(),
           verifiedName: upiVerifiedName,
+          accountHolderName: accountHolderName.trim(),
           providerReference: upiProviderRef
         })
       });
@@ -1139,6 +1141,7 @@ export default function SellerPaymentsPage() {
                   onClick={() => {
                     setMethodError("");
                     setMethodMessage("");
+                    setAccountHolderName(sellerConfig?.owner_name || sellerConfig?.full_name || "");
                     setShowEditSettlementModal(true);
                   }}
                   className="flex-1 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-2"
@@ -1197,6 +1200,26 @@ export default function SellerPaymentsPage() {
             <form onSubmit={handleSaveSettlementMethod} className="space-y-4">
               
               <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-300">Account Holder Name (as in UPI App)</label>
+                  <input
+                    type="text"
+                    required
+                    value={accountHolderName}
+                    onChange={(e) => {
+                      setAccountHolderName(e.target.value);
+                      setUpiVerified(false);
+                      setUpiVerifiedName(null);
+                      setUpiError("");
+                    }}
+                    placeholder="e.g. As shown in PhonePe / GPay"
+                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-medium focus:outline-none focus:border-white transition"
+                  />
+                  <p className="text-[11px] text-zinc-500">
+                    Must match the account holder name shown in your UPI app (PhonePe, Google Pay, Paytm).
+                  </p>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-300">UPI ID</label>
                   <div className="flex items-center gap-2">

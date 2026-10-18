@@ -154,7 +154,11 @@ const RAZORPAY_ACCOUNT_NUMBER = (process.env.RAZORPAY_ACCOUNT_NUMBER || process.
  */
 export async function verifyUpiWithProvider(
   vpa: string, 
-  sellerNameOrCandidates?: string | string[]
+  sellerNameOrCandidates?: string | string[],
+  options?: {
+    accountHolderName?: string;
+    registeredPhones?: string[];
+  }
 ): Promise<UpiVerificationResult> {
   const cleanVpa = String(vpa || "").trim().toLowerCase();
 
@@ -179,6 +183,59 @@ export async function verifyUpiWithProvider(
     : sellerNameOrCandidates
       ? [String(sellerNameOrCandidates).trim()].filter(Boolean)
       : [];
+
+  const [vpaUsername] = cleanVpa.split("@");
+  const isPhoneVpa = /^[6-9]\d{9}$/.test(vpaUsername);
+  const registeredPhoneDigits = (options?.registeredPhones || [])
+    .map(p => String(p || "").replace(/\D/g, "").slice(-10))
+    .filter(p => p.length === 10);
+
+  // Check 1: If UPI username is a phone number, it MUST match the seller's registered phone number
+  if (isPhoneVpa && registeredPhoneDigits.length > 0 && !registeredPhoneDigits.includes(vpaUsername)) {
+    return {
+      success: false,
+      verified: false,
+      vpa: cleanVpa,
+      verifiedName: options?.accountHolderName || null,
+      maskedVpa: masked,
+      verificationStatus: 'name_mismatch',
+      error: `Account Mismatch: The UPI ID "${cleanVpa}" is linked to phone number ${vpaUsername}, which does not match your registered store mobile (${registeredPhoneDigits[0]}). Payouts can only be sent to your own verified account.`
+    };
+  }
+
+  // Check 2: If declared account holder name is provided, verify it matches registered seller names
+  const declaredName = String(options?.accountHolderName || "").trim();
+  if (declaredName) {
+    let bestMatch: any = null;
+    let bestCandidate = candidateNames[0] || "Registered Store";
+
+    for (const candidate of candidateNames) {
+      const matchRes = matchBeneficiaryName(candidate, declaredName);
+      if (matchRes.match) {
+        bestMatch = matchRes;
+        bestCandidate = candidate;
+        break;
+      }
+      if (!bestMatch || (matchRes.score > (bestMatch.score || 0))) {
+        bestMatch = matchRes;
+        bestCandidate = candidate;
+      }
+    }
+
+    if (!bestMatch || (!bestMatch.match && !bestMatch.isReview)) {
+      return {
+        success: false,
+        verified: false,
+        vpa: cleanVpa,
+        verifiedName: declaredName,
+        beneficiaryNameMasked: maskBeneficiaryName(declaredName),
+        verificationStatus: 'name_mismatch',
+        matchResult: bestMatch,
+        maskedVpa: masked,
+        error: `Name Mismatch: The bank account holder name "${declaredName}" does not match your registered store name "${bestCandidate}". Payouts require matching names.`
+      };
+    }
+  }
 
   // 2. Query Razorpay VPA Validation Endpoint
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
@@ -420,13 +477,13 @@ export async function verifyUpiWithProvider(
 
     // In Live Mode: if neither FAV nor validate/vpa returned a name, but fund account was created on RazorpayX
     if (!isTestMode && fundAccountId) {
-      const fallbackName = candidateNames.find(n => !n.toLowerCase().includes("zebalpha")) || candidateNames[0] || "Registered Merchant";
-      const maskedName = maskBeneficiaryName(fallbackName);
+      const verifiedBeneficiaryName = declaredName || candidateNames.find(n => !n.toLowerCase().includes("zebalpha")) || candidateNames[0] || "Registered Merchant";
+      const maskedName = maskBeneficiaryName(verifiedBeneficiaryName);
       return {
         success: true,
         verified: true,
         vpa: cleanVpa,
-        verifiedName: fallbackName,
+        verifiedName: verifiedBeneficiaryName,
         beneficiaryNameMasked: maskedName,
         verificationStatus: 'verified',
         maskedVpa: masked,

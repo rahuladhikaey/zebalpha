@@ -42,16 +42,16 @@ export async function POST(req: NextRequest) {
       }, { status: 429 });
     }
 
-    const { vpa } = await req.json();
+    const { vpa, accountHolderName } = await req.json();
 
     if (!vpa || typeof vpa !== "string") {
       return NextResponse.json({ success: false, error: "UPI ID is required" }, { status: 400 });
     }
 
-    // Resolve seller's registered legal/business name and profile name
+    // Resolve seller's registered legal/business name, phone numbers and profile name
     const { data: seller } = await supabaseServer
       .from("sellers")
-      .select("owner_name, full_name, business_name")
+      .select("owner_name, full_name, business_name, mobile_number, phone_number, phonepay_number, phonepay_no")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -68,9 +68,23 @@ export async function POST(req: NextRequest) {
       seller?.business_name
     ].map(n => String(n || "").trim()).filter(Boolean)));
 
+    const registeredPhones = Array.from(new Set([
+      seller?.mobile_number,
+      seller?.phone_number,
+      seller?.phonepay_number,
+      seller?.phonepay_no
+    ].map(p => String(p || "").trim()).filter(Boolean)));
+
     const primarySellerName = seller?.business_name || seller?.owner_name || profile?.full_name || "Merchant";
 
-    const result = await verifyUpiWithProvider(vpa, candidateNames.length > 0 ? candidateNames : primarySellerName);
+    const result = await verifyUpiWithProvider(
+      vpa, 
+      candidateNames.length > 0 ? candidateNames : primarySellerName,
+      {
+        accountHolderName: accountHolderName ? String(accountHolderName).trim() : undefined,
+        registeredPhones
+      }
+    );
 
     if (!result.success || !result.verified) {
       return NextResponse.json({

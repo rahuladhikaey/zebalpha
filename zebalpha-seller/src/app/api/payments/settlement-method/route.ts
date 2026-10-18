@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     // Resolve seller ID and candidate registered names
     const { data: seller } = await supabaseServer
       .from("sellers")
-      .select("id, owner_name, full_name, business_name")
+      .select("id, owner_name, full_name, business_name, mobile_number, phone_number, phonepay_number, phonepay_no")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -58,12 +58,20 @@ export async function POST(req: NextRequest) {
     ].map(n => String(n || "").trim()).filter(Boolean)));
     const sellerLegalName = candidateNames[0] || seller?.business_name || "";
 
+    const registeredPhones = Array.from(new Set([
+      seller?.mobile_number,
+      seller?.phone_number,
+      seller?.phonepay_number,
+      seller?.phonepay_no
+    ].map(p => String(p || "").trim()).filter(Boolean)));
+
     const forwarded = req.headers.get("x-forwarded-for");
     const ip = (forwarded ? forwarded.split(",")[0] : req.headers.get("x-real-ip")) || "unknown-ip";
     const userAgent = req.headers.get("user-agent") || "unknown-agent";
 
     const body = await req.json();
     const vpa = String(body.vpa || body.upiId || body.upi_id || "").trim().toLowerCase();
+    const accountHolderName = String(body.accountHolderName || body.verifiedName || "").trim();
 
     if (!vpa) {
       return NextResponse.json({
@@ -80,7 +88,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Real-time verification with NPCI banking network and conservative name matching
-    const verifyRes = await verifyUpiWithProvider(vpa, candidateNames.length > 0 ? candidateNames : sellerLegalName);
+    const verifyRes = await verifyUpiWithProvider(
+      vpa, 
+      candidateNames.length > 0 ? candidateNames : sellerLegalName,
+      {
+        accountHolderName: accountHolderName || undefined,
+        registeredPhones
+      }
+    );
     const masked = maskUpiId(vpa);
     const verifiedBeneficiaryName = verifyRes.verifiedName || null;
     const maskedBeneficiary = maskBeneficiaryName(verifiedBeneficiaryName || "");
