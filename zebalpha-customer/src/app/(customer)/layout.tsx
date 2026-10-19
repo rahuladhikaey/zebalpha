@@ -26,42 +26,42 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://zebalpha.shop"),
   title: {
-    default: "ZEBALPHA | Luxury Clothing, Polos & Streetwear",
-    template: "%s | ZEBALPHA",
+    default: "ZebAlpha | Indian E-Commerce Marketplace",
+    template: "%s | ZebAlpha",
   },
   description:
-    "Discover ZebAlpha premium clothing and streetwear. Shop 100% combed cotton polos, oversized tees, hoodies and smart casuals with express pan-India shipping.",
+    "ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal, ZebAlpha is focused on making online shopping and online selling more accessible, transparent, and trustworthy.",
   keywords: [
-    "zebalpha",
-    "zeb alpha",
-    "polo t-shirts",
-    "men polo",
-    "streetwear",
-    "oversized t-shirts",
-    "premium cotton clothing",
-    "designer apparel",
-    "buy clothing online",
+    "ZebAlpha",
+    "ZebAlpha ecommerce",
+    "ZebAlpha India",
+    "ZebAlpha marketplace",
+    "ZebAlpha Kolkata",
+    "ZebAlpha seller",
+    "zebalpha.shop",
+    "sell on ZebAlpha",
+    "Indian e-commerce marketplace"
   ],
-  authors: [{ name: "ZEBALPHA", url: "https://zebalpha.shop" }],
-  creator: "ZEB-ALPHA",
-  publisher: "ZEB-ALPHA",
+  authors: [{ name: "ZebAlpha", url: "https://zebalpha.shop" }],
+  creator: "ZebAlpha",
+  publisher: "ZebAlpha",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
   openGraph: {
-    title: "ZEB-ALPHA | Clothing For The Culture",
+    title: "ZebAlpha | Indian E-Commerce Marketplace",
     description:
-      "Timeless style, elevated in every stitch. Discover premium polos, casuals, and limited drops.",
-    url: "https://www.zeb-alpha.in",
-    siteName: "ZEB-ALPHA",
+      "ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal.",
+    url: "https://zebalpha.shop",
+    siteName: "ZebAlpha",
     images: [
       {
-        url: "/banner-premium-polo.png",
+        url: "/official-logo.png",
         width: 1200,
         height: 630,
-        alt: "ZEB-ALPHA - Clothing For The Culture",
+        alt: "ZebAlpha - Indian E-Commerce Marketplace",
       },
     ],
     locale: "en_IN",
@@ -87,9 +87,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ZEB-ALPHA | Premium Apparel & Streetwear",
+    title: "ZebAlpha | Indian E-Commerce Marketplace",
     description:
-      "Discover ZEB-ALPHA premium clothing and streetwear. Shop 100% combed cotton polos, oversized tees, hoodies and smart casuals.",
+      "ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal.",
     images: ["/official-logo.png"],
     creator: "@zebalpha",
   },
@@ -100,7 +100,7 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   appleWebApp: {
-    title: "ZEBALPHA",
+    title: "ZebAlpha",
     statusBarStyle: "black-translucent",
   },
 };
@@ -124,29 +124,6 @@ export default function RootLayout({
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
           gtag('config', 'G-5RNS8TDRG5');
-        `}
-      </Script>
-      <Script id="schema-organization" type="application/ld+json" strategy="afterInteractive">
-        {`
-          {
-            "@context": "https://schema.org",
-            "@type": ["Organization", "Store"],
-            "name": "ZEBALPHA",
-            "alternateName": ["Zebalpha", "ZEBALPHA Clothing", "Zebalpha Apparel"],
-            "url": "https://zebalpha.shop",
-            "logo": "https://zebalpha.shop/icon.png",
-            "image": "https://zebalpha.shop/banner-premium-polo.png",
-            "description": "Premium brand offering authentic luxury streetwear, polo t-shirts, oversized tees, and designer apparel.",
-            "sameAs": [
-              "https://www.instagram.com/zebalpha.clothing"
-            ],
-            "contactPoint": {
-              "@type": "ContactPoint",
-              "contactType": "customer service",
-              "areaServed": "IN",
-              "availableLanguage": ["en", "hi"]
-            }
-          }
         `}
       </Script>
       <Providers>

@@ -209,7 +209,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!product) {
     return {
-      title: "Product Not Found | ZEBALPHA",
+      title: "Product Not Found | ZebAlpha",
       robots: { index: false, follow: false },
     };
   }
@@ -229,8 +229,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       aeo.categoryName,
       aeo.material,
       aeo.fitType,
-      "streetwear India",
-      "buy online",
+      "ZebAlpha",
+      "buy online India",
       ...aeo.colors,
       ...aeo.sizes
     ],
@@ -238,7 +238,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${aeo.name} | ${aeo.brand}`,
       description: aeo.shortDirectAnswer,
       url: `https://zebalpha.shop/products/${product.id}`,
-      siteName: "ZEBALPHA",
+      siteName: "ZebAlpha",
       images: images.map(img => ({ url: img, alt: aeo.name })),
       locale: "en_IN",
       type: "website",

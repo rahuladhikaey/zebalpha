@@ -1,30 +1,52 @@
-import { ZEBALPHA_BRAND_ENTITY } from "./brandEntity";
+import { ZEBALPHA_BRAND_ENTITY, ENTITY_DISAMBIGUATION } from "./brandEntity";
 import { ProductAeoData, FaqItem, BuyingGuideArticle } from "./types";
 
 /**
- * Builds canonical Organization schema for ZEBALPHA
+ * Builds canonical Organization schema for ZebAlpha
  */
 export function buildOrganizationSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
     "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization`,
-    "name": ZEBALPHA_BRAND_ENTITY.name,
-    "alternateName": ["Zeb Alpha", "ZebAlpha", "ZEB-ALPHA", "Zebalpha Clothing", "Zebalpha Shop"],
-    "legalName": ZEBALPHA_BRAND_ENTITY.legalName,
+    "name": "ZebAlpha",
+    "alternateName": ["ZebAlpha E-Commerce", "ZebAlpha Marketplace"],
+    "legalName": "ZebAlpha",
     "url": ZEBALPHA_BRAND_ENTITY.url,
     "logo": {
       "@type": "ImageObject",
       "url": ZEBALPHA_BRAND_ENTITY.logoUrl,
-      "caption": "ZEBALPHA Brand Logo"
+      "caption": "ZebAlpha Brand Logo"
     },
     "description": ZEBALPHA_BRAND_ENTITY.description,
+    "disambiguatingDescription": ENTITY_DISAMBIGUATION.clarification,
+    "foundingLocation": {
+      "@type": "Place",
+      "name": "Kolkata, West Bengal, India",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Kolkata",
+        "addressRegion": "West Bengal",
+        "addressCountry": "IN"
+      }
+    },
+    "founder": [
+      {
+        "@type": "Person",
+        "name": "Rahul Adhikary",
+        "jobTitle": "Founder"
+      },
+      {
+        "@type": "Person",
+        "name": "Alakesh Biswas",
+        "jobTitle": "Co-founder / Partner"
+      }
+    ],
     "sameAs": ZEBALPHA_BRAND_ENTITY.sameAs,
     "contactPoint": [
       {
         "@type": "ContactPoint",
         "email": ZEBALPHA_BRAND_ENTITY.supportEmail,
-        "telephone": ZEBALPHA_BRAND_ENTITY.supportPhone,
         "contactType": "customer service",
         "areaServed": "IN",
         "availableLanguage": ["English", "Hindi", "Bengali"]
@@ -32,8 +54,9 @@ export function buildOrganizationSchema() {
     ],
     "address": {
       "@type": "PostalAddress",
-      "addressCountry": ZEBALPHA_BRAND_ENTITY.addressCountry,
-      "addressLocality": ZEBALPHA_BRAND_ENTITY.addressLocality
+      "addressLocality": "Kolkata",
+      "addressRegion": "West Bengal",
+      "addressCountry": "IN"
     }
   };
 }
@@ -47,9 +70,9 @@ export function buildWebSiteSchema() {
     "@type": "WebSite",
     "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#website`,
     "url": ZEBALPHA_BRAND_ENTITY.url,
-    "name": ZEBALPHA_BRAND_ENTITY.name,
-    "alternateName": ["Zeb Alpha", "ZebAlpha", "ZEB-ALPHA"],
-    "description": ZEBALPHA_BRAND_ENTITY.description,
+    "name": "ZebAlpha",
+    "alternateName": "ZebAlpha E-Commerce",
+    "description": "Official ZebAlpha e-commerce marketplace website.",
     "publisher": {
       "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization`
     },

@@ -21,19 +21,20 @@ const geistMono = Geist_Mono({
 export const metadata = {
   metadataBase: new URL("https://zebalpha.shop"),
   title: {
-    default: "ZEBALPHA | Luxury Streetwear, 100% Combed Cotton Zip Polos & Indian Fashion Marketplace",
-    template: "%s | ZEBALPHA"
+    default: "ZebAlpha | Indian E-Commerce Marketplace",
+    template: "%s | ZebAlpha"
   },
-  description: "ZEBALPHA (Zeb Alpha) is an Indian direct-to-consumer apparel brand and 0% commission fashion marketplace engineering 100% combed cotton zip polos, 240+ GSM oversized t-shirts, and heavyweight hoodies.",
+  description: "ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal, ZebAlpha is focused on making online shopping and online selling more accessible, transparent, and trustworthy.",
   keywords: [
-    "ZEBALPHA",
-    "Zeb Alpha",
+    "ZebAlpha",
+    "ZebAlpha ecommerce",
+    "ZebAlpha India",
+    "ZebAlpha marketplace",
+    "ZebAlpha Kolkata",
+    "ZebAlpha seller",
     "zebalpha.shop",
-    "Zebalpha clothing",
-    "Zebalpha fashion",
-    "oversized t-shirts India",
-    "zip collar polo",
-    "heavyweight streetwear India"
+    "sell on ZebAlpha",
+    "Indian e-commerce marketplace"
   ],
   alternates: {
     canonical: "https://zebalpha.shop"

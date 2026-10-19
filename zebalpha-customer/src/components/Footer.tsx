@@ -120,32 +120,37 @@ export function Footer() {
 
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-6">
-            <Link href="/" className="inline-flex items-center gap-3 text-2xl font-black text-white tracking-[0.2em] uppercase group drop-shadow-md">
+            <Link href="/" className="inline-flex items-center gap-3 text-2xl font-black text-white tracking-[0.15em] uppercase group drop-shadow-md">
               <div className="relative h-10 w-10 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-white/30 shadow-[0_0_15px_rgba(255,255,255,0.25)] group-hover:scale-105 transition-transform">
                 <img
                   src="/official-logo-sm.png"
-                  alt="ZEBALPHA Logo"
+                  alt="ZebAlpha Logo"
                   className="h-full w-full object-cover rounded-full"
                 />
               </div>
-              ZEBALPHA
+              <div>
+                <span>ZebAlpha</span>
+                <span className="block text-[10px] font-bold tracking-widest text-emerald-400 normal-case">
+                  Indian E-Commerce Marketplace
+                </span>
+              </div>
             </Link>
-            <p className="mt-4 max-w-md text-sm leading-6 text-white font-semibold drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-              Clothing crafted for those who move different. Timeless style, elevated in every stitch with 100% premium combed and Supima cottons.
+            <p className="mt-4 max-w-md text-sm leading-6 text-neutral-200 font-medium drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+              ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal, ZebAlpha is focused on making online shopping and online selling more accessible, transparent, and trustworthy.
             </p>
             
             <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-2.5 max-w-md w-full text-white">
               <span className="flex items-center justify-center text-center rounded-full border border-white/25 bg-black/75 backdrop-blur-md px-2.5 sm:px-3.5 py-2 font-black uppercase tracking-wider text-[10px] sm:text-xs shadow-lg">
-                ✦ 100% Premium Cotton
+                ✦ Kolkata, India
               </span>
               <span className="flex items-center justify-center text-center rounded-full border border-white/25 bg-black/75 backdrop-blur-md px-2.5 sm:px-3.5 py-2 font-black uppercase tracking-wider text-[10px] sm:text-xs shadow-lg">
-                ✦ Relaxed Modern Fits
+                ✦ 0% Commission
               </span>
               <span className="flex items-center justify-center text-center rounded-full border border-white/25 bg-black/75 backdrop-blur-md px-2.5 sm:px-3.5 py-2 font-black uppercase tracking-wider text-[10px] sm:text-xs shadow-lg">
-                ✦ Express Shipping
+                ✦ Order Accuracy
               </span>
               <span className="flex items-center justify-center text-center rounded-full border border-white/25 bg-black/75 backdrop-blur-md px-2.5 sm:px-3.5 py-2 font-black uppercase tracking-wider text-[10px] sm:text-xs shadow-lg">
-                ✦ Easy Returns
+                ✦ Pan-India Delivery
               </span>
             </div>
 
@@ -154,27 +159,28 @@ export function Footer() {
           {/* Desktop Only: Collections & Customer Support */}
           <div className="hidden lg:grid grid-cols-2 gap-10 lg:grid-cols-6 lg:col-span-6 w-full">
             <div className="col-span-1 lg:col-span-3">
-              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Collections</h3>
+              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Marketplace &amp; Shop</h3>
               <ul className="mt-5 space-y-3 text-sm text-neutral-100 font-bold drop-shadow">
-                <li><Link href="/category/polos" className="transition hover:text-white block">Premium Zip Polos</Link></li>
-                <li><Link href="/category/oversized-t-shirts" className="transition hover:text-white block">Oversized Streetwear Tees</Link></li>
-                <li><Link href="/category/hoodies" className="transition hover:text-white block">Heavyweight Hoodies</Link></li>
-                <li><Link href="/category/shirts" className="transition hover:text-white block">Casual Collared Shirts</Link></li>
-                <li><Link href="/guides" className="transition hover:text-white block">Buying Guides & Fabric Manuals</Link></li>
-                <li><Link href="/size-guide" className="transition hover:text-white block">Garment Sizing Charts</Link></li>
+                <li><Link href="/products" className="transition hover:text-white block">Shop All Products</Link></li>
+                <li><Link href="/category/polos" className="transition hover:text-white block">Polo T-Shirts</Link></li>
+                <li><Link href="/category/oversized-t-shirts" className="transition hover:text-white block">Oversized T-Shirts</Link></li>
+                <li><Link href="/category/hoodies" className="transition hover:text-white block">Hoodies &amp; Sweatshirts</Link></li>
+                <li><Link href="/blogs" className="transition hover:text-white block">ZebAlpha Blogs &amp; Guides</Link></li>
+                <li><Link href="/about" className="transition hover:text-white block">About ZebAlpha</Link></li>
+                <li><Link href="/seller" className="transition hover:text-white block">Sell on ZebAlpha (Seller Hub)</Link></li>
                 <li className="pt-2">
                   <Link 
-                    href="https://seller.zebalpha.shop/register"
+                    href="https://seller.zebalpha.shop"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group inline-flex items-center justify-between sm:justify-start gap-2.5 rounded-xl bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-transparent border border-emerald-400/35 hover:border-emerald-300 px-3.5 py-2 text-xs font-black tracking-wider text-emerald-300 hover:text-white hover:bg-emerald-500/30 transition-all shadow-[0_0_15px_rgba(52,211,153,0.15)] hover:shadow-[0_0_20px_rgba(52,211,153,0.3)] active:scale-95 max-w-fit"
-                    title="Become a Seller on Zebalpha"
+                    title="Seller Portal Login"
                   >
                     <div className="flex items-center gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-black shadow-sm group-hover:scale-110 transition-transform">
                         <Store className="h-3.5 w-3.5 stroke-[2.5]" />
                       </span>
-                      <span className="uppercase tracking-widest text-[11px] font-black whitespace-nowrap">Supplier Hub</span>
+                      <span className="uppercase tracking-widest text-[11px] font-black whitespace-nowrap">Seller Portal Login</span>
                     </div>
                     <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
                   </Link>
@@ -183,27 +189,27 @@ export function Footer() {
             </div>
 
             <div className="col-span-1 lg:col-span-3">
-              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Customer Support</h3>
+              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Customer &amp; Seller Support</h3>
               <ul className="mt-5 space-y-3 text-sm text-neutral-100 font-bold drop-shadow">
+                <li><Link href="/contact" className="transition hover:text-white block">Contact Support Desk</Link></li>
                 <li><Link href="/profile/orders" className="transition hover:text-white block">Track Your Order</Link></li>
-                <li><Link href="/shipping-policy" className="transition hover:text-white block">Shipping & Delivery Policy</Link></li>
-                <li><Link href="/return-policy" className="transition hover:text-white block">7-Day Return & Exchange</Link></li>
-                <li><Link href="/help" className="transition hover:text-white block">Help & Support Desk</Link></li>
-                <li><Link href="/about" className="transition hover:text-white block">About Zebalpha</Link></li>
-                <li><Link href="/contact" className="transition hover:text-white block">Contact Us</Link></li>
+                <li><Link href="/shipping-policy" className="transition hover:text-white block">Shipping &amp; Delivery Policy</Link></li>
+                <li><Link href="/return-policy" className="transition hover:text-white block">Return &amp; Refund Policy</Link></li>
+                <li><Link href="/seller" className="transition hover:text-white block">Seller Policy &amp; Terms</Link></li>
+                <li><Link href="/help" className="transition hover:text-white block">Help &amp; FAQs</Link></li>
                 <li><Link href="/privacy-policy" className="transition hover:text-white block">Privacy Policy</Link></li>
-                <li><Link href="/terms-and-conditions" className="transition hover:text-white block">Terms & Conditions</Link></li>
+                <li><Link href="/terms-and-conditions" className="transition hover:text-white block">Terms &amp; Conditions</Link></li>
               </ul>
             </div>
           </div>
         </div>
 
         <div className="mt-10 border-t border-white/20 pt-6 pb-2 text-xs text-neutral-200 font-medium sm:flex sm:items-center sm:justify-between drop-shadow">
-          <p>© 2026 ZEBALPHA APPAREL. All rights reserved. Clothing for the culture.</p>
+          <p>© 2026 ZebAlpha. All rights reserved. Indian E-Commerce Marketplace.</p>
           <div className="mt-4 flex items-center gap-2 sm:mt-0">
             <Mail className="h-4 w-4 text-white" />
-            <Link href="mailto:support@zebalpha.com" className="transition hover:text-white font-bold">
-              support@zebalpha.com
+            <Link href="mailto:support@zebalpha.shop" className="transition hover:text-white font-bold">
+              support@zebalpha.shop
             </Link>
           </div>
         </div>

@@ -56,11 +56,11 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               <div className="h-8 w-8 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-800">
                 <img
                   src="/official-logo-sm.png"
-                  alt="ZEBALPHA Logo"
+                  alt="ZebAlpha Logo"
                   className="h-full w-full object-cover rounded-full"
                 />
               </div>
-              <span className="text-base font-black uppercase tracking-[0.2em] text-white">ZEBALPHA</span>
+              <span className="text-base font-black tracking-[0.2em] text-white">ZebAlpha</span>
             </div>
             <button
               onClick={onClose}
@@ -142,12 +142,10 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                   </Link>
                 ))}
 
-                {/* Supplier Hub Link */}
+                {/* Sell on ZebAlpha Link */}
                 <div className="pt-2">
                   <Link
-                    href="https://seller.zebalpha.shop/register"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="/seller"
                     onClick={onClose}
                     className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent border border-emerald-500/35 text-white hover:border-emerald-400 transition-all shadow-md group active:scale-95"
                   >
@@ -157,9 +155,9 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                       </span>
                       <div>
                         <p className="text-xs font-black uppercase tracking-wider text-emerald-300 group-hover:text-emerald-200">
-                          Supplier Hub
+                          Sell on ZebAlpha
                         </p>
-                        <p className="text-[10px] text-neutral-400 font-medium">Create Seller Account</p>
+                        <p className="text-[10px] text-neutral-400 font-medium">Small Business & Seller Hub</p>
                       </div>
                     </div>
                     <ArrowUpRight className="h-4 w-4 text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -173,11 +171,12 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 mb-4">Brand & Help</h3>
               <nav className="space-y-1">
                 {[
-                  { name: "About Zebalpha", href: "/about" },
+                  { name: "About ZebAlpha", href: "/about" },
+                  { name: "Sell on ZebAlpha", href: "/seller" },
                   { name: "Contact & Support", href: "/contact" },
                   { name: "Privacy Policy", href: "/privacy-policy" },
                   { name: "Terms & Conditions", href: "/terms-and-conditions" },
-                  { name: "Blogs & Seller Guides", href: "/blogs" },
+                  { name: "Blogs & Stories", href: "/blogs" },
                 ].map((item) => (
                   <Link
                     key={item.name}

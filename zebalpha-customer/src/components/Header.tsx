@@ -20,8 +20,8 @@ type HeaderProps = {
 };
 
 export function Header({ 
-  title = "ZEBALPHA", 
-  subtitle = "CLOTHING FOR THE CULTURE ✦" 
+  title = "ZebAlpha", 
+  subtitle = "Indian E-Commerce Marketplace ✦" 
 }: HeaderProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const router = useRouter();
@@ -52,7 +52,7 @@ export function Header({
               <div className="relative h-10 w-10 md:h-11 md:w-11 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-800 shadow-[0_0_15px_rgba(255,255,255,0.15)] group-hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all">
                 <Image
                   src="/official-logo-sm.png"
-                  alt="ZEBALPHA Official Logo"
+                  alt="ZebAlpha Official Logo"
                   width={44}
                   height={44}
                   className="h-full w-full object-cover rounded-full"
@@ -60,22 +60,24 @@ export function Header({
                 />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs md:text-sm font-black tracking-[0.25em] uppercase text-white group-hover:text-neutral-200 transition-colors">
-                  ZEBALPHA
+                <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white group-hover:text-neutral-200 transition-colors">
+                  ZebAlpha
                 </span>
                 <span className="text-[9px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5 hidden sm:inline-block">
-                  Apparel • 2026
+                  Indian Marketplace
                 </span>
               </div>
             </Link>
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-8">
+          <nav className="hidden lg:flex items-center gap-7">
             {[
-              { name: "Home", href: "/" },
-              { name: "New Drops", href: "/new-drops" },
-              { name: "Premium Store", href: "/premium-store" },
+              { name: "Shop", href: "/products" },
+              { name: "About", href: "/about" },
+              { name: "Sell", href: "/seller" },
+              { name: "Blogs", href: "/blogs" },
+              { name: "Contact", href: "/contact" },
             ].map((link) => (
               <Link 
                 key={link.name} 

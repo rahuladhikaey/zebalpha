@@ -7,8 +7,8 @@ import { buildBreadcrumbSchema } from "@/lib/aeo-geo/schemaGenerator";
 import { ZEBALPHA_BRAND_ENTITY } from "@/lib/aeo-geo/brandEntity";
 
 export const metadata: Metadata = {
-  title: "Contact Customer Support & Merchant Desk | ZEBALPHA",
-  description: "Reach the official ZEBALPHA support desk: email support@zebalpha.shop, hours 9 AM - 11 PM Mon-Sun, order inquiries, and supplier registration.",
+  title: "Contact ZebAlpha | Customer & Seller Support",
+  description: "Contact ZebAlpha customer and seller support desk: email support@zebalpha.shop, hours 9 AM - 11 PM Mon-Sun. Founded in Kolkata, West Bengal, India.",
   alternates: {
     canonical: "https://zebalpha.shop/contact",
   },
@@ -16,8 +16,9 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   const breadcrumbs = [
-    { name: "Company", url: "/about" },
-    { name: "Contact Us", url: "https://zebalpha.shop/contact" }
+    { name: "Home", url: "/" },
+    { name: "About", url: "https://zebalpha.shop/about" },
+    { name: "Contact ZebAlpha", url: "https://zebalpha.shop/contact" }
   ];
 
   const jsonLd = {
@@ -28,13 +29,19 @@ export default function ContactPage() {
         "@type": "ContactPage",
         "@id": "https://zebalpha.shop/contact/#webpage",
         "url": "https://zebalpha.shop/contact",
-        "name": "ZEBALPHA Customer Support & Contact Center",
-        "description": "Official contact channels, support hours, and inquiries desk for ZEBALPHA.",
+        "name": "ZebAlpha Customer Support & Contact Center",
+        "description": "Official contact channels, support hours, and inquiry desk for ZebAlpha.",
         "mainEntity": {
           "@type": "Organization",
-          "name": ZEBALPHA_BRAND_ENTITY.name,
+          "name": "ZebAlpha",
+          "url": "https://zebalpha.shop",
           "email": ZEBALPHA_BRAND_ENTITY.supportEmail,
-          "telephone": ZEBALPHA_BRAND_ENTITY.supportPhone,
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Kolkata",
+            "addressRegion": "West Bengal",
+            "addressCountry": "IN"
+          },
           "openingHours": "Mo-Su 09:00-23:00"
         }
       }
@@ -83,14 +90,17 @@ export default function ContactPage() {
           <section className="rounded-[2.5rem] bg-zinc-950 p-8 shadow-2xl sm:p-12 border border-zinc-800">
             <div className="mx-auto max-w-3xl space-y-8">
               <div className="text-center">
-                <p className="text-sm uppercase tracking-[0.3em] text-zinc-400">Social Media</p>
-                <h2 className="mt-4 text-3xl font-bold text-white">Reach out to us, or visit our store.</h2>
+                <p className="text-sm uppercase tracking-[0.3em] text-zinc-400">Direct Connect</p>
+                <h2 className="mt-4 text-3xl font-bold text-white">Reach out to the ZebAlpha Team.</h2>
               </div>
 
               <div className="grid gap-6 sm:grid-cols-2">
-                <div className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 flex flex-col justify-center">
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white">Our product available Visit us</p>
-                  <p className="mt-3 text-sm leading-7 text-zinc-400">123 Market Street, Local City, India</p>
+                <div className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 flex flex-col justify-center space-y-2">
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-400">Marketplace Origin</p>
+                  <p className="text-base font-bold text-white">Kolkata, West Bengal, India</p>
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Operating an Indian e-commerce marketplace delivering nationwide across 19,000+ PIN codes.
+                  </p>
                 </div>
                 <div className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 flex flex-col gap-5 sm:flex-row sm:items-center">
                   <div className="flex-1">
