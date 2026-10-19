@@ -234,24 +234,58 @@ export function BlogPostClient({ post, relatedPosts }: BlogPostClientProps) {
             </p>
           </div>
 
-          {/* Author Card (Google E-E-A-T Credibility) */}
-          <div className="rounded-3xl border border-neutral-800 bg-neutral-950 p-6 flex flex-col sm:flex-row items-center gap-5">
-            <div className="h-16 w-16 rounded-full overflow-hidden bg-neutral-800 relative border border-neutral-700 shrink-0">
-              <Image
-                src={post.author.avatar}
-                alt={post.author.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="text-center sm:text-left space-y-1">
-              <p className="text-xs font-black uppercase tracking-wider text-emerald-400">Written by Industry Specialist</p>
-              <h4 className="text-lg font-black text-white">{post.author.name}</h4>
-              <p className="text-xs text-neutral-400">{post.author.role}</p>
-              <p className="text-xs text-neutral-300 pt-1 leading-relaxed">
-                Dedicated to helping small apparel brands compete with global giants through zero-fee platforms, transparent economics, and cutting-edge streetwear craftsmanship.
+          {/* Author / Founders Card (Google E-E-A-T Credibility) */}
+          <div className="rounded-3xl border border-neutral-800 bg-neutral-950 p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-neutral-900 pb-3">
+              <p className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                {post.coAuthor ? "Marketplace Founders & Co-Builders" : "Written by Industry Specialist"}
               </p>
+              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                Verified E-E-A-T
+              </span>
             </div>
+
+            <div className={`grid gap-6 ${post.coAuthor ? "sm:grid-cols-2" : "grid-cols-1"}`}>
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-full overflow-hidden bg-neutral-800 relative border border-emerald-500/40 shrink-0">
+                  <Image
+                    src={post.author.avatar}
+                    alt={post.author.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-base font-black text-white">{post.author.name}</h4>
+                  <p className="text-xs text-neutral-400">{post.author.role}</p>
+                  <p className="text-[11px] text-emerald-400 font-semibold">Kolkata, India</p>
+                </div>
+              </div>
+
+              {post.coAuthor && (
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-full overflow-hidden bg-neutral-800 relative border border-emerald-500/40 shrink-0">
+                    <Image
+                      src={post.coAuthor.avatar}
+                      alt={post.coAuthor.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="text-base font-black text-white">{post.coAuthor.name}</h4>
+                    <p className="text-xs text-neutral-400">{post.coAuthor.role}</p>
+                    <p className="text-[11px] text-emerald-400 font-semibold">Kolkata, India</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-neutral-300 pt-2 leading-relaxed border-t border-neutral-900">
+              {post.coAuthor
+                ? "Rahul Adhikary & Alakesh Biswas are reimagining Indian e-commerce with 0% commission, transparent economics, dedicated seller tools, and uncompromising customer trust under the vision: Built Together. Growing Together."
+                : "Dedicated to helping small apparel brands compete with global giants through zero-fee platforms, transparent economics, and cutting-edge streetwear craftsmanship."}
+            </p>
           </div>
         </article>
 

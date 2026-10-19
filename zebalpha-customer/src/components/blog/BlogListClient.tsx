@@ -25,6 +25,7 @@ interface BlogListClientProps {
 
 const CATEGORIES = [
   "All Articles",
+  "Founder Story",
   "Seller Guides",
   "SEO & Marketing",
   "Streetwear Culture",

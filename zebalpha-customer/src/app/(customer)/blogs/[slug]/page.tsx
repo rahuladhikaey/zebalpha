@@ -44,7 +44,10 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
     alternates: {
       canonical: canonicalUrl,
     },
-    authors: [{ name: post.author.name, url: baseUrl }],
+    authors: [
+      { name: post.author.name, url: baseUrl },
+      ...(post.coAuthor ? [{ name: post.coAuthor.name, url: baseUrl }] : [])
+    ],
     openGraph: {
       title: post.title,
       description: post.metaDescription,
@@ -53,7 +56,7 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
       type: "article",
       publishedTime: post.publishedAt,
       modifiedTime: post.modifiedAt,
-      authors: [post.author.name],
+      authors: [post.author.name, ...(post.coAuthor ? [post.coAuthor.name] : [])],
       tags: post.tags,
       images: [
         {
@@ -88,7 +91,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     ? post.coverImage
     : `${baseUrl}${post.coverImage}`;
 
-  // Structured Data (JSON-LD) for Google BlogPosting rich results
+  // Structured Data (JSON-LD) for Google BlogPosting rich results & AEO
   const articleSchema = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -101,19 +104,62 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     "image": [fullImageUrl],
     "datePublished": post.publishedAt,
     "dateModified": post.modifiedAt,
-    "author": {
+    "author": post.coAuthor ? [
+      {
+        "@type": "Person",
+        "name": post.author.name,
+        "jobTitle": post.author.role,
+        "worksFor": {
+          "@type": "Organization",
+          "name": "ZEBALPHA"
+        }
+      },
+      {
+        "@type": "Person",
+        "name": post.coAuthor.name,
+        "jobTitle": post.coAuthor.role,
+        "worksFor": {
+          "@type": "Organization",
+          "name": "ZEBALPHA"
+        }
+      }
+    ] : {
       "@type": "Person",
       "name": post.author.name,
-      "jobTitle": post.author.role
+      "jobTitle": post.author.role,
+      "worksFor": {
+        "@type": "Organization",
+        "name": "ZEBALPHA"
+      }
     },
     "publisher": {
       "@type": "Organization",
       "name": "ZEBALPHA",
+      "url": baseUrl,
       "logo": {
         "@type": "ImageObject",
         "url": `${baseUrl}/official-logo.png`
       }
     },
+    "about": [
+      {
+        "@type": "Organization",
+        "name": "ZEBALPHA",
+        "url": baseUrl
+      },
+      {
+        "@type": "Thing",
+        "name": "Indian E-commerce"
+      },
+      {
+        "@type": "Thing",
+        "name": "Zero Commission Marketplace"
+      },
+      {
+        "@type": "Place",
+        "name": "Kolkata, West Bengal, India"
+      }
+    ],
     "keywords": post.tags.join(", ")
   };
 
@@ -240,20 +286,39 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               {post.headline}
             </p>
 
-            {/* Author Byline */}
-            <div className="flex items-center gap-3 pt-2">
-              <div className="h-10 w-10 rounded-full overflow-hidden bg-neutral-800 relative border border-neutral-700">
-                <Image
-                  src={post.author.avatar}
-                  alt={post.author.name}
-                  fill
-                  className="object-cover"
-                />
+            {/* Author Byline (Supports single or dual founders) */}
+            <div className="flex flex-wrap items-center gap-6 pt-2">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full overflow-hidden bg-neutral-800 relative border border-emerald-500/40">
+                  <Image
+                    src={post.author.avatar}
+                    alt={post.author.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">{post.author.name}</p>
+                  <p className="text-xs text-neutral-400">{post.author.role}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-bold text-white">{post.author.name}</p>
-                <p className="text-xs text-neutral-400">{post.author.role}</p>
-              </div>
+
+              {post.coAuthor && (
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full overflow-hidden bg-neutral-800 relative border border-emerald-500/40">
+                    <Image
+                      src={post.coAuthor.avatar}
+                      alt={post.coAuthor.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">{post.coAuthor.name}</p>
+                    <p className="text-xs text-neutral-400">{post.coAuthor.role}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Featured Image with proper figure / figcaption for SEO */}
