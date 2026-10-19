@@ -28,6 +28,15 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://zebalpha.shop",
   },
+  keywords: [
+    "ZebAlpha",
+    "Zeb Alpha",
+    "zeb alpha ecommerce",
+    "zebalpha ecommerce",
+    "ZebAlpha marketplace",
+    "zeb alpha online shopping",
+    "zebalpha official website",
+  ],
   openGraph: {
     title: "ZebAlpha | Indian E-Commerce Marketplace",
     description:

@@ -97,7 +97,7 @@ export const metadata: Metadata = {
     google: "TAknRBZUPWnyRbr7Xq_mshbItDHWA_-hfstnJZn7Vvk",
   },
   alternates: {
-    canonical: "/",
+    canonical: "https://zebalpha.shop",
   },
   appleWebApp: {
     title: "ZebAlpha",
