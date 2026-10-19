@@ -114,18 +114,6 @@ export default function RootLayout({
 }>) {
   return (
     <>
-      <Script
-        src="https://www.googletagmanager.com/gtag/js?id=G-5RNS8TDRG5"
-        strategy="lazyOnload"
-      />
-      <Script id="google-analytics" strategy="lazyOnload">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-5RNS8TDRG5');
-        `}
-      </Script>
       <Providers>
         <div className="min-h-screen">
           {children}

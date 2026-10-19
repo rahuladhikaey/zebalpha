@@ -50,7 +50,7 @@ export function DynamicFaqSection({
           >
             <summary className="flex cursor-pointer items-center justify-between gap-4 font-bold text-white text-sm sm:text-base select-none list-none [&::-webkit-details-marker]:hidden">
               <span className="flex items-center gap-2.5">
-                <span className="text-xs font-black text-neutral-500 group-open:text-white transition-colors">
+                <span className="text-xs font-black text-neutral-300 group-open:text-white transition-colors">
                   Q{index + 1}.
                 </span>
                 <span>{faq.question}</span>

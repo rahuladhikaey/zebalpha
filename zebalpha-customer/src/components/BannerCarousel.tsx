@@ -97,7 +97,9 @@ export function BannerCarousel() {
         {banners.map((banner, index) => {
           const isActive = index === currentIndex;
           const SlideWrapper = banner.link ? Link : "div";
-          const wrapperProps = banner.link ? { href: banner.link } : {};
+          const wrapperProps = banner.link
+            ? { href: banner.link, "aria-label": banner.alt || "Featured ZebAlpha collection promotion" }
+            : {};
 
           return (
             <SlideWrapper

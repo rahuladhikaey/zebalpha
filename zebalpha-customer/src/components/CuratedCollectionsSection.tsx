@@ -102,6 +102,7 @@ export function CuratedCollectionsSection({
                   <Link
                     key={keyId}
                     href={item.href}
+                    aria-label={`Explore ${item.title} collection`}
                     className="group relative flex flex-col items-center rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 hover:border-violet-500/50 hover:bg-neutral-850 shadow-lg hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-2.5 sm:p-3 w-[126px] sm:w-[136px] lg:w-auto shrink-0 lg:shrink"
                   >
                     {/* Clean Highlight Shimmer */}
