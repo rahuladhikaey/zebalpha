@@ -15,16 +15,8 @@ import {
   getCachedEditorialCards,
 } from "@/lib/cachedQueries";
 import {
-  HeroEntityHeader,
-  SellerEcosystemSection,
-  CustomerTrustSection,
-  HomeAeoFaqSection,
-  HOMEPAGE_FAQS,
-} from "@/components/home/HomeEntitySections";
-import {
   buildOrganizationSchema,
   buildWebSiteSchema,
-  buildFaqSchema,
 } from "@/lib/aeo-geo/schemaGenerator";
 
 export const revalidate = 60;
@@ -140,13 +132,11 @@ export default async function HomePage(props: {
   const resolvedParams = await props.searchParams;
   const brandParam = typeof resolvedParams?.brand === "string" ? resolvedParams.brand : undefined;
 
-  const faqSchema = buildFaqSchema(HOMEPAGE_FAQS);
   const jsonLdGraph = {
     "@context": "https://schema.org",
     "@graph": [
       buildOrganizationSchema(),
       buildWebSiteSchema(),
-      ...(faqSchema ? [faqSchema] : []),
     ],
   };
 
@@ -158,7 +148,7 @@ export default async function HomePage(props: {
       />
       <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-hidden">
         {/* P0 IMMEDIATE: Header & Promotional Bar */}
-        <Header title="ZebAlpha" subtitle="Indian E-Commerce Marketplace ✦" />
+        <Header title="ZebAlpha" subtitle="CLOTHING FOR THE CULTURE ✦" />
         <MovingOfferBanner />
 
         {/* Hero Section Container */}
@@ -174,9 +164,6 @@ export default async function HomePage(props: {
               <MobileSearch />
             </Suspense>
           </div>
-
-          {/* Canonical Brand Entity Signal Header */}
-          <HeroEntityHeader />
 
           {/* Curated Categories Section */}
           <Suspense fallback={<CategoriesSkeleton />}>
@@ -195,10 +182,10 @@ export default async function HomePage(props: {
                 <span className="h-6 w-1 bg-white rounded-full" />
                 <div>
                   <h2 className="text-xl font-black text-white uppercase tracking-tight md:text-2xl">
-                    Discover Marketplace Products
+                    Our Products
                   </h2>
                   <p className="text-xs text-neutral-400 font-medium">
-                    Shop quality products from emerging Indian sellers and independent brands
+                    Explore our complete streetwear, polos, hoodies & apparel collection
                   </p>
                 </div>
               </div>
@@ -214,20 +201,11 @@ export default async function HomePage(props: {
                 href="/products"
                 className="group relative flex w-fit items-center gap-3 overflow-hidden rounded-full bg-white px-8 py-4 text-xs font-black uppercase tracking-[0.25em] text-black shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all hover:bg-neutral-200 hover:shadow-[0_0_35px_rgba(255,255,255,0.4)] active:scale-95 mx-auto"
               >
-                <span>EXPLORE ALL PRODUCTS</span>
+                <span>ALL COLLECTION</span>
                 <span className="text-lg transition-transform group-hover:translate-x-1">→</span>
               </Link>
             </div>
           </section>
-
-          {/* Small Business Seller Positioning */}
-          <SellerEcosystemSection />
-
-          {/* Customer Trust & Order Accuracy */}
-          <CustomerTrustSection />
-
-          {/* AEO / AI-Friendly Direct Answer FAQs */}
-          <HomeAeoFaqSection />
         </div>
       </main>
       <Footer />
