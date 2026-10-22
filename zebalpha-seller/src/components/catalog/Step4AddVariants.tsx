@@ -220,7 +220,8 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       let needsUpdate = false;
       const updated = formData.variants.map((v) => {
         const isMainCol = (v.color || "").trim().toLowerCase() === mainColor.toLowerCase();
-        if (isMainCol && (!v.image_url || !v.gallery || v.gallery.length === 0) && mainCoverImg) {
+        const isStandardCol = (v.color || "").trim().toLowerCase() === "standard" || (v.color || "").trim().toLowerCase() === "default";
+        if ((isMainCol || isStandardCol) && (!v.image_url || !v.gallery || v.gallery.length === 0) && mainCoverImg) {
           needsUpdate = true;
           return {
             ...v,
@@ -239,6 +240,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
 
   // Self-healing sanitizer: If non-main colors were previously populated with the main product's Step 1 image,
   // clean them up so they start with an empty gallery and seller can upload the true color photos.
+  // NOTE: "Standard" and "Default" represent the base product photoshoot from Step 1 and must NEVER be stripped!
   React.useEffect(() => {
     if (!formData.variants || formData.variants.length === 0) return;
     const mainColor = (formData.default_color || formData.main_color || formData.variants[0]?.color || "Main Color").trim().toLowerCase();
@@ -249,7 +251,8 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     const sanitized = formData.variants.map((v) => {
       const col = (v.color || "").trim().toLowerCase();
       const isMain = col === mainColor || col === "main color";
-      if (!isMain) {
+      const isStandard = col === "standard" || col === "default";
+      if (!isMain && !isStandard) {
         const rawGal = Array.isArray(v.gallery) ? v.gallery : (v.image_url ? [v.image_url] : []);
         const filteredGallery = rawGal.filter((img) => !mainImages.includes(img));
         const isCoverContaminated = v.image_url ? mainImages.includes(v.image_url) : false;
@@ -293,22 +296,24 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     for (const v of formData.variants) {
       const col = (v.color || "Black").trim() || "Black";
       const isMainCol = col.toLowerCase() === mainColName || col.toLowerCase() === "main color";
+      const isStandardCol = col.toLowerCase() === "standard" || col.toLowerCase() === "default";
+      const shouldInheritMainImages = isMainCol || isStandardCol;
 
       if (!map.has(col)) {
-        // ONLY the main product color inherits formData.images from Step 1.
-        // Other colors (White, Maroon, etc.) MUST have their own independent gallery (empty until seller uploads photos for that color).
+        // Main product color AND Standard/Default color inherit formData.images from Step 1.
+        // Other custom colors (White, Maroon, etc.) have their own independent gallery unless uploaded.
         const vGallery = Array.isArray(v.gallery) && v.gallery.length > 0
           ? v.gallery
           : v.image_url
           ? [v.image_url]
-          : isMainCol && formData.images && formData.images.length > 0
+          : shouldInheritMainImages && formData.images && formData.images.length > 0
           ? formData.images
           : [];
 
         const group = {
           color: col,
           color_hex: v.color_hex || PRESET_COLORS.find((c) => c.name.toLowerCase() === col.toLowerCase())?.hex || "#18181b",
-          image_url: v.image_url || (isMainCol ? vGallery[0] : undefined),
+          image_url: v.image_url || (shouldInheritMainImages ? vGallery[0] : undefined),
           gallery: vGallery,
           items: [],
         };
@@ -510,7 +515,8 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
             ? v.gallery
             : (v.image_url ? [v.image_url] : []);
 
-          if (!isTargetMainCol && mainImages.length > 0) {
+          const isStandard = colorName.trim().toLowerCase() === "standard" || colorName.trim().toLowerCase() === "default";
+          if (!isTargetMainCol && !isStandard && mainImages.length > 0) {
             rawGallery = rawGallery.filter((img) => !mainImages.includes(img));
           }
 
@@ -1898,6 +1904,8 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                           ? "💡 No photos uploaded yet for this color. Click '+ Photo' to upload — the 1st photo will be used as this color's cover on the customer page."
                           : isMainCol
                           ? "💡 Primary thumbnail for Main Color (from Step 1). First photo is used as default storefront cover."
+                          : grp.color.toLowerCase() === "standard" || grp.color.toLowerCase() === "default"
+                          ? "💡 Standard product photos synced from Step 1."
                           : "💡 First photo is used as primary thumbnail for this color on the customer page."}
                       </p>
                     </div>

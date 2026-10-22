@@ -237,7 +237,8 @@ export default function CatalogUploadWizardModal({
           (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[0] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[0] : "") ||
           ""
         ).trim().toLowerCase();
-        const isMainPkg = pkgIdx === 0 || pkgCol === defaultCol || pkgCol === "main color";
+        const isStandard = pkgCol === "standard" || pkgCol === "default";
+        const isMainPkg = pkgIdx === 0 || pkgCol === defaultCol || pkgCol === "main color" || isStandard;
 
         let rawGallery = Array.isArray(pkgGallery) && pkgGallery.length > 0
           ? pkgGallery.filter(Boolean)
@@ -245,18 +246,18 @@ export default function CatalogUploadWizardModal({
           ? [pkg.image_url]
           : [];
 
-        // For non-main packages, strip any accidental inheritance of the main product photos (self-healing for previously saved buggy items)
-        if (!isMainPkg && imgList.length > 0) {
+        // For other custom non-main colors (e.g. Red, Blue), strip accidental inheritance of the main product photos
+        if (!isMainPkg && !isStandard && imgList.length > 0) {
           rawGallery = rawGallery.filter((img: string) => !imgList.includes(img));
         }
 
         const galleryList = rawGallery.length > 0
           ? rawGallery
-          : isMainPkg && imgList.length > 0
+          : (isMainPkg || isStandard) && imgList.length > 0
           ? [...imgList]
           : [];
 
-        const mainImgUrl = galleryList[0] || (isMainPkg ? (pkg.image_url || imgList[0] || undefined) : undefined);
+        const mainImgUrl = galleryList[0] || ((isMainPkg || isStandard) ? (pkg.image_url || imgList[0] || undefined) : undefined);
 
         return {
           id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
@@ -1051,10 +1052,11 @@ export default function CatalogUploadWizardModal({
       const computedPackages = hasVariants
         ? sortedVariants.map((v, idx) => {
             const isMain = (v.color || "").trim().toLowerCase() === activeDefaultCol.toLowerCase();
-            const pkgImg = v.image_url || (isMain ? finalProductCover : undefined);
+            const isStandard = (v.color || "").trim().toLowerCase() === "standard" || (v.color || "").trim().toLowerCase() === "default";
+            const pkgImg = v.image_url || ((isMain || isStandard) ? finalProductCover : undefined);
             const pkgGallery = Array.isArray(v.gallery) && v.gallery.length > 0
               ? v.gallery
-              : (pkgImg ? [pkgImg] : (isMain ? (finalProductCover ? [finalProductCover] : []) : []));
+              : (pkgImg ? [pkgImg] : ((isMain || isStandard) ? (finalProductCover ? [finalProductCover] : (uploadedImagesList.length > 0 ? uploadedImagesList : [])) : []));
 
             return {
               id: v.id || `pkg_${idx}_${Date.now()}`,
@@ -1085,6 +1087,7 @@ export default function CatalogUploadWizardModal({
             sku: sd.sku || `${form.style_code || 'SKU'}-${sd.size.toUpperCase()}`,
             return_price: parseFloat(sd.return_price) || 0,
             image_url: coverImageUrl,
+            gallery: uploadedImagesList,
             isBestSeller: idx === 0,
           }))
         : [
@@ -1098,6 +1101,7 @@ export default function CatalogUploadWizardModal({
               stock: parseInt(form.single_stock) || 20,
               sku: form.single_sku || form.style_code || `SKU_${Date.now()}`,
               image_url: coverImageUrl,
+              gallery: uploadedImagesList,
               isBestSeller: true,
             }
           ];
