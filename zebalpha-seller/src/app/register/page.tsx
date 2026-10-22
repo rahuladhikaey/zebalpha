@@ -244,10 +244,10 @@ export default function SellerRegisterPage() {
 
       const generatedSellerCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
       const finalUpi = upiId.trim() || `${mobileNumber.trim()}@phonepe`;
-      const finalPickupAddress = pickupAddress.trim() || "Merchant Dispatch Hub";
-      const finalCity = city.trim() || "Kolkata";
-      const finalState = state.trim() || "West Bengal";
-      const finalPincode = pincode.trim() || "700001";
+      const finalPickupAddress = pickupAddress.trim();
+      const finalCity = city.trim();
+      const finalState = state.trim();
+      const finalPincode = pincode.trim();
 
       const sellerPayload: any = {
         id: validUserId,

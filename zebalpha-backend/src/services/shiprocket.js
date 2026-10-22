@@ -340,23 +340,39 @@ export const pushOrderToShiprocket = async (orderDetails) => {
       const pinMatch = rawAddrStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || rawAddrStr.match(/\b(\d{6})\b/);
       if (pinMatch) extractedPin = pinMatch[1];
     }
-    const finalPincode = String(extractedPin || '700001').replace(/\D/g, '').slice(0, 6);
+    const finalPincode = String(extractedPin || '').replace(/\D/g, '').slice(0, 6);
+    if (!finalPincode || finalPincode.length !== 6) {
+      throw new Error(`A valid 6-digit delivery PIN code is required for order ${orderDetails.order_id || orderDetails.order_number}`);
+    }
 
     let extractedCity = billing.city || orderDetails.city;
     if (!extractedCity && rawAddrStr) {
       const cityMatch = rawAddrStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
       if (cityMatch) extractedCity = cityMatch[1].trim();
     }
-    const finalCity = (extractedCity || 'Kolkata').substring(0, 100);
+    const finalCity = (extractedCity || '').trim();
 
     let extractedState = billing.state || orderDetails.state;
     if (!extractedState && rawAddrStr) {
       const stateMatch = rawAddrStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
       if (stateMatch) extractedState = stateMatch[1].trim();
     }
-    const finalState = (extractedState || 'West Bengal').substring(0, 100);
+    const finalState = (extractedState || '').trim();
 
-    const fullAddrLine = (rawAddrStr || billing.address_line1 || billing.address || 'Street Address').substring(0, 255);
+    if (!finalCity || !finalState) {
+      throw new Error(`Recipient city and state are required to dispatch order ${orderDetails.order_id || orderDetails.order_number}`);
+    }
+
+    const cleanPhone = String(billing.phone || shipping.phone || orderDetails.phone || '').replace(/\D/g, '').slice(0, 10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      throw new Error(`A valid 10-digit customer phone number is required to dispatch order ${orderDetails.order_id || orderDetails.order_number}`);
+    }
+
+    const customerEmail = (billing.email || shipping.email || orderDetails.email || '').trim();
+    const fullAddrLine = (rawAddrStr || billing.address_line1 || billing.address || shipping.address_line1 || shipping.address || '').substring(0, 255);
+    if (!fullAddrLine) {
+      throw new Error(`A valid delivery street address is required for order ${orderDetails.order_id || orderDetails.order_number}`);
+    }
 
     const payload = {
       order_id: String(orderDetails.order_id || orderDetails.order_number || `ORD-${Date.now()}`),
@@ -364,27 +380,27 @@ export const pushOrderToShiprocket = async (orderDetails) => {
       pickup_location: String(orderDetails.pickup_location || config.shiprocket?.defaultPickupLocation || 'Primary').substring(0, 36),
       channel_id: orderDetails.channel_id || '',
       comment: orderDetails.comment || 'E-commerce Website Order',
-      billing_customer_name: (billing.first_name || billing.name || orderDetails.customer_name || 'Customer').substring(0, 100),
-      billing_last_name: (billing.last_name || '').substring(0, 100),
+      billing_customer_name: (billing.first_name || billing.name || shipping.first_name || shipping.name || orderDetails.customer_name || 'Customer').substring(0, 100),
+      billing_last_name: (billing.last_name || shipping.last_name || '').substring(0, 100),
       billing_address: fullAddrLine,
       billing_address_2: (billing.address_line2 || billing.landmark || '').substring(0, 255),
       billing_city: finalCity,
       billing_pincode: finalPincode,
       billing_state: finalState,
-      billing_country: (billing.country || 'India').substring(0, 100),
-      billing_email: (billing.email || orderDetails.email || 'customer@example.com').substring(0, 100),
-      billing_phone: String(billing.phone || orderDetails.phone || '9999999999').replace(/\D/g, '').slice(0, 10),
+      billing_country: (billing.country || shipping.country || 'India').substring(0, 100),
+      billing_email: customerEmail.substring(0, 100),
+      billing_phone: cleanPhone,
       shipping_is_billing: orderDetails.shipping_is_billing !== false ? 1 : 0,
-      shipping_customer_name: (shipping.first_name || shipping.name || orderDetails.customer_name || 'Customer').substring(0, 100),
-      shipping_last_name: (shipping.last_name || '').substring(0, 100),
+      shipping_customer_name: (shipping.first_name || shipping.name || billing.first_name || billing.name || orderDetails.customer_name || 'Customer').substring(0, 100),
+      shipping_last_name: (shipping.last_name || billing.last_name || '').substring(0, 100),
       shipping_address: fullAddrLine,
       shipping_address_2: (shipping.address_line2 || shipping.landmark || '').substring(0, 255),
       shipping_city: finalCity,
       shipping_pincode: finalPincode,
       shipping_state: finalState,
-      shipping_country: (shipping.country || 'India').substring(0, 100),
-      shipping_email: (shipping.email || orderDetails.email || 'customer@example.com').substring(0, 100),
-      shipping_phone: String(shipping.phone || orderDetails.phone || '9999999999').replace(/\D/g, '').slice(0, 10),
+      shipping_country: (shipping.country || billing.country || 'India').substring(0, 100),
+      shipping_email: customerEmail.substring(0, 100),
+      shipping_phone: cleanPhone,
       order_items: orderItems,
       payment_method: paymentMode,
       shipping_charges: parseFloat(orderDetails.shipping_charges || orderDetails.shipping_charge || 0),
@@ -614,6 +630,21 @@ export const createShiprocketReturnOrder = async (returnData) => {
     const token = await getShiprocketToken();
     console.log('[Shiprocket Return] Creating reverse pickup for order:', returnData.order_id || returnData.order_number);
 
+    const returnPickupPin = String(returnData.pickup_pincode || returnData.pincode || '').replace(/\D/g, '').slice(0, 6);
+    if (!returnPickupPin || returnPickupPin.length !== 6) {
+      throw new Error('A valid 6-digit customer pickup PIN code is required to initiate a return shipment.');
+    }
+    const returnWarehousePin = String(returnData.warehouse_pincode || '').replace(/\D/g, '').slice(0, 6);
+    if (!returnWarehousePin || returnWarehousePin.length !== 6) {
+      throw new Error('A valid 6-digit destination warehouse PIN code is required to receive returned items.');
+    }
+
+    const returnCustPhone = String(returnData.customer_phone || returnData.phone || '').replace(/\D/g, '').slice(0, 10);
+    if (!returnCustPhone || returnCustPhone.length !== 10) {
+      throw new Error('A valid 10-digit customer phone number is required for return pickup.');
+    }
+    const returnWhPhone = String(returnData.warehouse_phone || returnCustPhone).replace(/\D/g, '').slice(0, 10);
+
     const payload = {
       order_id: String(returnData.order_id || returnData.order_number),
       order_date: new Date().toISOString().split('T')[0],
@@ -622,19 +653,19 @@ export const createShiprocketReturnOrder = async (returnData) => {
       pickup_last_name: '',
       pickup_address: returnData.pickup_address || returnData.address || 'Customer Address',
       pickup_address_2: returnData.pickup_landmark || '',
-      pickup_city: returnData.pickup_city || returnData.city || 'Kolkata',
-      pickup_state: returnData.pickup_state || returnData.state || 'West Bengal',
+      pickup_city: returnData.pickup_city || returnData.city || '',
+      pickup_state: returnData.pickup_state || returnData.state || '',
       pickup_country: 'India',
-      pickup_pincode: String(returnData.pickup_pincode || returnData.pincode || '700001').replace(/\D/g, '').slice(0, 6),
-      pickup_email: returnData.customer_email || 'customer@zebalpha.com',
-      pickup_phone: String(returnData.customer_phone || returnData.phone || '9999999999').replace(/\D/g, '').slice(0, 10),
+      pickup_pincode: returnPickupPin,
+      pickup_email: returnData.customer_email || '',
+      pickup_phone: returnCustPhone,
       shipping_customer_name: returnData.warehouse_name || 'ZEBALPHA Return Hub',
       shipping_address: returnData.warehouse_address || 'Merchant Warehouse Hub',
-      shipping_city: returnData.warehouse_city || 'Kolkata',
-      shipping_state: returnData.warehouse_state || 'West Bengal',
+      shipping_city: returnData.warehouse_city || '',
+      shipping_state: returnData.warehouse_state || '',
       shipping_country: 'India',
-      shipping_pincode: String(returnData.warehouse_pincode || '700001').replace(/\D/g, '').slice(0, 6),
-      shipping_phone: String(returnData.warehouse_phone || '9999999999').replace(/\D/g, '').slice(0, 10),
+      shipping_pincode: returnWarehousePin,
+      shipping_phone: returnWhPhone,
       order_items: (returnData.items || []).map((item, idx) => ({
         name: item.name || 'Returned Item',
         sku: item.sku || `RET-${idx}-${Date.now()}`,

@@ -394,32 +394,57 @@ export async function pushOrderToShiprocket(orderDetails: PushOrderParams) {
       hsn: item.hsn ? String(item.hsn) : "",
     }));
 
+    const rawShipPin = String(shipping.pincode || shipping.postcode || billing.pincode || billing.postcode || "").replace(/\D/g, "").slice(0, 6);
+    const rawBillPin = String(billing.pincode || billing.postcode || rawShipPin).replace(/\D/g, "").slice(0, 6);
+    if (!rawShipPin || rawShipPin.length !== 6) {
+      throw new Error("A valid 6-digit shipping PIN code is required to dispatch the order.");
+    }
+
+    const cleanShipPhone = String(shipping.phone || billing.phone || "").replace(/\D/g, "").slice(0, 10);
+    const cleanBillPhone = String(billing.phone || shipping.phone || cleanShipPhone).replace(/\D/g, "").slice(0, 10);
+    if (!cleanShipPhone || cleanShipPhone.length !== 10) {
+      throw new Error("A valid 10-digit recipient phone number is required to dispatch the order.");
+    }
+
+    const shipEmail = (shipping.email || billing.email || "").trim();
+    const billEmail = (billing.email || shipping.email || shipEmail).trim();
+    const shipCity = (shipping.city || billing.city || "").trim();
+    const billCity = (billing.city || shipping.city || shipCity).trim();
+    const shipState = (shipping.state || billing.state || "").trim();
+    const billState = (billing.state || shipping.state || shipState).trim();
+    const shipAddress = (shipping.address_line1 || shipping.address || billing.address_line1 || billing.address || "").trim();
+    const billAddress = (billing.address_line1 || billing.address || shipAddress).trim();
+
+    if (!shipAddress || !shipCity || !shipState) {
+      throw new Error("Complete recipient address, city, and state are required to dispatch the order.");
+    }
+
     const payload = {
       order_id: String(orderDetails.order_id),
       order_date: orderDetails.order_date || new Date().toISOString().replace("T", " ").substring(0, 19),
       pickup_location: String(orderDetails.pickup_location || "Primary").substring(0, 36),
       comment: orderDetails.comment || "E-commerce Website Order",
-      billing_customer_name: (billing.first_name || billing.name || "Customer").substring(0, 100),
-      billing_last_name: (billing.last_name || "").substring(0, 100),
-      billing_address: (billing.address_line1 || billing.address || "Street Address").substring(0, 255),
+      billing_customer_name: (billing.first_name || billing.name || shipping.first_name || shipping.name || "Customer").substring(0, 100),
+      billing_last_name: (billing.last_name || shipping.last_name || "").substring(0, 100),
+      billing_address: billAddress.substring(0, 255),
       billing_address_2: (billing.address_line2 || "").substring(0, 255),
-      billing_city: (billing.city || "Kolkata").substring(0, 100),
-      billing_pincode: String(billing.pincode || billing.postcode || "700001").replace(/\D/g, "").slice(0, 6),
-      billing_state: (billing.state || "West Bengal").substring(0, 100),
-      billing_country: (billing.country || "India").substring(0, 100),
-      billing_email: (billing.email || "customer@example.com").substring(0, 100),
-      billing_phone: String(billing.phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+      billing_city: billCity.substring(0, 100),
+      billing_pincode: rawBillPin,
+      billing_state: billState.substring(0, 100),
+      billing_country: (billing.country || shipping.country || "India").substring(0, 100),
+      billing_email: billEmail.substring(0, 100),
+      billing_phone: cleanBillPhone,
       shipping_is_billing: orderDetails.shipping_is_billing !== false ? 1 : 0,
-      shipping_customer_name: (shipping.first_name || shipping.name || "Customer").substring(0, 100),
-      shipping_last_name: (shipping.last_name || "").substring(0, 100),
-      shipping_address: (shipping.address_line1 || shipping.address || "Street Address").substring(0, 255),
+      shipping_customer_name: (shipping.first_name || shipping.name || billing.first_name || billing.name || "Customer").substring(0, 100),
+      shipping_last_name: (shipping.last_name || billing.last_name || "").substring(0, 100),
+      shipping_address: shipAddress.substring(0, 255),
       shipping_address_2: (shipping.address_line2 || "").substring(0, 255),
-      shipping_city: (shipping.city || "Kolkata").substring(0, 100),
-      shipping_pincode: String(shipping.pincode || shipping.postcode || "700001").replace(/\D/g, "").slice(0, 6),
-      shipping_state: (shipping.state || "West Bengal").substring(0, 100),
-      shipping_country: (shipping.country || "India").substring(0, 100),
-      shipping_email: (shipping.email || "customer@example.com").substring(0, 100),
-      shipping_phone: String(shipping.phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+      shipping_city: shipCity.substring(0, 100),
+      shipping_pincode: rawShipPin,
+      shipping_state: shipState.substring(0, 100),
+      shipping_country: (shipping.country || billing.country || "India").substring(0, 100),
+      shipping_email: shipEmail.substring(0, 100),
+      shipping_phone: cleanShipPhone,
       order_items: items,
       payment_method: isCOD ? "COD" : "Prepaid",
       shipping_charges: Number(orderDetails.shipping_charges || 0),

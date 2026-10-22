@@ -45,21 +45,28 @@ export async function POST(req: Request) {
       const pincodeMatch = addressStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || addressStr.match(/\b(\d{6})\b/);
       if (pincodeMatch) extractedPin = pincodeMatch[1];
     }
-    const pincode = String(extractedPin || "700001").replace(/\D/g, "").slice(0, 6);
+    const pincode = String(extractedPin || "").replace(/\D/g, "").slice(0, 6);
+    if (!pincode || pincode.length !== 6) {
+      return NextResponse.json({ success: false, error: "A valid 6-digit delivery PIN code is required to dispatch shipment." }, { status: 400 });
+    }
 
     let extractedCity = order.city || rawAddressObj.city;
     if (!extractedCity && addressStr) {
       const cityMatch = addressStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
       if (cityMatch) extractedCity = cityMatch[1].trim();
     }
-    const city = extractedCity || "Kolkata";
+    const city = (extractedCity || "").trim();
 
     let extractedState = order.state || rawAddressObj.state;
     if (!extractedState && addressStr) {
       const stateMatch = addressStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
       if (stateMatch) extractedState = stateMatch[1].trim();
     }
-    const state = extractedState || "West Bengal";
+    const state = (extractedState || "").trim();
+
+    if (!city || !state) {
+      return NextResponse.json({ success: false, error: "Delivery city and state are required to dispatch shipment." }, { status: 400 });
+    }
 
     const shiprocketPayload = {
       order_id: `AS-ORD-${order.id}`,

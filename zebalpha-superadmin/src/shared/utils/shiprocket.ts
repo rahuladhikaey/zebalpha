@@ -90,26 +90,45 @@ export async function getShiprocketPickupLocations(token: string): Promise<any[]
 export async function addShiprocketPickupLocation(token: string, locationData: {
   pickup_location: string;
   name: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   address: string;
   address_2?: string;
   city: string;
   state: string;
   country?: string;
-  pin_code: string;
+  pin_code?: string;
+  pincode?: string;
+  contact_phone?: string;
+  contact_email?: string;
 }) {
+  const cleanPin = String(locationData.pin_code || "").replace(/\D/g, "").slice(0, 6);
+  if (!cleanPin || cleanPin.length !== 6) {
+    throw new Error("A valid 6-digit PIN code is required to register a seller pickup location.");
+  }
+
+  const cleanPhone = String(locationData.phone || "").replace(/\D/g, "").slice(0, 10);
+  if (!cleanPhone || cleanPhone.length !== 10) {
+    throw new Error("A valid 10-digit contact phone number is required to register a seller pickup location.");
+  }
+
+  const locCity = (locationData.city || "").trim();
+  const locState = (locationData.state || "").trim();
+  if (!locCity || !locState) {
+    throw new Error("City and State are required to register a seller pickup location.");
+  }
+
   const payload = {
     pickup_location: String(locationData.pickup_location || "Warehouse").slice(0, 36),
-    name: locationData.name || "Merchant Dispatch Hub",
-    email: locationData.email || "seller@zebalpha.com",
-    phone: String(locationData.phone || "9999999999").replace(/\D/g, "").slice(0, 10),
-    address: locationData.address || "Merchant Address",
-    address_2: locationData.address_2 || "",
-    city: locationData.city || "Kolkata",
-    state: locationData.state || "West Bengal",
-    country: locationData.country || "India",
-    pin_code: String(locationData.pin_code || "700001").replace(/\D/g, "").slice(0, 6),
+    name: (locationData.name || "Merchant Hub").slice(0, 30),
+    email: (locationData.email || "").trim(),
+    phone: cleanPhone,
+    address: (locationData.address || "").slice(0, 80),
+    address_2: (locationData.address_2 || "").slice(0, 80),
+    city: locCity.slice(0, 30),
+    state: locState.slice(0, 30),
+    country: "India",
+    pin_code: cleanPin,
   };
 
   const response = await fetch(`${SHIPROCKET_API}/settings/company/addpickup`, {
@@ -337,27 +356,42 @@ export async function trackShipment(token: string, awbCode: string) {
  * POST /v1/external/orders/create/return
  */
 export async function createShiprocketReturnOrder(token: string, returnData: any) {
-  const payload = {
-    order_id: String(returnData.order_id || returnData.order_number),
-    order_date: new Date().toISOString().split("T")[0],
-    channel_id: "",
-    pickup_customer_name: returnData.customer_name || "Customer",
-    pickup_last_name: "",
-    pickup_address: returnData.pickup_address || "Customer Address",
-    pickup_address_2: returnData.pickup_landmark || "",
-    pickup_city: returnData.pickup_city || "City",
-    pickup_state: returnData.pickup_state || "State",
-    pickup_country: "India",
-    pickup_pincode: String(returnData.pickup_pincode || "700001").replace(/\D/g, "").slice(0, 6),
-    pickup_email: returnData.customer_email || "customer@zebalpha.com",
-    pickup_phone: String(returnData.customer_phone || "9999999999").replace(/\D/g, "").slice(0, 10),
-    shipping_customer_name: returnData.warehouse_name || "Seller Return Hub",
-    shipping_address: returnData.warehouse_address || "Merchant Warehouse",
-    shipping_city: returnData.warehouse_city || "City",
-    shipping_state: returnData.warehouse_state || "State",
-    shipping_country: "India",
-    shipping_pincode: String(returnData.warehouse_pincode || "700001").replace(/\D/g, "").slice(0, 6),
-    shipping_phone: String(returnData.warehouse_phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+    const returnPickupPin = String(returnData.pickup_pincode || returnData.pincode || "").replace(/\D/g, "").slice(0, 6);
+    if (!returnPickupPin || returnPickupPin.length !== 6) {
+      throw new Error("A valid 6-digit customer pickup PIN code is required for return shipment.");
+    }
+    const returnWarehousePin = String(returnData.warehouse_pincode || "").replace(/\D/g, "").slice(0, 6);
+    if (!returnWarehousePin || returnWarehousePin.length !== 6) {
+      throw new Error("A valid 6-digit destination warehouse PIN code is required for return shipment.");
+    }
+
+    const returnCustPhone = String(returnData.customer_phone || returnData.phone || "").replace(/\D/g, "").slice(0, 10);
+    if (!returnCustPhone || returnCustPhone.length !== 10) {
+      throw new Error("A valid 10-digit customer phone number is required for return pickup.");
+    }
+    const returnWhPhone = String(returnData.warehouse_phone || returnCustPhone).replace(/\D/g, "").slice(0, 10);
+
+    const payload = {
+      order_id: String(returnData.order_id || returnData.order_number),
+      order_date: new Date().toISOString().split("T")[0],
+      channel_id: "",
+      pickup_customer_name: returnData.customer_name || "Customer",
+      pickup_last_name: "",
+      pickup_address: returnData.pickup_address || "Customer Address",
+      pickup_address_2: returnData.pickup_landmark || "",
+      pickup_city: returnData.pickup_city || "",
+      pickup_state: returnData.pickup_state || "",
+      pickup_country: "India",
+      pickup_pincode: returnPickupPin,
+      pickup_email: returnData.customer_email || "",
+      pickup_phone: returnCustPhone,
+      shipping_customer_name: returnData.warehouse_name || "Seller Return Hub",
+      shipping_address: returnData.warehouse_address || "Merchant Warehouse",
+      shipping_city: returnData.warehouse_city || "",
+      shipping_state: returnData.warehouse_state || "",
+      shipping_country: "India",
+      shipping_pincode: returnWarehousePin,
+      shipping_phone: returnWhPhone,
     order_items: (returnData.items || []).map((item: any, idx: number) => ({
       name: item.name || "Returned Item",
       sku: item.sku || `RET-${idx}-${Date.now()}`,

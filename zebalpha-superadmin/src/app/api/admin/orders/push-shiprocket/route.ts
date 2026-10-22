@@ -180,25 +180,39 @@ export async function POST(req: Request) {
             const pinMatch = addressStr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || addressStr.match(/\b(\d{6})\b/);
             if (pinMatch) extractedPin = pinMatch[1];
           }
-          const pincode = String(extractedPin || "700001").replace(/\D/g, "").slice(0, 6);
+          const pincode = String(extractedPin || "").replace(/\D/g, "").slice(0, 6);
+          if (!pincode || pincode.length !== 6) {
+            throw new Error(`Order #${order.order_number || order.id} has no valid 6-digit delivery PIN code.`);
+          }
 
           let extractedCity = order.city || rawAddressObj.city || rawAddressObj.village;
           if (!extractedCity && addressStr) {
             const cityMatch = addressStr.match(/(?:Vill|Village|City|Town)\s*[:\-]\s*([^,]+)/i);
             if (cityMatch) extractedCity = cityMatch[1].trim();
           }
-          const city = extractedCity || "Kolkata";
+          const city = (extractedCity || "").trim();
 
           let extractedState = order.state || rawAddressObj.state;
           if (!extractedState && addressStr) {
             const stateMatch = addressStr.match(/(?:P\.O|PO|State)\s*[:\-]\s*([^,]+)/i);
             if (stateMatch) extractedState = stateMatch[1].trim();
           }
-          const state = extractedState || "West Bengal";
+          const state = (extractedState || "").trim();
+
+          if (!city || !state) {
+            throw new Error(`Order #${order.order_number || order.id} is missing delivery city or state.`);
+          }
 
           const customerName = order.customer_name || rawAddressObj.name || "Customer";
-          const customerAddress = addressStr || rawAddressObj.address_line1 || rawAddressObj.address || "Customer Address";
-          const phone = String(order.phone || rawAddressObj.phone || "9999999999").replace(/\D/g, "").slice(0, 10);
+          const customerAddress = addressStr || rawAddressObj.address_line1 || rawAddressObj.address || "";
+          if (!customerAddress) {
+            throw new Error(`Order #${order.order_number || order.id} is missing delivery street address.`);
+          }
+
+          const phone = String(order.phone || rawAddressObj.phone || "").replace(/\D/g, "").slice(0, 10);
+          if (!phone || phone.length !== 10) {
+            throw new Error(`Order #${order.order_number || order.id} has no valid 10-digit customer phone number.`);
+          }
 
           const isCOD = (order.payment_method || "").toUpperCase() === "COD";
 

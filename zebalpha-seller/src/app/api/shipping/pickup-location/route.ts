@@ -42,9 +42,9 @@ export async function GET(req: Request) {
           name: loc.name || loc.location_name || "Primary Warehouse",
           phone: loc.phone || loc.contact_phone || "",
           address_line1: loc.address_line1 || loc.address || loc.pickup_address || "Warehouse Address",
-          city: loc.city || "City",
-          state: loc.state || "State",
-          pincode: loc.pincode || "700001",
+          city: loc.city || "",
+          state: loc.state || "",
+          pincode: loc.pincode || "",
           is_default: Boolean(loc.is_default),
         }));
       }
@@ -62,9 +62,9 @@ export async function GET(req: Request) {
           name: `${callerSeller.business_name || callerSeller.store_name || callerSeller.full_name || "Primary"} Warehouse`,
           phone: callerSeller.mobile_number || callerSeller.phone_number || callerSeller.phone || "",
           address_line1: address || "Warehouse Address",
-          city: callerSeller.city || "City",
-          state: callerSeller.state || "State",
-          pincode: callerSeller.pincode || "700001",
+          city: callerSeller.city || "",
+          state: callerSeller.state || "",
+          pincode: callerSeller.pincode || "",
           is_default: true,
         }];
       }
@@ -131,9 +131,9 @@ export async function POST(req: Request) {
         pickup_address: address_line1.trim(),
         pickup_location: address_line1.trim(),
         warehouse_address: address_line1.trim(),
-        city: city ? city.trim() : "City",
-        state: state ? state.trim() : "State",
-        pincode: pincode ? pincode.trim() : "700001",
+        city: city ? city.trim() : "",
+        state: state ? state.trim() : "",
+        pincode: pincode ? pincode.trim() : "",
         mobile_number: phone.trim(),
         phone_number: phone.trim(),
         status: "approved",
@@ -156,9 +156,9 @@ export async function POST(req: Request) {
       name: name || "Primary Warehouse",
       phone: phone.trim(),
       address_line1: address_line1.trim(),
-      city: city ? city.trim() : "City",
-      state: state ? state.trim() : "State",
-      pincode: pincode ? pincode.trim() : "700001",
+      city: city ? city.trim() : "",
+      state: state ? state.trim() : "",
+      pincode: pincode ? pincode.trim() : "",
       is_default: is_default !== undefined ? is_default : true,
     };
 
@@ -173,9 +173,9 @@ export async function POST(req: Request) {
           phone: phone.trim(),
           address: address_line1.trim(),
           address_line1: address_line1.trim(),
-          city: city ? city.trim() : "City",
-          state: state ? state.trim() : "State",
-          pincode: pincode ? pincode.trim() : "700001",
+          city: city ? city.trim() : "",
+          state: state ? state.trim() : "",
+          pincode: pincode ? pincode.trim() : "",
           is_default: true,
         }]);
     } catch (insertErr: any) {

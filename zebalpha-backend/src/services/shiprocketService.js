@@ -54,17 +54,33 @@ export const addShiprocketPickupLocation = async (locationData) => {
       safeAddress = `Plot No. 1, ${safeAddress}`;
     }
 
+    const cleanPin = String(locationData.pincode || locationData.pin_code || '').replace(/\D/g, '').slice(0, 6);
+    if (!cleanPin || cleanPin.length !== 6) {
+      throw new Error('A valid 6-digit PIN code is required to register a seller pickup location.');
+    }
+
+    const cleanPhone = String(locationData.contact_phone || locationData.phone || '').replace(/\D/g, '').slice(0, 10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      throw new Error('A valid 10-digit contact phone number is required to register a seller pickup location.');
+    }
+
+    const locCity = (locationData.city || '').trim();
+    const locState = (locationData.state || '').trim();
+    if (!locCity || !locState) {
+      throw new Error('City and State are required to register a seller pickup location.');
+    }
+
     const payload = {
       pickup_location: String(locationData.location_name || `Seller_${locationData.seller_id}`).slice(0, 36),
-      name: (locationData.contact_name || locationData.name || 'Merchant Dispatch Hub').slice(0, 30),
-      email: locationData.contact_email || locationData.email || 'seller@zebalpha.com',
-      phone: String(locationData.contact_phone || locationData.phone || '9999999999').replace(/\D/g, '').slice(0, 10),
+      name: (locationData.contact_name || locationData.name || 'Merchant Hub').slice(0, 30),
+      email: (locationData.contact_email || locationData.email || '').trim(),
+      phone: cleanPhone,
       address: safeAddress.slice(0, 80),
       address_2: (locationData.address_line2 || locationData.landmark || '').slice(0, 80),
-      city: (locationData.city || 'Kolkata').slice(0, 30),
-      state: (locationData.state || 'West Bengal').slice(0, 30),
+      city: locCity.slice(0, 30),
+      state: locState.slice(0, 30),
       country: 'India',
-      pin_code: String(locationData.pincode || '700001').replace(/\D/g, '').slice(0, 6)
+      pin_code: cleanPin
     };
 
     const response = await axios.post(`${SHIPROCKET_BASE_URL}/settings/company/addpickup`, payload, {

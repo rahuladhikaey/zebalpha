@@ -107,20 +107,20 @@ export default function SellerAddressesPage() {
       } else {
         // 3. If no pickup locations exist, seed one directly from seller profile
         const addr = seller?.pickup_address || seller?.warehouse_address || seller?.pickup_location;
-        if (seller && (addr || seller.city || seller.pincode)) {
+        if (seller && (addr || seller.pincode) && (seller.phone_number || seller.mobile_number)) {
           const autoLocPayload = {
             seller_id: activeSellerId,
             location_name: `${seller.business_name || "Main"} Warehouse`,
             name: `${seller.business_name || "Main"} Warehouse`,
             contact_name: seller.owner_name || seller.full_name || "Merchant",
-            contact_phone: seller.phone_number || seller.mobile_number || "9999999999",
-            phone: seller.phone_number || seller.mobile_number || "9999999999",
-            contact_email: seller.email || user.email,
-            address_line1: addr || "Merchant Dispatch Hub",
-            address: addr || "Merchant Dispatch Hub",
-            city: seller.city || "Kolkata",
-            state: seller.state || "West Bengal",
-            pincode: seller.pincode || "700001",
+            contact_phone: seller.phone_number || seller.mobile_number || "",
+            phone: seller.phone_number || seller.mobile_number || "",
+            contact_email: seller.email || user.email || "",
+            address_line1: addr || "",
+            address: addr || "",
+            city: seller.city || "",
+            state: seller.state || "",
+            pincode: seller.pincode || "",
             is_default: true,
             is_active: true,
             approval_status: "approved",
@@ -477,11 +477,11 @@ export default function SellerAddressesPage() {
                   <div className="grid grid-cols-2 gap-2 text-[11px] text-zinc-400 font-bold">
                     <span className="flex items-center gap-1.5 truncate">
                       <Phone size={13} className="text-zinc-500 shrink-0" />
-                      <span className="font-mono text-white">{addr.contact_phone || addr.phone || "9999999999"}</span>
+                      <span className="font-mono text-white">{addr.contact_phone || addr.phone || "—"}</span>
                     </span>
                     <span className="flex items-center gap-1.5 truncate">
                       <Mail size={13} className="text-zinc-500 shrink-0" />
-                      <span className="truncate">{addr.contact_email || addr.email || "seller@zebalpha.com"}</span>
+                      <span className="truncate">{addr.contact_email || addr.email || "—"}</span>
                     </span>
                   </div>
                 </div>

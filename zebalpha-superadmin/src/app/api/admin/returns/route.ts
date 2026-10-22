@@ -73,23 +73,38 @@ export async function PATCH(req: Request) {
               ? orderData.shipping_address
               : {};
 
+            const custPin = String(customerAddr.pincode || customerAddr.postal_code || orderData.pincode || "").replace(/\D/g, "").slice(0, 6);
+            const whPin = String(pickupLoc?.pincode || "").replace(/\D/g, "").slice(0, 6);
+            const custPhone = String(orderData.phone || customerAddr.phone || "").replace(/\D/g, "").slice(0, 10);
+            const whPhone = String(pickupLoc?.contact_phone || pickupLoc?.phone || custPhone).replace(/\D/g, "").slice(0, 10);
+
+            if (!custPin || custPin.length !== 6) {
+              return NextResponse.json({ success: false, error: "Customer address lacks a valid 6-digit pickup PIN code." }, { status: 400 });
+            }
+            if (!whPin || whPin.length !== 6) {
+              return NextResponse.json({ success: false, error: "Seller return warehouse lacks a valid 6-digit PIN code." }, { status: 400 });
+            }
+            if (!custPhone || custPhone.length !== 10) {
+              return NextResponse.json({ success: false, error: "Customer record lacks a valid 10-digit contact phone number." }, { status: 400 });
+            }
+
             const returnPayload = {
               order_id: `RET-${orderData.order_number || orderData.id}`,
               order_number: `RET-${orderData.order_number || orderData.id}`,
               customer_name: orderData.customer_name || customerAddr.full_name || customerAddr.name || "Customer",
-              customer_email: orderData.email || "customer@zebalpha.com",
-              customer_phone: String(orderData.phone || customerAddr.phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+              customer_email: orderData.email || "",
+              customer_phone: custPhone,
               pickup_address: customerAddr.address_line1 || customerAddr.address || orderData.address || "Customer Doorstep",
               pickup_landmark: customerAddr.landmark || customerAddr.address_line2 || "",
-              pickup_city: customerAddr.city || "City",
-              pickup_state: customerAddr.state || "State",
-              pickup_pincode: String(customerAddr.pincode || customerAddr.postal_code || orderData.pincode || "700001").replace(/\D/g, "").slice(0, 6),
+              pickup_city: customerAddr.city || "",
+              pickup_state: customerAddr.state || "",
+              pickup_pincode: custPin,
               warehouse_name: pickupLoc?.location_name || "Seller Return Hub",
               warehouse_address: pickupLoc?.address_line1 || "Merchant Warehouse",
-              warehouse_city: pickupLoc?.city || "City",
-              warehouse_state: pickupLoc?.state || "State",
-              warehouse_pincode: String(pickupLoc?.pincode || "700001").replace(/\D/g, "").slice(0, 6),
-              warehouse_phone: String(pickupLoc?.contact_phone || "9999999999").replace(/\D/g, "").slice(0, 10),
+              warehouse_city: pickupLoc?.city || "",
+              warehouse_state: pickupLoc?.state || "",
+              warehouse_pincode: whPin,
+              warehouse_phone: whPhone,
               items: orderData.return_items || orderData.items || [],
               refund_amount: Number(orderData.refund_amount || orderData.total_amount) || 0,
               weight: 0.5,
