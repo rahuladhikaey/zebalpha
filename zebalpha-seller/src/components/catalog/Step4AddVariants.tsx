@@ -836,17 +836,45 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
 
   const updateMeasurementCell = (sizeName: string, colName: string, val: string) => {
     const currentRows = formData.size_measurements || [];
+    const cLower = colName.toLowerCase().trim();
     let found = false;
     const nextRows = currentRows.map((r) => {
       if ((r.size || "").toLowerCase() === sizeName.toLowerCase()) {
         found = true;
-        return { ...r, [colName]: val };
+        const updated = { ...r, [colName]: val };
+        if (cLower === "chest" || cLower === "bust") {
+          updated.bust_chest = val;
+          updated.chest = val;
+          updated.bust = val;
+        } else if (cLower === "waist") {
+          updated.waist = val;
+        } else if (cLower === "shoulder") {
+          updated.shoulder = val;
+        } else if (cLower === "length") {
+          updated.length = val;
+        } else if (cLower === "hip") {
+          updated.hip = val;
+        } else if (cLower === "sleeve") {
+          updated.sleeve_length = val;
+          updated.sleeve = val;
+        } else if (cLower === "inseam") {
+          updated.inseam = val;
+        } else if (cLower === "thigh") {
+          updated.thigh = val;
+        }
+        return updated;
       }
       return r;
     });
 
     if (!found) {
-      nextRows.push({ size: sizeName, [colName]: val });
+      const newRow: any = { size: sizeName, [colName]: val };
+      if (cLower === "chest" || cLower === "bust") {
+        newRow.bust_chest = val;
+        newRow.chest = val;
+        newRow.bust = val;
+      }
+      nextRows.push(newRow);
     }
 
     onChange({ size_measurements: nextRows });
@@ -2010,7 +2038,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                             <td key={col} className="py-2 px-3">
                               <input
                                 type="text"
-                                value={rowData[col] || ""}
+                                value={rowData[col] ?? (col.toLowerCase() === "chest" || col.toLowerCase() === "bust" ? (rowData.bust_chest || rowData.chest || rowData.bust) : "") ?? ""}
                                 onChange={(e) =>
                                   updateMeasurementCell(sz, col, e.target.value)
                                 }

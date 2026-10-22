@@ -339,15 +339,15 @@ export default function CatalogUploadWizardModal({
       const loadedChartImage: string = existingSizeChart?.chart_image || "";
       const loadedMeasurements: SizeMeasurementDetail[] = Array.isArray(existingSizeChart?.rows)
         ? existingSizeChart.rows.map((r: any) => ({
-            size: r.size,
-            bust_chest: r.bust_chest || r.chest || r.bust || "",
-            waist: r.waist || "",
-            shoulder: r.shoulder || "",
-            length: r.length || "",
-            hip: r.hip || "",
-            sleeve_length: r.sleeve_length || r.sleeve || "",
-            inseam: r.inseam || "",
-            thigh: r.thigh || "",
+            size: r.size || r.Size || "",
+            bust_chest: r.bust_chest || r.chest || r.bust || r.Chest || r.Bust || "",
+            waist: r.waist || r.Waist || "",
+            shoulder: r.shoulder || r.Shoulder || "",
+            length: r.length || r.Length || "",
+            hip: r.hip || r.Hip || "",
+            sleeve_length: r.sleeve_length || r.sleeve || r.Sleeve || "",
+            inseam: r.inseam || r.Inseam || "",
+            thigh: r.thigh || r.Thigh || "",
             ...r,
           }))
         : [];
@@ -885,10 +885,92 @@ export default function CatalogUploadWizardModal({
 
       // Save size measurements if enabled
       if (form.is_measurements_enabled && form.size_measurements && form.size_measurements.length > 0) {
+        // Dynamically compute which measurement columns were actually filled
+        const candidateFieldConfigs = [
+          { key: "bust_chest", aliases: ["chest", "bust", "Chest", "Bust"], label: "Chest" },
+          { key: "waist", aliases: ["Waist"], label: "Waist" },
+          { key: "shoulder", aliases: ["Shoulder"], label: "Shoulder" },
+          { key: "length", aliases: ["Length"], label: "Length" },
+          { key: "hip", aliases: ["Hip"], label: "Hip" },
+          { key: "sleeve_length", aliases: ["sleeve", "Sleeve"], label: "Sleeve" },
+          { key: "inseam", aliases: ["Inseam"], label: "Inseam" },
+          { key: "thigh", aliases: ["Thigh"], label: "Thigh" },
+        ];
+
+        const detectedCols: string[] = [];
+        candidateFieldConfigs.forEach(({ key, aliases, label }) => {
+          const hasVal = form.size_measurements.some((r: any) => {
+            const v = r[key] ?? aliases.map((a) => r[a]).find((val) => val !== undefined);
+            return v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—";
+          });
+          if (hasVal) {
+            detectedCols.push(label);
+          }
+        });
+
+        // Also check any extra custom keys
+        const knownKeys = new Set([
+          "size", "Size", "id", "ID",
+          ...candidateFieldConfigs.map((c) => c.key.toLowerCase()),
+          ...candidateFieldConfigs.flatMap((c) => c.aliases.map((a) => a.toLowerCase())),
+        ]);
+        form.size_measurements.forEach((r: any) => {
+          Object.keys(r).forEach((k) => {
+            if (!knownKeys.has(k.toLowerCase()) && r[k] !== undefined && String(r[k]).trim() !== "" && String(r[k]).trim() !== "—") {
+              const formatted = k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ");
+              if (!detectedCols.includes(formatted)) {
+                detectedCols.push(formatted);
+              }
+            }
+          });
+        });
+
+        const resolvedColumns = detectedCols.length > 0
+          ? detectedCols
+          : (form.size_chart_columns && form.size_chart_columns.length > 0
+              ? form.size_chart_columns
+              : ["Chest", "Length", "Shoulder", "Sleeve"]);
+
+        // Normalize each row with alias coverage so customer storefront, quick view, etc. read seamlessly
+        const normalizedRows = form.size_measurements.map((r: any) => {
+          const chestVal = r.bust_chest || r.chest || r.bust || r.Chest || r.Bust || "";
+          const sleeveVal = r.sleeve_length || r.sleeve || r.Sleeve || "";
+          const waistVal = r.waist || r.Waist || "";
+          const shoulderVal = r.shoulder || r.Shoulder || "";
+          const lengthVal = r.length || r.Length || "";
+          const hipVal = r.hip || r.Hip || "";
+          const inseamVal = r.inseam || r.Inseam || "";
+          const thighVal = r.thigh || r.Thigh || "";
+
+          return {
+            ...r,
+            size: r.size || r.Size || "",
+            bust_chest: chestVal,
+            chest: chestVal,
+            bust: chestVal,
+            Chest: chestVal,
+            waist: waistVal,
+            Waist: waistVal,
+            shoulder: shoulderVal,
+            Shoulder: shoulderVal,
+            length: lengthVal,
+            Length: lengthVal,
+            hip: hipVal,
+            Hip: hipVal,
+            sleeve: sleeveVal,
+            sleeve_length: sleeveVal,
+            Sleeve: sleeveVal,
+            inseam: inseamVal,
+            Inseam: inseamVal,
+            thigh: thighVal,
+            Thigh: thighVal,
+          };
+        });
+
         (specificationsData as any).size_chart = {
           unit: form.measurement_unit || "inches",
-          columns: form.size_chart_columns || ["Chest", "Length", "Shoulder", "Sleeve"],
-          rows: form.size_measurements,
+          columns: resolvedColumns,
+          rows: normalizedRows,
           notes: form.size_chart_notes || "",
           chart_image: form.size_chart_image || "",
         };

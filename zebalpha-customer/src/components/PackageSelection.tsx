@@ -194,22 +194,140 @@ export function PackageSelection({
     return filtered.length > 0 ? filtered : chartRows;
   }, [chartRows, selectedColor, activeSizesForDisplay]);
 
-  // Dynamic columns: prioritize user-defined columns, or inspect row keys
-  const dynamicColumns = useMemo(() => {
-    if (Array.isArray(sizeChart?.columns) && sizeChart.columns.length > 0) {
-      return sizeChart.columns.filter((c) => c && c.toLowerCase() !== "size");
+  // Helper to extract measurement values with alias support across various key naming schemes
+  const getMeasurementValue = (row: any, colName: string) => {
+    if (!row) return "—";
+    const c = (colName || "").toLowerCase().trim();
+
+    // 1. Direct key match (case-insensitive)
+    const directKey = Object.keys(row).find((k) => k.toLowerCase().trim() === c);
+    if (directKey && row[directKey] !== undefined && String(row[directKey]).trim() !== "" && String(row[directKey]).trim() !== "—") {
+      return row[directKey];
     }
+
+    // 2. Chest / Bust aliases (e.g. bust_chest, chest, bust, Chest, Bust)
+    if (c === "chest" || c === "bust" || c.includes("chest") || c.includes("bust")) {
+      const v = row.bust_chest ?? row.chest ?? row.bust ?? row.Chest ?? row.Bust;
+      if (v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—") return v;
+    }
+
+    // 3. Waist aliases
+    if (c === "waist" || c.includes("waist")) {
+      const v = row.waist ?? row.Waist;
+      if (v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—") return v;
+    }
+
+    // 4. Shoulder aliases
+    if (c === "shoulder" || c.includes("shoulder")) {
+      const v = row.shoulder ?? row.Shoulder;
+      if (v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—") return v;
+    }
+
+    // 5. Length aliases
+    if (c === "length" || c.includes("length")) {
+      const v = row.length ?? row.Length;
+      if (v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—") return v;
+    }
+
+    // 6. Hip aliases
+    if (c === "hip" || c.includes("hip")) {
+      const v = row.hip ?? row.Hip;
+      if (v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—") return v;
+    }
+
+    // 7. Sleeve aliases
+    if (c === "sleeve" || c.includes("sleeve")) {
+      const v = row.sleeve_length ?? row.sleeve ?? row.Sleeve ?? row["Sleeve Length"];
+      if (v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—") return v;
+    }
+
+    // 8. Inseam aliases
+    if (c === "inseam" || c.includes("inseam")) {
+      const v = row.inseam ?? row.Inseam;
+      if (v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—") return v;
+    }
+
+    // 9. Thigh aliases
+    if (c === "thigh" || c.includes("thigh")) {
+      const v = row.thigh ?? row.Thigh;
+      if (v !== undefined && String(v).trim() !== "" && String(v).trim() !== "—") return v;
+    }
+
+    return row[colName] ?? "—";
+  };
+
+  // Dynamic columns: detect all columns that actually contain data across the size rows
+  const dynamicColumns = useMemo(() => {
+    const standardCandidates = [
+      { label: "Chest", check: ["chest", "bust_chest", "bust", "Chest", "Bust"] },
+      { label: "Waist", check: ["waist", "Waist"] },
+      { label: "Shoulder", check: ["shoulder", "Shoulder"] },
+      { label: "Length", check: ["length", "Length"] },
+      { label: "Hip", check: ["hip", "Hip"] },
+      { label: "Sleeve", check: ["sleeve", "sleeve_length", "Sleeve"] },
+      { label: "Inseam", check: ["inseam", "Inseam"] },
+      { label: "Thigh", check: ["thigh", "Thigh"] },
+    ];
+
     if (chartRows.length > 0) {
       const detected = new Set<string>();
+
+      // Check standard candidates that have at least one populated cell
+      standardCandidates.forEach(({ label }) => {
+        const hasData = chartRows.some((r) => {
+          const val = getMeasurementValue(r, label);
+          return val !== undefined && String(val).trim() !== "" && String(val).trim() !== "—";
+        });
+        if (hasData) {
+          detected.add(label);
+        }
+      });
+
+      // Also check explicit columns from sizeChart that have data
+      if (Array.isArray(sizeChart?.columns) && sizeChart.columns.length > 0) {
+        sizeChart.columns.forEach((col) => {
+          if (!col || col.toLowerCase() === "size") return;
+          const hasData = chartRows.some((r) => {
+            const val = getMeasurementValue(r, col);
+            return val !== undefined && String(val).trim() !== "" && String(val).trim() !== "—";
+          });
+          if (hasData) {
+            detected.add(col);
+          }
+        });
+      }
+
+      // Check any arbitrary custom keys across rows
+      const ignoredKeys = new Set([
+        "size",
+        "Size",
+        "id",
+        "ID",
+        ...standardCandidates.flatMap((s) => s.check.map((k) => k.toLowerCase())),
+      ]);
       chartRows.forEach((r) => {
         Object.keys(r).forEach((k) => {
-          if (k.toLowerCase() !== "size" && r[k]) {
-            detected.add(k);
+          if (
+            !ignoredKeys.has(k.toLowerCase()) &&
+            r[k] !== undefined &&
+            String(r[k]).trim() !== "" &&
+            String(r[k]).trim() !== "—"
+          ) {
+            const formatted = k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ");
+            detected.add(formatted);
           }
         });
       });
-      return Array.from(detected);
+
+      if (detected.size > 0) {
+        return Array.from(detected);
+      }
     }
+
+    if (Array.isArray(sizeChart?.columns) && sizeChart.columns.length > 0) {
+      return sizeChart.columns.filter((c) => c && c.toLowerCase() !== "size");
+    }
+
     return ["Chest", "Length", "Shoulder", "Sleeve"];
   }, [sizeChart, chartRows]);
 
@@ -651,10 +769,7 @@ export function PackageSelection({
                         </td>
 
                         {dynamicColumns.map((col) => {
-                          const matchedKey = Object.keys(row).find(
-                            (k) => k.toLowerCase() === col.toLowerCase()
-                          );
-                          const rawVal = matchedKey ? row[matchedKey] : row[col];
+                          const rawVal = getMeasurementValue(row, col);
                           const formatted = formatMeasurement(rawVal);
 
                           return (
