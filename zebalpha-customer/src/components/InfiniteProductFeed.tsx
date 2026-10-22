@@ -8,7 +8,7 @@ import { AddToCartButton } from "./AddToCartButton";
 import { WishlistButton } from "./WishlistButton";
 import { QuickCartButton } from "./QuickCartButton";
 import { supabase } from "@/lib/supabaseClient";
-import { SLIM_PRODUCT_CARD_FIELDS } from "@/hooks/useCatalogQueries";
+import { SLIM_PRODUCT_CARD_FIELDS, getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 
 interface InfiniteProductFeedProps {
   initialProducts: Product[];
@@ -181,10 +181,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
       {/* Product Grid */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-5">
         {products.map((product, idx) => {
-          const hasDiscount = Boolean(product.mrp && product.mrp > product.price);
-          const effectiveMrp = hasDiscount ? product.mrp! : 0;
-          const discountAmount = hasDiscount ? effectiveMrp - product.price : 0;
-          const discountPercent = hasDiscount ? Math.round((discountAmount / effectiveMrp) * 100) : 0;
+          const { price: displayPrice, mrp: displayMrp, hasDiscount, discountAmount, discountPercent } = getProductDisplayPricing(product);
 
           return (
             <article
@@ -242,11 +239,11 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                   <div className="flex flex-col">
                     <div className="flex items-baseline gap-2 flex-wrap">
                       <span className="text-base sm:text-lg font-black text-white tracking-tight">
-                        ₹{product.price}
+                        ₹{displayPrice}
                       </span>
                       {hasDiscount && (
                         <span className="text-xs font-semibold text-neutral-400 line-through">
-                          ₹{effectiveMrp}
+                          ₹{displayMrp}
                         </span>
                       )}
                     </div>

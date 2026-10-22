@@ -586,14 +586,21 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
               return sum + (!isNaN(qty) && qty > 0 ? qty : 0);
             }, 0);
 
-            const autoPrice = validSellingPrices.length > 0 ? Math.min(...validSellingPrices) : 0;
-            const autoMrp = validMrps.length > 0 ? Math.max(...validMrps) : autoPrice;
-            const autoReturn = validReturns.length > 0 ? Math.min(...validReturns) : 0;
+            const firstRow = newDetails[0];
+            const autoPrice = firstRow && parseFloat(firstRow.selling_price) > 0
+              ? parseFloat(firstRow.selling_price)
+              : (validSellingPrices[0] || 0);
+            const autoMrp = firstRow && parseFloat(firstRow.mrp) > 0
+              ? parseFloat(firstRow.mrp)
+              : (validMrps[0] || autoPrice);
+            const autoReturn = firstRow && parseFloat(firstRow.return_price) > 0
+              ? parseFloat(firstRow.return_price)
+              : (validReturns[0] || 0);
 
             onChange({
               size_details: newDetails,
               price: autoPrice > 0 ? String(autoPrice) : formData.price,
-              mrp: autoMrp > 0 ? String(autoMrp) : (autoPrice > 0 ? String(autoPrice) : formData.mrp),
+              mrp: autoMrp > 0 ? String(autoMrp >= autoPrice ? autoMrp : autoPrice) : (autoPrice > 0 ? String(autoPrice) : formData.mrp),
               defective_returns_price: autoReturn > 0 ? String(autoReturn) : formData.defective_returns_price,
               single_stock: String(totalStock || 20),
             });

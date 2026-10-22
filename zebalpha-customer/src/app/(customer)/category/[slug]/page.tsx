@@ -10,6 +10,7 @@ import { resolveCategoryAeo, CATEGORY_AEO_CATALOG } from "@/lib/aeo-geo/category
 import { buildBreadcrumbSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGenerator";
 import { createClient } from "@supabase/supabase-js";
 import { Sparkles, ArrowRight, ShieldCheck, Tag, Ruler } from "lucide-react";
+import { getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://qjpahzstldiatfbutvfc.supabase.co",
@@ -78,7 +79,7 @@ async function getCategoryProducts(slug: string) {
 
     const { data } = await supabase
       .from("products")
-      .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications")
+      .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications, packages")
       .eq("is_active", true)
       .ilike("name", `%${keyword}%`)
       .limit(16);
@@ -88,7 +89,7 @@ async function getCategoryProducts(slug: string) {
     // Fallback: fetch recent active products
     const fallback = await supabase
       .from("products")
-      .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications")
+      .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications, packages")
       .eq("is_active", true)
       .limit(12);
 
@@ -246,7 +247,7 @@ export default async function CategoryPage({ params }: PageProps) {
               <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-5">
                 {products.map((p) => {
                   const img = (Array.isArray(p.images) && p.images[0]) || p.image_url;
-                  const discountPct = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
+                  const { price: displayPrice, mrp: displayMrp, hasDiscount, discountPercent } = getProductDisplayPricing(p);
                   return (
                     <article
                       key={p.id}
@@ -261,9 +262,9 @@ export default async function CategoryPage({ params }: PageProps) {
                             loading="lazy"
                           />
                         )}
-                        {discountPct > 0 && (
+                        {hasDiscount && (
                           <div className="absolute top-2.5 left-2.5 bg-white text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[10px] shadow-lg">
-                            {discountPct}% OFF
+                            {discountPercent}% OFF
                           </div>
                         )}
                       </Link>
@@ -280,11 +281,11 @@ export default async function CategoryPage({ params }: PageProps) {
                         </div>
                         <div className="flex items-baseline gap-2 pt-1 border-t border-neutral-800/80">
                           <span className="text-sm sm:text-base font-black text-white">
-                            ₹{p.price}
+                            ₹{displayPrice}
                           </span>
-                          {p.mrp && p.mrp > p.price && (
+                          {hasDiscount && (
                             <span className="text-[10px] font-semibold text-neutral-500 line-through">
-                              ₹{p.mrp}
+                              ₹{displayMrp}
                             </span>
                           )}
                         </div>

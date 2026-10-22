@@ -15,7 +15,7 @@ import { QuickCartButton } from "@/components/QuickCartButton";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 import { Search, ShoppingBag, Sparkles } from "lucide-react";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
-import { useCategories, usePaginatedProducts, useDebounce, DEFAULT_CLOTHING_CATEGORIES } from "@/hooks/useCatalogQueries";
+import { useCategories, usePaginatedProducts, useDebounce, DEFAULT_CLOTHING_CATEGORIES, getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 import { useQueryClient } from "@tanstack/react-query";
 
 const getCategoryEmojiOrIcon = (name: string) => {
@@ -248,9 +248,7 @@ function ProductsContent() {
               <>
                 <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1440px]:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-6">
                   {filtered.map((product, idx) => {
-                    const discountPercent = product.mrp && product.mrp > product.price
-                      ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
-                      : 0;
+                    const { price: displayPrice, mrp: displayMrp, hasDiscount, discountAmount, discountPercent } = getProductDisplayPricing(product);
                     return (
                       <article key={product.id} className="group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800">
                         {/* Auto-sliding Image Holder */}
@@ -283,17 +281,17 @@ function ProductsContent() {
                           <div className="mt-3.5 space-y-2.5">
                             <div className="flex flex-col">
                               <div className="flex items-baseline gap-1.5 flex-wrap">
-                                <span className="text-sm sm:text-base font-black text-white">₹{product.price}</span>
-                                {product.mrp && product.mrp > product.price && (
+                                <span className="text-sm sm:text-base font-black text-white">₹{displayPrice}</span>
+                                {hasDiscount && (
                                   <span className="text-[10px] font-bold text-zinc-400 line-through">
-                                    ₹{product.mrp}
+                                    ₹{displayMrp}
                                   </span>
                                 )}
                               </div>
                               
-                              {discountPercent > 0 && (
+                              {hasDiscount && (
                                 <span className="text-[9px] font-black uppercase text-zinc-300 bg-white/10 border border-white/10 px-2 py-0.5 rounded-full inline-block w-fit mt-1">
-                                  Save ₹{product.mrp! - product.price}
+                                  Save ₹{discountAmount}
                                 </span>
                               )}
                             </div>

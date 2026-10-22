@@ -91,8 +91,11 @@ export default function ProductDetailTemplate({
       if (pkg.stock === undefined || Number(pkg.stock) > 0) {
         grp.isAvailable = true;
       }
-      if (pkg.price < grp.basePrice) grp.basePrice = pkg.price;
-      if (pkg.mrp && pkg.mrp > grp.baseMrp) grp.baseMrp = pkg.mrp;
+      // Keep price and MRP strictly paired to the lowest-priced variant so discount is never distorted
+      if (pkg.price < grp.basePrice) {
+        grp.basePrice = pkg.price;
+        grp.baseMrp = pkg.mrp || pkg.price;
+      }
 
       const pkgGallery = Array.isArray(pkg.gallery) && pkg.gallery.length > 0
         ? pkg.gallery.filter(Boolean)
@@ -346,17 +349,37 @@ export default function ProductDetailTemplate({
     return specs.country_of_origin || specs.origin || "India";
   }, [product.specifications]);
 
-  // Initial color: The Main / Default Product Color is ALWAYS loaded first (Req #1)
+  // Initial color & size: The Main / Default Product Color is ALWAYS loaded first (Req #1)
+  const initialGroup = useMemo(() => {
+    return (
+      colorGroups.find((g) => g.colorName.toLowerCase() === defaultColorName.toLowerCase()) ||
+      colorGroups[0] ||
+      null
+    );
+  }, [colorGroups, defaultColorName]);
+
+  const initialVariant = useMemo(() => {
+    if (!initialGroup || initialGroup.variants.length === 0) return null;
+    return (
+      initialGroup.variants.find((v) => v.stock === undefined || Number(v.stock) > 0) ||
+      initialGroup.variants[0] ||
+      null
+    );
+  }, [initialGroup]);
+
   const [selectedColor, setSelectedColor] = useState<string>(defaultColorName);
-  const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedSize, setSelectedSize] = useState<string>(() => initialVariant?.size || "");
   const [validationError, setValidationError] = useState<string>("");
 
-  // Sync selectedColor to defaultColorName on mount or when defaultColorName resolves
+  // Sync selectedColor and selectedSize if defaultColorName / initialVariant resolves
   useEffect(() => {
     if (!selectedColor && defaultColorName) {
       setSelectedColor(defaultColorName);
     }
-  }, [defaultColorName, selectedColor]);
+    if (!selectedSize && initialVariant?.size) {
+      setSelectedSize(initialVariant.size);
+    }
+  }, [defaultColorName, selectedColor, initialVariant, selectedSize]);
 
   // Active color group - ONLY active if a color is explicitly selected
   const currentColorGroup = useMemo(() => {

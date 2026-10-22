@@ -182,6 +182,16 @@ export const createProduct = async (req, res, next) => {
       approval_status: isSuperAdmin ? 'approved' : 'pending'
     };
 
+    // Synchronize parent product price and MRP with default/primary package for mathematical consistency
+    if (Array.isArray(sanitizedPayload.packages) && sanitizedPayload.packages.length > 0) {
+      const defaultCol = (raw.default_color || raw.main_color || '').trim().toLowerCase();
+      const primaryPkg = sanitizedPayload.packages.find(p => defaultCol && (p.color || '').trim().toLowerCase() === defaultCol) || sanitizedPayload.packages[0];
+      if (primaryPkg && Number(primaryPkg.price) > 0) {
+        sanitizedPayload.price = Number(primaryPkg.price);
+        sanitizedPayload.mrp = Number(primaryPkg.mrp) > 0 ? Number(primaryPkg.mrp) : sanitizedPayload.price;
+      }
+    }
+
     if (!sanitizedPayload.name) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Product name is required' });
     }
@@ -241,6 +251,16 @@ export const updateProduct = async (req, res, next) => {
     safeFields.forEach(f => {
       if (raw[f] !== undefined) allowedUpdates[f] = raw[f];
     });
+
+    // Synchronize parent product price and MRP with default/primary package for mathematical consistency
+    if (Array.isArray(allowedUpdates.packages) && allowedUpdates.packages.length > 0) {
+      const defaultCol = (raw.default_color || raw.main_color || existing.default_color || '').trim().toLowerCase();
+      const primaryPkg = allowedUpdates.packages.find(p => defaultCol && (p.color || '').trim().toLowerCase() === defaultCol) || allowedUpdates.packages[0];
+      if (primaryPkg && Number(primaryPkg.price) > 0) {
+        allowedUpdates.price = Number(primaryPkg.price);
+        allowedUpdates.mrp = Number(primaryPkg.mrp) > 0 ? Number(primaryPkg.mrp) : allowedUpdates.price;
+      }
+    }
 
     // Only SUPER_ADMIN can modify approval statuses
     if (isSuperAdmin) {

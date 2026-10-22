@@ -456,16 +456,23 @@ export default function CatalogUploadWizardModal({
           0
         );
 
-        if (validPrices.length > 0) {
-          merged.price = String(Math.min(...validPrices));
-        }
-        if (validMrps.length > 0) {
-          merged.mrp = String(Math.max(...validMrps));
-        } else if (merged.price) {
-          merged.mrp = merged.price;
+        const primaryRow = updates.size_details[0];
+        const primaryPrice = primaryRow && parseFloat(primaryRow.selling_price) > 0
+          ? parseFloat(primaryRow.selling_price)
+          : (validPrices[0] || 0);
+        const primaryMrp = primaryRow && parseFloat(primaryRow.mrp) > 0
+          ? parseFloat(primaryRow.mrp)
+          : (validMrps[0] || primaryPrice);
+
+        if (primaryPrice > 0) {
+          merged.price = String(primaryPrice);
+          merged.mrp = String(primaryMrp >= primaryPrice ? primaryMrp : primaryPrice);
+        } else if (validPrices.length > 0) {
+          merged.price = String(validPrices[0]);
+          merged.mrp = String(validMrps[0] || validPrices[0]);
         }
         if (validReturns.length > 0) {
-          merged.defective_returns_price = String(Math.min(...validReturns));
+          merged.defective_returns_price = String(validReturns[0]);
         }
         if (totalStock > 0) {
           merged.single_stock = String(totalStock);
@@ -993,33 +1000,6 @@ export default function CatalogUploadWizardModal({
       const hasSizeDetails = form.size_details && form.size_details.length > 0;
       const hasVariants = form.has_variants && processedVariants.length > 0;
 
-      // Price and MRP resolution (derive strictly from size details or variants)
-      let effectivePrice = 0;
-      if (hasSizeDetails) {
-        const prices = form.size_details.map((sd) => parseFloat(sd.selling_price) || 0).filter((p) => p > 0);
-        if (prices.length > 0) effectivePrice = Math.min(...prices);
-      }
-      if (!effectivePrice && hasVariants) {
-        const prices = processedVariants.map((v) => parseFloat(v.price) || 0).filter((p) => p > 0);
-        if (prices.length > 0) effectivePrice = Math.min(...prices);
-      }
-      if (!effectivePrice) {
-        effectivePrice = parseFloat(form.price) || 0;
-      }
-
-      let effectiveMrp = 0;
-      if (hasSizeDetails) {
-        const mrps = form.size_details.map((sd) => parseFloat(sd.mrp) || 0).filter((m) => m > 0);
-        if (mrps.length > 0) effectiveMrp = Math.max(...mrps);
-      }
-      if (!effectiveMrp && hasVariants) {
-        const mrps = processedVariants.map((v) => parseFloat(v.mrp) || 0).filter((m) => m > 0);
-        if (mrps.length > 0) effectiveMrp = Math.max(...mrps);
-      }
-      if (!effectiveMrp) {
-        effectiveMrp = parseFloat(form.mrp) || effectivePrice;
-      }
-
       // Resolve Main / Default Product Color (Req #1)
       const activeDefaultCol = (
         form.default_color ||
@@ -1040,7 +1020,27 @@ export default function CatalogUploadWizardModal({
       // Synchronize parent product cover image & gallery with the Main / Default Color
       const defaultVariant = sortedVariants.find(
         (v) => (v.color || "").trim().toLowerCase() === activeDefaultCol.toLowerCase()
-      );
+      ) || sortedVariants[0];
+
+      // Synchronize parent product price and MRP strictly with the primary default variant
+      // to ensure 100% mathematical consistency with the storefront catalog cards & PDP
+      let effectivePrice = 0;
+      let effectiveMrp = 0;
+
+      if (defaultVariant && parseFloat(defaultVariant.price) > 0) {
+        effectivePrice = parseFloat(defaultVariant.price);
+        effectiveMrp = parseFloat(defaultVariant.mrp) || effectivePrice;
+      } else if (hasSizeDetails && form.size_details[0] && parseFloat(form.size_details[0].selling_price) > 0) {
+        effectivePrice = parseFloat(form.size_details[0].selling_price);
+        effectiveMrp = parseFloat(form.size_details[0].mrp) || effectivePrice;
+      } else {
+        effectivePrice = parseFloat(form.price) || 0;
+        effectiveMrp = parseFloat(form.mrp) || effectivePrice;
+      }
+
+      if (effectiveMrp < effectivePrice) {
+        effectiveMrp = effectivePrice;
+      }
       const defaultColorCover = defaultVariant?.image_url || defaultVariant?.gallery?.[0] || coverImageUrl;
       const defaultColorGallery = defaultVariant?.gallery && defaultVariant.gallery.length > 0
         ? defaultVariant.gallery
