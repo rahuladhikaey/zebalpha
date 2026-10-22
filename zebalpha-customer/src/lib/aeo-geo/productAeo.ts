@@ -125,9 +125,10 @@ export function extractProductAeoData(product: any): ProductAeoData {
   const countryOfOrigin = specs.country_of_origin || "India";
 
   const brand = (product.brand || ZEBALPHA_BRAND_ENTITY.brand).trim();
-  const categoryName = product.category_name || specs.category || "Streetwear";
+  const categoryName = product.category_name || specs.category || "Apparel";
   const categorySlug = categoryName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const sellerName = product.seller_name || product.business_name || ZEBALPHA_BRAND_ENTITY.name;
+  const rawSeller = product.seller_name || product.business_name || product.brand || ZEBALPHA_BRAND_ENTITY.name;
+  const sellerName = rawSeller.replace(/\b(warehouse|godown)\b/gi, "Store").trim();
 
   // 3. Crisp, direct AEO Answer focused on exact facts (not promotional fluff)
   const colorsList = Array.from(allColorsSet);
@@ -137,35 +138,32 @@ export function extractProductAeoData(product: any): ProductAeoData {
   const sizesText = sizesList.length > 0 ? sizesList.join(", ") : "Standard";
   const priceDisplay = minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice} - ₹${maxPrice}`;
 
-  const shortDirectAnswer = `${product.name} by ${brand} is a ${categoryName} crafted from ${material} (${gsm}) with a ${fitType}${neckType ? `, ${neckType}` : ""}${sleeveType ? `, and ${sleeveType}` : ""}. Available in ${colorsText} across sizes ${sizesText} priced at ${priceDisplay} with pan-India dispatch in ${ZEBALPHA_BRAND_ENTITY.dispatchTimeHours}.`;
+  const shortDirectAnswer = `${product.name} by ${brand} is crafted from ${material} with a comfortable ${fitType}${neckType ? `, ${neckType}` : ""}${sleeveType ? `, and ${sleeveType}` : ""}. Available in sizes ${sizesText} at ${priceDisplay} with express delivery across India.`;
 
-  // 4. Dynamic FAQs based STRICTLY on real product data & marketplace policies
+  // 4. Dynamic FAQs based STRICTLY on real product data & marketplace policies (Clean consumer questions)
   const faqs: FaqItem[] = [
     {
-      question: `What material is the ${product.name} made of?`,
-      answer: `This garment is made of ${material}${gsm ? ` with a fabric weight of ${gsm}` : ""}. It is designed for durability, breathability, and lasting comfort.`,
+      question: `What fabric and material is used in this garment?`,
+      answer: `This item is crafted from genuine ${material} with a ${fitType}. It is breathable, soft on skin, and designed for long-lasting everyday comfort.`,
       category: "Material & Fabric"
     },
     {
-      question: `What sizes and colors are currently in stock for ${product.name}?`,
-      answer: colorVariants.map(cv => {
-        const avail = cv.availableSizes.length > 0 ? cv.availableSizes.join(", ") : "Currently out of stock";
-        return `${cv.color}: Available in [${avail}]`;
-      }).join("; "),
-      category: "Sizing & Stock"
+      question: `How do I choose the right size and fit?`,
+      answer: `We recommend selecting your standard regular size (${sizesText}). Check the size selector above for available chest and length measurements to ensure the ideal fit.`,
+      category: "Sizing & Fit"
     },
     {
-      question: `What is the return and exchange policy for this item?`,
-      answer: `ZEBALPHA provides a ${ZEBALPHA_BRAND_ENTITY.returnWindowDays}-day exchange and return window from the date of delivery. Items must be unwashed, unworn, and retain all original tags.`,
+      question: `What is the return and exchange policy?`,
+      answer: `ZEBALPHA provides a ${ZEBALPHA_BRAND_ENTITY.returnWindowDays}-day hassle-free exchange and return window from the date of delivery. Items must be unwashed, unworn, and retain all original tags.`,
       category: "Returns & Exchanges"
     },
     {
-      question: `How long does shipping take and is cash on delivery available?`,
-      answer: `Orders are dispatched within ${ZEBALPHA_BRAND_ENTITY.dispatchTimeHours}. Pan-India express delivery typically takes 2 to 5 business days. Free shipping applies on orders over ₹${ZEBALPHA_BRAND_ENTITY.freeShippingThreshold}, and Cash on Delivery (COD) is supported.`,
+      question: `How long does shipping take and is Cash on Delivery (COD) supported?`,
+      answer: `Orders are dispatched within ${ZEBALPHA_BRAND_ENTITY.dispatchTimeHours}. Express pan-India delivery typically takes 2 to 5 business days. Free shipping applies on eligible orders, and Cash on Delivery (COD) is supported.`,
       category: "Shipping & Delivery"
     },
     {
-      question: `How should I wash and care for the ${product.name}?`,
+      question: `What are the garment care and wash instructions?`,
       answer: `${careInstructions}`,
       category: "Garment Care"
     }
@@ -225,6 +223,6 @@ export function extractProductAeoData(product: any): ProductAeoData {
     faqs,
     canonicalUrl: `https://zebalpha.shop/products/${product.id}`,
     sellerName,
-    sellerLocation: product.seller_city ? `${product.seller_city}, India` : "India",
+    sellerLocation: "India",
   };
 }

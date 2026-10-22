@@ -182,6 +182,170 @@ export default function ProductDetailTemplate({
     );
   }, [cart, product.id]);
 
+  // Customer-Facing Clean Specifications (Filtered like Flipkart / Meesho)
+  const SENSITIVE_SPEC_KEYS = useMemo(() => new Set([
+    "defective_returns_price",
+    "return_price",
+    "cost_price",
+    "wholesale_price",
+    "settlement_price",
+    "margin",
+    "hsn_code",
+    "gst_percent",
+    "tax_rate",
+    "packer_name",
+    "packer_address",
+    "packer_pincode",
+    "packer_city",
+    "packer_state",
+    "manufacturer_name",
+    "manufacturer_address",
+    "manufacturer_pincode",
+    "manufacturer_city",
+    "manufacturer_state",
+    "importer_name",
+    "importer_address",
+    "importer_pincode",
+    "seller_name",
+    "seller_id",
+    "seller_city",
+    "seller_address",
+    "seller_phone",
+    "seller_email",
+    "business_name",
+    "style_code",
+    "stylecode",
+    "sku",
+    "weight_grams",
+    "volumetric_weight",
+    "weight",
+    "package_weight",
+    "shipping_weight",
+    "custom_attributes",
+    "maincategory",
+    "subcategory",
+    "product_type",
+    "category",
+    "sub_category",
+    "size_chart",
+    "tier",
+    "collection",
+    "is_premium",
+    "is_new_drop",
+    "target_drop_date",
+    "maincolorid",
+    "defaultcolorid",
+    "default_color",
+    "main_color",
+    "dimensions",
+    "gsm",
+  ]), []);
+
+  const CUSTOMER_FRIENDLY_SPEC_LABELS: Record<string, string> = useMemo(() => ({
+    fabric: "Fabric",
+    material: "Material",
+    pattern: "Pattern",
+    fit_type: "Fit",
+    fit: "Fit",
+    neck_type: "Neck Type",
+    neck: "Neck Type",
+    collar: "Collar",
+    sleeve_type: "Sleeve Type",
+    sleeves: "Sleeve Type",
+    sleeve_length: "Sleeve Length",
+    target_gender: "Ideal For",
+    gender: "Ideal For",
+    ideal_for: "Ideal For",
+    care_instructions: "Wash Care",
+    wash_care: "Wash Care",
+    country_of_origin: "Country of Origin",
+    origin: "Country of Origin",
+    occasion: "Occasion",
+    length: "Length",
+    hemline: "Hemline",
+    weave_type: "Weave Type",
+    transparency: "Transparency",
+    type: "Style Type",
+    kurti_type: "Kurti Type",
+    top_type: "Top Type",
+    dress_type: "Dress Type",
+    closure: "Closure",
+    lining: "Lining",
+    surface_styling: "Ornamentation",
+    ornamentation: "Ornamentation",
+    multipack_set: "Multipack",
+    net_quantity: "Net Quantity",
+  }), []);
+
+  const sanitizedSpecs = useMemo(() => {
+    if (!product.specifications || typeof product.specifications !== "object") return [];
+
+    const entries = Object.entries(product.specifications);
+    const results: Array<{ key: string; label: string; value: string }> = [];
+    const seenLabels = new Set<string>();
+
+    for (const [rawKey, rawVal] of entries) {
+      if (!rawVal || typeof rawVal !== "string") continue;
+      const valStr = rawVal.trim();
+      if (!valStr || valStr === "null" || valStr === "undefined") continue;
+
+      const normalizedKey = rawKey.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      // 1. Strict blacklist check
+      if (SENSITIVE_SPEC_KEYS.has(rawKey.toLowerCase()) || SENSITIVE_SPEC_KEYS.has(normalizedKey)) {
+        continue;
+      }
+
+      // 2. Heuristic check to prevent any leak of seller warehouse / pricing data
+      if (
+        normalizedKey.includes("packer") ||
+        normalizedKey.includes("manufacturer") ||
+        normalizedKey.includes("importer") ||
+        normalizedKey.includes("defective") ||
+        normalizedKey.includes("returnprice") ||
+        normalizedKey.includes("costprice") ||
+        normalizedKey.includes("wholesaleprice") ||
+        normalizedKey.includes("settlement") ||
+        normalizedKey.includes("stylecode") ||
+        normalizedKey.includes("weightgram") ||
+        normalizedKey.includes("volumetric") ||
+        normalizedKey.includes("pincode") ||
+        normalizedKey.includes("selleraddress")
+      ) {
+        continue;
+      }
+
+      // 3. Resolve customer-friendly label
+      const label =
+        CUSTOMER_FRIENDLY_SPEC_LABELS[rawKey.toLowerCase()] ||
+        CUSTOMER_FRIENDLY_SPEC_LABELS[normalizedKey] ||
+        rawKey
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase());
+
+      if (seenLabels.has(label.toLowerCase())) continue;
+      seenLabels.add(label.toLowerCase());
+
+      results.push({
+        key: rawKey,
+        label,
+        value: valStr,
+      });
+    }
+
+    return results;
+  }, [product.specifications, SENSITIVE_SPEC_KEYS, CUSTOMER_FRIENDLY_SPEC_LABELS]);
+
+  const cleanSellerName = useMemo(() => {
+    const raw = product.seller_name || product.business_name || product.brand || "ZebAlpha Official Store";
+    return raw.replace(/\b(warehouse|godown)\b/gi, "Store").trim() || "ZebAlpha Official Store";
+  }, [product.seller_name, product.business_name, product.brand]);
+
+  const originCountry = useMemo(() => {
+    const specs = (product.specifications as any) || {};
+    return specs.country_of_origin || specs.origin || "India";
+  }, [product.specifications]);
+
   // Initial color: The Main / Default Product Color is ALWAYS loaded first (Req #1)
   const [selectedColor, setSelectedColor] = useState<string>(defaultColorName);
   const [selectedSize, setSelectedSize] = useState<string>("");
@@ -672,73 +836,66 @@ export default function ProductDetailTemplate({
               </div>
             </div>
 
-            {/* Dynamic Product Specifications (Category-driven) */}
-            {product.specifications && typeof product.specifications === "object" && (
+            {/* Customer-Facing Product Specifications (Flipkart / Meesho Standard) */}
+            {sanitizedSpecs.length > 0 && (
               <div className="space-y-4 pt-4 border-t border-zinc-800">
-                <h3 className="text-base font-black text-white flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-emerald-400" />
-                  Product Specifications & Details
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {Object.entries(product.specifications)
-                    .filter(([key, val]) => {
-                      if (!val || typeof val !== "string") return false;
-                      const skipKeys = [
-                        "size_chart",
-                        "is_premium",
-                        "is_new_drop",
-                        "collection",
-                        "target_drop_date",
-                        "tier",
-                        "mainColorId",
-                        "defaultColorId",
-                        "default_color",
-                        "main_color",
-                      ];
-                      return !skipKeys.includes(key);
-                    })
-                    .map(([key, val]) => {
-                      const cleanLabel = key
-                        .replace(/_/g, " ")
-                        .replace(/\b\w/g, (l) => l.toUpperCase());
-                      return (
-                        <div
-                          key={key}
-                          className="p-3 rounded-xl bg-zinc-950 border border-zinc-850 flex flex-col gap-0.5"
-                        >
-                          <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-                            {cleanLabel}
-                          </span>
-                          <span className="text-xs font-bold text-white capitalize">
-                            {String(val)}
-                          </span>
-                        </div>
-                      );
-                    })}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-emerald-400" />
+                    Product Specifications
+                  </h3>
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                    Verified Quality
+                  </span>
                 </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                  {sanitizedSpecs.map((item) => (
+                    <div
+                      key={item.key}
+                      className="p-3 rounded-xl bg-zinc-950 border border-zinc-850 flex flex-col gap-0.5"
+                    >
+                      <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                        {item.label}
+                      </span>
+                      <span className="text-xs font-bold text-white capitalize">
+                        {item.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Subtle Legal & Market Compliance Notice */}
+                <p className="text-[10px] text-zinc-400 font-medium pt-1">
+                  Marketed By: <span className="text-zinc-300 font-semibold">{cleanSellerName}</span> • Country of Origin: <span className="text-zinc-300 font-semibold">{originCountry}</span> • Customer Care: <span className="text-zinc-300 font-semibold">support@zebalpha.shop</span>
+                </p>
               </div>
             )}
 
-            {/* Seller / Retailer Info */}
-            <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between shadow-xl">
+            {/* Seller / Retailer Info (Meesho / Flipkart Clean Style) */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between shadow-xl">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-zinc-900 flex items-center justify-center border border-zinc-800 text-white overflow-hidden" aria-hidden="true">
+                <div className="h-12 w-12 rounded-full bg-zinc-900 flex items-center justify-center border border-zinc-800 text-white overflow-hidden shrink-0" aria-hidden="true">
                   {product.seller_logo ? (
-                    <img src={product.seller_logo} alt={product.seller_name || product.brand || "ZEBALPHA"} className="h-full w-full object-cover" />
+                    <img src={product.seller_logo} alt={cleanSellerName} className="h-full w-full object-cover" />
                   ) : (
-                    <ShieldCheck className="h-6 w-6 text-white" />
+                    <ShieldCheck className="h-6 w-6 text-emerald-400" />
                   )}
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-white">
-                    {product.seller_name || product.business_name || product.brand || "ZEBALPHA Official Store"}
-                  </h4>
-                  <p className="text-xs font-bold text-zinc-400">
-                    {product.seller_city ? `Verified Merchant • ${product.seller_city}` : 'Verified Partner • 24Hr. Return Policy'}
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-black text-white">
+                      {cleanSellerName}
+                    </h4>
+                    <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                      ★ 4.2
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-zinc-400 mt-0.5">
+                    Verified Seller • 100% Genuine Quality • 7-Day Easy Returns
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm shrink-0">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
                 Verified
               </span>

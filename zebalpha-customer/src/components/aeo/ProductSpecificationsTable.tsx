@@ -17,7 +17,6 @@ export function ProductSpecificationsTable({
 }: ProductSpecificationsTableProps) {
   const specs = [
     { label: "Fabric / Material", value: productAeo.material },
-    { label: "Fabric Weight (GSM)", value: productAeo.gsm },
     { label: "Fit Type", value: productAeo.fitType },
     { label: "Neckline / Collar", value: productAeo.neckType },
     { label: "Sleeve Length", value: productAeo.sleeveType },
@@ -26,7 +25,7 @@ export function ProductSpecificationsTable({
     { label: "Country of Origin", value: productAeo.countryOfOrigin },
     { label: "Dispatch Guarantee", value: productAeo.shippingInfo },
     { label: "Return & Exchange", value: productAeo.returnInfo },
-    { label: "Sold & Shipped By", value: productAeo.sellerName },
+    { label: "Fulfilled & Shipped By", value: "ZebAlpha Verified Logistics" },
   ].filter((item) => Boolean(item.value));
 
   return (

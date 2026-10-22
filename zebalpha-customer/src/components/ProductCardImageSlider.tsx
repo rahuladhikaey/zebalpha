@@ -66,7 +66,7 @@ export function ProductCardImageSlider({
 
   return (
     <div
-      className="relative aspect-square w-full overflow-hidden bg-neutral-950 group/slider select-none"
+      className={`relative aspect-[3/4] w-full overflow-hidden bg-neutral-950 group/slider select-none ${className}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

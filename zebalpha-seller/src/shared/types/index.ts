@@ -77,8 +77,12 @@ export type OrderPayload = {
 };
 
 export type Category = {
-	id: number;
+	id: number | string;
 	name: string;
+	main_category?: string;
+	description?: string;
+	icon?: string;
+	image_url?: string;
 };
 
 export type UserProfile = {

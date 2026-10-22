@@ -196,9 +196,6 @@ async function RelatedProductsSection({
 
 import { extractProductAeoData } from "@/lib/aeo-geo/productAeo";
 import { buildProductSchema, buildBreadcrumbSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGenerator";
-import { AeoAnswerBox } from "@/components/aeo/AeoAnswerBox";
-import { ProductSpecificationsTable } from "@/components/aeo/ProductSpecificationsTable";
-import { VariantAeoMatrix } from "@/components/aeo/VariantAeoMatrix";
 import { DynamicFaqSection } from "@/components/aeo/DynamicFaqSection";
 import { BreadcrumbsNav } from "@/components/aeo/BreadcrumbsNav";
 import { resolveCategoryAeo } from "@/lib/aeo-geo/categoryAeo";
@@ -322,30 +319,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
           relatedProductsSlot={null}
         />
 
-        {/* AEO / GEO Section: Factual Answer Box */}
+        {/* Customer Help & Dynamic FAQs (Clean E-Commerce Standard) */}
         <div className="mt-12 space-y-8 pb-16">
-          <AeoAnswerBox
-            title={`About the ${aeo.name}`}
-            directAnswer={aeo.shortDirectAnswer}
-            highlightChips={[
-              { label: "Fabric", value: aeo.material },
-              { label: "Weight", value: String(aeo.gsm || "Heavyweight") },
-              { label: "Fit", value: aeo.fitType },
-              { label: "Dispatch", value: "24-48 Hours" },
-              { label: "Exchange", value: "7 Days" }
-            ]}
-          />
-
-          {/* Technical Specifications & Real Variant Stock Availability */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ProductSpecificationsTable productAeo={aeo} />
-            <VariantAeoMatrix colorVariants={aeo.colorVariants} />
-          </div>
-
-          {/* Dynamic Crawlable Product FAQs */}
           <DynamicFaqSection
-            title={`Frequently Asked Questions: ${aeo.name}`}
-            subtitle="Verified technical specifications, sizing accuracy, shipping details, and fabric care"
+            title="Frequently Asked Questions"
+            subtitle="Quick answers about materials, sizing accuracy, delivery and returns"
             faqs={aeo.faqs}
           />
 

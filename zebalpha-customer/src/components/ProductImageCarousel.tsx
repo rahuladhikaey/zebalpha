@@ -121,7 +121,7 @@ export default function ProductImageCarousel({
 
       {/* Main Carousel Container */}
       <div
-        className="relative overflow-hidden rounded-[3rem] bg-white shadow-2xl shadow-slate-200/50"
+        className="relative overflow-hidden rounded-[2.5rem] bg-zinc-950 border border-zinc-800 shadow-2xl"
         onMouseDown={onStart}
         onMouseMove={onMove}
         onMouseUp={onEnd}
@@ -137,15 +137,15 @@ export default function ProductImageCarousel({
           style={{ transform: `translateX(${currentIndex * -100}%)` }}
         >
           {normalizedImages.map((img, idx) => (
-            <div key={idx} className="flex-none w-full p-2">
-              <div className="relative overflow-hidden rounded-[2.5rem] bg-white group shadow-sm border border-slate-100 flex items-center justify-center min-h-[320px] sm:min-h-[450px] md:min-h-[550px] aspect-square w-full">
+            <div key={idx} className="flex-none w-full p-1 sm:p-2">
+              <div className="relative overflow-hidden rounded-[2rem] bg-zinc-950 flex items-center justify-center w-full aspect-[3/4] min-h-[380px] sm:min-h-[500px] md:min-h-[600px] max-h-[750px]">
                 <img
                   src={img || "/placeholder.jpg"}
                   alt={`${productName} - View ${idx + 1}`}
                   loading={idx === 0 ? "eager" : "lazy"}
                   decoding="async"
                   fetchPriority={idx === 0 ? "high" : "low"}
-                  className="h-full w-full object-cover transition-transform duration-500 rounded-[2.5rem]"
+                  className="h-full w-full object-contain transition-transform duration-300"
                 />
               </div>
             </div>

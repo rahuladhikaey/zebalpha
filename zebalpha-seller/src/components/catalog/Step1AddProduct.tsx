@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Upload, X, CheckCircle2, AlertCircle, Layers } from "lucide-react";
 import type { Category } from "@shared/types";
 import {
@@ -43,10 +43,122 @@ export interface Step1Props {
 }
 
 export default function Step1AddProduct({ formData, categories, onChange }: Step1Props) {
-  const [selectedMainCat, setSelectedMainCat] = useState<string>("men");
+  // Infer active main category from category_id, subcategory_name, or product title keywords
+  const inferredMainCat = useMemo(() => {
+    // 1. Check category_id against categories list
+    if (formData.category_id && categories && categories.length > 0) {
+      const matchedCat = categories.find((c) => String(c.id) === String(formData.category_id));
+      if (matchedCat) {
+        const catText = `${matchedCat.main_category || ""} ${matchedCat.name || ""}`.toLowerCase();
+        if (catText.includes("women") || catText.includes("female") || catText.includes("ladies")) return "women";
+        if (catText.includes("kid") || catText.includes("boy") || catText.includes("girl") || catText.includes("baby") || catText.includes("infant")) return "kids";
+        if (catText.includes("footwear") || catText.includes("shoe")) return "men";
+        if (catText.includes("home") || catText.includes("kitchen") || catText.includes("decor")) return "home";
+        if (catText.includes("electronic") || catText.includes("gadget")) return "electronics";
+        if (catText.includes("beauty") || catText.includes("cosmetic")) return "beauty";
+        if (catText.includes("jewel")) return "jewellery";
+        if (catText.includes("men")) return "men";
+      }
+    }
+
+    // 2. Check subcategory_name across DYNAMIC_CATEGORY_CATALOG
+    if (formData.subcategory_name) {
+      const subLower = formData.subcategory_name.toLowerCase().trim();
+      for (const mainCat of DYNAMIC_CATEGORY_CATALOG) {
+        for (const sub of mainCat.subcategories) {
+          if (sub.name.toLowerCase() === subLower) return mainCat.id;
+          for (const pt of sub.productTypes) {
+            if (pt.name.toLowerCase() === subLower || pt.id.toLowerCase() === subLower) {
+              return mainCat.id;
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Check product name or subcategory keywords
+    const combinedText = `${formData.subcategory_name || ""} ${formData.name || ""}`.toLowerCase();
+    if (
+      combinedText.includes("women") ||
+      combinedText.includes("kurti") ||
+      combinedText.includes("saree") ||
+      combinedText.includes("blouse") ||
+      combinedText.includes("lehenga") ||
+      combinedText.includes("gown") ||
+      combinedText.includes("dress")
+    ) {
+      return "women";
+    }
+    if (
+      combinedText.includes("kid") ||
+      combinedText.includes("baby") ||
+      combinedText.includes("infant") ||
+      combinedText.includes("boy") ||
+      combinedText.includes("girl")
+    ) {
+      return "kids";
+    }
+    if (
+      combinedText.includes("bottle") ||
+      combinedText.includes("bedsheet") ||
+      combinedText.includes("kitchen") ||
+      combinedText.includes("cookware")
+    ) {
+      return "home";
+    }
+    if (
+      combinedText.includes("earphone") ||
+      combinedText.includes("headphone") ||
+      combinedText.includes("cable") ||
+      combinedText.includes("electronic")
+    ) {
+      return "electronics";
+    }
+    if (
+      combinedText.includes("serum") ||
+      combinedText.includes("lipstick") ||
+      combinedText.includes("makeup") ||
+      combinedText.includes("skincare")
+    ) {
+      return "beauty";
+    }
+    if (
+      combinedText.includes("jewel") ||
+      combinedText.includes("bangle") ||
+      combinedText.includes("necklace") ||
+      combinedText.includes("ring")
+    ) {
+      return "jewellery";
+    }
+
+    return "men";
+  }, [formData.category_id, formData.subcategory_name, formData.name, categories]);
+
+  const [selectedMainCat, setSelectedMainCat] = useState<string>(() => inferredMainCat);
   const [imageError, setImageError] = useState<string>("");
   const [isCustomSubcategory, setIsCustomSubcategory] = useState<boolean>(false);
   const [customCategoryName, setCustomCategoryName] = useState<string>("");
+
+  // Sync main category if inferred category changes (e.g. when opening product for edit)
+  useEffect(() => {
+    if (inferredMainCat && inferredMainCat !== selectedMainCat) {
+      setSelectedMainCat(inferredMainCat);
+    }
+  }, [inferredMainCat]);
+
+  // If subcategory is custom or not in presets, auto-enable custom subcategory field
+  useEffect(() => {
+    if (formData.subcategory_name) {
+      const isKnown = DYNAMIC_CATEGORY_CATALOG.some((mainCat) =>
+        mainCat.subcategories.some((sub) =>
+          sub.productTypes.some((pt) => pt.name.toLowerCase() === formData.subcategory_name.toLowerCase())
+        )
+      );
+      if (!isKnown && formData.subcategory_name.trim().length > 0) {
+        setIsCustomSubcategory(true);
+      }
+    }
+  }, [formData.subcategory_name]);
 
   // Resolve current active product type configuration dynamically
   const activeProductTypeConfig = useMemo(() => {
@@ -282,6 +394,12 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
                   {pt.group}: {pt.name}
                 </option>
               ))}
+              {formData.subcategory_name &&
+                !activeProductTypesList.some((pt) => pt.name.toLowerCase() === formData.subcategory_name.toLowerCase()) && (
+                  <option value={formData.subcategory_name}>
+                    {formData.subcategory_name}
+                  </option>
+              )}
               <option value="__OTHER__">+ Write Custom Product Type...</option>
             </select>
           ) : (

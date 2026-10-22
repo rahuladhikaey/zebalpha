@@ -173,8 +173,8 @@ export default function SellerProducts() {
         sellerIdsToQuery.push(resolvedSellerId);
       }
 
-      // SLIM VIEWPORT FIELDS: core columns present in public.products
-      const SLIM_SELLER_FIELDS = "id, name, price, mrp, stock, low_stock_limit, sku, image_url, status, is_active, is_approved, approval_status, specifications, seller_id, created_at, categories(name)";
+      // SLIM VIEWPORT FIELDS: include all necessary catalog columns to prevent data starvation on edit
+      const SLIM_SELLER_FIELDS = "id, name, price, mrp, stock, low_stock_limit, sku, image_url, images, category_id, description, packages, brand, status, is_active, is_approved, approval_status, specifications, seller_id, created_at, categories(id, name, main_category)";
 
       // PARALLEL EXECUTION: Fetch products, categories, and curated collections concurrently
       const [productsRes, categoriesRes, curatedRes] = await Promise.all([
@@ -199,7 +199,7 @@ export default function SellerProducts() {
         console.warn("Notice fetching slim fields, retrying with core fields:", productsRes.error.message);
         const { data: fallbackProducts } = await supabase
           .from("products")
-          .select("id, name, price, mrp, stock, sku, image_url, status, is_active, seller_id, created_at")
+          .select("id, name, price, mrp, stock, sku, image_url, images, category_id, description, packages, brand, status, is_active, seller_id, created_at")
           .in("seller_id", sellerIdsToQuery)
           .order("created_at", { ascending: false });
         if (fallbackProducts) productsData = fallbackProducts;
@@ -345,6 +345,27 @@ export default function SellerProducts() {
     });
     setStatusMessage("");
     setIsModalOpen(true);
+  };
+
+  const handleOpenEditWizard = async (product: any) => {
+    if (accountStatus.toLowerCase() === "suspended") {
+      alert("🚫 Your seller account is suspended by Admin. Product modification is disabled.");
+      return;
+    }
+    try {
+      // Fetch complete fresh record to guarantee all images, packages, measurements, and specifications are loaded
+      const { data: fullProduct } = await supabase
+        .from("products")
+        .select("*, categories(id, name, main_category)")
+        .eq("id", product.id)
+        .maybeSingle();
+
+      setEditingProduct(fullProduct || product);
+    } catch (err) {
+      console.error("Failed to load full product for edit:", err);
+      setEditingProduct(product);
+    }
+    setIsWizardModalOpen(true);
   };
 
   const openEditModal = (product: Product) => {
@@ -963,10 +984,7 @@ export default function SellerProducts() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => {
-                            setEditingProduct(product);
-                            setIsWizardModalOpen(true);
-                          }}
+                          onClick={() => handleOpenEditWizard(product)}
                           className="rounded-xl border border-foreground/[0.08] p-2 text-text-secondary hover:bg-foreground/[0.04] hover:text-text-primary transition-all cursor-pointer"
                           title="Edit Product Catalog"
                         >

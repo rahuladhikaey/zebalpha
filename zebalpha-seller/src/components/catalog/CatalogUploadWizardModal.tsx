@@ -197,9 +197,10 @@ export default function CatalogUploadWizardModal({
       }
       const imgList: string[] = Array.isArray(rawImages) && rawImages.length > 0
         ? rawImages.filter(Boolean)
-        : editingProduct.image_url
-        ? [editingProduct.image_url]
         : [];
+      if (editingProduct.image_url && !imgList.includes(editingProduct.image_url)) {
+        imgList.unshift(editingProduct.image_url);
+      }
 
       // Parse existing packages if editing
       let rawPackages = editingProduct.packages;
@@ -282,20 +283,52 @@ export default function CatalogUploadWizardModal({
         )
       );
 
-      const loadedSizeDetails: SizeVariantDetail[] = existingPackages
-        .filter((pkg: any) => pkg.name !== "Standard" || loadedSizes.length > 0)
-        .map((pkg: any) => {
-          const sz = pkg.size || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[1] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[1] : pkg.name || "Free Size");
-          return {
-            id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
-            size: sz,
-            mrp: String(pkg.mrp ?? editingProduct.mrp ?? ""),
-            selling_price: String(pkg.price ?? editingProduct.price ?? ""),
-            inventory: String(pkg.stock ?? 20),
-            sku: pkg.sku || "",
-            return_price: String(pkg.return_price ?? (editingProduct.specifications as any)?.defective_returns_price ?? ""),
-          };
+      // Fallback: If packages had no size names but size_chart has rows or editingProduct has size
+      if (loadedSizes.length === 0 && Array.isArray(specs?.size_chart?.rows)) {
+        specs.size_chart.rows.forEach((r: any) => {
+          if (r.size && !loadedSizes.includes(r.size)) {
+            loadedSizes.push(r.size);
+          }
         });
+      }
+      if (loadedSizes.length === 0 && editingProduct.size) {
+        loadedSizes.push(editingProduct.size);
+      }
+
+      // Deduplicate sizeDetails to ensure one row per unique size in Step 1
+      const seenSizeSet = new Set<string>();
+      const loadedSizeDetails: SizeVariantDetail[] = [];
+      for (const pkg of existingPackages) {
+        if (pkg.name === "Standard" && loadedSizes.length === 0) continue;
+        const sz = pkg.size || (pkg.name?.includes(" / ") ? pkg.name.split(" / ")[1] : pkg.name?.includes(" - ") ? pkg.name.split(" - ")[1] : pkg.name || "Free Size");
+        if (seenSizeSet.has(sz)) continue;
+        seenSizeSet.add(sz);
+        loadedSizeDetails.push({
+          id: String(pkg.id || Math.random().toString(36).substring(2, 9)),
+          size: sz,
+          mrp: String(pkg.mrp ?? editingProduct.mrp ?? ""),
+          selling_price: String(pkg.price ?? editingProduct.price ?? ""),
+          inventory: String(pkg.stock ?? 20),
+          sku: pkg.sku || "",
+          return_price: String(pkg.return_price ?? (editingProduct.specifications as any)?.defective_returns_price ?? ""),
+        });
+      }
+
+      // If loadedSizes has sizes that were not yet in loadedSizeDetails, backfill them
+      for (const sz of loadedSizes) {
+        if (!seenSizeSet.has(sz)) {
+          seenSizeSet.add(sz);
+          loadedSizeDetails.push({
+            id: Math.random().toString(36).substring(2, 9),
+            size: sz,
+            mrp: String(editingProduct.mrp || editingProduct.price || ""),
+            selling_price: String(editingProduct.price || ""),
+            inventory: String(editingProduct.stock ?? 20),
+            sku: `${specs?.style_code || 'SKU'}-${sz.toUpperCase()}`,
+            return_price: String(specs?.defective_returns_price || ""),
+          });
+        }
+      }
 
       const existingSizeChart = specs.size_chart;
       const loadedUnit: MeasurementUnit = existingSizeChart?.unit === "cm" ? "cm" : "inches";
@@ -319,10 +352,32 @@ export default function CatalogUploadWizardModal({
           }))
         : [];
 
+      let subcatCandidate = (
+        specs?.subcategory_name ||
+        specs?.subcategory ||
+        editingProduct.category ||
+        (Array.isArray(editingProduct.categories) ? editingProduct.categories[0]?.name : editingProduct.categories?.name) ||
+        ""
+      );
+      if (!subcatCandidate && editingProduct.name) {
+        const inferredPt = resolveProductTypeConfig("", editingProduct.name);
+        if (inferredPt && inferredPt.name && inferredPt.name !== "General Product") {
+          subcatCandidate = inferredPt.name;
+        }
+      }
+
+      let finalCatId = String(editingProduct.category_id || "");
+      if (!finalCatId && categories && categories.length > 0) {
+        const matched = categories.find((c: any) =>
+          subcatCandidate && c.name?.toLowerCase().includes(subcatCandidate.toLowerCase())
+        );
+        if (matched?.id) finalCatId = String(matched.id);
+      }
+
       setForm({
-        category_id: String(editingProduct.category_id || ""),
+        category_id: finalCatId,
         subcategory_id: "",
-        subcategory_name: editingProduct.category || "",
+        subcategory_name: subcatCandidate,
         images: imgList,
         front_image_index: 0,
         name: editingProduct.name || "",
