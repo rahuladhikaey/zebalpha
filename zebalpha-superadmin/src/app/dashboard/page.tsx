@@ -276,9 +276,19 @@ export default function AdminPage() {
   }, [isSidebarOpen]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-    router.push("/");
+    try {
+      await supabase.auth.signOut();
+    } catch (_) {}
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("zebalpha_admin_saved_key1");
+      localStorage.removeItem("zebalpha_admin_saved_key2");
+      localStorage.removeItem("zebalpha_access_token");
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_active_tab");
+      document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      window.location.href = "/";
+    }
   };
 
   if (loading) {

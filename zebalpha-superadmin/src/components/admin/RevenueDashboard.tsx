@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { supabaseA as supabase } from "@shared/utils/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 import { apiService } from "@/services/apiService";
 import { 
   TrendingUp, 
@@ -101,32 +101,64 @@ export default function RevenueDashboard() {
       try {
         const res = await apiService.getRevenueSummary(params);
         if (res?.success && res.data) {
-          setRevenueData(res.data);
+          const d = res.data;
+          setRevenueData((prev) => ({
+            ...prev,
+            todayRevenue: Number(d.todayRevenue ?? d.today_revenue ?? prev.todayRevenue ?? 0),
+            yesterdayRevenue: Number(d.yesterdayRevenue ?? d.yesterday_revenue ?? prev.yesterdayRevenue ?? 0),
+            thisWeekRevenue: Number(d.thisWeekRevenue ?? d.this_week_revenue ?? prev.thisWeekRevenue ?? 0),
+            lastWeekRevenue: Number(d.lastWeekRevenue ?? d.last_week_revenue ?? prev.lastWeekRevenue ?? 0),
+            thisMonthRevenue: Number(d.thisMonthRevenue ?? d.this_month_revenue ?? prev.thisMonthRevenue ?? 0),
+            lastMonthRevenue: Number(d.lastMonthRevenue ?? d.last_month_revenue ?? prev.lastMonthRevenue ?? 0),
+            thisYearRevenue: Number(d.thisYearRevenue ?? d.this_year_revenue ?? prev.thisYearRevenue ?? 0),
+            lifetimeRevenue: Number(d.lifetimeRevenue ?? d.lifetime_revenue ?? prev.lifetimeRevenue ?? 0),
+            pendingSettlement: Number(d.pendingSettlement ?? d.pending_settlement ?? prev.pendingSettlement ?? 0),
+            paidSettlement: Number(d.paidSettlement ?? d.paid_settlement ?? prev.paidSettlement ?? 0),
+            availableBalance: Number(d.availableBalance ?? d.available_balance ?? prev.availableBalance ?? 0),
+            ordersToday: Number(d.ordersToday ?? d.orders_today ?? prev.ordersToday ?? 0),
+            ordersThisWeek: Number(d.ordersThisWeek ?? d.orders_this_week ?? prev.ordersThisWeek ?? 0),
+            ordersThisMonth: Number(d.ordersThisMonth ?? d.orders_this_month ?? prev.ordersThisMonth ?? 0),
+            ordersThisYear: Number(d.ordersThisYear ?? d.orders_this_year ?? prev.ordersThisYear ?? 0),
+          }));
         }
       } catch (_) {}
 
       // Fetch actual orders and products for real-time Premium vs Standard calculation
-      const [ordersRes, productsRes] = await Promise.all([
-        supabase
-          .from("orders")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(200),
-        supabase
-          .from("products")
-          .select("id, name, is_premium, tier, category_id, specifications")
-      ]);
+      let fetchedOrders: any[] = [];
+      let fetchedProducts: any[] = [];
 
-      const fetchedOrders = ordersRes.data || [];
-      let fetchedProducts = productsRes.data || [];
-      if (productsRes.error || fetchedProducts.length === 0) {
-        const { data: fallbackProds } = await supabase.from("products").select("*");
-        if (fallbackProds) fetchedProducts = fallbackProds;
+      try {
+        const [ordersRes, productsRes] = await Promise.all([
+          supabase
+            .from("orders")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(200),
+          supabase
+            .from("products")
+            .select("id, name, is_premium, tier, category_id, specifications")
+        ]);
+
+        if (ordersRes?.data && Array.isArray(ordersRes.data)) {
+          fetchedOrders = ordersRes.data;
+        } else {
+          const directO = await fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] }));
+          if (Array.isArray(directO?.data)) fetchedOrders = directO.data;
+        }
+
+        if (productsRes?.data && Array.isArray(productsRes.data)) {
+          fetchedProducts = productsRes.data;
+        } else {
+          const directP = await fetch("/api/admin/products").then(r => r.json()).catch(() => ({ data: [] }));
+          if (Array.isArray(directP?.data)) fetchedProducts = directP.data;
+        }
+      } catch (err) {
+        console.warn("Direct query error fallback:", err);
       }
 
       const premiumProductIdSet = new Set(
-        fetchedProducts
-          .filter(p => p.is_premium === true || p.tier === "PREMIUM" || ((p.specifications as any)?.category && String((p.specifications as any).category).toLowerCase().includes("premium")))
+        (fetchedProducts || [])
+          .filter(p => p && (p.is_premium === true || p.tier === "PREMIUM" || ((p.specifications as any)?.category && String((p.specifications as any).category).toLowerCase().includes("premium"))))
           .map(p => String(p.id))
       );
 
@@ -272,24 +304,39 @@ export default function RevenueDashboard() {
   }, [timeFilter, selectedSellerId]);
 
   // Active revenue calculation considering tier filter
-  const totalRevenueAll = premiumRevenueStats.totalPremiumRevenue + premiumRevenueStats.totalStandardRevenue || revenueData.lifetimeRevenue;
-  const premiumSharePct = totalRevenueAll > 0 
-    ? Math.round((premiumRevenueStats.totalPremiumRevenue / totalRevenueAll) * 100) 
-    : 45;
+  const totalRevenueAll = useMemo(() => {
+    const prem = Number(premiumRevenueStats?.totalPremiumRevenue) || 0;
+    const std = Number(premiumRevenueStats?.totalStandardRevenue) || 0;
+    const lifetime = Number(revenueData?.lifetimeRevenue) || 0;
+    return prem + std || lifetime || 0;
+  }, [premiumRevenueStats, revenueData]);
+
+  const premiumSharePct = useMemo(() => {
+    if (totalRevenueAll <= 0) return 0;
+    const prem = Number(premiumRevenueStats?.totalPremiumRevenue) || 0;
+    return Math.min(100, Math.max(0, Math.round((prem / totalRevenueAll) * 100)));
+  }, [premiumRevenueStats, totalRevenueAll]);
 
   const displayRevenue = useMemo(() => {
-    if (tierFilter === "premium") return premiumRevenueStats.totalPremiumRevenue;
-    if (tierFilter === "standard") return premiumRevenueStats.totalStandardRevenue;
-    return totalRevenueAll;
+    if (tierFilter === "premium") return Number(premiumRevenueStats?.totalPremiumRevenue) || 0;
+    if (tierFilter === "standard") return Number(premiumRevenueStats?.totalStandardRevenue) || 0;
+    return Number(totalRevenueAll) || 0;
   }, [tierFilter, premiumRevenueStats, totalRevenueAll]);
 
   const displayUnits = useMemo(() => {
-    if (tierFilter === "premium") return premiumRevenueStats.premiumUnitsCount;
-    if (tierFilter === "standard") return premiumRevenueStats.standardUnitsCount;
-    return premiumRevenueStats.premiumUnitsCount + premiumRevenueStats.standardUnitsCount;
+    const prem = Number(premiumRevenueStats?.premiumUnitsCount) || 0;
+    const std = Number(premiumRevenueStats?.standardUnitsCount) || 0;
+    if (tierFilter === "premium") return prem;
+    if (tierFilter === "standard") return std;
+    return prem + std;
   }, [tierFilter, premiumRevenueStats]);
 
-  const getMaxVal = (arr: number[]) => Math.max(...arr) || 1;
+  const getMaxVal = (arr: number[]) => {
+    if (!Array.isArray(arr) || arr.length === 0) return 1;
+    const m = Math.max(...arr.map(v => Number(v) || 0));
+    return isFinite(m) && m > 0 ? m : 1;
+  };
+
   const maxRev = getMaxVal(revenueTrend);
   const maxOrd = getMaxVal(orderTrend);
 
@@ -397,10 +444,10 @@ export default function RevenueDashboard() {
             {tierFilter === "premium" ? "💎 Premium Revenue" : tierFilter === "standard" ? "👕 Standard Revenue" : "Total Marketplace Revenue"}
           </span>
           <p className="text-3xl font-black text-white mt-2">
-            ₹{displayRevenue.toLocaleString("en-IN")}
+            ₹{(Number(displayRevenue) || 0).toLocaleString("en-IN")}
           </p>
           <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-zinc-400 pt-2 border-t border-zinc-900">
-            <span>Volume: {displayUnits} units</span>
+            <span>Volume: {displayUnits || 0} units</span>
             <span className="text-emerald-400 font-black flex items-center gap-1">
               <TrendingUp size={12} /> Active
             </span>
@@ -416,11 +463,11 @@ export default function RevenueDashboard() {
             <Sparkles size={11} /> 💎 Premium Store Revenue
           </span>
           <p className="text-3xl font-black text-amber-300 mt-2">
-            ₹{premiumRevenueStats.totalPremiumRevenue.toLocaleString("en-IN")}
+            ₹{(Number(premiumRevenueStats?.totalPremiumRevenue) || 0).toLocaleString("en-IN")}
           </p>
           <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-zinc-400 pt-2 border-t border-zinc-900">
             <span className="text-amber-400/90 font-black">{premiumSharePct}% of Gross Revenue</span>
-            <span>{premiumRevenueStats.premiumUnitsCount} units</span>
+            <span>{premiumRevenueStats?.premiumUnitsCount || 0} units</span>
           </div>
         </div>
 
@@ -433,11 +480,11 @@ export default function RevenueDashboard() {
             👕 Standard Apparel Revenue
           </span>
           <p className="text-3xl font-black text-blue-300 mt-2">
-            ₹{premiumRevenueStats.totalStandardRevenue.toLocaleString("en-IN")}
+            ₹{(Number(premiumRevenueStats?.totalStandardRevenue) || 0).toLocaleString("en-IN")}
           </p>
           <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-zinc-400 pt-2 border-t border-zinc-900">
             <span>{100 - premiumSharePct}% Share</span>
-            <span>{premiumRevenueStats.standardUnitsCount} units</span>
+            <span>{premiumRevenueStats?.standardUnitsCount || 0} units</span>
           </div>
         </div>
 
@@ -450,10 +497,10 @@ export default function RevenueDashboard() {
             Pending Settlements
           </span>
           <p className="text-3xl font-black text-purple-300 mt-2">
-            ₹{revenueData.pendingSettlement.toLocaleString("en-IN")}
+            ₹{(Number(revenueData?.pendingSettlement) || 0).toLocaleString("en-IN")}
           </p>
           <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-zinc-400 pt-2 border-t border-zinc-900">
-            <span className="text-emerald-400 font-bold">Avail: ₹{revenueData.availableBalance.toLocaleString("en-IN")}</span>
+            <span className="text-emerald-400 font-bold">Avail: ₹{(Number(revenueData?.availableBalance) || 0).toLocaleString("en-IN")}</span>
             <span>Weekly Cycle</span>
           </div>
         </div>
@@ -490,13 +537,13 @@ export default function RevenueDashboard() {
         <div className="flex items-center justify-between text-xs font-bold text-zinc-400 pt-1">
           <div className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-amber-400 inline-block" />
-            <span className="text-white font-black">💎 Premium Store Vault: ₹{premiumRevenueStats.totalPremiumRevenue.toLocaleString("en-IN")}</span>
-            <span className="text-zinc-500">({premiumRevenueStats.premiumUnitsCount} units sold)</span>
+            <span className="text-white font-black">💎 Premium Store Vault: ₹{(Number(premiumRevenueStats?.totalPremiumRevenue) || 0).toLocaleString("en-IN")}</span>
+            <span className="text-zinc-500">({premiumRevenueStats?.premiumUnitsCount || 0} units sold)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-blue-500 inline-block" />
-            <span className="text-white font-black">👕 Standard Apparel: ₹{premiumRevenueStats.totalStandardRevenue.toLocaleString("en-IN")}</span>
-            <span className="text-zinc-500">({premiumRevenueStats.standardUnitsCount} units sold)</span>
+            <span className="text-white font-black">👕 Standard Apparel: ₹{(Number(premiumRevenueStats?.totalStandardRevenue) || 0).toLocaleString("en-IN")}</span>
+            <span className="text-zinc-500">({premiumRevenueStats?.standardUnitsCount || 0} units sold)</span>
           </div>
         </div>
       </div>
@@ -528,9 +575,10 @@ export default function RevenueDashboard() {
                 <line x1="0" y1="75%" x2="100%" y2="75%" stroke="#3f3f46" strokeOpacity="0.2" />
 
                 <path
-                  d={revenueTrend.reduce((path, val, index) => {
-                    const x = (index / (revenueTrend.length - 1)) * 100 + "%";
-                    const y = (1 - val / maxRev) * 100 + "%";
+                  d={(revenueTrend || []).reduce((path, val, index) => {
+                    const count = Math.max((revenueTrend?.length || 1) - 1, 1);
+                    const x = (index / count) * 100 + "%";
+                    const y = (1 - (Number(val) || 0) / maxRev) * 100 + "%";
                     return path + `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
                   }, "")}
                   fill="none"
@@ -540,9 +588,10 @@ export default function RevenueDashboard() {
                 />
 
                 <path
-                  d={orderTrend.reduce((path, val, index) => {
-                    const x = (index / (orderTrend.length - 1)) * 100 + "%";
-                    const y = (1 - val / maxOrd) * 100 + "%";
+                  d={(orderTrend || []).reduce((path, val, index) => {
+                    const count = Math.max((orderTrend?.length || 1) - 1, 1);
+                    const x = (index / count) * 100 + "%";
+                    const y = (1 - (Number(val) || 0) / maxOrd) * 100 + "%";
                     return path + `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
                   }, "")}
                   fill="none"
@@ -553,7 +602,7 @@ export default function RevenueDashboard() {
                 />
               </svg>
               <div className="flex justify-between text-[8px] font-black uppercase text-zinc-500 mt-2 px-1">
-                {revenueTrend.map((_, i) => (
+                {(revenueTrend || []).map((_, i) => (
                   <span key={i}>Pt {i + 1}</span>
                 ))}
               </div>
@@ -566,7 +615,7 @@ export default function RevenueDashboard() {
           <h3 className="text-sm font-black text-white uppercase mb-6">Top Selling Segments</h3>
           
           <div className="space-y-4">
-            {topCategories.map((c, i) => (
+            {(topCategories || []).map((c, i) => (
               <div key={i} className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold">
                   <span className="text-zinc-300">{c.name}</span>
@@ -575,7 +624,7 @@ export default function RevenueDashboard() {
                 <div className="h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
                   <div 
                     className={`h-full rounded-full transition-all duration-500 ${
-                      c.name.includes("Premium") ? "bg-amber-400" : "bg-emerald-500"
+                      (c.name || "").includes("Premium") ? "bg-amber-400" : "bg-emerald-500"
                     }`}
                     style={{ width: `${c.percentage}%` }}
                   />
@@ -604,7 +653,7 @@ export default function RevenueDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-900">
-              {topProducts.map((p, i) => (
+              {(topProducts || []).map((p, i) => (
                 <tr key={i} className="hover:bg-zinc-900/40 font-bold transition-colors">
                   <td className="px-6 py-4 text-white font-black">{p.name}</td>
                   <td className="px-6 py-4">
@@ -618,9 +667,9 @@ export default function RevenueDashboard() {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-center text-zinc-400 font-mono">{p.sales} units</td>
+                  <td className="px-6 py-4 text-center text-zinc-400 font-mono">{p.sales || 0} units</td>
                   <td className="px-6 py-4 text-right text-emerald-400 font-mono font-black">
-                    ₹{p.revenue.toLocaleString("en-IN")}
+                    ₹{(Number(p?.revenue) || 0).toLocaleString("en-IN")}
                   </td>
                 </tr>
               ))}
