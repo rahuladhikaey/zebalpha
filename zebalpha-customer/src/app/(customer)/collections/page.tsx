@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { supabase } from "@/lib/supabaseClient";
 import { Product } from "@/lib/types";
 import { ArrowUpRight, Sparkles, Layers, Flame } from "lucide-react";
+import { doesProductMatchCategory } from "@/hooks/useCatalogQueries";
 
 interface CollectionItem {
   id: string;
@@ -133,8 +134,7 @@ export default function CollectionsPage() {
             const matchedProducts = products.filter((p) => {
               if (col.categoryFilter === "premium-store") return p.is_premium || p.tier === "PREMIUM";
               if (col.categoryFilter === "new-drops") return p.is_new_drop || p.status === "COMING_SOON";
-              const catName = (p.category_name || p.category || "").toLowerCase();
-              return catName.includes(col.categoryFilter.toLowerCase());
+              return doesProductMatchCategory(p, col.categoryFilter || col.title);
             });
 
             const totalDisplayCount = matchedProducts.length;
@@ -149,7 +149,7 @@ export default function CollectionsPage() {
                 ? "/premium-store" 
                 : isNewDropsCard 
                   ? "/new-drops" 
-                  : `/products?category=${col.categoryFilter}`;
+                  : `/products?category=${encodeURIComponent(col.categoryFilter)}`;
 
             return (
               <div

@@ -20,11 +20,19 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const getCategoryEmojiOrIcon = (name: string) => {
   const lower = (name || "").toLowerCase();
+  if (lower.includes("kurti") || lower.includes("kurta") || lower.includes("ethnic") || lower.includes("anarkali") || lower.includes("suit")) return "👗";
+  if (lower.includes("saree") || lower.includes("sari") || lower.includes("lehenga")) return "🥻";
+  if (lower.includes("bag") || lower.includes("sling") || lower.includes("crossbody") || lower.includes("tote") || lower.includes("purse") || lower.includes("backpack")) return "👜";
+  if (lower.includes("dress") || lower.includes("gown") || lower.includes("frock") || lower.includes("jumpsuit")) return "💃";
+  if (lower.includes("shoe") || lower.includes("sneaker") || lower.includes("footwear") || lower.includes("boot") || lower.includes("sandal")) return "👟";
+  if (lower.includes("jewel") || lower.includes("necklace") || lower.includes("earring") || lower.includes("bangle")) return "✨";
+  if (lower.includes("beauty") || lower.includes("cosmetic") || lower.includes("makeup") || lower.includes("skincare")) return "💄";
   if (lower.includes("polo")) return "👕";
   if (lower.includes("tee") || lower.includes("t-shirt") || lower.includes("oversized")) return "🛹";
-  if (lower.includes("hoodie") || lower.includes("sweatshirt") || lower.includes("fleece")) return "🧥";
+  if (lower.includes("hoodie") || lower.includes("sweatshirt") || lower.includes("fleece") || lower.includes("jacket")) return "🧥";
   if (lower.includes("shirt")) return "👔";
-  if (lower.includes("pant") || lower.includes("trouser") || lower.includes("cargo") || lower.includes("bottom")) return "👖";
+  if (lower.includes("pant") || lower.includes("trouser") || lower.includes("cargo") || lower.includes("bottom") || lower.includes("jeans")) return "👖";
+  if (lower.includes("watch")) return "⌚";
   if (lower.includes("drop") || lower.includes("limited")) return "⚡";
   if (lower.includes("accessory") || lower.includes("cap") || lower.includes("headwear")) return "🧢";
   if (lower.includes("classic") || lower.includes("premium")) return "👑";
@@ -171,7 +179,14 @@ function ProductsContent() {
 
             {/* Curated Categories */}
             {categories.filter(c => c.is_active !== false).map((category) => {
-              const isActive = selectedCategory === category.id || selectedCategory === category.name;
+              const isActive = 
+                selectedCategory === category.id || 
+                selectedCategory === category.name ||
+                (typeof selectedCategory === "string" && (
+                  selectedCategory.toLowerCase() === (category.name || "").toLowerCase() ||
+                  selectedCategory.toLowerCase() === (category.slug || "").toLowerCase() ||
+                  selectedCategory.toLowerCase().replace(/-/g, " ") === (category.name || "").toLowerCase()
+                ));
               const emoji = category.icon || getCategoryEmojiOrIcon(category.name);
               return (
                 <button

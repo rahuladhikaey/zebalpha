@@ -36,7 +36,13 @@ export const getProducts = async (req, res, next) => {
         query = query.eq('is_active', true).eq('is_approved', true);
       }
       if (queryParams.category) {
-        query = query.eq('category_id', queryParams.category);
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryParams.category);
+        if (isUuid) {
+          query = query.eq('category_id', queryParams.category);
+        } else {
+          const cleanCat = queryParams.category.replace(/[-_]/g, ' ').trim();
+          query = query.or(`name.ilike.%${cleanCat}%,collection.ilike.%${cleanCat}%`);
+        }
       }
       if (queryParams.brand) {
         query = query.ilike('brand', `%${queryParams.brand}%`);
