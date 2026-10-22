@@ -94,6 +94,14 @@ interface OrderDetail {
   upi_id?: string;
   refund_transaction_id?: string;
   refund_initiated_at?: string;
+  // Delivery & Platform Fees
+  shipping_fee?: number;
+  shipping_charge?: number;
+  delivery_charge?: number;
+  delivery_fee?: number;
+  platform_fee?: number;
+  app_charge?: number;
+  convenience_fee?: number;
 }
 
 // Standard Cancellation Reasons
