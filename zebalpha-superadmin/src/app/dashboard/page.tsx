@@ -9,7 +9,7 @@ import type { Product } from "@/types/products";
 import type { Category } from "@/types/categories";
 import type { Order } from "@/types/orders";
 import dynamic from "next/dynamic";
-import DashboardOverview from "@/components/DashboardOverview";
+import React from "react";
 
 const AdminTabSkeleton = () => (
   <div className="p-8 space-y-4 animate-pulse">
@@ -17,6 +17,65 @@ const AdminTabSkeleton = () => (
     <div className="h-96 bg-zinc-950 rounded-3xl border border-zinc-800" />
   </div>
 );
+
+class TabErrorBoundary extends React.Component<
+  { children: React.ReactNode; activeTab: string; onReset: () => void },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("[TabErrorBoundary caught error in tab]:", this.props.activeTab, error, errorInfo);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("admin_active_tab");
+      } catch (_) {}
+    }
+  }
+
+  componentDidUpdate(prevProps: any) {
+    if (prevProps.activeTab !== this.props.activeTab && this.state.hasError) {
+      this.setState({ hasError: false, error: null });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 my-6 bg-zinc-950 border border-zinc-800 rounded-3xl text-center max-w-xl mx-auto shadow-2xl">
+          <div className="h-12 w-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4 mx-auto text-xl font-black">
+            ⚠️
+          </div>
+          <h3 className="text-base font-black text-white uppercase tracking-wider mb-2">
+            Section Temporarily Unavailable
+          </h3>
+          <p className="text-xs text-zinc-400 mb-6">
+            An error occurred while loading this administrative view ({this.props.activeTab}). You can return to the Dashboard Overview safely.
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              this.props.onReset();
+            }}
+            className="px-6 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-black text-xs uppercase tracking-wider transition cursor-pointer shadow-md shadow-white/10"
+          >
+            ← Return to Dashboard Overview
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const DashboardOverview = dynamic(() => import("@/components/DashboardOverview"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 
 const SellerManagementView = dynamic(() => import("@/components/admin/SellerManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const ProductApprovalView = dynamic(() => import("@/components/admin/ProductApprovalView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
@@ -65,15 +124,42 @@ export default function AdminPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [tab, setTabState] = useState("dashboard");
 
+  const VALID_TABS = new Set([
+    "dashboard",
+    "sellers",
+    "products",
+    "curated-collections",
+    "editorial-cards",
+    "inventory",
+    "alerts",
+    "orders",
+    "returns-claims",
+    "support",
+    "as-card",
+    "shipping",
+    "reports",
+    "notifications",
+    "security",
+    "aeo-geo",
+    "settings",
+    "platform-fee-config",
+    "settlements",
+    "revenue",
+  ]);
+
   // Restore active tab from localStorage on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedTab = localStorage.getItem("admin_active_tab");
-      if (savedTab && savedTab !== "categories") {
-        setTabState(savedTab);
-      } else if (savedTab === "categories") {
+      try {
+        const savedTab = localStorage.getItem("admin_active_tab");
+        if (savedTab && VALID_TABS.has(savedTab)) {
+          setTabState(savedTab);
+        } else {
+          setTabState("dashboard");
+          localStorage.removeItem("admin_active_tab");
+        }
+      } catch (_) {
         setTabState("dashboard");
-        localStorage.setItem("admin_active_tab", "dashboard");
       }
     }
   }, []);
@@ -386,66 +472,68 @@ export default function AdminPage() {
               </div>
             )}
 
-            {tab === "dashboard" && (
-              <DashboardOverview
-                orders={orders}
-                products={products}
-                customers={customers}
-                categories={categories}
-                loading={loading}
-                onRefresh={fetchData}
-              />
-            )}
+            <TabErrorBoundary activeTab={tab} onReset={() => setTab("dashboard")}>
+              {tab === "dashboard" && (
+                <DashboardOverview
+                  orders={orders}
+                  products={products}
+                  customers={customers}
+                  categories={categories}
+                  loading={loading}
+                  onRefresh={fetchData}
+                />
+              )}
 
-            {tab === "sellers" && (
-              <SellerManagementView
-                initialSellers={sellers}
-                initialProducts={products}
-                initialOrders={orders}
-                onRefresh={fetchData}
-              />
-            )}
-            {tab === "products" && (
-              <ProductApprovalView
-                initialProducts={products}
-                initialSellers={sellers}
-                onRefresh={fetchData}
-              />
-            )}
-            {tab === "curated-collections" && <CuratedCollectionsView />}
-            {tab === "editorial-cards" && <EditorialCardsView />}
-            {tab === "inventory" && (
-              <InventoryMonitoringView
-                initialProducts={products}
-                onRefresh={fetchData}
-              />
-            )}
-            {tab === "alerts" && (
-              <StockAlertsView
-                initialProducts={products}
-                onRefresh={fetchData}
-              />
-            )}
-            {tab === "orders" && (
-              <OrderManagementView
-                initialOrders={orders}
-                initialSellers={sellers}
-                initialProducts={products}
-                onRefresh={fetchData}
-              />
-            )}
-            {tab === "returns-claims" && <ReturnsClaimsView />}
-            {tab === "support" && <SupportDeskView />}
-            {tab === "as-card" && <AsCardsLoyaltyView />}
-            {tab === "shipping" && <ShippingLogisticsView />}
-            {tab === "reports" && <ReportsAnalyticsView orders={orders} products={products} sellers={sellers} />}
-            {tab === "notifications" && <NotificationsBroadcastView />}
-            {tab === "security" && <SecurityAuditView />}
-            {tab === "aeo-geo" && <AeoGeoManagementView products={products} categories={categories} onRefresh={fetchData} />}
-            {tab === "settings" && <MarketplaceSettingsView />}
-            {tab === "platform-fee-config" && <PlatformFeeConfig />}
-            {tab === "settlements" && <SettlementDashboard />}
-            {tab === "revenue" && <RevenueDashboard />}
+              {tab === "sellers" && (
+                <SellerManagementView
+                  initialSellers={sellers}
+                  initialProducts={products}
+                  initialOrders={orders}
+                  onRefresh={fetchData}
+                />
+              )}
+              {tab === "products" && (
+                <ProductApprovalView
+                  initialProducts={products}
+                  initialSellers={sellers}
+                  onRefresh={fetchData}
+                />
+              )}
+              {tab === "curated-collections" && <CuratedCollectionsView />}
+              {tab === "editorial-cards" && <EditorialCardsView />}
+              {tab === "inventory" && (
+                <InventoryMonitoringView
+                  initialProducts={products}
+                  onRefresh={fetchData}
+                />
+              )}
+              {tab === "alerts" && (
+                <StockAlertsView
+                  initialProducts={products}
+                  onRefresh={fetchData}
+                />
+              )}
+              {tab === "orders" && (
+                <OrderManagementView
+                  initialOrders={orders}
+                  initialSellers={sellers}
+                  initialProducts={products}
+                  onRefresh={fetchData}
+                />
+              )}
+              {tab === "returns-claims" && <ReturnsClaimsView />}
+              {tab === "support" && <SupportDeskView />}
+              {tab === "as-card" && <AsCardsLoyaltyView />}
+              {tab === "shipping" && <ShippingLogisticsView />}
+              {tab === "reports" && <ReportsAnalyticsView orders={orders} products={products} sellers={sellers} />}
+              {tab === "notifications" && <NotificationsBroadcastView />}
+              {tab === "security" && <SecurityAuditView />}
+              {tab === "aeo-geo" && <AeoGeoManagementView products={products} categories={categories} onRefresh={fetchData} />}
+              {tab === "settings" && <MarketplaceSettingsView />}
+              {tab === "platform-fee-config" && <PlatformFeeConfig />}
+              {tab === "settlements" && <SettlementDashboard />}
+              {tab === "revenue" && <RevenueDashboard />}
+            </TabErrorBoundary>
           </div>
         </div>
       </main>

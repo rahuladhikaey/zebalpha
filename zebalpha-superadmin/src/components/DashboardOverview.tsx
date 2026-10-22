@@ -48,11 +48,11 @@ type DateFilterType =
   | "custom";
 
 export default function DashboardOverview({
-  orders,
-  products,
-  customers,
-  categories,
-  loading,
+  orders = [],
+  products = [],
+  customers = [],
+  categories = [],
+  loading = false,
   onRefresh,
 }: DashboardOverviewProps) {
   // Date Filtering States
@@ -125,7 +125,11 @@ export default function DashboardOverview({
   }, [autoRefreshEnabled, refreshInterval, loading, onRefresh]);
 
   // Date Parsing Helpers
-  const parseDate = (dateStr: string) => new Date(dateStr);
+  const parseDate = (dateStr?: string) => {
+    if (!dateStr) return new Date(0);
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+  };
 
   const getStartOfToday = () => {
     const d = new Date();
@@ -181,7 +185,8 @@ export default function DashboardOverview({
   // Filtered Orders & Customers
   const filteredOrders = useMemo(() => {
     const { start, end } = filterDateRange;
-    return orders.filter((order) => {
+    return (orders || []).filter((order) => {
+      if (!order) return false;
       const orderDate = parseDate(order.created_at);
       return orderDate >= start && orderDate <= end;
     });
@@ -189,8 +194,8 @@ export default function DashboardOverview({
 
   const filteredCustomers = useMemo(() => {
     const { start, end } = filterDateRange;
-    return customers.filter((customer) => {
-      if (!customer.saved_at) return false;
+    return (customers || []).filter((customer) => {
+      if (!customer || !customer.saved_at) return false;
       const regDate = parseDate(customer.saved_at);
       return regDate >= start && regDate <= end;
     });
@@ -554,8 +559,9 @@ export default function DashboardOverview({
 
     // Helper to identify premium items
     const isItemPrem = (item: any) => {
+      if (!item) return false;
       if (item.is_premium === true || item.tier === 'PREMIUM') return true;
-      const match = products.find((p) => p.name === (item.name || item.product_name) || (item.id && p.id === item.id));
+      const match = (products || []).find((p) => p && (p.name === (item.name || item.product_name) || (item.id && p.id === item.id)));
       if (match) {
         if (match.is_premium || match.tier === 'PREMIUM') return true;
         const cat = (match.category || "").toLowerCase();
@@ -664,18 +670,19 @@ export default function DashboardOverview({
   // 2. ORDER METRICS
   const orderStats = useMemo(() => {
     const startOfToday = getStartOfToday();
-    const totalOrders = filteredOrders.length;
-    const todayOrders = filteredOrders.filter(
-      (o) => parseDate(o.created_at) >= startOfToday
+    const safeOrders = filteredOrders || [];
+    const totalOrders = safeOrders.length;
+    const todayOrders = safeOrders.filter(
+      (o) => o && parseDate(o.created_at) >= startOfToday
     ).length;
 
-    const pending = filteredOrders.filter((o) => o.order_status === "PENDING").length;
-    const processing = filteredOrders.filter((o) => o.order_status === "PROCESSING").length;
-    const shipped = filteredOrders.filter((o) => o.order_status === "SHIPPED").length;
-    const delivered = filteredOrders.filter((o) => o.order_status === "DELIVERED").length;
-    const cancelled = filteredOrders.filter((o) => o.order_status === "CANCELLED").length;
-    const returned = filteredOrders.filter((o) => o.order_status === "RETURNED").length;
-    const preOrder = filteredOrders.filter((o) => o.order_status === "PRE_ORDER").length;
+    const pending = safeOrders.filter((o) => o?.order_status === "PENDING").length;
+    const processing = safeOrders.filter((o) => o?.order_status === "PROCESSING").length;
+    const shipped = safeOrders.filter((o) => o?.order_status === "SHIPPED").length;
+    const delivered = safeOrders.filter((o) => o?.order_status === "DELIVERED").length;
+    const cancelled = safeOrders.filter((o) => o?.order_status === "CANCELLED").length;
+    const returned = safeOrders.filter((o) => o?.order_status === "RETURNED").length;
+    const preOrder = safeOrders.filter((o) => o?.order_status === "PRE_ORDER").length;
 
     return {
       totalOrders,
@@ -692,33 +699,34 @@ export default function DashboardOverview({
 
   // 3. CUSTOMER METRICS
   const customerStats = useMemo(() => {
-    const totalCustomers = customers.length;
+    const safeCusts = customers || [];
+    const totalCustomers = safeCusts.length;
     const startOfToday = getStartOfToday();
 
-    const newToday = customers.filter(
-      (c) => c.saved_at && parseDate(c.saved_at) >= startOfToday
+    const newToday = safeCusts.filter(
+      (c) => c && c.saved_at && parseDate(c.saved_at) >= startOfToday
     ).length;
 
     const now = new Date();
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const newThisWeek = customers.filter(
-      (c) => c.saved_at && parseDate(c.saved_at) >= sevenDaysAgo
+    const newThisWeek = safeCusts.filter(
+      (c) => c && c.saved_at && parseDate(c.saved_at) >= sevenDaysAgo
     ).length;
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const newThisMonth = customers.filter(
-      (c) => c.saved_at && parseDate(c.saved_at) >= startOfMonth
+    const newThisMonth = safeCusts.filter(
+      (c) => c && c.saved_at && parseDate(c.saved_at) >= startOfMonth
     ).length;
 
     // Active customers: Unique emails that placed an order in filtered range
-    const orderEmails = new Set(filteredOrders.map((o) => o.customer_name).filter(Boolean));
+    const orderEmails = new Set((filteredOrders || []).map((o) => o?.customer_name).filter(Boolean));
     const activeCustomers = orderEmails.size;
 
     // Returning customers: Emails that appear in more than 1 order in all orders
     const emailCounts: Record<string, number> = {};
-    orders.forEach((o) => {
-      if (o.customer_name) {
+    (orders || []).forEach((o) => {
+      if (o?.customer_name) {
         emailCounts[o.customer_name] = (emailCounts[o.customer_name] || 0) + 1;
       }
     });
@@ -736,22 +744,25 @@ export default function DashboardOverview({
 
   // 4. PRODUCT METRICS
   const productStats = useMemo(() => {
-    const totalProducts = products.length;
-    const activeProducts = products.filter((p) => p.status !== "inactive").length;
-    const outOfStock = products.filter((p) => p.stock === 0).length;
-    const lowStock = products.filter(
-      (p) => p.stock !== undefined && p.stock <= (p.low_stock_limit || 5)
+    const safeProds = products || [];
+    const ords = filteredOrders || [];
+    const totalProducts = safeProds.length;
+    const activeProducts = safeProds.filter((p) => p && p.status !== "inactive").length;
+    const outOfStock = safeProds.filter((p) => p && (p.stock === 0 || p.stock_quantity === 0)).length;
+    const lowStock = safeProds.filter(
+      (p) => p && (p.stock !== undefined ? p.stock <= (p.low_stock_limit || 5) : (p.stock_quantity ?? 0) <= 5)
     ).length;
 
     // Best Selling Products calculation
     const salesMap: Record<string, { qty: number; revenue: number; name: string }> = {};
 
-    filteredOrders.forEach((order) => {
-      if (order.order_status === "CANCELLED" || order.order_status === "RETURNED") return;
+    ords.forEach((order) => {
+      if (!order || order.order_status === "CANCELLED" || order.order_status === "RETURNED") return;
       try {
-        const items = JSON.parse(order.product_details);
+        const items = typeof order.product_details === "string" ? JSON.parse(order.product_details) : order.product_details;
         if (Array.isArray(items)) {
           items.forEach((item: any) => {
+            if (!item) return;
             const name = item.name || item.product_name || "Unknown Product";
             const qty = Number(item.quantity) || 1;
             const price = Number(item.price) || 0;
@@ -770,8 +781,8 @@ export default function DashboardOverview({
       .slice(0, 5);
 
     // Recently added products
-    const recentlyAdded = [...products]
-      .sort((a, b) => b.id - a.id)
+    const recentlyAdded = [...safeProds]
+      .sort((a, b) => (b?.id || 0) - (a?.id || 0))
       .slice(0, 5);
 
     return {
@@ -786,11 +797,11 @@ export default function DashboardOverview({
 
   // 5. DELIVERY STATUS
   const deliveryStats = useMemo(() => {
-    const readyToShip = orderStats.processing + orderStats.pending;
-    const outForDelivery = orderStats.shipped;
+    const readyToShip = (orderStats?.processing || 0) + (orderStats?.pending || 0);
+    const outForDelivery = orderStats?.shipped || 0;
     const startOfToday = getStartOfToday();
-    const deliveredToday = filteredOrders.filter(
-      (o) => o.order_status === "DELIVERED" && parseDate(o.created_at) >= startOfToday
+    const deliveredToday = (filteredOrders || []).filter(
+      (o) => o?.order_status === "DELIVERED" && parseDate(o?.created_at) >= startOfToday
     ).length;
 
     return {
@@ -929,8 +940,8 @@ export default function DashboardOverview({
   // 7. DONUT CHART: PAYMENT METHOD DISTRIBUTION
   const paymentDistribution = useMemo(() => {
     const paymentMap: Record<string, number> = {};
-    filteredOrders.forEach((o) => {
-      if (o.order_status === "CANCELLED") return;
+    (filteredOrders || []).forEach((o) => {
+      if (!o || o.order_status === "CANCELLED") return;
       const method = o.payment_method || "COD";
       paymentMap[method] = (paymentMap[method] || 0) + 1;
     });
@@ -946,11 +957,11 @@ export default function DashboardOverview({
   // 8. PIE CHART: ORDER STATUS DISTRIBUTION
   const orderStatusDistribution = useMemo(() => {
     const stats = [
-      { name: "Delivered", count: orderStats.delivered, color: "#10b981" },
-      { name: "Pending", count: orderStats.pending, color: "#f59e0b" },
-      { name: "Processing", count: orderStats.processing, color: "#3b82f6" },
-      { name: "Shipped", count: orderStats.shipped, color: "#8b5cf6" },
-      { name: "Cancelled", count: orderStats.cancelled, color: "#f43f5e" },
+      { name: "Delivered", count: orderStats?.delivered || 0, color: "#10b981" },
+      { name: "Pending", count: orderStats?.pending || 0, color: "#f59e0b" },
+      { name: "Processing", count: orderStats?.processing || 0, color: "#3b82f6" },
+      { name: "Shipped", count: orderStats?.shipped || 0, color: "#8b5cf6" },
+      { name: "Cancelled", count: orderStats?.cancelled || 0, color: "#f43f5e" },
     ].filter((s) => s.count > 0);
 
     const total = stats.reduce((a, b) => a + b.count, 0);
@@ -1043,15 +1054,19 @@ export default function DashboardOverview({
   // Category Sales (Bar representation)
   const categorySales = useMemo(() => {
     const catMap: Record<number, number> = {};
+    const safeOrders = filteredOrders || [];
+    const safeProds = products || [];
+    const safeCats = categories || [];
 
-    filteredOrders.forEach((order) => {
-      if (order.order_status === "CANCELLED" || order.order_status === "RETURNED") return;
+    safeOrders.forEach((order) => {
+      if (!order || order.order_status === "CANCELLED" || order.order_status === "RETURNED") return;
       try {
-        const items = JSON.parse(order.product_details);
+        const items = typeof order.product_details === "string" ? JSON.parse(order.product_details) : order.product_details;
         if (Array.isArray(items)) {
           items.forEach((item: any) => {
+            if (!item) return;
             const name = item.name || item.product_name;
-            const productMatch = products.find((p) => p.name === name);
+            const productMatch = safeProds.find((p) => p && p.name === name);
             if (productMatch) {
               const catId = productMatch.category_id;
               catMap[catId] = (catMap[catId] || 0) + (Number(item.price) || 0) * (Number(item.quantity) || 1);
@@ -1063,7 +1078,7 @@ export default function DashboardOverview({
 
     const maxSales = Math.max(...Object.values(catMap), 1);
 
-    return categories.map((cat) => {
+    return safeCats.map((cat) => {
       const sales = catMap[cat.id] || 0;
       return {
         id: cat.id,
