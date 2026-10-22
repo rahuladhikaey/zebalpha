@@ -12,7 +12,8 @@ import {
   X,
   Upload,
   ShoppingBag,
-  AlertTriangle
+  AlertTriangle,
+  ExternalLink
 } from "lucide-react";
 import { uploadToCloudinary, compressImageTo100KB } from "@shared/services";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
@@ -680,22 +681,34 @@ export default function SellerProducts() {
 
   return (
     <div className="space-y-6">
-      {/* Header & Add Button */}
+      {/* Header & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Products Catalog</h1>
           <p className="text-xs font-medium text-slate-500 mt-1">Manage standard streetwear and high-ticket 💎 Premium Store items.</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingProduct(null);
-            setIsWizardModalOpen(true);
-          }}
-          disabled={accountStatus.toLowerCase() === "suspended"}
-          className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-black bg-white hover:bg-zinc-200 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <Plus size={16} /> Add Product Catalog
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <a
+            href="https://imagecompressor.11zon.com/en/compress-webp/compress-webp-to-100kb"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-violet-300 bg-violet-950/40 hover:bg-violet-900/60 border border-violet-500/30 hover:border-violet-400 transition-all shadow-md cursor-pointer group"
+            title="Resize and compress product photos to under 100KB WebP for fast store performance"
+          >
+            <ExternalLink size={14} className="text-violet-400 group-hover:scale-110 transition-transform" />
+            <span>Resize Product Pic (100KB)</span>
+          </a>
+          <button
+            onClick={() => {
+              setEditingProduct(null);
+              setIsWizardModalOpen(true);
+            }}
+            disabled={accountStatus.toLowerCase() === "suspended"}
+            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-black bg-white hover:bg-zinc-200 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <Plus size={16} /> Add Product Catalog
+          </button>
+        </div>
       </div>
 
       {accountStatus.toLowerCase() === "suspended" && (

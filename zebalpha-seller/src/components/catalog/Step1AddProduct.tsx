@@ -315,15 +315,32 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
             {formData.images.length}/4 Images Uploaded
           </span>
         </div>
-        <p className="text-xs text-zinc-400 flex items-center gap-1">
-          <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-          Upload product photos (Front, Back, Detail, Model) — <strong className="text-emerald-400">Strict Max 150 KB per photo</strong>.
-        </p>
-
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <p className="text-xs text-zinc-400 flex items-center gap-1">
+            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+            Upload product photos (Front, Back, Detail, Model) — <strong className="text-emerald-400">Strict Max 150 KB per photo</strong>.
+          </p>
+          <a
+            href="https://imagecompressor.11zon.com/en/compress-webp/compress-webp-to-100kb"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] font-bold text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-1"
+          >
+            Resize / Compress Photo (100KB) ↗
+          </a>
+        </div>
 
         {imageError && (
-          <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-            {imageError}
+          <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center justify-between gap-2 flex-wrap">
+            <span>{imageError}</span>
+            <a
+              href="https://imagecompressor.11zon.com/en/compress-webp/compress-webp-to-100kb"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-bold text-white bg-red-600/80 hover:bg-red-600 px-2.5 py-1 rounded-md transition shrink-0"
+            >
+              Resize to 100KB ↗
+            </a>
           </div>
         )}
 
