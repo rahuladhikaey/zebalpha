@@ -31,7 +31,7 @@ Assert-Test ("" -notmatch $pinRegex) "1.8: Empty PIN is rejected"
 Write-Host "`n--- 2. Dynamic Date Math & Formatting ---"
 
 # Simulation function mirroring calculateDeliveryEstimate
-function Calculate-DeliveryEstimate($courier, $dispatchDays = 0, $dispatchCutoffHour = 16, $baseDate) {
+function Get-DeliveryEstimate($courier, $dispatchDays = 0, $dispatchCutoffHour = 16, $baseDate) {
     if (-not $courier) {
         return @{ has_estimate = $false; message = "No courier option provided." }
     }
@@ -103,7 +103,7 @@ $c1 = @{
     estimated_delivery_days = 4
 }
 $base1 = [DateTime]::Parse("2026-10-26T10:00:00")
-$res1 = Calculate-DeliveryEstimate $c1 0 16 $base1
+$res1 = Get-DeliveryEstimate $c1 0 16 $base1
 Assert-Test ($res1.has_estimate -eq $true) "2.1: Carrier ETD estimate succeeds"
 Assert-Test ($res1.day -eq "30") "2.2: Day matches 30"
 Assert-Test ($res1.month -eq "Oct") "2.3: Month matches Oct"
@@ -116,7 +116,7 @@ $c2 = @{
     courier_name = "Delhivery Surface"
     estimated_delivery_days = 3
 }
-$resCutoff = Calculate-DeliveryEstimate $c2 0 16 $baseCutoff
+$resCutoff = Get-DeliveryEstimate $c2 0 16 $baseCutoff
 # Oct 22 + 1 (cutoff) + 3 (transit) = Oct 26
 Assert-Test ($resCutoff.has_estimate -eq $true) "3.1: Estimate with cutoff succeeds"
 Assert-Test ($resCutoff.dispatch_buffer_days -eq 1) "3.2: Cutoff buffer +1 applied"
@@ -129,7 +129,7 @@ $cMonth = @{
     courier_name = "BlueDart Express"
     estimated_delivery_days = 3
 }
-$resMonth = Calculate-DeliveryEstimate $cMonth 0 16 $baseMonth
+$resMonth = Get-DeliveryEstimate $cMonth 0 16 $baseMonth
 Assert-Test ($resMonth.day -eq "2") "4.1: Month rollover to day 2"
 Assert-Test ($resMonth.month -eq "Nov") "4.2: Month rollover to Nov"
 Assert-Test ($resMonth.weekday -eq "Mon") "4.3: Weekday is Mon"
@@ -140,7 +140,7 @@ $cYear = @{
     courier_name = "DTDC Priority"
     estimated_delivery_days = 4
 }
-$resYear = Calculate-DeliveryEstimate $cYear 0 16 $baseYear
+$resYear = Get-DeliveryEstimate $cYear 0 16 $baseYear
 Assert-Test ($resYear.day -eq "3") "5.1: Year rollover to day 3"
 Assert-Test ($resYear.month -eq "Jan") "5.2: Year rollover to Jan"
 Assert-Test ($resYear.weekday -eq "Sun") "5.3: Weekday is Sun"
@@ -151,7 +151,7 @@ $cLeap = @{
     courier_name = "Shadowfax Quick"
     estimated_delivery_days = 2
 }
-$resLeap = Calculate-DeliveryEstimate $cLeap 0 16 $baseLeap
+$resLeap = Get-DeliveryEstimate $cLeap 0 16 $baseLeap
 Assert-Test ($resLeap.day -eq "29") "6.1: Leap day 29 reached"
 Assert-Test ($resLeap.month -eq "Feb") "6.2: Month is Feb"
 Assert-Test ($resLeap.weekday -eq "Tue") "6.3: Weekday is Tue"
@@ -162,7 +162,7 @@ $cMissing = @{
     etd = $null
     estimated_delivery_days = $null
 }
-$resMissing = Calculate-DeliveryEstimate $cMissing 0 16 $base1
+$resMissing = Get-DeliveryEstimate $cMissing 0 16 $base1
 Assert-Test ($resMissing.has_estimate -eq $false) "7.1: Missing transit info returns has_estimate: false"
 Assert-Test ($null -eq $resMissing.delivery_date) "7.2: Never invents fake delivery date"
 Assert-Test ($null -eq $resMissing.display_text) "7.3: Never produces fabricated display text"
@@ -211,7 +211,7 @@ try {
     Assert-Test ($servRes.data.available_courier_companies.Count -gt 0) "8.5: Found $($servRes.data.available_courier_companies.Count) serviceable couriers"
 
     $bestCourier = $servRes.data.available_courier_companies[0]
-    $liveRes = Calculate-DeliveryEstimate $bestCourier 0 16 ([DateTime]::Now)
+    $liveRes = Get-DeliveryEstimate $bestCourier 0 16 ([DateTime]::Now)
     Assert-Test ($liveRes.has_estimate -eq $true) "8.6: Live estimate calculated successfully"
     Write-Host ">>> LIVE RESULT: $($liveRes.display_text) via $($liveRes.courier_name) (Transit: $($liveRes.transit_days) days, Rate: ₹$($bestCourier.rate))" -ForegroundColor Cyan
 } catch {
