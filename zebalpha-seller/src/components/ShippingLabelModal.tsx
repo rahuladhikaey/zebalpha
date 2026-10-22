@@ -315,7 +315,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
-                Official Meesho-Standard 2-in-1 Dispatch Label
+                Official ZEBALPHA 2-in-1 Dispatch Label
               </h3>
               <p className="text-[10px] font-mono font-bold text-zinc-400">
                 AWB: {awb} • {courier}

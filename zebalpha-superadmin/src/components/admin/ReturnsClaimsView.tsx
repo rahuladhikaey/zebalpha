@@ -128,7 +128,7 @@ export default function ReturnsClaimsView() {
             </h2>
           </div>
           <p className="text-xs text-zinc-400 mt-1 font-medium">
-            Review Meesho-grade return logistics, customer refunds, and resolve Seller Protection Fund disputes.
+            Review ZEBALPHA return logistics, customer refunds, and resolve Seller Protection Fund disputes.
           </p>
         </div>
 

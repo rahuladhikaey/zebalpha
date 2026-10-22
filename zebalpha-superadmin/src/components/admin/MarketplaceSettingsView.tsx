@@ -1373,7 +1373,7 @@ export default function MarketplaceSettingsView() {
                   <div className="flex items-center gap-2">
                     <Layers className="w-5 h-5 text-emerald-500" />
                     <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                      Meesho-Style Dynamic Category & Attribute Engine
+                      ZEBALPHA Dynamic Category & Attribute Engine
                     </h2>
                   </div>
                   <p className="text-xs font-bold text-slate-500 mt-1">

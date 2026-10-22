@@ -192,7 +192,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
             Product Main Category & Subcategory <span className="text-red-400">*</span>
           </label>
           <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-            <span>✨</span> Meesho Smart Engine
+            <span>✨</span> ZEBALPHA Smart Engine
           </span>
         </div>
 
