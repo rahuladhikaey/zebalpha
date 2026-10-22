@@ -26,6 +26,7 @@ export type Product = {
 	specifications?: Record<string, string>;
 	brand?: string;
 	stock?: number;
+	stock_quantity?: number;
 	low_stock_limit?: number;
 	sku?: string;
 	status?: string;

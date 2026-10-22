@@ -748,10 +748,12 @@ export default function DashboardOverview({
     const ords = filteredOrders || [];
     const totalProducts = safeProds.length;
     const activeProducts = safeProds.filter((p) => p && p.status !== "inactive").length;
-    const outOfStock = safeProds.filter((p) => p && (p.stock === 0 || p.stock_quantity === 0)).length;
-    const lowStock = safeProds.filter(
-      (p) => p && (p.stock !== undefined ? p.stock <= (p.low_stock_limit || 5) : (p.stock_quantity ?? 0) <= 5)
-    ).length;
+    const outOfStock = safeProds.filter((p) => p && (p.stock ?? p.stock_quantity ?? 0) === 0).length;
+    const lowStock = safeProds.filter((p) => {
+      if (!p) return false;
+      const currentStock = p.stock ?? p.stock_quantity ?? 0;
+      return currentStock > 0 && currentStock <= (p.low_stock_limit || 5);
+    }).length;
 
     // Best Selling Products calculation
     const salesMap: Record<string, { qty: number; revenue: number; name: string }> = {};
