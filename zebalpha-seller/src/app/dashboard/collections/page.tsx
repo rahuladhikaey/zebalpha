@@ -21,6 +21,7 @@ import { isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 interface CategoryItem {
   id: string;
   name: string;
+  title?: string;
   slug?: string;
   main_category: string;
   image_url: string | null;
@@ -28,6 +29,7 @@ interface CategoryItem {
   sort_order: number;
   is_active: boolean;
   created_at?: string;
+  link_url?: string | null;
 }
 
 export default function SellerCollectionsPage() {
@@ -41,22 +43,133 @@ export default function SellerCollectionsPage() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Fetch Categories / Collections directly from Supabase
-      const { data: catData, error: catErr } = await supabase
+      // 1. Primary: Fetch Admin Curated Collections directly from curated_collections table
+      const { data: curatedData, error: curatedErr } = await supabase
+        .from("curated_collections")
+        .select("id, title, slug, short_description, link_url, image_url, display_order, is_active, created_at")
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (curatedErr) {
+        console.warn("curated_collections fetch note:", curatedErr.message);
+      }
+
+      // 2. Fetch standard categories
+      const { data: catData } = await supabase
         .from("categories")
         .select("*")
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
 
-      if (!catErr && catData) {
-        setCategories(catData);
-      } else {
-        // Fallback API call
-        const res = await fetch("/api/categories");
-        const data = await res.json();
-        if (data.success && data.categories) {
-          setCategories(data.categories);
+      // 3. Fallback: Check store_settings if curated_collections table is empty
+      let settingsList: any[] = [];
+      if (!curatedData || curatedData.length === 0) {
+        const { data: ss } = await supabase
+          .from("store_settings")
+          .select("value")
+          .eq("key", "curated_collections")
+          .maybeSingle();
+        if (ss?.value && Array.isArray(ss.value)) {
+          settingsList = ss.value;
         }
+      }
+
+      const mergedList: CategoryItem[] = [];
+      const seenTitles = new Set<string>();
+
+      // A. Populate Curated Collections (Admin Managed)
+      if (curatedData && curatedData.length > 0) {
+        for (const c of curatedData) {
+          const title = (c.title || (c as any).name || "").trim();
+          if (title) {
+            const key = title.toLowerCase();
+            if (!seenTitles.has(key)) {
+              seenTitles.add(key);
+              mergedList.push({
+                id: String(c.id),
+                name: title,
+                title: title,
+                slug: c.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                main_category: "CURATED",
+                image_url: c.image_url || null,
+                description: c.short_description || null,
+                sort_order: typeof c.display_order === "number" ? c.display_order : 0,
+                is_active: c.is_active !== false,
+                created_at: c.created_at,
+                link_url: c.link_url || null,
+              });
+            }
+          }
+        }
+      }
+
+      // B. Fallback from store_settings
+      if (mergedList.length === 0 && settingsList.length > 0) {
+        for (const c of settingsList) {
+          const title = (c.title || c.name || "").trim();
+          if (title) {
+            const key = title.toLowerCase();
+            if (!seenTitles.has(key)) {
+              seenTitles.add(key);
+              mergedList.push({
+                id: String(c.id || Math.random()),
+                name: title,
+                title: title,
+                slug: c.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                main_category: "CURATED",
+                image_url: c.image_url || null,
+                description: c.short_description || c.description || null,
+                sort_order: typeof c.display_order === "number" ? c.display_order : 0,
+                is_active: c.is_active !== false,
+                created_at: c.created_at || new Date().toISOString(),
+                link_url: c.link_url || null,
+              });
+            }
+          }
+        }
+      }
+
+      // C. Include standard categories
+      if (catData && catData.length > 0) {
+        for (const cat of catData) {
+          const title = (cat.name || (cat as any).title || "").trim();
+          if (title) {
+            const key = title.toLowerCase();
+            if (!seenTitles.has(key)) {
+              seenTitles.add(key);
+              mergedList.push({
+                id: String(cat.id),
+                name: title,
+                title: title,
+                slug: cat.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                main_category: cat.main_category || "GENERAL",
+                image_url: cat.image_url || null,
+                description: cat.description || null,
+                sort_order: typeof cat.sort_order === "number" ? cat.sort_order : 99,
+                is_active: cat.is_active !== false,
+                created_at: cat.created_at,
+                link_url: null,
+              });
+            }
+          }
+        }
+      }
+
+      // D. Fallback API call if still empty
+      if (mergedList.length === 0) {
+        try {
+          const res = await fetch("/api/categories");
+          const data = await res.json();
+          if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
+            setCategories(data.categories);
+          } else {
+            setCategories([]);
+          }
+        } catch (_) {
+          setCategories([]);
+        }
+      } else {
+        setCategories(mergedList);
       }
 
       // Fetch seller's products
@@ -79,7 +192,19 @@ export default function SellerCollectionsPage() {
   useEffect(() => {
     loadAllData();
 
-    const channel = supabase
+    // Listen to real-time changes on both curated_collections and categories
+    const channel1 = supabase
+      .channel("seller-curated-collections-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "curated_collections" },
+        () => {
+          loadAllData();
+        }
+      )
+      .subscribe();
+
+    const channel2 = supabase
       .channel("seller-categories-realtime")
       .on(
         "postgres_changes",
@@ -91,7 +216,8 @@ export default function SellerCollectionsPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channel1);
+      supabase.removeChannel(channel2);
     };
   }, []);
 
@@ -193,11 +319,20 @@ export default function SellerCollectionsPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {categories.map((cat) => {
-                const productCount = sellerProducts.filter(
-                  (p) => (p.category_id && String(p.category_id) === String(cat.id)) || 
-                         (p.category && (p.category || "").toLowerCase() === (cat.name || "").toLowerCase()) ||
-                         (p.main_category && (p.main_category || "").toLowerCase() === (cat.main_category || "").toLowerCase())
-                ).length;
+                const catName = (cat.name || "").toLowerCase().trim();
+                const catSlug = (cat.slug || "").toLowerCase().trim();
+                const productCount = sellerProducts.filter((p) => {
+                  const pCat = (p.category || "").toLowerCase().trim();
+                  const pMain = (p.main_category || "").toLowerCase().trim();
+                  const pColl = (p.collection || (p.specifications as any)?.collection || "").toLowerCase().trim();
+                  const pCatId = String(p.category_id || "");
+                  return (
+                    (pCatId && pCatId === String(cat.id)) ||
+                    (pCat && (pCat === catName || pCat === catSlug)) ||
+                    (pColl && (pColl === catName || pColl === catSlug)) ||
+                    (pMain && (pMain === catName || pMain === catSlug))
+                  );
+                }).length;
 
                 return (
                   <div

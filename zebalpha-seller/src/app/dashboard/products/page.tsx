@@ -175,8 +175,8 @@ export default function SellerProducts() {
       // SLIM VIEWPORT FIELDS: core columns present in public.products
       const SLIM_SELLER_FIELDS = "id, name, price, mrp, stock, low_stock_limit, sku, image_url, status, is_active, is_approved, approval_status, specifications, seller_id, created_at, categories(name)";
 
-      // PARALLEL EXECUTION: Fetch products and categories concurrently
-      const [productsRes, categoriesRes] = await Promise.all([
+      // PARALLEL EXECUTION: Fetch products, categories, and curated collections concurrently
+      const [productsRes, categoriesRes, curatedRes] = await Promise.all([
         supabase
           .from("products")
           .select(SLIM_SELLER_FIELDS)
@@ -185,7 +185,12 @@ export default function SellerProducts() {
         supabase
           .from("categories")
           .select("id, name, main_category")
-          .order("name", { ascending: true })
+          .order("name", { ascending: true }),
+        supabase
+          .from("curated_collections")
+          .select("id, title, slug")
+          .eq("is_active", true)
+          .order("display_order", { ascending: true })
       ]);
 
       let productsData: any[] = (productsRes.data as any[]) || [];
@@ -198,7 +203,28 @@ export default function SellerProducts() {
           .order("created_at", { ascending: false });
         if (fallbackProducts) productsData = fallbackProducts;
       }
-      let finalCategories: any[] = (categoriesRes.data && categoriesRes.data.length > 0) ? categoriesRes.data : [];
+
+      const curatedItems = (curatedRes?.data || []).map((c: any) => ({
+        id: c.id,
+        name: c.title,
+        main_category: "CURATED"
+      }));
+
+      const catItems = (categoriesRes?.data || []).map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        main_category: cat.main_category || "GENERAL"
+      }));
+
+      const seenCat = new Set<string>();
+      let finalCategories: any[] = [];
+      [...curatedItems, ...catItems].forEach((item) => {
+        const k = (item.name || "").toLowerCase().trim();
+        if (k && !seenCat.has(k)) {
+          seenCat.add(k);
+          finalCategories.push(item);
+        }
+      });
 
       if (finalCategories.length === 0) {
         finalCategories = [
