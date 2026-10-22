@@ -575,6 +575,8 @@ function CheckoutContent() {
       return;
     }
 
+    // Synchronously lock immediately to prevent duplicate orders from fast double-clicks
+    orderPlacedRef.current = true;
     setSaving(true);
     const fullAddress = `Vill: ${village}, P.O: ${postOffice}, Pin: ${pincode}, Info: ${addressDetail}`;
 
@@ -701,6 +703,7 @@ function CheckoutContent() {
             router.push(successUrl);
           }
         } else {
+          orderPlacedRef.current = false;
           setMessage(responseData?.error ? `Could not place COD order: ${responseData.error}` : "Could not place COD order. Please try again.");
           setSaving(false);
         }
@@ -859,10 +862,12 @@ function CheckoutContent() {
                   router.push(successUrl);
                 }
               } else {
+                orderPlacedRef.current = false;
                 setMessage("Payment verification failed. Please contact support with payment ID: " + response.razorpay_payment_id);
                 setSaving(false);
               }
             } catch (err) {
+              orderPlacedRef.current = false;
               console.error("Payment verification exception:", err);
               setMessage("Error verifying payment. Please contact support.");
               setSaving(false);
@@ -870,6 +875,7 @@ function CheckoutContent() {
           },
           modal: {
             ondismiss: function () {
+              orderPlacedRef.current = false;
               setSaving(false);
             }
           }
@@ -877,6 +883,7 @@ function CheckoutContent() {
 
         const RazorpayClass = (window as any).Razorpay;
         if (!RazorpayClass) {
+          orderPlacedRef.current = false;
           setMessage("Razorpay checkout could not be opened. Please refresh and try again.");
           setSaving(false);
           return;
@@ -884,6 +891,7 @@ function CheckoutContent() {
 
         const paymentObject = new RazorpayClass(options);
         paymentObject.on("payment.failed", function (response: any) {
+          orderPlacedRef.current = false;
           console.error("Razorpay payment failed:", response.error);
           setMessage(`Payment failed: ${response.error?.description || "Transaction declined"}`);
           setSaving(false);
@@ -891,6 +899,7 @@ function CheckoutContent() {
         paymentObject.open();
       }
     } catch (err: unknown) {
+      orderPlacedRef.current = false;
       console.error(err);
       setMessage("An unexpected error occurred. Please try again.");
       setSaving(false);
@@ -1200,7 +1209,7 @@ function CheckoutContent() {
 
               <button
                 type="submit"
-                disabled={saving || inStockBaseCart.length === 0}
+                disabled={saving || orderPlacedRef.current || inStockBaseCart.length === 0}
                 className={`flex h-16 w-full items-center justify-center rounded-2xl px-6 text-xs sm:text-sm font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 cursor-pointer ${saving || inStockBaseCart.length > 0
                   ? "bg-white text-black hover:bg-zinc-200 shadow-white/10"
                   : "bg-zinc-800 text-zinc-500 cursor-not-allowed"

@@ -4,7 +4,11 @@ import { sendWhatsAppOrderConfirmation } from "@/lib/whatsapp";
 import { createMasterOrder } from "@/lib/orderRouter";
 
 
+// In-memory concurrency lock to prevent millisecond-level duplicate submissions
+const inFlightSubmissions = new Map<string, number>();
+
 export async function POST(req: Request) {
+  let activeLockKey: string | null = null;
   try {
     const {
       customer_name,
@@ -20,6 +24,29 @@ export async function POST(req: Request) {
     // Verify product prices against database before creating order
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ success: false, error: 'Cart is empty' }, { status: 400 });
+    }
+
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+
+    // Active in-flight lock to eliminate exact-millisecond race conditions
+    const itemIds = (items || []).map((i: any) => String(i.id || i.product_id || "")).sort().join(",");
+    activeLockKey = `${user_id || cleanPhone || "guest"}_${itemIds}`;
+    const now = Date.now();
+    const activeLock = inFlightSubmissions.get(activeLockKey);
+    if (activeLock && (now - activeLock) < 10000) {
+      console.warn(`[Duplicate COD Protection] Concurrent request blocked for lockKey: ${activeLockKey}`);
+      return NextResponse.json({
+        success: false,
+        error: "Your order is already being processed. Please do not submit again.",
+      }, { status: 429 });
+    }
+    inFlightSubmissions.set(activeLockKey, now);
+
+    // Clean up expired locks
+    if (inFlightSubmissions.size > 200) {
+      for (const [k, t] of inFlightSubmissions.entries()) {
+        if (now - t > 60000) inFlightSubmissions.delete(k);
+      }
     }
 
     const productIds = items.map((item: any) => item.product_id || item.id || item.productId).filter(Boolean);
@@ -74,7 +101,7 @@ export async function POST(req: Request) {
     }
 
     // Idempotency guard: Throttle duplicate rapid COD submissions (within 30 seconds)
-    if (user_id || phone) {
+    if (user_id || cleanPhone) {
       const thirtySecondsAgo = new Date(Date.now() - 30 * 1000).toISOString();
       let dupQuery = supabaseServer
         .from("orders")
@@ -84,8 +111,8 @@ export async function POST(req: Request) {
 
       if (user_id) {
         dupQuery = dupQuery.eq("user_id", user_id);
-      } else if (phone) {
-        dupQuery = dupQuery.eq("phone", phone);
+      } else if (cleanPhone) {
+        dupQuery = dupQuery.or(`phone.eq.${cleanPhone},phone.ilike.%${cleanPhone}`);
       }
 
       const { data: recentOrders } = await dupQuery.order("created_at", { ascending: false }).limit(1);

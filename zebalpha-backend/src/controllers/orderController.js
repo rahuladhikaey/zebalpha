@@ -203,6 +203,7 @@ export const createOrder = async (req, res, next) => {
       const sellerOrderNumber = `${orderNumber}-S${sellerIndex}`;
       const sellerOrderPayload = {
         order_number: sellerOrderNumber,
+        parent_order_id: placedOrder.id,
         seller_id: sellerId,
         user_id: placedOrder.user_id,
         customer_name: placedOrder.customer_name || 'Customer',
