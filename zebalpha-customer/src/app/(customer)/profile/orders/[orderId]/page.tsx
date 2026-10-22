@@ -102,6 +102,9 @@ interface OrderDetail {
   platform_fee?: number;
   app_charge?: number;
   convenience_fee?: number;
+  discount_amount?: number;
+  notes?: any;
+  [key: string]: any;
 }
 
 // Standard Cancellation Reasons
@@ -663,18 +666,93 @@ interface TimelineStep {
     }));
   }, [order, sellerOrders]);
 
+  // Parse order notes for financial snapshot / breakdown if available
+  const parsedNotes = useMemo(() => {
+    const rawNotes = order?.notes;
+    if (!rawNotes) return null;
+    if (typeof rawNotes === "object" && rawNotes !== null) return rawNotes;
+    if (typeof rawNotes === "string" && rawNotes.trim().startsWith("{")) {
+      try {
+        return JSON.parse(rawNotes);
+      } catch (_) {}
+    }
+    return null;
+  }, [order?.notes]);
+
+  // Expected Delivery Date calculation (Flipkart/Meesho style fallback if not explicitly stored)
+  const resolvedEdd = useMemo(() => {
+    if (order?.estimated_delivery && typeof order.estimated_delivery === "string" && order.estimated_delivery.trim()) {
+      return order.estimated_delivery;
+    }
+    if (!order?.created_at) return "3-5 Business Days";
+    try {
+      const orderDate = new Date(order.created_at);
+      const deliveryDate = new Date(orderDate.getTime() + 4 * 24 * 60 * 60 * 1000);
+      return deliveryDate.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short"
+      });
+    } catch (_) {
+      return "3-5 Business Days";
+    }
+  }, [order?.estimated_delivery, order?.created_at]);
+
   // Item Price Calculations
   const calculatedSubtotal = useMemo(() => {
-    if (!order?.items) return Number(order?.total_amount) || 0;
+    if (parsedNotes?.subtotal !== undefined) {
+      return Number(parsedNotes.subtotal) || 0;
+    }
+    if (!order?.items || order.items.length === 0) return Number(order?.total_amount) || 0;
     return order.items.reduce((acc, item) => {
       const p = Number(item.price) || 0;
       const q = Number(item.quantity || item.units) || 1;
       return acc + (p * q);
     }, 0);
-  }, [order]);
+  }, [order, parsedNotes]);
 
-  const deliveryCharge = Number(order?.shipping_fee ?? order?.shipping_charge ?? order?.delivery_charge ?? order?.delivery_fee ?? 0);
-  const platformFee = Number(order?.platform_fee ?? order?.app_charge ?? order?.convenience_fee ?? 0);
+  const deliveryCharge = useMemo(() => {
+    if (parsedNotes?.deliveryFee !== undefined) return Number(parsedNotes.deliveryFee);
+    if (parsedNotes?.deliveryCharges !== undefined) return Number(parsedNotes.deliveryCharges);
+    if (parsedNotes?.shippingCharge !== undefined) return Number(parsedNotes.shippingCharge);
+    if (parsedNotes?.shippingCharges !== undefined) return Number(parsedNotes.shippingCharges);
+    const directVal = Number(order?.shipping_fee ?? order?.shipping_charge ?? order?.delivery_charge ?? order?.delivery_fee ?? 0);
+    if (directVal > 0) return directVal;
+    const orderTotal = Number(order?.total_amount) || 0;
+    if (orderTotal > calculatedSubtotal) {
+      const diff = orderTotal - calculatedSubtotal;
+      if (diff >= 35) return 35;
+      return diff;
+    }
+    return 0;
+  }, [order, parsedNotes, calculatedSubtotal]);
+
+  const platformFee = useMemo(() => {
+    if (parsedNotes?.platformFee !== undefined) return Number(parsedNotes.platformFee);
+    if (parsedNotes?.platformCharges !== undefined) return Number(parsedNotes.platformCharges);
+    if (parsedNotes?.handlingFee !== undefined) return Number(parsedNotes.handlingFee);
+    if (parsedNotes?.packagingCharges !== undefined) return Number(parsedNotes.packagingCharges);
+    if (parsedNotes?.appCharges !== undefined) return Number(parsedNotes.appCharges);
+    const directVal = Number(order?.platform_fee ?? order?.app_charge ?? order?.convenience_fee ?? 0);
+    if (directVal > 0) return directVal;
+    const orderTotal = Number(order?.total_amount) || 0;
+    if (orderTotal > (calculatedSubtotal + deliveryCharge)) {
+      return orderTotal - (calculatedSubtotal + deliveryCharge);
+    }
+    return 0;
+  }, [order, parsedNotes, calculatedSubtotal, deliveryCharge]);
+
+  const discountAmount = useMemo(() => {
+    if (parsedNotes?.discount !== undefined) return Number(parsedNotes.discount);
+    if (parsedNotes?.discount_amount !== undefined) return Number(parsedNotes.discount_amount);
+    return Number(order?.discount_amount || 0);
+  }, [order, parsedNotes]);
+
+  const totalAmountToDisplay = useMemo(() => {
+    const rawTotal = Number(order?.total_amount) || 0;
+    if (rawTotal > 0) return rawTotal;
+    return Math.max(0, calculatedSubtotal - discountAmount + deliveryCharge + platformFee);
+  }, [order?.total_amount, calculatedSubtotal, discountAmount, deliveryCharge, platformFee]);
 
   if (loading || authLoading) {
     return (
@@ -800,11 +878,10 @@ interface TimelineStep {
                 <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
                   <Truck size={18} className="text-amber-400" /> Order Shipment Progress
                 </h3>
-                {order.estimated_delivery && (
-                  <span className="text-xs font-bold text-emerald-400 bg-emerald-950/50 px-3 py-1 rounded-full border border-emerald-800">
-                    Est. Delivery: {order.estimated_delivery}
-                  </span>
-                )}
+                <span className="text-xs font-bold text-emerald-400 bg-emerald-950/50 px-3.5 py-1.5 rounded-full border border-emerald-800 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Est. Delivery: {resolvedEdd}
+                </span>
               </div>
 
               {/* Desktop Horizontal Timeline */}
@@ -970,28 +1047,151 @@ interface TimelineStep {
             </div>
 
             {/* ================================================== */}
-            {/* 4. SHIPPING INFORMATION */}
+            {/* 4. FLIPKART & MEESHO STYLE SHIPMENT DETAILS & TRACKING */}
             {/* ================================================== */}
-            <div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-6 shadow-xl space-y-4">
-              <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-                <Truck size={18} className="text-purple-400" /> Shipment Details
-              </h3>
+            <div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-6 shadow-xl space-y-6">
+              {/* Header with Title and Prominent Expected Delivery Date */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-850 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-purple-950/70 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                    <Truck size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                      Shipment Details
+                    </h3>
+                    <p className="text-[11px] text-zinc-400 font-medium">
+                      Express Doorstep Delivery Network
+                    </p>
+                  </div>
+                </div>
 
+                {/* Expected Delivery Date Banner (Flipkart / Meesho Standard) */}
+                <div className="flex items-center gap-2 bg-emerald-950/70 border border-emerald-500/40 px-4 py-2 rounded-2xl shadow-sm">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block leading-none">Expected Delivery</span>
+                    <span className="text-xs font-black text-white uppercase tracking-wider">
+                      {resolvedEdd}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Flipkart / Meesho Vertical Milestone Delivery Journey */}
+              <div className="space-y-6 relative pl-6 border-l-2 border-zinc-800 ml-4 py-1">
+                {(() => {
+                  const s = String(order.order_status || "placed").toLowerCase();
+                  const isDelivered = ["delivered", "completed"].includes(s);
+                  const isOut = s === "out_for_delivery" || isDelivered;
+                  const isShip = ["shipped", "in_transit"].includes(s) || isOut;
+                  const isPack = ["packed", "processing"].includes(s) || isShip;
+                  const isPlaced = true;
+
+                  const steps = [
+                    {
+                      label: "Order Confirmed",
+                      desc: "Order has been placed and confirmed by seller.",
+                      time: new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+                      done: isPlaced,
+                      active: !isPack,
+                    },
+                    {
+                      label: "Order Packed & Verified",
+                      desc: isPack
+                        ? "Item packed and verified at seller fulfillment center."
+                        : "Seller is preparing package • Dispatch SLA within 24-48 hrs",
+                      time: isPack && order.updated_at ? new Date(order.updated_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : undefined,
+                      done: isPack,
+                      active: isPack && !isShip,
+                    },
+                    {
+                      label: "Dispatched / In Transit",
+                      desc: order.tracking_number
+                        ? `Handed over to ${order.courier_name || "Express Courier"} • AWB: ${order.tracking_number}`
+                        : isShip
+                        ? "In transit via express logistics surface/air route."
+                        : "Express courier partner (Delhivery / Shadowfax / Xpressbees) will pick up package.",
+                      time: isShip && order.updated_at ? new Date(order.updated_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : undefined,
+                      done: isShip,
+                      active: isShip && !isOut,
+                    },
+                    {
+                      label: "Out for Delivery",
+                      desc: isOut
+                        ? (isDelivered ? "Delivered to customer address." : "Courier delivery executive is out for delivery in your area today.")
+                        : "Package will reach your nearest delivery hub.",
+                      done: isOut,
+                      active: s === "out_for_delivery",
+                    },
+                    {
+                      label: "Delivered",
+                      desc: isDelivered
+                        ? `Delivered safely to ${parsedAddress?.name || order.customer_name || "Recipient"}`
+                        : `Estimated arrival by ${resolvedEdd}`,
+                      time: isDelivered && (order.delivered_at || order.updated_at) ? new Date(order.delivered_at || order.updated_at!).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : undefined,
+                      done: isDelivered,
+                      active: isDelivered,
+                    },
+                  ];
+
+                  return steps.map((st, idx) => (
+                    <div key={idx} className="relative flex items-start gap-4">
+                      {/* Step Dot */}
+                      <div
+                        className={`absolute -left-[35px] top-0 h-6 w-6 rounded-full flex items-center justify-center border transition-all ${
+                          st.done
+                            ? "bg-emerald-950 border-emerald-400 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.3)]"
+                            : st.active
+                            ? "bg-amber-950 border-amber-400 text-amber-300 ring-4 ring-amber-500/20"
+                            : "bg-zinc-900 border-zinc-800 text-zinc-600"
+                        }`}
+                      >
+                        {st.done ? (
+                          <CheckCircle2 size={13} className="text-emerald-400" />
+                        ) : st.active ? (
+                          <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+                        ) : (
+                          <span className="text-[10px] font-bold">{idx + 1}</span>
+                        )}
+                      </div>
+
+                      <div className="space-y-0.5 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-xs font-black uppercase tracking-wider ${st.done ? "text-white" : st.active ? "text-amber-300" : "text-zinc-500"}`}>
+                            {st.label}
+                          </p>
+                          {st.time && (
+                            <span className="text-[10px] text-zinc-400 font-medium">
+                              {st.time}
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-[11px] leading-relaxed ${st.done ? "text-zinc-300 font-medium" : st.active ? "text-amber-200/80 font-medium" : "text-zinc-500"}`}>
+                          {st.desc}
+                        </p>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+
+              {/* Courier Partner & AWB Logistics Information Box */}
               {order.tracking_number ? (
                 <div className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <p className="text-xs text-zinc-400 font-bold uppercase">Courier Partner</p>
-                      <p className="text-sm font-black text-white">{order.courier_name || "Express Shiprocket Partner"}</p>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Courier Partner</p>
+                      <p className="text-sm font-black text-white">{order.courier_name || "Express Logistics Partner"}</p>
                     </div>
 
                     <div>
-                      <p className="text-xs text-zinc-400 font-bold uppercase">AWB Tracking ID</p>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">AWB Tracking ID</p>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-mono font-black text-amber-300">{order.tracking_number}</span>
                         <button
                           onClick={() => copyTrackingId(order.tracking_number!)}
-                          className="p-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition"
+                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer"
                           title="Copy AWB"
                         >
                           {copiedTracking ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
@@ -1004,18 +1204,67 @@ interface TimelineStep {
                     <span className="text-xs text-zinc-400 font-medium">Real-time express logistics webhook updates active</span>
                     <button
                       onClick={() => setIsTrackModalOpen(true)}
-                      className="px-4 py-2 rounded-xl bg-purple-950/80 border border-purple-500/40 text-purple-200 text-xs font-black uppercase tracking-wider hover:bg-purple-900 transition flex items-center gap-1.5"
+                      className="px-4 py-2 rounded-xl bg-purple-950/80 border border-purple-500/40 text-purple-200 text-xs font-black uppercase tracking-wider hover:bg-purple-900 transition flex items-center gap-1.5 cursor-pointer"
                     >
                       Track Shipment <ExternalLink size={14} />
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800 text-zinc-400 text-xs font-medium flex items-center gap-3">
-                  <Clock size={16} className="text-amber-400 shrink-0" />
-                  <span>Shipment details will be updated automatically as soon as the seller packages your order.</span>
+                <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Assigned Delivery Partner</p>
+                      <p className="text-sm font-black text-white flex items-center gap-2 pt-0.5">
+                        <span>ZebAlpha Express Network</span>
+                        <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                          Pickup In Progress
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-zinc-400 pt-0.5">
+                        Delhivery • Shadowfax • Xpressbees • Blue Dart
+                      </p>
+                    </div>
+
+                    <div className="sm:text-right">
+                      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Dispatch SLA</span>
+                      <p className="text-xs font-bold text-white pt-0.5">Within 24-48 Hours</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-zinc-800 flex items-center gap-2 text-[11px] text-zinc-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                    <span>Tracking number (AWB) will update automatically as soon as the courier scans package at seller hub.</span>
+                  </div>
                 </div>
               )}
+
+              {/* Flipkart / Meesho Customer Trust & Assurance Badges */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div className="p-3.5 rounded-2xl bg-zinc-900/50 border border-zinc-850 flex items-center gap-3">
+                  <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
+                  <div className="text-[11px]">
+                    <p className="font-black text-white">100% Genuine</p>
+                    <p className="text-zinc-500 text-[10px]">Verified seller product</p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-zinc-900/50 border border-zinc-850 flex items-center gap-3">
+                  <Package size={20} className="text-sky-400 shrink-0" />
+                  <div className="text-[11px]">
+                    <p className="font-black text-white">Safe Packaging</p>
+                    <p className="text-zinc-500 text-[10px]">Multi-layer sealed box</p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-zinc-900/50 border border-zinc-850 flex items-center gap-3">
+                  <RotateCcw size={20} className="text-amber-400 shrink-0" />
+                  <div className="text-[11px]">
+                    <p className="font-black text-white">7 Days Return</p>
+                    <p className="text-zinc-500 text-[10px]">Easy exchange guarantee</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* ================================================== */}
@@ -1122,18 +1371,29 @@ interface TimelineStep {
                   <span className="font-bold text-white">₹{calculatedSubtotal.toLocaleString("en-IN")}</span>
                 </div>
 
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-400">
+                    <span>Discount / Savings</span>
+                    <span className="font-bold">-₹{discountAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between text-zinc-300">
                   <span>Delivery Charge</span>
                   {deliveryCharge === 0 ? (
                     <span className="font-bold text-emerald-400">FREE</span>
                   ) : (
-                    <span className="font-bold text-white">₹{deliveryCharge}</span>
+                    <span className="font-bold text-white">₹{deliveryCharge.toLocaleString("en-IN")}</span>
                   )}
                 </div>
 
                 <div className="flex justify-between text-zinc-300">
-                  <span>Marketplace Platform Fee</span>
-                  <span className="font-bold text-white">₹{platformFee}</span>
+                  <span>Marketplace Platform / Handling Fee</span>
+                  {platformFee === 0 ? (
+                    <span className="text-zinc-400">₹0</span>
+                  ) : (
+                    <span className="font-bold text-white">₹{platformFee.toLocaleString("en-IN")}</span>
+                  )}
                 </div>
 
                 <div className="flex justify-between text-zinc-300">
@@ -1143,9 +1403,13 @@ interface TimelineStep {
               </div>
 
               <div className="flex justify-between items-center text-sm font-black text-white pt-1">
-                <span>Total Amount Paid</span>
+                <span>
+                  {String(order.payment_method).toUpperCase() === "COD" && !["delivered", "completed"].includes(String(order.order_status).toLowerCase())
+                    ? "Total Amount to Pay (COD)"
+                    : "Total Amount Paid"}
+                </span>
                 <span className="text-base text-emerald-400 font-mono">
-                  ₹{(Number(order.total_amount) || (calculatedSubtotal + deliveryCharge + platformFee)).toLocaleString("en-IN")}
+                  ₹{totalAmountToDisplay.toLocaleString("en-IN")}
                 </span>
               </div>
 
@@ -1167,7 +1431,7 @@ interface TimelineStep {
                   <div className="space-y-1 text-xs text-zinc-300">
                     <p className="flex justify-between">
                       <span>Refund Amount:</span>
-                      <span className="font-mono font-bold text-white">₹{(order.refund_amount || order.total_amount || 0).toLocaleString("en-IN")}</span>
+                      <span className="font-mono font-bold text-white">₹{(order.refund_amount || totalAmountToDisplay).toLocaleString("en-IN")}</span>
                     </p>
                     <p className="flex justify-between">
                       <span>Refund Method:</span>
@@ -1532,17 +1796,23 @@ interface TimelineStep {
                     <span>Subtotal:</span>
                     <span className="font-bold text-black">₹{calculatedSubtotal.toLocaleString("en-IN")}</span>
                   </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-medium">
+                      <span>Discount / Savings:</span>
+                      <span className="font-bold">-₹{discountAmount.toLocaleString("en-IN")}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-zinc-600">
                     <span>Delivery Charges:</span>
-                    <span className="font-bold text-black">₹{deliveryCharge}</span>
+                    <span className="font-bold text-black">{deliveryCharge === 0 ? "FREE" : `₹${deliveryCharge.toLocaleString("en-IN")}`}</span>
                   </div>
                   <div className="flex justify-between text-zinc-600">
-                    <span>Platform Fee:</span>
-                    <span className="font-bold text-black">₹{platformFee}</span>
+                    <span>Handling / Platform Fee:</span>
+                    <span className="font-bold text-black">{platformFee === 0 ? "₹0" : `₹${platformFee.toLocaleString("en-IN")}`}</span>
                   </div>
                   <div className="flex justify-between text-base font-black text-black pt-2 border-t border-zinc-400">
                     <span>Grand Total:</span>
-                    <span>₹{(Number(order.total_amount) || (calculatedSubtotal + deliveryCharge + platformFee)).toLocaleString("en-IN")}</span>
+                    <span>₹{totalAmountToDisplay.toLocaleString("en-IN")}</span>
                   </div>
                 </div>
               </div>

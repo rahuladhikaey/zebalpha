@@ -41,6 +41,12 @@ export async function POST(req: Request) {
       user_id,
       couponCode,
       discount,
+      delivery_fee,
+      shipping_charge,
+      platform_fee,
+      handling_fee,
+      tax: clientTax,
+      subtotal,
     } = body;
 
     const secret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
@@ -158,7 +164,57 @@ export async function POST(req: Request) {
       return sum + itemPrice * itemQty;
     }, 0);
     const verifiedDiscount = Math.max(0, Math.min(Number(discount) || 0, computedSubtotal));
-    const authoritativeTotal = Math.max(0, computedSubtotal - verifiedDiscount);
+    const discountedSubtotal = Math.max(0, computedSubtotal - verifiedDiscount);
+
+    // Fetch authoritative store settings for delivery & platform fees
+    let deliveryCharge = 0;
+    let freeShippingThreshold = 0;
+    let platformFee = 0;
+    let tax = 0;
+
+    try {
+      const { data: bData } = await supabaseServer
+        .from('store_settings')
+        .select('key, value')
+        .in('key', ['billing', 'marketplace_rules']);
+
+      const map: Record<string, any> = {};
+      (bData || []).forEach((row: any) => { map[row.key] = row.value; });
+      const b = map.billing || {};
+      const m = map.marketplace_rules || {};
+
+      const parseNum = (val: any, fallback = 0) => {
+        if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+          return Number(val);
+        }
+        return fallback;
+      };
+
+      deliveryCharge = parseNum(m.deliveryCharge ?? b.deliveryFee, Number(delivery_fee ?? shipping_charge ?? 0));
+      freeShippingThreshold = parseNum(m.freeShippingThreshold ?? b.freeDeliveryThreshold, 0);
+      platformFee = parseNum(m.appCharge ?? b.packagingFee, Number(platform_fee ?? handling_fee ?? 0));
+      tax = parseNum(b.tax, Number(clientTax ?? 0));
+    } catch (e) {
+      console.warn("Notice loading store settings in verify-payment route:", e);
+      deliveryCharge = Number(delivery_fee ?? shipping_charge ?? 0);
+      platformFee = Number(platform_fee ?? handling_fee ?? 0);
+      tax = Number(clientTax ?? 0);
+    }
+
+    const effectiveDeliveryFee = (freeShippingThreshold > 0 && discountedSubtotal >= freeShippingThreshold) ? 0 : deliveryCharge;
+    const authoritativeTotal = discountedSubtotal + effectiveDeliveryFee + platformFee + tax;
+
+    const breakdownNotes = JSON.stringify({
+      subtotal: computedSubtotal,
+      discount: verifiedDiscount,
+      deliveryFee: effectiveDeliveryFee,
+      shippingCharge: effectiveDeliveryFee,
+      platformFee: platformFee,
+      handlingFee: platformFee,
+      tax: tax,
+      grandTotal: authoritativeTotal,
+      couponCode: couponCode || null,
+    });
 
     // 2. Create Master Order (splits per seller, decrements stock, creates notifications)
     let createdOrder: any = null;
@@ -171,9 +227,16 @@ export async function POST(req: Request) {
         address,
         items,
         total: authoritativeTotal,
+        subtotal: computedSubtotal,
+        delivery_fee: effectiveDeliveryFee,
+        shipping_charge: effectiveDeliveryFee,
+        platform_fee: platformFee,
+        handling_fee: platformFee,
+        tax: tax,
         payment_method: "ONLINE",
         coupon_code: couponCode || null,
         discount_amount: verifiedDiscount,
+        notes: breakdownNotes,
         razorpay_order_id,
         razorpay_payment_id,
         razorpay_signature,

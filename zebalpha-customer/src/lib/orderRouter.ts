@@ -17,6 +17,12 @@ export type MasterOrderPayload = {
   address: string;
   items: OrderItem[];
   total: number;
+  subtotal?: number;
+  delivery_fee?: number;
+  shipping_charge?: number;
+  platform_fee?: number;
+  handling_fee?: number;
+  tax?: number;
   payment_method: string;
   discount_amount?: number;
   coupon_code?: string;
@@ -139,8 +145,29 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
   // Authoritative server-side total verification
   const computedSubtotal = items.reduce((acc, it) => acc + (Number(it.price) || 0) * (Math.max(1, Number(it.quantity) || 1)), 0);
   const validDiscount = Math.max(0, Math.min(Number(discount_amount) || 0, computedSubtotal));
-  const authoritativeTotal = Math.max(0, computedSubtotal - validDiscount);
-  const finalTotal = authoritativeTotal > 0 ? authoritativeTotal : (Number(total) || 0);
+  const effectiveDelivery = Number(payload.delivery_fee ?? payload.shipping_charge ?? 0);
+  const effectivePlatform = Number(payload.platform_fee ?? (payload as any).handling_fee ?? 0);
+  const effectiveTax = Number(payload.tax ?? 0);
+
+  const computedTotalWithFees = Math.max(0, computedSubtotal - validDiscount + effectiveDelivery + effectivePlatform + effectiveTax);
+  const finalTotal = computedTotalWithFees > 0 ? computedTotalWithFees : (Number(total) || 0);
+
+  // Build transparent financial breakdown notes
+  let finalNotes = notes || payload.notes;
+  if (!finalNotes || !String(finalNotes).trim().startsWith('{')) {
+    finalNotes = JSON.stringify({
+      subtotal: computedSubtotal,
+      discount: validDiscount,
+      deliveryFee: effectiveDelivery,
+      shippingCharge: effectiveDelivery,
+      platformFee: effectivePlatform,
+      handlingFee: effectivePlatform,
+      tax: effectiveTax,
+      grandTotal: finalTotal,
+      couponCode: coupon_code || null,
+      customNote: notes || null
+    });
+  }
 
   // Distribute order discount proportionally across items
   const enrichedItems = items.map((it) => {
@@ -168,7 +195,8 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
     product_details: enrichedItems,
     total_amount: finalTotal,
     discount_amount: validDiscount,
-    notes: coupon_code ? `Coupon Applied: ${coupon_code}` : (notes || null),
+    shipping_charge: effectiveDelivery,
+    notes: finalNotes,
     payment_method: isCodOrder ? 'COD' : normPaymentMethod,
     payment_status: isCodOrder ? 'PENDING' : 'COMPLETE',
     order_status: 'placed',
