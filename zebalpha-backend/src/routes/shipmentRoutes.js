@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { 
   acceptOrderAndCreateShipment,
-  handleShiprocketWebhook, 
   scanPickup, 
   getShippingLabel,
   trackShipment
 } from '../controllers/shipmentController.js';
+import { webhookHandler } from '../controllers/shippingController.js';
 import { authenticateJWT, requireRole } from '../middleware/auth.js';
 import { ROLES } from '../constants/index.js';
 
@@ -24,7 +24,7 @@ router.get('/label/:orderId', authenticateJWT, requireRole([ROLES.SUPER_ADMIN, R
 // Live Shipment Tracking Timeline
 router.get('/track/:orderId', trackShipment);
 
-// Shiprocket Realtime Webhook Receiver
-router.post('/webhook', handleShiprocketWebhook);
+// Shiprocket Realtime Webhook Receiver (Handles Forward, RTO, and Reverse Logistics)
+router.post('/webhook', webhookHandler);
 
 export default router;

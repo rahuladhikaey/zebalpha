@@ -181,7 +181,7 @@ export default function ReturnsAndRtoPage() {
     }
   };
 
-  // 11 requested operational tabs
+  // 12 requested operational tabs including Courier RTO
   const tabsList = [
     { key: "requests", label: "Return Requests" },
     { key: "approved", label: "Approved" },
@@ -192,6 +192,7 @@ export default function ReturnsAndRtoPage() {
     { key: "approved_refund", label: "Approved Refund" },
     { key: "rejected", label: "Rejected" },
     { key: "replacement", label: "Replacement" },
+    { key: "rto", label: "RTO (Courier Return)" },
     { key: "refunded", label: "Refunded" },
     { key: "disputed", label: "Disputed" },
   ];
@@ -205,12 +206,13 @@ export default function ReturnsAndRtoPage() {
         case "requests": return st === "return_requested" || retSt === "requested";
         case "approved": return st === "return_approved" || retSt === "approved";
         case "pickup_pending": return retSt === "pickup_pending" || st === "return_approved";
-        case "in_transit": return st === "return_in_transit" || retSt === "picked_up";
-        case "received": return st === "return_received" || retSt === "received";
+        case "in_transit": return st === "return_in_transit" || retSt === "picked_up" || st === "rto_in_transit";
+        case "received": return st === "return_received" || retSt === "received" || st === "rto_delivered";
         case "qc_pending": return retSt === "qc_pending" || st === "return_received";
         case "approved_refund": return st === "returned" && retSt === "completed";
         case "rejected": return st === "return_rejected" || retSt === "rejected";
         case "replacement": return item.return_type === "REPLACEMENT" || item.return_type === "EXCHANGE";
+        case "rto": return st.startsWith("rto");
         case "refunded": return item.refund_status === "COMPLETED";
         case "disputed": return st === "return_qc_failed" || retSt === "disputed";
         default: return true;
@@ -229,12 +231,13 @@ export default function ReturnsAndRtoPage() {
       case "requests": matchesTab = st === "return_requested" || retSt === "requested"; break;
       case "approved": matchesTab = st === "return_approved" || retSt === "approved"; break;
       case "pickup_pending": matchesTab = retSt === "pickup_pending" || st === "return_approved"; break;
-      case "in_transit": matchesTab = st === "return_in_transit" || retSt === "picked_up"; break;
-      case "received": matchesTab = st === "return_received" || retSt === "received"; break;
+      case "in_transit": matchesTab = st === "return_in_transit" || retSt === "picked_up" || st === "rto_in_transit"; break;
+      case "received": matchesTab = st === "return_received" || retSt === "received" || st === "rto_delivered"; break;
       case "qc_pending": matchesTab = retSt === "qc_pending" || st === "return_received"; break;
       case "approved_refund": matchesTab = st === "returned" && retSt === "completed"; break;
       case "rejected": matchesTab = st === "return_rejected" || retSt === "rejected"; break;
       case "replacement": matchesTab = item.return_type === "REPLACEMENT" || item.return_type === "EXCHANGE"; break;
+      case "rto": matchesTab = st.startsWith("rto"); break;
       case "refunded": matchesTab = item.refund_status === "COMPLETED"; break;
       case "disputed": matchesTab = st === "return_qc_failed" || retSt === "disputed"; break;
       default: matchesTab = true;
@@ -403,8 +406,14 @@ export default function ReturnsAndRtoPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="font-mono text-xs sm:text-sm font-black text-white">Return #{returnId}</span>
                     <span className="text-xs font-mono font-bold text-zinc-400">Order #{orderNum}</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                      {ret.return_reason || "Return Requested"}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      ret.order_status?.startsWith("rto")
+                        ? "bg-rose-500/10 text-rose-300 border border-rose-500/30"
+                        : "bg-amber-500/10 text-amber-300 border border-amber-500/30"
+                    }`}>
+                      {ret.order_status?.startsWith("rto")
+                        ? `RTO: ${ret.order_status === "rto_delivered" ? "Delivered to Hub" : ret.order_status === "rto_in_transit" ? "In Transit" : "Initiated"}`
+                        : (ret.return_reason || "Return Requested")}
                     </span>
                   </div>
 
@@ -425,6 +434,27 @@ export default function ReturnsAndRtoPage() {
                         <p className="text-[11px] text-zinc-400 mt-0.5">Customer: <strong className="text-zinc-200">{ret.customer_name || "Customer"}</strong></p>
                         {ret.return_description && (
                           <p className="text-[11px] text-zinc-400 italic mt-0.5">"{ret.return_description}"</p>
+                        )}
+                        {ret.order_status?.startsWith("rto") && (
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                            {(ret.rto_awb || ret.tracking_number) && (
+                              <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded-md border border-cyan-800/40">
+                                AWB: {ret.rto_awb || ret.tracking_number}
+                              </span>
+                            )}
+                            {ret.is_restocked ? (
+                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-800/40">
+                                ✓ Stock Restocked
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-800/40">
+                                ⏳ Restocks upon Hub Receipt
+                              </span>
+                            )}
+                            <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded-md">
+                              {String(ret.payment_method || "").toUpperCase() === "COD" ? "COD (Uncollected)" : "Prepaid"}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -672,8 +702,30 @@ export default function ReturnsAndRtoPage() {
                 <span className="text-white font-bold">{selectedReturn.customer_name || "Customer"}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-zinc-800/60">
-                <span className="text-zinc-400">Return Reason</span>
-                <span className="text-amber-400 font-bold">{selectedReturn.return_reason || "Customer Choice"}</span>
+                <span className="text-zinc-400">Logistics Type</span>
+                <span className="text-white font-bold">
+                  {selectedReturn.order_status?.startsWith("rto") ? "Courier RTO (Return to Origin)" : (selectedReturn.return_type || "Customer Return")}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                <span className="text-zinc-400">Tracking / AWB</span>
+                <span className="font-mono text-cyan-400 font-bold">
+                  {selectedReturn.rto_awb || selectedReturn.pickup_awb || selectedReturn.tracking_number || "Awaiting Assignment"}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                <span className="text-zinc-400">{selectedReturn.order_status?.startsWith("rto") ? "RTO Status / Reason" : "Return Reason"}</span>
+                <span className="text-amber-400 font-bold">
+                  {selectedReturn.order_status?.startsWith("rto") 
+                    ? (selectedReturn.rto_reason || selectedReturn.order_status?.replace(/_/g, " ").toUpperCase())
+                    : (selectedReturn.return_reason || "Customer Choice")}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                <span className="text-zinc-400">Stock Restocked</span>
+                <span className={`font-bold ${selectedReturn.is_restocked ? "text-emerald-400" : "text-amber-400"}`}>
+                  {selectedReturn.is_restocked ? "✓ Restocked to Inventory" : "Pending Restock"}
+                </span>
               </div>
               <div className="flex justify-between py-1 border-b border-zinc-800/60">
                 <span className="text-zinc-400">QC Status</span>
