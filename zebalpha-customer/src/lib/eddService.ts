@@ -8,95 +8,44 @@
  */
 
 export interface EDDResult {
-  expected_delivery_from: string; // ISO date string
-  expected_delivery_to: string;   // ISO date string
-  expected_delivery_date: string; // ISO date string (primary target)
-  edd_source: "SHIPROCKET" | "CARRIER" | "SERVER_ESTIMATE" | "MANUAL_ADMIN_OVERRIDE";
-  courier_name?: string;
+  has_estimate: boolean;
+  expected_delivery_from?: string | null; // ISO date string
+  expected_delivery_to?: string | null;   // ISO date string
+  expected_delivery_date?: string | null; // ISO date string (primary target)
+  formatted_date?: string | null;         // e.g. "30 Oct, Fri"
+  display_text?: string | null;           // e.g. "Delivery by 30 Oct, Fri"
+  edd_source: "SHIPROCKET" | "CARRIER" | "SERVER_ESTIMATE" | "UNAVAILABLE" | "MANUAL_ADMIN_OVERRIDE";
+  courier_name?: string | null;
+  transit_days?: number | null;
   is_delayed?: boolean;
   delayed_reason?: string;
+  message?: string | null;
 }
 
-const METRO_PIN_PREFIXES = ["11", "40", "70", "56", "60", "50"]; // Delhi, Mumbai, Kolkata, Blr, Chn, Hyd
-
 /**
- * 1. Calculate deterministic server-side fallback EDD based on Pincode Distance / Zone
+ * 1. Truthful unavailable state when no verified courier transit data exists.
+ * Per Zero-Hardcoding Policy: Never fabricate fixed day offsets or mock delivery dates.
  */
 export function calculateFallbackEDD(
-  pickupPincode?: string | null,
-  deliveryPincode?: string | null,
-  startDateInput?: Date | string | null
+  _pickupPincode?: string | null,
+  _deliveryPincode?: string | null,
+  _startDateInput?: Date | string | null
 ): EDDResult {
-  const baseDate = startDateInput ? new Date(startDateInput) : new Date();
-  if (isNaN(baseDate.getTime())) {
-    return calculateFallbackEDD(pickupPincode, deliveryPincode, new Date());
-  }
-
-  const cleanPickup = String(pickupPincode || "").replace(/\D/g, "").slice(0, 6);
-  const cleanDelivery = String(deliveryPincode || "").replace(/\D/g, "").slice(0, 6);
-
-  let minDays = 4;
-  let maxDays = 6;
-
-  if (cleanPickup && cleanDelivery) {
-    if (cleanPickup === cleanDelivery || cleanPickup.slice(0, 3) === cleanDelivery.slice(0, 3)) {
-      // Intra-city / Same local hub
-      minDays = 2;
-      maxDays = 3;
-    } else if (cleanPickup.slice(0, 2) === cleanDelivery.slice(0, 2)) {
-      // Intra-state / Same zone
-      minDays = 3;
-      maxDays = 4;
-    } else if (
-      METRO_PIN_PREFIXES.includes(cleanPickup.slice(0, 2)) &&
-      METRO_PIN_PREFIXES.includes(cleanDelivery.slice(0, 2))
-    ) {
-      // Metro to Metro
-      minDays = 3;
-      maxDays = 5;
-    } else if (cleanDelivery.startsWith("79") || cleanDelivery.startsWith("19") || cleanDelivery.startsWith("744")) {
-      // Remote / NE / J&K / Islands
-      minDays = 6;
-      maxDays = 9;
-    } else {
-      // Rest of India standard inter-state
-      minDays = 4;
-      maxDays = 6;
-    }
-  }
-
-  // Add order cutoff time buffer (+1 day if order after 4 PM)
-  if (baseDate.getHours() >= 16) {
-    minDays += 1;
-    maxDays += 1;
-  }
-
-  const addDays = (d: Date, days: number): Date => {
-    const res = new Date(d);
-    let added = 0;
-    while (added < days) {
-      res.setDate(res.getDate() + 1);
-      // Skip Sundays for courier dispatch estimation
-      if (res.getDay() !== 0) {
-        added++;
-      }
-    }
-    return res;
-  };
-
-  const eddFromDate = addDays(baseDate, minDays);
-  const eddToDate = addDays(baseDate, maxDays);
-
   return {
-    expected_delivery_from: eddFromDate.toISOString(),
-    expected_delivery_to: eddToDate.toISOString(),
-    expected_delivery_date: eddToDate.toISOString(),
-    edd_source: "SERVER_ESTIMATE",
+    has_estimate: false,
+    expected_delivery_from: null,
+    expected_delivery_to: null,
+    expected_delivery_date: null,
+    formatted_date: null,
+    display_text: null,
+    edd_source: "UNAVAILABLE",
+    message: "Delivery estimate is currently unavailable until verified by carrier.",
   };
 }
 
 /**
- * 2. Get Live Shiprocket EDD or fallback to Server Estimate
+ * 2. Get Live Shiprocket EDD using verified provider response.
+ * Uses genuine carrier ETD or estimated_delivery_days only.
  */
 export async function getShiprocketOrFallbackEDD(params: {
   pickupPincode?: string | null;
@@ -105,21 +54,29 @@ export async function getShiprocketOrFallbackEDD(params: {
   cod?: boolean;
   orderDate?: Date | string | null;
   shiprocketToken?: string | null;
+  dispatchDays?: number;
 }): Promise<EDDResult> {
-  const { pickupPincode, deliveryPincode, weight = 0.5, cod = false, orderDate, shiprocketToken } = params;
+  const { pickupPincode, deliveryPincode, weight = 0.5, cod = false, orderDate, shiprocketToken, dispatchDays = 0 } = params;
 
-  // Try live Shiprocket ETD if token and pincodes are available
-  if (shiprocketToken && pickupPincode && deliveryPincode && pickupPincode.length === 6 && deliveryPincode.length === 6) {
+  const cleanPickup = String(pickupPincode || "").replace(/\D/g, "").slice(0, 6);
+  const cleanDelivery = String(deliveryPincode || "").replace(/\D/g, "").slice(0, 6);
+
+  if (!cleanPickup || !cleanDelivery || cleanPickup.length !== 6 || cleanDelivery.length !== 6) {
+    return calculateFallbackEDD();
+  }
+
+  // Query live Shiprocket serviceability if token is available
+  if (shiprocketToken) {
     try {
       const query = new URLSearchParams({
-        pickup_postcode: pickupPincode,
-        delivery_postcode: deliveryPincode,
+        pickup_postcode: cleanPickup,
+        delivery_postcode: cleanDelivery,
         weight: String(weight),
         cod: cod ? "1" : "0",
       }).toString();
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second strict timeout
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/serviceability/?${query}`, {
         method: "GET",
@@ -135,55 +92,71 @@ export async function getShiprocketOrFallbackEDD(params: {
         const data = await res.json();
         const couriers = data?.data?.available_courier_companies || [];
         if (Array.isArray(couriers) && couriers.length > 0) {
-          // Select fastest/best rated courier
-          const bestCourier = couriers.sort((a, b) => {
-            const daysA = Number(a.estimated_delivery_days) || 99;
-            const daysB = Number(b.estimated_delivery_days) || 99;
-            return daysA - daysB;
-          })[0];
+          const recommendedId = data?.data?.recommended_courier_company_id;
+          const recCourier = couriers.find((c: any) => c.courier_company_id === recommendedId);
+          const eligible = couriers.filter((c: any) => c.etd || (c.estimated_delivery_days !== undefined && c.estimated_delivery_days !== null));
+          const bestCourier = recCourier || (eligible.length > 0 ? eligible[0] : couriers[0]);
 
           if (bestCourier) {
-            const estDays = Number(bestCourier.estimated_delivery_days);
-            if (estDays && estDays > 0) {
-              const base = orderDate ? new Date(orderDate) : new Date();
-              const eddFrom = new Date(base);
-              eddFrom.setDate(eddFrom.getDate() + Math.max(1, estDays - 1));
-              const eddTo = new Date(base);
-              eddTo.setDate(eddTo.getDate() + estDays);
+            const baseDate = orderDate ? new Date(orderDate) : new Date();
+            const istHour = parseInt(
+              new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", hour12: false }).format(baseDate),
+              10
+            ) || 0;
+            let buffer = Number(dispatchDays) || 0;
+            if (istHour >= 16) buffer += 1;
 
-              return {
-                expected_delivery_from: eddFrom.toISOString(),
-                expected_delivery_to: eddTo.toISOString(),
-                expected_delivery_date: eddTo.toISOString(),
-                edd_source: "SHIPROCKET",
-                courier_name: bestCourier.courier_name || "Shiprocket Direct",
-              };
-            }
+            let finalDate: Date | null = null;
+            let transitDays: number | null = null;
 
             if (bestCourier.etd) {
               const parsedEtd = new Date(bestCourier.etd);
               if (!isNaN(parsedEtd.getTime())) {
-                const eddFrom = new Date(parsedEtd);
-                eddFrom.setDate(eddFrom.getDate() - 1);
-                return {
-                  expected_delivery_from: eddFrom.toISOString(),
-                  expected_delivery_to: parsedEtd.toISOString(),
-                  expected_delivery_date: parsedEtd.toISOString(),
-                  edd_source: "SHIPROCKET",
-                  courier_name: bestCourier.courier_name || "Shiprocket Direct",
-                };
+                const d = new Date(parsedEtd);
+                if (buffer > 0) d.setDate(d.getDate() + buffer);
+                finalDate = d;
+                const diffMs = finalDate.getTime() - baseDate.getTime();
+                transitDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
               }
+            }
+
+            if (!finalDate && bestCourier.estimated_delivery_days !== undefined && bestCourier.estimated_delivery_days !== null) {
+              const rawDays = parseInt(String(bestCourier.estimated_delivery_days), 10);
+              if (!isNaN(rawDays) && rawDays > 0) {
+                transitDays = rawDays;
+                const d = new Date(baseDate);
+                d.setDate(d.getDate() + buffer + rawDays);
+                finalDate = d;
+              }
+            }
+
+            if (finalDate) {
+              const day = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric" }).format(finalDate);
+              const month = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", month: "short" }).format(finalDate);
+              const weekday = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short" }).format(finalDate);
+              const formattedDate = `${day} ${month}, ${weekday}`;
+
+              return {
+                has_estimate: true,
+                expected_delivery_from: finalDate.toISOString(),
+                expected_delivery_to: finalDate.toISOString(),
+                expected_delivery_date: finalDate.toISOString(),
+                formatted_date: formattedDate,
+                display_text: `Delivery by ${formattedDate}`,
+                edd_source: "SHIPROCKET",
+                courier_name: bestCourier.courier_name || "Shiprocket Verified Courier",
+                transit_days: transitDays,
+              };
             }
           }
         }
       }
-    } catch (err) {
-      // Graceful fallback to server estimate on network/timeout error
+    } catch (_) {
+      // Graceful fallback to unavailable state
     }
   }
 
-  // Fallback to deterministic server-side estimation
-  return calculateFallbackEDD(pickupPincode, deliveryPincode, orderDate);
+  return calculateFallbackEDD();
 }
 
 /**
@@ -242,10 +215,18 @@ export function aggregateMultiVendorEDD(sellerOrdersOrShipments: any[]): EDDResu
 
   const finalFrom = earliestFrom || new Date(latestTo.getTime() - 2 * 86400000);
 
+  const day = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric" }).format(latestTo);
+  const month = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", month: "short" }).format(latestTo);
+  const weekday = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short" }).format(latestTo);
+  const formattedDate = `${day} ${month}, ${weekday}`;
+
   return {
+    has_estimate: true,
     expected_delivery_from: finalFrom.toISOString(),
     expected_delivery_to: latestTo.toISOString(),
     expected_delivery_date: latestTo.toISOString(),
+    formatted_date: formattedDate,
+    display_text: `Delivery by ${formattedDate}`,
     edd_source: primarySource,
   };
 }
@@ -291,18 +272,19 @@ export function formatEDDDisplay(options: {
   const dTo = (expected_delivery_to || expected_delivery_date) ? new Date(expected_delivery_to || expected_delivery_date!) : null;
 
   if (dTo && !isNaN(dTo.getTime())) {
-    const monthTo = dTo.toLocaleDateString("en-IN", { month: "short" });
-    const dayTo = dTo.getDate();
+    const dayTo = dTo.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric" });
+    const monthTo = dTo.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short" });
+    const weekdayTo = dTo.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short" });
 
-    let mainText = `Expected delivery by ${dayTo} ${monthTo}`;
+    let mainText = `Delivery by ${dayTo} ${monthTo}, ${weekdayTo}`;
 
     if (dFrom && !isNaN(dFrom.getTime()) && dFrom < dTo) {
-      const monthFrom = dFrom.toLocaleDateString("en-IN", { month: "short" });
-      const dayFrom = dFrom.getDate();
+      const dayFrom = dFrom.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric" });
+      const monthFrom = dFrom.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short" });
       if (monthFrom === monthTo) {
-        mainText = `Delivery by ${dayFrom} – ${dayTo} ${monthTo}`;
+        mainText = `Delivery by ${dayFrom} – ${dayTo} ${monthTo}, ${weekdayTo}`;
       } else {
-        mainText = `Delivery by ${dayFrom} ${monthFrom} – ${dayTo} ${monthTo}`;
+        mainText = `Delivery by ${dayFrom} ${monthFrom} – ${dayTo} ${monthTo}, ${weekdayTo}`;
       }
     }
 
@@ -323,7 +305,7 @@ export function formatEDDDisplay(options: {
   }
 
   return {
-    text: "Delivery estimate will be available after shipment confirmation.",
+    text: "Delivery estimate unavailable.",
     isDelivered: false,
     isDelayed: false,
   };

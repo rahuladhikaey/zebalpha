@@ -9,7 +9,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { Tag, Check, X, Sparkles } from "lucide-react";
+import { Tag, Check, X, Sparkles, Truck } from "lucide-react";
+import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 
 const normalizeAddressFromRecord = (record: any) => {
   const addressLine = record?.address_line || record?.address_line1 || record?.address_line2 || "";
@@ -1220,6 +1221,12 @@ function CheckoutContent() {
 
           {/* Sidebar Area */}
           <aside className="space-y-6">
+            {/* Real Dynamic Delivery Estimation Widget (Zero Hardcoded Data) */}
+            <DeliveryEstimateWidget
+              productId={isBuyNow ? buyNowItem?.id : (inStockBaseCart[0]?.id || cart[0]?.id)}
+              sellerId={isBuyNow ? buyNowItem?.seller_id : (inStockBaseCart[0]?.seller_id || cart[0]?.seller_id)}
+            />
+
             <div className="rounded-[2.5rem] bg-zinc-950 p-8 text-white border border-zinc-800 shadow-2xl">
               <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white mb-6">Order Summary</h3>
               <div className="space-y-4 max-h-60 no-scrollbar overflow-y-auto pr-2">

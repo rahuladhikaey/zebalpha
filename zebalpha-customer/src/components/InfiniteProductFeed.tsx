@@ -7,6 +7,7 @@ import { ProductCardImageSlider } from "./ProductCardImageSlider";
 import { AddToCartButton } from "./AddToCartButton";
 import { WishlistButton } from "./WishlistButton";
 import { QuickCartButton } from "./QuickCartButton";
+import { DeliveryEstimateWidget } from "./DeliveryEstimateWidget";
 import { supabase } from "@/lib/supabaseClient";
 import { SLIM_PRODUCT_CARD_FIELDS, getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 
@@ -253,6 +254,11 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                         Save ₹{discountAmount}
                       </span>
                     )}
+
+                    {/* Compact Real Dynamic Delivery Estimate */}
+                    <div className="pt-1">
+                      <DeliveryEstimateWidget compact productId={product.id} sellerId={product.seller_id} />
+                    </div>
                   </div>
 
                   <div className="pt-1 flex items-center justify-between gap-2">

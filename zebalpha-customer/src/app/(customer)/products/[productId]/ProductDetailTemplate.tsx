@@ -16,6 +16,7 @@ import { VirtualTryOnButton } from "@/components/vto/VirtualTryOnButton";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { evaluateProductTryOnEligibility } from "@/shared/constants/tryOnEligibility";
+import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 export default function ProductDetailTemplate({
   product,
   relatedProducts = [],
@@ -826,6 +827,13 @@ export default function ProductDetailTemplate({
               )}
             </div>
 
+            {/* Real Dynamic Delivery Estimation (Zero Hardcoded Data) */}
+            <div className="pt-2">
+              <DeliveryEstimateWidget
+                productId={product.id}
+                sellerId={product.seller_id}
+              />
+            </div>
 
             {/* Available Offers */}
             {product.offers && product.offers.length > 0 && (

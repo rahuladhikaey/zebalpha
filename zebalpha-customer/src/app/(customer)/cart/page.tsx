@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Sparkles } from "lucide-react";
+import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Sparkles, Truck } from "lucide-react";
+import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 
 export default function CartPage() {
   const router = useRouter();
@@ -274,16 +275,13 @@ export default function CartPage() {
 
       <div className="max-w-2xl mx-auto p-4 space-y-6">
         
-        {/* Delivery Estimate */}
-        <div className="bg-zinc-950 rounded-3xl p-4 flex items-center gap-4 border border-zinc-800 shadow-xl">
-          <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0 text-white">
-            <Zap size={24} className="text-white" />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-white tracking-tight">Express Pan-India Shipping</h3>
-            <p className="text-xs font-bold text-zinc-400">Dispatched within 24-48 hours</p>
-          </div>
-        </div>
+        {/* Real Dynamic Delivery Estimation Widget (Zero Hardcoded Data) */}
+        {cart.length > 0 && (
+          <DeliveryEstimateWidget
+            productId={cart[0].id}
+            sellerId={cart[0].seller_id}
+          />
+        )}
 
         {/* Cart Items */}
         <div className="bg-zinc-950 rounded-3xl p-4 sm:p-6 border border-zinc-800 shadow-xl">
@@ -336,6 +334,9 @@ export default function CartPage() {
                     )}
 
                     <p className="text-xs font-bold text-zinc-400 mt-1">₹{item.price}</p>
+                    <div className="pt-0.5">
+                      <DeliveryEstimateWidget compact productId={item.id} sellerId={item.seller_id} />
+                    </div>
                     {outOfStock && (
                       <p className="text-[10px] font-bold text-rose-400 mt-0.5 uppercase tracking-widest">
                         Out of Stock

@@ -1,6 +1,6 @@
 import { supabaseServer } from '@/lib/supabaseServer';
 import { createShiprocketOrder, getShiprocketToken } from '@/lib/shiprocket';
-import { calculateFallbackEDD, aggregateMultiVendorEDD } from '@/lib/eddService';
+import { calculateFallbackEDD, getShiprocketOrFallbackEDD, aggregateMultiVendorEDD } from '@/lib/eddService';
 
 type OrderItem = {
   id: string; // product id
@@ -219,8 +219,37 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
       }
       const sellerNetTotal = Math.max(0, sellerGross - sellerDiscount);
 
-      const pickupPin = sellerPickupMap[sellerId] || "700001";
-      const sellerEDD = calculateFallbackEDD(pickupPin, deliveryPincode, new Date());
+      let pickupPin = sellerPickupMap[sellerId];
+      if (!pickupPin) {
+        const { data: sRec } = await supabaseServer
+          .from('sellers')
+          .select('pincode, pickup_address, warehouse_address, address')
+          .eq('id', sellerId)
+          .maybeSingle();
+        if (sRec?.pincode) {
+          pickupPin = sRec.pincode;
+        } else if (sRec) {
+          const addr = `${sRec.pickup_address || ''} ${sRec.warehouse_address || ''} ${sRec.address || ''}`;
+          const m = addr.match(/\b([1-9][0-9]{5})\b/);
+          if (m) pickupPin = m[1];
+        }
+      }
+
+      let sellerEDD = null;
+      if (pickupPin && deliveryPincode) {
+        let srToken = null;
+        try {
+          srToken = await getShiprocketToken();
+        } catch (_) {}
+        sellerEDD = await getShiprocketOrFallbackEDD({
+          pickupPincode: pickupPin,
+          deliveryPincode,
+          orderDate: new Date(),
+          shiprocketToken: srToken,
+        });
+      } else {
+        sellerEDD = calculateFallbackEDD();
+      }
       createdSellerEDDs.push(sellerEDD);
 
       const { data: sellerOrder } = await supabaseServer.from('seller_orders').insert([{

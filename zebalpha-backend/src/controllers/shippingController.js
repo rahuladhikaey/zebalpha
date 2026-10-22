@@ -3,6 +3,7 @@ import { supabaseA, supabaseB } from '../lib/supabase.js';
 import crypto from 'crypto';
 import {
   checkServiceability,
+  calculateDeliveryEstimate,
   pushOrderToShiprocket,
   trackShiprocketShipment,
   parseShiprocketWebhookPayload,
@@ -51,6 +52,207 @@ export const checkServiceabilityHandler = async (req, res, next) => {
     }
 
     return res.status(HTTP_STATUS.OK).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// In-memory cache for serviceability rates & transit data (10-minute TTL)
+const serviceabilityCache = new Map();
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * 1b. Real Dynamic Delivery Estimation Handler (Zero Hardcoded Data)
+ * Route: GET /api/shipping/estimate-delivery or POST /api/shipping/estimate-delivery
+ * Takes: delivery_postcode (required), productId or seller_id, optional weight
+ */
+export const getDeliveryEstimateHandler = async (req, res, next) => {
+  try {
+    const params = req.method === 'GET' ? req.query : req.body;
+
+    const delivery_postcode = String(
+      params.delivery_postcode || params.delivery_pincode || params.destination_pincode || params.pincode || ''
+    ).trim();
+
+    // 1. Validate destination pincode format (6 digits Indian postal code)
+    if (!delivery_postcode || !/^[1-9][0-9]{5}$/.test(delivery_postcode)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: 'Please enter a valid 6-digit delivery PIN code.',
+      });
+    }
+
+    const productId = params.productId || params.product_id;
+    let sellerId = params.sellerId || params.seller_id;
+    let pickup_postcode = params.pickup_postcode || params.pickup_pincode || params.origin_pincode;
+    let weight = parseFloat(params.weight || params.weight_kg) || 0;
+    let dispatchDays = 0;
+
+    // 2. If productId provided, fetch actual product record from database
+    if (productId) {
+      const { data: product, error: prodErr } = await supabaseA
+        .from('products')
+        .select('id, name, seller_id, stock, status, is_active, specifications')
+        .eq('id', productId)
+        .maybeSingle();
+
+      if (prodErr || !product) {
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
+          success: false,
+          error: `Product with ID ${productId} not found.`,
+        });
+      }
+
+      // Check product availability / dispatch readiness
+      const currentStock = Number(product.stock) || 0;
+      const isAvailable = product.is_active !== false && product.status !== 'OUT_OF_STOCK' && currentStock > 0;
+      if (!isAvailable) {
+        return res.status(HTTP_STATUS.OK).json({
+          success: true,
+          serviceable: false,
+          in_stock: false,
+          message: 'Product is currently out of stock or unavailable for order.',
+        });
+      }
+
+      sellerId = sellerId || product.seller_id;
+
+      // Extract genuine weight from specifications if available (weight_grams / 1000)
+      if (weight <= 0 && product.specifications?.weight_grams) {
+        const grams = parseFloat(product.specifications.weight_grams);
+        if (!isNaN(grams) && grams > 0) {
+          weight = grams / 1000;
+        }
+      }
+
+      // Extract genuine dispatch buffer if present in product specifications
+      if (product.specifications?.dispatch_days) {
+        const d = parseInt(product.specifications.dispatch_days, 10);
+        if (!isNaN(d) && d > 0) dispatchDays = d;
+      }
+    }
+
+    if (weight <= 0) {
+      weight = 0.5; // Standard lightweight parcel default (500g)
+    }
+
+    // 3. Resolve actual seller pickup pincode from trusted database records
+    if (!pickup_postcode && sellerId) {
+      // Priority 1: Check seller_pickup_locations
+      const { data: pickupLoc } = await supabaseB
+        .from('seller_pickup_locations')
+        .select('pincode, is_default, is_active')
+        .eq('seller_id', sellerId)
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pickupLoc?.pincode) {
+        pickup_postcode = pickupLoc.pincode;
+      } else {
+        // Priority 2: Check sellers table
+        const { data: sellerRecord } = await supabaseB
+          .from('sellers')
+          .select('id, pincode, pickup_address, warehouse_address, address, dispatch_days')
+          .eq('id', sellerId)
+          .maybeSingle();
+
+        if (sellerRecord?.pincode) {
+          pickup_postcode = sellerRecord.pincode;
+        } else if (sellerRecord) {
+          const combinedAddr = `${sellerRecord.pickup_address || ''} ${sellerRecord.warehouse_address || ''} ${sellerRecord.address || ''}`;
+          const m = combinedAddr.match(/(?:Pin|Pincode|PIN)?\s*[:\-]?\s*(\d{6})\b/i) || combinedAddr.match(/\b([1-9][0-9]{5})\b/);
+          if (m) pickup_postcode = m[1];
+        }
+
+        if (sellerRecord?.dispatch_days && dispatchDays === 0) {
+          const sd = parseInt(sellerRecord.dispatch_days, 10);
+          if (!isNaN(sd) && sd > 0) dispatchDays = sd;
+        }
+      }
+    }
+
+    // If still no pickup postcode could be resolved from real database records:
+    if (!pickup_postcode) {
+      return res.status(HTTP_STATUS.OK).json({
+        success: false,
+        serviceable: false,
+        has_estimate: false,
+        message: 'Seller pickup address is not configured. Delivery estimation is currently unavailable.',
+      });
+    }
+
+    // 4. Check serviceability via Shiprocket (with caching)
+    const cacheKey = `${pickup_postcode}:${delivery_postcode}:${weight}`;
+    const cachedEntry = serviceabilityCache.get(cacheKey);
+    let serviceabilityResult = null;
+
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
+      serviceabilityResult = cachedEntry.data;
+    } else {
+      serviceabilityResult = await checkServiceability({
+        pickup_postcode,
+        delivery_postcode,
+        weight,
+        cod: 0,
+      });
+
+      if (serviceabilityResult?.success) {
+        serviceabilityCache.set(cacheKey, {
+          timestamp: Date.now(),
+          data: serviceabilityResult,
+        });
+      }
+    }
+
+    // If unserviceable or no couriers
+    if (!serviceabilityResult?.success || !serviceabilityResult?.serviceable || !serviceabilityResult?.couriers?.length) {
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        serviceable: false,
+        has_estimate: false,
+        delivery_postcode,
+        message: serviceabilityResult?.message || `Delivery is not available to PIN code ${delivery_postcode}.`,
+        couriers: [],
+      });
+    }
+
+    // 5. Select best courier (recommended courier or fastest/cheapest with verified transit time)
+    const couriers = serviceabilityResult.couriers;
+    const recommendedCourier = couriers.find((c) => c.is_recommended);
+    // Find courier with valid ETD or estimated days
+    const eligibleCouriers = couriers.filter((c) => c.etd || (c.estimated_delivery_days !== null && c.estimated_delivery_days !== undefined));
+    const bestCourier = recommendedCourier || (eligibleCouriers.length > 0 ? eligibleCouriers[0] : couriers[0]);
+
+    // 6. Calculate verified dynamic delivery date (Zero Hardcoded Data)
+    const estimate = calculateDeliveryEstimate({
+      courier: bestCourier,
+      dispatchDays,
+      dispatchCutoffHour: 16,
+      baseDateInput: new Date(),
+    });
+
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      serviceable: true,
+      delivery_postcode,
+      has_estimate: estimate.has_estimate,
+      delivery_date: estimate.delivery_date || null,
+      formatted_date: estimate.formatted_date || null,
+      display_text: estimate.display_text || null,
+      day: estimate.day || null,
+      month: estimate.month || null,
+      weekday: estimate.weekday || null,
+      transit_days: estimate.transit_days || null,
+      dispatch_buffer_days: estimate.dispatch_buffer_days || 0,
+      courier_name: estimate.courier_name || bestCourier.courier_name,
+      rate: bestCourier.total_charge || bestCourier.freight_charge || 0,
+      cod_available: bestCourier.cod_available,
+      available_couriers_count: couriers.length,
+      calculation_method: estimate.calculation_method || null,
+      message: estimate.has_estimate ? null : estimate.message,
+    });
   } catch (err) {
     next(err);
   }
