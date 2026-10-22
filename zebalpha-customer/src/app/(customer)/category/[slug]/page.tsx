@@ -10,7 +10,7 @@ import { resolveCategoryAeo, CATEGORY_AEO_CATALOG } from "@/lib/aeo-geo/category
 import { buildBreadcrumbSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGenerator";
 import { createClient } from "@supabase/supabase-js";
 import { Sparkles, ArrowRight, ShieldCheck, Tag, Ruler } from "lucide-react";
-import { getProductDisplayPricing } from "@/hooks/useCatalogQueries";
+import { getProductDisplayPricing } from "@/lib/productPricing";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://qjpahzstldiatfbutvfc.supabase.co",
