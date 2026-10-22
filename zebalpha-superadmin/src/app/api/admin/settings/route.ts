@@ -91,9 +91,31 @@ export async function GET() {
       console.warn("[Settings API Products Warning]:", prodErr);
     }
 
+    // 3. Fetch active platform finance configuration & versions
+    let activeFinanceConfig: any = null;
+    let financeVersions: any[] = [];
+    try {
+      const { data: activeFin } = await supabaseServer
+        .from("platform_finance_configs")
+        .select("*")
+        .eq("status", "ACTIVE")
+        .maybeSingle();
+      if (activeFin) activeFinanceConfig = activeFin;
+
+      const { data: verList } = await supabaseServer
+        .from("platform_finance_configs")
+        .select("*")
+        .order("version", { ascending: false });
+      if (verList) financeVersions = verList;
+    } catch (finErr) {
+      console.warn("[Settings API Finance Warning]:", finErr);
+    }
+
     return NextResponse.json({
       success: true,
       settings: settingsMap,
+      activeFinanceConfig,
+      financeVersions,
       products
     });
   } catch (err: any) {
@@ -111,30 +133,15 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    if (body.settings && typeof body.settings === "object") {
-      // Batch save
-      for (const [key, value] of Object.entries(body.settings)) {
-        await upsertSetting(key, value);
+    const parseNum = (val: any, fallback = 0) => {
+      if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+        return Number(val);
       }
-      return NextResponse.json({
-        success: true,
-        message: "All settings saved successfully to production database!"
-      });
-    }
+      return fallback;
+    };
 
-    if (body.key !== undefined) {
-      const { key, value } = body;
-      await upsertSetting(key, value);
-
-      // Auto-synchronize linked customer store configurations
+    const handleSyncSideEffects = async (key: string, value: any) => {
       if (key === "marketplace_rules" && value) {
-        const parseNum = (val: any, fallback = 0) => {
-          if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
-            return Number(val);
-          }
-          return fallback;
-        };
-
         const billingPayload = {
           deliveryFee: parseNum(value.deliveryCharge, 0),
           freeDeliveryThreshold: parseNum(value.freeShippingThreshold, 0),
@@ -143,7 +150,6 @@ export async function POST(req: Request) {
         };
         await upsertSetting("billing", billingPayload);
       } else if (key === "marketplace_financial_rules" && value) {
-        // Also sync platform_finance_configs if exists
         try {
           await supabaseServer
             .from("platform_finance_configs")
@@ -163,7 +169,6 @@ export async function POST(req: Request) {
             .eq("status", "ACTIVE");
         } catch (_) {}
       } else if (key === "special_offers_list" && Array.isArray(value)) {
-        // Also sync primary active offer to special_offers_bogo
         const primaryOffer = value.find((o: any) => o.is_active !== false);
         if (primaryOffer) {
           await upsertSetting("special_offers_bogo", {
@@ -176,6 +181,24 @@ export async function POST(req: Request) {
           });
         }
       }
+    };
+
+    if (body.settings && typeof body.settings === "object") {
+      // Batch save
+      for (const [key, value] of Object.entries(body.settings)) {
+        await upsertSetting(key, value);
+        await handleSyncSideEffects(key, value);
+      }
+      return NextResponse.json({
+        success: true,
+        message: "All settings saved successfully to production database!"
+      });
+    }
+
+    if (body.key !== undefined) {
+      const { key, value } = body;
+      await upsertSetting(key, value);
+      await handleSyncSideEffects(key, value);
 
       return NextResponse.json({
         success: true,

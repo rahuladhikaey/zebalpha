@@ -25,11 +25,21 @@ import {
   Layers,
   Sliders,
   ChevronRight
-} from "lucide-react";
 import { DYNAMIC_CATEGORY_CATALOG, MainCategoryConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
+import MarketplaceCommissionFeesEngine from "@/components/admin/MarketplaceCommissionFeesEngine";
 
-export default function MarketplaceSettingsView() {
-  const [activeTab, setActiveTab] = useState<"general" | "fees" | "offers" | "coupons" | "homepage" | "categories">("general");
+interface MarketplaceSettingsViewProps {
+  initialTab?: "general" | "fees" | "offers" | "coupons" | "homepage" | "categories";
+}
+
+export default function MarketplaceSettingsView({ initialTab = "general" }: MarketplaceSettingsViewProps = {}) {
+  const [activeTab, setActiveTab] = useState<"general" | "fees" | "offers" | "coupons" | "homepage" | "categories">(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -625,274 +635,9 @@ export default function MarketplaceSettingsView() {
             </div>
           )}
 
-          {/* FEES & COMMISSION TAB */}
+          {/* FEES & COMMISSION TAB - UNIFIED CANONICAL PLATFORM ENGINE */}
           {activeTab === "fees" && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm max-w-3xl space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <Percent className="w-5 h-5 text-emerald-600" />
-                    <span>Real-time Charges & Seller Commission Control</span>
-                  </h2>
-                  <p className="text-xs text-slate-500 font-medium mt-1">
-                    Set delivery charge, app platform charge, seller commission %, and shipping costs applied real-time during customer checkout and seller payouts.
-                  </p>
-                </div>
-                <button
-                  onClick={loadSettings}
-                  title="Reload from DB"
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveSettings} className="space-y-4 text-xs font-bold">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <Truck className="w-4 h-4 text-emerald-600" />
-                      <span>Delivery Charge (₹)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.deliveryCharge}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, deliveryCharge: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Default delivery fee added on order checkout</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span>Free Delivery Threshold (₹)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.freeShippingThreshold}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, freeShippingThreshold: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Cart subtotal amount to waive delivery charge</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <DollarSign className="w-4 h-4 text-emerald-600" />
-                      <span>App Charge / Platform Fee (₹)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.appCharge}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, appCharge: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Fixed convenience fee charged per completed transaction</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <Percent className="w-4 h-4 text-emerald-600" />
-                      <span>Seller Global Commission (%)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      max="100"
-                      value={marketplaceConfig.globalCommissionPct}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, globalCommissionPct: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Default marketplace commission deducted from seller payout</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <Truck className="w-4 h-4 text-emerald-600" />
-                      <span>Default Base Shipping Cost (₹)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.defaultShippingCost}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, defaultShippingCost: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Base shipping & logistics cost allocated per parcel dispatch</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <DollarSign className="w-4 h-4 text-emerald-600" />
-                      <span>Fixed Closing Fee (₹)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.fixedFee}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, fixedFee: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Fixed marketplace closing fee charged per order item</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <Percent className="w-4 h-4 text-emerald-600" />
-                      <span>Payment Collection Fee (%)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      step="0.1"
-                      value={marketplaceConfig.collectionFeePct}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, collectionFeePct: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Payment gateway collection fee (Prepaid orders)</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <Truck className="w-4 h-4 text-amber-500" />
-                      <span>Reverse Logistics Courier Fee (₹)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.reverseShippingFee}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, reverseShippingFee: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Reverse courier fee charged on customer returns</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <AlertCircle className="w-4 h-4 text-amber-500" />
-                      <span>RTO Handling Charge (₹)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.rtoCharge}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, rtoCharge: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Courier penalty charge on Return to Origin</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <Percent className="w-4 h-4 text-indigo-500" />
-                      <span>Statutory GST on Fees (%)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.gstRatePct}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, gstRatePct: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">GST on Commission, Fixed fee, and Shipping service charges</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-purple-500" />
-                      <span>Settlement Escrow Delay (Days)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.settlementDelayDays}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, settlementDelayDays: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Days after order delivery before payout becomes eligible</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <RotateCcw className="w-4 h-4 text-purple-500" />
-                      <span>Customer Return Window (Days)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={marketplaceConfig.returnWindowDays}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, returnWindowDays: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Window after delivery during which customer can initiate return</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-purple-500" />
-                      <span>Premium Tier Commission Discount (%)</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      step="0.5"
-                      value={marketplaceConfig.premiumCommissionDiscount}
-                      onChange={(e) => setMarketplaceConfig({ ...marketplaceConfig, premiumCommissionDiscount: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm font-black outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-[10px] text-slate-400">Discount off standard commission for Premium Tier sellers</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2 flex flex-col justify-between">
-                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                      <CreditCard className="w-4 h-4 text-emerald-600" />
-                      <span>Cash On Delivery (COD)</span>
-                    </label>
-                    <div className="flex items-center gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setMarketplaceConfig({ ...marketplaceConfig, codEnabled: !marketplaceConfig.codEnabled })}
-                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all cursor-pointer ${
-                          marketplaceConfig.codEnabled
-                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
-                            : "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
-                        }`}
-                      >
-                        {marketplaceConfig.codEnabled ? "✅ COD Enabled" : "❌ COD Disabled"}
-                      </button>
-                      <span className="text-[10px] text-slate-400">
-                        {marketplaceConfig.codEnabled ? "Customers can choose Pay on Delivery" : "Online prepaid only"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="py-3.5 px-8 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-50 transition-all"
-                >
-                  {saving ? "Saving to Database..." : "Save Production Charges & Commission"}
-                </button>
-              </form>
-            </div>
+            <MarketplaceCommissionFeesEngine />
           )}
 
           {/* SPECIAL OFFERS & BOGO TAB */}
