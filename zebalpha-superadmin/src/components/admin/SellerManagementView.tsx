@@ -63,6 +63,19 @@ export const cleanCategory = (cat?: string | null) => {
   return cat;
 };
 
+export const getMerchantId = (seller: any) => {
+  if (seller?.seller_id && String(seller.seller_id).trim()) return String(seller.seller_id).trim();
+  if (seller?.seller_code && String(seller.seller_code).trim()) return String(seller.seller_code).trim();
+  if (seller?.merchant_id && String(seller.merchant_id).trim()) return String(seller.merchant_id).trim();
+  if (seller?.id) {
+    const rawId = String(seller.id).trim();
+    if (rawId.startsWith("SEL-")) return rawId;
+    if (seller?.is_primary_brand) return "SEL-OFFICIAL";
+    return `SEL-${rawId.slice(0, 6).toUpperCase()}`;
+  }
+  return "SEL-OFFICIAL";
+};
+
 interface SellerManagementViewProps {
   initialSellers?: any[];
   initialProducts?: any[];
@@ -389,8 +402,10 @@ export default function SellerManagementView({
         s.is_primary_brand;
 
       const query = searchQuery.toLowerCase().trim();
+      const sMerchantId = getMerchantId(s).toLowerCase();
       const matchesSearch = 
         !query ||
+        sMerchantId.includes(query) ||
         (s.business_name || "").toLowerCase().includes(query) ||
         (s.owner_name || s.full_name || "").toLowerCase().includes(query) ||
         (s.email || "").toLowerCase().includes(query) ||
@@ -401,7 +416,7 @@ export default function SellerManagementView({
         (s.pincode || "").includes(query) ||
         (s.warehouse_address || "").toLowerCase().includes(query) ||
         (s.pickup_address || "").toLowerCase().includes(query) ||
-        (s.seller_id || s.id || "").toString().toLowerCase().includes(query) ||
+        (s.seller_id || s.seller_code || s.merchant_id || s.id || "").toString().toLowerCase().includes(query) ||
         (s.pickupLocations || []).some((loc: any) => 
           (loc.location_name || "").toLowerCase().includes(query) ||
           (loc.name || "").toLowerCase().includes(query) ||
@@ -418,6 +433,15 @@ export default function SellerManagementView({
   }, [sellersWithMetrics, filterStatus, filterCategory, searchQuery]);
 
   // ── Action Handlers ─────────────────────────────────────────────────────
+  const [copiedMerchantId, setCopiedMerchantId] = useState<string | null>(null);
+
+  const handleCopyMerchantId = (mId: string) => {
+    if (!mId) return;
+    navigator.clipboard.writeText(mId);
+    setCopiedMerchantId(mId);
+    setTimeout(() => setCopiedMerchantId(null), 2500);
+  };
+
   const handleCopyUpi = (upi: string) => {
     navigator.clipboard.writeText(upi);
     setCopiedUpi(upi);
@@ -638,7 +662,7 @@ export default function SellerManagementView({
   // Excel Export Handler
   const handleExportSellersExcel = () => {
     const exportData = filteredSellers.map((s) => ({
-      "Merchant ID": s.seller_id || s.id,
+      "Merchant ID": getMerchantId(s),
       "Brand / Store Name": s.business_name || s.full_name || "Merchant Store",
       "Owner Name": s.owner_name || s.full_name || "N/A",
       "Merchant Type": s.is_primary_brand ? "1st-Party Direct Brand" : "3rd-Party Marketplace Merchant",
@@ -837,7 +861,7 @@ export default function SellerManagementView({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search merchant, phone, UPI, city..."
+            placeholder="Search by Merchant ID (SEL-...), name, phone, UPI..."
             className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-zinc-800 bg-zinc-900 text-xs font-bold text-white outline-none focus:border-white transition-all placeholder:text-zinc-500"
           />
         </div>
@@ -869,7 +893,7 @@ export default function SellerManagementView({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900/60 text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                  <th className="p-4 pl-6">Merchant & Brand</th>
+                  <th className="p-4 pl-6">Merchant & Brand / ID</th>
                   <th className="p-4">Owner & Contact</th>
                   <th className="p-4">Payout UPI / PhonePe</th>
                   <th className="p-4">Gross Sales (GMV)</th>
@@ -884,6 +908,7 @@ export default function SellerManagementView({
                 {filteredSellers.map((seller) => {
                   const sName = seller.business_name || seller.full_name || "Merchant Store";
                   const sOwner = seller.owner_name || seller.full_name || "Merchant Owner";
+                  const sMerchantId = getMerchantId(seller);
                   const sUpi = seller.phonepay_no || seller.phonepay_number || seller.upi_id || (seller.mobile_number ? `${seller.mobile_number}@phonepe` : "Not provided");
                   const sCategory = cleanCategory(seller.category || seller.business_category);
                   const isPrimary = seller.is_primary_brand;
@@ -891,7 +916,7 @@ export default function SellerManagementView({
 
                   return (
                     <tr key={seller.id} className="hover:bg-zinc-900/40 transition-colors">
-                      {/* Merchant Brand */}
+                      {/* Merchant Brand & ID */}
                       <td className="p-4 pl-6">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center font-black text-sm shrink-0 overflow-hidden shadow-sm">
@@ -902,7 +927,7 @@ export default function SellerManagementView({
                             )}
                           </div>
                           <div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-black text-white">{sName}</p>
                               {isPrimary ? (
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase">
@@ -914,7 +939,29 @@ export default function SellerManagementView({
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] font-bold text-zinc-400 block mt-0.5 max-w-xs space-y-0.5">
+                            {/* Prominent Merchant ID badge with 1-click copy */}
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[10px] font-black tracking-wide">
+                                <Store size={10} className="text-amber-400 shrink-0" />
+                                {sMerchantId}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyMerchantId(sMerchantId);
+                                }}
+                                className="text-zinc-500 hover:text-white p-0.5 rounded hover:bg-zinc-800 transition-colors cursor-pointer"
+                                title="Copy Merchant ID"
+                              >
+                                {copiedMerchantId === sMerchantId ? (
+                                  <Check size={11} className="text-emerald-400" />
+                                ) : (
+                                  <Copy size={11} />
+                                )}
+                              </button>
+                            </div>
+                            <div className="text-[10px] font-bold text-zinc-400 block mt-1 max-w-xs space-y-0.5">
                               <div>{sCategory} • 📍 {seller.primaryLoc?.city || seller.city || "—"} ({seller.primaryLoc?.pincode || seller.pincode || "—"})</div>
                               <div className="text-zinc-500 font-mono text-[9px] truncate">
                                 Hub: {seller.primaryLoc?.location_name || seller.primaryLoc?.name || seller.pickup_location || "Main Warehouse"}
@@ -1088,10 +1135,26 @@ export default function SellerManagementView({
                     )}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-lg sm:text-xl font-black text-white">
                         {selectedSeller.business_name || selectedSeller.full_name}
                       </h3>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[11px] font-black tracking-wide">
+                        <Store size={11} className="text-amber-400 shrink-0" />
+                        {getMerchantId(selectedSeller)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMerchantId(getMerchantId(selectedSeller))}
+                        className="text-zinc-500 hover:text-white p-0.5 rounded hover:bg-zinc-800 transition-colors cursor-pointer"
+                        title="Copy Merchant ID"
+                      >
+                        {copiedMerchantId === getMerchantId(selectedSeller) ? (
+                          <Check size={12} className="text-emerald-400" />
+                        ) : (
+                          <Copy size={12} />
+                        )}
+                      </button>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
                         selectedSeller.is_suspended 
                           ? "bg-rose-500/20 text-rose-400" 
@@ -1213,6 +1276,36 @@ export default function SellerManagementView({
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-xs">
+                    {/* Merchant ID Highlight Card */}
+                    <div className="col-span-2 flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                      <div>
+                        <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">Merchant ID / Seller Code</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Store size={14} className="text-amber-400" />
+                          <span className="text-amber-300 font-mono text-sm font-black tracking-wider">
+                            {getMerchantId(selectedSeller)}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMerchantId(getMerchantId(selectedSeller))}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        {copiedMerchantId === getMerchantId(selectedSeller) ? (
+                          <>
+                            <Check size={12} className="text-emerald-400" />
+                            <span className="text-emerald-400">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} />
+                            <span>Copy ID</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
                     <div>
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">Store / Business Name</span>
                       <span className="text-white font-black">{selectedSeller.business_name || "—"}</span>
@@ -1456,7 +1549,13 @@ export default function SellerManagementView({
           <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-xl shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">Merchant Settings</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">Merchant Settings</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[10px] font-black tracking-wide">
+                    <Store size={10} className="text-amber-400 shrink-0" />
+                    {getMerchantId(editingSellerData)}
+                  </span>
+                </div>
                 <h3 className="text-xl font-black text-white mt-0.5">Edit Merchant: {editingSellerData.business_name}</h3>
               </div>
               <button onClick={() => { setShowEditSellerModal(false); setEditingSellerData(null); }} className="p-1 text-zinc-400 hover:text-white">
