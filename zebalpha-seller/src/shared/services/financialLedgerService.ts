@@ -11,18 +11,18 @@ export const DEFAULT_FINANCIAL_RULES: MarketplaceFinancialRules = {
   cod_handling_fee: 0.0,
   standard_shipping_fee: 0.0,
   reverse_shipping_fee: 0.0,
-  rto_charge: 50.0,
-  gst_on_platform_fees_pct: 3.0,
-  settlement_delay_days: 7,
-  customer_return_window_days: 5,
+  rto_charge: 0.0,
+  gst_on_platform_fees_pct: 0.0,
+  settlement_delay_days: 0,
+  customer_return_window_days: 0,
   tiers: {
     standard: {
       commission_pct: 0.0,
-      settlement_delay_days: 7
+      settlement_delay_days: 0
     },
     premium: {
       commission_pct: 0.0,
-      settlement_delay_days: 4
+      settlement_delay_days: 0
     }
   }
 };

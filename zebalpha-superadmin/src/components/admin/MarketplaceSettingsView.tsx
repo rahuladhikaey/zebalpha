@@ -38,25 +38,25 @@ export default function MarketplaceSettingsView() {
 
   // General & Fees Marketplace Config
   const [marketplaceConfig, setMarketplaceConfig] = useState({
-    marketplaceName: "ZEB-ALPHA Clothing",
-    supportEmail: "support@zebalpha.com",
-    supportPhone: "+91 9876543210",
-    deliveryCharge: "40",
-    freeShippingThreshold: "999",
-    appCharge: "5",
-    globalCommissionPct: "10",
-    defaultShippingCost: "50",
+    marketplaceName: "ZEBALPHA",
+    supportEmail: "",
+    supportPhone: "",
+    deliveryCharge: "0",
+    freeShippingThreshold: "0",
+    appCharge: "0",
+    globalCommissionPct: "0",
+    defaultShippingCost: "0",
     codEnabled: true,
-    fixedFee: "15",
-    collectionFeePct: "2.0",
-    reverseShippingFee: "70",
-    returnProcessingFee: "20",
-    rtoCharge: "50",
-    gstRatePct: "18.0",
-    settlementDelayDays: "7",
-    returnWindowDays: "7",
-    premiumCommissionDiscount: "2.5",
-    premiumSettlementDelay: "3",
+    fixedFee: "0",
+    collectionFeePct: "0",
+    reverseShippingFee: "0",
+    returnProcessingFee: "0",
+    rtoCharge: "0",
+    gstRatePct: "0",
+    settlementDelayDays: "0",
+    returnWindowDays: "0",
+    premiumCommissionDiscount: "0",
+    premiumSettlementDelay: "0",
   });
 
   const [products, setProducts] = useState<any[]>([]);
@@ -267,10 +267,10 @@ export default function MarketplaceSettingsView() {
       const col = parseNum(marketplaceConfig.collectionFeePct, 0);
       const ship = parseNum(marketplaceConfig.defaultShippingCost, 0);
       const revShip = parseNum(marketplaceConfig.reverseShippingFee, 0);
-      const rto = parseNum(marketplaceConfig.rtoCharge, 50.0);
-      const gst = parseNum(marketplaceConfig.gstRatePct, 3.0);
-      const escrow = parseNum(marketplaceConfig.settlementDelayDays, 7);
-      const returnWin = parseNum(marketplaceConfig.returnWindowDays, 5);
+      const rto = parseNum(marketplaceConfig.rtoCharge, 0);
+      const gst = parseNum(marketplaceConfig.gstRatePct, 0);
+      const escrow = parseNum(marketplaceConfig.settlementDelayDays, 0);
+      const returnWin = parseNum(marketplaceConfig.returnWindowDays, 0);
       const premDiscount = parseNum(marketplaceConfig.premiumCommissionDiscount, 0);
 
       // Save complete financial ledger rules (0 values are preserved accurately)
@@ -278,7 +278,7 @@ export default function MarketplaceSettingsView() {
         commission_percentage: comm,
         fixed_fee_per_order: fixed,
         payment_collection_fee_pct: col,
-        cod_handling_fee: 25.0,
+        cod_handling_fee: 0,
         standard_shipping_fee: ship,
         reverse_shipping_fee: revShip,
         rto_charge: rto,
@@ -293,7 +293,7 @@ export default function MarketplaceSettingsView() {
           },
           premium: {
             commission_pct: Math.max(0, comm - premDiscount),
-            settlement_delay_days: parseNum(marketplaceConfig.premiumSettlementDelay, 3),
+            settlement_delay_days: parseNum(marketplaceConfig.premiumSettlementDelay, 0),
           }
         }
       };

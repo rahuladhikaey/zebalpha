@@ -40,12 +40,12 @@ export default function PaymentsCommissionView() {
   const [orders, setOrders] = useState<any[]>([]);
   const [sellers, setSellers] = useState<any[]>([]);
   const [settlements, setSettlements] = useState<SettlementRecord[]>([]);
-  const [commissionRate, setCommissionRate] = useState<number>(10);
+  const [commissionRate, setCommissionRate] = useState<number>(0);
   const [feeConfig, setFeeConfig] = useState({
-    deliveryCharge: "40",
-    freeShippingThreshold: "999",
-    appCharge: "5",
-    defaultShippingCost: "50"
+    deliveryCharge: "0",
+    freeShippingThreshold: "0",
+    appCharge: "0",
+    defaultShippingCost: "0"
   });
   const [saveStatus, setSaveStatus] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -86,12 +86,12 @@ export default function PaymentsCommissionView() {
 
       if (settingsRes?.data?.value) {
         const val = settingsRes.data.value;
-        if (val.globalCommissionPct) setCommissionRate(Number(val.globalCommissionPct));
+        if (val.globalCommissionPct !== undefined) setCommissionRate(Number(val.globalCommissionPct) || 0);
         const updatedConfig = {
-          deliveryCharge: val.deliveryCharge || "40",
-          freeShippingThreshold: val.freeShippingThreshold || "999",
-          appCharge: val.appCharge || "5",
-          defaultShippingCost: val.defaultShippingCost || "50"
+          deliveryCharge: val.deliveryCharge !== undefined && val.deliveryCharge !== null ? String(val.deliveryCharge) : "0",
+          freeShippingThreshold: val.freeShippingThreshold !== undefined && val.freeShippingThreshold !== null ? String(val.freeShippingThreshold) : "0",
+          appCharge: val.appCharge !== undefined && val.appCharge !== null ? String(val.appCharge) : "0",
+          defaultShippingCost: val.defaultShippingCost !== undefined && val.defaultShippingCost !== null ? String(val.defaultShippingCost) : "0"
         };
         setFeeConfig(updatedConfig);
       }

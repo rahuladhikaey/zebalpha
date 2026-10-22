@@ -173,10 +173,10 @@ export async function GET(req: NextRequest) {
                 cod_handling_fee: getVal(finRules.cod_handling_fee, null, 0),
                 standard_shipping_fee: getVal(finRules.standard_shipping_fee, mktRules.defaultShippingCost, 0),
                 reverse_shipping_fee: getVal(finRules.reverse_shipping_fee, mktRules.reverseShippingFee, 0),
-                rto_charge: getVal(finRules.rto_charge, mktRules.rtoCharge, 50),
-                gst_on_platform_fees_pct: getVal(finRules.gst_on_platform_fees_pct, mktRules.gstRatePct, 3),
-                settlement_delay_days: getVal(finRules.settlement_delay_days, mktRules.settlementDelayDays, 7),
-                customer_return_window_days: getVal(finRules.customer_return_window_days, mktRules.returnWindowDays, 5),
+                rto_charge: getVal(finRules.rto_charge, mktRules.rtoCharge, 0),
+                gst_on_platform_fees_pct: getVal(finRules.gst_on_platform_fees_pct, mktRules.gstRatePct, 0),
+                settlement_delay_days: getVal(finRules.settlement_delay_days, mktRules.settlementDelayDays, 0),
+                customer_return_window_days: getVal(finRules.customer_return_window_days, mktRules.returnWindowDays, 0),
               };
             }
           } catch (_) {}

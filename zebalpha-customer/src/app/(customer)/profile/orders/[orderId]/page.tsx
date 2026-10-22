@@ -665,8 +665,8 @@ interface TimelineStep {
     }, 0);
   }, [order]);
 
-  const deliveryCharge = calculatedSubtotal >= 999 ? 0 : 40;
-  const platformFee = 5;
+  const deliveryCharge = Number(order?.shipping_fee ?? order?.shipping_charge ?? order?.delivery_charge ?? order?.delivery_fee ?? 0);
+  const platformFee = Number(order?.platform_fee ?? order?.app_charge ?? order?.convenience_fee ?? 0);
 
   if (loading || authLoading) {
     return (

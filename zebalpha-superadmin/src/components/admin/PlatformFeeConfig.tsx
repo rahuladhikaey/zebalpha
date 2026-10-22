@@ -37,9 +37,9 @@ export default function PlatformFeeConfig() {
     cod_handling_fee: 0.0,
     standard_shipping_fee: 0.0,
     reverse_shipping_fee: 0.0,
-    rto_charge: 50.0,
-    gst_on_platform_fees_pct: 3.0,
-    settlement_delay_days: 7,
+    rto_charge: 0.0,
+    gst_on_platform_fees_pct: 0.0,
+    settlement_delay_days: 0,
     shipping_paid_by: "CUSTOMER",
     change_reason: ""
   });
@@ -80,9 +80,9 @@ export default function PlatformFeeConfig() {
           cod_handling_fee: activeRes.data.cod_handling_fee !== undefined && activeRes.data.cod_handling_fee !== null ? Number(activeRes.data.cod_handling_fee) : 0.0,
           standard_shipping_fee: activeRes.data.standard_shipping_fee !== undefined && activeRes.data.standard_shipping_fee !== null ? Number(activeRes.data.standard_shipping_fee) : 0.0,
           reverse_shipping_fee: activeRes.data.reverse_shipping_fee !== undefined && activeRes.data.reverse_shipping_fee !== null ? Number(activeRes.data.reverse_shipping_fee) : 0.0,
-          rto_charge: activeRes.data.rto_charge !== undefined && activeRes.data.rto_charge !== null ? Number(activeRes.data.rto_charge) : 50.0,
-          gst_on_platform_fees_pct: activeRes.data.gst_on_platform_fees_pct !== undefined && activeRes.data.gst_on_platform_fees_pct !== null ? Number(activeRes.data.gst_on_platform_fees_pct) : 3.0,
-          settlement_delay_days: activeRes.data.settlement_delay_days !== undefined && activeRes.data.settlement_delay_days !== null ? Number(activeRes.data.settlement_delay_days) : 7,
+          rto_charge: activeRes.data.rto_charge !== undefined && activeRes.data.rto_charge !== null ? Number(activeRes.data.rto_charge) : 0.0,
+          gst_on_platform_fees_pct: activeRes.data.gst_on_platform_fees_pct !== undefined && activeRes.data.gst_on_platform_fees_pct !== null ? Number(activeRes.data.gst_on_platform_fees_pct) : 0.0,
+          settlement_delay_days: activeRes.data.settlement_delay_days !== undefined && activeRes.data.settlement_delay_days !== null ? Number(activeRes.data.settlement_delay_days) : 0,
           shipping_paid_by: activeRes.data.shipping_paid_by || "CUSTOMER",
           change_reason: ""
         });

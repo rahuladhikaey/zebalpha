@@ -137,7 +137,7 @@ export async function POST(req: Request) {
 
         const billingPayload = {
           deliveryFee: parseNum(value.deliveryCharge, 0),
-          freeDeliveryThreshold: parseNum(value.freeShippingThreshold, 659),
+          freeDeliveryThreshold: parseNum(value.freeShippingThreshold, 0),
           packagingFee: parseNum(value.appCharge, 0),
           tax: 0
         };

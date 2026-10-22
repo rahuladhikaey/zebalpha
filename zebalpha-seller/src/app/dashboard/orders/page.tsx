@@ -100,10 +100,10 @@ export default function SellerOrders() {
           const codFee = parseNum(finRules.cod_handling_fee, 0);
           const shipFee = parseNum(finRules.standard_shipping_fee ?? mktRules.defaultShippingCost, 0);
           const revShip = parseNum(finRules.reverse_shipping_fee ?? mktRules.reverseShippingFee, 0);
-          const rto = parseNum(finRules.rto_charge ?? mktRules.rtoCharge, 50);
-          const gst = parseNum(finRules.gst_on_platform_fees_pct ?? mktRules.gstRatePct, 3);
-          const escrow = parseNum(finRules.settlement_delay_days ?? mktRules.settlementDelayDays, 7);
-          const returnWin = parseNum(finRules.customer_return_window_days ?? mktRules.returnWindowDays, 5);
+          const rto = parseNum(finRules.rto_charge ?? mktRules.rtoCharge, 0);
+          const gst = parseNum(finRules.gst_on_platform_fees_pct ?? mktRules.gstRatePct, 0);
+          const escrow = parseNum(finRules.settlement_delay_days ?? mktRules.settlementDelayDays, 0);
+          const returnWin = parseNum(finRules.customer_return_window_days ?? mktRules.returnWindowDays, 0);
 
           setFinancialRules({
             commission_percentage: comm,
