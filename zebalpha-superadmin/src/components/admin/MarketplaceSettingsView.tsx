@@ -26,7 +26,7 @@ import {
   Sliders,
   ChevronRight
 } from "lucide-react";
-import { DYNAMIC_CATEGORY_CATALOG, CategoryConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
+import { DYNAMIC_CATEGORY_CATALOG, MainCategoryConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
 
 export default function MarketplaceSettingsView() {
   const [activeTab, setActiveTab] = useState<"general" | "fees" | "offers" | "coupons" | "homepage" | "categories">("general");

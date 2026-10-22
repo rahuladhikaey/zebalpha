@@ -62,6 +62,8 @@ export interface MainCategoryConfig {
   subcategories: SubcategoryConfig[];
 }
 
+export type CategoryConfig = MainCategoryConfig;
+
 // -------------------------------------------------------------
 // SIZE PRESETS
 // -------------------------------------------------------------
