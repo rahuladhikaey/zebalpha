@@ -23,8 +23,8 @@ import {
   AlertCircle,
   RotateCcw,
   Layers,
-  Sliders,
   ChevronRight
+} from "lucide-react";
 import { DYNAMIC_CATEGORY_CATALOG, MainCategoryConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
 import MarketplaceCommissionFeesEngine from "@/components/admin/MarketplaceCommissionFeesEngine";
 
@@ -1133,7 +1133,7 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {DYNAMIC_CATEGORY_CATALOG.map((category) => (
+                {DYNAMIC_CATEGORY_CATALOG.map((category: MainCategoryConfig) => (
                   <div 
                     key={category.id} 
                     className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-emerald-500/50 transition-all"
@@ -1149,17 +1149,17 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                         {category.name}
                       </h3>
                       <p className="text-xs text-slate-500 font-medium mb-4">
-                        {category.subcategories.length} Subcategories · {category.subcategories.reduce((acc, s) => acc + s.productTypes.length, 0)} Product Types
+                        {category.subcategories.length} Subcategories · {category.subcategories.reduce((acc: number, s: any) => acc + (s.productTypes?.length || 0), 0)} Product Types
                       </p>
 
                       <div className="space-y-3">
-                        {category.subcategories.map((sub) => (
+                        {category.subcategories.map((sub: any) => (
                           <div key={sub.id} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                             <span className="text-xs font-black text-slate-800 dark:text-slate-200 block mb-2">
                               {sub.name}
                             </span>
                             <div className="flex flex-wrap gap-1.5">
-                              {sub.productTypes.map((pt) => (
+                              {sub.productTypes.map((pt: ProductTypeConfig) => (
                                 <span 
                                   key={pt.id}
                                   className="text-[10px] font-bold px-2 py-1 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 shadow-xs flex items-center gap-1"
