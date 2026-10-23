@@ -161,3 +161,29 @@ img {
   scrollbar-width: none;
 }
 
+/* ── ANDROID APP ONLY: Emerald Green CTA + White Text (Zero effect on website) ── */
+.is-android-app .royal-button-primary {
+  background: #059669 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 18px rgba(5, 150, 105, 0.35) !important;
+}
+
+.is-android-app .royal-button-primary:hover {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 25px rgba(5, 150, 105, 0.45) !important;
+}
+
+.is-android-app .android-cta-emerald {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  box-shadow: 0 4px 18px rgba(5, 150, 105, 0.35) !important;
+}
+
+.is-android-app .android-cta-emerald:hover,
+.is-android-app .android-cta-emerald:active {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+

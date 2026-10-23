@@ -494,9 +494,9 @@ export function AndroidOnboardingManager() {
             <div
               className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                 isStepActive("language")
-                  ? "bg-white text-black shadow-md scale-105"
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/40 scale-105"
                   : isStepDone("language")
-                  ? "bg-white text-black"
+                  ? "bg-emerald-600 text-white"
                   : "bg-neutral-900 border border-neutral-700 text-neutral-400"
               }`}
             >
@@ -504,7 +504,7 @@ export function AndroidOnboardingManager() {
             </div>
             <span
               className={`text-[10px] font-bold tracking-wider uppercase ${
-                isStepActive("language") ? "text-white" : "text-neutral-500"
+                isStepActive("language") ? "text-emerald-400" : "text-neutral-500"
               }`}
             >
               {t("step_language")}
@@ -516,9 +516,9 @@ export function AndroidOnboardingManager() {
             <div
               className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                 isStepActive("login")
-                  ? "bg-white text-black shadow-md scale-105"
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/40 scale-105"
                   : isStepDone("login")
-                  ? "bg-white text-black"
+                  ? "bg-emerald-600 text-white"
                   : "bg-neutral-900 border border-neutral-700 text-neutral-400"
               }`}
             >
@@ -526,7 +526,7 @@ export function AndroidOnboardingManager() {
             </div>
             <span
               className={`text-[10px] font-bold tracking-wider uppercase ${
-                isStepActive("login") ? "text-white" : "text-neutral-500"
+                isStepActive("login") ? "text-emerald-400" : "text-neutral-500"
               }`}
             >
               {t("step_login")}
@@ -538,7 +538,7 @@ export function AndroidOnboardingManager() {
             <div
               className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                 isStepActive("welcome")
-                  ? "bg-white text-black shadow-md scale-105"
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/40 scale-105"
                   : "bg-neutral-900 border border-neutral-700 text-neutral-400"
               }`}
             >
@@ -618,7 +618,7 @@ export function AndroidOnboardingManager() {
               <button
                 type="button"
                 onClick={handleLanguageContinue}
-                className="w-full h-14 rounded-2xl bg-black text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl hover:bg-neutral-900 active:scale-[0.98] transition-all cursor-pointer"
+                className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/25 hover:bg-emerald-500 active:scale-[0.98] transition-all cursor-pointer"
               >
                 <span>{selectedLang === "hi" ? "आगे बढ़ें" : "Continue"}</span>
                 <span className="text-base">✦</span>
@@ -693,7 +693,7 @@ export function AndroidOnboardingManager() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-14 rounded-2xl bg-black text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl hover:bg-neutral-900 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+                className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/25 hover:bg-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
               >
                 {loading ? t("signing_in") : t("sign_in_button")}
               </button>
@@ -801,7 +801,7 @@ export function AndroidOnboardingManager() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-14 rounded-2xl bg-black text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl hover:bg-neutral-900 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+                className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/25 hover:bg-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
               >
                 {loading ? t("sending_otp") : t("send_otp_button")}
               </button>
@@ -947,7 +947,7 @@ export function AndroidOnboardingManager() {
               <button
                 type="button"
                 onClick={handleCompleteWelcome}
-                className="w-full h-14 rounded-2xl bg-black text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl hover:bg-neutral-900 active:scale-[0.98] transition-all cursor-pointer"
+                className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/25 hover:bg-emerald-500 active:scale-[0.98] transition-all cursor-pointer"
               >
                 <span>{t("start_shopping")}</span>
               </button>

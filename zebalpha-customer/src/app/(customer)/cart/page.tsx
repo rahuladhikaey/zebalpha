@@ -235,7 +235,7 @@ export default function CartPage() {
         <p className="text-sm font-bold text-zinc-400 mb-6 text-center">Add some limited drops to start your collection!</p>
         <button 
           onClick={() => router.push('/')}
-          className="bg-white text-black px-8 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-zinc-200 transition-colors shadow-lg shadow-white/10 cursor-pointer"
+          className={`${isNativeApp ? "bg-emerald-600 text-white shadow-emerald-600/30 hover:bg-emerald-500" : "bg-white text-black hover:bg-zinc-200 shadow-white/10"} px-8 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-colors shadow-lg cursor-pointer`}
         >
           Browse Collection
         </button>
@@ -595,10 +595,12 @@ export default function CartPage() {
           <button 
             disabled={cart.filter(item => (item.stock ?? Infinity) > 0).length === 0}
             onClick={() => router.push(appliedCoupon ? `/checkout?coupon=${appliedCoupon.code}` : '/checkout')}
-            className={`transition-all text-black px-12 py-4 rounded-2xl font-black text-base tracking-wide shadow-xl active:scale-95 min-w-[160px] text-center cursor-pointer ${
+            className={`transition-all px-12 py-4 rounded-2xl font-black text-base tracking-wide shadow-xl active:scale-95 min-w-[160px] text-center cursor-pointer ${
               cart.filter(item => (item.stock ?? Infinity) > 0).length === 0
                 ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                : "bg-white hover:bg-zinc-200 shadow-white/10"
+                : isNativeApp
+                ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
+                : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
             }`}
           >
             {cart.filter(item => (item.stock ?? Infinity) > 0).length === 0 ? "Out of Stock" : "Proceed to Checkout →"}

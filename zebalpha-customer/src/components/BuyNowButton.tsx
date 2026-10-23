@@ -5,6 +5,7 @@ import { Product } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
+import { useIsNativeApp } from "@/lib/platform";
 
 export function BuyNowButton({ 
   product, 
@@ -20,6 +21,7 @@ export function BuyNowButton({
   const { cart, addToCart } = useCart();
   const { session } = useAuth();
   const router = useRouter();
+  const isNativeApp = useIsNativeApp();
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
 
@@ -75,11 +77,21 @@ export function BuyNowButton({
     }
   };
 
+  const defaultClasses = isNativeApp
+    ? "flex h-11 w-full items-center justify-center rounded-xl bg-emerald-600 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-emerald-600/30 hover:bg-emerald-500 border border-emerald-500/30 transition-all active:scale-95 cursor-pointer"
+    : "flex h-11 w-full items-center justify-center rounded-xl bg-white text-[10px] font-black uppercase tracking-[0.2em] text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer";
+
+  const resolvedClass = className
+    ? (isNativeApp
+        ? `${className} !bg-emerald-600 !text-white !border-emerald-500/30 hover:!bg-emerald-500 shadow-xl shadow-emerald-600/30`
+        : className)
+    : defaultClasses;
+
   return (
     <button
       type="button"
       onClick={handleBuyNow}
-      className={className || "flex h-11 w-full items-center justify-center rounded-xl bg-white text-[10px] font-black uppercase tracking-[0.2em] text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer"}
+      className={resolvedClass}
     >
       {isPreOrder ? "Pre-Order 📦" : "Buy Now ⚡"}
     </button>

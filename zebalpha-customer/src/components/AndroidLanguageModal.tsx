@@ -82,7 +82,7 @@ export function AndroidLanguageModal() {
 
                 <div
                   className={`flex h-6 w-6 items-center justify-center rounded-full border transition-all ${
-                    isSelected ? "border-black bg-black text-white" : "border-neutral-300 bg-white"
+                    isSelected ? "border-emerald-600 bg-emerald-600 text-white" : "border-neutral-300 bg-white"
                   }`}
                 >
                   {isSelected && <Check size={14} strokeWidth={3} />}
@@ -96,7 +96,7 @@ export function AndroidLanguageModal() {
         <button
           onClick={closeLanguageModal}
           type="button"
-          className="w-full h-13 rounded-2xl bg-black text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center shadow-lg hover:bg-neutral-900 active:scale-[0.98] transition-all"
+          className="w-full h-13 rounded-2xl bg-emerald-600 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center shadow-lg shadow-emerald-600/25 hover:bg-emerald-500 active:scale-[0.98] transition-all"
         >
           {t("done")} ✦
         </button>

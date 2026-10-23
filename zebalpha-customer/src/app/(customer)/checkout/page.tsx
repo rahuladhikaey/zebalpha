@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Tag, Check, X, Sparkles, Truck } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
+import { useIsNativeApp } from "@/lib/platform";
 
 const normalizeAddressFromRecord = (record: any) => {
   const addressLine = record?.address_line || record?.address_line1 || record?.address_line2 || "";
@@ -47,6 +48,7 @@ function CheckoutContent() {
   const initialMethod = searchParams.get("method")?.toUpperCase() === "COD" ? "COD" : "ONLINE";
 
   const { user, loading: authLoading } = useAuth();
+  const isNativeApp = useIsNativeApp();
 
   const isBuyNow = searchParams.get("buyNow") === "true";
   const { cart: contextCart, totalValue: contextTotalValue, clearCart } = useCart();
@@ -1222,10 +1224,13 @@ function CheckoutContent() {
               <button
                 type="submit"
                 disabled={saving || orderPlacedRef.current || inStockBaseCart.length === 0}
-                className={`flex h-16 w-full items-center justify-center rounded-2xl px-6 text-xs sm:text-sm font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 cursor-pointer ${saving || inStockBaseCart.length > 0
-                  ? "bg-white text-black hover:bg-zinc-200 shadow-white/10"
-                  : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                  }`}
+                className={`flex h-16 w-full items-center justify-center rounded-2xl px-6 text-xs sm:text-sm font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 cursor-pointer ${
+                  saving || inStockBaseCart.length > 0
+                    ? isNativeApp
+                      ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
+                      : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
+                    : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                }`}
               >
                 {saving
                   ? "Processing..."
@@ -1332,7 +1337,11 @@ function CheckoutContent() {
                         type="button"
                         disabled={!couponInput.trim() || isValidatingCoupon}
                         onClick={() => applyCouponCode(couponInput)}
-                        className="px-5 py-2.5 rounded-xl bg-white text-black font-black text-xs uppercase tracking-wider hover:bg-zinc-200 disabled:opacity-40 transition-all cursor-pointer shadow-md shadow-white/10"
+                        className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider disabled:opacity-40 transition-all cursor-pointer shadow-md ${
+                          isNativeApp
+                            ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
+                            : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
+                        }`}
                       >
                         {isValidatingCoupon ? "..." : "Apply"}
                       </button>

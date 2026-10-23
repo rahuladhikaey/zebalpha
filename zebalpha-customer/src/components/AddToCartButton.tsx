@@ -6,6 +6,7 @@ import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { Product } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
+import { useIsNativeApp } from "@/lib/platform";
 
 export function AddToCartButton({ 
   product, 
@@ -22,6 +23,7 @@ export function AddToCartButton({
   const { openVariantSelector } = useVariantSelector();
   const { session } = useAuth();
   const router = useRouter();
+  const isNativeApp = useIsNativeApp();
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
   const isOutOfStock = !isUpcomingDrop && ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK");
@@ -241,7 +243,11 @@ export function AddToCartButton({
         <span 
           onClick={handleCenterClick}
           title="Click to view cart or change size"
-          className="flex h-full flex-1 items-center justify-center bg-white text-black text-xs sm:text-sm font-black px-2 py-0.5 rounded-lg mx-1 animate-in zoom-in-50 duration-200 cursor-pointer hover:bg-neutral-200 transition-colors select-none whitespace-nowrap"
+          className={`flex h-full flex-1 items-center justify-center text-xs sm:text-sm font-black px-2 py-0.5 rounded-lg mx-1 animate-in zoom-in-50 duration-200 cursor-pointer transition-colors select-none whitespace-nowrap ${
+            isNativeApp
+              ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/30"
+              : "bg-white text-black hover:bg-neutral-200"
+          }`}
         >
           {badgeText}
         </span>
@@ -262,7 +268,11 @@ export function AddToCartButton({
       <button
         type="button"
         onClick={handleAdd}
-        className="flex h-8 w-8 sm:h-10 sm:w-24 items-center justify-center rounded-full sm:rounded-xl border border-white/20 bg-white text-black font-black text-sm shadow-md hover:bg-neutral-200 transition-all active:scale-95 cursor-pointer"
+        className={`flex h-8 w-8 sm:h-10 sm:w-24 items-center justify-center rounded-full sm:rounded-xl font-black text-sm shadow-md transition-all active:scale-95 cursor-pointer ${
+          isNativeApp
+            ? "border border-emerald-500/40 bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
+            : "border border-white/20 bg-white text-black hover:bg-neutral-200"
+        }`}
         aria-label="Add to cart"
       >
         <span className="hidden sm:inline text-xs tracking-wider">ADD</span>
@@ -271,11 +281,21 @@ export function AddToCartButton({
     );
   }
 
+  const defaultClasses = isNativeApp
+    ? "flex h-10 w-24 items-center justify-center rounded-xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] border border-emerald-500/30 transition-all active:scale-95 cursor-pointer"
+    : "flex h-10 w-24 items-center justify-center rounded-xl bg-white text-black font-black text-xs uppercase tracking-widest shadow-md hover:bg-neutral-200 hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all active:scale-95 cursor-pointer";
+
+  const resolvedClass = className
+    ? (isNativeApp
+        ? `${className} !bg-emerald-600 !text-white !border-emerald-500/30 hover:!bg-emerald-500 shadow-lg shadow-emerald-600/30`
+        : className)
+    : defaultClasses;
+
   return (
     <button
       type="button"
       onClick={handleAdd}
-      className={className || "flex h-10 w-24 items-center justify-center rounded-xl bg-white text-black font-black text-xs uppercase tracking-widest shadow-md hover:bg-neutral-200 hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all active:scale-95 cursor-pointer"}
+      className={resolvedClass}
     >
       ADD +
     </button>

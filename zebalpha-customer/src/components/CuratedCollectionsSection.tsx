@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { CuratedCollection } from "@/lib/types";
 import { CheckCircle2, Sparkles } from "lucide-react";
+import { useIsNativeApp } from "@/lib/platform";
 
 interface CuratedCollectionsSectionProps {
   initialCollections?: CuratedCollection[];
@@ -13,6 +14,7 @@ interface CuratedCollectionsSectionProps {
 export function CuratedCollectionsSection({
   initialCollections = [],
 }: CuratedCollectionsSectionProps) {
+  const isNativeApp = useIsNativeApp();
   const [collections, setCollections] = useState<CuratedCollection[]>(initialCollections);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
@@ -82,7 +84,7 @@ export function CuratedCollectionsSection({
         <div className="flex items-center gap-2.5">
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
             <span>Curated Collections</span>
-            <CheckCircle2 className="w-5 h-5 text-violet-400 fill-violet-500/20" />
+            <CheckCircle2 className={`w-5 h-5 ${isNativeApp ? "text-emerald-400 fill-emerald-500/20" : "text-violet-400 fill-violet-500/20"}`} />
           </h2>
         </div>
       </div>
@@ -103,16 +105,20 @@ export function CuratedCollectionsSection({
                     key={keyId}
                     href={item.href}
                     aria-label={`Explore ${item.title} collection`}
-                    className="group relative flex flex-col items-center rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 hover:border-violet-500/50 hover:bg-neutral-850 shadow-lg hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-2.5 sm:p-3 w-[126px] sm:w-[136px] lg:w-auto shrink-0 lg:shrink"
+                    className={`group relative flex flex-col items-center rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-2.5 sm:p-3 w-[126px] sm:w-[136px] lg:w-auto shrink-0 lg:shrink ${
+                      isNativeApp
+                        ? "hover:border-emerald-500/50 hover:bg-neutral-850 hover:shadow-[0_12px_30px_rgba(16,185,129,0.2)] shadow-lg"
+                        : "hover:border-violet-500/50 hover:bg-neutral-850 hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] shadow-lg"
+                    }`}
                   >
                     {/* Clean Highlight Shimmer */}
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-violet-500/10 to-transparent transition-opacity duration-300 pointer-events-none rounded-2xl sm:rounded-3xl" />
+                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b ${isNativeApp ? "from-emerald-500/10" : "from-violet-500/10"} to-transparent transition-opacity duration-300 pointer-events-none rounded-2xl sm:rounded-3xl`} />
 
                     {/* 1:1 Aspect Ratio Curved Cover Image Box */}
-                    <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner p-1.5 sm:p-2">
+                    <div className={`relative w-full aspect-square rounded-xl sm:rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden ${isNativeApp ? "group-hover:border-emerald-500/40" : "group-hover:border-violet-500/40"} transition-all duration-300 shadow-inner p-1.5 sm:p-2`}>
                       {failedImages[keyId] ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900 rounded-lg sm:rounded-xl text-neutral-500 p-1">
-                          <Sparkles className="w-5 h-5 text-violet-400 mb-1" />
+                          <Sparkles className={`w-5 h-5 ${isNativeApp ? "text-emerald-400" : "text-violet-400"} mb-1`} />
                           <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-neutral-400 text-center truncate max-w-full">
                             {item.title}
                           </span>

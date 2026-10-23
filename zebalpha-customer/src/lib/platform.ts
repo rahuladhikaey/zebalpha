@@ -52,7 +52,17 @@ export function useIsNativeApp(): boolean {
   const [isNative, setIsNative] = useState(false);
 
   useEffect(() => {
-    setIsNative(checkIsNativeApp());
+    const native = checkIsNativeApp();
+    setIsNative(native);
+    if (typeof document !== "undefined") {
+      if (native) {
+        document.documentElement.classList.add("is-android-app");
+        document.body.classList.add("is-android-app");
+      } else {
+        document.documentElement.classList.remove("is-android-app");
+        document.body.classList.remove("is-android-app");
+      }
+    }
   }, []);
 
   return isNative;

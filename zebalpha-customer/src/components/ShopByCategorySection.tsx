@@ -8,10 +8,12 @@ import { Category } from "@/lib/types";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 import { useCategories } from "@/hooks/useCatalogQueries";
 import { useQueryClient } from "@tanstack/react-query";
+import { useIsNativeApp } from "@/lib/platform";
 
 const CLOTHING_TABS = ["ALL", "POLOS", "T-SHIRTS", "HOODIES", "SHIRTS", "BOTTOMS", "LIMITED", "ACCESSORIES"];
 
 export function ShopByCategorySection({ initialCategories = [] }: { initialCategories?: Category[] }) {
+  const isNativeApp = useIsNativeApp();
   const queryClient = useQueryClient();
   const { data: categories = initialCategories } = useCategories(
     initialCategories.length > 0 ? initialCategories : undefined
@@ -60,7 +62,7 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
         <div className="flex items-center gap-2.5">
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
             <span>Curated Collections</span>
-            <CheckCircle2 className="w-5 h-5 text-violet-400 fill-violet-500/20" />
+            <CheckCircle2 className={`w-5 h-5 ${isNativeApp ? "text-emerald-400 fill-emerald-500/20" : "text-violet-400 fill-violet-500/20"}`} />
           </h2>
         </div>
       </div>
@@ -78,10 +80,13 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                   scrollContainerRef.current.scrollTo({ left: 0, behavior: "smooth" });
                 }
               }}
-              className={`px-4 py-2 rounded-full text-[11px] font-black tracking-wider transition-all uppercase whitespace-nowrap cursor-pointer ${isActive
-                  ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] scale-105"
+              className={`px-4 py-2 rounded-full text-[11px] font-black tracking-wider transition-all uppercase whitespace-nowrap cursor-pointer ${
+                isActive
+                  ? isNativeApp
+                    ? "bg-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] scale-105"
+                    : "bg-violet-600 text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] scale-105"
                   : "bg-neutral-900 text-neutral-400 border border-neutral-800 hover:bg-neutral-800 hover:text-white"
-                }`}
+              }`}
             >
               {tab}
             </button>
@@ -111,13 +116,17 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                   <Link
                     key={cat.id || keyId}
                     href={`/products?category=${encodeURIComponent(cat.name)}`}
-                    className="group relative flex flex-col items-center rounded-3xl bg-neutral-900/90 border border-neutral-800 hover:border-violet-500/50 hover:bg-neutral-850 shadow-lg hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-3"
+                    className={`group relative flex flex-col items-center rounded-3xl bg-neutral-900/90 border border-neutral-800 ${
+                      isNativeApp
+                        ? "hover:border-emerald-500/50 hover:shadow-[0_12px_30px_rgba(16,185,129,0.2)]"
+                        : "hover:border-violet-500/50 hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)]"
+                    } hover:bg-neutral-850 shadow-lg transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-3`}
                   >
                     {/* Clean Highlight Shimmer */}
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-violet-500/10 to-transparent transition-opacity duration-300 pointer-events-none rounded-3xl" />
+                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b ${isNativeApp ? "from-emerald-500/10" : "from-violet-500/10"} to-transparent transition-opacity duration-300 pointer-events-none rounded-3xl`} />
 
                     {/* Soft Curved Cover Image Box */}
-                    <div className="relative w-full aspect-square rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner p-2">
+                    <div className={`relative w-full aspect-square rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden ${isNativeApp ? "group-hover:border-emerald-500/40" : "group-hover:border-violet-500/40"} transition-all duration-300 shadow-inner p-2`}>
                       <Image
                         src={imageSrc}
                         alt={cat.name}

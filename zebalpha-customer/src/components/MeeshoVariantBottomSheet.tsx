@@ -7,6 +7,7 @@ import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { useCart } from "@/context/CartContext";
 import { Product, ProductPackage } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
+import { useIsNativeApp } from "@/lib/platform";
 
 // In-memory cache for loaded variant products to avoid repeated network requests
 const productVariantsCache = new Map<string, Product>();
@@ -14,6 +15,7 @@ const productVariantsCache = new Map<string, Product>();
 export function MeeshoVariantBottomSheet() {
   const { isOpen, product, initialColor, closeVariantSelector } = useVariantSelector();
   const { cart, addToCart } = useCart();
+  const isNativeApp = useIsNativeApp();
 
   // Full product with packages (may be fetched asynchronously if card had slim data)
   const [fullProduct, setFullProduct] = useState<Product | null>(null);
@@ -731,17 +733,21 @@ export function MeeshoVariantBottomSheet() {
           ) : null}
         </div>
 
-        {/* Bottom Sticky Action: Prominent Meesho/Zebalpha Yellow "Add To Cart" Button */}
+        {/* Bottom Sticky Action: Prominent Add To Cart Button (Emerald Green on Android App, Yellow on Web) */}
         <div className="p-4 pt-3 pb-6 sm:pb-4 border-t border-neutral-100 bg-white">
           <button
             type="button"
             disabled={isAdding || isOutOfStock || (distinctSizes.length > 0 && !selectedSize)}
             onClick={handleAddToCart}
-            className="w-full flex h-13 items-center justify-center gap-2 rounded-xl bg-[#FEE500] hover:bg-[#FDD800] active:scale-[0.99] text-black font-black uppercase tracking-wider text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none"
+            className={`w-full flex h-13 items-center justify-center gap-2 rounded-xl active:scale-[0.99] font-black uppercase tracking-wider text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none ${
+              isNativeApp
+                ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30"
+                : "bg-[#FEE500] hover:bg-[#FDD800] text-black"
+            }`}
           >
             {isAdding ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin text-black" />
+                <Loader2 className={`w-4 h-4 animate-spin ${isNativeApp ? "text-white" : "text-black"}`} />
                 <span>Adding to Cart...</span>
               </>
             ) : isOutOfStock ? (
