@@ -64,16 +64,14 @@ LANGUAGE sql STABLE SET search_path = public AS $$
                 THEN fl.amount END), 0) AS ded,
             
             -- Net Withdrawn (Disbursed - Reversed)
-            GREATEST(0,
-                COALESCE(SUM(CASE 
-                    WHEN fl.status = 'COMPLETED'
-                         AND fl.transaction_type IN ('SETTLEMENT', 'WITHDRAWAL_SUCCESS') 
-                    THEN fl.amount END), 0)
-                - COALESCE(SUM(CASE 
-                    WHEN fl.status = 'COMPLETED'
-                         AND fl.transaction_type IN ('SETTLEMENT_REVERSAL', 'WITHDRAWAL_REVERSED') 
-                    THEN fl.amount END), 0)
-            ) AS wd,
+            COALESCE(SUM(CASE 
+                WHEN fl.status = 'COMPLETED'
+                     AND fl.transaction_type IN ('SETTLEMENT', 'WITHDRAWAL_SUCCESS') 
+                THEN fl.amount END), 0)
+            - COALESCE(SUM(CASE 
+                WHEN fl.status = 'COMPLETED'
+                     AND fl.transaction_type IN ('SETTLEMENT_REVERSAL', 'WITHDRAWAL_REVERSED') 
+                THEN fl.amount END), 0) AS wd,
             
             -- Pending Settlement / Unreleased earnings
             -- Specifically SELLER_PAYABLE with status = 'PENDING'
@@ -96,7 +94,7 @@ LANGUAGE sql STABLE SET search_path = public AS $$
                      AND fl.transaction_type = 'SELLER_PAYABLE' 
                 THEN fl.amount 
                 WHEN fl.status = 'COMPLETED' AND fl.entry_type = 'CREDIT'
-                     AND fl.transaction_type IN ('ADJUSTMENT_CREDIT')
+                     AND fl.transaction_type = 'ADJUSTMENT_CREDIT'
                 THEN fl.amount
                 END), 0) AS eligible_payables,
                 
@@ -105,7 +103,7 @@ LANGUAGE sql STABLE SET search_path = public AS $$
                 WHEN fl.status = 'COMPLETED' AND fl.entry_type = 'DEBIT'
                      AND fl.transaction_type IN ('REFUND', 'PARTIAL_REFUND', 'RETURN_FEE', 'RTO_FEE', 'PENALTY', 'ADJUSTMENT_DEBIT')
                      -- Only count adjustments that were NOT part of initial order fees
-                     AND (fl.reference_type IS NULL OR fl.reference_type NOT IN ('PLATFORM_COMMISSION', 'FIXED_ORDER_FEE', 'PAYMENT_COLLECTION_FEE', 'COD_HANDLING_FEE', 'SHIPPING_CHARGE'))
+                     AND fl.reference_type NOT IN ('PLATFORM_COMMISSION', 'FIXED_ORDER_FEE', 'PAYMENT_COLLECTION_FEE', 'COD_HANDLING_FEE', 'SHIPPING_CHARGE')
                 THEN fl.amount END), 0) AS post_eligibility_debits
         FROM public.seller_financial_ledger fl
         WHERE (p_seller_id IS NULL OR fl.seller_id = p_seller_id)
@@ -186,7 +184,6 @@ BEGIN
             'message', 'Idempotent withdrawal request already received.'
         );
     END IF;
-
     -- Account eligibility guard
     IF v_seller.status IS NOT NULL AND LOWER(v_seller.status) IN ('suspended', 'banned', 'frozen', 'blocked') THEN
         RETURN jsonb_build_object('success', false, 'error', 'SELLER_SUSPENDED',

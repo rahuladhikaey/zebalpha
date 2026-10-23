@@ -134,25 +134,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let parsedPrice = parseFloat(price) || 0;
-    let parsedMrp = parseFloat(mrp) || 0;
-
-    if (Array.isArray(packages) && packages.length > 0) {
-      const pkgPrices = packages
-        .map((p: any) => parseFloat(p.price))
-        .filter((p) => !isNaN(p) && p > 0);
-      const pkgMrps = packages
-        .map((p: any) => parseFloat(p.mrp))
-        .filter((m) => !isNaN(m) && m > 0);
-
-      if (pkgPrices.length > 0 && parsedPrice <= 0) {
-        parsedPrice = Math.min(...pkgPrices);
-      }
-      if (pkgMrps.length > 0 && parsedMrp <= 0) {
-        parsedMrp = Math.max(...pkgMrps);
-      }
-    }
-    if (parsedMrp <= 0) parsedMrp = parsedPrice;
+    const parsedPrice = parseFloat(price) || 0;
+    const parsedMrp = parseFloat(mrp) || parsedPrice;
 
     // 1. Resolve or auto-heal seller profile
     let { data: seller } = await supabaseServer
@@ -437,22 +420,6 @@ export async function PUT(req: NextRequest) {
     if (updates.description !== undefined) updatePayload.description = String(updates.description).trim();
     if (updates.price !== undefined) updatePayload.price = parseFloat(updates.price) || 0;
     if (updates.mrp !== undefined) updatePayload.mrp = parseFloat(updates.mrp) || updatePayload.price || 0;
-
-    if (Array.isArray(updates.packages) && updates.packages.length > 0) {
-      const pkgPrices = updates.packages
-        .map((p: any) => parseFloat(p.price))
-        .filter((p: number) => !isNaN(p) && p > 0);
-      const pkgMrps = updates.packages
-        .map((p: any) => parseFloat(p.mrp))
-        .filter((m: number) => !isNaN(m) && m > 0);
-
-      if (pkgPrices.length > 0 && (!updatePayload.price || updatePayload.price <= 0)) {
-        updatePayload.price = Math.min(...pkgPrices);
-      }
-      if (pkgMrps.length > 0 && (!updatePayload.mrp || updatePayload.mrp <= 0)) {
-        updatePayload.mrp = Math.max(...pkgMrps);
-      }
-    }
     if (updates.stock !== undefined) {
       updatePayload.stock = Number(updates.stock) || 0;
       updatePayload.stock_count = updatePayload.stock;
@@ -468,6 +435,7 @@ export async function PUT(req: NextRequest) {
       const { data: catCheck } = await supabaseServer
         .from("categories")
         .select("id")
+
         .eq("id", updates.category_id)
         .maybeSingle();
       if (catCheck?.id) updatePayload.category_id = catCheck.id;

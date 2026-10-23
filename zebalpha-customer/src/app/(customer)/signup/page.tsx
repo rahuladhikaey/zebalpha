@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Auth3dGraphic from "@/components/Auth3dGraphic";
 import { Eye, EyeOff } from "lucide-react";
+import { useIsNativeApp } from "@/lib/platform";
 
 const SIGNUP_EMAIL_KEY = "signupEmail";
 
@@ -28,6 +29,7 @@ export default function SignupPage() {
 
   const otpInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const isNativeApp = useIsNativeApp();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -350,25 +352,29 @@ export default function SignupPage() {
             <div className="w-full space-y-6">
               {step === "form" ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={handleGoogleAuth}
-                    disabled={loading}
-                    className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 px-6 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-50"
-                  >
-                    <img
-                      src="/official-logo.png"
-                      alt="Logo"
-                      className="h-6 w-6 rounded-full object-cover border border-zinc-700 shadow-sm shrink-0"
-                    />
-                    Google Sign Up
-                  </button>
+                  {!isNativeApp && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleGoogleAuth}
+                        disabled={loading}
+                        className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 px-6 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-50"
+                      >
+                        <img
+                          src="/official-logo.png"
+                          alt="Logo"
+                          className="h-6 w-6 rounded-full object-cover border border-zinc-700 shadow-sm shrink-0"
+                        />
+                        Google Sign Up
+                      </button>
 
-                  <div className="flex items-center justify-center text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
-                    <span className="h-px flex-1 bg-zinc-800"></span>
-                    <span className="mx-4">or register with email</span>
-                    <span className="h-px flex-1 bg-zinc-800"></span>
-                  </div>
+                      <div className="flex items-center justify-center text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
+                        <span className="h-px flex-1 bg-zinc-800"></span>
+                        <span className="mx-4">or register with email</span>
+                        <span className="h-px flex-1 bg-zinc-800"></span>
+                      </div>
+                    </>
+                  )}
 
                   <form onSubmit={handleInitiateSignup} className="space-y-4">
                     <div className="space-y-3">

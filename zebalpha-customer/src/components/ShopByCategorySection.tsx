@@ -78,11 +78,10 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                   scrollContainerRef.current.scrollTo({ left: 0, behavior: "smooth" });
                 }
               }}
-              className={`px-4 py-2 rounded-full text-[11px] font-black tracking-wider transition-all uppercase whitespace-nowrap cursor-pointer ${
-                isActive
+              className={`px-4 py-2 rounded-full text-[11px] font-black tracking-wider transition-all uppercase whitespace-nowrap cursor-pointer ${isActive
                   ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] scale-105"
                   : "bg-neutral-900 text-neutral-400 border border-neutral-800 hover:bg-neutral-800 hover:text-white"
-              }`}
+                }`}
             >
               {tab}
             </button>
