@@ -96,10 +96,59 @@ export async function GET(req: NextRequest) {
       }
     } catch (_) {}
 
-    // 2. Compute dynamic financial balances from ledger
-    let balances = computeLedgerBalances(transactions);
+    // 2. Authoritative PostgreSQL Ledger Balances (Canonical Single Source of Truth)
+    let balances: any = {
+      gross_sales: 0,
+      commission: 0,
+      shipping_fees: 0,
+      fixed_fees: 0,
+      collection_fees: 0,
+      returns_and_refunds: 0,
+      total_platform_fees: 0,
+      net_seller_earnings: 0,
+      total_settled: 0,
+      available_balance: 0,
+      reserved_balance: 0,
+      pending_settlement: 0,
+      on_hold_balance: 0
+    };
 
-    // Fetch Route authoritative overview view (double-entry minor units)
+    try {
+      const { data: balSummary, error: balErr } = await supabaseServer.rpc("seller_balance_summary", {
+        p_seller_id: sellerId
+      });
+
+      if (balSummary && balSummary[0]) {
+        const live = balSummary[0];
+        const gross = Number(live.gross_sales || 0);
+        const ded = Number(live.deductions || 0);
+        const net = Number(live.net_earnings || 0);
+        const withdr = Number(live.withdrawn || 0);
+        const res = Number(live.reserved || 0);
+        const avail = Number(live.available || 0);
+        const pend = Number(live.pending || 0);
+
+        balances = {
+          gross_sales: Number(gross.toFixed(2)),
+          commission: Number(ded.toFixed(2)),
+          shipping_fees: 0,
+          fixed_fees: 0,
+          collection_fees: 0,
+          returns_and_refunds: 0,
+          total_platform_fees: Number(ded.toFixed(2)),
+          net_seller_earnings: Number(net.toFixed(2)),
+          total_settled: Number(withdr.toFixed(2)),
+          available_balance: Number(avail.toFixed(2)),
+          reserved_balance: Number(res.toFixed(2)),
+          pending_settlement: Number(pend.toFixed(2)),
+          on_hold_balance: 0
+        };
+      }
+    } catch (rpcErr) {
+      console.error("[seller_balance_summary RPC Error]:", rpcErr);
+    }
+
+    // Fetch Route authoritative overview view (double-entry minor units) for backward compatibility
     let routeOverview: any = null;
     try {
       const { data: roData } = await supabaseServer
@@ -110,117 +159,8 @@ export async function GET(req: NextRequest) {
 
       if (roData) {
         routeOverview = roData;
-        balances.gross_sales = Math.max(balances.gross_sales, Number((Number(roData.gross_sales_minor || 0) / 100).toFixed(2)));
-        balances.commission = Number((Number(roData.platform_commission_minor || 0) / 100).toFixed(2));
-        balances.fixed_fees = Number((Number(roData.fixed_fees_minor || 0) / 100).toFixed(2));
-        balances.returns_and_refunds = Number((Number(roData.refund_adjustments_minor || 0) / 100).toFixed(2));
-        balances.pending_settlement = Number((Number(roData.pending_settlement_minor || 0) / 100).toFixed(2));
-        balances.total_settled = Number((Number(roData.settled_amount_minor || 0) / 100).toFixed(2));
-        balances.reserved_balance = Number((Number(roData.reserved_balance_minor || 0) / 100).toFixed(2));
-        balances.net_seller_earnings = Math.max(balances.net_seller_earnings, Number((Number(roData.net_earnings_minor || 0) / 100).toFixed(2)));
-        const roAvailable = Number((Number(roData.available_balance_minor || roData.available_to_settle || 0) / 100).toFixed(2));
-        balances.available_balance = Math.max(balances.available_balance, roAvailable);
       }
     } catch (_) {}
-
-    // Fetch in-flight payouts to ensure reserved balance is 100% accurate
-    try {
-      const { data: inFlightPayouts } = await supabaseServer
-        .from("seller_payout_requests")
-        .select("amount")
-        .eq("seller_id", sellerId)
-        .in("status", ["PENDING", "PROCESSING"]);
-
-      if (inFlightPayouts && inFlightPayouts.length > 0) {
-        const totalInFlight = inFlightPayouts.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-        balances.reserved_balance = Number(totalInFlight.toFixed(2));
-        balances.available_balance = Number(Math.max(0, balances.net_seller_earnings - balances.total_settled - balances.reserved_balance).toFixed(2));
-      }
-    } catch (_) {}
-
-    // Fallback: If no transactions yet, estimate from delivered orders
-    if (transactions.length === 0) {
-      try {
-        const { data: orders } = await supabaseServer
-          .from("orders")
-          .select("id, total_amount, payment_method, order_status")
-          .eq("seller_id", sellerId)
-          .in("order_status", ["DELIVERED", "COMPLETED"]);
-
-        if (orders && orders.length > 0) {
-          let activeRules = DEFAULT_FINANCIAL_RULES;
-          try {
-            const { data: storeSettingsList } = await supabaseServer
-              .from("store_settings")
-              .select("key, value")
-              .in("key", ["marketplace_financial_rules", "marketplace_rules"]);
-            if (storeSettingsList && storeSettingsList.length > 0) {
-              const settingsMap: Record<string, any> = {};
-              storeSettingsList.forEach((row: any) => { if (row.key) settingsMap[row.key] = row.value; });
-              const finRules = settingsMap.marketplace_financial_rules || {};
-              const mktRules = settingsMap.marketplace_rules || {};
-              const getVal = (v1: any, v2: any, fallback: number) => {
-                if (v1 !== undefined && v1 !== null && v1 !== "" && !isNaN(Number(v1))) return Number(v1);
-                if (v2 !== undefined && v2 !== null && v2 !== "" && !isNaN(Number(v2))) return Number(v2);
-                return fallback;
-              };
-              activeRules = {
-                ...DEFAULT_FINANCIAL_RULES,
-                ...finRules,
-                commission_percentage: getVal(finRules.commission_percentage, mktRules.globalCommissionPct, 0),
-                fixed_fee_per_order: getVal(finRules.fixed_fee_per_order, mktRules.fixedFee, 0),
-                payment_collection_fee_pct: getVal(finRules.payment_collection_fee_pct, mktRules.collectionFeePct, 0),
-                cod_handling_fee: getVal(finRules.cod_handling_fee, null, 0),
-                standard_shipping_fee: getVal(finRules.standard_shipping_fee, mktRules.defaultShippingCost, 0),
-                reverse_shipping_fee: getVal(finRules.reverse_shipping_fee, mktRules.reverseShippingFee, 0),
-                rto_charge: getVal(finRules.rto_charge, mktRules.rtoCharge, 0),
-                gst_on_platform_fees_pct: getVal(finRules.gst_on_platform_fees_pct, mktRules.gstRatePct, 0),
-                settlement_delay_days: getVal(finRules.settlement_delay_days, mktRules.settlementDelayDays, 0),
-                customer_return_window_days: getVal(finRules.customer_return_window_days, mktRules.returnWindowDays, 0),
-              };
-            }
-          } catch (_) {}
-
-          let gross = 0;
-          let commission = 0;
-          let fixed = 0;
-          let shipping = 0;
-          let collection = 0;
-
-          orders.forEach((o: any) => {
-            const tot = Number(o.total_amount) || 0;
-            gross += tot;
-            commission += Number(((tot * (activeRules.commission_percentage ?? 0)) / 100).toFixed(2));
-            fixed += Number(activeRules.fixed_fee_per_order ?? 0);
-            shipping += Number(activeRules.standard_shipping_fee ?? 0);
-            if ((o.payment_method || '').toUpperCase() === 'COD') {
-              collection += Number(activeRules.cod_handling_fee ?? 0);
-            } else {
-              collection += Number(((tot * (activeRules.payment_collection_fee_pct ?? 0)) / 100).toFixed(2));
-            }
-          });
-
-          const totalPlatformFees = Number((commission + fixed + collection).toFixed(2));
-          const netEarnings = Number(Math.max(0, gross - (totalPlatformFees + shipping)).toFixed(2));
-
-          balances = {
-            gross_sales: Number(gross.toFixed(2)),
-            commission: Number(commission.toFixed(2)),
-            shipping_fees: Number(shipping.toFixed(2)),
-            fixed_fees: Number(fixed.toFixed(2)),
-            collection_fees: Number(collection.toFixed(2)),
-            returns_and_refunds: 0,
-            total_platform_fees: totalPlatformFees,
-            net_seller_earnings: netEarnings,
-            total_settled: 0,
-            available_balance: netEarnings,
-            reserved_balance: 0,
-            pending_settlement: 0,
-            on_hold_balance: 0
-          };
-        }
-      } catch (_) {}
-    }
 
     // 3. Fetch settlements history (legacy and current)
     let settlements: any[] = [];

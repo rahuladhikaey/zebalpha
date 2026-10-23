@@ -27,13 +27,13 @@ export async function GET(req: NextRequest) {
 
     const sellerMap = new Map<string, any>();
     if (sellers) {
-      sellers.forEach((s) => {
+      sellers.forEach((s: any) => {
         if (s.id) sellerMap.set(String(s.id), s);
         if (s.user_id) sellerMap.set(String(s.user_id), s);
       });
     }
 
-    const enrichedTickets = (tickets || []).map((t) => {
+    const enrichedTickets = (tickets || []).map((t: any) => {
       const seller = sellerMap.get(String(t.seller_id)) || null;
       return {
         ...t,
@@ -63,11 +63,11 @@ export async function GET(req: NextRequest) {
 
     const stats = {
       total: enrichedTickets.length,
-      open: enrichedTickets.filter((t) => t.status?.toLowerCase() === "open").length,
-      in_progress: enrichedTickets.filter((t) => t.status?.toLowerCase() === "in_progress").length,
-      resolved: enrichedTickets.filter((t) => t.status?.toLowerCase() === "resolved").length,
-      closed: enrichedTickets.filter((t) => t.status?.toLowerCase() === "closed").length,
-      urgent: enrichedTickets.filter((t) => t.priority?.toLowerCase() === "urgent").length,
+      open: enrichedTickets.filter((t: any) => t.status?.toLowerCase() === "open").length,
+      in_progress: enrichedTickets.filter((t: any) => t.status?.toLowerCase() === "in_progress").length,
+      resolved: enrichedTickets.filter((t: any) => t.status?.toLowerCase() === "resolved").length,
+      closed: enrichedTickets.filter((t: any) => t.status?.toLowerCase() === "closed").length,
+      urgent: enrichedTickets.filter((t: any) => t.priority?.toLowerCase() === "urgent").length,
     };
 
     return NextResponse.json({

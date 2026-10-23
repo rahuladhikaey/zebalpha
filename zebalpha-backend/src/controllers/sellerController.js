@@ -1,6 +1,7 @@
 import { supabaseB } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
 import crypto from 'crypto';
+import { getSellerDashboardMetrics } from '../services/sellerAnalyticsService.js';
 
 /**
  * Seller Registration (Enterprise Zero-Trust)
@@ -359,6 +360,47 @@ export const updateSellerInventory = async (req, res, next) => {
     if (error) throw error;
 
     res.status(HTTP_STATUS.OK).json({ success: true, data: data[0] });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Authoritative Seller Dashboard Analytics & Financial Metrics
+ * Single canonical backend computation engine. IDOR Protected.
+ */
+export const getSellerMetrics = async (req, res, next) => {
+  try {
+    const sellerId = req.params.sellerId || req.query.sellerId || req.user?.id;
+    const { period = 'this_month', start, end } = req.query;
+    const isSuperAdmin = (req.user?.role || '').toLowerCase() === 'super_admin';
+
+    if (!sellerId) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: 'Seller ID is required.' });
+    }
+
+    // IDOR verification
+    const { data: seller } = await supabaseB
+      .from('sellers')
+      .select('id, user_id')
+      .or(`id.eq.${sellerId},user_id.eq.${sellerId}`)
+      .maybeSingle();
+
+    if (!seller && !isSuperAdmin) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: 'Seller record not found.' });
+    }
+
+    const resolvedSellerId = seller?.id || sellerId;
+
+    if (!isSuperAdmin && String(seller?.user_id) !== String(req.user?.id) && String(resolvedSellerId) !== String(req.user?.id)) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Forbidden: You do not have permission to access another merchant financial metrics.'
+      });
+    }
+
+    const metrics = await getSellerDashboardMetrics(resolvedSellerId, period, { customStart: start, customEnd: end });
+    res.status(HTTP_STATUS.OK).json({ success: true, data: metrics });
   } catch (err) {
     next(err);
   }

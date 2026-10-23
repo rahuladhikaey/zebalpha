@@ -106,23 +106,15 @@ export async function PATCH(req: Request) {
         }
       }
 
-      // Record cancellation ledger entry if payment was already captured
-      if (order.seller_id && (order.payment_status === "CAPTURED" || order.payment_status === "PAID")) {
-        try {
-          await supabaseServer.from("seller_financial_ledger").upsert({
-            seller_id: order.seller_id,
-            order_id: order.id,
-            order_number: order.order_number,
-            entry_type: "CANCELLATION",
-            direction: "DEBIT",
-            amount: Number(order.total_amount) || 0,
-            status: "COMPLETED",
-            idempotency_key: `LEDGER_CANCEL_${order.id}`,
-            title: `Order Cancellation Adjustment`,
-            description: `Order cancelled (${cancellation_reason || 'Seller request'}).`,
-            metadata: { cancelled_by, reason: cancellation_reason }
-          }, { onConflict: "idempotency_key" });
-        } catch (_) {}
+      // Authoritative Cancellation RPC: void pending payable or create reversal
+      try {
+        await supabaseServer.rpc('record_order_cancellation_event', {
+          p_order_id: order.id,
+          p_cancelled_by: cancelled_by || 'seller',
+          p_reason: cancellation_reason || 'Cancelled by seller'
+        });
+      } catch (cancelErr: any) {
+        console.warn('Cancellation ledger RPC warning:', cancelErr?.message);
       }
     }
 

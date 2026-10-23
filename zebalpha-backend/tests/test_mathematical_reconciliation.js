@@ -24,7 +24,8 @@ async function runMathematicalReconciliationAudit() {
   console.log("| Test Scenario                | Opening Avail | Withdrawal  | Fee    | Reserved | Provider   | Closing Avail | Closing Res | Ledger Db | Ledger Cr | Expected  | Actual   | Status  |");
   console.log("=================================================================================================================================================================================");
 
-  const testSellerId = '0a49cb22-07ea-40bc-856a-3f64f8826db6';
+  const { data: firstSeller } = await supabase.from('sellers').select('id').eq('status', 'approved').limit(1).maybeSingle();
+  const testSellerId = firstSeller?.id || 'd1d79a3f-a34e-472f-ae5a-c276864bb745';
   let passedCount = 0;
   let failedCount = 0;
 

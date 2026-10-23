@@ -307,10 +307,13 @@ export default function SellerManagementView({
       });
 
       // Calculate Seller Net Payout vs Admin Commission
-      // 1st-Party Brand = 100% revenue retained; 3rd-Party Merchants = 90% payout, 10% marketplace commission
-      const commissionRate = isPrimary ? 0 : 0.10;
+      // Use configured commission percentage from seller record or platform config snapshot
+      const configuredRatePct = seller.commission_percentage !== undefined && seller.commission_percentage !== null
+        ? Number(seller.commission_percentage)
+        : (isPrimary ? 0 : 0);
+      const commissionRate = configuredRatePct / 100;
       const adminCommission = Math.round(totalGrossRev * commissionRate);
-      const netSellerPayout = totalGrossRev - adminCommission;
+      const netSellerPayout = Math.max(0, totalGrossRev - adminCommission);
 
       const deliveredCount = matchingOrders.filter(o => o.order_status === "delivered").length;
       const inTransitCount = matchingOrders.filter(o => ["shipped", "in_transit", "picked_up", "dispatched", "out_for_delivery"].includes(o.order_status)).length;
@@ -1248,7 +1251,7 @@ export default function SellerManagementView({
                     <p className="text-xl font-black text-blue-400">
                       ₹{Number(selectedSeller.adminCommission || 0).toLocaleString("en-IN")}
                     </p>
-                    <span className="text-[10px] text-zinc-500">{selectedSeller.is_primary_brand ? "0% (Direct)" : "10% Platform Cut"}</span>
+                    <span className="text-[10px] text-zinc-500">{selectedSeller.is_primary_brand ? "0% (Direct)" : `${selectedSeller.commission_percentage || 0}% Platform Cut`}</span>
                   </div>
 
                   <div className="p-4 bg-zinc-900/60 rounded-2xl border border-zinc-800 space-y-1">

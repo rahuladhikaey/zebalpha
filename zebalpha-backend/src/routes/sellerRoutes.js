@@ -6,7 +6,8 @@ import {
   updateSellerInventory,
   requestAccountDeletion,
   restoreAccount,
-  purgeExpiredDeletions
+  purgeExpiredDeletions,
+  getSellerMetrics
 } from '../controllers/sellerController.js';
 import { authenticateJWT, requireRole } from '../middleware/auth.js';
 import { ROLES } from '../constants/index.js';
@@ -17,6 +18,10 @@ router.post('/register', authenticateJWT, registerSeller);
 router.get('/pickup-locations/:sellerId', authenticateJWT, getPickupLocations);
 router.post('/support-tickets', authenticateJWT, requireRole([ROLES.SELLER]), createSupportTicket);
 router.post('/inventory', authenticateJWT, requireRole([ROLES.SELLER]), updateSellerInventory);
+
+// Canonical Seller Analytics & Financial Metrics
+router.get('/metrics', authenticateJWT, requireRole([ROLES.SELLER, ROLES.SUPER_ADMIN]), getSellerMetrics);
+router.get('/metrics/:sellerId', authenticateJWT, requireRole([ROLES.SELLER, ROLES.SUPER_ADMIN]), getSellerMetrics);
 
 // Seller 15-Day Account Deletion Lifecycle Routes
 router.post('/request-deletion', authenticateJWT, requireRole([ROLES.SELLER]), requestAccountDeletion);

@@ -346,7 +346,26 @@ export const updateOrderStatus = async (req, res, next) => {
     const { order_status, payment_status, payment_method, tracking_number, courier_name, shipping_label_url } = req.body;
 
     const updateFields = { updated_at: new Date().toISOString() };
-    if (order_status) updateFields.order_status = order_status;
+    if (order_status) {
+      updateFields.order_status = order_status;
+      const lowerStatus = String(order_status).toLowerCase();
+      if (lowerStatus === 'delivered') {
+        updateFields.delivered_at = new Date().toISOString();
+        updateFields.settlement_status = 'PENDING_SETTLEMENT';
+        updateFields.settlement_due_date = new Date(Date.now() + 7 * 86400000).toISOString();
+      } else if (lowerStatus === 'cancelled') {
+        updateFields.cancelled_at = new Date().toISOString();
+        try {
+          await supabaseA.rpc('record_order_cancellation_event', {
+            p_order_id: id,
+            p_cancelled_by: req.user?.role?.toLowerCase() || 'admin',
+            p_reason: 'Order status changed to cancelled'
+          });
+        } catch (cErr) {
+          console.warn('[Cancellation Ledger RPC Notice]:', cErr.message);
+        }
+      }
+    }
     // Only SUPER_ADMIN can manually overwrite payment_status or payment_method
     if (isSuperAdmin) {
       if (payment_status) updateFields.payment_status = payment_status;
@@ -547,6 +566,17 @@ export const cancelOrder = async (req, res, next) => {
     await supabaseB.from('orders').update(updates).eq('id', orderData.id);
     if (orderData.order_number) {
       await supabaseB.from('orders').update(updates).ilike('order_number', `${orderData.order_number}%`);
+    }
+
+    // Authoritative Ledger Cancellation RPC: void pending payable or create reversal
+    try {
+      await supabaseA.rpc('record_order_cancellation_event', {
+        p_order_id: orderData.id,
+        p_cancelled_by: cancelled_by || (req.user?.role ? req.user.role.toLowerCase() : 'customer'),
+        p_reason: reason || 'Customer requested cancellation'
+      });
+    } catch (cancelLedgerErr) {
+      console.warn('[Cancellation Ledger RPC Notice]:', cancelLedgerErr.message);
     }
 
     // 2. Restock product quantities

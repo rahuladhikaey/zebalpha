@@ -61,7 +61,8 @@ async function runSettlementEngineAudit() {
 
   // TEST 3: RPC Function: reserve_seller_balance_for_withdrawal Insufficient Balance Rejection
   try {
-    const testSellerId = '0a49cb22-07ea-40bc-856a-3f64f8826db6'; // Existing seller
+    const { data: s } = await supabase.from('sellers').select('id').eq('status', 'approved').limit(1).maybeSingle();
+    const testSellerId = s?.id || 'd1d79a3f-a34e-472f-ae5a-c276864bb745';
     const { data: res, error } = await supabase.rpc('reserve_seller_balance_for_withdrawal', {
       p_seller_id: testSellerId,
       p_amount: 999999999.00, // Impossibly large amount
@@ -112,7 +113,8 @@ async function runSettlementEngineAudit() {
   // TEST 5: Idempotency Key Duplicate Rejection
   try {
     const testIdempotencyKey = `idempotent_test_${Date.now()}`;
-    const testSellerId = '0a49cb22-07ea-40bc-856a-3f64f8826db6';
+    const { data: s5 } = await supabase.from('sellers').select('id').eq('status', 'approved').limit(1).maybeSingle();
+    const testSellerId = s5?.id || 'd1d79a3f-a34e-472f-ae5a-c276864bb745';
 
     // First call (Small amount ₹1.00)
     const { data: res1 } = await supabase.rpc('reserve_seller_balance_for_withdrawal', {

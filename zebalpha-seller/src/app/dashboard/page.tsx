@@ -78,6 +78,9 @@ export default function SellerDashboard() {
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
 
+  // Authoritative Canonical Metrics from backend
+  const [metricsData, setMetricsData] = useState<any>(null);
+
   useEffect(() => {
     const now = new Date();
     setSelectedDate(now.toISOString().split("T")[0]);
@@ -88,6 +91,40 @@ export default function SellerDashboard() {
     setCustomStartDate(d.toISOString().split("T")[0]);
     setCustomEndDate(now.toISOString().split("T")[0]);
   }, []);
+
+  async function fetchCanonicalMetrics(fType = filterType, sFilter = streamFilter, cStart = customStartDate, cEnd = customEndDate, sDate = selectedDate) {
+    try {
+      let url = `/api/seller/metrics?period=${fType}&stream=${sFilter}`;
+      if (fType === "custom") {
+        url += `&start=${cStart}&end=${cEnd}`;
+      } else if (fType === "specific_day" && sDate) {
+        url += `&start=${sDate}&end=${sDate}`;
+      }
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.success) {
+        setMetricsData(json);
+        if (json.quick_kpis) {
+          setQuickKPIs(prev => ({ ...prev, ...json.quick_kpis }));
+        }
+        if (json.settlement) {
+          setLedgerBalances(prev => ({
+            ...prev,
+            available_balance: json.settlement.available_balance,
+            pending_settlement: json.settlement.pending_earnings,
+            reserved_balance: json.settlement.reserved_balance,
+            total_settled: json.settlement.total_withdrawn
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load canonical metrics", e);
+    }
+  }
+
+  useEffect(() => {
+    fetchCanonicalMetrics(filterType, streamFilter, customStartDate, customEndDate, selectedDate);
+  }, [filterType, streamFilter, customStartDate, customEndDate, selectedDate, selectedMonth, selectedYear]);
 
   // Overall quick stats with Premium vs Standard separation
   const [quickKPIs, setQuickKPIs] = useState({
@@ -433,44 +470,64 @@ export default function SellerDashboard() {
       return true;
     });
 
-    // Compute stats
-    let totalRev = 0;
-    let totalPremRev = 0;
-    let totalStdRev = 0;
+    // Use canonical backend performance metrics if available
+    const canonicalPerf = metricsData?.performance;
+
+    // Local fallback calculation with strict separation of GMV, Net Sales, and Cancelled Orders
+    let totalGrossGMV = 0;
+    let netSales = 0;
+    let cancelledVal = 0;
     let totalUnits = 0;
     let totalPremUnits = 0;
     let totalStdUnits = 0;
+    let validCount = 0;
+    let cancelledCount = 0;
 
     matched.forEach(o => {
+      const isCancelled = String(o.order_status || "").toLowerCase() === "cancelled";
+      const rev = Number(o._revenue) || 0;
       const pRev = Number(o._premiumRevenue) || 0;
       const sRev = Number(o._standardRevenue) || 0;
       const pU = Number(o._premiumUnits) || 0;
       const sU = Number(o._standardUnits) || 0;
+      const u = (pU + sU) || Number(o._units) || 1;
 
-      if (streamFilter === "premium") {
-        totalRev += pRev;
-        totalUnits += pU;
-      } else if (streamFilter === "standard") {
-        totalRev += sRev;
-        totalUnits += sU;
+      totalGrossGMV += rev;
+
+      if (isCancelled) {
+        cancelledCount++;
+        cancelledVal += rev;
       } else {
-        totalRev += (pRev + sRev) || (Number(o._revenue) || 0);
-        totalUnits += (pU + sU) || (Number(o._units) || 1);
+        validCount++;
+        netSales += streamFilter === "premium" ? pRev : streamFilter === "standard" ? sRev : ((pRev + sRev) || rev);
+        totalUnits += u;
+        totalPremUnits += pU;
+        totalStdUnits += sU;
       }
-
-      totalPremRev += pRev;
-      totalStdRev += sRev;
-      totalPremUnits += pU;
-      totalStdUnits += sU;
     });
 
-    const orderCount = matched.length;
-    const aov = orderCount > 0 ? totalRev / orderCount : 0;
+    const fallbackAov = validCount > 0 ? Number((netSales / validCount).toFixed(2)) : 0;
+
+    const periodStats = {
+      grossSales: canonicalPerf ? Number(canonicalPerf.gross_sales) : totalGrossGMV,
+      netSales: canonicalPerf ? Number(canonicalPerf.net_sales) : netSales,
+      cancelledOrderValue: canonicalPerf ? Number(canonicalPerf.cancelled_order_value) : cancelledVal,
+      totalOrders: canonicalPerf ? Number(canonicalPerf.total_orders) : matched.length,
+      validOrders: canonicalPerf ? Number(canonicalPerf.valid_orders) : validCount,
+      cancelledOrders: canonicalPerf ? Number(canonicalPerf.cancelled_orders) : cancelledCount,
+      aov: canonicalPerf ? Number(canonicalPerf.aov) : fallbackAov,
+      totalUnits: canonicalPerf ? Number(canonicalPerf.units_sold) : totalUnits,
+      totalPremUnits,
+      totalStdUnits
+    };
 
     // Time-series breakdown grouping
     const groupMap: Record<string, { label: string; dateObj: Date; revenue: number; premiumRevenue: number; standardRevenue: number; ordersCount: number; units: number }> = {};
 
     matched.forEach(o => {
+      const isCancelled = String(o.order_status || "").toLowerCase() === "cancelled";
+      if (isCancelled) return; // Do not plot cancelled orders on revenue timeline
+
       const d = new Date(o.created_at);
       let key = "";
       let groupLabel = "";
@@ -501,33 +558,40 @@ export default function SellerDashboard() {
       groupMap[key].units += Number(o._units) || 1;
     });
 
-    const breakdownList = Object.values(groupMap).sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
-    const maxRev = Math.max(...breakdownList.map(b => b.revenue), 1);
+    const localBreakdownList = Object.values(groupMap).sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
+    const breakdownList = (metricsData?.time_breakdown?.items && metricsData.time_breakdown.items.length > 0)
+      ? metricsData.time_breakdown.items
+      : localBreakdownList;
+    const maxRev = Math.max(...breakdownList.map((b: any) => b.revenue), 1);
 
     return {
       dateRange: { start, end },
       periodLabel: label,
       filteredOrders: matched,
-      periodStats: {
-        totalRevenue: totalRev,
-        totalPremRevenue: totalPremRev,
-        totalStdRevenue: totalStdRev,
-        orderCount,
-        aov,
-        totalUnits,
-        totalPremUnits,
-        totalStdUnits
-      },
+      periodStats,
       timeBreakdown: {
         items: breakdownList,
         maxRevenue: maxRev,
         mode: groupMode
       }
     };
-  }, [allSellerOrders, filterType, streamFilter, selectedDate, selectedMonth, selectedYear, customStartDate, customEndDate]);
+  }, [allSellerOrders, filterType, streamFilter, selectedDate, selectedMonth, selectedYear, customStartDate, customEndDate, metricsData]);
 
   // Operational metrics aggregation
   const opCounts = useMemo(() => {
+    if (metricsData?.operations) {
+      return {
+        total: metricsData.quick_kpis?.totalOrders || allSellerOrders.length,
+        pending: (metricsData.operations.new_orders || 0) + (metricsData.operations.processing || 0),
+        readyToShip: metricsData.operations.ready_to_ship || 0,
+        shipped: (metricsData.operations.shipped || 0) + (metricsData.operations.in_transit || 0),
+        delivered: metricsData.operations.delivered || 0,
+        cancelled: metricsData.operations.cancelled || 0,
+        returns: metricsData.operations.returns || 0,
+        rto: metricsData.operations.rto || 0
+      };
+    }
+
     let pending = 0;
     let readyToShip = 0;
     let shipped = 0;
@@ -560,7 +624,7 @@ export default function SellerDashboard() {
       returns,
       rto
     };
-  }, [allSellerOrders]);
+  }, [allSellerOrders, metricsData]);
 
   const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -968,36 +1032,105 @@ export default function SellerDashboard() {
           </div>
         )}
 
-        {/* ── SELECTED PERIOD PERFORMANCE METRICS ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* ── SELECTED PERIOD PERFORMANCE METRICS (Flipkart/Meesho Marketplace Architecture) ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+          {/* Gross Sales (GMV) */}
           <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5 relative overflow-hidden">
             <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">
-              {streamFilter === "premium" ? "💎 Premium Income" : streamFilter === "standard" ? "👕 Standard Income" : "Period Gross Income"}
+              Gross Sales (GMV)
             </span>
-            <p className="text-3xl font-black mt-2 text-emerald-400">{fmt(selectedPeriodData.periodStats.totalRevenue)}</p>
+            <p className="text-2xl font-black mt-2 text-white">{fmt(selectedPeriodData.periodStats.grossSales)}</p>
             <span className="text-[10px] font-bold text-zinc-400 mt-1 block">
-              {streamFilter === "all" ? `💎 ${fmt(selectedPeriodData.periodStats.totalPremRevenue)} Prem • 👕 ${fmt(selectedPeriodData.periodStats.totalStdRevenue)} Std` : "Net period volume"}
+              All placed orders
             </span>
           </div>
 
-          <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
-            <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Orders in Period</span>
-            <p className="text-3xl font-black mt-2 text-white">{selectedPeriodData.periodStats.orderCount}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">Placed customer checkouts</span>
-          </div>
-
-          <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
-            <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Average Order Value (AOV)</span>
-            <p className="text-3xl font-black mt-2 text-amber-400">{fmt(selectedPeriodData.periodStats.aov)}</p>
-            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">Avg revenue per purchase</span>
-          </div>
-
-          <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
-            <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Units Sold</span>
-            <p className="text-3xl font-black mt-2 text-blue-400">{selectedPeriodData.periodStats.totalUnits}</p>
+          {/* Net Sales */}
+          <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5 relative overflow-hidden">
+            <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
+              Net Sales
+            </span>
+            <p className="text-2xl font-black mt-2 text-emerald-400">{fmt(selectedPeriodData.periodStats.netSales)}</p>
             <span className="text-[10px] font-bold text-zinc-400 mt-1 block">
-              {selectedPeriodData.periodStats.totalPremUnits} 💎 Premium • {selectedPeriodData.periodStats.totalStdUnits} 👕 Std
+              Excl. cancelled orders
             </span>
+          </div>
+
+          {/* Total Orders & Valid Orders */}
+          <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
+            <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Total Orders</span>
+            <p className="text-2xl font-black mt-2 text-white">{selectedPeriodData.periodStats.totalOrders}</p>
+            <span className="text-[10px] font-bold text-emerald-400 mt-1 block">Valid: {selectedPeriodData.periodStats.validOrders}</span>
+          </div>
+
+          {/* Cancelled Orders */}
+          <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
+            <span className="text-[10px] font-black uppercase text-rose-400 tracking-wider">Cancelled Orders</span>
+            <p className="text-2xl font-black mt-2 text-rose-400">{selectedPeriodData.periodStats.cancelledOrders}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">Value: {fmt(selectedPeriodData.periodStats.cancelledOrderValue)}</span>
+          </div>
+
+          {/* Average Order Value (AOV) */}
+          <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
+            <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">AOV (Net / Valid)</span>
+            <p className="text-2xl font-black mt-2 text-amber-400">{fmt(selectedPeriodData.periodStats.aov)}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">Per valid purchase</span>
+          </div>
+
+          {/* Units Sold */}
+          <div className="rounded-3xl bg-zinc-900/70 border border-zinc-800 p-5">
+            <span className="text-[10px] font-black uppercase text-blue-400 tracking-wider">Units Sold</span>
+            <p className="text-2xl font-black mt-2 text-blue-400">{selectedPeriodData.periodStats.totalUnits}</p>
+            <span className="text-[10px] font-bold text-zinc-400 mt-1 block">
+              Dispatched units
+            </span>
+          </div>
+        </div>
+
+        {/* ── FINANCIAL HEALTH & LEDGER RECONCILIATION SUMMARY ── */}
+        <div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-5 md:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+            <div className="flex items-center gap-2">
+              <Receipt size={16} className="text-emerald-400" />
+              <h3 className="text-sm font-black uppercase tracking-wider text-white">Financial Health & Deductions Breakdown</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase border ${
+                (metricsData?.reconciliation?.status || 'RECONCILED') === 'RECONCILED'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+              }`}>
+                <CheckCircle2 size={12} />
+                {(metricsData?.reconciliation?.status || 'RECONCILED') === 'RECONCILED' ? 'Ledger Reconciled' : 'Discrepancy Detected'}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/60">
+              <span className="text-[9px] font-black uppercase text-zinc-400">Commission Deducted</span>
+              <p className="text-sm font-black text-white mt-1">{fmt(metricsData?.financial_health?.commission_deducted || 0)}</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/60">
+              <span className="text-[9px] font-black uppercase text-zinc-400">Shipping Deducted</span>
+              <p className="text-sm font-black text-white mt-1">{fmt(metricsData?.financial_health?.shipping_charges || 0)}</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/60">
+              <span className="text-[9px] font-black uppercase text-zinc-400">Fixed & Handling</span>
+              <p className="text-sm font-black text-white mt-1">{fmt((metricsData?.financial_health?.fixed_fees || 0) + (metricsData?.financial_health?.collection_fees || 0))}</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/60">
+              <span className="text-[9px] font-black uppercase text-zinc-400">Refunds & Returns</span>
+              <p className="text-sm font-black text-rose-400 mt-1">{fmt(metricsData?.financial_health?.refunds_deducted || 0)}</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/60">
+              <span className="text-[9px] font-black uppercase text-zinc-400">RTO Charges</span>
+              <p className="text-sm font-black text-rose-400 mt-1">{fmt(metricsData?.financial_health?.rto_charges || 0)}</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/60">
+              <span className="text-[9px] font-black uppercase text-emerald-400">Net Seller Earnings</span>
+              <p className="text-sm font-black text-emerald-400 mt-1">{fmt(metricsData?.financial_health?.net_earnings || selectedPeriodData.periodStats.netSales)}</p>
+            </div>
           </div>
         </div>
 
@@ -1018,7 +1151,7 @@ export default function SellerDashboard() {
             </div>
           ) : (
             <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-              {selectedPeriodData.timeBreakdown.items.map((item, idx) => {
+              {selectedPeriodData.timeBreakdown.items.map((item: any, idx: number) => {
                 const percentage = Math.round((item.revenue / selectedPeriodData.timeBreakdown.maxRevenue) * 100);
                 return (
                   <div 
@@ -1052,7 +1185,7 @@ export default function SellerDashboard() {
                         {fmt(item.revenue)}
                       </span>
                       <span className="text-[10px] font-bold text-zinc-400">
-                        {selectedPeriodData.periodStats.totalRevenue > 0 ? `${Math.round((item.revenue / selectedPeriodData.periodStats.totalRevenue) * 100)}% of period` : "0%"}
+                        {selectedPeriodData.periodStats.netSales > 0 ? `${Math.round((item.revenue / selectedPeriodData.periodStats.netSales) * 100)}% of period` : "0%"}
                       </span>
                     </div>
                   </div>
