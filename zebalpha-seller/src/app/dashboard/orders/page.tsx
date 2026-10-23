@@ -1010,6 +1010,7 @@ export default function SellerOrders() {
                 const netGross = Math.max(0, catalogGross - discount);
                 const effectiveGross = netGross > 0 ? netGross : (orderTotAmt > 0 ? orderTotAmt : catalogGross);
                 const isOrderCancelled = String(selectedOrder.order_status || selectedOrder.status || "").toLowerCase() === "cancelled";
+                const feeBreakdown = calculateOrderItemFee(effectiveGross, 1, financialRules);
 
                 return (
                   <div className="space-y-2 text-xs divide-y divide-zinc-800">
