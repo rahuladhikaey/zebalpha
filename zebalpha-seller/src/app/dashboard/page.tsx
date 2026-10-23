@@ -1175,7 +1175,7 @@ export default function SellerDashboard() {
                       <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
-                          style={{ width: `${Math.max(percentage, 5)}%` }}
+                          style={{ width: `${item.revenue > 0 ? Math.min(100, Math.max(percentage, 2)) : 0}%` }}
                         />
                       </div>
                     </div>
