@@ -5,11 +5,13 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Lock, ShoppingBag, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { useIsNativeApp } from "@/lib/platform";
 
 export default function FloatingCartBanner() {
   const { cart, totalItems, totalValue } = useCart();
   const router = useRouter();
   const pathname = usePathname();
+  const isNativeApp = useIsNativeApp();
   
   const [offerThreshold, setOfferThreshold] = useState(0);
   const [offerPercentage, setOfferPercentage] = useState(0);
@@ -34,9 +36,9 @@ export default function FloatingCartBanner() {
     fetchOffer();
   }, []);
 
-  // Hide on cart, checkout pages, or product detail pages (where the product has its own dedicated bottom bar)
+  // Hide on native app (which has bottom nav cart), cart, checkout pages, or product detail pages
   const isProductDetailPage = pathname.startsWith('/products/') && pathname.length > '/products/'.length;
-  if (cart.length === 0 || pathname === '/cart' || pathname === '/checkout' || isProductDetailPage) return null;
+  if (isNativeApp || cart.length === 0 || pathname === '/cart' || pathname === '/checkout' || isProductDetailPage) return null;
 
   // Calculate progress for offer if active
   const hasValidOffer = isOfferActive && offerThreshold > 0;

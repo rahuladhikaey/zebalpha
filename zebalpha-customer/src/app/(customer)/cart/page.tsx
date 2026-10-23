@@ -7,9 +7,11 @@ import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Sparkles, Truck } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
+import { useIsNativeApp } from "@/lib/platform";
 
 export default function CartPage() {
   const router = useRouter();
+  const isNativeApp = useIsNativeApp();
   const { cart, updateQuantity, removeFromCart, clearCart, totalValue, addToCart } = useCart();
   
   const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
@@ -225,7 +227,7 @@ export default function CartPage() {
 
   if (cart.length === 0) {
     return (
-      <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
+      <main className={`min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 ${isNativeApp ? "pb-24" : ""}`}>
         <div className="h-24 w-24 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 text-white">
           <span className="text-4xl">🛒</span>
         </div>
@@ -253,7 +255,7 @@ export default function CartPage() {
   const amountToFreeDelivery = Math.max(0, billingSettings.freeDeliveryThreshold - discountedSubtotal);
 
   return (
-    <main className="min-h-screen bg-black text-white pb-32">
+    <main className={`min-h-screen bg-black text-white ${isNativeApp ? "pb-44" : "pb-32"}`}>
       {/* Header */}
       <header className="sticky top-0 z-50 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800 px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -582,7 +584,9 @@ export default function CartPage() {
       </div>
 
       {/* Bottom Sticky Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 shadow-2xl">
+      <div className={`fixed left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 shadow-2xl transition-all ${
+        isNativeApp ? "bottom-16 pb-1" : "bottom-0"
+      }`}>
         <div className="max-w-2xl mx-auto flex items-center justify-between px-5 py-4">
           <div className="flex flex-col">
             <span className="text-xs font-bold text-zinc-400">Item Total</span>

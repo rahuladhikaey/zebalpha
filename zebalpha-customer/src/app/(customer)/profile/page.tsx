@@ -4,12 +4,26 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { CartHeaderLink } from "@/components/CartHeaderLink";
-import UserMenu from "@/components/UserMenu";
+import { useRouter } from "next/navigation";
+import { Header } from "@/components/Header";
+import { 
+  Package, 
+  Heart, 
+  MapPin, 
+  CreditCard, 
+  User as UserIcon, 
+  HelpCircle, 
+  LogOut, 
+  Share2, 
+  ChevronRight, 
+  Sparkles, 
+  Coins 
+} from "lucide-react";
 
 export default function ProfileDashboard() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [hasApprovedCard, setHasApprovedCard] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
@@ -24,7 +38,7 @@ export default function ProfileDashboard() {
           .order("applied_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-          
+
         if (data && data.status === "APPROVED") {
           setHasApprovedCard(true);
         }
@@ -36,167 +50,250 @@ export default function ProfileDashboard() {
     checkCardStatus();
   }, [user]);
 
+  const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
+  };
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent" />
-          <p className="text-sm font-black uppercase tracking-widest text-white">Loading Profile...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-white">Loading Account...</p>
         </div>
       </main>
     );
   }
 
+  // Logged-out State
   if (!user) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-black px-6 text-center">
-        <div className="max-w-md w-full rounded-[2.5rem] bg-zinc-950 p-10 border border-zinc-800 shadow-2xl">
-          <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full bg-zinc-900 text-3xl mb-6 border border-zinc-800">👤</div>
-          <h1 className="text-2xl font-black text-white">Sign in required</h1>
-          <p className="mt-3 text-zinc-400 font-medium">Please login to view your premium account details.</p>
-          <Link href="/login" className="mt-10 inline-flex w-full items-center justify-center rounded-2xl bg-white px-10 py-4 text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition hover:bg-zinc-200">
-            Go to Login
-          </Link>
+      <main className="min-h-screen bg-black text-white pb-24 selection:bg-white selection:text-black">
+        <Header title="My Account" subtitle="Profile Dashboard" />
+        <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+          <div className="max-w-md w-full rounded-[2.5rem] bg-zinc-950 p-8 md:p-10 border border-zinc-800/90 shadow-2xl">
+            <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full bg-zinc-900 text-3xl mb-6 border border-zinc-800 shadow-inner">
+              👤
+            </div>
+            <h1 className="text-2xl font-black uppercase tracking-tight text-white">Welcome to ZebAlpha</h1>
+            <p className="mt-2 text-xs font-semibold text-zinc-400">
+              Sign in to track orders, manage saved addresses, view your boutique wishlist, and access exclusive drops.
+            </p>
+            <div className="mt-8 flex flex-col gap-3">
+              <Link
+                href="/login"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-8 py-3.5 text-xs font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition hover:bg-zinc-200 active:scale-95"
+              >
+                Sign In With Email
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-zinc-800 active:scale-95"
+              >
+                Create Free Account
+              </Link>
+            </div>
+          </div>
         </div>
       </main>
     );
   }
 
-  const displayName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Customer";
-  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
+  const displayName =
+    profile?.full_name ||
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    user.email?.split("@")[0] ||
+    "Customer";
+  const avatarUrl =
+    profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
 
   return (
-    <main className="min-h-screen bg-black text-white overflow-x-hidden relative">
-      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-zinc-800 bg-black/80 px-4 py-3 backdrop-blur-xl md:px-8">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center justify-center transition-transform hover:scale-105">
-            <img src="/official-logo.png" alt="ZEBALPHA Logo" className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover shadow-md border border-zinc-800" />
-          </Link>
-          <div className="hidden flex-col md:flex">
-            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">User Profile</span>
-            <span className="text-sm font-bold text-white">Account Dashboard</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <UserMenu />
-          <CartHeaderLink />
-        </div>
-      </header>
+    <main className="min-h-screen bg-black text-white overflow-x-hidden relative pb-24 selection:bg-white selection:text-black">
+      {/* Universal Responsive Header */}
+      <Header title="My Account" subtitle="Profile Dashboard" />
 
-      <section className="mx-auto max-w-2xl px-4 py-6 md:py-10 md:px-8">
-        <div className="rounded-[2.5rem] bg-zinc-950 shadow-2xl border border-zinc-800 animate-in fade-in zoom-in-95 duration-500 overflow-hidden mb-8">
-          <div className="h-40 bg-zinc-900 border-b border-zinc-800 relative">
-            <div className="absolute inset-0 bg-white/5 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+      <section className="mx-auto max-w-2xl px-4 py-6 md:py-8 md:px-8">
+        {/* Profile Card */}
+        <div className="rounded-[2.5rem] bg-zinc-950 shadow-2xl border border-zinc-800/90 animate-in fade-in zoom-in-95 duration-300 overflow-hidden mb-6">
+          <div className="h-32 sm:h-36 bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 border-b border-zinc-800/80 relative">
+            <div
+              className="absolute inset-0 bg-white/5 opacity-20"
+              style={{
+                backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+                backgroundSize: "20px 20px",
+              }}
+            />
 
-            <div className="absolute top-6 right-6 z-10 flex items-center gap-2 rounded-2xl bg-zinc-950/80 backdrop-blur-md px-3.5 py-2 border border-zinc-700 shadow-lg select-none hover:scale-[1.03] transition-all duration-300">
-              <span className="text-lg">🪙</span>
+            {/* Gold Coins Badge */}
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-2xl bg-zinc-950/90 backdrop-blur-md px-3.5 py-1.5 border border-zinc-700 shadow-lg select-none">
+              <Coins className="h-4 w-4 text-amber-400" />
               <div className="text-left leading-none">
-                <span className="text-[7px] font-black uppercase tracking-widest text-zinc-400 block">Gold Coins</span>
+                <span className="text-[7px] font-black uppercase tracking-widest text-zinc-400 block">
+                  Reward Coins
+                </span>
                 <span className="text-[11px] font-black text-white whitespace-nowrap">
-                  {hasApprovedCard ? "100 Earned" : "0 Coins"}
+                  {hasApprovedCard ? "100 Coins" : "0 Coins"}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="px-6 pb-8 md:px-10">
-            <div className="relative -mt-16 flex flex-col items-center sm:flex-row sm:items-end gap-5">
-              <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-8 border-black bg-zinc-900 text-5xl font-black text-white shadow-2xl z-10 overflow-hidden">
+          <div className="px-6 pb-6 md:px-8">
+            <div className="relative -mt-14 flex flex-col items-center sm:flex-row sm:items-end gap-4">
+              <div className="flex h-24 w-24 sm:h-28 sm:w-28 shrink-0 items-center justify-center rounded-full border-4 border-black bg-zinc-900 text-4xl font-black text-white shadow-2xl z-10 overflow-hidden">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
                 ) : (
                   displayName[0]?.toUpperCase() || "U"
                 )}
               </div>
-              <div className="mb-2 text-center sm:text-left min-w-0 flex-1">
-                <span className="inline-flex rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white mb-2">Verified Member 🌟</span>
-                <h1 className="text-2xl md:text-3xl font-black text-white leading-tight break-words">
+              <div className="text-center sm:text-left min-w-0 flex-1">
+                <span className="inline-flex rounded-full bg-white/10 border border-white/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-white mb-1.5">
+                  Verified Member ✦
+                </span>
+                <h1 className="text-xl sm:text-2xl font-black text-white leading-tight break-words">
                   {displayName}
                 </h1>
-                <p className="mt-1 text-sm font-bold text-zinc-400 truncate">{user.email}</p>
+                <p className="text-xs font-semibold text-zinc-400 truncate">{user.email}</p>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Account Quick Navigation List */}
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-white mb-4 px-2">Account Settings</h2>
-          <ul className="space-y-3">
+          <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400 mb-3 px-2">
+            Account Management
+          </h2>
+          <ul className="space-y-2.5">
+            {/* My Orders */}
             <li>
-              <Link href="/profile/cards" className="flex items-center justify-between p-5 bg-zinc-950 rounded-2xl border border-zinc-800 hover:border-zinc-600 hover:shadow-xl transition-all group">
-                <div className="flex items-center gap-4">
-                  <div className="p-2.5 bg-zinc-900 rounded-xl text-white group-hover:bg-zinc-800 transition-colors border border-zinc-800">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                    </svg>
+              <Link
+                href="/profile/orders"
+                className="flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-zinc-600 transition-all group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-white border border-zinc-800 group-hover:bg-zinc-800 transition-colors">
+                    <Package size={18} />
                   </div>
-                  <span className="font-semibold text-white text-lg">My Alpha Card & Wallet</span>
-                </div>
-                <svg className="w-5 h-5 text-zinc-400 opacity-70 group-hover:translate-x-1 group-hover:text-white transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </li>
-            
-            <li>
-              <Link href="/profile/address" className="flex items-center justify-between p-5 bg-zinc-950 rounded-2xl border border-zinc-800 hover:border-zinc-600 hover:shadow-xl transition-all group">
-                <div className="flex items-center gap-4">
-                  <div className="p-2.5 bg-zinc-900 rounded-xl text-white group-hover:bg-zinc-800 transition-colors border border-zinc-800">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                  <div>
+                    <span className="font-bold text-white text-sm block">My Orders</span>
+                    <span className="text-[10px] text-zinc-400 font-medium">Track, view and manage past purchases</span>
                   </div>
-                  <span className="font-semibold text-white text-lg">Saved Addresses</span>
                 </div>
-                <svg className="w-5 h-5 text-zinc-400 opacity-70 group-hover:translate-x-1 group-hover:text-white transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
               </Link>
             </li>
 
+            {/* My Wishlist */}
             <li>
-              <Link href="/profile/orders" className="flex items-center justify-between p-5 bg-zinc-950 rounded-2xl border border-zinc-800 hover:border-zinc-600 hover:shadow-xl transition-all group">
-                <div className="flex items-center gap-4">
-                  <div className="p-2.5 bg-zinc-900 rounded-xl text-white group-hover:bg-zinc-800 transition-colors border border-zinc-800">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
+              <Link
+                href="/wishlist"
+                className="flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-zinc-600 transition-all group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-rose-400 border border-zinc-800 group-hover:bg-zinc-800 transition-colors">
+                    <Heart size={18} />
                   </div>
-                  <span className="font-semibold text-white text-lg">My Orders</span>
+                  <div>
+                    <span className="font-bold text-white text-sm block">My Wishlist</span>
+                    <span className="text-[10px] text-zinc-400 font-medium">Saved drops & favorite streetwear</span>
+                  </div>
                 </div>
-                <svg className="w-5 h-5 text-zinc-400 opacity-70 group-hover:translate-x-1 group-hover:text-white transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
               </Link>
             </li>
 
+            {/* Saved Addresses */}
             <li>
-              <Link href="/profile/edit" className="flex items-center justify-between p-5 bg-zinc-950 rounded-2xl border border-zinc-800 hover:border-zinc-600 hover:shadow-xl transition-all group">
-                <div className="flex items-center gap-4">
-                  <div className="p-2.5 bg-zinc-900 rounded-xl text-white group-hover:bg-zinc-800 transition-colors border border-zinc-800">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
+              <Link
+                href="/profile/address"
+                className="flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-zinc-600 transition-all group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-emerald-400 border border-zinc-800 group-hover:bg-zinc-800 transition-colors">
+                    <MapPin size={18} />
                   </div>
-                  <span className="font-semibold text-white text-lg">Edit Profile</span>
+                  <div>
+                    <span className="font-bold text-white text-sm block">Saved Addresses</span>
+                    <span className="text-[10px] text-zinc-400 font-medium">Manage delivery destinations</span>
+                  </div>
                 </div>
-                <svg className="w-5 h-5 text-zinc-400 opacity-70 group-hover:translate-x-1 group-hover:text-white transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
+              </Link>
+            </li>
+
+            {/* Alpha Card & Wallet */}
+            <li>
+              <Link
+                href="/profile/cards"
+                className="flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-zinc-600 transition-all group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-amber-400 border border-zinc-800 group-hover:bg-zinc-800 transition-colors">
+                    <CreditCard size={18} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-white text-sm block">Alpha Card & Wallet</span>
+                    <span className="text-[10px] text-zinc-400 font-medium">Rewards, membership & wallet</span>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
+              </Link>
+            </li>
+
+            {/* Edit Profile */}
+            <li>
+              <Link
+                href="/profile/edit"
+                className="flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-zinc-600 transition-all group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-blue-400 border border-zinc-800 group-hover:bg-zinc-800 transition-colors">
+                    <UserIcon size={18} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-white text-sm block">Edit Profile</span>
+                    <span className="text-[10px] text-zinc-400 font-medium">Update your name & details</span>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
+              </Link>
+            </li>
+
+            {/* Help & Support */}
+            <li>
+              <Link
+                href="/help"
+                className="flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-zinc-600 transition-all group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-violet-400 border border-zinc-800 group-hover:bg-zinc-800 transition-colors">
+                    <HelpCircle size={18} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-white text-sm block">Help & Support</span>
+                    <span className="text-[10px] text-zinc-400 font-medium">FAQs, return policy & customer desk</span>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
               </Link>
             </li>
           </ul>
         </div>
 
-        <div className="mt-8 flex flex-col px-2">
+        {/* Action Buttons: Share & Logout */}
+        <div className="space-y-3 px-1">
           <button
+            type="button"
             onClick={async () => {
               try {
                 if (navigator.share) {
                   await navigator.share({
-                    title: 'ZEBALPHA - Premium Streetwear & Fashion',
-                    text: 'Check out ZEBALPHA for exclusive premium streetwear and contemporary fashion! Discover the latest drops today.',
+                    title: "ZEBALPHA - Premium Streetwear & Fashion",
+                    text: "Check out ZEBALPHA for exclusive premium streetwear and contemporary fashion! Discover the latest drops today.",
                     url: window.location.origin,
                   });
                 } else {
@@ -207,12 +304,19 @@ export default function ProfileDashboard() {
                 console.log("Sharing failed or cancelled:", error);
               }
             }}
-            className="w-full rounded-2xl bg-white px-6 py-4 text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            className="w-full rounded-2xl bg-white px-6 py-3.5 text-xs font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            Invite Friends
+            <Share2 size={16} strokeWidth={2.5} />
+            <span>Invite Friends</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full rounded-2xl bg-zinc-950 border border-zinc-800 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-rose-400 hover:text-white hover:bg-rose-950/40 hover:border-rose-800 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+          >
+            <LogOut size={16} strokeWidth={2.5} />
+            <span>Sign Out</span>
           </button>
         </div>
       </section>

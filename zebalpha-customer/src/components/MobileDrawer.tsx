@@ -43,10 +43,10 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
         />
       )}
 
-      {/* Drawer Panel */}
+      {/* Drawer Panel (Slides in from Left for native Android pattern) */}
       <div
-        className={`fixed right-0 top-0 z-[70] h-full w-[85%] max-w-[320px] bg-neutral-950 border-l border-neutral-800 text-white shadow-2xl transition-transform duration-500 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed left-0 top-0 z-[70] h-full w-[85%] max-w-[320px] bg-neutral-950 border-r border-neutral-800 text-white shadow-2xl transition-transform duration-300 ease-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
@@ -126,10 +126,10 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               <nav className="space-y-1">
                 {[
                   { name: "Store Home", href: "/" },
+                  { name: "Browse Categories", href: "/categories" },
                   { name: "New Drops & Hype", href: "/new-drops" },
                   { name: "💎 Premium Store", href: "/premium-store" },
                   { name: "All Apparel", href: "/products" },
-                  { name: "Your Cart", href: "/cart" },
                   { name: "Track Order", href: "/profile/orders" },
                 ].map((item) => (
                   <Link

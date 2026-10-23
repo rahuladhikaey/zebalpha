@@ -8,7 +8,8 @@ import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import AnimatedSearchBar from "./AnimatedSearchBar";
 import { useCart } from "@/context/CartContext";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, Menu } from "lucide-react";
+import { useIsNativeApp } from "@/lib/platform";
 import dynamicImport from "next/dynamic";
 const MobileDrawer = dynamicImport(() => import("./MobileDrawer").then((mod) => mod.MobileDrawer), {
   ssr: false,
@@ -27,8 +28,63 @@ export function Header({
   const router = useRouter();
   const pathname = usePathname();
   const { totalItems } = useCart();
+  const isNativeApp = useIsNativeApp();
   const isAdmin = pathname.startsWith("/admin");
   const isHome = pathname === "/";
+
+  // Native Android App Header layout: [ ☰ ] [ Logo + ZebAlpha ] [ 🔔 ]
+  if (isNativeApp) {
+    return (
+      <>
+        <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+          <div className="flex w-full items-center justify-between">
+            {/* Left: Hamburger Menu Icon */}
+            <button
+              type="button"
+              onClick={() => setIsDrawerOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-neutral-300 hover:text-white active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
+              aria-label="Open Navigation Menu"
+            >
+              <Menu className="h-5 w-5 stroke-[2.2]" />
+            </button>
+
+            {/* Center / Left: Existing Zebalpha Logo & Brand Name */}
+            <Link href="/" className="flex items-center gap-2.5 active:scale-95 transition-transform group">
+              <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 shadow-[0_0_12px_rgba(255,255,255,0.12)] group-hover:shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-all">
+                <Image
+                  src="/official-logo-sm.png"
+                  alt="ZebAlpha Official Logo"
+                  width={36}
+                  height={36}
+                  className="h-full w-full object-cover rounded-full"
+                  priority
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white uppercase group-hover:text-neutral-200 transition-colors">
+                  ZebAlpha
+                </span>
+                <span className="text-[8px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5">
+                  Clothing For The Culture
+                </span>
+              </div>
+            </Link>
+
+            {/* Right: Notification Bell */}
+            <div className="flex items-center justify-end">
+              <NotificationBell />
+            </div>
+          </div>
+        </header>
+
+        {/* Secondary Navigation Drawer */}
+        <MobileDrawer 
+          isOpen={isDrawerOpen} 
+          onClose={() => setIsDrawerOpen(false)} 
+        />
+      </>
+    );
+  }
 
   return (
     <>

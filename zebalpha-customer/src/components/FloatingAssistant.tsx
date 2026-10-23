@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, X, ArrowUpRight, ShoppingBag, Package, RefreshCw, DollarSign, Truck, Ruler, CreditCard, Headset } from "lucide-react";
+import { useIsNativeApp } from "@/lib/platform";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -46,6 +47,7 @@ export default function FloatingAssistant() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const isNativeApp = useIsNativeApp();
 
   // Position state (translation offsets from initial bottom-right position)
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -136,7 +138,7 @@ export default function FloatingAssistant() {
         transform: `translate3d(${position.x}px, ${position.y}px, 0px)`,
         touchAction: "none",
       }}
-      className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end"
+      className={`fixed ${isNativeApp ? "bottom-20 right-3.5" : "bottom-6 right-6"} z-[9999] flex flex-col items-end transition-all`}
     >
       {/* Expanded Chat Box */}
       {isOpen && (

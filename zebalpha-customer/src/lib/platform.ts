@@ -32,6 +32,11 @@ export function checkIsNativeApp(): boolean {
     ) {
       return true;
     }
+
+    // 4. URL query parameter override for mobile app testing (?view=app)
+    if (window.location?.search?.includes("view=app")) {
+      return true;
+    }
   } catch (err) {
     console.error("[Platform Detection Notice]:", err);
   }
