@@ -856,15 +856,23 @@ export default function SellerOrders() {
                         <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-zinc-800">
                           <div className="text-right">
                             <span className="text-[10px] font-bold text-zinc-400">Selling Price</span>
-                            <p className="text-xs font-black text-white">₹{netItemSubtotal.toLocaleString("en-IN")}</p>
-                            {itemDiscount > 0 && (
+                            <p className={`text-xs font-black ${orderStatus === "cancelled" ? "text-zinc-500 line-through" : "text-white"}`}>
+                              ₹{netItemSubtotal.toLocaleString("en-IN")}
+                            </p>
+                            {itemDiscount > 0 && orderStatus !== "cancelled" && (
                               <span className="text-[9px] font-bold text-zinc-500 line-through">MRP: ₹{itemGross.toLocaleString("en-IN")}</span>
                             )}
                           </div>
                           <div className="text-right">
-                            <span className="text-[10px] font-bold text-emerald-400">Est. Seller Payout</span>
-                            <p className="text-xs font-black text-emerald-300">₹{feeBreakdown.net_seller_earnings.toLocaleString("en-IN")}</p>
-                            <span className="text-[9px] text-zinc-500">Fees: -₹{feeBreakdown.total_deductions}</span>
+                            <span className={`text-[10px] font-bold ${orderStatus === "cancelled" ? "text-zinc-500" : "text-emerald-400"}`}>
+                              Est. Seller Payout
+                            </span>
+                            <p className={`text-xs font-black ${orderStatus === "cancelled" ? "text-zinc-400" : "text-emerald-300"}`}>
+                              ₹{orderStatus === "cancelled" ? "0.00" : feeBreakdown.net_seller_earnings.toLocaleString("en-IN")}
+                            </p>
+                            <span className="text-[9px] text-zinc-500">
+                              {orderStatus === "cancelled" ? "Zero Payout (Cancelled)" : `Fees: -₹${feeBreakdown.total_deductions}`}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1001,13 +1009,18 @@ export default function SellerOrders() {
                   : (orderTotAmt > 0 && catalogGross > orderTotAmt ? (catalogGross - orderTotAmt) : 0);
                 const netGross = Math.max(0, catalogGross - discount);
                 const effectiveGross = netGross > 0 ? netGross : (orderTotAmt > 0 ? orderTotAmt : catalogGross);
-                const feeBreakdown = calculateOrderItemFee(effectiveGross, 1, financialRules);
+                const isOrderCancelled = String(selectedOrder.order_status || selectedOrder.status || "").toLowerCase() === "cancelled";
 
                 return (
                   <div className="space-y-2 text-xs divide-y divide-zinc-800">
+                    {isOrderCancelled && (
+                      <div className="p-3 mb-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 font-bold text-center text-xs">
+                        ⚠️ This order was cancelled before fulfillment. Zero settlement payout applies.
+                      </div>
+                    )}
                     <div className="flex justify-between py-1.5 text-zinc-300 font-bold">
                       <span>Listing / Catalog Price</span>
-                      <span className="text-white font-black">₹{catalogGross.toLocaleString("en-IN")}</span>
+                      <span className={`font-black ${isOrderCancelled ? "text-zinc-500 line-through" : "text-white"}`}>₹{catalogGross.toLocaleString("en-IN")}</span>
                     </div>
                     {discount > 0 && (
                       <div className="flex justify-between py-1.5 text-amber-400 font-medium">
@@ -1017,32 +1030,41 @@ export default function SellerOrders() {
                     )}
                     <div className="flex justify-between py-1.5 text-zinc-300 font-bold">
                       <span>Net Customer Selling Price</span>
-                      <span className="text-emerald-400 font-black">₹{effectiveGross.toLocaleString("en-IN")}</span>
+                      <span className={`font-black ${isOrderCancelled ? "text-zinc-500 line-through" : "text-emerald-400"}`}>₹{effectiveGross.toLocaleString("en-IN")}</span>
                     </div>
-                    <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
-                      <span>Platform Commission ({feeBreakdown.effective_commission_pct}%)</span>
-                      <span className="text-rose-400 font-bold">-₹{feeBreakdown.commission_fee}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
-                      <span>Fixed Closing Fee</span>
-                      <span className="text-rose-400 font-bold">-₹{feeBreakdown.fixed_fee}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
-                      <span>Payment Collection Fee</span>
-                      <span className="text-rose-400 font-bold">-₹{feeBreakdown.collection_fee}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
-                      <span>Forward Shipping Logistics</span>
-                      <span className="text-rose-400 font-bold">-₹{feeBreakdown.shipping_fee}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
-                      <span>GST ({financialRules.gst_on_platform_fees_pct !== undefined ? financialRules.gst_on_platform_fees_pct : 3}%) on Marketplace Fees</span>
-                      <span className="text-rose-400 font-bold">-₹{feeBreakdown.tax_on_fees}</span>
-                    </div>
-                    <div className="flex justify-between pt-3 text-sm font-black border-t border-zinc-700">
-                      <span className="text-emerald-400">Net Seller Settlement Amount</span>
-                      <span className="text-emerald-300 font-black">₹{feeBreakdown.net_seller_earnings.toLocaleString("en-IN")}</span>
-                    </div>
+                    {!isOrderCancelled ? (
+                      <>
+                        <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
+                          <span>Platform Commission ({feeBreakdown.effective_commission_pct}%)</span>
+                          <span className="text-rose-400 font-bold">-₹{feeBreakdown.commission_fee}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
+                          <span>Fixed Closing Fee</span>
+                          <span className="text-rose-400 font-bold">-₹{feeBreakdown.fixed_fee}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
+                          <span>Payment Collection Fee</span>
+                          <span className="text-rose-400 font-bold">-₹{feeBreakdown.collection_fee}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
+                          <span>Forward Shipping Logistics</span>
+                          <span className="text-rose-400 font-bold">-₹{feeBreakdown.shipping_fee}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 text-zinc-400 font-medium">
+                          <span>GST ({financialRules.gst_on_platform_fees_pct !== undefined ? financialRules.gst_on_platform_fees_pct : 3}%) on Marketplace Fees</span>
+                          <span className="text-rose-400 font-bold">-₹{feeBreakdown.tax_on_fees}</span>
+                        </div>
+                        <div className="flex justify-between pt-3 text-sm font-black border-t border-zinc-700">
+                          <span className="text-emerald-400">Net Seller Settlement Amount</span>
+                          <span className="text-emerald-300 font-black">₹{feeBreakdown.net_seller_earnings.toLocaleString("en-IN")}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between pt-3 text-sm font-black border-t border-zinc-700">
+                        <span className="text-rose-400">Net Seller Settlement Amount</span>
+                        <span className="text-rose-400 font-black">₹0.00 (Cancelled)</span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1057,16 +1079,18 @@ export default function SellerOrders() {
             </div>
 
             {/* View / Print Shipping Label inside Details Drawer */}
-            <button
-              onClick={() => {
-                setLabelModalOrder(selectedOrder);
-                setSelectedOrder(null);
-              }}
-              className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20"
-            >
-              <Printer className="h-4 w-4" />
-              <span>View & Print Shipping Label</span>
-            </button>
+            {String(selectedOrder.order_status || selectedOrder.status || "").toLowerCase() !== "cancelled" && (
+              <button
+                onClick={() => {
+                  setLabelModalOrder(selectedOrder);
+                  setSelectedOrder(null);
+                }}
+                className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20"
+              >
+                <Printer className="h-4 w-4" />
+                <span>View & Print Shipping Label</span>
+              </button>
+            )}
           </div>
         </div>
       )}

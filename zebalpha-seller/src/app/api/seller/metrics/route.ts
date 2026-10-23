@@ -370,12 +370,20 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // 5. Fetch Ledger Entries for Financial Health Breakdown
-    const { data: ledgerRows } = await supabaseServer
+    // 5. Fetch Ledger Entries for Financial Health Breakdown (Scoped to period)
+    let ledgerQuery = supabaseServer
       .from("seller_financial_ledger")
       .select("*")
       .eq("seller_id", sellerId)
       .eq("status", "COMPLETED");
+
+    if (period !== "all") {
+      ledgerQuery = ledgerQuery
+        .gte("created_at", start.toISOString())
+        .lte("created_at", end.toISOString());
+    }
+
+    const { data: ledgerRows } = await ledgerQuery;
 
     let commissionDeducted = 0;
     let shippingDeducted = 0;
@@ -388,6 +396,14 @@ export async function GET(req: NextRequest) {
     let totalDebits = 0;
 
     (ledgerRows || []).forEach((tx: any) => {
+      // Exclude any test or audit residuals
+      const ref = String(tx.reference_id || "").toLowerCase();
+      const idem = String(tx.idempotency_key || "").toLowerCase();
+      const desc = String(tx.description || "").toLowerCase();
+      if (ref.includes("test") || idem.includes("test_") || idem.includes("_audit_") || desc.includes("audit test")) {
+        return;
+      }
+
       const amt = Number(tx.amount) || 0;
       if (tx.entry_type === "CREDIT") totalCredits += amt;
       if (tx.entry_type === "DEBIT") totalDebits += amt;
@@ -463,8 +479,7 @@ export async function GET(req: NextRequest) {
         collection_fees: Number(collectionFees.toFixed(2)),
         refunds_deducted: Number(refundsDeducted.toFixed(2)),
         rto_charges: Number(rtoCharges.toFixed(2)),
-        taxes_on_fees: Number(taxesOnFees.toFixed(2)),
-        net_earnings: Number((netSalesValue - (commissionDeducted + shippingDeducted + fixedFees + collectionFees + refundsDeducted + rtoCharges + taxesOnFees)).toFixed(2))
+        net_earnings: Number(Math.max(0, netSalesValue - (commissionDeducted + shippingDeducted + fixedFees + collectionFees + refundsDeducted + rtoCharges + taxesOnFees)).toFixed(2))
       },
       reconciliation: {
         status: Math.abs(availNum - Number(liveBal.available || 0)) < 0.01 ? "RECONCILED" : "DISCREPANCY_DETECTED",

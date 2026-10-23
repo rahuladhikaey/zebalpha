@@ -1129,7 +1129,7 @@ export default function SellerDashboard() {
             </div>
             <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/60">
               <span className="text-[9px] font-black uppercase text-emerald-400">Net Seller Earnings</span>
-              <p className="text-sm font-black text-emerald-400 mt-1">{fmt(metricsData?.financial_health?.net_earnings || selectedPeriodData.periodStats.netSales)}</p>
+              <p className="text-sm font-black text-emerald-400 mt-1">{fmt(metricsData?.financial_health?.net_earnings ?? selectedPeriodData.periodStats.netSales)}</p>
             </div>
           </div>
         </div>

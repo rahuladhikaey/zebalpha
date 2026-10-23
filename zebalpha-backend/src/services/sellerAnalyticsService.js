@@ -172,12 +172,20 @@ export async function getSellerDashboardMetrics(sellerId, periodFilter = 'this_m
   // AOV Calculation: Net Sales / Valid Sales Orders (Zero division guard)
   const aov = validOrderCount > 0 ? Number((netSalesValue / validOrderCount).toFixed(2)) : 0;
 
-  // 3. Fetch seller ledger entries for period breakdown
-  const { data: ledgerEntries } = await supabaseA
+  // 3. Fetch seller ledger entries for period breakdown (Scoped to selected period)
+  let ledgerQuery = supabaseA
     .from('seller_financial_ledger')
     .select('*')
     .eq('seller_id', sellerId)
     .order('created_at', { ascending: false });
+
+  if (periodFilter !== 'all') {
+    ledgerQuery = ledgerQuery
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+  }
+
+  const { data: ledgerEntries } = await ledgerQuery;
 
   let totalCommissionDeducted = 0;
   let totalShippingDeducted = 0;
@@ -188,6 +196,14 @@ export async function getSellerDashboardMetrics(sellerId, periodFilter = 'this_m
   let totalTaxesOnFees = 0;
 
   (ledgerEntries || []).forEach(tx => {
+    // Exclude test residuals
+    const ref = String(tx.reference_id || "").toLowerCase();
+    const idem = String(tx.idempotency_key || "").toLowerCase();
+    const desc = String(tx.description || "").toLowerCase();
+    if (ref.includes("test") || idem.includes("test_") || idem.includes("_audit_") || desc.includes("audit test")) {
+      return;
+    }
+
     const amt = Number(tx.amount) || 0;
     if (tx.status === 'COMPLETED') {
       if (['COMMISSION', 'COMMISSION_DEDUCTION'].includes(tx.transaction_type)) totalCommissionDeducted += amt;
