@@ -7,11 +7,14 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useIsNativeApp } from "@/lib/platform";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 export function AndroidBottomNav() {
   const isNativeApp = useIsNativeApp();
   const pathname = usePathname();
   const { totalItems } = useCart();
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   // Only render on native Capacitor Android app shell or preview mode
   if (!isNativeApp) return null;
@@ -26,28 +29,28 @@ export function AndroidBottomNav() {
   const navItems = [
     {
       id: "home",
-      label: "Home",
+      label: t("nav_home"),
       href: "/",
       icon: Home,
       isActive: isHomeActive,
     },
     {
       id: "categories",
-      label: "Categories",
+      label: t("nav_categories"),
       href: "/categories",
       icon: LayoutGrid,
       isActive: isCategoriesActive,
     },
     {
       id: "account",
-      label: "Account",
+      label: t("nav_account"),
       href: user ? "/profile" : "/profile",
       icon: User,
       isActive: isAccountActive,
     },
     {
       id: "cart",
-      label: "Cart",
+      label: t("nav_cart"),
       href: "/cart",
       icon: ShoppingCart,
       isActive: isCartActive,

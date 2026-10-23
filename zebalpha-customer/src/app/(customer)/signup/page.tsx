@@ -129,6 +129,11 @@ export default function SignupPage() {
       return;
     }
 
+    if (normalizedEmail.length > 35) {
+      showStatus("Email address cannot exceed 35 characters.", "error");
+      return;
+    }
+
     if (password !== confirmPassword) {
       showStatus("Passwords do not match.", "error");
       return;

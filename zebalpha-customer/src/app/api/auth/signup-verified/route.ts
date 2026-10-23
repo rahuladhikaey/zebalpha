@@ -14,6 +14,12 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    if (normalizedEmail.length > 35) {
+      return NextResponse.json(
+        { success: false, error: "Email address cannot exceed 35 characters" },
+        { status: 400 }
+      );
+    }
     let user: any = null;
 
     // 1. Attempt admin creation with auto-confirm first

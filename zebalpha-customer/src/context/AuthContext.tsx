@@ -161,6 +161,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("loginEmail");
         window.localStorage.removeItem("signupEmail");
+        window.localStorage.removeItem("zebalpha_onboarding_guest_mode");
       }
     } catch (err) {
       console.error("[SignOut Error]:", err);

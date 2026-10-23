@@ -81,6 +81,12 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    if (normalizedEmail.length > 35) {
+      return NextResponse.json(
+        { error: "Email address cannot exceed 35 characters" },
+        { status: 400 }
+      );
+    }
 
     if (action === "generate") {
       const otp = generateOTP();

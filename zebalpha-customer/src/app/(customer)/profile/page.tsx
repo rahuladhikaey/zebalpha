@@ -17,12 +17,17 @@ import {
   Share2, 
   ChevronRight, 
   Sparkles, 
-  Coins 
+  Coins,
+  Globe 
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
+import { useIsNativeApp } from "@/lib/platform";
 
 export default function ProfileDashboard() {
   const { user, profile, loading, signOut } = useAuth();
   const [hasApprovedCard, setHasApprovedCard] = useState(false);
+  const { language, openLanguageModal } = useLanguage();
+  const isNativeApp = useIsNativeApp();
   const router = useRouter();
 
   useEffect(() => {
@@ -262,6 +267,32 @@ export default function ProfileDashboard() {
                 <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
               </Link>
             </li>
+
+            {/* Language Settings (Android App Only) */}
+            {isNativeApp && (
+              <li>
+                <button
+                  type="button"
+                  onClick={openLanguageModal}
+                  className="w-full flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-zinc-600 transition-all group active:scale-[0.98] text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-teal-400 border border-zinc-800 group-hover:bg-zinc-800 transition-colors">
+                      <Globe size={18} />
+                    </div>
+                    <div>
+                      <span className="font-bold text-white text-sm block">
+                        {language === "hi" ? "भाषा सेटिंग" : "Language Settings"}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-medium">
+                        {language === "hi" ? "🇮🇳 हिंदी (Hindi)" : "🇬🇧 English"}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
+                </button>
+              </li>
+            )}
 
             {/* Help & Support */}
             <li>

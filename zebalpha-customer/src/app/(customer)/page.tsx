@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { MobileSearch } from "@/components/MobileSearch";
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { BannerCarousel } from "@/components/BannerCarousel";
 import { Header } from "@/components/Header";
-import { MovingOfferBanner } from "@/components/MovingOfferBanner";
+import { HomeHero } from "@/components/HomeHero";
 import { CuratedCollectionsSection } from "@/components/CuratedCollectionsSection";
 import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
 import { Footer } from "@/components/Footer";
@@ -155,25 +153,15 @@ export default async function HomePage(props: {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph) }}
       />
-      <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-hidden">
-        {/* P0 IMMEDIATE: Header & Promotional Bar */}
+      <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-clip">
+        {/* P0 IMMEDIATE: Header */}
         <Header title="ZebAlpha" subtitle="CLOTHING FOR THE CULTURE ✦" />
-        <MovingOfferBanner />
 
-        {/* Hero Section Container */}
+        {/* Hero Section (Handles Android App vs Website layout) */}
+        <HomeHero />
+
+        {/* Main Content Container */}
         <div className="mx-auto w-full max-w-[1400px] px-4 md:px-8">
-          {/* Carousel Showcase */}
-          <div className="pt-2">
-            <BannerCarousel />
-          </div>
-
-          {/* Mobile Search */}
-          <div className="md:hidden mt-3">
-            <Suspense fallback={<div className="h-[50px] w-full rounded-2xl bg-neutral-900 animate-pulse" />}>
-              <MobileSearch />
-            </Suspense>
-          </div>
-
           {/* Curated Categories Section */}
           <Suspense fallback={<CategoriesSkeleton />}>
             <CategoriesContainer />

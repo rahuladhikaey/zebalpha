@@ -106,6 +106,18 @@ export default function LoginPage() {
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail || !normalizedEmail.includes("@")) {
+        setStatusMessage("Please enter a valid email address.");
+        setLoading(false);
+        return;
+      }
+
+      if (normalizedEmail.length > 35) {
+        setStatusMessage("Email address cannot exceed 35 characters.");
+        setLoading(false);
+        return;
+      }
+
       let { error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
@@ -224,7 +236,7 @@ export default function LoginPage() {
                     <input
                       type="email"
                       required
-                      maxLength={25}
+                      maxLength={35}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Email Address"

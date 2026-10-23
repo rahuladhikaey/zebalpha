@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { Store, ArrowUpRight } from "lucide-react";
+import { Store, ArrowUpRight, Globe } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
+import { useIsNativeApp } from "@/lib/platform";
 
 type MobileDrawerProps = {
   isOpen: boolean;
@@ -14,6 +16,8 @@ type MobileDrawerProps = {
 export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const { language, openLanguageModal, t } = useLanguage();
+  const isNativeApp = useIsNativeApp();
 
   // Prevent scrolling when drawer is open
   useEffect(() => {
@@ -116,6 +120,35 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                   >
                     Sign In
                   </Link>
+                </div>
+              )}
+              {isNativeApp && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      openLanguageModal();
+                    }}
+                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-neutral-900 border border-neutral-800 text-left hover:border-neutral-700 transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-neutral-800 text-neutral-300">
+                        <Globe size={16} />
+                      </span>
+                      <div>
+                        <span className="text-xs font-bold text-white block">
+                          {t("language_settings")}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-medium">
+                          {language === "hi" ? "🇮🇳 हिंदी" : "🇬🇧 English"}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 border border-neutral-700 rounded-lg px-2 py-1">
+                      {language === "hi" ? "बदलें" : "Change"}
+                    </span>
+                  </button>
                 </div>
               )}
             </div>

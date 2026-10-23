@@ -4,6 +4,8 @@ import Script from "next/script";
 import { Providers } from "./providers";
 import { Header } from "@/components/Header";
 import { AndroidBottomNav } from "@/components/AndroidBottomNav";
+import { AndroidOnboardingManager } from "@/components/AndroidOnboardingManager";
+import { AndroidLanguageModal } from "@/components/AndroidLanguageModal";
 import dynamic from "next/dynamic";
 
 const ClientAssistant = dynamic(() => import("@/components/ClientAssistant"));
@@ -120,6 +122,8 @@ export default function RootLayout({
           {children}
         </div>
         <AndroidBottomNav />
+        <AndroidOnboardingManager />
+        <AndroidLanguageModal />
         <ClientAssistant />
       </Providers>
     </>

@@ -36,7 +36,7 @@ export function Header({
   if (isNativeApp) {
     return (
       <>
-        <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+        <header className={`${isHome ? "relative z-20" : "sticky top-0 z-40"} border-b border-zinc-800/80 bg-zinc-950/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]`}>
           <div className="flex w-full items-center justify-between">
             {/* Left: Hamburger Menu Icon */}
             <button
