@@ -30,19 +30,19 @@ export async function GET(
     // 1. Fetch current product details to supply to recommendation engine
     const { data: currentProduct, error: prodErr } = await supabaseServer
       .from("products")
-      .select("id, name, brand, price, mrp, stock, status, is_active, category_id, specifications, packages, rating, review_count")
+      .select("id, name, brand, price, mrp, stock, status, is_active, category_id, description, image_url, images, specifications, packages, rating, review_count")
       .eq("id", productId)
       .maybeSingle();
 
     if (prodErr || !currentProduct) {
       return NextResponse.json(
-        { error: "Product not found", similar: [] },
+        { error: "Product not found", products: [] },
         { status: 404 }
       );
     }
 
     // 2. Compute intelligent similar recommendations
-    const similarProducts = await getSimilarProducts(currentProduct, limit);
+    const similarProducts = await getSimilarProducts(currentProduct as unknown as Product, limit);
 
     return NextResponse.json({
       success: true,

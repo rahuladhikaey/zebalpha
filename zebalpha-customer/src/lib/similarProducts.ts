@@ -10,6 +10,7 @@ export interface SimilarProductItem extends Product {
   review_count?: number;
   discount_percentage?: number;
   highlight_label?: string;
+  thumbnail_url?: string;
 }
 
 /**

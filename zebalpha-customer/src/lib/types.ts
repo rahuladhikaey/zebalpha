@@ -66,6 +66,7 @@ export type Product = {
   main_color?: string;
   mainColorId?: string;
   defaultColorId?: string;
+  thumbnail_url?: string;
   created_at?: string;
   updated_at?: string;
 };
