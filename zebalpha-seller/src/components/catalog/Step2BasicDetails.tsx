@@ -170,33 +170,70 @@ export default function Step2BasicDetails({ formData, onChange, sellerOriginInfo
     let isMounted = true;
     async function loadFallbackSeller() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !isMounted) return;
+        let sName = "";
+        let sAddr = "";
+        let sPin = "";
+        let sCity = "";
+        let sState = "";
 
-        const { data: s } = await supabase
-          .from("sellers")
-          .select("id, user_id, business_name, store_name, shop_name, owner_name, full_name, pickup_address, warehouse_address, address, pickup_location, city, state, pincode")
-          .or(`user_id.eq.${user.id},id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim() || ""}`)
-          .maybeSingle();
+        // 1. Try server-side API route /api/shipping/pickup-location
+        try {
+          const res = await fetch("/api/shipping/pickup-location");
+          if (res.ok) {
+            const json = await res.json();
+            if (json.locations && json.locations.length > 0) {
+              const loc = json.locations[0];
+              if (loc.address_line1) sAddr = loc.address_line1.trim();
+              if (loc.pincode) sPin = String(loc.pincode).trim();
+              if (loc.name) sName = loc.name.trim();
+              if (loc.city) sCity = loc.city.trim();
+              if (loc.state) sState = loc.state.trim();
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Pickup location API route notice in Step2:", apiErr);
+        }
 
-        let sName = (s?.business_name || s?.store_name || s?.shop_name || s?.owner_name || s?.full_name || user.user_metadata?.store_name || "").trim();
-        let sAddr = (s?.pickup_address || s?.warehouse_address || s?.address || s?.pickup_location || "").trim();
-        let sPin = (s?.pincode || "").trim();
+        // 2. Fallback to Supabase
+        if (!sAddr || !sPin || !sName) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && isMounted) {
+            let sellerQuery = supabase
+              .from("sellers")
+              .select("id, user_id, business_name, store_name, shop_name, owner_name, full_name, pickup_address, warehouse_address, address, pickup_location, city, state, pincode");
 
-        if (!sAddr || !sPin) {
-          const ids = [s?.id, user.id].filter(Boolean);
-          const { data: loc } = await supabase
-            .from("seller_pickup_locations")
-            .select("*")
-            .in("seller_id", ids)
-            .order("is_default", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            if (user.email && user.email.trim()) {
+              sellerQuery = sellerQuery.or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase().trim()}`);
+            } else {
+              sellerQuery = sellerQuery.eq("user_id", user.id);
+            }
 
-          if (loc) {
-            if (!sAddr) sAddr = (loc.address_line1 || loc.address || "").trim();
-            if (!sPin) sPin = (loc.pincode || "").trim();
-            if (!sName) sName = (loc.name || loc.location_name || "").trim();
+            const { data: s } = await sellerQuery.maybeSingle();
+
+            if (s) {
+              if (!sName) sName = (s.business_name || s.store_name || s.shop_name || s.owner_name || s.full_name || user.user_metadata?.store_name || "").trim();
+              if (!sAddr) sAddr = (s.pickup_address || s.warehouse_address || s.address || s.pickup_location || "").trim();
+              if (!sPin) sPin = (s.pincode || "").trim();
+              if (!sCity) sCity = s.city || "";
+              if (!sState) sState = s.state || "";
+            }
+
+            if (!sAddr || !sPin) {
+              const ids = [s?.id, user.id].filter(Boolean);
+              const { data: loc } = await supabase
+                .from("seller_pickup_locations")
+                .select("*")
+                .in("seller_id", ids)
+                .order("is_default", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (loc) {
+                if (!sAddr) sAddr = (loc.address_line1 || loc.address || "").trim();
+                if (!sPin) sPin = (loc.pincode || "").trim();
+                if (!sName) sName = (loc.name || loc.location_name || "").trim();
+              }
+            }
           }
         }
 
@@ -205,8 +242,8 @@ export default function Step2BasicDetails({ formData, onChange, sellerOriginInfo
             name: sName,
             address: sAddr,
             pincode: sPin,
-            city: s?.city || "",
-            state: s?.state || "",
+            city: sCity,
+            state: sState,
           });
         }
       } catch (err) {

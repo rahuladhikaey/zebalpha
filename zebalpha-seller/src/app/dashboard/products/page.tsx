@@ -32,6 +32,7 @@ export default function SellerProducts() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [userId, setUserId] = useState<string>("");
   const [sellerId, setSellerId] = useState<string>("");
+  const [sellerProfile, setSellerProfile] = useState<any>(null);
   const [isSettingsComplete, setIsSettingsComplete] = useState<boolean>(false);
   const [settingsCompletionPct, setSettingsCompletionPct] = useState<number>(0);
   const [fssaiStatus, setFssaiStatus] = useState<string>("Not Submitted");
@@ -129,12 +130,16 @@ export default function SellerProducts() {
       if (!user) return;
       setUserId(user.id);
 
-      // Fetch seller settings status and real primary key ID
+      // Fetch seller settings status, origin details and real primary key ID
       const { data: seller } = await supabase
         .from("sellers")
-        .select("id, user_id, settings_completion_pct, fssai_status, account_status, status")
+        .select("id, user_id, business_name, store_name, shop_name, owner_name, full_name, pickup_address, warehouse_address, address, pickup_location, city, state, pincode, settings_completion_pct, fssai_status, account_status, status")
         .or(`user_id.eq.${user.id},id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
         .maybeSingle();
+
+      if (seller) {
+        setSellerProfile(seller);
+      }
 
       let resolvedSellerId = seller?.id || "";
       if (!resolvedSellerId && user) {
@@ -1061,6 +1066,7 @@ export default function SellerProducts() {
           setEditingProduct(null);
         }}
         sellerId={sellerId || userId}
+        sellerProfile={sellerProfile}
         categories={categories}
         editingProduct={editingProduct}
         onSuccess={() => {

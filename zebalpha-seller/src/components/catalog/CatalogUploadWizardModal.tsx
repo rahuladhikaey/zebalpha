@@ -20,6 +20,7 @@ export interface CatalogUploadWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
   sellerId: string;
+  sellerProfile?: any;
   categories: Category[];
   editingProduct?: any | null;
   onSuccess: () => void;
@@ -160,19 +161,39 @@ export default function CatalogUploadWizardModal({
   isOpen,
   onClose,
   sellerId,
+  sellerProfile,
   categories,
   editingProduct,
   onSuccess,
 }: CatalogUploadWizardModalProps): React.JSX.Element | null {
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<MasterCatalogFormState>(INITIAL_FORM_STATE);
+
+  const initialSellerOrigin = React.useMemo(() => {
+    if (!sellerProfile) return null;
+    const name = (sellerProfile.business_name || sellerProfile.store_name || sellerProfile.shop_name || sellerProfile.owner_name || sellerProfile.full_name || "").trim();
+    const address = (sellerProfile.pickup_address || sellerProfile.warehouse_address || sellerProfile.address || sellerProfile.pickup_location || "").trim();
+    const pincode = (sellerProfile.pincode || "").trim();
+    if (name || address || pincode) {
+      return { name, address, pincode, city: sellerProfile.city || "", state: sellerProfile.state || "" };
+    }
+    return null;
+  }, [sellerProfile]);
+
   const [sellerPickupInfo, setSellerPickupInfo] = useState<{
     name: string;
     address: string;
     pincode: string;
     city?: string;
     state?: string;
-  } | null>(null);
+  } | null>(initialSellerOrigin);
+
+  React.useEffect(() => {
+    if (initialSellerOrigin) {
+      setSellerPickupInfo(initialSellerOrigin);
+    }
+  }, [initialSellerOrigin]);
+
   const [errorMsg, setErrorMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
@@ -185,36 +206,67 @@ export default function CatalogUploadWizardModal({
     let isMounted = true;
     async function loadSellerOrigin() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        const activeUserId = user?.id || "";
-        const activeSellerId = sellerId || activeUserId;
+        let sName = initialSellerOrigin?.name || (sellerProfile?.business_name || sellerProfile?.store_name || sellerProfile?.shop_name || sellerProfile?.owner_name || sellerProfile?.full_name || "").trim();
+        let sAddr = initialSellerOrigin?.address || (sellerProfile?.pickup_address || sellerProfile?.warehouse_address || sellerProfile?.address || sellerProfile?.pickup_location || "").trim();
+        let sPin = initialSellerOrigin?.pincode || (sellerProfile?.pincode || "").trim();
 
-        // 1. Query sellers profile
-        const { data: s } = await supabase
-          .from("sellers")
-          .select("id, user_id, business_name, store_name, shop_name, owner_name, full_name, pickup_address, warehouse_address, address, pickup_location, city, state, pincode")
-          .or(`id.eq.${activeSellerId},user_id.eq.${activeSellerId}${activeUserId ? `,user_id.eq.${activeUserId},id.eq.${activeUserId}` : ""}${user?.email ? `,email.eq.${user.email.toLowerCase().trim()}` : ""}`)
-          .maybeSingle();
+        // 1. Query server-side API route /api/shipping/pickup-location (bypasses RLS safely)
+        try {
+          const res = await fetch("/api/shipping/pickup-location");
+          if (res.ok) {
+            const json = await res.json();
+            if (json.locations && json.locations.length > 0) {
+              const loc = json.locations[0];
+              if (!sAddr && loc.address_line1) sAddr = loc.address_line1.trim();
+              if (!sPin && loc.pincode) sPin = String(loc.pincode).trim();
+              if (!sName && loc.name) sName = loc.name.trim();
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Pickup location API route notice:", apiErr);
+        }
 
-        let sName = (s?.business_name || s?.store_name || s?.shop_name || s?.owner_name || s?.full_name || user?.user_metadata?.store_name || "").trim();
-        let sAddr = (s?.pickup_address || s?.warehouse_address || s?.address || s?.pickup_location || "").trim();
-        let sPin = (s?.pincode || "").trim();
+        // 2. Fallback to Supabase sellers table if still missing
+        if (!sAddr || !sPin || !sName) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            let sellerQuery = supabase
+              .from("sellers")
+              .select("id, user_id, business_name, store_name, shop_name, owner_name, full_name, pickup_address, warehouse_address, address, pickup_location, city, state, pincode");
 
-        // 2. Fallback to seller_pickup_locations if address or pin missing
-        if (!sAddr || !sPin) {
-          const ids = [activeSellerId, activeUserId, s?.id].filter(Boolean);
-          const { data: loc } = await supabase
-            .from("seller_pickup_locations")
-            .select("*")
-            .in("seller_id", ids)
-            .order("is_default", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            if (user.email && user.email.trim()) {
+              sellerQuery = sellerQuery.or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase().trim()}`);
+            } else {
+              sellerQuery = sellerQuery.eq("user_id", user.id);
+            }
 
-          if (loc) {
-            if (!sAddr) sAddr = (loc.address_line1 || loc.address || "").trim();
-            if (!sPin) sPin = (loc.pincode || "").trim();
-            if (!sName) sName = (loc.name || loc.location_name || "").trim();
+            const { data: s } = await sellerQuery.maybeSingle();
+
+            if (s) {
+              if (!sName) sName = (s.business_name || s.store_name || s.shop_name || s.owner_name || s.full_name || user.user_metadata?.store_name || "").trim();
+              if (!sAddr) sAddr = (s.pickup_address || s.warehouse_address || s.address || s.pickup_location || "").trim();
+              if (!sPin) sPin = (s.pincode || "").trim();
+            }
+
+            // 3. Fallback to seller_pickup_locations
+            if (!sAddr || !sPin) {
+              const ids = [s?.id, user.id, sellerId, sellerProfile?.id].filter(Boolean);
+              if (ids.length > 0) {
+                const { data: loc } = await supabase
+                  .from("seller_pickup_locations")
+                  .select("*")
+                  .in("seller_id", ids)
+                  .order("is_default", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+
+                if (loc) {
+                  if (!sAddr) sAddr = (loc.address_line1 || loc.address || "").trim();
+                  if (!sPin) sPin = (loc.pincode || "").trim();
+                  if (!sName) sName = (loc.name || loc.location_name || "").trim();
+                }
+              }
+            }
           }
         }
 
@@ -223,8 +275,8 @@ export default function CatalogUploadWizardModal({
             name: sName,
             address: sAddr,
             pincode: sPin,
-            city: s?.city || "",
-            state: s?.state || "",
+            city: sellerProfile?.city || "",
+            state: sellerProfile?.state || "",
           };
           setSellerPickupInfo(origin);
 
@@ -258,7 +310,7 @@ export default function CatalogUploadWizardModal({
 
     loadSellerOrigin();
     return () => { isMounted = false; };
-  }, [isOpen, sellerId, editingProduct]);
+  }, [isOpen, sellerId, sellerProfile, editingProduct]);
 
   const scrollModalToTop = () => {
     setTimeout(() => {
@@ -529,16 +581,46 @@ export default function CatalogUploadWizardModal({
       setForm({
         ...INITIAL_FORM_STATE,
         manufacturer_same_as_pickup: true,
-        manufacturer_name: sellerPickupInfo?.name || "",
-        manufacturer_address: sellerPickupInfo?.address || "",
-        manufacturer_pincode: sellerPickupInfo?.pincode || "",
+        manufacturer_name: initialSellerOrigin?.name || sellerProfile?.business_name || sellerProfile?.store_name || "",
+        manufacturer_address: initialSellerOrigin?.address || sellerProfile?.pickup_address || sellerProfile?.warehouse_address || "",
+        manufacturer_pincode: initialSellerOrigin?.pincode || sellerProfile?.pincode || "",
         packer_same_as_manufacturer: true,
-        packer_name: sellerPickupInfo?.name || "",
-        packer_address: sellerPickupInfo?.address || "",
-        packer_pincode: sellerPickupInfo?.pincode || "",
+        packer_name: initialSellerOrigin?.name || sellerProfile?.business_name || sellerProfile?.store_name || "",
+        packer_address: initialSellerOrigin?.address || sellerProfile?.pickup_address || sellerProfile?.warehouse_address || "",
+        packer_pincode: initialSellerOrigin?.pincode || sellerProfile?.pincode || "",
       });
     }
-  }, [editingProduct, isOpen, sellerPickupInfo]);
+  }, [editingProduct, isOpen]);
+
+  // Keep manufacturer details synchronized with seller origin info whenever it loads or seller navigates to Step 2
+  React.useEffect(() => {
+    const origin = sellerPickupInfo || initialSellerOrigin;
+    if (!origin) return;
+
+    setForm((prev) => {
+      // If user hasn't typed a custom address yet or if it's set to same_as_pickup
+      const needsName = !prev.manufacturer_name && origin.name;
+      const needsAddress = !prev.manufacturer_address && origin.address;
+      const needsPin = !prev.manufacturer_pincode && origin.pincode;
+
+      if (prev.manufacturer_same_as_pickup !== false && (needsName || needsAddress || needsPin)) {
+        const mName = prev.manufacturer_name || origin.name;
+        const mAddr = prev.manufacturer_address || origin.address;
+        const mPin = prev.manufacturer_pincode || origin.pincode;
+        return {
+          ...prev,
+          manufacturer_same_as_pickup: true,
+          manufacturer_name: mName,
+          manufacturer_address: mAddr,
+          manufacturer_pincode: mPin,
+          packer_name: prev.packer_same_as_manufacturer ? mName : prev.packer_name,
+          packer_address: prev.packer_same_as_manufacturer ? mAddr : prev.packer_address,
+          packer_pincode: prev.packer_same_as_manufacturer ? mPin : prev.packer_pincode,
+        };
+      }
+      return prev;
+    });
+  }, [sellerPickupInfo, initialSellerOrigin, currentStep]);
 
   if (!isOpen) return null;
 
