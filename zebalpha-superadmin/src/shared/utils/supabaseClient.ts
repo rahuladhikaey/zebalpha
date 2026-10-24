@@ -2,9 +2,14 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
-// Unified Production DB Instance (Single Data Source for SuperAdmin, Customer, and Seller apps)
-const unifiedUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_A_URL ?? "https://qjpahzstldiatfbutvfc.supabase.co";
+const unifiedUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_A_URL ?? "").trim();
 const unifiedAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY ?? "").trim();
+
+if (!unifiedUrl || !unifiedAnonKey) {
+  if (typeof window !== "undefined") {
+    console.error("[ZebAlpha Security] Missing required Supabase client configuration.");
+  }
+}
 
 export const supabaseA = createBrowserClient(unifiedUrl, unifiedAnonKey);
 export const supabaseB = createBrowserClient(unifiedUrl, unifiedAnonKey);

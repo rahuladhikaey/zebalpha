@@ -1,9 +1,12 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
-dotenv.config({ path: 'd:/Full Folder 77/zebalpha-backend/back.env' });
+dotenv.config();
 
 const { Client } = pg;
-const connectionString = process.env.DATABASE_URL || "postgresql://postgres.qjpahzstldiatfbutvfc:zebalpha%402005@aws-0-ap-south-1.pooler.supabase.com:5432/postgres";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("[Security Alert] DATABASE_URL is required in environment variables.");
+}
 
 async function cleanAuditTestResiduals() {
   const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });

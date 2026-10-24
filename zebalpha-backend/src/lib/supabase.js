@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/index.js';
 
-const defaultUrl = 'https://qjpahzstldiatfbutvfc.supabase.co';
-
 function getValidKey(key) {
   if (typeof key === 'string' && key.trim().length > 0 && key !== 'undefined' && key !== 'null' && key !== 'Enter value') {
     return key.trim();
@@ -17,7 +15,10 @@ function getValidUrl(url) {
   if (typeof url === 'string' && url.startsWith('http')) {
     return url.trim();
   }
-  return defaultUrl;
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[Security Alert] Missing Supabase URL in backend production environment.');
+  }
+  return '';
 }
 
 const keyA = getValidKey(config.supabaseA?.serviceKey || config.supabaseA?.anonKey);

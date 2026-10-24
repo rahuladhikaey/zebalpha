@@ -12,10 +12,10 @@ import { createClient } from "@supabase/supabase-js";
 import { Sparkles, ArrowRight, ShieldCheck, Tag, Ruler } from "lucide-react";
 import { getProductDisplayPricing } from "@/lib/productPricing";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://qjpahzstldiatfbutvfc.supabase.co",
-  (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "placeholder_anon_key").trim()
-);
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "").trim();
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "").trim();
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const revalidate = 120; // 2 min revalidation
 

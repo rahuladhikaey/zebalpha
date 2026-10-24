@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://qjpahzstldiatfbutvfc.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || '').trim();
 
-if (!supabaseKey) {
-  console.error('[Security Error] SUPABASE_SERVICE_ROLE_KEY is required in environment variables.');
+if (!supabaseUrl || !supabaseKey) {
+  console.error('[Security Error] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required in environment variables.');
   process.exit(1);
 }
 

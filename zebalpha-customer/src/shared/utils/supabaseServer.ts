@@ -6,9 +6,8 @@ function isValidJwt(token?: string): boolean {
   return Boolean(token && token.split(".").length === 3);
 }
 
-const VERIFIED_URL = "https://qjpahzstldiatfbutvfc.supabase.co";
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || VERIFIED_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "").trim();
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "").trim();
 const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || "").trim();
 
 let _serverClient: any = null;

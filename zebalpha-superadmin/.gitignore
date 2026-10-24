@@ -16,9 +16,21 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# local env files
-.env*.local
+# local env & secret files
 .env
+.env.*
+.env*.local
+*.env
+*.env.*
+ad.env
+sel.env
+cu.env
+back.env
+!.env.example
+!*.env.example
+*.pem
+*.key
+client_secret*.json
 
 # vercel
 .vercel

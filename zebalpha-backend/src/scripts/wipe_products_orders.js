@@ -1,8 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-const VERIFIED_URL = "https://qjpahzstldiatfbutvfc.supabase.co";
+const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_A_URL || "").trim();
 const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || "").trim();
-const supabase = createClient(VERIFIED_URL, serviceKey);
+
+if (!supabaseUrl || !serviceKey) {
+  throw new Error("[Security Alert] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required in environment variables.");
+}
+
+const supabase = createClient(supabaseUrl, serviceKey);
 
 async function wipeProductsAndOrders() {
   console.log("🚀 Starting clean purge of all products, shipments, and orders...");

@@ -1,6 +1,6 @@
 -- ====================================================================
 -- ASALI SWAD - SUPABASE INSTANCE A (CUSTOMER / USER PART) MASTER SCHEMA & RLS SECURITY
--- Target URL: https://qjpahzstldiatfbutvfc.supabase.co
+-- Target: Configured Supabase Database Instance
 -- Features: Auth Sync, Customer Profiles, Addresses, Orders, Cart, AS-Cards Loyalty, RLS Security
 -- Image Storage: Cloudinary CDN (Metadata & URLs stored in Postgres tables)
 -- ====================================================================

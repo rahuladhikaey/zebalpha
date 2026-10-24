@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { getSimilarProducts } from "@/lib/similarProducts";
+import { Product } from "@/lib/types";
 
 export const revalidate = 60;
 

@@ -1,10 +1,21 @@
 # dependencies
 /node_modules
 
-# environment variables
+# environment & secret variables
 .env
-.env.local
-.env.*.local
+.env.*
+.env*.local
+*.env
+*.env.*
+back.env
+ad.env
+sel.env
+cu.env
+!.env.example
+!*.env.example
+*.pem
+*.key
+client_secret*.json
 
 # logs
 logs/

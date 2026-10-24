@@ -147,7 +147,8 @@ export async function uploadToSupabaseBucket(
     }
 
     const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
-    return publicUrlData?.publicUrl || `${process.env.NEXT_PUBLIC_SUPABASE_URL || "https://qjpahzstldiatfbutvfc.supabase.co"}/storage/v1/object/public/${bucketName}/${filePath}`;
+    const baseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "").trim();
+    return publicUrlData?.publicUrl || (baseUrl ? `${baseUrl}/storage/v1/object/public/${bucketName}/${filePath}` : "");
   } catch (err: any) {
     console.error("Supabase Storage upload error:", err);
     if (typeof fileOrBase64 === "string") return fileOrBase64;

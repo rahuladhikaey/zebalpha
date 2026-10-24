@@ -1,7 +1,19 @@
 # Environment & Secret files
 .env
 .env.*
+.env*.local
 *.env
+*.env.*
+ad.env
+sel.env
+cu.env
+back.env
+**/ad.env
+**/sel.env
+**/cu.env
+**/back.env
+!.env.example
+!*.env.example
 env
 client_secret*.json
 *.pem

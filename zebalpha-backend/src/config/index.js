@@ -42,7 +42,7 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || '',
   directUrl: process.env.DIRECT_URL || process.env.DATABASE_URL || '',
   db: {
-    host: process.env.DB_HOST || 'aws-0-ap-south-1.pooler.supabase.com',
+    host: process.env.DB_HOST || '',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     database: process.env.DB_NAME || process.env.DB_DATABASE || 'postgres',
     user: process.env.DB_USER || '',
@@ -50,12 +50,12 @@ export const config = {
   },
   // Unified Production Database (Single Data Source)
   supabaseA: {
-    url: process.env.SUPABASE_A_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qjpahzstldiatfbutvfc.supabase.co',
+    url: (process.env.SUPABASE_A_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim(),
     serviceKey: (process.env.SUPABASE_A_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_B_SERVICE_ROLE_KEY || '').trim(),
     anonKey: (process.env.SUPABASE_A_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_B_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
   },
   supabaseB: {
-    url: process.env.SUPABASE_B_URL || process.env.SUPABASE_A_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qjpahzstldiatfbutvfc.supabase.co',
+    url: (process.env.SUPABASE_B_URL || process.env.SUPABASE_A_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim(),
     serviceKey: (process.env.SUPABASE_B_SERVICE_ROLE_KEY || process.env.SUPABASE_A_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim(),
     anonKey: (process.env.SUPABASE_B_ANON_KEY || process.env.SUPABASE_A_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
   },

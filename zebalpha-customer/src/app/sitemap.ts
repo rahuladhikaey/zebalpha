@@ -4,18 +4,22 @@ import { BLOG_POSTS } from "@/data/blogPosts";
 import { CATEGORY_AEO_CATALOG } from "@/lib/aeo-geo/categoryAeo";
 import { BUYING_GUIDES } from "@/lib/aeo-geo/buyingGuides";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder_key"
-);
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://zebalpha.shop';
 
-  // Fetch all products
-  const { data: products } = await supabase
-    .from("products")
-    .select("id");
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY;
+
+  let products: Array<{ id: string | number }> | null = null;
+  if (supabaseUrl && supabaseAnonKey) {
+    try {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const { data } = await supabase.from("products").select("id");
+      products = data;
+    } catch (err) {
+      console.warn("[sitemap] Failed to fetch product URLs:", err);
+    }
+  }
 
   const productUrls: MetadataRoute.Sitemap = products
     ? products.map((product) => ({

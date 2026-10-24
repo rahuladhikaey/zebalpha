@@ -1,13 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
-dotenv.config({ path: './back.env' });
+dotenv.config();
+if (!process.env.SUPABASE_URL && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  dotenv.config({ path: './back.env' });
+}
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://qjpahzstldiatfbutvfc.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Missing Supabase configuration in back.env");
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment");
   process.exit(1);
 }
 
