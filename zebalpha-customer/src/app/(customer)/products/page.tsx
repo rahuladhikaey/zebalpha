@@ -250,7 +250,7 @@ function ProductsContent() {
                   {filtered.map((product, idx) => {
                     const { price: displayPrice, mrp: displayMrp, hasDiscount, discountAmount, discountPercent } = getProductDisplayPricing(product);
                     return (
-                      <article key={product.id} className="group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800">
+                      <article key={product.id} className="group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800 isolate">
                         {/* Auto-sliding Image Holder */}
                         <div className="relative">
                           <ProductCardImageSlider

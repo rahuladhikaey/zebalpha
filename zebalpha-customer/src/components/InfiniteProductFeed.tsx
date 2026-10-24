@@ -187,7 +187,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           return (
             <article
               key={product.id}
-              className="group relative flex flex-col overflow-hidden rounded-2xl md:rounded-3xl bg-neutral-900/90 border border-neutral-800 shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-white/40 hover:shadow-[0_12px_35px_rgba(255,255,255,0.08)]"
+              className="group relative flex flex-col overflow-hidden rounded-2xl md:rounded-3xl bg-neutral-900/90 border border-neutral-800 shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-white/40 hover:shadow-[0_12px_35px_rgba(255,255,255,0.08)] isolate"
             >
               {/* Auto-sliding Image Holder */}
               <div className="relative">

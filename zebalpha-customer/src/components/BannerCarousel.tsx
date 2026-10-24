@@ -76,7 +76,7 @@ export function BannerCarousel() {
 
   return (
     <div 
-      className="relative mt-2 md:mt-4 w-full overflow-hidden rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] bg-neutral-950 border border-neutral-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.85)] group transition-all duration-500"
+      className="relative mt-2 md:mt-4 w-full overflow-hidden rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] bg-neutral-950 border border-neutral-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.85)] group transition-all duration-500 isolate"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

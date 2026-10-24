@@ -24,7 +24,7 @@ export function HomeHero() {
     return (
       <>
         {/* 1. Android App Sticky Search Bar: Placed directly ABOVE the banner */}
-        <div className="sticky top-0 z-30 w-full bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800/80 px-3.5 py-2.5 shadow-md">
+        <div className="sticky top-0 z-40 w-full bg-zinc-950/98 backdrop-blur-xl border-b border-zinc-800/80 px-3.5 py-2.5 shadow-md">
           <Suspense fallback={<div className="h-[48px] w-full rounded-2xl bg-neutral-900 animate-pulse" />}>
             <MobileSearch className="relative flex w-full flex-col min-h-[48px]" />
           </Suspense>
