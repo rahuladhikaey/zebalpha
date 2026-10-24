@@ -6,6 +6,8 @@ import { createClient } from "@supabase/supabase-js";
 import { Product } from "@/lib/types";
 import { Header } from "@/components/Header";
 import ProductDetailTemplate from "./ProductDetailTemplate";
+import SimilarProductsCarousel from "@/components/catalog/SimilarProductsCarousel";
+import { getSimilarProducts } from "@/lib/similarProducts";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://qjpahzstldiatfbutvfc.supabase.co",
@@ -71,51 +73,22 @@ const getProduct = cache(async (productId: string) => {
   return productData as Product;
 });
 
-const getRelatedProducts = async (category_id: any, currentProductId: string | number) => {
-  let query = supabase
-    .from("products")
-    .select("id, name, brand, price, mrp, image_url, images, is_active, stock, category_id")
-    .neq("id", currentProductId)
-    .limit(5);
-
-  if (category_id) {
-    query = query.eq("category_id", category_id);
-  }
-
-  let { data, error } = await query;
-  if (error || !data) {
-    const fallback = await supabase
-      .from("products")
-      .select("*")
-      .neq("id", currentProductId)
-      .limit(5);
-    data = fallback.data;
-  }
-
-  const rawList = data || [];
-  return rawList.map((p: any) => ({
-    ...p,
-    thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
-  })) as Product[];
-};
-
-function RelatedProductsSkeleton() {
+function SimilarProductsSkeleton() {
   return (
-    <div className="mt-20 border-t border-zinc-800 pt-16">
-      <div className="flex items-center justify-between mb-8">
-        <div className="space-y-2">
-          <div className="h-3 w-20 bg-zinc-900 rounded animate-pulse" />
-          <div className="h-6 w-44 bg-zinc-900 rounded animate-pulse" />
-        </div>
-        <div className="h-4 w-28 bg-zinc-900 rounded animate-pulse" />
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+    <div className="w-full py-4 space-y-3">
+      <div className="h-5 w-36 bg-zinc-900 rounded animate-pulse" />
+      <div className="flex gap-3 overflow-hidden pb-3">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex flex-col rounded-3xl bg-zinc-950 p-3 border border-zinc-800">
-            <div className="aspect-square w-full rounded-2xl bg-zinc-900 animate-pulse mb-4" />
-            <div className="h-4 w-3/4 bg-zinc-900 rounded animate-pulse mb-2" />
-            <div className="h-3 w-1/2 bg-zinc-900 rounded animate-pulse mb-3" />
-            <div className="h-5 w-20 bg-zinc-900 rounded animate-pulse" />
+          <div
+            key={i}
+            className="shrink-0 w-[150px] sm:w-[175px] md:w-[190px] rounded-xl bg-[#0f0f12] border border-[#232328] overflow-hidden"
+          >
+            <div className="aspect-[3/4] w-full bg-zinc-900 animate-pulse" />
+            <div className="p-2.5 space-y-2">
+              <div className="h-3 w-4/5 bg-zinc-800 rounded animate-pulse" />
+              <div className="h-2.5 w-1/2 bg-zinc-800 rounded animate-pulse" />
+              <div className="h-4 w-20 bg-zinc-850 rounded animate-pulse" />
+            </div>
           </div>
         ))}
       </div>
@@ -123,75 +96,11 @@ function RelatedProductsSkeleton() {
   );
 }
 
-async function RelatedProductsSection({
-  categoryId,
-  currentProductId,
-}: {
-  categoryId: any;
-  currentProductId: string | number;
-}) {
-  const relatedProducts = await getRelatedProducts(categoryId, currentProductId);
-  if (!relatedProducts || relatedProducts.length === 0) return null;
+async function SimilarProductsSection({ product }: { product: Product }) {
+  const similarProducts = await getSimilarProducts(product, 20);
+  if (!similarProducts || similarProducts.length === 0) return null;
 
-  return (
-    <div className="mt-20 border-t border-zinc-800 pt-16">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Suggestions</span>
-          <h2 className="text-2xl font-black text-white mt-1">You Might Also Like</h2>
-        </div>
-        <Link href="/products" className="text-sm font-black text-white hover:underline">
-          View All Products
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-        {relatedProducts.map((p) => (
-          <Link
-            key={p.id}
-            href={`/products/${p.id}`}
-            className="group flex flex-col rounded-3xl bg-zinc-950 p-3 transition-all hover:shadow-2xl border border-zinc-800 hover:border-zinc-700"
-          >
-            <div className="aspect-square w-full overflow-hidden rounded-2xl bg-zinc-900 mb-4 flex items-center justify-center">
-              <img
-                src={p.images?.[0] || p.image_url}
-                alt={p.name}
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-              />
-            </div>
-            <div className="flex-1 space-y-2">
-              <h3 className="text-sm font-bold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">
-                {p.name}
-              </h3>
-              <div className="flex items-center gap-1.5">
-                <div className="flex h-5 items-center gap-0.5 rounded-md bg-white text-black px-1.5 text-[10px] font-bold">
-                  <span>4.4</span>
-                  <Star size={8} fill="currentColor" aria-hidden="true" />
-                </div>
-                <span className="text-[10px] font-bold text-zinc-400">(234)</span>
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-bold text-zinc-500 line-through">
-                    ₹{p.mrp || Math.round(p.price * 1.2)}
-                  </span>
-                  <span className="text-[9px] font-extrabold text-white bg-zinc-900 border border-zinc-800 px-1 py-0.5 rounded">
-                    {Math.round(
-                      (((p.mrp || Math.round(p.price * 1.2)) - p.price) /
-                        (p.mrp || Math.round(p.price * 1.2))) *
-                        100
-                    )}
-                    % OFF
-                  </span>
-                </div>
-                <span className="text-sm font-black text-white">₹{p.price}</span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
+  return <SimilarProductsCarousel products={similarProducts} title="Similar Products" />;
 }
 
 import { extractProductAeoData } from "@/lib/aeo-geo/productAeo";
@@ -327,47 +236,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
             faqs={aeo.faqs}
           />
 
-          {/* Related Category Internal Linking Anchor Cards */}
-          {categoryData.relatedCategories.length > 0 && (
-            <div className="rounded-2xl border border-neutral-900 bg-neutral-950 p-6">
-              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-neutral-400 mb-3">
-                Explore Related Collections
-              </h3>
-              <div className="flex flex-wrap gap-2.5">
-                <Link
-                  href={`/category/${categoryData.slug}`}
-                  className="rounded-full bg-white text-black text-xs font-black px-4 py-2 hover:bg-neutral-200 transition-colors"
-                >
-                  {categoryData.name} Hub →
-                </Link>
-                {categoryData.relatedCategories.map((rc, i) => (
-                  <Link
-                    key={i}
-                    href={`/category/${rc.slug}`}
-                    className="rounded-full bg-neutral-900 text-neutral-200 border border-neutral-800 text-xs font-bold px-4 py-2 hover:bg-neutral-800 hover:text-white transition-colors"
-                  >
-                    {rc.name}
-                  </Link>
-                ))}
-                <Link
-                  href="/guides/t-shirt-size-guide"
-                  className="rounded-full bg-neutral-900 text-neutral-200 border border-neutral-800 text-xs font-bold px-4 py-2 hover:bg-neutral-800 hover:text-white transition-colors"
-                >
-                  Size & Fit Guide
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {/* Related Products Feed */}
-          {product.category_id && (
-            <Suspense fallback={<RelatedProductsSkeleton />}>
-              <RelatedProductsSection
-                categoryId={product.category_id}
-                currentProductId={product.id}
-              />
-            </Suspense>
-          )}
+          {/* Flipkart-Style Similar Products Recommendation Carousel */}
+          <Suspense fallback={<SimilarProductsSkeleton />}>
+            <SimilarProductsSection product={product} />
+          </Suspense>
         </div>
       </div>
     </main>
