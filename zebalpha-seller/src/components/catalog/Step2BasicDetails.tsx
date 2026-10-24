@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Info, Calculator, Building2, Package, Tag, ShieldCheck, Sparkles } from "lucide-react";
+import { Info, Calculator, Building2, Package, Tag, ShieldCheck, Sparkles, MapPin, RotateCw, CheckCircle2 } from "lucide-react";
 import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
 import { supabase } from "@shared/utils/supabaseClient";
 
@@ -20,6 +20,7 @@ export interface Step2Props {
     custom_attributes?: Record<string, string>;
 
     country_of_origin: string;
+    manufacturer_same_as_pickup?: boolean;
     manufacturer_name: string;
     manufacturer_address: string;
     manufacturer_pincode: string;
@@ -33,6 +34,13 @@ export interface Step2Props {
     mrp: string;
   };
   onChange: (updates: Partial<Step2Props["formData"]>) => void;
+  sellerOriginInfo?: {
+    name: string;
+    address: string;
+    pincode: string;
+    city?: string;
+    state?: string;
+  } | null;
 }
 
 const FABRIC_OPTIONS = ["100% Pure Cotton", "Cotton Blend", "Denim", "Polyester", "Linen", "Silk", "Rayon", "Fleece", "Knit"];
@@ -126,7 +134,7 @@ function CustomizableSelect({
   );
 }
 
-export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
+export default function Step2BasicDetails({ formData, onChange, sellerOriginInfo }: Step2Props) {
   const sellerPriceNum = parseFloat(formData.price) || 0;
   const defectivePriceNum = parseFloat(formData.defective_returns_price) || 0;
   const mrpNum = parseFloat(formData.mrp) || 0;
@@ -140,6 +148,145 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
     collectionPct: 0,
     shippingFee: 0,
   });
+
+  const [internalSellerInfo, setInternalSellerInfo] = useState<{
+    name: string;
+    address: string;
+    pincode: string;
+    city?: string;
+    state?: string;
+  } | null>(sellerOriginInfo || null);
+
+  // Sync internal seller info if prop updates
+  useEffect(() => {
+    if (sellerOriginInfo) {
+      setInternalSellerInfo(sellerOriginInfo);
+    }
+  }, [sellerOriginInfo]);
+
+  // Fallback fetch from sellers or seller_pickup_locations if sellerOriginInfo was not provided
+  useEffect(() => {
+    if (sellerOriginInfo) return;
+    let isMounted = true;
+    async function loadFallbackSeller() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !isMounted) return;
+
+        const { data: s } = await supabase
+          .from("sellers")
+          .select("id, user_id, business_name, store_name, shop_name, owner_name, full_name, pickup_address, warehouse_address, address, pickup_location, city, state, pincode")
+          .or(`user_id.eq.${user.id},id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim() || ""}`)
+          .maybeSingle();
+
+        let sName = (s?.business_name || s?.store_name || s?.shop_name || s?.owner_name || s?.full_name || user.user_metadata?.store_name || "").trim();
+        let sAddr = (s?.pickup_address || s?.warehouse_address || s?.address || s?.pickup_location || "").trim();
+        let sPin = (s?.pincode || "").trim();
+
+        if (!sAddr || !sPin) {
+          const ids = [s?.id, user.id].filter(Boolean);
+          const { data: loc } = await supabase
+            .from("seller_pickup_locations")
+            .select("*")
+            .in("seller_id", ids)
+            .order("is_default", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (loc) {
+            if (!sAddr) sAddr = (loc.address_line1 || loc.address || "").trim();
+            if (!sPin) sPin = (loc.pincode || "").trim();
+            if (!sName) sName = (loc.name || loc.location_name || "").trim();
+          }
+        }
+
+        if (isMounted && (sAddr || sPin || sName)) {
+          setInternalSellerInfo({
+            name: sName,
+            address: sAddr,
+            pincode: sPin,
+            city: s?.city || "",
+            state: s?.state || "",
+          });
+        }
+      } catch (err) {
+        console.warn("Notice loading seller pickup in Step2:", err);
+      }
+    }
+    loadFallbackSeller();
+    return () => { isMounted = false; };
+  }, [sellerOriginInfo]);
+
+  const activeSellerInfo = sellerOriginInfo || internalSellerInfo;
+  const isSameAsPickup = formData.manufacturer_same_as_pickup ?? true;
+
+  // Automatically pre-fill manufacturer & packer details from activeSellerInfo if fields are empty
+  useEffect(() => {
+    if (!activeSellerInfo) return;
+    const isMfrEmpty = !formData.manufacturer_address || !formData.manufacturer_pincode || !formData.manufacturer_name;
+    if (isSameAsPickup && isMfrEmpty) {
+      const updates: Partial<Step2Props["formData"]> = {};
+      if (!formData.manufacturer_name && activeSellerInfo.name) {
+        updates.manufacturer_name = activeSellerInfo.name;
+      }
+      if (!formData.manufacturer_address && activeSellerInfo.address) {
+        updates.manufacturer_address = activeSellerInfo.address;
+      }
+      if (!formData.manufacturer_pincode && activeSellerInfo.pincode) {
+        updates.manufacturer_pincode = activeSellerInfo.pincode;
+      }
+      if (formData.packer_same_as_manufacturer) {
+        if (updates.manufacturer_name) updates.packer_name = updates.manufacturer_name;
+        if (updates.manufacturer_address) updates.packer_address = updates.manufacturer_address;
+        if (updates.manufacturer_pincode) updates.packer_pincode = updates.manufacturer_pincode;
+      }
+      if (Object.keys(updates).length > 0) {
+        onChange(updates);
+      }
+    }
+  }, [activeSellerInfo, isSameAsPickup]);
+
+  const handleSameAsPickupToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isChecked = e.target.checked;
+    if (isChecked) {
+      const mName = activeSellerInfo?.name || formData.manufacturer_name;
+      const mAddr = activeSellerInfo?.address || formData.manufacturer_address;
+      const mPin = activeSellerInfo?.pincode || formData.manufacturer_pincode;
+      const updates: Partial<Step2Props["formData"]> = {
+        manufacturer_same_as_pickup: true,
+        manufacturer_name: mName,
+        manufacturer_address: mAddr,
+        manufacturer_pincode: mPin,
+      };
+      if (formData.packer_same_as_manufacturer) {
+        updates.packer_name = mName;
+        updates.packer_address = mAddr;
+        updates.packer_pincode = mPin;
+      }
+      onChange(updates);
+    } else {
+      onChange({ manufacturer_same_as_pickup: false });
+    }
+  };
+
+  const handleSyncFromPickup = () => {
+    if (!activeSellerInfo) return;
+    const mName = activeSellerInfo.name || formData.manufacturer_name;
+    const mAddr = activeSellerInfo.address || formData.manufacturer_address;
+    const mPin = activeSellerInfo.pincode || formData.manufacturer_pincode;
+    const updates: Partial<Step2Props["formData"]> = {
+      manufacturer_same_as_pickup: true,
+      manufacturer_name: mName,
+      manufacturer_address: mAddr,
+      manufacturer_pincode: mPin,
+    };
+    if (formData.packer_same_as_manufacturer) {
+      updates.packer_name = mName;
+      updates.packer_address = mAddr;
+      updates.packer_pincode = mPin;
+    }
+    onChange(updates);
+  };
 
   useEffect(() => {
     async function loadRules() {
@@ -394,9 +541,57 @@ export default function Step2BasicDetails({ formData, onChange }: Step2Props) {
 
       {/* Manufacturing & Packing Details */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2 text-white font-semibold text-sm border-b border-[#27272a] pb-2">
-          <Building2 className="w-4 h-4 text-emerald-400" />
-          Manufacturing & Logistics Origin Details
+        <div className="flex items-center justify-between border-b border-[#27272a] pb-2">
+          <div className="flex items-center gap-2 text-white font-semibold text-sm">
+            <Building2 className="w-4 h-4 text-emerald-400" />
+            Manufacturing & Logistics Origin Details
+          </div>
+          {activeSellerInfo?.address && (
+            <span className="text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+              Pickup Hub Linked
+            </span>
+          )}
+        </div>
+
+        {/* Same as Seller Pickup Address Checkbox & Auto-fill Notice */}
+        <div className="p-3 rounded-xl bg-[#121217] border border-[#27272a] space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-white select-none">
+              <input
+                type="checkbox"
+                checked={isSameAsPickup}
+                onChange={handleSameAsPickupToggle}
+                className="w-4 h-4 rounded border-[#27272a] accent-emerald-500 cursor-pointer"
+              />
+              <span>Manufacturer details are same as Seller Pickup / Account Address</span>
+            </label>
+
+            {activeSellerInfo && (
+              <button
+                type="button"
+                onClick={handleSyncFromPickup}
+                className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors self-start sm:self-auto cursor-pointer"
+                title="Re-populate using your registered store address"
+              >
+                <RotateCw className="w-3 h-3 text-emerald-400" />
+                <span>Re-fill from Account</span>
+              </button>
+            )}
+          </div>
+
+          {activeSellerInfo?.address ? (
+            <div className="text-[11px] text-zinc-400 flex items-start gap-1.5 pt-0.5 pl-6.5">
+              <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+              <span>
+                <strong className="text-zinc-200">{activeSellerInfo.name || "Your Store"}</strong> — {activeSellerInfo.address} {activeSellerInfo.pincode ? `(PIN: ${activeSellerInfo.pincode})` : ""}
+              </span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-zinc-500 pl-6.5">
+              💡 Tip: Address set in your account profile/settings will automatically be filled here.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

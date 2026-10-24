@@ -56,6 +56,7 @@ export interface MasterCatalogFormState {
   custom_attributes?: Record<string, string>;
 
   country_of_origin: string;
+  manufacturer_same_as_pickup?: boolean;
   manufacturer_name: string;
   manufacturer_address: string;
   manufacturer_pincode: string;
@@ -118,6 +119,7 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
   weight_grams: "300",
 
   country_of_origin: "India",
+  manufacturer_same_as_pickup: true,
   manufacturer_name: "",
   manufacturer_address: "",
   manufacturer_pincode: "",
@@ -164,10 +166,99 @@ export default function CatalogUploadWizardModal({
 }: CatalogUploadWizardModalProps): React.JSX.Element | null {
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<MasterCatalogFormState>(INITIAL_FORM_STATE);
+  const [sellerPickupInfo, setSellerPickupInfo] = useState<{
+    name: string;
+    address: string;
+    pincode: string;
+    city?: string;
+    state?: string;
+  } | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const modalBodyRef = React.useRef<HTMLDivElement>(null);
+
+  // Fetch seller's registered pickup address and store information for auto-populating origin
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    async function loadSellerOrigin() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const activeUserId = user?.id || "";
+        const activeSellerId = sellerId || activeUserId;
+
+        // 1. Query sellers profile
+        const { data: s } = await supabase
+          .from("sellers")
+          .select("id, user_id, business_name, store_name, shop_name, owner_name, full_name, pickup_address, warehouse_address, address, pickup_location, city, state, pincode")
+          .or(`id.eq.${activeSellerId},user_id.eq.${activeSellerId}${activeUserId ? `,user_id.eq.${activeUserId},id.eq.${activeUserId}` : ""}${user?.email ? `,email.eq.${user.email.toLowerCase().trim()}` : ""}`)
+          .maybeSingle();
+
+        let sName = (s?.business_name || s?.store_name || s?.shop_name || s?.owner_name || s?.full_name || user?.user_metadata?.store_name || "").trim();
+        let sAddr = (s?.pickup_address || s?.warehouse_address || s?.address || s?.pickup_location || "").trim();
+        let sPin = (s?.pincode || "").trim();
+
+        // 2. Fallback to seller_pickup_locations if address or pin missing
+        if (!sAddr || !sPin) {
+          const ids = [activeSellerId, activeUserId, s?.id].filter(Boolean);
+          const { data: loc } = await supabase
+            .from("seller_pickup_locations")
+            .select("*")
+            .in("seller_id", ids)
+            .order("is_default", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (loc) {
+            if (!sAddr) sAddr = (loc.address_line1 || loc.address || "").trim();
+            if (!sPin) sPin = (loc.pincode || "").trim();
+            if (!sName) sName = (loc.name || loc.location_name || "").trim();
+          }
+        }
+
+        if (isMounted && (sAddr || sPin || sName)) {
+          const origin = {
+            name: sName,
+            address: sAddr,
+            pincode: sPin,
+            city: s?.city || "",
+            state: s?.state || "",
+          };
+          setSellerPickupInfo(origin);
+
+          // Auto-fill form manufacturer details if empty or if creating a new product
+          setForm((prev) => {
+            const hasCustomAddress = prev.manufacturer_address && prev.manufacturer_address.trim() !== "";
+            const hasCustomPincode = prev.manufacturer_pincode && prev.manufacturer_pincode.trim() !== "";
+            if (!editingProduct || (!hasCustomAddress && !hasCustomPincode)) {
+              const nameToSet = prev.manufacturer_name || origin.name;
+              const addrToSet = prev.manufacturer_address || origin.address;
+              const pinToSet = prev.manufacturer_pincode || origin.pincode;
+              return {
+                ...prev,
+                manufacturer_same_as_pickup: prev.manufacturer_same_as_pickup ?? true,
+                manufacturer_name: nameToSet,
+                manufacturer_address: addrToSet,
+                manufacturer_pincode: pinToSet,
+                packer_same_as_manufacturer: prev.packer_same_as_manufacturer ?? true,
+                packer_name: prev.packer_same_as_manufacturer ? nameToSet : prev.packer_name,
+                packer_address: prev.packer_same_as_manufacturer ? addrToSet : prev.packer_address,
+                packer_pincode: prev.packer_same_as_manufacturer ? pinToSet : prev.packer_pincode,
+              };
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.warn("Notice loading seller pickup origin:", err);
+      }
+    }
+
+    loadSellerOrigin();
+    return () => { isMounted = false; };
+  }, [isOpen, sellerId, editingProduct]);
 
   const scrollModalToTop = () => {
     setTimeout(() => {
@@ -403,9 +494,12 @@ export default function CatalogUploadWizardModal({
         weight_grams: String(specs.weight_grams || "300"),
 
         country_of_origin: specs.country_of_origin || "India",
-        manufacturer_name: specs.manufacturer_name || "",
-        manufacturer_address: specs.manufacturer_address || "",
-        manufacturer_pincode: specs.manufacturer_pincode || "",
+        manufacturer_same_as_pickup: specs.manufacturer_same_as_pickup !== undefined
+          ? Boolean(specs.manufacturer_same_as_pickup)
+          : (!specs.manufacturer_address || specs.manufacturer_address === sellerPickupInfo?.address),
+        manufacturer_name: specs.manufacturer_name || sellerPickupInfo?.name || "",
+        manufacturer_address: specs.manufacturer_address || sellerPickupInfo?.address || "",
+        manufacturer_pincode: specs.manufacturer_pincode || sellerPickupInfo?.pincode || "",
         packer_same_as_manufacturer: !specs.packer_name || specs.packer_name === specs.manufacturer_name,
         packer_name: specs.packer_name || "",
         packer_address: specs.packer_address || "",
@@ -432,9 +526,19 @@ export default function CatalogUploadWizardModal({
         single_sku: editingProduct.sku || "",
       });
     } else {
-      setForm(INITIAL_FORM_STATE);
+      setForm({
+        ...INITIAL_FORM_STATE,
+        manufacturer_same_as_pickup: true,
+        manufacturer_name: sellerPickupInfo?.name || "",
+        manufacturer_address: sellerPickupInfo?.address || "",
+        manufacturer_pincode: sellerPickupInfo?.pincode || "",
+        packer_same_as_manufacturer: true,
+        packer_name: sellerPickupInfo?.name || "",
+        packer_address: sellerPickupInfo?.address || "",
+        packer_pincode: sellerPickupInfo?.pincode || "",
+      });
     }
-  }, [editingProduct, isOpen]);
+  }, [editingProduct, isOpen, sellerPickupInfo]);
 
   if (!isOpen) return null;
 
@@ -874,13 +978,14 @@ export default function CatalogUploadWizardModal({
         care_instructions: form.care_instructions,
         target_gender: form.target_gender,
         weight_grams: form.weight_grams,
-        country_of_origin: form.country_of_origin,
-        manufacturer_name: form.manufacturer_name,
-        manufacturer_address: form.manufacturer_address,
-        manufacturer_pincode: form.manufacturer_pincode,
-        packer_name: form.packer_same_as_manufacturer ? form.manufacturer_name : form.packer_name,
-        packer_address: form.packer_same_as_manufacturer ? form.manufacturer_address : form.packer_address,
-        packer_pincode: form.packer_same_as_manufacturer ? form.manufacturer_pincode : form.packer_pincode,
+        country_of_origin: form.country_of_origin || "India",
+        manufacturer_same_as_pickup: form.manufacturer_same_as_pickup ?? true,
+        manufacturer_name: form.manufacturer_name || sellerPickupInfo?.name || "",
+        manufacturer_address: form.manufacturer_address || sellerPickupInfo?.address || "",
+        manufacturer_pincode: form.manufacturer_pincode || sellerPickupInfo?.pincode || "",
+        packer_name: form.packer_same_as_manufacturer ? (form.manufacturer_name || sellerPickupInfo?.name || "") : form.packer_name,
+        packer_address: form.packer_same_as_manufacturer ? (form.manufacturer_address || sellerPickupInfo?.address || "") : form.packer_address,
+        packer_pincode: form.packer_same_as_manufacturer ? (form.manufacturer_pincode || sellerPickupInfo?.pincode || "") : form.packer_pincode,
         defective_returns_price: form.defective_returns_price,
         style_code: form.style_code,
         volumetric_weight: form.volumetric_weight,
@@ -1331,7 +1436,7 @@ export default function CatalogUploadWizardModal({
           )}
 
           {currentStep === 2 && (
-            <Step2BasicDetails formData={form} onChange={updateForm} />
+            <Step2BasicDetails formData={form} onChange={updateForm} sellerOriginInfo={sellerPickupInfo} />
           )}
 
           {currentStep === 3 && (
