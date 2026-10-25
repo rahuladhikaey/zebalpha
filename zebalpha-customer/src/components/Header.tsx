@@ -3,10 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, Suspense, useEffect } from "react";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import AnimatedSearchBar from "./AnimatedSearchBar";
+import { MobileSearch } from "./MobileSearch";
+import { CategoryNavigationBar } from "./CategoryNavigationBar";
 import { useCart } from "@/context/CartContext";
 import { ShoppingBag, Menu } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
@@ -32,20 +34,96 @@ export function Header({
   const isAdmin = pathname.startsWith("/admin");
   const isHome = pathname === "/";
 
-  // Native Android App Header layout: [ ☰ ] [ Logo + ZebAlpha ] [ 🔔 ]
+  // Native Android App: Fixed Top Section (Header + Search Bar + Category Navigation Bar)
   if (isNativeApp) {
+    if (isHome) {
+      return (
+        <>
+          {/* =================================================================== */}
+          {/* PERMANENT FIXED TOP SECTION FOR ANDROID APP                         */}
+          {/* 1. Android Status Bar Insets + ZebAlpha Header                      */}
+          {/* 2. Sticky Search Bar                                                */}
+          {/* 3. Horizontal Category Navigation Bar                               */}
+          {/* All 3 remain permanently fixed together at top during scroll       */}
+          {/* =================================================================== */}
+          <div className="sticky top-0 z-40 w-full bg-zinc-950/98 backdrop-blur-xl border-b border-zinc-800/80 shadow-md select-none">
+            {/* 1. ZebAlpha Header Row */}
+            <header className="px-3.5 py-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] text-white select-none">
+              <div className="flex w-full items-center justify-between">
+                {/* Left: Hamburger Menu Icon */}
+                <button
+                  type="button"
+                  onClick={() => setIsDrawerOpen(true)}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-neutral-300 hover:text-white active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
+                  aria-label="Open Navigation Menu"
+                >
+                  <Menu className="h-5 w-5 stroke-[2.2]" />
+                </button>
+
+                {/* Center / Left: Existing Zebalpha Logo & Brand Name */}
+                <Link href="/" className="flex items-center gap-2.5 active:scale-95 transition-transform group">
+                  <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 shadow-[0_0_12px_rgba(255,255,255,0.12)] group-hover:shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-all">
+                    <Image
+                      src="/official-logo-sm.png"
+                      alt="ZebAlpha Official Logo"
+                      width={36}
+                      height={36}
+                      className="h-full w-full object-cover rounded-full"
+                      priority
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white uppercase group-hover:text-neutral-200 transition-colors">
+                      ZebAlpha
+                    </span>
+                    <span className="text-[8px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5">
+                      Clothing For The Culture
+                    </span>
+                  </div>
+                </Link>
+
+                {/* Right: Notification Bell */}
+                <div className="flex items-center justify-end">
+                  <NotificationBell />
+                </div>
+              </div>
+            </header>
+
+            {/* 2. Search Bar: Immediately below header */}
+            <div className="px-3.5 pt-0.5 pb-2">
+              <Suspense fallback={<div className="h-[48px] w-full rounded-2xl bg-neutral-900 animate-pulse" />}>
+                <MobileSearch className="relative flex w-full flex-col min-h-[48px]" />
+              </Suspense>
+            </div>
+
+            {/* 3. Horizontal Category Navigation Bar: Immediately below search bar */}
+            <CategoryNavigationBar isNativeApp={true} className="border-t border-zinc-900/60 bg-transparent" />
+          </div>
+
+          {/* Secondary Navigation Drawer */}
+          <MobileDrawer 
+            isOpen={isDrawerOpen} 
+            onClose={() => setIsDrawerOpen(false)} 
+          />
+        </>
+      );
+    }
+
+    // On other Android pages (non-home, e.g. /products, /categories, /profile)
     return (
       <>
-        <header className={`${isHome ? "relative z-20" : "sticky top-0 z-40"} border-b border-zinc-800/80 bg-zinc-950/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]`}>
+        <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
           <div className="flex w-full items-center justify-between">
-            {/* Left: Hamburger Menu Icon */}
+            {/* Left: Back button if not home, or Hamburger */}
             <button
               type="button"
-              onClick={() => setIsDrawerOpen(true)}
+              onClick={() => router.back()}
               className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-neutral-300 hover:text-white active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
-              aria-label="Open Navigation Menu"
+              aria-label="Go Back"
             >
-              <Menu className="h-5 w-5 stroke-[2.2]" />
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
 
             {/* Center / Left: Existing Zebalpha Logo & Brand Name */}

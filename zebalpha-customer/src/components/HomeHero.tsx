@@ -16,30 +16,19 @@ export function HomeHero() {
   }, []);
 
   // When in Android App:
-  // Order:
-  // 1. Search Bar (placed directly above banner, sticky at top during upward scroll)
-  // 2. New Horizontal Category Bar (directly below search bar, above hero banner)
-  // 3. Hero Banner (starts immediately below category bar)
-  // 4. Promotional Banner
+  // The Header, Search Bar, and Category Navigation Bar are in the permanently fixed top section.
+  // Scrollable Homepage Content starts here:
+  // 1. Hero Banner (BannerCarousel)
+  // 2. Promotional Banner / Marquee (MovingOfferBanner)
   if (mounted && isNativeApp) {
     return (
       <>
-        {/* 1. Android App Sticky Search Bar */}
-        <div className="sticky top-0 z-40 w-full bg-zinc-950/98 backdrop-blur-xl border-b border-zinc-800/80 px-3.5 py-2.5 shadow-md">
-          <Suspense fallback={<div className="h-[48px] w-full rounded-2xl bg-neutral-900 animate-pulse" />}>
-            <MobileSearch className="relative flex w-full flex-col min-h-[48px]" />
-          </Suspense>
-        </div>
-
-        {/* 2. New Horizontal Category Bar (Directly below search, above banner) */}
-        <CategoryNavigationBar isNativeApp={true} />
-
-        {/* 3. Hero Banner: Starts immediately below the category bar */}
+        {/* 1. Hero Banner: Starts immediately below the permanently fixed category navigation */}
         <div className="mx-auto w-full max-w-[1400px] px-3.5 md:px-8 pt-2.5">
           <BannerCarousel />
         </div>
 
-        {/* 4. Promotional Banner */}
+        {/* 2. Promotional Banner / Marquee */}
         <div className="mt-2.5">
           <MovingOfferBanner />
         </div>

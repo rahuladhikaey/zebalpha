@@ -84,7 +84,7 @@ export function CategoryNavigationBar({
 
   if (loading && categories.length === 0) {
     return (
-      <div className={`w-full py-2.5 px-3 md:px-6 bg-black/90 border-b border-zinc-900 ${className}`}>
+      <div className={`w-full py-2.5 px-3 md:px-6 ${isNativeApp ? "bg-zinc-950/98" : "bg-black/90"} border-b border-zinc-900 ${className}`}>
         <div className="flex items-center gap-3 overflow-hidden no-scrollbar animate-pulse">
           {[...Array(7)].map((_, i) => (
             <div key={i} className="flex flex-col items-center gap-1.5 shrink-0 w-[72px]">
@@ -101,7 +101,7 @@ export function CategoryNavigationBar({
   return (
     <nav
       aria-label="Category Navigation"
-      className={`w-full bg-black/95 backdrop-blur-xl border-b border-zinc-900/80 transition-colors select-none ${className}`}
+      className={`w-full ${isNativeApp ? "bg-zinc-950/98" : "bg-black/95"} backdrop-blur-xl border-b border-zinc-900/80 transition-colors select-none ${className}`}
     >
       <div className="mx-auto w-full max-w-[1400px]">
         <div

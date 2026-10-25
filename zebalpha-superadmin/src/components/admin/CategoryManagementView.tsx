@@ -35,6 +35,7 @@ export interface CategoryItem {
   slug: string;
   description?: string | null;
   parent_id?: string | null;
+  created_by?: string | null;
   icon_key?: string | null;
   icon_url?: string | null;
   icon_source?: string | null;
@@ -49,17 +50,25 @@ export interface CategoryItem {
 
 export interface CategoryRequestItem {
   id: string;
+  category_id?: string;
   seller_id: string;
+  seller_name?: string;
+  seller_email?: string;
   parent_category_id: string;
-  proposed_name: string;
-  proposed_slug: string;
+  name: string;
+  slug: string;
+  proposed_name?: string;
+  proposed_slug?: string;
   description?: string | null;
-  reason?: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
-  reviewed_at?: string | null;
-  rejection_reason?: string | null;
+  product_count?: number;
+  is_active: boolean;
+  status?: string;
+  show_in_navigation?: boolean;
+  icon_key?: string | null;
+  icon_source?: string | null;
   created_at: string;
   parent_category?: { id: string; name: string; slug: string };
+  source?: string;
 }
 
 export default function CategoryManagementView({
@@ -81,13 +90,10 @@ export default function CategoryManagementView({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
-  // Selected for edit/merge/reject
+  // Selected for edit/merge
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
-  const [selectedRequest, setSelectedRequest] = useState<CategoryRequestItem | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
 
   // Form State
   const [formData, setFormData] = useState({
@@ -169,10 +175,6 @@ export default function CategoryManagementView({
         (subcategoriesMap[m.id] || []).some((s) => s.name.toLowerCase().includes(q))
     );
   }, [mainCategories, subcategoriesMap, search]);
-
-  const pendingRequestsCount = useMemo(() => {
-    return requests.filter((r) => r.status === "PENDING").length;
-  }, [requests]);
 
   const toggleExpand = (id: string) => {
     setExpandedParents((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -342,49 +344,29 @@ export default function CategoryManagementView({
     }
   };
 
-  // Approve Seller Request
-  const handleApproveRequest = async (reqItem: CategoryRequestItem) => {
-    if (!window.confirm(`Approve subcategory "${reqItem.proposed_name}" and publish it across the marketplace?`)) {
-      return;
-    }
-
+  // Quick Toggle Active Status for Seller Subcategory
+  const handleToggleSellerSubcategory = async (sub: CategoryRequestItem) => {
+    const targetId = sub.category_id || sub.id;
+    const newVal = !sub.is_active;
     try {
-      const res = await fetch("/api/admin/category-requests", {
-        method: "POST",
+      const res = await fetch("/api/admin/categories", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: reqItem.id, action: "APPROVE" }),
+        body: JSON.stringify({ id: targetId, updates: { is_active: newVal } }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
 
-      setStatusMessage({ text: json.message, type: "success" });
-      fetchData();
-    } catch (err: any) {
-      setStatusMessage({ text: err.message, type: "error" });
-    }
-  };
-
-  // Reject Seller Request
-  const handleRejectRequestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedRequest) return;
-
-    try {
-      const res = await fetch("/api/admin/category-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: selectedRequest.id,
-          action: "REJECT",
-          rejection_reason: rejectReason || "Declined by Administrator.",
-        }),
+      setRequests((prev) =>
+        prev.map((r) => (r.id === sub.id ? { ...r, is_active: newVal } : r))
+      );
+      setCategories((prev) =>
+        prev.map((c) => (c.id === targetId ? { ...c, is_active: newVal } : c))
+      );
+      setStatusMessage({
+        text: `Subcategory "${sub.name}" is now ${newVal ? "Active" : "Inactive"}.`,
+        type: "success",
       });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message);
-
-      setStatusMessage({ text: `Request rejected.`, type: "success" });
-      setIsRejectModalOpen(false);
-      fetchData();
     } catch (err: any) {
       setStatusMessage({ text: err.message, type: "error" });
     }
@@ -404,7 +386,7 @@ export default function CategoryManagementView({
             </h2>
           </div>
           <p className="text-xs text-zinc-400 font-medium mt-1">
-            Manage Admin Main Categories, automatic icon resolution, customer bar visibility, and seller subcategory requests.
+            Manage Main Categories, customer navigation bar, and view subcategories added by sellers.
           </p>
         </div>
 
@@ -466,12 +448,7 @@ export default function CategoryManagementView({
               : "bg-zinc-900 text-zinc-400 hover:text-white"
           }`}
         >
-          <Send size={14} /> Seller Proposals
-          {pendingRequestsCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-black animate-pulse">
-              {pendingRequestsCount}
-            </span>
-          )}
+          <FolderTree size={14} /> Seller Added Subcategories ({requests.length})
         </button>
       </div>
 
@@ -695,7 +672,14 @@ export default function CategoryManagementView({
                                         <div className="flex items-center gap-2 min-w-0">
                                           <CategoryIconRenderer iconKey={sub.icon_key} size={15} />
                                           <div className="min-w-0">
-                                            <p className="font-bold text-white text-xs truncate">{sub.name}</p>
+                                            <div className="flex items-center gap-1.5">
+                                              <p className="font-bold text-white text-xs truncate">{sub.name}</p>
+                                              {sub.created_by && (
+                                                <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                                                  Seller
+                                                </span>
+                                              )}
+                                            </div>
                                             <p className="text-[10px] text-zinc-500 font-mono">/{sub.slug}</p>
                                           </div>
                                         </div>
@@ -736,18 +720,18 @@ export default function CategoryManagementView({
         </div>
       )}
 
-      {/* SUBTAB 2: Seller Subcategory Proposals */}
+      {/* SUBTAB 2: Seller Added Subcategories */}
       {activeSubTab === "requests" && (
         <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-850 flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-850 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-black uppercase text-white">Seller Proposed Subcategories</h3>
+              <h3 className="text-sm font-black uppercase text-white">Seller Added Subcategories</h3>
               <p className="text-xs text-zinc-400 font-medium">
-                Approved subcategories become available to all sellers in the marketplace catalog.
+                Subcategories created directly by sellers in the catalog. Admin can view, edit, toggle visibility, or delete them.
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
-              {pendingRequestsCount} Pending Approval
+            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full self-start sm:self-auto">
+              {requests.length} Subcategories Added
             </span>
           </div>
 
@@ -756,12 +740,12 @@ export default function CategoryManagementView({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-zinc-850 bg-zinc-900/60 text-zinc-400 uppercase tracking-wider text-[10px] font-black">
-                    <th className="py-3.5 px-4">Proposed Subcategory</th>
+                    <th className="py-3.5 px-4">Subcategory</th>
                     <th className="py-3.5 px-4">Parent Main Category</th>
-                    <th className="py-3.5 px-4">Seller ID</th>
-                    <th className="py-3.5 px-4">Reason / Notes</th>
+                    <th className="py-3.5 px-4">Created By Seller</th>
+                    <th className="py-3.5 px-4 text-center">Products</th>
                     <th className="py-3.5 px-4 text-center">Status</th>
-                    <th className="py-3.5 px-4 text-center">Submitted At</th>
+                    <th className="py-3.5 px-4 text-center">Created At</th>
                     <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -769,77 +753,122 @@ export default function CategoryManagementView({
                   {requests.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="text-center py-12 text-zinc-500">
-                        No seller subcategory requests submitted yet.
+                        No seller subcategories added yet. When sellers add subcategories during product listing, they will appear here.
                       </td>
                     </tr>
                   ) : (
-                    requests.map((reqItem) => (
-                      <tr key={reqItem.id} className="hover:bg-zinc-900/40 transition">
-                        <td className="py-3.5 px-4">
-                          <p className="font-bold text-white text-sm">{reqItem.proposed_name}</p>
-                          <p className="text-[10px] font-mono text-zinc-500">/{reqItem.proposed_slug}</p>
-                        </td>
+                    requests.map((reqItem) => {
+                      const categoryEquivalent: CategoryItem = {
+                        id: reqItem.category_id || reqItem.id,
+                        name: reqItem.name || reqItem.proposed_name || "Subcategory",
+                        slug: reqItem.slug || reqItem.proposed_slug || "",
+                        description: reqItem.description,
+                        parent_id: reqItem.parent_category_id,
+                        icon_key: reqItem.icon_key,
+                        icon_source: reqItem.icon_source,
+                        display_order: 10,
+                        is_active: reqItem.is_active,
+                        show_in_navigation: reqItem.show_in_navigation !== false,
+                        product_count: reqItem.product_count,
+                        created_by: reqItem.seller_id,
+                        created_at: reqItem.created_at,
+                      };
 
-                        <td className="py-3.5 px-4">
-                          <span className="px-2 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold">
-                            {reqItem.parent_category?.name || "Main Category"}
-                          </span>
-                        </td>
+                      return (
+                        <tr key={reqItem.id} className="hover:bg-zinc-900/40 transition">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white shrink-0">
+                                <CategoryIconRenderer iconKey={reqItem.icon_key} size={14} />
+                              </div>
+                              <div>
+                                <p className="font-bold text-white text-sm">
+                                  {reqItem.name || reqItem.proposed_name}
+                                </p>
+                                <p className="text-[10px] font-mono text-zinc-500">
+                                  /{reqItem.slug || reqItem.proposed_slug}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
 
-                        <td className="py-3.5 px-4 font-mono text-zinc-400 text-[11px]">
-                          {reqItem.seller_id?.slice(0, 8)}...
-                        </td>
+                          <td className="py-3.5 px-4">
+                            <span className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold">
+                              {reqItem.parent_category?.name || "Main Category"}
+                            </span>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-zinc-300 max-w-xs truncate">
-                          {reqItem.reason || reqItem.description || "—"}
-                        </td>
+                          <td className="py-3.5 px-4">
+                            <div>
+                              <p className="font-bold text-white text-xs">
+                                {reqItem.seller_name || `Seller #${reqItem.seller_id?.slice(0, 8)}`}
+                              </p>
+                              <p className="text-[10px] font-mono text-zinc-500">
+                                {reqItem.seller_id?.slice(0, 8)}...
+                              </p>
+                            </div>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
-                              reqItem.status === "APPROVED"
-                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                                : reqItem.status === "PENDING"
-                                ? "bg-amber-500/10 border-amber-500/30 text-amber-400 animate-pulse"
-                                : "bg-rose-500/10 border-rose-500/30 text-rose-400"
-                            }`}
-                          >
-                            {reqItem.status}
-                          </span>
-                        </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="font-mono text-xs font-bold text-zinc-300 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                              {reqItem.product_count || 0}
+                            </span>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-center text-zinc-400 text-[11px]">
-                          {new Date(reqItem.created_at).toLocaleDateString()}
-                        </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSellerSubcategory(reqItem)}
+                              className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border transition cursor-pointer ${
+                                reqItem.is_active
+                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                                  : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800"
+                              }`}
+                              title={reqItem.is_active ? "Click to Deactivate" : "Click to Activate"}
+                            >
+                              {reqItem.is_active ? "Active" : "Inactive"}
+                            </button>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-right">
-                          {reqItem.status === "PENDING" ? (
-                            <div className="flex items-center justify-end gap-2">
+                          <td className="py-3.5 px-4 text-center text-zinc-400 text-[11px]">
+                            {new Date(reqItem.created_at).toLocaleDateString()}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => handleApproveRequest(reqItem)}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 text-[11px] font-black uppercase transition cursor-pointer"
+                                onClick={() => openEditModal(categoryEquivalent)}
+                                className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+                                title="Edit Subcategory"
                               >
-                                Approve
+                                <Edit2 size={13} />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSelectedRequest(reqItem);
-                                  setRejectReason("");
-                                  setIsRejectModalOpen(true);
+                                  setSelectedCategory(categoryEquivalent);
+                                  setMergeTargetId("");
+                                  setIsMergeModalOpen(true);
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-rose-950 hover:text-rose-400 text-[11px] font-bold uppercase transition cursor-pointer"
+                                className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+                                title="Merge Subcategory"
                               >
-                                Reject
+                                <GitMerge size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(categoryEquivalent)}
+                                className="p-1.5 rounded-lg bg-zinc-900 hover:bg-rose-950 text-rose-400 border border-transparent hover:border-rose-500/40 transition cursor-pointer"
+                                title="Archive / Delete"
+                              >
+                                <Trash2 size={13} />
                               </button>
                             </div>
-                          ) : (
-                            <span className="text-zinc-500 text-[11px]">Reviewed</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1143,50 +1172,6 @@ export default function CategoryManagementView({
                   className="px-5 py-2 rounded-xl bg-amber-500 text-black font-black uppercase tracking-wider hover:bg-amber-400 disabled:opacity-50"
                 >
                   Confirm Merge
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* REJECT REQUEST MODAL */}
-      {isRejectModalOpen && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-850 pb-3">
-              <h3 className="text-base font-black uppercase text-white">
-                Decline Subcategory: {selectedRequest.proposed_name}
-              </h3>
-              <button onClick={() => setIsRejectModalOpen(false)} className="text-zinc-400 hover:text-white text-lg">✕</button>
-            </div>
-
-            <form onSubmit={handleRejectRequestSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="text-zinc-300 font-bold block mb-1">Reason for Rejection</label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="e.g. Duplicate of existing subcategory, violates marketplace catalog taxonomy guidelines."
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-medium focus:outline-none focus:border-white transition"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-850">
-                <button
-                  type="button"
-                  onClick={() => setIsRejectModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-rose-500 text-white font-black uppercase tracking-wider hover:bg-rose-400"
-                >
-                  Reject Proposal
                 </button>
               </div>
             </form>
