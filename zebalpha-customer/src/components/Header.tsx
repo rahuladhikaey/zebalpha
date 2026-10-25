@@ -7,8 +7,6 @@ import { useState, Suspense, useEffect } from "react";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import AnimatedSearchBar from "./AnimatedSearchBar";
-import { MobileSearch } from "./MobileSearch";
-import { CategoryNavigationBar } from "./CategoryNavigationBar";
 import { useCart } from "@/context/CartContext";
 import { ShoppingBag, Menu } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
@@ -34,71 +32,63 @@ export function Header({
   const isAdmin = pathname.startsWith("/admin");
   const isHome = pathname === "/";
 
-  // Native Android App: Fixed Top Section (Header + Search Bar + Category Navigation Bar)
+  // Native Android App
   if (isNativeApp) {
     if (isHome) {
       return (
         <>
-          {/* =================================================================== */}
-          {/* PERMANENT FIXED TOP SECTION FOR ANDROID APP                         */}
-          {/* 1. Android Status Bar Insets + ZebAlpha Header                      */}
-          {/* 2. Sticky Search Bar                                                */}
-          {/* 3. Horizontal Category Navigation Bar                               */}
-          {/* All 3 remain permanently fixed together at top during scroll       */}
-          {/* =================================================================== */}
-          <div className="sticky top-0 z-40 w-full bg-zinc-950/98 backdrop-blur-xl border-b border-zinc-800/80 shadow-md select-none">
-            {/* 1. ZebAlpha Header Row */}
-            <header className="px-3.5 py-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] text-white select-none">
-              <div className="flex w-full items-center justify-between">
-                {/* Left: Hamburger Menu Icon */}
-                <button
-                  type="button"
-                  onClick={() => setIsDrawerOpen(true)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-neutral-300 hover:text-white active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
-                  aria-label="Open Navigation Menu"
-                >
-                  <Menu className="h-5 w-5 stroke-[2.2]" />
-                </button>
+          {/* Status bar background filler to ensure no scrolling content shows behind system icons */}
+          <div
+            className="fixed top-0 left-0 right-0 z-50 bg-black pointer-events-none"
+            style={{ height: "env(safe-area-inset-top, 0px)" }}
+            aria-hidden="true"
+          />
 
-                {/* Center / Left: Existing Zebalpha Logo & Brand Name */}
-                <Link href="/" className="flex items-center gap-2.5 active:scale-95 transition-transform group">
-                  <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 shadow-[0_0_12px_rgba(255,255,255,0.12)] group-hover:shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-all">
-                    <Image
-                      src="/official-logo-sm.png"
-                      alt="ZebAlpha Official Logo"
-                      width={36}
-                      height={36}
-                      className="h-full w-full object-cover rounded-full"
-                      priority
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white uppercase group-hover:text-neutral-200 transition-colors">
-                      ZebAlpha
-                    </span>
-                    <span className="text-[8px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5">
-                      Clothing For The Culture
-                    </span>
-                  </div>
-                </Link>
+          {/* =================================================================== */}
+          {/* ANDROID ZEBALPHA HEADER (NORMAL SCROLL - NOT STICKY)                */}
+          {/* Scrolls away naturally when scrolling down; returns at top         */}
+          {/* Contains: Hamburger Menu, Logo, Brand Name, Notification Icon       */}
+          {/* =================================================================== */}
+          <header className="relative z-20 w-full border-b border-zinc-800/80 bg-zinc-950 px-3.5 py-2.5 text-white select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+            <div className="flex w-full items-center justify-between">
+              {/* Left: Hamburger Menu Icon */}
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-neutral-300 hover:text-white active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
+                aria-label="Open Navigation Menu"
+              >
+                <Menu className="h-5 w-5 stroke-[2.2]" />
+              </button>
 
-                {/* Right: Notification Bell */}
-                <div className="flex items-center justify-end">
-                  <NotificationBell />
+              {/* Center / Left: Existing Zebalpha Logo & Brand Name */}
+              <Link href="/" className="flex items-center gap-2.5 active:scale-95 transition-transform group">
+                <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 shadow-[0_0_12px_rgba(255,255,255,0.12)] group-hover:shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-all">
+                  <Image
+                    src="/official-logo-sm.png"
+                    alt="ZebAlpha Official Logo"
+                    width={36}
+                    height={36}
+                    className="h-full w-full object-cover rounded-full"
+                    priority
+                  />
                 </div>
+                <div className="flex flex-col">
+                  <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white uppercase group-hover:text-neutral-200 transition-colors">
+                    ZebAlpha
+                  </span>
+                  <span className="text-[8px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5">
+                    Clothing For The Culture
+                  </span>
+                </div>
+              </Link>
+
+              {/* Right: Notification Bell */}
+              <div className="flex items-center justify-end">
+                <NotificationBell />
               </div>
-            </header>
-
-            {/* 2. Search Bar: Immediately below header */}
-            <div className="px-3.5 pt-0.5 pb-2">
-              <Suspense fallback={<div className="h-[48px] w-full rounded-2xl bg-neutral-900 animate-pulse" />}>
-                <MobileSearch className="relative flex w-full flex-col min-h-[48px]" />
-              </Suspense>
             </div>
-
-            {/* 3. Horizontal Category Navigation Bar: Immediately below search bar */}
-            <CategoryNavigationBar isNativeApp={true} className="border-t border-zinc-900/60 bg-transparent" />
-          </div>
+          </header>
 
           {/* Secondary Navigation Drawer */}
           <MobileDrawer 

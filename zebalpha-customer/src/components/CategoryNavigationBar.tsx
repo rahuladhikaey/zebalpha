@@ -84,11 +84,11 @@ export function CategoryNavigationBar({
 
   if (loading && categories.length === 0) {
     return (
-      <div className={`w-full py-2.5 px-3 md:px-6 ${isNativeApp ? "bg-zinc-950/98" : "bg-black/90"} border-b border-zinc-900 ${className}`}>
+      <div className={`w-full py-2.5 px-3 md:px-6 ${isNativeApp ? "bg-black" : "bg-black/90 border-b border-zinc-900"} ${className}`}>
         <div className="flex items-center gap-3 overflow-hidden no-scrollbar animate-pulse">
           {[...Array(7)].map((_, i) => (
-            <div key={i} className="flex flex-col items-center gap-1.5 shrink-0 w-[72px]">
-              <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-850" />
+            <div key={i} className="flex flex-col items-center gap-1.5 shrink-0 w-[64px] sm:w-[72px]">
+              <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-850" />
               <div className="w-12 h-2.5 bg-zinc-900 rounded" />
             </div>
           ))}
@@ -101,7 +101,7 @@ export function CategoryNavigationBar({
   return (
     <nav
       aria-label="Category Navigation"
-      className={`w-full ${isNativeApp ? "bg-zinc-950/98" : "bg-black/95"} backdrop-blur-xl border-b border-zinc-900/80 transition-colors select-none ${className}`}
+      className={`w-full ${isNativeApp ? "bg-black" : "bg-black/95 backdrop-blur-xl border-b border-zinc-900/80"} transition-colors select-none ${className}`}
     >
       <div className="mx-auto w-full max-w-[1400px]">
         <div

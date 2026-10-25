@@ -16,20 +16,44 @@ export function HomeHero() {
   }, []);
 
   // When in Android App:
-  // The Header, Search Bar, and Category Navigation Bar are in the permanently fixed top section.
-  // Scrollable Homepage Content starts here:
-  // 1. Hero Banner (BannerCarousel)
-  // 2. Promotional Banner / Marquee (MovingOfferBanner)
+  // Order:
+  // 1. Sticky Unit (Search Bar + Category Navigation Bar moving together)
+  //    Stops immediately below Android status bar during downward scroll.
+  // 2. Hero Banner (BannerCarousel)
+  // 3. Promotional Announcement / Marquee (MovingOfferBanner)
   if (mounted && isNativeApp) {
     return (
       <>
-        {/* 1. Hero Banner: Starts immediately below the permanently fixed category navigation */}
-        <div className="mx-auto w-full max-w-[1400px] px-3.5 md:px-8 pt-2.5">
+        {/* =================================================================== */}
+        {/* ANDROID APP: STICKY SEARCH BAR + HORIZONTAL CATEGORY NAVIGATION     */}
+        {/* Exactly these two elements move together as ONE sticky unit        */}
+        {/* Stops immediately below Android status bar during downward scroll   */}
+        {/* =================================================================== */}
+        <div
+          className="sticky z-40 w-full bg-black border-b border-zinc-800/90 shadow-xl select-none"
+          style={{ top: "env(safe-area-inset-top, 0px)" }}
+        >
+          {/* 1. Sticky Search Bar */}
+          <div className="w-full bg-black px-3.5 pt-2 pb-1.5">
+            <Suspense fallback={<div className="h-[48px] w-full rounded-2xl bg-neutral-900 animate-pulse" />}>
+              <MobileSearch className="relative flex w-full flex-col min-h-[48px]" />
+            </Suspense>
+          </div>
+
+          {/* 2. Sticky Horizontal Category Navigation Bar */}
+          <CategoryNavigationBar isNativeApp={true} className="border-t border-zinc-900/80 bg-black" />
+        </div>
+
+        {/* =================================================================== */}
+        {/* SCROLLABLE HOMEPAGE CONTENT                                         */}
+        {/* =================================================================== */}
+        {/* 1. Hero Banner: Starts with clean separation below category bar */}
+        <div className="mx-auto w-full max-w-[1400px] px-3.5 md:px-8 pt-3">
           <BannerCarousel />
         </div>
 
-        {/* 2. Promotional Banner / Marquee */}
-        <div className="mt-2.5">
+        {/* 2. Promotional Announcement / Marquee Banner */}
+        <div className="mt-3">
           <MovingOfferBanner />
         </div>
       </>
