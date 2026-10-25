@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabaseServer
       .from("categories")
-      .select("id, name, slug, description, icon_key, icon_url, icon_source, image_url, display_order, is_active, show_in_navigation, parent_id, created_at, updated_at")
+      .select("id, name, slug, description, icon_key, icon_url, icon_source, image_url, display_order, is_active, show_in_navigation, parent_id, created_by, created_at, updated_at")
       .order("display_order", { ascending: true })
       .order("name", { ascending: true });
 

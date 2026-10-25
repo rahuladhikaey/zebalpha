@@ -13,20 +13,20 @@ export const submitCategoryRequest = async (req, res, next) => {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, error: 'Unauthorized seller' });
     }
 
-    const { parent_category_id, proposed_name, description, reason } = req.body;
-    const cleanName = (proposed_name || '').trim();
+    const { parent_category_id, name, proposed_name } = req.body;
+    const cleanName = (name || proposed_name || '').trim();
 
     if (!parent_category_id) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Parent Main Category is required' });
     }
     if (!cleanName || cleanName.length < 2) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Proposed subcategory name must be at least 2 characters' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Subcategory name must be at least 2 characters' });
     }
 
-    // 1. Verify parent category exists and is active
+    // 1. Verify parent category exists
     const { data: parentCat, error: parentErr } = await supabaseA
       .from('categories')
-      .select('id, name, parent_id, is_active')
+      .select('id, name, parent_id, is_active, icon_key')
       .eq('id', parent_category_id)
       .maybeSingle();
 
@@ -34,56 +34,75 @@ export const submitCategoryRequest = async (req, res, next) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Selected parent category does not exist' });
     }
 
-    const proposedSlug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
     // 2. Check if subcategory already exists under this parent
     const { data: existingSubcat } = await supabaseA
       .from('categories')
-      .select('id, name')
+      .select('id, name, slug, parent_id, is_active')
       .eq('parent_id', parent_category_id)
       .ilike('name', cleanName)
       .maybeSingle();
 
     if (existingSubcat) {
-      return res.status(HTTP_STATUS.CONFLICT).json({
-        success: false,
-        error: `Subcategory "${cleanName}" already exists under ${parentCat.name}. You can select it directly.`
+      if (!existingSubcat.is_active) {
+        await supabaseA.from('categories').update({ is_active: true }).eq('id', existingSubcat.id);
+      }
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        message: `Subcategory "${existingSubcat.name}" already exists and has been selected.`,
+        category: existingSubcat
       });
     }
 
-    // 3. Check for existing pending request
-    const { data: existingPending } = await supabaseA
-      .from('category_requests')
-      .select('id, status')
-      .eq('parent_category_id', parent_category_id)
-      .ilike('proposed_name', cleanName)
-      .eq('status', 'PENDING')
-      .maybeSingle();
-
-    if (existingPending) {
-      return res.status(HTTP_STATUS.CONFLICT).json({
-        success: false,
-        error: `A proposal for "${cleanName}" is already pending admin review.`
-      });
+    // 3. Generate clean unique slug
+    let baseSlug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `subcat-${Date.now().toString(36)}`;
+    let finalSlug = baseSlug;
+    const { data: slugMatch } = await supabaseA.from('categories').select('id').eq('slug', finalSlug).maybeSingle();
+    if (slugMatch) {
+      finalSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
     }
 
-    const payload = {
-      seller_id: sellerId,
-      parent_category_id,
-      proposed_name: cleanName,
-      proposed_slug: proposedSlug,
-      description: description?.trim() || null,
-      reason: reason?.trim() || null,
-      status: 'PENDING'
+    // 4. Directly insert active subcategory into categories
+    const newCategory = {
+      name: cleanName,
+      slug: finalSlug,
+      parent_id: parent_category_id,
+      is_active: true,
+      show_in_navigation: true,
+      created_by: sellerId,
+      icon_key: parentCat.icon_key || 'package',
+      icon_source: 'AUTO',
+      display_order: 0
     };
 
-    const { data, error } = await supabaseA.from('category_requests').insert([payload]).select();
-    if (error) throw error;
+    const { data: createdCat, error: insertError } = await supabaseA
+      .from('categories')
+      .insert([newCategory])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // 5. Invalidate category cache
+    await cacheService.deletePattern('categories:*').catch(() => {});
+
+    // 6. Optional audit log entry in category_requests marked as APPROVED
+    try {
+      await supabaseA.from('category_requests').insert([{
+        seller_id: sellerId,
+        parent_category_id,
+        proposed_name: cleanName,
+        proposed_slug: finalSlug,
+        status: 'APPROVED',
+        approved_category_id: createdCat.id,
+        reviewed_at: new Date().toISOString()
+      }]);
+    } catch (_) {}
 
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
-      data: data?.[0] || payload,
-      message: 'Subcategory proposal submitted successfully. Pending Admin review.'
+      data: createdCat,
+      category: createdCat,
+      message: `Subcategory "${cleanName}" created successfully!`
     });
   } catch (err) {
     next(err);

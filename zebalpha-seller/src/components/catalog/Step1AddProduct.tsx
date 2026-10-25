@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2, Send } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2 } from "lucide-react";
 import type { Category } from "@shared/types";
 import {
   DYNAMIC_CATEGORY_CATALOG,
@@ -177,72 +177,79 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
   }, [dbMainCategories, activeMainCatId]);
 
   // Approved subcategories under current main category
+  // Locally created subcategories (instantly available without full page reload)
+  const [createdSubcategories, setCreatedSubcategories] = useState<any[]>([]);
+
+  // Approved and active subcategories under current main category
   const approvedSubcategories = useMemo(() => {
     if (!currentDbMainCat) return [];
-    return (categories || []).filter((c: any) => String(c.parent_id) === String(currentDbMainCat.id) && c.is_active !== false);
-  }, [categories, currentDbMainCat]);
-
-  // Subcategory proposal state
-  const [showProposalModal, setShowProposalModal] = useState(false);
-  const [proposedName, setProposedName] = useState("");
-  const [proposedDesc, setProposedDesc] = useState("");
-  const [proposedReason, setProposedReason] = useState("");
-  const [proposalSubmitting, setProposalSubmitting] = useState(false);
-  const [proposalAlert, setProposalAlert] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [sellerProposals, setSellerProposals] = useState<any[]>([]);
-
-  const loadSellerProposals = async () => {
-    try {
-      const res = await fetch("/api/seller/category-requests");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.requests)) {
-          setSellerProposals(json.requests);
-        }
+    const fromProps = (categories || []).filter(
+      (c: any) => String(c.parent_id) === String(currentDbMainCat.id) && c.is_active !== false
+    );
+    const fromCreated = createdSubcategories.filter(
+      (c: any) => String(c.parent_id) === String(currentDbMainCat.id)
+    );
+    const combined = [...fromProps];
+    fromCreated.forEach((c) => {
+      if (!combined.some((item) => String(item.id) === String(c.id) || item.name.toLowerCase() === c.name.toLowerCase())) {
+        combined.push(c);
       }
-    } catch (_) {}
-  };
+    });
+    return combined;
+  }, [categories, currentDbMainCat, createdSubcategories]);
 
-  useEffect(() => {
-    loadSellerProposals();
-  }, []);
+  // Subcategory instant creation modal state
+  const [showAddSubcatModal, setShowAddSubcatModal] = useState(false);
+  const [newSubcatName, setNewSubcatName] = useState("");
+  const [subcatSubmitting, setSubcatSubmitting] = useState(false);
+  const [subcatAlert, setSubcatAlert] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const handleProposalSubmit = async (e: React.FormEvent) => {
+  const handleDirectSubcategoryCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentDbMainCat) return;
-    if (!proposedName.trim()) {
-      setProposalAlert({ type: "error", text: "Please enter a valid subcategory name." });
+    const cleanName = newSubcatName.trim();
+    if (!cleanName) {
+      setSubcatAlert({ type: "error", text: "Please enter a valid subcategory name." });
       return;
     }
-    setProposalSubmitting(true);
-    setProposalAlert(null);
+    setSubcatSubmitting(true);
+    setSubcatAlert(null);
     try {
       const res = await fetch("/api/seller/category-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           parent_category_id: currentDbMainCat.id,
-          proposed_name: proposedName.trim(),
-          description: proposedDesc.trim() || undefined,
-          reason: proposedReason.trim() || undefined,
+          name: cleanName,
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to submit proposal");
+        throw new Error(json.error || "Failed to create subcategory");
       }
-      setProposalAlert({
-        type: "success",
-        text: `Proposal for "${proposedName.trim()}" submitted! Super Admin will review it. You can pick an existing subcategory in the meantime.`
+
+      const createdCat = json.category || {
+        id: `created-${Date.now()}`,
+        name: cleanName,
+        parent_id: currentDbMainCat.id,
+        is_active: true,
+      };
+
+      setCreatedSubcategories((prev) => [...prev, createdCat]);
+
+      // Automatically select the newly created subcategory right away!
+      onChange({
+        category_id: String(currentDbMainCat.id),
+        subcategory_id: String(createdCat.id),
+        subcategory_name: createdCat.name,
       });
-      setProposedName("");
-      setProposedDesc("");
-      setProposedReason("");
-      loadSellerProposals();
+
+      setNewSubcatName("");
+      setShowAddSubcatModal(false);
     } catch (err: any) {
-      setProposalAlert({ type: "error", text: err.message || "Failed to submit proposal" });
+      setSubcatAlert({ type: "error", text: err.message || "Failed to create subcategory" });
     } finally {
-      setProposalSubmitting(false);
+      setSubcatSubmitting(false);
     }
   };
 
@@ -463,13 +470,13 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
               <button
                 type="button"
                 onClick={() => {
-                  setShowProposalModal(true);
-                  setProposalAlert(null);
+                  setShowAddSubcatModal(true);
+                  setSubcatAlert(null);
                 }}
-                className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all cursor-pointer"
+                className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Propose New Subcategory</span>
+                <span>Add Subcategory</span>
               </button>
             </div>
 
@@ -487,7 +494,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
               }}
               className="w-full p-3 rounded-xl bg-[#0d0d11] border border-[#27272a] text-white text-xs font-medium focus:border-white transition-colors"
             >
-              <option value="">-- Select Approved Subcategory ({approvedSubcategories.length} available) --</option>
+              <option value="">-- Select Subcategory ({approvedSubcategories.length} available) --</option>
               {approvedSubcategories.map((sub: any) => (
                 <option key={sub.id} value={sub.name}>
                   {sub.name}
@@ -495,86 +502,57 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
               ))}
               {formData.subcategory_name && !approvedSubcategories.some((s: any) => s.name === formData.subcategory_name) && (
                 <option value={formData.subcategory_name}>
-                  {formData.subcategory_name} (Custom / Legacy)
+                  {formData.subcategory_name} (Custom)
                 </option>
               )}
             </select>
 
             {approvedSubcategories.length === 0 && (
               <p className="text-[11px] text-zinc-500 italic">
-                No approved subcategories created under {currentDbMainCat.name} yet. Click &quot;Propose New Subcategory&quot; to submit one for Super Admin review.
+                No subcategories created under {currentDbMainCat.name} yet. Click &quot;+ Add Subcategory&quot; to create one instantly.
               </p>
-            )}
-
-            {/* Seller Proposals list under this category */}
-            {sellerProposals.filter((p: any) => String(p.parent_category_id) === String(currentDbMainCat.id)).length > 0 && (
-              <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
-                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                  Your Subcategory Proposals for {currentDbMainCat.name}
-                </p>
-                <div className="space-y-1.5">
-                  {sellerProposals
-                    .filter((p: any) => String(p.parent_category_id) === String(currentDbMainCat.id))
-                    .map((prop: any) => (
-                      <div key={prop.id} className="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                        <span className="font-semibold text-zinc-200">{prop.proposed_name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                            prop.status === "APPROVED"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                              : prop.status === "REJECTED"
-                              ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                              : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                          }`}>
-                            {prop.status}
-                          </span>
-                          {prop.status === "REJECTED" && prop.rejection_reason && (
-                            <span className="text-[11px] text-zinc-400 italic">({prop.rejection_reason})</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
             )}
           </div>
         )}
 
-        {/* Proposal Modal / Drawer */}
-        {showProposalModal && currentDbMainCat && (
+        {/* Direct Add Subcategory Modal */}
+        {showAddSubcatModal && currentDbMainCat && (
           <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl space-y-3 animate-in fade-in">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-black text-white uppercase tracking-wider">
-                  Propose New Subcategory
+                <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <span>Add New Subcategory</span>
+                  <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    Instant
+                  </span>
                 </h4>
                 <p className="text-[11px] text-zinc-400">
-                  Submitted requests will be reviewed by Super Admin.
+                  Directly adds and selects this subcategory under <strong>{currentDbMainCat.name}</strong>.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowProposalModal(false)}
+                onClick={() => setShowAddSubcatModal(false)}
                 className="text-zinc-400 hover:text-white p-1 rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {proposalAlert && (
+            {subcatAlert && (
               <div className={`p-3 rounded-lg text-xs font-semibold ${
-                proposalAlert.type === "success"
+                subcatAlert.type === "success"
                   ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
                   : "bg-rose-500/10 border border-rose-500/30 text-rose-300"
               }`}>
-                {proposalAlert.text}
+                {subcatAlert.text}
               </div>
             )}
 
-            <form onSubmit={handleProposalSubmit} className="space-y-3">
+            <form onSubmit={handleDirectSubcategoryCreate} className="space-y-3">
               <div>
                 <label className="text-[11px] font-bold text-zinc-400 block mb-1">
-                  Parent Main Category (Locked)
+                  Main Category
                 </label>
                 <input
                   type="text"
@@ -586,40 +564,15 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
 
               <div>
                 <label className="text-[11px] font-bold text-zinc-300 block mb-1">
-                  Proposed Subcategory Name <span className="text-red-400">*</span>
+                  Subcategory Name <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   required
+                  autoFocus
                   placeholder="e.g. Linen Shirts, Smart Watches, Leather Wallets"
-                  value={proposedName}
-                  onChange={(e) => setProposedName(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-700 text-white text-xs focus:border-white transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-zinc-400 block mb-1">
-                  Description (Optional)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Brief description of products in this subcategory..."
-                  value={proposedDesc}
-                  onChange={(e) => setProposedDesc(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-700 text-white text-xs focus:border-white transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-zinc-400 block mb-1">
-                  Reason / Business Context (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Why is this subcategory needed for the marketplace?"
-                  value={proposedReason}
-                  onChange={(e) => setProposedReason(e.target.value)}
+                  value={newSubcatName}
+                  onChange={(e) => setNewSubcatName(e.target.value)}
                   className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-700 text-white text-xs focus:border-white transition-colors"
                 />
               </div>
@@ -627,25 +580,25 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
               <div className="flex items-center justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowProposalModal(false)}
+                  onClick={() => setShowAddSubcatModal(false)}
                   className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-bold hover:bg-zinc-700 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={proposalSubmitting || !proposedName.trim()}
+                  disabled={subcatSubmitting || !newSubcatName.trim()}
                   className="px-4 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  {proposalSubmitting ? (
+                  {subcatSubmitting ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Submitting...</span>
+                      <span>Creating...</span>
                     </>
                   ) : (
                     <>
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Submit to Admin</span>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create & Select</span>
                     </>
                   )}
                 </button>
