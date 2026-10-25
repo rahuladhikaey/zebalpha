@@ -40,7 +40,7 @@ const masterHelpFaqs = [
   },
   {
     question: "How can apparel makers sell on ZEBALPHA?",
-    answer: "Independent apparel brands and manufacturers can register on the Zebalpha Supplier Hub (seller.zebalpha.shop) with 0% commission and automated Shiprocket logistics."
+    answer: "Independent apparel brands and manufacturers can register on the Zebalpha Supplier Hub (seller.zebalpha.shop) with 0% commission and automated express logistics."
   },
   {
     question: "How can I contact customer care directly?",

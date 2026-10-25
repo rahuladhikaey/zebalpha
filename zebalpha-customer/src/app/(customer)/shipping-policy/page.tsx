@@ -86,7 +86,7 @@ export default function ShippingPolicyPage() {
               ZEBALPHA Shipping & Logistics Policy
             </h1>
             <p className="max-w-2xl text-sm sm:text-base leading-relaxed text-neutral-300 font-medium">
-              We partner with India's leading surface and air logistics networks (Shiprocket, BlueDart, Delhivery, and XpressBees) to deliver premium streetwear safely to your doorstep.
+              We partner with India's leading surface and air logistics networks (BlueDart, Delhivery, and XpressBees) to deliver premium streetwear safely to your doorstep.
             </p>
           </div>
 

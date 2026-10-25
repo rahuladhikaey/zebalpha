@@ -79,10 +79,17 @@ export type OrderPayload = {
 export type Category = {
 	id: number | string;
 	name: string;
+	slug?: string;
+	parent_id?: string | null;
 	main_category?: string;
 	description?: string;
 	icon?: string;
+	icon_key?: string | null;
+	icon_url?: string | null;
 	image_url?: string;
+	display_order?: number;
+	is_active?: boolean;
+	show_in_navigation?: boolean;
 };
 
 export type UserProfile = {

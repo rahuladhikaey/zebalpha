@@ -87,11 +87,16 @@ export async function GET() {
             name: title,
             title: title,
             slug: cat.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-            main_category: cat.main_category || "GENERAL",
+            parent_id: cat.parent_id || null,
+            icon_key: cat.icon_key || null,
+            icon_url: cat.icon_url || null,
+            main_category: cat.parent_id ? "SUBCATEGORY" : (cat.main_category || "MAIN"),
             image_url: cat.image_url || null,
             description: cat.description || null,
-            sort_order: typeof cat.sort_order === "number" ? cat.sort_order : 99,
+            sort_order: typeof cat.display_order === "number" ? cat.display_order : (typeof cat.sort_order === "number" ? cat.sort_order : 99),
+            display_order: typeof cat.display_order === "number" ? cat.display_order : 99,
             is_active: cat.is_active !== false,
+            show_in_navigation: cat.show_in_navigation !== false,
             created_at: cat.created_at,
           });
         }
@@ -105,106 +110,31 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { name, main_category, image_url, description, sort_order, is_active } = body;
-
-    if (!name || typeof name !== "string" || !name.trim()) {
-      return NextResponse.json({ success: false, error: "Category / Collection name is required" }, { status: 400 });
-    }
-
-    const cleanName = name.trim();
-    const baseSlug = cleanName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    const uniqueSlug = `${baseSlug || "collection"}-${Date.now().toString(36)}`;
-
-    const payload = {
-      name: cleanName,
-      slug: uniqueSlug,
-      main_category: (main_category || "ALL").trim().toUpperCase(),
-      image_url: image_url || null,
-      description: description || null,
-      sort_order: typeof sort_order === "number" ? sort_order : 0,
-      is_active: is_active !== false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabaseServer
-      .from("categories")
-      .insert([payload])
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, category: data }, { status: 201 });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Failed to create category" }, { status: 500 });
-  }
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Sellers cannot create global categories directly. Please use /api/seller/category-requests to propose new subcategories for Super Admin review."
+    },
+    { status: 403 }
+  );
 }
 
 export async function PUT(request: Request) {
-  try {
-    const body = await request.json();
-    const { id, name, main_category, image_url, description, sort_order, is_active } = body;
-
-    if (!id) {
-      return NextResponse.json({ success: false, error: "Category ID is required" }, { status: 400 });
-    }
-
-    const updatePayload: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (name) updatePayload.name = name.trim();
-    if (main_category) updatePayload.main_category = main_category.trim().toUpperCase();
-    if (image_url !== undefined) updatePayload.image_url = image_url;
-    if (description !== undefined) updatePayload.description = description;
-    if (sort_order !== undefined) updatePayload.sort_order = sort_order;
-    if (is_active !== undefined) updatePayload.is_active = is_active;
-
-    const { data, error } = await supabaseServer
-      .from("categories")
-      .update(updatePayload)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, category: data });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Failed to update category" }, { status: 500 });
-  }
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Sellers cannot modify global marketplace categories directly. Only Super Admin can edit categories."
+    },
+    { status: 403 }
+  );
 }
 
 export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
-    if (!id) {
-      return NextResponse.json({ success: false, error: "Category ID is required" }, { status: 400 });
-    }
-
-    const { error } = await supabaseServer
-      .from("categories")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, message: "Category deleted successfully" });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Failed to delete category" }, { status: 500 });
-  }
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Sellers cannot delete global marketplace categories directly. Only Super Admin can archive categories."
+    },
+    { status: 403 }
+  );
 }

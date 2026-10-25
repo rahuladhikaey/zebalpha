@@ -281,7 +281,7 @@ export function DeliveryEstimateWidget({
                 </p>
                 <p className="text-xs font-medium text-emerald-400 flex items-center gap-1 mt-0.5">
                   <CheckCircle2 className="w-3 h-3 shrink-0" />
-                  Verified Shiprocket Courier • In Stock
+                  In Stock
                 </p>
               </div>
             ) : state.status === "unserviceable" ? (
@@ -291,7 +291,7 @@ export function DeliveryEstimateWidget({
                   Delivery not available
                 </p>
                 <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                  {state.message || `No couriers serviceable to PIN code ${state.pincode}`}
+                  {state.message || `Delivery not serviceable to PIN code ${state.pincode}`}
                 </p>
               </div>
             ) : state.status === "out_of_stock" ? (
@@ -305,7 +305,7 @@ export function DeliveryEstimateWidget({
               <div>
                 <p className="text-sm font-bold text-zinc-300">Delivery estimate unavailable</p>
                 <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                  Location is serviceable; estimated date is pending courier dispatch schedule.
+                  Location is serviceable; estimated date will update upon dispatch.
                 </p>
               </div>
             ) : state.status === "error" ? (

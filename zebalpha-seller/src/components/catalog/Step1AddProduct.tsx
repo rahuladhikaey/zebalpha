@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Upload, X, CheckCircle2, AlertCircle, Layers } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2, Send } from "lucide-react";
 import type { Category } from "@shared/types";
 import {
   DYNAMIC_CATEGORY_CATALOG,
   resolveProductTypeConfig,
 } from "@shared/constants/productAttributeEngine";
 import { compressImageTo100KB } from "@shared/services";
+import { CategoryIconRenderer } from "@/lib/categoryIcons";
 import SizeSpecificDetailsSection, {
   SizeVariantDetail,
   SizeMeasurementDetail,
@@ -134,36 +135,124 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
     return "men";
   }, [formData.category_id, formData.subcategory_name, formData.name, categories]);
 
-  const [selectedMainCat, setSelectedMainCat] = useState<string>(() => inferredMainCat);
-  const [imageError, setImageError] = useState<string>("");
-  const [isCustomSubcategory, setIsCustomSubcategory] = useState<boolean>(false);
-  const [customCategoryName, setCustomCategoryName] = useState<string>("");
+  // 1. Database-driven Main Categories (parent_id IS NULL and active)
+  const dbMainCategories = useMemo(() => {
+    return (categories || []).filter((c: any) => !c.parent_id && c.is_active !== false && c.main_category !== "CURATED");
+  }, [categories]);
 
-  // Sync main category if inferred category changes (e.g. when opening product for edit)
-  useEffect(() => {
-    if (inferredMainCat && inferredMainCat !== selectedMainCat) {
-      setSelectedMainCat(inferredMainCat);
-    }
-  }, [inferredMainCat]);
-
-  // If subcategory is custom or not in presets, auto-enable custom subcategory field
-  useEffect(() => {
-    if (formData.subcategory_name) {
-      const isKnown = DYNAMIC_CATEGORY_CATALOG.some((mainCat) =>
-        mainCat.subcategories.some((sub) =>
-          sub.productTypes.some((pt) => pt.name.toLowerCase() === formData.subcategory_name.toLowerCase())
-        )
-      );
-      if (!isKnown && formData.subcategory_name.trim().length > 0) {
-        setIsCustomSubcategory(true);
+  // Initial main category resolution
+  const [activeMainCatId, setActiveMainCatId] = useState<string>(() => {
+    if (formData.category_id) {
+      const match = (categories || []).find((c: any) => String(c.id) === String(formData.category_id)) as any;
+      if (match) {
+        return match.parent_id ? String(match.parent_id) : String(match.id);
       }
     }
-  }, [formData.subcategory_name]);
+    const firstMain = (categories || []).find((c: any) => !c.parent_id && c.is_active !== false && c.main_category !== "CURATED");
+    return firstMain ? String(firstMain.id) : "";
+  });
+
+  // Current active main category record
+  const currentDbMainCat = useMemo(() => {
+    return dbMainCategories.find((c: any) => String(c.id) === String(activeMainCatId)) || dbMainCategories[0] || null;
+  }, [dbMainCategories, activeMainCatId]);
+
+  // Canonical string key for sizing engine / subcategory fallback
+  const selectedMainCat = useMemo(() => {
+    const slugOrName = (currentDbMainCat?.slug || currentDbMainCat?.name || "men").toLowerCase();
+    if (slugOrName.includes("women") || slugOrName.includes("ladies") || slugOrName.includes("female")) return "women";
+    if (slugOrName.includes("kid") || slugOrName.includes("boy") || slugOrName.includes("girl") || slugOrName.includes("baby")) return "kids";
+    if (slugOrName.includes("home") || slugOrName.includes("kitchen")) return "home";
+    if (slugOrName.includes("electronic") || slugOrName.includes("mobile")) return "electronics";
+    if (slugOrName.includes("beauty") || slugOrName.includes("care")) return "beauty";
+    if (slugOrName.includes("jewel") || slugOrName.includes("bag")) return "jewellery";
+    return "men";
+  }, [currentDbMainCat]);
+
+  // Sync active main category if parent categories change
+  useEffect(() => {
+    if (!activeMainCatId && dbMainCategories.length > 0) {
+      setActiveMainCatId(String(dbMainCategories[0].id));
+    }
+  }, [dbMainCategories, activeMainCatId]);
+
+  // Approved subcategories under current main category
+  const approvedSubcategories = useMemo(() => {
+    if (!currentDbMainCat) return [];
+    return (categories || []).filter((c: any) => String(c.parent_id) === String(currentDbMainCat.id) && c.is_active !== false);
+  }, [categories, currentDbMainCat]);
+
+  // Subcategory proposal state
+  const [showProposalModal, setShowProposalModal] = useState(false);
+  const [proposedName, setProposedName] = useState("");
+  const [proposedDesc, setProposedDesc] = useState("");
+  const [proposedReason, setProposedReason] = useState("");
+  const [proposalSubmitting, setProposalSubmitting] = useState(false);
+  const [proposalAlert, setProposalAlert] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [sellerProposals, setSellerProposals] = useState<any[]>([]);
+
+  const loadSellerProposals = async () => {
+    try {
+      const res = await fetch("/api/seller/category-requests");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.requests)) {
+          setSellerProposals(json.requests);
+        }
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    loadSellerProposals();
+  }, []);
+
+  const handleProposalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentDbMainCat) return;
+    if (!proposedName.trim()) {
+      setProposalAlert({ type: "error", text: "Please enter a valid subcategory name." });
+      return;
+    }
+    setProposalSubmitting(true);
+    setProposalAlert(null);
+    try {
+      const res = await fetch("/api/seller/category-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parent_category_id: currentDbMainCat.id,
+          proposed_name: proposedName.trim(),
+          description: proposedDesc.trim() || undefined,
+          reason: proposedReason.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to submit proposal");
+      }
+      setProposalAlert({
+        type: "success",
+        text: `Proposal for "${proposedName.trim()}" submitted! Super Admin will review it. You can pick an existing subcategory in the meantime.`
+      });
+      setProposedName("");
+      setProposedDesc("");
+      setProposedReason("");
+      loadSellerProposals();
+    } catch (err: any) {
+      setProposalAlert({ type: "error", text: err.message || "Failed to submit proposal" });
+    } finally {
+      setProposalSubmitting(false);
+    }
+  };
+
+  const [imageError, setImageError] = useState<string>("");
 
   // Resolve current active product type configuration dynamically
   const activeProductTypeConfig = useMemo(() => {
-    return resolveProductTypeConfig(selectedMainCat, formData.subcategory_name);
-  }, [selectedMainCat, formData.subcategory_name]);
+    const mainSlugOrName = (currentDbMainCat as any)?.slug || currentDbMainCat?.name || "men";
+    return resolveProductTypeConfig(mainSlugOrName, formData.subcategory_name);
+  }, [currentDbMainCat, formData.subcategory_name]);
 
   const hasSizingSystem = activeProductTypeConfig.sizingSystem !== "none";
 
@@ -297,130 +386,273 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         </div>
       </div>
 
-      {/* Meesho-Style Comprehensive Category & Subcategory Selection */}
-      <div className="space-y-3 p-4 rounded-xl bg-[#141418] border border-[#27272a]">
+      {/* Centralized Database-Driven Category & Subcategory Selection */}
+      <div className="space-y-4 p-5 rounded-2xl bg-[#141418] border border-[#27272a]">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-zinc-200 flex items-center gap-1">
-            Product Main Category & Subcategory <span className="text-red-400">*</span>
-          </label>
-          <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-            <span>✨</span> ZEBALPHA Smart Engine
+          <div>
+            <label className="text-sm font-bold text-white flex items-center gap-1.5">
+              <span>Main Marketplace Category</span>
+              <span className="text-red-400">*</span>
+            </label>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Admin-curated marketplace hierarchy. Select the main department for your product.
+            </p>
+          </div>
+          <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-black bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+            <span>✨</span> Synchronized Taxonomy
           </span>
         </div>
 
-        {/* Main Category Selector Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-          {DYNAMIC_CATEGORY_CATALOG.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => {
-                setSelectedMainCat(cat.id);
-                if (cat.id === "custom") {
-                  setIsCustomSubcategory(true);
-                } else {
-                  setIsCustomSubcategory(false);
-                }
-              }}
-              className={`py-2 px-2.5 rounded-lg border text-xs font-bold transition-all text-center truncate flex items-center justify-center gap-1.5 ${
-                selectedMainCat === cat.id
-                  ? "bg-white text-black border-white shadow-md shadow-white/10"
-                  : "bg-[#0d0d11] text-zinc-300 border-[#27272a] hover:border-zinc-500"
-              }`}
-            >
-              <span>{cat.icon || "📦"}</span>
-              <span className="truncate">{cat.name}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Custom Category Input if Custom Tab selected */}
-        {selectedMainCat === "custom" && (
-          <div className="pt-2">
-            <label className="text-xs font-semibold text-zinc-400 block mb-1">
-              Enter Custom Category Name (e.g. Handicrafts, Organic Food, Pet Supplies)
-            </label>
-            <input
-              type="text"
-              value={customCategoryName}
-              onChange={(e) => {
-                setCustomCategoryName(e.target.value);
-                const foundCat = categories.find((c) => c.name.toLowerCase().includes(e.target.value.toLowerCase())) || categories[0];
-                onChange({
-                  category_id: foundCat ? String(foundCat.id) : formData.category_id,
-                });
-              }}
-              placeholder="e.g. Handicrafts & Decor"
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white transition-colors"
-            />
+        {/* Real Main Categories Grid */}
+        {dbMainCategories.length === 0 ? (
+          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 text-center">
+            <p className="text-xs text-zinc-400 font-medium">
+              No active main categories found in database. Contact Super Admin to configure categories.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+            {dbMainCategories.map((cat: any) => {
+              const isSelected = String(activeMainCatId) === String(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveMainCatId(String(cat.id));
+                    onChange({
+                      category_id: String(cat.id),
+                      subcategory_id: "",
+                      subcategory_name: "",
+                    });
+                  }}
+                  className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all text-left flex items-center gap-2.5 cursor-pointer ${
+                    isSelected
+                      ? "bg-white text-black border-white shadow-lg shadow-white/10"
+                      : "bg-[#0d0d11] text-zinc-300 border-[#27272a] hover:border-zinc-500 hover:text-white"
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-lg shrink-0 ${isSelected ? "bg-black/10" : "bg-zinc-900 border border-zinc-800"}`}>
+                    <CategoryIconRenderer
+                      iconKey={cat.icon_key}
+                      iconUrl={cat.icon_url}
+                      className={isSelected ? "text-black" : "text-zinc-300"}
+                      size={18}
+                    />
+                  </div>
+                  <span className="truncate">{cat.name}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {/* Subcategory Selector & Custom Input Option */}
-        <div className="space-y-2 pt-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-400">
-              {isCustomSubcategory ? "Type Custom Product Type / Subcategory Name:" : "Select Apparel Type / Subcategory:"}
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsCustomSubcategory(!isCustomSubcategory)}
-              className="text-xs text-indigo-400 hover:underline font-medium"
-            >
-              {isCustomSubcategory ? "← Pick from Preset Subcategories" : "+ Add Custom Subcategory Name"}
-            </button>
-          </div>
+        {/* Subcategory Selection & Proposal Section */}
+        {currentDbMainCat && (
+          <div className="pt-2 border-t border-zinc-800/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-zinc-300 flex items-center gap-1">
+                  Subcategory under {currentDbMainCat.name} <span className="text-red-400">*</span>
+                </label>
+                <p className="text-[11px] text-zinc-500">
+                  Select an approved subcategory, or propose a new one if not listed.
+                </p>
+              </div>
 
-          {!isCustomSubcategory ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProposalModal(true);
+                  setProposalAlert(null);
+                }}
+                className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Propose New Subcategory</span>
+              </button>
+            </div>
+
+            {/* Approved Subcategories Dropdown */}
             <select
               value={formData.subcategory_name || ""}
               onChange={(e) => {
-                const subName = e.target.value;
-                if (subName === "__OTHER__") {
-                  setIsCustomSubcategory(true);
-                  return;
-                }
-                const foundCat = categories.find((c) => c.name.toLowerCase().includes(subName.toLowerCase())) || categories[0];
+                const selectedName = e.target.value;
+                const matchedSub = approvedSubcategories.find((s: any) => s.name === selectedName);
                 onChange({
-                  subcategory_name: subName,
-                  category_id: foundCat ? String(foundCat.id) : formData.category_id,
+                  category_id: String(currentDbMainCat.id),
+                  subcategory_id: matchedSub ? String(matchedSub.id) : "",
+                  subcategory_name: selectedName,
                 });
               }}
-              className="w-full p-3 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white transition-colors"
+              className="w-full p-3 rounded-xl bg-[#0d0d11] border border-[#27272a] text-white text-xs font-medium focus:border-white transition-colors"
             >
-              <option value="">-- Select Product Type / Category Specifics --</option>
-              {activeProductTypesList.map((pt, idx) => (
-                <option key={idx} value={pt.name}>
-                  {pt.group}: {pt.name}
+              <option value="">-- Select Approved Subcategory ({approvedSubcategories.length} available) --</option>
+              {approvedSubcategories.map((sub: any) => (
+                <option key={sub.id} value={sub.name}>
+                  {sub.name}
                 </option>
               ))}
-              {formData.subcategory_name &&
-                !activeProductTypesList.some((pt) => pt.name.toLowerCase() === formData.subcategory_name.toLowerCase()) && (
-                  <option value={formData.subcategory_name}>
-                    {formData.subcategory_name}
-                  </option>
+              {formData.subcategory_name && !approvedSubcategories.some((s: any) => s.name === formData.subcategory_name) && (
+                <option value={formData.subcategory_name}>
+                  {formData.subcategory_name} (Custom / Legacy)
+                </option>
               )}
-              <option value="__OTHER__">+ Write Custom Product Type...</option>
             </select>
-          ) : (
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={formData.subcategory_name || ""}
-                onChange={(e) => {
-                  const subName = e.target.value;
-                  const foundCat = categories.find((c) => c.name.toLowerCase().includes(subName.toLowerCase())) || categories[0];
-                  onChange({
-                    subcategory_name: subName,
-                    category_id: foundCat ? String(foundCat.id) : formData.category_id,
-                  });
-                }}
-                placeholder="e.g. Designer Chaniya Choli, Wireless Earbuds, Ceramic Vases..."
-                className="w-full p-3 rounded-lg bg-[#0d0d11] border border-emerald-500/50 text-white text-sm focus:border-emerald-400 transition-colors"
-              />
+
+            {approvedSubcategories.length === 0 && (
+              <p className="text-[11px] text-zinc-500 italic">
+                No approved subcategories created under {currentDbMainCat.name} yet. Click &quot;Propose New Subcategory&quot; to submit one for Super Admin review.
+              </p>
+            )}
+
+            {/* Seller Proposals list under this category */}
+            {sellerProposals.filter((p: any) => String(p.parent_category_id) === String(currentDbMainCat.id)).length > 0 && (
+              <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                  Your Subcategory Proposals for {currentDbMainCat.name}
+                </p>
+                <div className="space-y-1.5">
+                  {sellerProposals
+                    .filter((p: any) => String(p.parent_category_id) === String(currentDbMainCat.id))
+                    .map((prop: any) => (
+                      <div key={prop.id} className="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                        <span className="font-semibold text-zinc-200">{prop.proposed_name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                            prop.status === "APPROVED"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              : prop.status === "REJECTED"
+                              ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                          }`}>
+                            {prop.status}
+                          </span>
+                          {prop.status === "REJECTED" && prop.rejection_reason && (
+                            <span className="text-[11px] text-zinc-400 italic">({prop.rejection_reason})</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Proposal Modal / Drawer */}
+        {showProposalModal && currentDbMainCat && (
+          <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                  Propose New Subcategory
+                </h4>
+                <p className="text-[11px] text-zinc-400">
+                  Submitted requests will be reviewed by Super Admin.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowProposalModal(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          )}
-        </div>
+
+            {proposalAlert && (
+              <div className={`p-3 rounded-lg text-xs font-semibold ${
+                proposalAlert.type === "success"
+                  ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+                  : "bg-rose-500/10 border border-rose-500/30 text-rose-300"
+              }`}>
+                {proposalAlert.text}
+              </div>
+            )}
+
+            <form onSubmit={handleProposalSubmit} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-zinc-400 block mb-1">
+                  Parent Main Category (Locked)
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={currentDbMainCat.name}
+                  className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-400 text-xs font-semibold cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-zinc-300 block mb-1">
+                  Proposed Subcategory Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Linen Shirts, Smart Watches, Leather Wallets"
+                  value={proposedName}
+                  onChange={(e) => setProposedName(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-700 text-white text-xs focus:border-white transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-zinc-400 block mb-1">
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Brief description of products in this subcategory..."
+                  value={proposedDesc}
+                  onChange={(e) => setProposedDesc(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-700 text-white text-xs focus:border-white transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-zinc-400 block mb-1">
+                  Reason / Business Context (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Why is this subcategory needed for the marketplace?"
+                  value={proposedReason}
+                  onChange={(e) => setProposedReason(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-700 text-white text-xs focus:border-white transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowProposalModal(false)}
+                  className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-bold hover:bg-zinc-700 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={proposalSubmitting || !proposedName.trim()}
+                  className="px-4 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-black uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {proposalSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Submit to Admin</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Multi-Image Upload */}

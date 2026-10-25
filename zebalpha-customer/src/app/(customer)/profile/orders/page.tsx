@@ -763,9 +763,8 @@ export default function MyOrdersPage() {
                         </div>
                         {order.tracking_number && !isCancelled && (
                           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/60 border border-purple-500/30 text-purple-300 text-[10px] font-bold">
-                            <span>🚚 {order.courier_name || "Express Logistics"}</span>
-                            <span className="text-zinc-500">•</span>
-                            <span className="font-mono font-black text-white">AWB: {order.tracking_number}</span>
+                            <span>🚚 AWB:</span>
+                            <span className="font-mono font-black text-white">{order.tracking_number}</span>
                           </div>
                         )}
                       </div>
@@ -1445,8 +1444,8 @@ export default function MyOrdersPage() {
                       </h5>
                       <p className="text-[11px] text-zinc-400 mt-0.5">
                         {trackingModalOrder.return_tracking_number
-                          ? `Courier AWB: ${trackingModalOrder.return_tracking_number} (${trackingModalOrder.return_courier_name || "Delhivery Express"})`
-                          : "Courier agent will pick up from your delivery address."}
+                          ? `Return AWB: ${trackingModalOrder.return_tracking_number}`
+                          : "Delivery agent will pick up from your delivery address."}
                       </p>
                     </div>
                   </div>

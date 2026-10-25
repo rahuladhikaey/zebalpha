@@ -6,6 +6,8 @@ import {
   updateProduct,
   deleteProduct,
   getCategories,
+  getNavigationCategories,
+  getSubcategories,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -19,6 +21,8 @@ const router = Router();
 // Public Product & Category routes
 router.get('/', getProducts);
 router.get('/categories', getCategories);
+router.get('/categories/navigation', getNavigationCategories);
+router.get('/categories/:id/subcategories', getSubcategories);
 router.get('/cache/metrics', getCacheDiagnostics);
 router.get('/:id', getProductById);
 

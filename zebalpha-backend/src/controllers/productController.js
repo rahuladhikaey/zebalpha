@@ -1,6 +1,7 @@
 import { supabaseA } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
 import { cacheService } from '../services/cacheService.js';
+import { resolveCategoryIcon } from '../constants/categoryIcons.js';
 
 /**
  * Public Product Listing & Search Controller (High-Performance Slim DTO + Cursor Pagination)
@@ -327,16 +328,42 @@ export const deleteProduct = async (req, res, next) => {
  */
 export const getCategories = async (req, res, next) => {
   try {
-    const cacheKey = 'categories:all';
+    const { includeHierarchy = 'false', activeOnly = 'true' } = req.query;
+    const cacheKey = `categories:all:active:${activeOnly}:hierarchy:${includeHierarchy}`;
 
     const { data, source } = await cacheService.fetchOrCache(cacheKey, async () => {
-      const { data: dbCategories, error } = await supabaseA
+      let query = supabaseA
         .from('categories')
         .select('*')
+        .order('display_order', { ascending: true })
         .order('name', { ascending: true });
 
+      if (activeOnly === 'true') {
+        query = query.or('is_active.is.null,is_active.eq.true');
+      }
+
+      const { data: dbCategories, error } = await query;
       if (error) throw error;
-      return dbCategories || [];
+
+      const normalized = (dbCategories || []).map((cat) => {
+        if (!cat.icon_key || cat.icon_key === 'package') {
+          const resolved = resolveCategoryIcon(cat.name, cat.icon_key, cat.icon_source);
+          return { ...cat, icon_key: resolved.icon_key, icon_source: cat.icon_source || resolved.icon_source };
+        }
+        return cat;
+      });
+
+      if (includeHierarchy === 'true') {
+        const mainCategories = normalized.filter((c) => !c.parent_id);
+        const subcategories = normalized.filter((c) => !!c.parent_id);
+
+        return mainCategories.map((main) => ({
+          ...main,
+          subcategories: subcategories.filter((sub) => String(sub.parent_id) === String(main.id))
+        }));
+      }
+
+      return normalized;
     }, cacheService.categoriesTtl);
 
     res.setHeader('X-Cache', source === 'cache' ? 'HIT' : 'MISS');
@@ -346,13 +373,118 @@ export const getCategories = async (req, res, next) => {
   }
 };
 
-export const createCategory = async (req, res, next) => {
+/**
+ * Public Customer Navigation Categories Controller
+ * Returns active Main Categories enabled for navigation in admin-configured order.
+ */
+export const getNavigationCategories = async (req, res, next) => {
   try {
-    const { name } = req.body;
-    const { data, error } = await supabaseA.from('categories').insert([{ name: name?.trim() }]).select();
+    const cacheKey = 'categories:navigation:public';
+
+    const { data, source } = await cacheService.fetchOrCache(cacheKey, async () => {
+      const { data: dbCategories, error } = await supabaseA
+        .from('categories')
+        .select('id, name, slug, icon_key, icon_url, icon_source, image_url, description, display_order, is_active, show_in_navigation')
+        .is('parent_id', null)
+        .or('is_active.is.null,is_active.eq.true')
+        .or('show_in_navigation.is.null,show_in_navigation.eq.true')
+        .order('display_order', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      return (dbCategories || []).map((cat) => {
+        const resolved = resolveCategoryIcon(cat.name, cat.icon_key, cat.icon_source);
+        return {
+          ...cat,
+          icon_key: cat.icon_key && cat.icon_source === 'ADMIN' ? cat.icon_key : resolved.icon_key,
+          icon_source: cat.icon_source || resolved.icon_source
+        };
+      });
+    }, cacheService.categoriesTtl || 600);
+
+    res.setHeader('X-Cache', source === 'cache' ? 'HIT' : 'MISS');
+    res.status(HTTP_STATUS.OK).json({ success: true, data, cacheSource: source });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Get Subcategories for given Category ID
+ */
+export const getSubcategories = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Category ID is required' });
+    }
+
+    const { data: subcats, error } = await supabaseA
+      .from('categories')
+      .select('*')
+      .eq('parent_id', id)
+      .or('is_active.is.null,is_active.eq.true')
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true });
+
     if (error) throw error;
 
-    const saved = data?.[0] || { name: name?.trim() };
+    res.status(HTTP_STATUS.OK).json({ success: true, data: subcats || [] });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Super Admin: Create Category with Automatic Icon Assignment
+ */
+export const createCategory = async (req, res, next) => {
+  try {
+    const {
+      name,
+      slug,
+      description,
+      parent_id,
+      icon_key,
+      icon_url,
+      icon_source,
+      image_url,
+      display_order = 0,
+      show_in_navigation = true,
+      is_active = true
+    } = req.body;
+
+    const trimmedName = (name || '').trim();
+    if (!trimmedName) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: 'Category name is required' });
+    }
+
+    // Auto-generate slug if not provided
+    const computedSlug = (slug || trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+
+    // Auto-resolve icon if not provided or source is AUTO
+    const iconResolution = resolveCategoryIcon(trimmedName, icon_key, icon_source);
+
+    const payload = {
+      name: trimmedName,
+      slug: computedSlug,
+      description: description || null,
+      parent_id: parent_id || null,
+      icon_key: icon_key && icon_source === 'ADMIN' ? icon_key : iconResolution.icon_key,
+      icon_url: icon_url || null,
+      icon_source: icon_source === 'ADMIN' ? 'ADMIN' : iconResolution.icon_source,
+      image_url: image_url || null,
+      display_order: parseInt(display_order, 10) || 0,
+      show_in_navigation: show_in_navigation !== false,
+      is_active: is_active !== false,
+      created_by: req.user?.id || null
+    };
+
+    const { data, error } = await supabaseA.from('categories').insert([payload]).select();
+    if (error) throw error;
+
+    const saved = data?.[0] || payload;
 
     // Invalidate categories cache
     await cacheService.invalidateCategoryCache();
@@ -363,14 +495,58 @@ export const createCategory = async (req, res, next) => {
   }
 };
 
+/**
+ * Super Admin: Update Category
+ */
 export const updateCategory = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
-    const { data, error } = await supabaseA.from('categories').update({ name: name?.trim() }).eq('id', id).select();
+    const {
+      name,
+      slug,
+      description,
+      parent_id,
+      icon_key,
+      icon_url,
+      icon_source,
+      image_url,
+      display_order,
+      show_in_navigation,
+      is_active
+    } = req.body;
+
+    const updates = {};
+    if (name !== undefined) updates.name = name.trim();
+    if (slug !== undefined) updates.slug = slug.trim();
+    if (description !== undefined) updates.description = description;
+    if (parent_id !== undefined) updates.parent_id = parent_id || null;
+    if (image_url !== undefined) updates.image_url = image_url;
+    if (icon_url !== undefined) updates.icon_url = icon_url;
+    if (display_order !== undefined) updates.display_order = parseInt(display_order, 10) || 0;
+    if (show_in_navigation !== undefined) updates.show_in_navigation = !!show_in_navigation;
+    if (is_active !== undefined) updates.is_active = !!is_active;
+
+    // Handle icon logic
+    if (icon_key !== undefined) {
+      updates.icon_key = icon_key;
+      updates.icon_source = icon_source || 'ADMIN';
+    } else if (name && (!icon_source || icon_source === 'AUTO')) {
+      const iconRes = resolveCategoryIcon(name);
+      updates.icon_key = iconRes.icon_key;
+      updates.icon_source = iconRes.icon_source;
+    }
+
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabaseA
+      .from('categories')
+      .update(updates)
+      .eq('id', id)
+      .select();
+
     if (error) throw error;
 
-    const updated = data?.[0] || { id, name: name?.trim() };
+    const updated = data?.[0] || { id, ...updates };
 
     // Invalidate categories cache
     await cacheService.invalidateCategoryCache();
@@ -381,9 +557,41 @@ export const updateCategory = async (req, res, next) => {
   }
 };
 
+/**
+ * Super Admin: Safe Archive or Delete Category
+ * Never permanently deletes if referenced by products!
+ */
 export const deleteCategory = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { permanent = 'false' } = req.query;
+
+    // Check if products reference this category
+    const { count, error: countErr } = await supabaseA
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .or(`category_id.eq.${id},subcategory_id.eq.${id}`);
+
+    if (countErr) throw countErr;
+
+    if (count && count > 0 && permanent !== 'force') {
+      // Safe Archive: Soft deactivate so products keep historical referential integrity
+      const { error: archiveErr } = await supabaseA
+        .from('categories')
+        .update({ is_active: false, show_in_navigation: false, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (archiveErr) throw archiveErr;
+
+      await cacheService.invalidateCategoryCache();
+
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        archived: true,
+        message: `Category is referenced by ${count} products. It was safely archived and hidden without breaking historical product catalog records.`
+      });
+    }
+
     const { error } = await supabaseA.from('categories').delete().eq('id', id);
     if (error) throw error;
 

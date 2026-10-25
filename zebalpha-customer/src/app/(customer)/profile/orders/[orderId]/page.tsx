@@ -1108,10 +1108,10 @@ interface TimelineStep {
                     {
                       label: "Dispatched / In Transit",
                       desc: order.tracking_number
-                        ? `Handed over to ${order.courier_name || "Express Courier"} • AWB: ${order.tracking_number}`
+                        ? `Package dispatched • AWB: ${order.tracking_number}`
                         : isShip
                         ? "In transit via express logistics surface/air route."
-                        : "Express courier partner (Delhivery / Shadowfax / Xpressbees) will pick up package.",
+                        : "Package is being prepared for dispatch.",
                       time: isShip && order.updated_at ? new Date(order.updated_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : undefined,
                       done: isShip,
                       active: isShip && !isOut,
@@ -1181,8 +1181,8 @@ interface TimelineStep {
                 <div className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Courier Partner</p>
-                      <p className="text-sm font-black text-white">{order.courier_name || "Express Logistics Partner"}</p>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Shipment Mode</p>
+                      <p className="text-sm font-black text-white">Express Delivery</p>
                     </div>
 
                     <div>
@@ -1222,7 +1222,7 @@ interface TimelineStep {
                         </span>
                       </p>
                       <p className="text-[11px] text-zinc-400 pt-0.5">
-                        Delhivery • Shadowfax • Xpressbees • Blue Dart
+                        Surface & Air Logistics Fulfillment
                       </p>
                     </div>
 
@@ -1837,8 +1837,8 @@ interface TimelineStep {
             <div className="space-y-3 text-xs">
               <div className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 flex justify-between items-center">
                 <div>
-                  <p className="text-zinc-400 font-bold uppercase text-[10px]">Courier Partner</p>
-                  <p className="font-black text-white">{order.courier_name || "Express Logistics"}</p>
+                  <p className="text-zinc-400 font-bold uppercase text-[10px]">Shipment Status</p>
+                  <p className="font-black text-white">In Transit</p>
                 </div>
                 <div className="text-right">
                   <p className="text-zinc-400 font-bold uppercase text-[10px]">AWB</p>

@@ -190,7 +190,8 @@ export default function SellerProducts() {
           .order("created_at", { ascending: false }),
         supabase
           .from("categories")
-          .select("id, name, main_category")
+          .select("id, name, slug, parent_id, icon_key, icon_url, display_order, is_active, show_in_navigation")
+          .order("display_order", { ascending: true })
           .order("name", { ascending: true }),
         supabase
           .from("curated_collections")
@@ -219,30 +220,25 @@ export default function SellerProducts() {
       const catItems = (categoriesRes?.data || []).map((cat: any) => ({
         id: cat.id,
         name: cat.name,
-        main_category: cat.main_category || "GENERAL"
+        slug: cat.slug,
+        parent_id: cat.parent_id,
+        icon_key: cat.icon_key,
+        icon_url: cat.icon_url,
+        is_active: cat.is_active,
+        show_in_navigation: cat.show_in_navigation,
+        display_order: cat.display_order,
+        main_category: cat.parent_id ? "SUBCATEGORY" : "MAIN"
       }));
 
       const seenCat = new Set<string>();
       let finalCategories: any[] = [];
       [...curatedItems, ...catItems].forEach((item) => {
-        const k = (item.name || "").toLowerCase().trim();
+        const k = (item.id || item.name || "").toLowerCase().trim();
         if (k && !seenCat.has(k)) {
           seenCat.add(k);
           finalCategories.push(item);
         }
       });
-
-      if (finalCategories.length === 0) {
-        finalCategories = [
-          { id: "", name: "Premium Polos", main_category: "Polos & Tees" },
-          { id: "", name: "Oversized Streetwear Tees", main_category: "Polos & Tees" },
-          { id: "", name: "Heavyweight Hoodies", main_category: "Hoodies & Jackets" },
-          { id: "", name: "Casual Collared Shirts", main_category: "Shirts" },
-          { id: "", name: "Streetwear Cargo & Bottoms", main_category: "Bottoms" },
-          { id: "", name: "Limited Edition Drops", main_category: "Limited" },
-          { id: "", name: "Accessories & Headwear", main_category: "Accessories" }
-        ];
-      }
 
       const mappedProducts: Product[] = productsData.map((p: any) => {
         const specs = p.specifications || {};

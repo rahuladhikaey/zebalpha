@@ -144,7 +144,7 @@ function OrderSuccessContent() {
               <div className="h-4 w-4 rounded-full bg-zinc-400 mt-1 ring-8 ring-zinc-800 animate-pulse" />
               <div>
                 <h4 className="font-black text-sm uppercase text-white">Dispatch Center</h4>
-                <p className="text-xs text-zinc-400 font-medium mt-1">Admin is reviewing your order for shipment via Shiprocket.</p>
+                <p className="text-xs text-zinc-400 font-medium mt-1">Fulfillment team is preparing your order for express dispatch.</p>
               </div>
             </div>
 

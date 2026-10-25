@@ -95,6 +95,7 @@ const EditorialCardsView = dynamic(() => import("@/components/admin/EditorialCar
 const CuratedCollectionsView = dynamic(() => import("@/components/admin/CuratedCollectionsView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const SupportDeskView = dynamic(() => import("@/components/admin/SupportDeskView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const AeoGeoManagementView = dynamic(() => import("@/components/admin/AeoGeoManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const CategoryManagementView = dynamic(() => import("@/components/admin/CategoryManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 
 export default function AdminPage() {
   const router = useRouter();
@@ -127,6 +128,7 @@ export default function AdminPage() {
     "dashboard",
     "sellers",
     "products",
+    "categories",
     "curated-collections",
     "editorial-cards",
     "inventory",
@@ -303,6 +305,7 @@ export default function AdminPage() {
     { id: 'dashboard', label: 'Overview & Analytics', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z' },
     { id: 'sellers', label: 'Seller Management', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
     { id: 'products', label: 'Product Approvals', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' },
+    { id: 'categories', label: 'Categories & Taxonomy', badge: 'DYNAMIC', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
     { id: 'curated-collections', label: 'Curated Collections', badge: 'HOMEPAGE', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
     { id: 'editorial-cards', label: 'Woven Editorial Cards', badge: 'HOMEPAGE', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
     { id: 'inventory', label: 'Inventory Monitoring', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
@@ -508,6 +511,7 @@ export default function AdminPage() {
                   onRefresh={fetchData}
                 />
               )}
+              {tab === "categories" && <CategoryManagementView onRefresh={fetchData} />}
               {tab === "curated-collections" && <CuratedCollectionsView />}
               {tab === "editorial-cards" && <EditorialCardsView />}
               {tab === "inventory" && (

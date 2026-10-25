@@ -1184,6 +1184,11 @@ export default function CatalogUploadWizardModal({
         primaryCatId = String(categories[0].id).trim();
       }
 
+      let resolvedSubcatId: string | null = null;
+      if (isValidUuid(form.subcategory_id)) {
+        resolvedSubcatId = String(form.subcategory_id).trim();
+      }
+
       const hasSizeDetails = form.size_details && form.size_details.length > 0;
       const hasVariants = form.has_variants && processedVariants.length > 0;
 
@@ -1317,6 +1322,7 @@ export default function CatalogUploadWizardModal({
         price: effectivePrice,
         mrp: effectiveMrp,
         category_id: primaryCatId,
+        subcategory_id: resolvedSubcatId,
         image_url: finalProductCover,
         images: defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList,
         default_color: activeDefaultCol,
@@ -1389,6 +1395,7 @@ export default function CatalogUploadWizardModal({
           price: effectivePrice,
           mrp: effectiveMrp,
           category_id: primaryCatId,
+          subcategory_id: resolvedSubcatId,
           image_url: coverImageUrl,
           images: uploadedImagesList,
           specifications: specificationsData,

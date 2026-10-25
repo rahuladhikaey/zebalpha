@@ -144,7 +144,7 @@ export async function getShiprocketOrFallbackEDD(params: {
                 formatted_date: formattedDate,
                 display_text: `Delivery by ${formattedDate}`,
                 edd_source: "SHIPROCKET",
-                courier_name: bestCourier.courier_name || "Shiprocket Verified Courier",
+                courier_name: bestCourier.courier_name || "Express Delivery Partner",
                 transit_days: transitDays,
               };
             }

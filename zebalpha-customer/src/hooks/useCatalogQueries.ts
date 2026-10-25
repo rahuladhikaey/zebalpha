@@ -45,7 +45,29 @@ export function normalizeQueryString(str?: string): string {
  */
 export async function fetchCanonicalCategories(): Promise<Category[]> {
   try {
-    // 1. Prioritize real admin-managed Curated Collections (e.g. FLOWER)
+    // 1. Fetch real active Main Categories from categories table
+    const { data: catData, error: catErr } = await supabase
+      .from("categories")
+      .select("id, name, slug, icon_key, icon_url, icon_source, image_url, description, display_order, is_active, show_in_navigation, parent_id")
+      .is("parent_id", null)
+      .or("is_active.is.null,is_active.eq.true")
+      .order("display_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (!catErr && catData && catData.length > 0) {
+      return catData.map((c) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        icon: c.icon_key,
+        icon_key: c.icon_key,
+        icon_url: c.icon_url,
+        image_url: c.image_url,
+        is_active: c.is_active !== false,
+      })) as Category[];
+    }
+
+    // 2. Fallback to curated collections if categories table is empty
     const { data: curatedData, error: curatedErr } = await supabase
       .from("curated_collections")
       .select("id, title, slug, image_url, display_order, is_active")
@@ -60,19 +82,6 @@ export async function fetchCanonicalCategories(): Promise<Category[]> {
         image_url: c.image_url,
         is_active: true,
       })) as Category[];
-    }
-
-    // 2. Fallback to standard categories table (ignoring any test records)
-    const { data, error } = await supabase
-      .from("categories")
-      .select("id, name, slug, icon, image_url, main_category, description, sort_order, is_active")
-      .neq("is_active", false)
-      .not("name", "ilike", "%jhb%")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
-
-    if (!error && data && data.length > 0) {
-      return data as Category[];
     }
   } catch (err) {
     console.error("Error in fetchCanonicalCategories:", err);
@@ -359,9 +368,10 @@ export function doesProductMatchCategory(product: any, categoryNameOrId: string 
   const target = String(categoryNameOrId).toLowerCase().trim().replace(/-/g, " ");
   if (!target || target === "all") return true;
 
-  // Direct category_id match
+  // Direct category_id or subcategory_id match
   const pCatId = String(product.category_id || "").toLowerCase().trim();
-  if (pCatId && pCatId === target) return true;
+  const pSubcatId = String(product.subcategory_id || "").toLowerCase().trim();
+  if ((pCatId && pCatId === target) || (pSubcatId && pSubcatId === target)) return true;
 
   const pName = (product.name || "").toLowerCase();
   const pDesc = (product.description || "").toLowerCase();
@@ -662,7 +672,22 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       const isNum = !isNaN(Number(cat));
 
       if (isUuid) {
-        query = query.eq("category_id", cat);
+        let catIds = [cat];
+        try {
+          const { data: subcats } = await supabase
+            .from("categories")
+            .select("id")
+            .eq("parent_id", cat);
+          if (subcats && subcats.length > 0) {
+            catIds.push(...subcats.map((s: any) => s.id));
+          }
+        } catch (_) {}
+
+        if (catIds.length === 1) {
+          query = query.or(`category_id.eq.${cat},subcategory_id.eq.${cat}`);
+        } else {
+          query = query.or(`category_id.in.(${catIds.join(",")}),subcategory_id.in.(${catIds.join(",")})`);
+        }
       } else if (isNum) {
         query = query.eq("category_id", Number(cat));
       } else {

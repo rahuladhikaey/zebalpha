@@ -9,6 +9,10 @@ import {
   purgeExpiredDeletions,
   getSellerMetrics
 } from '../controllers/sellerController.js';
+import {
+  submitCategoryRequest,
+  getSellerCategoryRequests
+} from '../controllers/categoryRequestController.js';
 import { authenticateJWT, requireRole } from '../middleware/auth.js';
 import { ROLES } from '../constants/index.js';
 
@@ -18,6 +22,10 @@ router.post('/register', authenticateJWT, registerSeller);
 router.get('/pickup-locations/:sellerId', authenticateJWT, getPickupLocations);
 router.post('/support-tickets', authenticateJWT, requireRole([ROLES.SELLER]), createSupportTicket);
 router.post('/inventory', authenticateJWT, requireRole([ROLES.SELLER]), updateSellerInventory);
+
+// Seller Subcategory Request & Proposal Engine
+router.post('/category-requests', authenticateJWT, requireRole([ROLES.SELLER]), submitCategoryRequest);
+router.get('/category-requests', authenticateJWT, requireRole([ROLES.SELLER]), getSellerCategoryRequests);
 
 // Canonical Seller Analytics & Financial Metrics
 router.get('/metrics', authenticateJWT, requireRole([ROLES.SELLER, ROLES.SUPER_ADMIN]), getSellerMetrics);

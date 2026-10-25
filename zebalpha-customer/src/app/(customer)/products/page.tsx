@@ -17,6 +17,7 @@ import { Search, ShoppingBag, Sparkles } from "lucide-react";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 import { useCategories, usePaginatedProducts, useDebounce, DEFAULT_CLOTHING_CATEGORIES, getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 import { useQueryClient } from "@tanstack/react-query";
+import { CategoryIconRenderer } from "@/lib/categoryIcons";
 
 const getCategoryEmojiOrIcon = (name: string) => {
   const lower = (name || "").toLowerCase();
@@ -207,7 +208,12 @@ function ProductsContent() {
                     {category.image_url ? (
                       <Image src={category.image_url} alt={category.name} fill className="object-cover" unoptimized />
                     ) : (
-                      <span className="text-xl sm:text-2xl select-none">{emoji}</span>
+                      <CategoryIconRenderer
+                        iconKey={(category as any).icon_key || category.icon}
+                        iconUrl={(category as any).icon_url}
+                        size={22}
+                        className={isActive ? "text-white" : "text-zinc-400 group-hover:text-white"}
+                      />
                     )}
                   </div>
                   <span className={`mt-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-center max-w-[80px] line-clamp-2 px-1 transition-colors duration-300 ${
