@@ -13,6 +13,7 @@ import {
   Layers,
   Save,
   Eye,
+  EyeOff,
   Sliders,
   Flame,
   ArrowRight
@@ -246,7 +247,9 @@ export default function PromotionsStudioView() {
         setStatusMessage(
           targetStatus === "published"
             ? "🚀 Showcase successfully published live to Storefront & Mobile App!"
-            : "Campaign settings saved successfully."
+            : targetStatus === "paused"
+            ? "👁️‍🗨️ Showcase is now HIDDEN from Storefront & Mobile App."
+            : "Campaign settings saved as draft (Hidden)."
         );
       } else {
         setErrorMessage(json.message || "Failed to update campaign");
@@ -386,35 +389,115 @@ export default function PromotionsStudioView() {
                         : "bg-zinc-500"
                     }`}
                   />
-                  {status.toUpperCase()}
+                  {status === "published"
+                    ? "LIVE ON STORE"
+                    : status === "paused"
+                    ? "HIDDEN"
+                    : "DRAFT"}
                 </span>
+
+                {/* Quick Hide/Show Toggle Icon Button */}
+                <button
+                  type="button"
+                  onClick={() => handleSaveCampaign(status === "published" ? "paused" : "published")}
+                  disabled={savingCampaign || (status !== "published" && completedSlotCount < 16)}
+                  title={status === "published" ? "Hide from Storefront" : "Unhide / Make Live"}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border cursor-pointer ${
+                    status === "published"
+                      ? "bg-zinc-900 hover:bg-zinc-800 text-amber-400 border-zinc-700"
+                      : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                  }`}
+                >
+                  {status === "published" ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Hide</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Show</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3 self-end lg:self-center">
+            {/* If published, offer explicit HIDE button */}
+            {status === "published" ? (
+              <button
+                type="button"
+                onClick={() => handleSaveCampaign("paused")}
+                disabled={savingCampaign}
+                className="px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2 transition cursor-pointer shadow-sm shadow-amber-500/10"
+              >
+                <EyeOff className="w-4 h-4" />
+                Hide from Store
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSaveCampaign("published")}
+                disabled={savingCampaign || completedSlotCount < 16}
+                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg transition ${
+                  completedSlotCount === 16
+                    ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black shadow-emerald-500/20 cursor-pointer"
+                    : "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed"
+                }`}
+              >
+                <Eye className="w-4 h-4" />
+                Make Live on Store (16/16)
+              </button>
+            )}
+
             <button
+              type="button"
               onClick={() => handleSaveCampaign("draft")}
               disabled={savingCampaign}
               className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-black uppercase tracking-wider text-zinc-300 transition"
             >
               Save Draft
             </button>
-            <button
-              onClick={() => handleSaveCampaign("published")}
-              disabled={savingCampaign || completedSlotCount < 16}
-              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg transition ${
-                completedSlotCount === 16
-                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-amber-500/20 cursor-pointer"
-                  : "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed"
-              }`}
-            >
-              <Flame className="w-4 h-4 fill-current" />
-              Publish to Store (16/16)
-            </button>
+
+            {status !== "published" && (
+              <button
+                type="button"
+                onClick={() => handleSaveCampaign("published")}
+                disabled={savingCampaign || completedSlotCount < 16}
+                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg transition ${
+                  completedSlotCount === 16
+                    ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-amber-500/20 cursor-pointer"
+                    : "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed"
+                }`}
+              >
+                <Flame className="w-4 h-4 fill-current" />
+                Publish to Store (16/16)
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Informational Banner when Hidden */}
+        {status !== "published" && (
+          <div className="px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <EyeOff className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Showcase is currently <strong>HIDDEN</strong> from customer website and mobile app.</span>
+            </div>
+            {completedSlotCount === 16 && (
+              <button
+                type="button"
+                onClick={() => handleSaveCampaign("published")}
+                className="text-xs font-black text-amber-400 underline hover:text-amber-300 cursor-pointer"
+              >
+                Make Live Now →
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Subtitle & Slot Progress Banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">

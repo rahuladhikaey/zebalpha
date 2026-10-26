@@ -388,7 +388,7 @@ export async function getCachedPromotionalCampaigns(): Promise<PromotionalCampai
         return [];
       }
     },
-    60
+    5 // 5 sec TTL for real-time hide/unhide responsiveness
   );
 }
 
