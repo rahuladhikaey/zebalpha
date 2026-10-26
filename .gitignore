@@ -60,4 +60,9 @@ test_sr.ps1
 implementation_plan*
 image_backups_pre_optimization/
 
+# UI/UX backup documents & captured screenshots (kept secure & private locally)
+docs/ui-ux-backups/
+scripts/capture-all-screenshots.ps1
+scripts/capture-cdp-screenshots.js
+
 

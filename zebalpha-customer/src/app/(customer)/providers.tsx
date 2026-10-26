@@ -9,26 +9,30 @@ import { MeeshoVariantBottomSheet } from "@/components/MeeshoVariantBottomSheet"
 import FloatingCartBanner from "@/components/FloatingCartBanner";
 import DesktopSideCart from "@/components/DesktopSideCart";
 
+import { ThemeProvider } from "@/context/ThemeContext";
+
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <WishlistProvider>
-          <CartProvider>
-            <VariantSelectorProvider>
-              <div className="flex w-full min-h-screen">
-                <div className="flex-1 min-w-0 flex flex-col">
-                  {children}
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <WishlistProvider>
+            <CartProvider>
+              <VariantSelectorProvider>
+                <div className="flex w-full min-h-screen">
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    {children}
+                  </div>
+                  <DesktopSideCart />
                 </div>
-                <DesktopSideCart />
-              </div>
-              <FloatingCartBanner />
-              <MeeshoVariantBottomSheet />
-            </VariantSelectorProvider>
-          </CartProvider>
-        </WishlistProvider>
-      </AuthProvider>
-    </LanguageProvider>
+                <FloatingCartBanner />
+                <MeeshoVariantBottomSheet />
+              </VariantSelectorProvider>
+            </CartProvider>
+          </WishlistProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }
 

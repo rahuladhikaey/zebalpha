@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Header } from "@/components/Header";
 import { HomeHero } from "@/components/HomeHero";
 import { CuratedCollectionsSection } from "@/components/CuratedCollectionsSection";
 import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
+import { SpotlightSection } from "@/components/home/SpotlightSection";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
 import {
@@ -12,6 +14,7 @@ import {
   getCachedHomeProducts,
   getCachedEditorialCards,
   getCachedNavigationCategories,
+  getCachedSpotlightCampaigns,
 } from "@/lib/cachedQueries";
 import {
   buildOrganizationSchema,
@@ -127,6 +130,11 @@ async function EditorialContainer({ brandParam }: { brandParam?: string } = {}) 
   return <ZebalphaEditorial initialEditorialCards={editorialCards} />;
 }
 
+async function SpotlightContainer({ isAndroid }: { isAndroid?: boolean } = {}) {
+  const spotlightCampaigns = await getCachedSpotlightCampaigns(isAndroid).catch(() => []);
+  return <SpotlightSection campaigns={spotlightCampaigns} />;
+}
+
 async function ProductFeedContainer({ brandParam }: { brandParam?: string }) {
   const products = await getCachedHomeProducts(brandParam, 12).catch(() => []);
   return <InfiniteProductFeed initialProducts={products} brandFilter={brandParam} />;
@@ -139,6 +147,14 @@ export default async function HomePage(props: {
 }) {
   const resolvedParams = await props.searchParams;
   const brandParam = typeof resolvedParams?.brand === "string" ? resolvedParams.brand : undefined;
+
+  // Platform detection for Android App vs Website
+  const headersList = await headers();
+  const ua = headersList.get("user-agent") || "";
+  const isAndroid =
+    ua.includes("ZEBALPHA_ANDROID_APP") ||
+    ua.includes("Capacitor") ||
+    resolvedParams?.view === "app";
 
   const navigationCategories = await getCachedNavigationCategories().catch(() => []);
 
@@ -170,12 +186,17 @@ export default async function HomePage(props: {
             <CategoriesContainer />
           </Suspense>
 
-          {/* Editorial Section */}
+          {/* Editorial Section - "Woven to Be Remembered" */}
           <Suspense fallback={<EditorialSkeleton />}>
             <EditorialContainer brandParam={brandParam} />
           </Suspense>
 
-          {/* Featured Marketplace Products Grid */}
+          {/* Spotlight Section - Immediately after "Woven to Be Remembered" and immediately before "Our Products" */}
+          <Suspense fallback={null}>
+            <SpotlightContainer isAndroid={isAndroid} />
+          </Suspense>
+
+          {/* Featured Marketplace Products Grid - "Our Products" */}
           <section className="mt-14 mb-16">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">

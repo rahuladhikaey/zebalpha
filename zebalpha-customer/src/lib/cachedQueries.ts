@@ -344,3 +344,225 @@ export async function invalidateHomepageEditorialCache() {
   await invalidateCachePattern('homepage:section:*');
 }
 
+export interface CustomerSpotlightCard {
+  cardType: 'seller_product' | 'editorial';
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  price?: number;
+  mrp?: number | null;
+  fromPrice?: number | null;
+  image: string;
+  destinationUrl: string;
+  displayOrder: number;
+}
+
+export interface CustomerSpotlightCampaign {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  theme: string;
+  displayOrder: number;
+  cards: CustomerSpotlightCard[];
+}
+
+/**
+ * Cached fetcher for Published Spotlight Campaigns (Top Deals, Brand Spotlight, etc.)
+ * Strictly filters by publication status, schedule, and platform visibility
+ */
+export async function getCachedSpotlightCampaigns(isAndroid: boolean = false): Promise<CustomerSpotlightCampaign[]> {
+  const platform = isAndroid ? 'android' : 'website';
+  const cacheKey = `homepage:spotlight:v2:${platform}`;
+
+  return getCachedOrFetch<CustomerSpotlightCampaign[]>(
+    cacheKey,
+    async () => {
+      try {
+        const now = new Date().toISOString();
+        let query = supabaseServer
+          .from('spotlight_campaigns')
+          .select(`
+            id,
+            name,
+            slug,
+            description,
+            theme,
+            display_order,
+            status,
+            starts_at,
+            ends_at,
+            website_enabled,
+            android_enabled,
+            spotlight_campaign_items (
+              id,
+              card_type,
+              product_id,
+              editorial_card_id,
+              display_order
+            )
+          `)
+          .eq('status', 'published')
+          .order('display_order', { ascending: true });
+
+        if (isAndroid) {
+          query = query.eq('android_enabled', true);
+        } else {
+          query = query.eq('website_enabled', true);
+        }
+
+        const { data: rawCampaigns, error } = await query;
+        if (error || !rawCampaigns || rawCampaigns.length === 0) {
+          return [];
+        }
+
+        // Filter valid schedules
+        const activeCampaigns = rawCampaigns.filter((c: any) => {
+          if (c.starts_at && new Date(c.starts_at) > new Date(now)) return false;
+          if (c.ends_at && new Date(c.ends_at) < new Date(now)) return false;
+          return true;
+        });
+
+        if (activeCampaigns.length === 0) return [];
+
+        const allProductIds: string[] = [];
+        const allEditorialIds: string[] = [];
+
+        activeCampaigns.forEach((c: any) => {
+          (c.spotlight_campaign_items || []).forEach((it: any) => {
+            if (it.card_type === 'seller_product' && it.product_id) {
+              allProductIds.push(it.product_id);
+            } else if (it.card_type === 'editorial' && it.editorial_card_id) {
+              allEditorialIds.push(it.editorial_card_id);
+            }
+          });
+        });
+
+        let productsMap: Record<string, any> = {};
+        if (allProductIds.length > 0) {
+          const { data: prods } = await supabaseServer
+            .from('products')
+            .select(`
+              id,
+              name,
+              brand,
+              price,
+              mrp,
+              stock,
+              image_url,
+              images,
+              is_active,
+              is_approved,
+              sellers (
+                store_name,
+                business_name
+              )
+            `)
+            .in('id', [...new Set(allProductIds)])
+            .eq('is_active', true)
+            .eq('is_approved', true);
+
+          (prods || []).forEach((p: any) => {
+            productsMap[p.id] = {
+              id: p.id,
+              name: p.name,
+              brand: p.brand || 'ZEBALPHA',
+              price: Number(p.price),
+              mrp: p.mrp ? Number(p.mrp) : null,
+              image: p.image_url || (Array.isArray(p.images) && p.images[0]) || '',
+              sellerName: p.sellers?.store_name || p.sellers?.business_name || 'Official Seller',
+              destinationUrl: `/products/${p.id}`,
+            };
+          });
+        }
+
+        let editorialMap: Record<string, any> = {};
+        if (allEditorialIds.length > 0) {
+          const { data: edits } = await supabaseServer
+            .from('spotlight_editorial_cards')
+            .select('*')
+            .in('id', [...new Set(allEditorialIds)])
+            .eq('is_active', true);
+
+          (edits || []).forEach((e: any) => {
+            editorialMap[e.id] = {
+              id: e.id,
+              title: e.title,
+              subtitle: e.subtitle,
+              image: e.image_url,
+              destinationUrl: e.destination_url,
+              fromPrice: e.price_mode === 'manual' ? e.manual_from_price : e.calculated_from_price,
+            };
+          });
+        }
+
+        const validCampaigns: CustomerSpotlightCampaign[] = [];
+
+        for (const camp of activeCampaigns) {
+          const sortedItems = (camp.spotlight_campaign_items || []).sort(
+            (a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0)
+          );
+
+          const cards: CustomerSpotlightCard[] = [];
+          for (const item of sortedItems) {
+            if (item.card_type === 'seller_product') {
+              const p = productsMap[item.product_id];
+              if (p && p.image) {
+                cards.push({
+                  cardType: 'seller_product',
+                  id: p.id,
+                  title: p.name,
+                  subtitle: p.sellerName,
+                  price: p.price,
+                  mrp: p.mrp,
+                  image: p.image,
+                  destinationUrl: p.destinationUrl,
+                  displayOrder: item.display_order,
+                });
+              }
+            } else if (item.card_type === 'editorial') {
+              const e = editorialMap[item.editorial_card_id];
+              if (e && e.image) {
+                cards.push({
+                  cardType: 'editorial',
+                  id: e.id,
+                  title: e.title,
+                  subtitle: e.subtitle,
+                  fromPrice: e.fromPrice,
+                  image: e.image,
+                  destinationUrl: e.destinationUrl,
+                  displayOrder: item.display_order,
+                });
+              }
+            }
+          }
+
+          if (cards.length > 0) {
+            validCampaigns.push({
+              id: camp.id,
+              name: camp.name,
+              slug: camp.slug || camp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              description: camp.description,
+              theme: camp.theme || 'default',
+              displayOrder: camp.display_order ?? 0,
+              cards,
+            });
+          }
+        }
+
+        return validCampaigns;
+      } catch (err) {
+        console.error('[Spotlight Fetch Error]:', err);
+        return [];
+      }
+    },
+    15 // 15s TTL for real-time responsiveness
+  );
+}
+
+export async function invalidateSpotlightCache() {
+  await invalidateCacheKey('homepage:spotlight:v2:website');
+  await invalidateCacheKey('homepage:spotlight:v2:android');
+  await invalidateCachePattern('homepage:spotlight:*');
+}
+
