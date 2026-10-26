@@ -17,10 +17,8 @@
   50% { opacity: 0.85; transform: scale(1.02); }
 }
 
-:root,
-.theme-default {
+:root {
   color-scheme: dark;
-  --theme-id: "default";
   --background: #050505;
   --foreground: #ffffff;
   --royal-black: #000000;
@@ -33,19 +31,6 @@
 
   --font-sans: 'Outfit', 'Inter', var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
-}
-
-/* Isolated Diwali Premium Theme Preset (Inactive by default; toggled non-destructively) */
-.theme-diwali-premium {
-  --theme-id: "diwali_premium";
-  --diwali-gold: #fbbf24;
-  --diwali-gold-bright: #fde047;
-  --diwali-amber: #f59e0b;
-  --diwali-deep-gold: #d97706;
-  --diwali-flame: #ef4444;
-  --diwali-surface: #120e06;
-  --diwali-glow: rgba(251, 191, 36, 0.25);
-  --diwali-border: rgba(245, 158, 11, 0.35);
 }
 
 .light {
