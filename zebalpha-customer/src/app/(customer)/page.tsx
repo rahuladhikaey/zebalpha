@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { HomeHero } from "@/components/HomeHero";
 import { CuratedCollectionsSection } from "@/components/CuratedCollectionsSection";
 import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
+import { PromotionalGridSection } from "@/components/home/PromotionalGridSection";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
 import {
@@ -12,6 +13,7 @@ import {
   getCachedHomeProducts,
   getCachedEditorialCards,
   getCachedNavigationCategories,
+  getCachedPromotionalCampaigns,
 } from "@/lib/cachedQueries";
 import {
   buildOrganizationSchema,
@@ -93,6 +95,20 @@ function EditorialSkeleton() {
   );
 }
 
+function PromotionalShowcaseSkeleton() {
+  return (
+    <div className="my-10 sm:my-14 rounded-3xl bg-black border border-zinc-800 p-6 space-y-6 animate-pulse">
+      <div className="h-8 w-64 bg-zinc-900 rounded-xl mx-auto" />
+      <div className="h-4 w-96 bg-zinc-900 rounded-lg mx-auto" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[...Array(16)].map((_, i) => (
+          <div key={i} className="h-40 rounded-xl bg-zinc-900/60 border border-zinc-800" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProductFeedSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-5 animate-pulse">
@@ -125,6 +141,18 @@ async function CategoriesContainer() {
 async function EditorialContainer({ brandParam }: { brandParam?: string } = {}) {
   const editorialCards = await getCachedEditorialCards().catch(() => []);
   return <ZebalphaEditorial initialEditorialCards={editorialCards} />;
+}
+
+async function PromotionalShowcaseContainer() {
+  const campaigns = await getCachedPromotionalCampaigns().catch(() => []);
+  if (!campaigns || campaigns.length === 0) return null;
+  return (
+    <>
+      {campaigns.map((camp) => (
+        <PromotionalGridSection key={camp.id} campaign={camp} />
+      ))}
+    </>
+  );
 }
 
 async function ProductFeedContainer({ brandParam }: { brandParam?: string }) {
@@ -173,6 +201,11 @@ export default async function HomePage(props: {
           {/* Editorial Section */}
           <Suspense fallback={<EditorialSkeleton />}>
             <EditorialContainer brandParam={brandParam} />
+          </Suspense>
+
+          {/* Flipkart & Meesho Style 16-Card Promotional Showcases (TOP DEALS / BRAND SPOTLIGHT) */}
+          <Suspense fallback={<PromotionalShowcaseSkeleton />}>
+            <PromotionalShowcaseContainer />
           </Suspense>
 
           {/* Featured Marketplace Products Grid */}

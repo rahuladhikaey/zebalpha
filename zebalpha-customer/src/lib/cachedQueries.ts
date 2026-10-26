@@ -1,6 +1,6 @@
 import { getCachedOrFetch, invalidateCacheKey, invalidateCachePattern } from './cacheHelper';
 import { supabaseServer } from './supabaseServer';
-import { Product, Category, CuratedCollection, EditorialCard } from './types';
+import { Product, Category, CuratedCollection, EditorialCard, PromotionalCampaign, PromotionalSlot } from './types';
 
 /**
  * Slim query fields for Curated Collections & Editorial Cards
@@ -341,6 +341,54 @@ export async function invalidateProductCache(productId?: string, categoryId?: st
 export async function invalidateHomepageEditorialCache() {
   await invalidateCacheKey('homepage:section:curated_collections');
   await invalidateCacheKey('homepage:section:editorial_cards');
+  await invalidateCacheKey('homepage:section:promotional_campaigns');
   await invalidateCachePattern('homepage:section:*');
+}
+
+/**
+ * Cached fetcher for Homepage Promotional Showcases (e.g. TOP DEALS, BRAND SPOTLIGHT)
+ * Strictly fetches published campaigns with their active 16 slots.
+ */
+export async function getCachedPromotionalCampaigns(): Promise<PromotionalCampaign[]> {
+  return getCachedOrFetch<PromotionalCampaign[]>(
+    'homepage:section:promotional_campaigns',
+    async () => {
+      try {
+        const { data: campaigns, error: campErr } = await supabaseServer
+          .from('promotional_campaigns')
+          .select('id, title, subtitle, slug, theme_preset, status, total_slots, grid_columns, website_enabled, android_enabled')
+          .eq('status', 'published')
+          .eq('website_enabled', true)
+          .order('display_order', { ascending: true });
+
+        if (campErr || !campaigns || campaigns.length === 0) {
+          if (campErr) console.error('[Database Error] Failed to fetch promotional campaigns:', campErr.message);
+          return [];
+        }
+
+        const campaignIds = campaigns.map((c: any) => c.id);
+        const { data: slots, error: slotsErr } = await supabaseServer
+          .from('promotional_campaign_slots')
+          .select('id, campaign_id, slot_number, title, price_label, image_url, destination_type, destination_url')
+          .in('campaign_id', campaignIds)
+          .eq('is_active', true)
+          .order('slot_number', { ascending: true });
+
+        if (slotsErr) {
+          console.error('[Database Error] Failed to fetch campaign slots:', slotsErr.message);
+          return [];
+        }
+
+        return campaigns.map((camp: any) => ({
+          ...camp,
+          slots: (slots || []).filter((s: any) => s.campaign_id === camp.id)
+        })) as PromotionalCampaign[];
+      } catch (e) {
+        console.error('[Database Exception] Error fetching promotional campaigns:', e);
+        return [];
+      }
+    },
+    60
+  );
 }
 

@@ -124,3 +124,27 @@ export type EditorialCard = {
   updated_at?: string;
 };
 
+export interface PromotionalSlot {
+  id: string;
+  slot_number: number;
+  title: string;
+  price_label: string;
+  image_url: string;
+  destination_type: string;
+  destination_url: string;
+}
+
+export interface PromotionalCampaign {
+  id: string;
+  title: string;
+  subtitle: string;
+  slug: string;
+  theme_preset: string;
+  status: string;
+  total_slots: number;
+  grid_columns: number;
+  website_enabled: boolean;
+  android_enabled: boolean;
+  slots: PromotionalSlot[];
+}
+
