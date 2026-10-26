@@ -1,13 +1,19 @@
 export type Category = {
   id: number | string;
   name: string;
-  image_url?: string;
+  image_url?: string | null;
   main_category?: string;
-  description?: string;
+  description?: string | null;
   icon?: string;
+  icon_key?: string;
+  icon_url?: string | null;
+  icon_source?: string;
   slug?: string;
   sort_order?: number;
+  display_order?: number;
   is_active?: boolean;
+  parent_id?: string | null;
+  subcategories?: Category[];
 };
 
 export type ProductPackage = {

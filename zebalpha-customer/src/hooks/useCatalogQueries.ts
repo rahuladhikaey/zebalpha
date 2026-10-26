@@ -46,7 +46,7 @@ export function normalizeQueryString(str?: string): string {
  */
 export async function fetchCanonicalCategories(): Promise<Category[]> {
   try {
-    // 1. Fetch real active Main Categories from categories table
+    // 1. Fetch real active Main Categories strictly from categories table (never curated_collections)
     const { data: catData, error: catErr } = await supabase
       .from("categories")
       .select("id, name, slug, icon_key, icon_url, icon_source, image_url, description, display_order, is_active, show_in_navigation, parent_id")
@@ -68,25 +68,9 @@ export async function fetchCanonicalCategories(): Promise<Category[]> {
           image_url: c.image_url || null,
           is_active: c.is_active !== false,
           display_order: c.display_order ?? 0,
+          parent_id: null,
         };
       }) as Category[];
-    }
-
-    // 2. Fallback to curated collections if categories table is empty
-    const { data: curatedData, error: curatedErr } = await supabase
-      .from("curated_collections")
-      .select("id, title, slug, image_url, display_order, is_active")
-      .eq("is_active", true)
-      .order("display_order", { ascending: true });
-
-    if (!curatedErr && curatedData && curatedData.length > 0) {
-      return curatedData.map((c) => ({
-        id: c.id,
-        name: c.title,
-        slug: c.slug || c.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        image_url: c.image_url,
-        is_active: true,
-      })) as Category[];
     }
   } catch (err) {
     console.error("Error in fetchCanonicalCategories:", err);
@@ -96,16 +80,117 @@ export async function fetchCanonicalCategories(): Promise<Category[]> {
 }
 
 /**
- * L1 Browser-Cached Categories Hook (One Canonical Source)
- * Reuses initial SSR data if provided; caches for 30 minutes.
+ * L1 Browser-Cached Categories Hook (One Canonical Source for Main Categories)
  */
 export function useCategories(initialCategories?: Category[]) {
   return useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: fetchCanonicalCategories,
     initialData: initialCategories && initialCategories.length > 0 ? initialCategories : undefined,
-    staleTime: 5 * 1000, // 5 seconds fresh L1 cache
-    gcTime: 60 * 1000,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch Subcategories for a given Main Category ID
+ */
+export async function fetchSubcategories(parentId?: string | number | null): Promise<Category[]> {
+  if (!parentId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name, slug, icon_key, icon_url, icon_source, image_url, description, display_order, is_active, parent_id")
+      .eq("parent_id", String(parentId))
+      .or("is_active.is.null,is_active.eq.true")
+      .order("display_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (!error && data) {
+      return data.map((c: any) => {
+        const resolved = resolveCategoryIcon(c.name, c.icon_key, c.icon_source);
+        return {
+          id: c.id,
+          name: c.name,
+          slug: c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          description: c.description || null,
+          icon: c.icon_key && c.icon_source === "ADMIN" ? c.icon_key : resolved.icon_key,
+          icon_key: c.icon_key && c.icon_source === "ADMIN" ? c.icon_key : resolved.icon_key,
+          icon_url: c.icon_url || null,
+          image_url: c.image_url || null,
+          is_active: c.is_active !== false,
+          display_order: c.display_order ?? 0,
+          parent_id: c.parent_id,
+        };
+      });
+    }
+  } catch (err) {
+    console.error("Error in fetchSubcategories:", err);
+  }
+  return [];
+}
+
+/**
+ * Hook to fetch Subcategories for a selected Main Category
+ */
+export function useSubcategories(parentId?: string | number | null) {
+  return useQuery<Category[]>({
+    queryKey: ['subcategories', parentId],
+    queryFn: () => fetchSubcategories(parentId),
+    enabled: Boolean(parentId),
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Full Category Tree Hook (Main Categories + their nested Subcategories)
+ */
+export async function fetchCategoryTree(): Promise<Category[]> {
+  try {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name, slug, icon_key, icon_url, icon_source, image_url, description, display_order, is_active, show_in_navigation, parent_id")
+      .or("is_active.is.null,is_active.eq.true")
+      .order("display_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (!error && data) {
+      const normalized = data.map((c: any) => {
+        const resolved = resolveCategoryIcon(c.name, c.icon_key, c.icon_source);
+        return {
+          id: c.id,
+          name: c.name,
+          slug: c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          description: c.description || null,
+          icon: c.icon_key && c.icon_source === "ADMIN" ? c.icon_key : resolved.icon_key,
+          icon_key: c.icon_key && c.icon_source === "ADMIN" ? c.icon_key : resolved.icon_key,
+          icon_url: c.icon_url || null,
+          image_url: c.image_url || null,
+          is_active: c.is_active !== false,
+          display_order: c.display_order ?? 0,
+          parent_id: c.parent_id || null,
+        };
+      });
+
+      const mains = normalized.filter((c) => !c.parent_id);
+      const subs = normalized.filter((c) => !!c.parent_id);
+
+      return mains.map((m) => ({
+        ...m,
+        subcategories: subs.filter((s) => String(s.parent_id) === String(m.id)),
+      }));
+    }
+  } catch (err) {
+    console.error("Error in fetchCategoryTree:", err);
+  }
+  return [];
+}
+
+export function useCategoryTree() {
+  return useQuery<Category[]>({
+    queryKey: ['categoryTree'],
+    queryFn: fetchCategoryTree,
+    staleTime: 30 * 1000,
   });
 }
 
