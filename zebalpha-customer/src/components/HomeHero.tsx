@@ -4,10 +4,14 @@ import { useIsNativeApp } from "@/lib/platform";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { MobileSearch } from "@/components/MobileSearch";
-import { CategoryNavigationBar } from "@/components/CategoryNavigationBar";
+import { CategoryNavigationBar, NavigationCategory } from "@/components/CategoryNavigationBar";
 import { Suspense, useEffect, useState } from "react";
 
-export function HomeHero() {
+interface HomeHeroProps {
+  initialCategories?: NavigationCategory[];
+}
+
+export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
   const isNativeApp = useIsNativeApp();
   const [mounted, setMounted] = useState(false);
 
@@ -41,7 +45,11 @@ export function HomeHero() {
           </div>
 
           {/* 2. Sticky Horizontal Category Navigation Bar */}
-          <CategoryNavigationBar isNativeApp={true} className="border-t border-zinc-900/80 bg-black" />
+          <CategoryNavigationBar
+            initialCategories={initialCategories}
+            isNativeApp={true}
+            className="border-t border-zinc-900/80 bg-black"
+          />
         </div>
 
         {/* =================================================================== */}
@@ -71,7 +79,7 @@ export function HomeHero() {
       <MovingOfferBanner />
 
       {/* New Category Navigation Bar (Directly above hero banner) */}
-      <CategoryNavigationBar isNativeApp={false} />
+      <CategoryNavigationBar initialCategories={initialCategories} isNativeApp={false} />
 
       <div className="mx-auto w-full max-w-[1400px] px-4 md:px-8">
         {/* Carousel Showcase */}

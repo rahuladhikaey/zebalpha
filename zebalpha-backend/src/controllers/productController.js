@@ -39,10 +39,29 @@ export const getProducts = async (req, res, next) => {
       if (queryParams.category) {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryParams.category);
         if (isUuid) {
-          query = query.eq('category_id', queryParams.category);
+          const { data: subcats } = await supabaseA
+            .from('categories')
+            .select('id')
+            .eq('parent_id', queryParams.category);
+          const catIds = [queryParams.category, ...(subcats || []).map((s) => s.id)];
+          query = query.or(`category_id.in.(${catIds.join(',')}),subcategory_id.in.(${catIds.join(',')})`);
         } else {
           const cleanCat = queryParams.category.replace(/[-_]/g, ' ').trim();
-          query = query.or(`name.ilike.%${cleanCat}%,collection.ilike.%${cleanCat}%`);
+          const { data: matchedCats } = await supabaseA
+            .from('categories')
+            .select('id')
+            .or(`slug.eq.${cleanCat.toLowerCase()},name.ilike.${cleanCat}`);
+          if (matchedCats && matchedCats.length > 0) {
+            const foundId = matchedCats[0].id;
+            const { data: subcats } = await supabaseA
+              .from('categories')
+              .select('id')
+              .eq('parent_id', foundId);
+            const catIds = [foundId, ...(subcats || []).map((s) => s.id)];
+            query = query.or(`category_id.in.(${catIds.join(',')}),subcategory_id.in.(${catIds.join(',')})`);
+          } else {
+            query = query.eq('category_id', '00000000-0000-0000-0000-000000000000');
+          }
         }
       }
       if (queryParams.brand) {

@@ -5,10 +5,11 @@ import { apiService } from '@/services/apiService';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Product, Category } from '@/lib/types';
+import { resolveCategoryIcon } from '@/lib/categoryIcons';
 
 export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [];
 
-export const SLIM_PRODUCT_CARD_FIELDS = "id, name, brand, price, mrp, image_url, images, category_id, collection, stock, low_stock_limit, status, is_active, is_approved, approval_status, created_at, specifications, seller_id, packages";
+export const SLIM_PRODUCT_CARD_FIELDS = "id, name, brand, price, mrp, image_url, images, category_id, subcategory_id, collection, stock, low_stock_limit, status, is_active, is_approved, approval_status, created_at, specifications, seller_id, packages";
 
 export { getProductDisplayPricing } from "@/lib/productPricing";
 
@@ -41,7 +42,7 @@ export function normalizeQueryString(str?: string): string {
 
 /**
  * Canonical Category Fetcher
- * Prioritizes active Curated Collections managed by Admin, with fallback to standard categories.
+ * Loads active Main Categories from Supabase categories table with automated icon assignment.
  */
 export async function fetchCanonicalCategories(): Promise<Category[]> {
   try {
@@ -55,16 +56,20 @@ export async function fetchCanonicalCategories(): Promise<Category[]> {
       .order("name", { ascending: true });
 
     if (!catErr && catData && catData.length > 0) {
-      return catData.map((c) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        icon: c.icon_key,
-        icon_key: c.icon_key,
-        icon_url: c.icon_url,
-        image_url: c.image_url,
-        is_active: c.is_active !== false,
-      })) as Category[];
+      return catData.map((c: any) => {
+        const resolved = resolveCategoryIcon(c.name, c.icon_key, c.icon_source);
+        return {
+          id: c.id,
+          name: c.name,
+          slug: c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          icon: c.icon_key && c.icon_source === "ADMIN" ? c.icon_key : resolved.icon_key,
+          icon_key: c.icon_key && c.icon_source === "ADMIN" ? c.icon_key : resolved.icon_key,
+          icon_url: c.icon_url || null,
+          image_url: c.image_url || null,
+          is_active: c.is_active !== false,
+          display_order: c.display_order ?? 0,
+        };
+      }) as Category[];
     }
 
     // 2. Fallback to curated collections if categories table is empty
@@ -665,11 +670,10 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       .or("is_active.is.null,is_active.eq.true")
       .neq("approval_status", "rejected");
 
-    // Server-side category & collection filtering
+    // Server-side category & collection filtering using stable UUIDs and descendant hierarchies
     if (params.category && String(params.category).trim() !== "" && String(params.category) !== "all") {
-      const cat = String(params.category).toLowerCase().trim();
+      const cat = String(params.category).trim();
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cat);
-      const isNum = !isNaN(Number(cat));
 
       if (isUuid) {
         let catIds = [cat];
@@ -688,14 +692,28 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
         } else {
           query = query.or(`category_id.in.(${catIds.join(",")}),subcategory_id.in.(${catIds.join(",")})`);
         }
-      } else if (isNum) {
-        query = query.eq("category_id", Number(cat));
       } else {
-        const filterClauses = buildCategoryFilterClauses(cat);
-        if (filterClauses.length > 0) {
-          query = query.or(filterClauses.join(","));
-        } else {
-          query = query.or(`name.ilike.%${cat}%,description.ilike.%${cat}%,collection.ilike.%${cat}%`);
+        // Resolve category ID from slug or name
+        try {
+          const { data: matchedCats } = await supabase
+            .from("categories")
+            .select("id")
+            .or(`slug.eq.${cat.toLowerCase()},name.ilike.${cat}`);
+
+          if (matchedCats && matchedCats.length > 0) {
+            const foundId = matchedCats[0].id;
+            const { data: subcats } = await supabase
+              .from("categories")
+              .select("id")
+              .eq("parent_id", foundId);
+            const allIds = [foundId, ...(subcats || []).map((s: any) => s.id)];
+            query = query.or(`category_id.in.(${allIds.join(",")}),subcategory_id.in.(${allIds.join(",")})`);
+          } else {
+            // Target category not found in DB - return empty result
+            query = query.eq("category_id", "00000000-0000-0000-0000-000000000000");
+          }
+        } catch (_) {
+          query = query.eq("category_id", "00000000-0000-0000-0000-000000000000");
         }
       }
     }
@@ -718,55 +736,21 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
     // Range-based pagination
     query = query.range(from, to);
 
-    let { data, count, error } = await query;
-
-    // Resilient fallback: If category was requested but returned 0 results or had an error, query active products and match via semantic resolver
-    if (params.category && (!data || data.length === 0 || error)) {
-      try {
-        const fallbackRes = await supabase
-          .from("products")
-          .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
-          .or("is_active.is.null,is_active.eq.true")
-          .neq("approval_status", "rejected")
-          .order("created_at", { ascending: false })
-          .limit(250);
-
-        if (fallbackRes.data && fallbackRes.data.length > 0) {
-          const matched = fallbackRes.data.filter((p) => doesProductMatchCategory(p, params.category!));
-          if (matched.length > 0) {
-            data = matched.slice(from, to + 1);
-            count = matched.length;
-            error = null;
-          }
-        }
-      } catch (fallbackErr) {
-        console.warn("Notice in category fallback match:", fallbackErr);
-      }
-    }
-
-    if (error || !data) {
-      console.warn("Notice querying paginated products, trying broad fallback:", error?.message);
-      const fallback = await supabase
-        .from("products")
-        .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
-        .or("is_active.is.null,is_active.eq.true")
-        .neq("approval_status", "rejected")
-        .order("created_at", { ascending: false })
-        .limit(250);
-
-      if (params.category && fallback.data) {
-        const matched = fallback.data.filter((p) => doesProductMatchCategory(p, params.category!));
-        data = matched.slice(from, to + 1);
-        count = matched.length;
-      } else {
-        data = (fallback.data || []).slice(from, to + 1);
-        count = fallback.count || (fallback.data || []).length;
-      }
-      error = fallback.error;
-    }
+    const { data, count, error } = await query;
 
     if (error) {
       console.warn("Notice querying paginated products:", error.message);
+      return {
+        products: [],
+        totalCount: 0,
+        page,
+        pageSize,
+        totalPages: 1,
+        hasMore: false,
+      };
+    }
+
+    if (!data || data.length === 0) {
       return {
         products: [],
         totalCount: 0,

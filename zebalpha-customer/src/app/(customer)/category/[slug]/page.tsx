@@ -70,30 +70,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 async function getCategoryProducts(slug: string) {
   try {
-    let keyword = "";
-    if (slug.includes("polo")) keyword = "polo";
-    else if (slug.includes("oversized")) keyword = "oversized";
-    else if (slug.includes("hoodie")) keyword = "hoodie";
-    else if (slug.includes("shirt")) keyword = "shirt";
-    else keyword = "tee";
+    // 1. Look up category by slug in Supabase categories table
+    const { data: catData } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
 
-    const { data } = await supabase
-      .from("products")
-      .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications, packages")
-      .eq("is_active", true)
-      .ilike("name", `%${keyword}%`)
-      .limit(16);
+    if (catData?.id) {
+      // Fetch descendant subcategories
+      const { data: subcats } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("parent_id", catData.id);
 
-    if (data && data.length > 0) return data;
+      const allIds = [catData.id, ...(subcats || []).map((s: any) => s.id)];
 
-    // Fallback: fetch recent active products
-    const fallback = await supabase
-      .from("products")
-      .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications, packages")
-      .eq("is_active", true)
-      .limit(12);
+      const { data: prods } = await supabase
+        .from("products")
+        .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications, packages")
+        .eq("is_active", true)
+        .or(`category_id.in.(${allIds.join(",")}),subcategory_id.in.(${allIds.join(",")})`)
+        .limit(24);
 
-    return fallback.data || [];
+      return prods || [];
+    }
+
+    return [];
   } catch {
     return [];
   }

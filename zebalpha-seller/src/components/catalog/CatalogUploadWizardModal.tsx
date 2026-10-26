@@ -1177,12 +1177,10 @@ export default function CatalogUploadWizardModal({
         typeof id === "string" &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id).trim());
 
-      let primaryCatId: string | null = null;
-      if (isValidUuid(form.category_id)) {
-        primaryCatId = String(form.category_id).trim();
-      } else if (categories && categories.length > 0 && isValidUuid(String(categories[0]?.id))) {
-        primaryCatId = String(categories[0].id).trim();
+      if (!isValidUuid(form.category_id)) {
+        throw new Error("Please select an approved Main Category for your product in Step 1 before publishing.");
       }
+      const primaryCatId = String(form.category_id).trim();
 
       let resolvedSubcatId: string | null = null;
       if (isValidUuid(form.subcategory_id)) {
@@ -1416,18 +1414,6 @@ export default function CatalogUploadWizardModal({
           res = await supabase.from("products").update(dbPayload).eq("id", editingProduct.id).select();
         } else {
           res = await supabase.from("products").insert([dbPayload]).select();
-        }
-
-        if (res.error) {
-          // If foreign key failed on category, set to null and retry
-          if (res.error.message?.includes("category")) {
-            dbPayload.category_id = null;
-            if (editingProduct?.id) {
-              res = await supabase.from("products").update(dbPayload).eq("id", editingProduct.id).select();
-            } else {
-              res = await supabase.from("products").insert([dbPayload]).select();
-            }
-          }
         }
 
         if (res.error) {

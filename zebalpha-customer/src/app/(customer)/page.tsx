@@ -11,6 +11,7 @@ import {
   getCachedCuratedCollections,
   getCachedHomeProducts,
   getCachedEditorialCards,
+  getCachedNavigationCategories,
 } from "@/lib/cachedQueries";
 import {
   buildOrganizationSchema,
@@ -139,6 +140,8 @@ export default async function HomePage(props: {
   const resolvedParams = await props.searchParams;
   const brandParam = typeof resolvedParams?.brand === "string" ? resolvedParams.brand : undefined;
 
+  const navigationCategories = await getCachedNavigationCategories().catch(() => []);
+
   const jsonLdGraph = {
     "@context": "https://schema.org",
     "@graph": [
@@ -158,7 +161,7 @@ export default async function HomePage(props: {
         <Header title="ZebAlpha" subtitle="CLOTHING FOR THE CULTURE ✦" />
 
         {/* Hero Section (Handles Android App vs Website layout) */}
-        <HomeHero />
+        <HomeHero initialCategories={navigationCategories} />
 
         {/* Main Content Container */}
         <div className="mx-auto w-full max-w-[1400px] px-4 md:px-8">

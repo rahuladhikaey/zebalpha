@@ -39,6 +39,74 @@ export async function getCachedCuratedCollections(): Promise<CuratedCollection[]
   );
 }
 
+import { resolveCategoryIcon } from '../../../shared/constants/categoryIcons';
+
+export interface NavigationCategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  icon_key?: string | null;
+  icon_url?: string | null;
+  icon_source?: string | null;
+  image_url?: string | null;
+  display_order: number;
+  is_active: boolean;
+  show_in_navigation: boolean;
+  parent_id?: string | null;
+}
+
+/**
+ * Cached fetcher for Dynamic Main Category Navigation Bar
+ * Cache TTL: 60s
+ */
+export async function getCachedNavigationCategories(): Promise<NavigationCategoryItem[]> {
+  return getCachedOrFetch<NavigationCategoryItem[]>(
+    'navigation:main_categories:active',
+    async () => {
+      try {
+        const { data, error } = await supabaseServer
+          .from('categories')
+          .select('id, name, slug, description, icon_key, icon_url, icon_source, image_url, display_order, is_active, show_in_navigation, parent_id')
+          .is('parent_id', null)
+          .or('is_active.is.null,is_active.eq.true')
+          .or('show_in_navigation.is.null,show_in_navigation.eq.true')
+          .order('display_order', { ascending: true })
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error('[Database Error] Failed to fetch navigation categories:', error.message);
+          return [];
+        }
+
+        if (data && data.length > 0) {
+          return data.map((cat: any) => {
+            const resolved = resolveCategoryIcon(cat.name, cat.icon_key, cat.icon_source);
+            return {
+              id: cat.id,
+              name: cat.name,
+              slug: cat.slug || cat.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              description: cat.description || null,
+              icon_key: cat.icon_key && cat.icon_source === 'ADMIN' ? cat.icon_key : resolved.icon_key,
+              icon_url: cat.icon_url || null,
+              icon_source: cat.icon_source || resolved.icon_source,
+              image_url: cat.image_url || null,
+              display_order: cat.display_order ?? 0,
+              is_active: cat.is_active !== false,
+              show_in_navigation: cat.show_in_navigation !== false,
+              parent_id: cat.parent_id || null,
+            };
+          });
+        }
+      } catch (e) {
+        console.error('[Database Error] Failed to fetch navigation categories:', e);
+      }
+      return [];
+    },
+    60 // 60s cache
+  );
+}
+
 /**
  * Cached fetcher for Homepage Categories (Fallback / Supporting)
  * Cache TTL: 20 minutes (1200s)
@@ -51,9 +119,10 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
       try {
         const { data, error } = await supabaseServer
           .from('categories')
-          .select('id, name, slug, image_url, description, sort_order, is_active')
+          .select('id, name, slug, image_url, description, display_order, is_active, icon_key, icon_url, icon_source')
+          .is('parent_id', null)
           .or('is_active.is.null,is_active.eq.true')
-          .order('sort_order', { ascending: true })
+          .order('display_order', { ascending: true })
           .limit(limit);
 
         if (!error && data && data.length > 0) {

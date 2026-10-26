@@ -180,20 +180,12 @@ function ProductsContent() {
 
             {/* Curated Categories */}
             {categories.filter(c => c.is_active !== false).map((category) => {
-              const isActive = 
-                selectedCategory === category.id || 
-                selectedCategory === category.name ||
-                (typeof selectedCategory === "string" && (
-                  selectedCategory.toLowerCase() === (category.name || "").toLowerCase() ||
-                  selectedCategory.toLowerCase() === (category.slug || "").toLowerCase() ||
-                  selectedCategory.toLowerCase().replace(/-/g, " ") === (category.name || "").toLowerCase()
-                ));
-              const emoji = category.icon || getCategoryEmojiOrIcon(category.name);
+              const isActive = String(selectedCategory) === String(category.id);
               return (
                 <button
                   key={category.id}
                   type="button"
-                  onClick={() => setSelectedCategory(category.name || category.id)}
+                  onClick={() => setSelectedCategory(category.id)}
                   className="flex flex-col items-center justify-center group focus:outline-none w-full relative cursor-pointer"
                 >
                   {isActive && (
@@ -238,10 +230,12 @@ function ProductsContent() {
               <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-12 text-center text-zinc-400 my-8">
                 <ShoppingBag size={48} className="mx-auto mb-4 opacity-40 text-white" />
                 <h3 className="text-lg font-black text-white uppercase tracking-wider">
-                  No Products Found
+                  {selectedCategory ? "No products available in this category yet." : "No Products Found"}
                 </h3>
                 <p className="text-xs font-semibold mt-1 text-zinc-400 max-w-sm mx-auto">
-                  Try adjusting your search query or selecting a different category filter.
+                  {selectedCategory
+                    ? "Check back soon as new collections and products are added regularly."
+                    : "Try adjusting your search query or selecting a different category filter."}
                 </p>
                 <button 
                   onClick={() => { setSelectedCategory(null); setSearch(""); }}
