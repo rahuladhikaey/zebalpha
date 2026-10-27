@@ -340,7 +340,7 @@ export default function CategoryManagementView({
       setCategories((prev) =>
         prev.map((c) => (c.id === cat.id ? { ...c, display_order: newOrder } : c))
       );
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // Delete or Safe Archive Category
@@ -460,11 +460,10 @@ export default function CategoryManagementView({
       {/* Status Alerts */}
       {statusMessage && (
         <div
-          className={`p-4 rounded-2xl border flex items-center justify-between text-xs font-bold ${
-            statusMessage.type === "success"
-              ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
-              : "bg-rose-950/60 border-rose-500/40 text-rose-300"
-          }`}
+          className={`p-4 rounded-2xl border flex items-center justify-between text-xs font-bold ${statusMessage.type === "success"
+            ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+            : "bg-rose-950/60 border-rose-500/40 text-rose-300"
+            }`}
         >
           <span>{statusMessage.text}</span>
           <button onClick={() => setStatusMessage(null)} className="opacity-70 hover:opacity-100">✕</button>
@@ -476,11 +475,10 @@ export default function CategoryManagementView({
         <button
           type="button"
           onClick={() => setActiveSubTab("categories")}
-          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2 ${
-            activeSubTab === "categories"
-              ? "bg-white text-black shadow-md"
-              : "bg-zinc-900 text-zinc-400 hover:text-white"
-          }`}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2 ${activeSubTab === "categories"
+            ? "bg-white text-black shadow-md"
+            : "bg-zinc-900 text-zinc-400 hover:text-white"
+            }`}
         >
           <Layers size={14} /> Main Categories ({mainCategories.length})
         </button>
@@ -488,11 +486,10 @@ export default function CategoryManagementView({
         <button
           type="button"
           onClick={() => setActiveSubTab("requests")}
-          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2 relative ${
-            activeSubTab === "requests"
-              ? "bg-white text-black shadow-md"
-              : "bg-zinc-900 text-zinc-400 hover:text-white"
-          }`}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2 relative ${activeSubTab === "requests"
+            ? "bg-white text-black shadow-md"
+            : "bg-zinc-900 text-zinc-400 hover:text-white"
+            }`}
         >
           <FolderTree size={14} /> Seller Added Subcategories ({requests.length})
         </button>
@@ -599,11 +596,10 @@ export default function CategoryManagementView({
                             <button
                               type="button"
                               onClick={() => handleToggle(mainCat, "show_in_navigation")}
-                              className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                                mainCat.show_in_navigation
-                                  ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
-                                  : "bg-zinc-900 border-zinc-800 text-zinc-500"
-                              }`}
+                              className={`p-1.5 rounded-lg border transition cursor-pointer ${mainCat.show_in_navigation
+                                ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+                                : "bg-zinc-900 border-zinc-800 text-zinc-500"
+                                }`}
                               title={mainCat.show_in_navigation ? "Visible in category bar" : "Hidden from category bar"}
                             >
                               {mainCat.show_in_navigation ? <Eye size={14} /> : <EyeOff size={14} />}
@@ -615,11 +611,10 @@ export default function CategoryManagementView({
                             <button
                               type="button"
                               onClick={() => handleToggle(mainCat, "is_active")}
-                              className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border transition cursor-pointer ${
-                                mainCat.is_active
-                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                                  : "bg-zinc-900 border-zinc-800 text-zinc-500"
-                              }`}
+                              className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border transition cursor-pointer ${mainCat.is_active
+                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                : "bg-zinc-900 border-zinc-800 text-zinc-500"
+                                }`}
                             >
                               {mainCat.is_active ? "Active" : "Archived"}
                             </button>
@@ -759,6 +754,20 @@ export default function CategoryManagementView({
                       </React.Fragment>
                     );
                   })}
+
+                  {filteredMainCategories.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="py-16 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <FolderTree size={32} className="text-zinc-600 mb-1" />
+                          <p className="text-sm font-bold text-white uppercase tracking-wider">No Main Categories In Database</p>
+                          <p className="text-xs text-zinc-500 max-w-sm">
+                            Click &quot;+ ADD MAIN CATEGORY&quot; above to create your first official marketplace category.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -865,11 +874,10 @@ export default function CategoryManagementView({
                             <button
                               type="button"
                               onClick={() => handleToggleSellerSubcategory(reqItem)}
-                              className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border transition cursor-pointer ${
-                                reqItem.is_active
-                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-                                  : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800"
-                              }`}
+                              className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border transition cursor-pointer ${reqItem.is_active
+                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                                : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800"
+                                }`}
                               title={reqItem.is_active ? "Click to Deactivate" : "Click to Activate"}
                             >
                               {reqItem.is_active ? "Active" : "Inactive"}
