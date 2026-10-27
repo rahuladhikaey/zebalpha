@@ -126,7 +126,7 @@ export default function CategoryManagementView({
       ]);
 
       let categoriesLoaded = false;
-      if (catResult.status === "fulfilled" && catResult.value?.success && Array.isArray(catResult.value.data)) {
+      if (catResult.status === "fulfilled" && catResult.value?.success && Array.isArray(catResult.value.data) && catResult.value.data.length > 0) {
         setCategories(catResult.value.data);
         categoriesLoaded = true;
       }
@@ -135,12 +135,54 @@ export default function CategoryManagementView({
         setRequests(reqResult.value.data);
       }
 
+      // Resilient fallback: directly fetch from Supabase if API endpoint returned error or empty
+      if (!categoriesLoaded) {
+        try {
+          const { supabase } = await import("@shared/utils/supabaseClient");
+          const { data: dbCats, error: dbErr } = await supabase
+            .from("categories")
+            .select("id, name, slug, description, icon_key, icon_url, icon_source, image_url, display_order, is_active, show_in_navigation, parent_id, created_by, created_at, updated_at")
+            .order("display_order", { ascending: true })
+            .order("name", { ascending: true });
+
+          if (!dbErr && dbCats && dbCats.length > 0) {
+            const mapped = dbCats.map((cat: any) => {
+              const resolved = resolveCategoryIcon(cat.name, cat.icon_key, cat.icon_source);
+              return {
+                ...cat,
+                icon_key: cat.icon_key && cat.icon_source === "ADMIN" ? cat.icon_key : resolved.icon_key,
+                icon_source: cat.icon_source || resolved.icon_source,
+                product_count: 0,
+              };
+            });
+            setCategories(mapped);
+            categoriesLoaded = true;
+          }
+        } catch (clientErr) {
+          console.warn("Client fallback query notice:", clientErr);
+        }
+      }
+
       if (!categoriesLoaded) {
         setStatusMessage({ text: "Failed to load category data from server.", type: "error" });
       }
     } catch (err: any) {
       console.error("Fetch categories error:", err);
-      setStatusMessage({ text: "Failed to load category data from server.", type: "error" });
+      // Emergency client fallback
+      try {
+        const { supabase } = await import("@shared/utils/supabaseClient");
+        const { data: dbCats } = await supabase
+          .from("categories")
+          .select("id, name, slug, description, icon_key, icon_url, icon_source, image_url, display_order, is_active, show_in_navigation, parent_id, created_by, created_at, updated_at")
+          .order("display_order", { ascending: true });
+        if (dbCats && dbCats.length > 0) {
+          setCategories(dbCats as any);
+        } else {
+          setStatusMessage({ text: "Failed to load category data from server.", type: "error" });
+        }
+      } catch (_) {
+        setStatusMessage({ text: "Failed to load category data from server.", type: "error" });
+      }
     } finally {
       setLoading(false);
     }

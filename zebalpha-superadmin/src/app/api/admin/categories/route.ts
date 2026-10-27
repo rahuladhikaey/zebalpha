@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
-import { resolveCategoryIcon } from "@/lib/categoryIcons";
+import { resolveCategoryIcon } from "@/lib/serverCategoryIcons";
 
 export const dynamic = "force-dynamic";
 
