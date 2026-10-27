@@ -96,7 +96,6 @@ const CuratedCollectionsView = dynamic(() => import("@/components/admin/CuratedC
 const SupportDeskView = dynamic(() => import("@/components/admin/SupportDeskView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const AeoGeoManagementView = dynamic(() => import("@/components/admin/AeoGeoManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const CategoryManagementView = dynamic(() => import("@/components/admin/CategoryManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
-const PromotionsStudioView = dynamic(() => import("@/components/admin/PromotionsStudioView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 
 export default function AdminPage() {
   const router = useRouter();
@@ -131,7 +130,6 @@ export default function AdminPage() {
     "products",
     "categories",
     "curated-collections",
-    "promotions-studio",
     "editorial-cards",
     "inventory",
     "alerts",
@@ -309,7 +307,6 @@ export default function AdminPage() {
     { id: 'products', label: 'Product Approvals', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' },
     { id: 'categories', label: 'Categories & Taxonomy', badge: 'DYNAMIC', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
     { id: 'curated-collections', label: 'Curated Collections', badge: 'HOMEPAGE', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
-    { id: 'promotions-studio', label: 'Festive Deals Studio', badge: '16 SLOTS', icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z' },
     { id: 'editorial-cards', label: 'Woven Editorial Cards', badge: 'HOMEPAGE', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
     { id: 'inventory', label: 'Inventory Monitoring', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
     { id: 'alerts', label: 'Stock Alerts & Notify', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
@@ -516,7 +513,6 @@ export default function AdminPage() {
               )}
               {tab === "categories" && <CategoryManagementView onRefresh={fetchData} />}
               {tab === "curated-collections" && <CuratedCollectionsView />}
-              {tab === "promotions-studio" && <PromotionsStudioView />}
               {tab === "editorial-cards" && <EditorialCardsView />}
               {tab === "inventory" && (
                 <InventoryMonitoringView

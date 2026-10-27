@@ -120,19 +120,23 @@ export default function CategoryManagementView({
     setLoading(true);
     setStatusMessage(null);
     try {
-      const [catRes, reqRes] = await Promise.all([
-        fetch("/api/admin/categories?include_inactive=true"),
-        fetch("/api/admin/category-requests"),
+      const [catResult, reqResult] = await Promise.allSettled([
+        fetch("/api/admin/categories?include_inactive=true", { cache: "no-store" }).then(r => r.json()),
+        fetch("/api/admin/category-requests", { cache: "no-store" }).then(r => r.json()),
       ]);
 
-      const catJson = await catRes.json();
-      const reqJson = await reqRes.json();
-
-      if (catJson.success && Array.isArray(catJson.data)) {
-        setCategories(catJson.data);
+      let categoriesLoaded = false;
+      if (catResult.status === "fulfilled" && catResult.value?.success && Array.isArray(catResult.value.data)) {
+        setCategories(catResult.value.data);
+        categoriesLoaded = true;
       }
-      if (reqJson.success && Array.isArray(reqJson.data)) {
-        setRequests(reqJson.data);
+
+      if (reqResult.status === "fulfilled" && reqResult.value?.success && Array.isArray(reqResult.value.data)) {
+        setRequests(reqResult.value.data);
+      }
+
+      if (!categoriesLoaded) {
+        setStatusMessage({ text: "Failed to load category data from server.", type: "error" });
       }
     } catch (err: any) {
       console.error("Fetch categories error:", err);

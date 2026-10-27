@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     // 4. Fetch sellers to resolve seller store names / emails
     const { data: sellers } = await supabaseServer
       .from("sellers")
-      .select("id, store_name, name, email");
+      .select("id, store_name, owner_name, email");
 
     const sellerMap = new Map<string, any>((sellers || []).map((s: any) => [s.id, s]));
 
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
           parent_category_id: cat.parent_id,
           parent_category: parent || { id: cat.parent_id, name: "Main Category", slug: "" },
           seller_id: cat.created_by,
-          seller_name: seller?.store_name || seller?.name || seller?.email || `Seller #${cat.created_by?.slice(0, 8)}`,
+          seller_name: seller?.store_name || seller?.owner_name || seller?.email || `Seller #${cat.created_by?.slice(0, 8)}`,
           seller_email: seller?.email || "",
           product_count: countMap[cat.id] || 0,
           is_active: cat.is_active !== false,
