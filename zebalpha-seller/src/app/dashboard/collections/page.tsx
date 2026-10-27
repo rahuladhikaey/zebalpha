@@ -54,30 +54,10 @@ export default function SellerCollectionsPage() {
         console.warn("curated_collections fetch note:", curatedErr.message);
       }
 
-      // 2. Fetch standard categories
-      const { data: catData } = await supabase
-        .from("categories")
-        .select("*")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true });
-
-      // 3. Fallback: Check store_settings if curated_collections table is empty
-      let settingsList: any[] = [];
-      if (!curatedData || curatedData.length === 0) {
-        const { data: ss } = await supabase
-          .from("store_settings")
-          .select("value")
-          .eq("key", "curated_collections")
-          .maybeSingle();
-        if (ss?.value && Array.isArray(ss.value)) {
-          settingsList = ss.value;
-        }
-      }
-
-      const mergedList: CategoryItem[] = [];
+      const list: CategoryItem[] = [];
       const seenTitles = new Set<string>();
 
-      // A. Populate Curated Collections (Admin Managed)
+      // Populate Curated Collections (Admin Managed) ONLY
       if (curatedData && curatedData.length > 0) {
         for (const c of curatedData) {
           const title = (c.title || (c as any).name || "").trim();
@@ -85,7 +65,7 @@ export default function SellerCollectionsPage() {
             const key = title.toLowerCase();
             if (!seenTitles.has(key)) {
               seenTitles.add(key);
-              mergedList.push({
+              list.push({
                 id: String(c.id),
                 name: title,
                 title: title,
@@ -103,74 +83,7 @@ export default function SellerCollectionsPage() {
         }
       }
 
-      // B. Fallback from store_settings
-      if (mergedList.length === 0 && settingsList.length > 0) {
-        for (const c of settingsList) {
-          const title = (c.title || c.name || "").trim();
-          if (title) {
-            const key = title.toLowerCase();
-            if (!seenTitles.has(key)) {
-              seenTitles.add(key);
-              mergedList.push({
-                id: String(c.id || Math.random()),
-                name: title,
-                title: title,
-                slug: c.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-                main_category: "CURATED",
-                image_url: c.image_url || null,
-                description: c.short_description || c.description || null,
-                sort_order: typeof c.display_order === "number" ? c.display_order : 0,
-                is_active: c.is_active !== false,
-                created_at: c.created_at || new Date().toISOString(),
-                link_url: c.link_url || null,
-              });
-            }
-          }
-        }
-      }
-
-      // C. Include standard categories
-      if (catData && catData.length > 0) {
-        for (const cat of catData) {
-          const title = (cat.name || (cat as any).title || "").trim();
-          if (title) {
-            const key = title.toLowerCase();
-            if (!seenTitles.has(key)) {
-              seenTitles.add(key);
-              mergedList.push({
-                id: String(cat.id),
-                name: title,
-                title: title,
-                slug: cat.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-                main_category: cat.main_category || "GENERAL",
-                image_url: cat.image_url || null,
-                description: cat.description || null,
-                sort_order: typeof cat.sort_order === "number" ? cat.sort_order : 99,
-                is_active: cat.is_active !== false,
-                created_at: cat.created_at,
-                link_url: null,
-              });
-            }
-          }
-        }
-      }
-
-      // D. Fallback API call if still empty
-      if (mergedList.length === 0) {
-        try {
-          const res = await fetch("/api/categories");
-          const data = await res.json();
-          if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
-            setCategories(data.categories);
-          } else {
-            setCategories([]);
-          }
-        } catch (_) {
-          setCategories([]);
-        }
-      } else {
-        setCategories(mergedList);
-      }
+      setCategories(list);
 
       // Fetch seller's products
       if (user) {
@@ -192,8 +105,8 @@ export default function SellerCollectionsPage() {
   useEffect(() => {
     loadAllData();
 
-    // Listen to real-time changes on both curated_collections and categories
-    const channel1 = supabase
+    // Listen to real-time changes on curated_collections table
+    const channel = supabase
       .channel("seller-curated-collections-realtime")
       .on(
         "postgres_changes",
@@ -204,20 +117,8 @@ export default function SellerCollectionsPage() {
       )
       .subscribe();
 
-    const channel2 = supabase
-      .channel("seller-categories-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "categories" },
-        () => {
-          loadAllData();
-        }
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel1);
-      supabase.removeChannel(channel2);
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -366,6 +267,9 @@ export default function SellerCollectionsPage() {
                             src={cat.image_url}
                             alt={cat.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
                           />
                         ) : (
                           <div className="flex flex-col items-center gap-1 text-zinc-600">
