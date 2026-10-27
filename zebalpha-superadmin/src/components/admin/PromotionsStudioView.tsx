@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Image from "next/image";
+import { useState, useEffect, useCallback } from "react";
 import {
   Sparkles,
   RefreshCw,
@@ -14,9 +13,8 @@ import {
   Save,
   Eye,
   EyeOff,
-  Sliders,
   Flame,
-  ArrowRight
+  Check
 } from "lucide-react";
 
 interface SlotData {
@@ -51,6 +49,8 @@ interface CategoryOption {
   image_url?: string;
 }
 
+const PRICE_PRESETS = ["From ₹49", "From ₹69", "From ₹79", "From ₹99", "From ₹199", "From ₹299", "Up to 70% OFF", "Up to 80% OFF"];
+
 export default function PromotionsStudioView() {
   const [loading, setLoading] = useState(true);
   const [savingCampaign, setSavingCampaign] = useState(false);
@@ -75,11 +75,35 @@ export default function PromotionsStudioView() {
   const [slotImageUrl, setSlotImageUrl] = useState("");
   const [slotDestinationUrl, setSlotDestinationUrl] = useState("");
 
-  const fetchCampaignData = async () => {
+  // Storefront URL calculation
+  const getStorefrontUrl = () => {
+    if (typeof window !== "undefined") {
+      const host = window.location.hostname;
+      if (host === "localhost" || host === "127.0.0.1") {
+        return process.env.NEXT_PUBLIC_STOREFRONT_URL || "http://localhost:3000";
+      }
+    }
+    return process.env.NEXT_PUBLIC_STOREFRONT_URL || "https://zebalpha.shop";
+  };
+
+  const showStatus = (msg: string) => {
+    setStatusMessage(msg);
+    setErrorMessage("");
+    setTimeout(() => {
+      setStatusMessage((prev) => (prev === msg ? "" : prev));
+    }, 4500);
+  };
+
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setStatusMessage("");
+  };
+
+  const fetchCampaignData = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
     try {
-      const res = await fetch("/api/admin/promotions?slug=top-deals");
+      const res = await fetch("/api/admin/promotions?slug=top-deals", { cache: "no-store" });
       const json = await res.json();
       if (json.success && json.data) {
         const c = json.data.campaign;
@@ -111,18 +135,29 @@ export default function PromotionsStudioView() {
         setSlots(full16);
         setCategories(json.data.categories || []);
       } else {
-        setErrorMessage(json.message || "Failed to load campaign");
+        showError(json.message || "Failed to load campaign data");
       }
     } catch (e: any) {
-      setErrorMessage(e.message || "Network error loading promotions studio");
+      showError(e.message || "Network error loading promotions studio");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCampaignData();
-  }, []);
+  }, [fetchCampaignData]);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && activeSlotNumber !== null) {
+        setActiveSlotNumber(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeSlotNumber]);
 
   // Open slot editor drawer
   const handleOpenSlot = (slotNumber: number) => {
@@ -143,31 +178,46 @@ export default function PromotionsStudioView() {
     setErrorMessage("");
   };
 
+  // Quick apply category to slot
+  const handleSelectCategory = (catSlug: string) => {
+    const cat = categories.find((c) => c.slug === catSlug);
+    if (cat) {
+      if (!slotTitle || categories.some((c) => c.name === slotTitle)) {
+        setSlotTitle(cat.name);
+      }
+      setSlotDestinationUrl(`/categories/${cat.slug}`);
+      if (!slotImageUrl && cat.image_url) {
+        setSlotImageUrl(cat.image_url);
+      }
+    } else if (catSlug === "all") {
+      setSlotDestinationUrl("/categories");
+    }
+  };
+
   // Save current slot
   const handleSaveSlot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!campaign?.id || activeSlotNumber === null) return;
 
     if (!slotTitle.trim()) {
-      setErrorMessage("Slot Title is required");
+      showError("Slot Title is required (e.g. Festive Lights, Kurtis)");
       return;
     }
     if (!slotPriceLabel.trim()) {
-      setErrorMessage("Price label is required (e.g. 'From ₹69' or 'Up to 80% OFF')");
+      showError("Price label is required (e.g. 'From ₹69' or 'Up to 80% OFF')");
       return;
     }
     if (!slotImageUrl.trim()) {
-      setErrorMessage("Image URL is required");
+      showError("Image URL is required");
       return;
     }
     if (!slotDestinationUrl.trim()) {
-      setErrorMessage("Destination URL is required");
+      showError("Destination URL is required (e.g. /categories/mens-fashion)");
       return;
     }
 
     setSavingSlot(true);
     setErrorMessage("");
-    setStatusMessage("");
 
     try {
       const res = await fetch("/api/admin/promotions/slots", {
@@ -190,22 +240,22 @@ export default function PromotionsStudioView() {
         setSlots((prev) =>
           prev.map((s) => (s.slot_number === activeSlotNumber ? { ...s, ...json.data } : s))
         );
-        setStatusMessage(`Slot #${activeSlotNumber} updated successfully!`);
+        showStatus(`✅ Slot #${activeSlotNumber} saved & updated successfully!`);
         setActiveSlotNumber(null);
       } else {
-        setErrorMessage(json.message || "Failed to save slot");
+        showError(json.message || "Failed to save slot");
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "Error saving slot");
+      showError(err.message || "Error saving slot");
     } finally {
       setSavingSlot(false);
     }
   };
 
   // Save campaign meta and publish status
-  const handleSaveCampaign = async (newStatus?: "draft" | "published" | "paused") => {
+  const handleSaveCampaign = async (explicitStatus?: "draft" | "published" | "paused") => {
     if (!campaign?.id) return;
-    const targetStatus = newStatus || status;
+    const targetStatus = explicitStatus !== undefined ? explicitStatus : status;
 
     // Client-side pre-validation for publishing
     if (targetStatus === "published") {
@@ -214,7 +264,7 @@ export default function PromotionsStudioView() {
       );
       if (incompleteSlots.length > 0) {
         const slotNums = incompleteSlots.map((s) => `#${s.slot_number}`).join(", ");
-        setErrorMessage(
+        showError(
           `Cannot publish: All 16 slots must be configured. Missing data in slot(s): ${slotNums}`
         );
         return;
@@ -223,7 +273,6 @@ export default function PromotionsStudioView() {
 
     setSavingCampaign(true);
     setErrorMessage("");
-    setStatusMessage("");
 
     try {
       const res = await fetch("/api/admin/promotions", {
@@ -244,18 +293,20 @@ export default function PromotionsStudioView() {
       if (json.success && json.data) {
         setCampaign(json.data);
         setStatus(json.data.status);
-        setStatusMessage(
+        showStatus(
           targetStatus === "published"
             ? "🚀 Showcase successfully published live to Storefront & Mobile App!"
             : targetStatus === "paused"
             ? "👁️‍🗨️ Showcase is now HIDDEN from Storefront & Mobile App."
-            : "Campaign settings saved as draft (Hidden)."
+            : targetStatus === "draft"
+            ? "📝 Saved as Draft (Hidden from store)."
+            : "✅ Campaign settings saved successfully!"
         );
       } else {
-        setErrorMessage(json.message || "Failed to update campaign");
+        showError(json.message || "Failed to update campaign");
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "Network error updating campaign");
+      showError(err.message || "Network error updating campaign");
     } finally {
       setSavingCampaign(false);
     }
@@ -270,7 +321,7 @@ export default function PromotionsStudioView() {
       <div className="p-8 space-y-6 animate-pulse">
         <div className="h-10 w-72 bg-zinc-800 rounded-xl" />
         <div className="h-32 bg-zinc-900 rounded-2xl" />
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 16 }).map((_, i) => (
             <div key={i} className="h-44 bg-zinc-900 rounded-xl" />
           ))}
@@ -280,7 +331,7 @@ export default function PromotionsStudioView() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 select-none">
       {/* Top Banner / Breadcrumb */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
         <div>
@@ -299,22 +350,27 @@ export default function PromotionsStudioView() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
-            onClick={fetchCampaignData}
-            className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300 flex items-center gap-1.5 transition"
+            type="button"
+            onClick={() => {
+              fetchCampaignData();
+              showStatus("Showcase reloaded from server!");
+            }}
+            disabled={loading}
+            className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 border border-zinc-700 text-xs font-bold text-zinc-300 flex items-center gap-1.5 transition cursor-pointer"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Refresh
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Refresh</span>
           </button>
           <a
-            href="http://localhost:3000"
+            href={getStorefrontUrl()}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold text-white flex items-center gap-1.5 transition"
+            className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 border border-zinc-700 text-xs font-bold text-white flex items-center gap-1.5 transition cursor-pointer"
           >
             <Eye className="w-3.5 h-3.5 text-zinc-400" />
-            View Storefront
+            <span>View Storefront</span>
             <ExternalLink className="w-3 h-3 text-zinc-500" />
           </a>
         </div>
@@ -322,15 +378,15 @@ export default function PromotionsStudioView() {
 
       {/* Notifications */}
       {statusMessage && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          {statusMessage}
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          <span>{statusMessage}</span>
         </div>
       )}
       {errorMessage && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          {errorMessage}
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
@@ -358,7 +414,7 @@ export default function PromotionsStudioView() {
               <select
                 value={themePreset}
                 onChange={(e) => setThemePreset(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-sm font-bold text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-sm font-bold text-white focus:outline-none focus:border-amber-500 cursor-pointer"
               >
                 <option value="diwali_silver_ornate">Diwali Silver Ornate (Black & Silver)</option>
                 <option value="brand_spotlight">Brand Spotlight (Golden Glow)</option>
@@ -396,13 +452,13 @@ export default function PromotionsStudioView() {
                     : "DRAFT"}
                 </span>
 
-                {/* Quick Hide/Show Toggle Icon Button */}
+                {/* Quick Toggle Button */}
                 <button
                   type="button"
                   onClick={() => handleSaveCampaign(status === "published" ? "paused" : "published")}
                   disabled={savingCampaign || (status !== "published" && completedSlotCount < 16)}
-                  title={status === "published" ? "Hide from Storefront" : "Unhide / Make Live"}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border cursor-pointer ${
+                  title={status === "published" ? "Click to Hide from Storefront" : "Click to Make Live on Storefront"}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border cursor-pointer active:scale-95 ${
                     status === "published"
                       ? "bg-zinc-900 hover:bg-zinc-800 text-amber-400 border-zinc-700"
                       : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
@@ -425,64 +481,60 @@ export default function PromotionsStudioView() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-3 self-end lg:self-center">
-            {/* If published, offer explicit HIDE button */}
+          <div className="flex items-center gap-2.5 self-end lg:self-center flex-wrap">
+            {/* 1. Explicit Save Changes (Preserves status) */}
+            <button
+              type="button"
+              onClick={() => handleSaveCampaign(status)}
+              disabled={savingCampaign}
+              className="px-4 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-200 active:scale-95 text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer shadow-lg"
+            >
+              <Save className="w-4 h-4" />
+              <span>{savingCampaign ? "Saving..." : "Save Settings"}</span>
+            </button>
+
+            {/* 2. Toggle Live / Hide Status */}
             {status === "published" ? (
               <button
                 type="button"
                 onClick={() => handleSaveCampaign("paused")}
                 disabled={savingCampaign}
-                className="px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2 transition cursor-pointer shadow-sm shadow-amber-500/10"
+                className="px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/30 text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2 transition cursor-pointer shadow-sm shadow-amber-500/10"
               >
                 <EyeOff className="w-4 h-4" />
-                Hide from Store
+                <span>Hide from Store</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => handleSaveCampaign("published")}
                 disabled={savingCampaign || completedSlotCount < 16}
-                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg transition ${
+                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg transition active:scale-95 ${
                   completedSlotCount === 16
                     ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black shadow-emerald-500/20 cursor-pointer"
                     : "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed"
                 }`}
               >
-                <Eye className="w-4 h-4" />
-                Make Live on Store (16/16)
+                <Flame className="w-4 h-4 fill-current" />
+                <span>Make Live on Store (16/16)</span>
               </button>
             )}
 
+            {/* 3. Save as Draft */}
             <button
               type="button"
               onClick={() => handleSaveCampaign("draft")}
               disabled={savingCampaign}
-              className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-black uppercase tracking-wider text-zinc-300 transition"
+              className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 border border-zinc-700 text-xs font-black uppercase tracking-wider text-zinc-300 transition cursor-pointer"
             >
-              Save Draft
+              <span>Save Draft</span>
             </button>
-
-            {status !== "published" && (
-              <button
-                type="button"
-                onClick={() => handleSaveCampaign("published")}
-                disabled={savingCampaign || completedSlotCount < 16}
-                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg transition ${
-                  completedSlotCount === 16
-                    ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-amber-500/20 cursor-pointer"
-                    : "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed"
-                }`}
-              >
-                <Flame className="w-4 h-4 fill-current" />
-                Publish to Store (16/16)
-              </button>
-            )}
           </div>
         </div>
 
         {/* Informational Banner when Hidden */}
         {status !== "published" && (
-          <div className="px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold flex items-center justify-between">
+          <div className="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <EyeOff className="w-4 h-4 text-amber-400 shrink-0" />
               <span>Showcase is currently <strong>HIDDEN</strong> from customer website and mobile app.</span>
@@ -491,9 +543,9 @@ export default function PromotionsStudioView() {
               <button
                 type="button"
                 onClick={() => handleSaveCampaign("published")}
-                className="text-xs font-black text-amber-400 underline hover:text-amber-300 cursor-pointer"
+                className="text-xs font-black text-amber-400 underline hover:text-amber-300 cursor-pointer flex items-center gap-1"
               >
-                Make Live Now →
+                <span>Make Live Now →</span>
               </button>
             )}
           </div>
@@ -509,7 +561,7 @@ export default function PromotionsStudioView() {
               type="text"
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
-              className="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs text-zinc-300 focus:outline-none focus:border-amber-500"
+              className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-zinc-300 focus:outline-none focus:border-amber-500"
               placeholder="e.g. Festive Picks • Unbeatable Prices • Shop More, Celebrate Bigger"
             />
           </div>
@@ -536,7 +588,7 @@ export default function PromotionsStudioView() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-black uppercase tracking-wider text-zinc-300 flex items-center gap-2">
             <Layers className="w-4 h-4 text-amber-400" />
-            16-Slot Interactive Merchandising Grid (Click any card to edit)
+            <span>16-Slot Interactive Merchandising Grid (Click any card to edit)</span>
           </h2>
           <span className="text-xs text-zinc-500">4 Columns × 4 Rows</span>
         </div>
@@ -548,29 +600,28 @@ export default function PromotionsStudioView() {
               <div
                 key={slot.slot_number}
                 onClick={() => handleOpenSlot(slot.slot_number)}
-                className={`group relative p-3 rounded-2xl bg-zinc-950 border transition-all cursor-pointer hover:border-amber-500/80 hover:shadow-xl hover:shadow-amber-500/5 ${
+                className={`group relative p-3 rounded-2xl bg-zinc-950 border transition-all cursor-pointer hover:border-amber-500 hover:shadow-xl hover:shadow-amber-500/10 active:scale-[0.98] ${
                   isFilled ? "border-zinc-800" : "border-dashed border-zinc-800 bg-zinc-950/40"
                 }`}
               >
                 {/* Slot Number Badge */}
-                <div className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md border border-zinc-700 text-[10px] font-black text-amber-400">
+                <div className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 rounded-md bg-black/85 backdrop-blur-md border border-zinc-700 text-[10px] font-black text-amber-400 shadow">
                   SLOT #{slot.slot_number}
                 </div>
 
                 {/* Edit Icon Overlay on Hover */}
-                <div className="absolute top-2.5 right-2.5 z-10 opacity-0 group-hover:opacity-100 transition p-1.5 rounded-lg bg-amber-500 text-black">
+                <div className="absolute top-2.5 right-2.5 z-10 opacity-0 group-hover:opacity-100 transition p-1.5 rounded-lg bg-amber-500 text-black shadow-lg">
                   <Edit3 className="w-3.5 h-3.5" />
                 </div>
 
-                {/* Image Container */}
-                <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-zinc-900 relative mb-3 border border-zinc-800">
+                {/* Image Container with native img for 100% reliability */}
+                <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-zinc-900 relative mb-3 border border-zinc-800 flex items-center justify-center">
                   {slot.image_url ? (
-                    <Image
+                    <img
                       src={slot.image_url}
                       alt={slot.title || `Slot ${slot.slot_number}`}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      sizes="(max-width: 768px) 50vw, 25vw"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-1">
@@ -600,8 +651,13 @@ export default function PromotionsStudioView() {
 
       {/* Slide-over / Modal for Slot Editing */}
       {activeSlotNumber !== null && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveSlotNumber(null);
+          }}
+        >
+          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150 my-8">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
               <div className="flex items-center gap-2.5">
@@ -611,18 +667,39 @@ export default function PromotionsStudioView() {
                 <h3 className="text-base font-black text-white uppercase">Configure Merchandising Card</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setActiveSlotNumber(null)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Quick Category Autofill Helper */}
+            <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+                ⚡ Quick Fill from Store Categories
+              </span>
+              <select
+                onChange={(e) => handleSelectCategory(e.target.value)}
+                defaultValue=""
+                className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-bold text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+              >
+                <option value="" disabled>-- Select a category to auto-fill --</option>
+                <option value="all">All Categories (/categories)</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.slug}>
+                    {cat.name} (/categories/{cat.slug})
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSaveSlot} className="space-y-4">
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Card Category / Hook Title
+                  Card Category / Hook Title <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -630,26 +707,48 @@ export default function PromotionsStudioView() {
                   onChange={(e) => setSlotTitle(e.target.value)}
                   maxLength={40}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-sm font-bold text-white focus:outline-none focus:border-amber-500"
-                  placeholder="e.g. Festive Lights, Silk Saree, Power Bank"
+                  placeholder="e.g. Festive Lights, Silk Sarees, Diwali Decor"
+                  required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Price Floor / Discount Label
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-black uppercase tracking-wider text-zinc-400">
+                    Price Floor / Discount Label <span className="text-rose-400">*</span>
+                  </label>
+                  <span className="text-[10px] text-zinc-500">Quick presets below</span>
+                </div>
                 <input
                   type="text"
                   value={slotPriceLabel}
                   onChange={(e) => setSlotPriceLabel(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-sm font-bold text-white focus:outline-none focus:border-amber-500"
-                  placeholder="e.g. From ₹69, Up to 80% OFF, From ₹2,499"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-sm font-bold text-white focus:outline-none focus:border-amber-500 mb-2"
+                  placeholder="e.g. From ₹69, Up to 80% OFF, From ₹199"
+                  required
                 />
+                {/* Price Presets */}
+                <div className="flex flex-wrap gap-1.5">
+                  {PRICE_PRESETS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setSlotPriceLabel(p)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
+                        slotPriceLabel === p
+                          ? "bg-amber-500 text-black border-amber-400"
+                          : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-700"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Card Image URL
+                  Card Image URL <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="url"
@@ -657,44 +756,42 @@ export default function PromotionsStudioView() {
                   onChange={(e) => setSlotImageUrl(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-mono text-zinc-300 focus:outline-none focus:border-amber-500 mb-2"
                   placeholder="https://images.unsplash.com/... or Supabase storage URL"
+                  required
                 />
                 {/* Image Live Preview */}
                 {slotImageUrl && (
-                  <div className="w-24 h-24 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 relative">
-                    <Image
-                      src={slotImageUrl}
-                      alt="Preview"
-                      fill
-                      className="object-cover"
-                      sizes="96px"
-                    />
+                  <div className="flex items-center gap-3 p-2 bg-zinc-900/50 rounded-2xl border border-zinc-800">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 shrink-0">
+                      <img
+                        src={slotImageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                    <div className="text-[11px] text-zinc-400 min-w-0">
+                      <span className="font-bold text-emerald-400 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Image URL Live
+                      </span>
+                      <span className="truncate block font-mono text-[10px] text-zinc-500">{slotImageUrl}</span>
+                    </div>
                   </div>
                 )}
               </div>
 
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Target Destination Link
+                  Target Destination URL <span className="text-rose-400">*</span>
                 </label>
-                {/* Category Preset Dropdown */}
-                <select
-                  value={slotDestinationUrl}
-                  onChange={(e) => setSlotDestinationUrl(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-bold text-white focus:outline-none focus:border-amber-500 mb-2"
-                >
-                  <option value="/categories">All Categories (/categories)</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={`/categories/${cat.slug}`}>
-                      {cat.name} (/categories/{cat.slug})
-                    </option>
-                  ))}
-                </select>
                 <input
                   type="text"
                   value={slotDestinationUrl}
                   onChange={(e) => setSlotDestinationUrl(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400"
-                  placeholder="Custom destination URL"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-mono text-zinc-300 focus:outline-none focus:border-amber-500"
+                  placeholder="/categories/mens-fashion"
+                  required
                 />
               </div>
 
@@ -703,17 +800,17 @@ export default function PromotionsStudioView() {
                 <button
                   type="button"
                   onClick={() => setActiveSlotNumber(null)}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-400 transition"
+                  className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-400 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingSlot}
-                  className="px-6 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition shadow-lg shadow-amber-500/20"
+                  className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition shadow-lg shadow-amber-500/20 cursor-pointer disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
-                  {savingSlot ? "Saving..." : "Save Card"}
+                  <span>{savingSlot ? "Saving Card..." : "Save Card"}</span>
                 </button>
               </div>
             </form>
