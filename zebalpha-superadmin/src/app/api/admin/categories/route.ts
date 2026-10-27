@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
 import { resolveCategoryIcon } from "@/lib/serverCategoryIcons";
+import { invalidateCategoriesCache } from "@/lib/redisInvalidator";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
+    await invalidateCategoriesCache();
     return NextResponse.json({ success: true, data: isArray ? data : data?.[0] });
   } catch (error: any) {
     console.error("[Admin Categories POST Error]:", error);
@@ -124,6 +126,7 @@ export async function PUT(req: Request) {
 
     if (error) throw error;
 
+    await invalidateCategoriesCache();
     return NextResponse.json({ success: true, data: data?.[0] });
   } catch (error: any) {
     console.error("[Admin Categories PUT Error]:", error);
@@ -185,6 +188,7 @@ export async function DELETE(req: Request) {
 
     if (error) throw error;
 
+    await invalidateCategoriesCache();
     return NextResponse.json({ success: true, message: "Category deleted successfully" });
   } catch (error: any) {
     console.error("[Admin Categories DELETE Error]:", error);
