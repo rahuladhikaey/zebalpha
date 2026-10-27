@@ -20,30 +20,38 @@ export function CuratedCollectionsSection({
 
   // Sync state if SSR props update
   useEffect(() => {
-    if (initialCollections && initialCollections.length > 0) {
-      setCollections(initialCollections);
-    }
+    setCollections(initialCollections || []);
   }, [initialCollections]);
 
-  // Real-time listener for Superadmin updates to curated_collections
+  // Real-time listener and live verification on mount
   useEffect(() => {
+    const fetchLive = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("curated_collections")
+          .select("id, title, slug, short_description, link_url, image_url, display_order")
+          .eq("is_active", true)
+          .order("display_order", { ascending: true })
+          .limit(24);
+
+        if (!error && Array.isArray(data)) {
+          setCollections(data as CuratedCollection[]);
+        }
+      } catch (err) {
+        console.warn("Live curated collections sync note:", err);
+      }
+    };
+
+    // Immediate mount check to guarantee real-time truth regardless of SSR cache
+    fetchLive();
+
     const channel = supabase
       .channel("customer-curated-collections-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "curated_collections" },
-        async () => {
-          // Re-fetch active curated collections using slim query
-          const { data, error } = await supabase
-            .from("curated_collections")
-            .select("id, title, slug, short_description, link_url, image_url, display_order")
-            .eq("is_active", true)
-            .order("display_order", { ascending: true })
-            .limit(24);
-
-          if (!error && data) {
-            setCollections(data as CuratedCollection[]);
-          }
+        () => {
+          fetchLive();
         }
       )
       .subscribe();

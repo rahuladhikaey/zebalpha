@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { invalidateCuratedCollectionsCache } from "@/lib/redisInvalidator";
 
 export const dynamic = "force-dynamic";
 
@@ -95,9 +96,11 @@ export async function POST(req: Request) {
           { onConflict: "key" }
         );
 
+      await invalidateCuratedCollectionsCache();
       return NextResponse.json({ success: true, data: itemWithId });
     }
 
+    await invalidateCuratedCollectionsCache();
     return NextResponse.json({ success: true, data: data?.[0] });
   } catch (error: any) {
     console.error("[Curated Collections POST Error]:", error);
@@ -152,9 +155,11 @@ export async function PUT(req: Request) {
         );
 
       const updatedItem = updatedList.find((item: any) => String(item.id) === String(id));
+      await invalidateCuratedCollectionsCache();
       return NextResponse.json({ success: true, data: updatedItem });
     }
 
+    await invalidateCuratedCollectionsCache();
     return NextResponse.json({ success: true, data: data?.[0] });
   } catch (error: any) {
     console.error("[Curated Collections PUT Error]:", error);
@@ -200,6 +205,7 @@ export async function DELETE(req: Request) {
         );
     }
 
+    await invalidateCuratedCollectionsCache();
     return NextResponse.json({ success: true, message: "Curated collection removed successfully." });
   } catch (error: any) {
     console.error("[Curated Collections DELETE Error]:", error);

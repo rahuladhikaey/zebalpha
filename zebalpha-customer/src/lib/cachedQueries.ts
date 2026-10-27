@@ -35,7 +35,7 @@ export async function getCachedCuratedCollections(): Promise<CuratedCollection[]
       }
       return [];
     },
-    300 // 5 min TTL
+    10 // 10s short TTL for instant responsiveness with Supabase
   );
 }
 
