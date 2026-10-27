@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2 } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2, Tag } from "lucide-react";
 import type { Category } from "@shared/types";
 import {
   DYNAMIC_CATEGORY_CATALOG,
@@ -38,6 +38,7 @@ export interface Step1Props {
     mrp?: string;
     defective_returns_price?: string;
     single_stock?: string;
+    single_sku?: string;
   };
   categories: Category[];
   onChange: (updates: Partial<Step1Props["formData"]>) => void;
@@ -795,23 +796,206 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
           onToggleMeasurements={(enabled) => onChange({ is_measurements_enabled: enabled })}
         />
       ) : (
-        <div className="p-4 rounded-xl bg-[#141418] border border-[#27272a] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <Layers className="w-4 h-4" />
+        /* Single Configuration / Non-Sized Item Pricing & Stock Section (Saree, Jewellery, Home, Electronics) */
+        <div className="p-4 md:p-5 rounded-2xl bg-[#121216] border border-[#27272a] space-y-4 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#27272a] pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <Tag className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>{activeProductTypeConfig.name} Pricing & Inventory</span>
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                    Free Size / Standard
+                  </span>
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Configure direct selling price, retail MRP, and inventory for this standard item.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-800/80 px-2.5 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
+              Single SKU Item
             </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Selling / Listing Price */}
             <div>
-              <span className="text-xs font-bold text-white block">
-                Standard / Single Configuration Item
-              </span>
-              <span className="text-[11px] text-zinc-400">
-                {activeProductTypeConfig.name} does not require apparel sizing. You will configure product specifications in Step 2.
-              </span>
+              <label className="text-xs font-semibold text-zinc-200 mb-1 flex items-center justify-between">
+                <span>Selling Price (₹) <span className="text-rose-400">*</span></span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs font-bold">₹</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={formData.price || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const pNum = parseFloat(val) || 0;
+                    const curMrp = parseFloat(formData.mrp || "") || 0;
+                    const updatedMrp = curMrp > 0 && curMrp >= pNum ? formData.mrp : String(Math.round(pNum * 1.4));
+                    const autoReturn = formData.defective_returns_price || (pNum > 30 ? String(Math.max(0, pNum - 30)) : "");
+                    const currentStock = formData.single_stock || "20";
+                    const currentSku = formData.single_sku || formData.style_code || `SKU_${Date.now().toString(36).slice(-4)}`;
+
+                    onChange({
+                      price: val,
+                      mrp: updatedMrp,
+                      defective_returns_price: autoReturn,
+                      selected_sizes: ["Free Size"],
+                      size_details: [
+                        {
+                          id: "pkg_free_size",
+                          size: "Free Size",
+                          selling_price: val,
+                          mrp: updatedMrp || val,
+                          return_price: autoReturn,
+                          inventory: currentStock,
+                          sku: currentSku,
+                        },
+                      ],
+                    });
+                  }}
+                  placeholder="e.g. 1299"
+                  className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-[#0a0a0d] border border-[#27272a] text-white text-xs font-semibold focus:border-white transition-colors"
+                />
+              </div>
+              <span className="text-[10px] text-zinc-500 mt-1 block">Customer listing price</span>
+            </div>
+
+            {/* MRP */}
+            <div>
+              <label className="text-xs font-semibold text-zinc-200 mb-1 flex items-center justify-between">
+                <span>Maximum MRP (₹) <span className="text-rose-400">*</span></span>
+                {parseFloat(formData.mrp || "0") > parseFloat(formData.price || "0") && parseFloat(formData.price || "0") > 0 && (
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded">
+                    {Math.round(((parseFloat(formData.mrp!) - parseFloat(formData.price!)) / parseFloat(formData.mrp!)) * 100)}% off
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs font-bold">₹</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={formData.mrp || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const p = formData.price || "";
+                    onChange({
+                      mrp: val,
+                      selected_sizes: ["Free Size"],
+                      size_details: [
+                        {
+                          id: "pkg_free_size",
+                          size: "Free Size",
+                          selling_price: p,
+                          mrp: val,
+                          return_price: formData.defective_returns_price || "",
+                          inventory: formData.single_stock || "20",
+                          sku: formData.single_sku || formData.style_code || "",
+                        },
+                      ],
+                    });
+                  }}
+                  placeholder="e.g. 1999"
+                  className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-[#0a0a0d] border border-[#27272a] text-white text-xs font-semibold focus:border-white transition-colors"
+                />
+              </div>
+              <span className="text-[10px] text-zinc-500 mt-1 block">Printed tag price on product</span>
+            </div>
+
+            {/* Available Inventory / Stock */}
+            <div>
+              <label className="text-xs font-semibold text-zinc-200 mb-1 block">
+                Available Stock <span className="text-rose-400">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={formData.single_stock ?? "20"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onChange({
+                    single_stock: val,
+                    selected_sizes: ["Free Size"],
+                    size_details: [
+                      {
+                        id: "pkg_free_size",
+                        size: "Free Size",
+                        selling_price: formData.price || "",
+                        mrp: formData.mrp || "",
+                        return_price: formData.defective_returns_price || "",
+                        inventory: val,
+                        sku: formData.single_sku || formData.style_code || "",
+                      },
+                    ],
+                  });
+                }}
+                placeholder="20"
+                className="w-full px-3 py-2.5 rounded-xl bg-[#0a0a0d] border border-[#27272a] text-white text-xs font-semibold focus:border-white transition-colors"
+              />
+              <span className="text-[10px] text-zinc-500 mt-1 block">Units ready in your warehouse</span>
+            </div>
+
+            {/* SKU Code */}
+            <div>
+              <label className="text-xs font-semibold text-zinc-200 mb-1 block">
+                SKU / Product Code
+              </label>
+              <input
+                type="text"
+                value={formData.single_sku || formData.style_code || ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onChange({
+                    single_sku: val,
+                    style_code: val,
+                    selected_sizes: ["Free Size"],
+                    size_details: [
+                      {
+                        id: "pkg_free_size",
+                        size: "Free Size",
+                        selling_price: formData.price || "",
+                        mrp: formData.mrp || "",
+                        return_price: formData.defective_returns_price || "",
+                        inventory: formData.single_stock || "20",
+                        sku: val,
+                      },
+                    ],
+                  });
+                }}
+                placeholder="e.g. SAR_BANARASI_01"
+                className="w-full px-3 py-2.5 rounded-xl bg-[#0a0a0d] border border-[#27272a] text-white text-xs font-semibold focus:border-white transition-colors"
+              />
+              <span className="text-[10px] text-zinc-500 mt-1 block">Internal warehouse identifier</span>
             </div>
           </div>
-          <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full uppercase tracking-wider">
-            No Sizes Needed
-          </span>
+
+          {/* Optional Defective Returns Discount (Meesho-Style) */}
+          <div className="pt-2 border-t border-[#202026] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-[11px] text-zinc-400">
+              <span className="font-semibold text-zinc-200">Wrong / Defective Return Price (Optional): </span>
+              Discounted price if customer opts for return only on defective delivery.
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-zinc-400 font-bold">₹</span>
+              <input
+                type="number"
+                min="1"
+                value={formData.defective_returns_price || ""}
+                onChange={(e) => onChange({ defective_returns_price: e.target.value })}
+                placeholder={formData.price && parseFloat(formData.price) > 30 ? String(parseFloat(formData.price) - 30) : "e.g. 1249"}
+                className="w-28 px-2.5 py-1.5 rounded-lg bg-[#0a0a0d] border border-[#27272a] text-white text-xs focus:border-white"
+              />
+            </div>
+          </div>
         </div>
       )}
 

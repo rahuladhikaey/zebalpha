@@ -70,9 +70,16 @@ export interface MasterCatalogFormState {
   defective_returns_price: string;
   mrp: string;
 
+  // Flipkart & Shiprocket Package Dimensions & Volumetric Engine
+  package_length?: string;
+  package_width?: string;
+  package_height?: string;
+  volumetric_weight: string;
+  billable_weight?: string;
+  estimated_shipping_fee?: number;
+
   // Step 3
   style_code: string;
-  volumetric_weight: string;
   brand: string;
   is_premium: boolean;
   is_new_drop: boolean;
@@ -119,6 +126,13 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
   target_gender: "Unisex",
   weight_grams: "300",
 
+  package_length: "30",
+  package_width: "24",
+  package_height: "2.5",
+  volumetric_weight: "360",
+  billable_weight: "360",
+  estimated_shipping_fee: 62,
+
   country_of_origin: "India",
   manufacturer_same_as_pickup: true,
   manufacturer_name: "",
@@ -134,7 +148,6 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
   mrp: "",
 
   style_code: "",
-  volumetric_weight: "",
   brand: "zebalpha",
   is_premium: false,
   is_new_drop: false,
@@ -705,6 +718,22 @@ export default function CatalogUploadWizardModal({
           }
         }
       }
+
+      // Validate non-sized / single configuration products in Step 1 (Saree, Jewellery, Home, Electronics)
+      if (!form.is_new_drop && !hasSizing) {
+        const p = parseFloat(form.price);
+        if (isNaN(p) || p <= 0) {
+          setErrorMsg("Please enter a valid listing price (greater than ₹0).");
+          scrollModalToTop();
+          return false;
+        }
+        const m = parseFloat(form.mrp);
+        if (!isNaN(m) && m > 0 && m < p) {
+          setErrorMsg("MRP cannot be less than selling price.");
+          scrollModalToTop();
+          return false;
+        }
+      }
     } else if (step === 2 && !form.is_new_drop) {
       const activePt = resolveProductTypeConfig(form.category_id, form.subcategory_name);
       const hasSizing = activePt.sizingSystem !== "none";
@@ -1070,7 +1099,18 @@ export default function CatalogUploadWizardModal({
         packer_pincode: form.packer_same_as_manufacturer ? (form.manufacturer_pincode || sellerPickupInfo?.pincode || "") : form.packer_pincode,
         defective_returns_price: form.defective_returns_price,
         style_code: form.style_code,
-        volumetric_weight: form.volumetric_weight,
+        package_dimensions: {
+          length: parseFloat(form.package_length || "30") || 30,
+          width: parseFloat(form.package_width || "24") || 24,
+          height: parseFloat(form.package_height || "2.5") || 2.5,
+          unit: "cm",
+        },
+        package_length: form.package_length || "30",
+        package_width: form.package_width || "24",
+        package_height: form.package_height || "2.5",
+        volumetric_weight: form.volumetric_weight || "360",
+        billable_weight: form.billable_weight || "360",
+        estimated_shipping_fee: form.estimated_shipping_fee || 62,
         is_premium: form.is_premium,
         is_new_drop: form.is_new_drop,
         collection: form.collection,
@@ -1283,7 +1323,7 @@ export default function CatalogUploadWizardModal({
         : [
             {
               id: `pkg_std_${Date.now()}`,
-              name: "Standard",
+              name: "Free Size",
               color: "Standard",
               size: "Free Size",
               price: effectivePrice || 0,

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Info, Calculator, Building2, Package, Tag, ShieldCheck, Sparkles, MapPin, RotateCw, CheckCircle2 } from "lucide-react";
+import { Info, Calculator, Building2, Package, Tag, ShieldCheck, Sparkles, MapPin, RotateCw, CheckCircle2, Box, Scale, Truck, ArrowRight, AlertCircle, HelpCircle } from "lucide-react";
 import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
 import { supabase } from "@shared/utils/supabaseClient";
 
@@ -15,6 +15,14 @@ export interface Step2Props {
     care_instructions: string;
     target_gender: string;
     weight_grams: string;
+
+    // Flipkart & Shiprocket Package Dimensions & Volumetric Engine
+    package_length?: string;
+    package_width?: string;
+    package_height?: string;
+    volumetric_weight?: string;
+    billable_weight?: string;
+    estimated_shipping_fee?: number;
 
     // Dynamic attributes bag
     custom_attributes?: Record<string, string>;
@@ -32,6 +40,11 @@ export interface Step2Props {
     price: string;
     defective_returns_price: string;
     mrp: string;
+    style_code?: string;
+    single_stock?: string;
+    single_sku?: string;
+    selected_sizes?: string[];
+    size_details?: any[];
   };
   onChange: (updates: Partial<Step2Props["formData"]>) => void;
   sellerOriginInfo?: {
@@ -349,12 +362,60 @@ export default function Step2BasicDetails({ formData, onChange, sellerOriginInfo
     loadRules();
   }, []);
 
-  // Meesho / Flipkart model: Customer listing price is the seller base price!
-  const estimatedShippingFee = platformRules.shippingFee;
-  const customerPrice = sellerPriceNum + estimatedShippingFee;
-  
+  // Smart package presets based on category
+  const defaultDimensions = useMemo(() => {
+    const sub = (formData.subcategory_name || "").toLowerCase();
+    if (sub.includes("saree") || sub.includes("sari")) {
+      return { l: "34", w: "26", h: "3.5", wt: "450" };
+    }
+    if (sub.includes("jewel") || sub.includes("ring") || sub.includes("bangle") || sub.includes("necklace")) {
+      return { l: "16", w: "12", h: "4", wt: "120" };
+    }
+    if (sub.includes("hoodie") || sub.includes("sweatshirt") || sub.includes("jacket")) {
+      return { l: "35", w: "28", h: "6", wt: "650" };
+    }
+    if (sub.includes("footwear") || sub.includes("shoe")) {
+      return { l: "32", w: "20", h: "12", wt: "800" };
+    }
+    if (sub.includes("bedsheet") || sub.includes("curtain")) {
+      return { l: "38", w: "28", h: "5", wt: "900" };
+    }
+    return { l: "30", w: "24", h: "2.5", wt: "300" };
+  }, [formData.subcategory_name]);
+
+  const pkgLength = parseFloat(formData.package_length || defaultDimensions.l) || 30;
+  const pkgWidth = parseFloat(formData.package_width || defaultDimensions.w) || 24;
+  const pkgHeight = parseFloat(formData.package_height || defaultDimensions.h) || 2.5;
+  const deadWeightGrams = parseFloat(formData.weight_grams || defaultDimensions.wt) || 300;
+
+  // IATA / Shiprocket formula: Volumetric Weight (g) = (L * W * H) / 5
+  const volumetricGrams = Math.round((pkgLength * pkgWidth * pkgHeight) / 5);
+  const billableWeightGrams = Math.max(deadWeightGrams, volumetricGrams);
+
+  // Shiprocket Courier Slabs: Base 500g slab = ₹62, additional 500g = ₹35
+  const additionalSlabs = Math.max(0, Math.ceil((billableWeightGrams - 500) / 500));
+  const estimatedShippingFee = 62 + additionalSlabs * 35;
+  const courierSlabLabel = billableWeightGrams <= 500 ? "0.5 kg (Base Slab)" : `${(0.5 + additionalSlabs * 0.5).toFixed(1)} kg Slab`;
+
+  // Auto-sync calculated dimensions & weights if not yet recorded
+  useEffect(() => {
+    if (!formData.package_length || !formData.package_width || !formData.package_height) {
+      onChange({
+        package_length: String(pkgLength),
+        package_width: String(pkgWidth),
+        package_height: String(pkgHeight),
+        weight_grams: String(deadWeightGrams),
+        volumetric_weight: String(volumetricGrams),
+        billable_weight: String(billableWeightGrams),
+        estimated_shipping_fee: estimatedShippingFee,
+      });
+    }
+  }, [pkgLength, pkgWidth, pkgHeight, deadWeightGrams, volumetricGrams, billableWeightGrams, estimatedShippingFee]);
+
+  // Flipkart / Meesho model: Customer listing price is the seller base price!
+  const customerPrice = sellerPriceNum;
   const platformCommission = (sellerPriceNum * platformRules.commissionPct) / 100;
-  const paymentGatewayFee = (sellerPriceNum * platformRules.collectionPct) / 100;
+  const paymentGatewayFee = (sellerPriceNum * (platformRules.collectionPct || 2)) / 100;
   const estimatedBankSettlement = Math.max(0, sellerPriceNum - platformCommission - paymentGatewayFee);
 
   const handleSameAsManufacturerToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -443,121 +504,353 @@ export default function Step2BasicDetails({ formData, onChange, sellerOriginInfo
           })}
         </div>
 
-        {/* Item Weight / Net Package Weight */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-          <div>
-            <label className="text-xs font-medium text-zinc-300 mb-1 block">Package Net Weight (Grams) *</label>
-            <input
-              type="number"
-              value={formData.weight_grams}
-              onChange={(e) => onChange({ weight_grams: e.target.value })}
-              placeholder="e.g. 350"
-              className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
-            />
-            <span className="text-[10px] text-zinc-500 mt-1 block">Accurate dead weight for courier label generation</span>
+        {/* Flipkart / Shiprocket Packaging Dimensions & Volumetric Calculator */}
+        <div className="pt-2 border-t border-[#222228] space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-white font-semibold text-xs">
+              <Box className="w-4 h-4 text-emerald-400" />
+              <span>Package Dimensions & Volumetric Weight (Shiprocket Standard)</span>
+            </div>
+            <span className="text-[10px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-md font-mono self-start sm:self-auto">
+              Volumetric: (L × W × H) ÷ 5000 kg
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-[11px] font-medium text-zinc-300 mb-1 block">Length (L in cm) *</label>
+              <input
+                type="number"
+                min="1"
+                step="0.5"
+                value={formData.package_length || defaultDimensions.l}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const newL = parseFloat(val) || 0;
+                  const newVol = Math.round((newL * pkgWidth * pkgHeight) / 5);
+                  const newBill = Math.max(deadWeightGrams, newVol);
+                  const newSlabs = Math.max(0, Math.ceil((newBill - 500) / 500));
+                  const newShip = 62 + newSlabs * 35;
+                  onChange({
+                    package_length: val,
+                    volumetric_weight: String(newVol),
+                    billable_weight: String(newBill),
+                    estimated_shipping_fee: newShip,
+                  });
+                }}
+                className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-zinc-300 mb-1 block">Width / Breadth (W in cm) *</label>
+              <input
+                type="number"
+                min="1"
+                step="0.5"
+                value={formData.package_width || defaultDimensions.w}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const newW = parseFloat(val) || 0;
+                  const newVol = Math.round((pkgLength * newW * pkgHeight) / 5);
+                  const newBill = Math.max(deadWeightGrams, newVol);
+                  const newSlabs = Math.max(0, Math.ceil((newBill - 500) / 500));
+                  const newShip = 62 + newSlabs * 35;
+                  onChange({
+                    package_width: val,
+                    volumetric_weight: String(newVol),
+                    billable_weight: String(newBill),
+                    estimated_shipping_fee: newShip,
+                  });
+                }}
+                className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-zinc-300 mb-1 block">Height (H in cm) *</label>
+              <input
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={formData.package_height || defaultDimensions.h}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const newH = parseFloat(val) || 0;
+                  const newVol = Math.round((pkgLength * pkgWidth * newH) / 5);
+                  const newBill = Math.max(deadWeightGrams, newVol);
+                  const newSlabs = Math.max(0, Math.ceil((newBill - 500) / 500));
+                  const newShip = 62 + newSlabs * 35;
+                  onChange({
+                    package_height: val,
+                    volumetric_weight: String(newVol),
+                    billable_weight: String(newBill),
+                    estimated_shipping_fee: newShip,
+                  });
+                }}
+                className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-zinc-300 mb-1 block">Dead Weight (Grams) *</label>
+              <input
+                type="number"
+                min="10"
+                step="10"
+                value={formData.weight_grams || defaultDimensions.wt}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const newWt = parseFloat(val) || 0;
+                  const newBill = Math.max(newWt, volumetricGrams);
+                  const newSlabs = Math.max(0, Math.ceil((newBill - 500) / 500));
+                  const newShip = 62 + newSlabs * 35;
+                  onChange({
+                    weight_grams: val,
+                    billable_weight: String(newBill),
+                    estimated_shipping_fee: newShip,
+                  });
+                }}
+                className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs focus:border-white"
+              />
+            </div>
+          </div>
+
+          {/* Real-Time Volumetric Weight Comparison Banner */}
+          <div className="p-3 rounded-xl bg-[#09090c] border border-[#202026] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 text-zinc-300">
+                <Scale className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Dead Wt: <strong className="text-white font-mono">{deadWeightGrams}g</strong></span>
+              </div>
+              <span className="text-zinc-600">vs</span>
+              <div className="flex items-center gap-1.5 text-zinc-300">
+                <Box className="w-3.5 h-3.5 text-violet-400" />
+                <span>Volumetric Wt: <strong className="text-violet-300 font-mono">{volumetricGrams}g</strong></span>
+              </div>
+              <ArrowRight className="w-3 h-3 text-zinc-500 hidden sm:block" />
+              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md text-emerald-400 font-semibold text-[11px]">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Billable Weight: <strong className="font-mono">{billableWeightGrams}g</strong> ({courierSlabLabel})</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Truck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-zinc-400 text-[11px]">Est. Courier Cost:</span>
+              <span className="text-white font-bold font-mono">₹{estimatedShippingFee.toFixed(2)}</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Pricing & Tax Details */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2 text-white font-semibold text-sm border-b border-[#27272a] pb-2">
-          <Calculator className="w-4 h-4 text-emerald-400" />
-          Pricing Details & Earnings Calculator
+        <div className="flex items-center justify-between border-b border-[#27272a] pb-2">
+          <div className="flex items-center gap-2 text-white font-semibold text-sm">
+            <Calculator className="w-4 h-4 text-emerald-400" />
+            Pricing Details & Bank Settlement Calculator
+          </div>
+          <span className="text-[10px] text-zinc-400">
+            {activeProductTypeConfig.sizingSystem === "none" ? "Single SKU Mode" : "Size Matrix Mode"}
+          </span>
         </div>
 
-        {/* Dynamic Size-Based Price Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-medium text-zinc-400">
-                Base Listing Price (₹) <span className="text-zinc-500 font-normal">(All returns allowed)</span>
-              </span>
-              <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                Auto
-              </span>
+        {/* Pricing Inputs / Summary Cards */}
+        {activeProductTypeConfig.sizingSystem === "none" ? (
+          /* Editable pricing for non-sized products (Saree, Jewellery, Home, Electronics) */
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+              <label className="text-[11px] font-semibold text-zinc-300 mb-1.5 block">
+                Selling Price (₹) <span className="text-rose-400">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs font-bold">₹</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.price || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const pNum = parseFloat(val) || 0;
+                    const curMrp = parseFloat(formData.mrp || "") || 0;
+                    const autoMrp = curMrp >= pNum ? formData.mrp : String(Math.round(pNum * 1.4));
+                    const autoReturn = formData.defective_returns_price || (pNum > 30 ? String(Math.max(0, pNum - 30)) : "");
+                    onChange({
+                      price: val,
+                      mrp: autoMrp,
+                      selected_sizes: ["Free Size"],
+                      size_details: [
+                        {
+                          id: "pkg_free_size",
+                          size: "Free Size",
+                          selling_price: val,
+                          mrp: autoMrp || val,
+                          return_price: autoReturn,
+                          inventory: formData.single_stock || "20",
+                          sku: formData.single_sku || formData.style_code || "",
+                        },
+                      ],
+                    });
+                  }}
+                  placeholder="e.g. 1299"
+                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-[#050508] border border-[#27272a] text-white text-xs font-semibold focus:border-white"
+                />
+              </div>
+              <span className="text-[10px] text-zinc-500 mt-1 block">Customer listing price</span>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-white">
-                {sellerPriceNum > 0 ? `₹${sellerPriceNum.toFixed(2)}` : "—"}
-              </span>
-              {sellerPriceNum > 0 && (
-                <span className="text-[10px] text-zinc-400">
-                  (Min size price)
+
+            <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+              <label className="text-[11px] font-semibold text-zinc-300 mb-1.5 block">
+                Maximum MRP (₹) <span className="text-rose-400">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs font-bold">₹</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.mrp || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onChange({
+                      mrp: val,
+                      selected_sizes: ["Free Size"],
+                      size_details: [
+                        {
+                          id: "pkg_free_size",
+                          size: "Free Size",
+                          selling_price: formData.price || "",
+                          mrp: val,
+                          return_price: formData.defective_returns_price || "",
+                          inventory: formData.single_stock || "20",
+                          sku: formData.single_sku || formData.style_code || "",
+                        },
+                      ],
+                    });
+                  }}
+                  placeholder="e.g. 1999"
+                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-[#050508] border border-[#27272a] text-white text-xs font-semibold focus:border-white"
+                />
+              </div>
+              <span className="text-[10px] text-zinc-500 mt-1 block">Retail tag price</span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+              <label className="text-[11px] font-semibold text-zinc-300 mb-1.5 block">
+                Wrong / Defective Return (₹)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs font-bold">₹</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.defective_returns_price || ""}
+                  onChange={(e) => onChange({ defective_returns_price: e.target.value })}
+                  placeholder={sellerPriceNum > 30 ? String(sellerPriceNum - 30) : "e.g. 1249"}
+                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-[#050508] border border-[#27272a] text-white text-xs focus:border-white"
+                />
+              </div>
+              <span className="text-[10px] text-zinc-500 mt-1 block">Discounted return rate</span>
+            </div>
+          </div>
+        ) : (
+          /* Sized product: Dynamic summary cards computed from Step 1 */
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-medium text-zinc-400">
+                  Base Listing Price (₹) <span className="text-zinc-500 font-normal">(All returns)</span>
                 </span>
-              )}
-            </div>
-            <span className="text-[10px] text-zinc-500 mt-1 block">
-              Calculated from size pricing in Step 1
-            </span>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-medium text-zinc-400">
-                Wrong / Defective Return Price (₹)
-              </span>
-              <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                Auto
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-white">
-                {defectivePriceNum > 0
-                  ? `₹${defectivePriceNum.toFixed(2)}`
-                  : sellerPriceNum > 0
-                  ? `₹${Math.max(0, sellerPriceNum - 20).toFixed(2)}`
-                  : "—"}
-              </span>
-            </div>
-            <span className="text-[10px] text-zinc-500 mt-1 block">
-              Discounted defective return rate
-            </span>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-medium text-zinc-400">MRP (₹)</span>
-              <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                Auto
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-white">
-                {mrpNum > 0 ? `₹${mrpNum.toFixed(2)}` : "—"}
-              </span>
-              {mrpNum > sellerPriceNum && sellerPriceNum > 0 && (
                 <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                  {Math.round(((mrpNum - sellerPriceNum) / mrpNum) * 100)}% off
+                  Auto
                 </span>
-              )}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-bold text-white">
+                  {sellerPriceNum > 0 ? `₹${sellerPriceNum.toFixed(2)}` : "—"}
+                </span>
+                {sellerPriceNum > 0 && (
+                  <span className="text-[10px] text-zinc-400">(Min size price)</span>
+                )}
+              </div>
+              <span className="text-[10px] text-zinc-500 mt-1 block">Configured in Step 1 size matrix</span>
             </div>
-            <span className="text-[10px] text-zinc-500 mt-1 block">
-              Max MRP configured in Step 1
-            </span>
-          </div>
-        </div>
 
-        {/* Live Bank Settlement Calculator Widget */}
-        <div className="p-4 rounded-xl bg-[#141418] border border-[#27272a] grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-3 rounded-lg bg-[#0d0d10] border border-[#222228] space-y-2">
-            <div className="flex justify-between items-center text-xs font-medium text-zinc-300 border-b border-[#27272a] pb-1.5">
-              <span>Customer Checkout Price</span>
+            <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-medium text-zinc-400">
+                  Defective Return Price (₹)
+                </span>
+                <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                  Auto
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-bold text-white">
+                  {defectivePriceNum > 0
+                    ? `₹${defectivePriceNum.toFixed(2)}`
+                    : sellerPriceNum > 0
+                    ? `₹${Math.max(0, sellerPriceNum - 20).toFixed(2)}`
+                    : "—"}
+                </span>
+              </div>
+              <span className="text-[10px] text-zinc-500 mt-1 block">Discounted return tier</span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a]">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-medium text-zinc-400">MRP (₹)</span>
+                <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                  Auto
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-bold text-white">
+                  {mrpNum > 0 ? `₹${mrpNum.toFixed(2)}` : "—"}
+                </span>
+                {mrpNum > sellerPriceNum && sellerPriceNum > 0 && (
+                  <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                    {Math.round(((mrpNum - sellerPriceNum) / mrpNum) * 100)}% off
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-zinc-500 mt-1 block">Max MRP in Step 1</span>
+            </div>
+          </div>
+        )}
+
+        {/* Live Bank Settlement & Profitability Calculator (Flipkart Standard) */}
+        <div className="p-4 rounded-2xl bg-[#121217] border border-[#27272a] grid grid-cols-1 md:grid-cols-2 gap-4 shadow-xl">
+          <div className="p-3.5 rounded-xl bg-[#0a0a0d] border border-[#202026] space-y-2.5">
+            <div className="flex justify-between items-center text-xs font-semibold text-zinc-200 border-b border-[#202026] pb-2">
+              <span className="flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-zinc-400" />
+                Customer Listing Price
+              </span>
               <span className="text-white font-bold text-sm">₹{customerPrice.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-[11px] text-zinc-400">
-              <span>Seller Base Price</span>
-              <span>₹{sellerPriceNum.toFixed(2)}</span>
+              <span className="flex items-center gap-1.5">
+                <Truck className="w-3 h-3 text-zinc-400" />
+                Estimated Courier Shipping (National)
+              </span>
+              <span className="text-zinc-300 font-mono">₹{estimatedShippingFee.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-[11px] text-zinc-400">
-              <span>Estimated Customer Shipping</span>
-              <span>₹{estimatedShippingFee.toFixed(2)}</span>
+              <span className="flex items-center gap-1.5">
+                <Scale className="w-3 h-3 text-zinc-400" />
+                Applicable Logistics Weight
+              </span>
+              <span className="text-zinc-300 font-mono">{billableWeightGrams}g ({courierSlabLabel})</span>
             </div>
           </div>
 
-          <div className="p-3 rounded-lg bg-[#0d0d10] border border-emerald-500/30 space-y-2">
-            <div className="flex justify-between items-center text-xs font-medium text-emerald-400 border-b border-[#27272a] pb-1.5">
-              <span>Estimated Bank Settlement Amount</span>
+          <div className="p-3.5 rounded-xl bg-[#0a0a0d] border border-emerald-500/30 space-y-2.5">
+            <div className="flex justify-between items-center text-xs font-bold text-emerald-400 border-b border-[#202026] pb-2">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                Net Bank Settlement (In-Hand Payout)
+              </span>
               <span className="text-emerald-400 font-bold text-base">₹{estimatedBankSettlement.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-[11px] text-zinc-400">
@@ -566,12 +859,10 @@ export default function Step2BasicDetails({ formData, onChange, sellerOriginInfo
                 {platformCommission === 0 ? "₹0.00 (Zero Commission)" : `-₹${platformCommission.toFixed(2)}`}
               </span>
             </div>
-            {platformRules.collectionPct > 0 && (
-              <div className="flex justify-between items-center text-[11px] text-zinc-400">
-                <span>Payment Gateway ({platformRules.collectionPct}%)</span>
-                <span>-₹{paymentGatewayFee.toFixed(2)}</span>
-              </div>
-            )}
+            <div className="flex justify-between items-center text-[11px] text-zinc-400">
+              <span>Payment Gateway (2%)</span>
+              <span>-₹{paymentGatewayFee.toFixed(2)}</span>
+            </div>
           </div>
         </div>
       </div>
