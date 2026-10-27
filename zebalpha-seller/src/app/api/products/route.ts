@@ -23,8 +23,10 @@ async function getAuthenticatedUser(req: NextRequest) {
 // Helper to invalidate customer storefront cache on Upstash Redis
 async function invalidateStorefrontCache() {
   try {
-    const upstashUrl = "https://resolved-falcon-225201.upstash.io";
-    const upstashToken = "gQAAAAAAA2-xAAIgcDIxN2RjZjJlZTM0ZTk0ZTZlOWI2MGJlYWRlNzE1MmE3ZQ";
+    const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+    const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!upstashUrl || !upstashToken) return;
+
     await fetch(`${upstashUrl}/pipeline`, {
       method: "POST",
       headers: { Authorization: `Bearer ${upstashToken}` },
