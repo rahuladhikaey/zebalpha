@@ -18,7 +18,8 @@ import {
   ChevronRight, 
   Sparkles, 
   Coins,
-  Globe 
+  Globe,
+  Trash2
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useIsNativeApp } from "@/lib/platform";
@@ -310,6 +311,25 @@ export default function ProfileDashboard() {
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
+              </Link>
+            </li>
+
+            {/* Account Deletion (Google Play Compliance) */}
+            <li>
+              <Link
+                href="/account-deletion"
+                className="flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-rose-900/40 hover:bg-rose-950/10 transition-all group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-zinc-500 border border-zinc-800 group-hover:text-rose-400 group-hover:bg-rose-950/40 transition-colors">
+                    <Trash2 size={18} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-zinc-400 group-hover:text-rose-400 text-sm block transition-colors">Delete Account</span>
+                    <span className="text-[10px] text-zinc-500 font-medium">Request account and data removal</span>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-zinc-600 group-hover:text-rose-400 transition-colors" />
               </Link>
             </li>
           </ul>

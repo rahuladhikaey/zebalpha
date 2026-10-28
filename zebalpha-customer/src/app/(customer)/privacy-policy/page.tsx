@@ -156,7 +156,13 @@ export default function PrivacyPolicyPage() {
                 <ul className="list-disc list-inside space-y-2 text-sm leading-7 text-zinc-400">
                   <li>Access to personal data</li>
                   <li>Correction of inaccurate information</li>
-                  <li>Deletion of eligible data</li>
+                  <li>
+                    Deletion of account and associated data (
+                    <a href="/account-deletion" className="text-white underline hover:text-zinc-300">
+                      Request Account Deletion online here
+                    </a>
+                    )
+                  </li>
                   <li>Withdrawal of marketing consent</li>
                 </ul>
               </div>
