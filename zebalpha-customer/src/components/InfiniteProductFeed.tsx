@@ -213,17 +213,6 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                 </div>
               </div>
 
-              {/* Quick Size Pills Preview */}
-              <div className="absolute bottom-2 inset-x-2 z-10 flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                {["S", "M", "L", "XL"].map((sz) => (
-                  <span
-                    key={sz}
-                    className="text-[9px] font-black px-1.5 py-0.5 rounded bg-black/85 text-white border border-white/20"
-                  >
-                    {sz}
-                  </span>
-                ))}
-              </div>
 
               {/* Content */}
               <div className="flex flex-1 flex-col p-3.5 sm:p-4">
