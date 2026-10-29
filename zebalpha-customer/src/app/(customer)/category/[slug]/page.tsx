@@ -12,8 +12,8 @@ import { createClient } from "@supabase/supabase-js";
 import { Sparkles, ArrowRight, ShieldCheck, Tag, Ruler } from "lucide-react";
 import { getProductDisplayPricing } from "@/lib/productPricing";
 
-const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "").trim();
-const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "").trim();
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "dummy-anon-key-for-build").trim();
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
