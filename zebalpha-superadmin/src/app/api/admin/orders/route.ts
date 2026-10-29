@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // GET /api/admin/orders
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const { data: orders, error } = await supabaseServer
       .from("orders")
       .select("*")
@@ -19,6 +22,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: orders || [] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Superadmin fetch orders exception:", error);
     return NextResponse.json({ success: false, message: error?.message || "Failed to fetch orders", data: [] }, { status: 500 });
   }
@@ -27,6 +31,8 @@ export async function GET() {
 // PATCH /api/admin/orders
 export async function PATCH(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
     const { id, ...updates } = body;
     if (!id) {
@@ -47,6 +53,7 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Superadmin update order exception:", error);
     return NextResponse.json({ success: false, message: error?.message || "Failed to update order" }, { status: 500 });
   }
@@ -55,6 +62,8 @@ export async function PATCH(req: Request) {
 // DELETE /api/admin/orders
 export async function DELETE(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     if (!id) {
@@ -117,6 +126,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true, message: "Order and linked sub-orders deleted successfully" });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Superadmin delete order exception:", error);
     return NextResponse.json({ success: false, message: error?.message || "Failed to delete order" }, { status: 500 });
   }

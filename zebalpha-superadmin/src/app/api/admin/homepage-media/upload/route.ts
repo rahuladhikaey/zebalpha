@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,11 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireSuperAdmin(req);
+  if (!auth.authenticated) {
+    return authErrorResponse(auth);
+  }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

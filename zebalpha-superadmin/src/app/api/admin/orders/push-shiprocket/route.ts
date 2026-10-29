@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
 
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
+
 const SHIPROCKET_API = "https://apiv2.shiprocket.in/v1/external";
 
 export async function POST(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const { orderId } = await req.json();
     if (!orderId) {
       return NextResponse.json({ success: false, message: "Order ID is required" }, { status: 400 });
@@ -345,6 +349,7 @@ export async function POST(req: Request) {
       message: "Pushed to Shiprocket Live successfully!",
     });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Push Shiprocket error:", error);
     return NextResponse.json({ success: false, message: error?.message || "Failed to process" }, { status: 500 });
   }

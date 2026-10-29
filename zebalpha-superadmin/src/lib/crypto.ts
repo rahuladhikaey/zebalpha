@@ -51,12 +51,14 @@ export async function verifyPassword(password: string, storedHash: string): Prom
   // If storedHash is not in salt:hash format (legacy fallback)
   if (!storedHash.includes(":")) {
     const enc = new TextEncoder();
-    const a = enc.encode(password);
-    const b = enc.encode(storedHash);
-    if (a.byteLength !== b.byteLength) return false;
-    // Constant time comparison
+    // Digest both strings using SHA-256 to produce fixed-size 32-byte arrays
+    // This avoids early exit on byte length mismatch and guarantees constant-time comparison
+    const digestA = await crypto.subtle.digest("SHA-256", enc.encode(password));
+    const digestB = await crypto.subtle.digest("SHA-256", enc.encode(storedHash));
+    const a = new Uint8Array(digestA);
+    const b = new Uint8Array(digestB);
     let diff = 0;
-    for (let i = 0; i < a.byteLength; i++) {
+    for (let i = 0; i < 32; i++) {
       diff |= a[i] ^ b[i];
     }
     return diff === 0;

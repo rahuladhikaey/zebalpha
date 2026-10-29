@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export async function POST(req: Request) {
   try {
-    // 1. Verify admin session first
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    // 1. Cryptographically verify admin session & Super Admin privileges
+    await requireSuperAdmin(req);
 
     const { userId, role } = await req.json();
 
@@ -39,6 +37,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: `User role updated to ${role}` });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Role update api error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }

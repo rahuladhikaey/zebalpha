@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
 import { triggerCacheInvalidation } from "@/shared/utils/cacheInvalidator";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,10 +15,7 @@ const NO_STORE_HEADERS = {
 // GET /api/admin/sellers
 export async function GET(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
-    }
+    await requireSuperAdmin(req);
 
     const { data, error } = await supabaseServer
       .from("sellers")
@@ -31,6 +29,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: data || [] }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("GET sellers API error:", error);
     return NextResponse.json({ success: true, data: [] }, { headers: NO_STORE_HEADERS });
   }
@@ -39,10 +38,7 @@ export async function GET(req: Request) {
 // POST /api/admin/sellers
 export async function POST(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const body = await req.json();
     const { data, error } = await supabaseServer
@@ -59,6 +55,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, data: newSeller });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("POST seller API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -67,10 +64,7 @@ export async function POST(req: Request) {
 // PUT /api/admin/sellers
 export async function PUT(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const body = await req.json();
     const { id, updates } = body;
@@ -91,6 +85,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true, data: data?.[0] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("PUT seller API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -99,10 +94,7 @@ export async function PUT(req: Request) {
 // DELETE /api/admin/sellers
 export async function DELETE(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
@@ -122,6 +114,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true, message: "Seller deleted successfully" });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("DELETE seller API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }

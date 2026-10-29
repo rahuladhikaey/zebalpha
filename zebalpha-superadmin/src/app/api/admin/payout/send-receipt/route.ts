@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireSuperAdmin(request);
+  if (!auth.authenticated) {
+    return authErrorResponse(auth);
+  }
+
   try {
     const body = await request.json();
     const { toEmail, sellerName, amount, paymentMethod, upiId, utrNumber, paymentDate, notes } = body;

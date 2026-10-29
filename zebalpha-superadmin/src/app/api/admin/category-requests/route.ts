@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
 import { resolveCategoryIcon } from "@/lib/serverCategoryIcons";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/admin/category-requests (Fetch all seller-created subcategories and audit logs)
 export async function GET(req: NextRequest) {
   try {
+    await requireSuperAdmin(req);
+
     // 1. Fetch subcategories directly created by sellers from `categories` table
     const { data: sellerCategories, error: catErr } = await supabaseServer
       .from("categories")
@@ -123,6 +126,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: list });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Admin Category Requests GET Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -131,6 +135,8 @@ export async function GET(req: NextRequest) {
 // POST /api/admin/category-requests (Fallback endpoint if needed)
 export async function POST(req: NextRequest) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
     const { id, action } = body;
 
@@ -179,6 +185,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
 }

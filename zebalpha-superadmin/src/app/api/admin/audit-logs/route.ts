@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export async function GET(req: Request) {
+  const auth = await requireSuperAdmin(req);
+  if (!auth.authenticated) {
+    return authErrorResponse(auth);
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get("limit") || "50", 10);

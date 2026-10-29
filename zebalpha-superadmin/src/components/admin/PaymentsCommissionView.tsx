@@ -199,61 +199,45 @@ export default function PaymentsCommissionView() {
       notes: payoutForm.notes
     };
 
-    // 1. Save to Supabase DB
+    // 1. Invoke Privileged Backend Settlement API (SEC-08 Hardening)
+    setPayoutStatusMessage("⏳ Processing settlement via secure backend...");
     try {
-      await supabase.from("seller_settlements").insert([newSettlement]);
-
-      // 2. Also finalize any in-flight withdrawal request in seller_payout_requests
-      const { data: pReq } = await supabase
-        .from("seller_payout_requests")
-        .select("id")
-        .eq("seller_id", selectedSellerForPayment.id)
-        .in("status", ["PENDING", "PROCESSING"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (pReq) {
-        await supabase.rpc("finalize_payout_success", {
-          p_payout_id: pReq.id,
-          p_provider_payout_id: payoutForm.utr_number.trim(),
-          p_utr_number: payoutForm.utr_number.trim(),
-          p_source: "ADMIN_MANUAL"
-        });
-      }
-    } catch (e) {
-      console.warn("Could not insert into Supabase seller_settlements table:", e);
-    }
-
-    const updatedSets = [newSettlement, ...settlements];
-    setSettlements(updatedSets);
-
-    // 3. Send official Transaction Receipt Email to seller's account opening email
-    setPayoutStatusMessage("⏳ Recording payment & sending receipt email to " + sellerEmail + "...");
-    try {
-      const emailRes = await fetch("/api/admin/payout/send-receipt", {
+      const res = await fetch("/api/admin/settlements/mark-paid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
-          toEmail: sellerEmail,
+          sellerId: selectedSellerForPayment.id || `seller-${Date.now()}`,
           sellerName: selectedSellerForPayment.business_name || selectedSellerForPayment.owner_name || "Seller",
+          sellerEmail: sellerEmail,
           amount: payoutForm.amount,
           paymentMethod: payoutForm.payment_method,
           upiId: payoutForm.upi_id,
           utrNumber: payoutForm.utr_number.trim(),
           paymentDate: payoutForm.payment_date,
-          notes: payoutForm.notes
-        })
+          notes: payoutForm.notes,
+        }),
       });
-      const emailData = await emailRes.json();
-      if (emailData?.message) {
-        setPayoutStatusMessage(emailData.message);
-      } else {
-        setPayoutStatusMessage("✅ Settlement marked as PAID & receipt sent!");
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setPayoutStatusMessage(`❌ ${data.error || "Failed to process settlement."}`);
+        return;
       }
-    } catch (emailErr) {
-      console.warn("Receipt email API notice:", emailErr);
-      setPayoutStatusMessage("✅ Settlement marked as PAID with UTR reference!");
+
+      const updatedSets = [data.settlement || newSettlement, ...settlements];
+      setSettlements(updatedSets);
+
+      if (data.emailSent) {
+        setPayoutStatusMessage(`🎉 Settlement recorded & receipt email sent to ${sellerEmail}!`);
+      } else {
+        setPayoutStatusMessage(`✅ Settlement recorded successfully (UTR: ${payoutForm.utr_number.trim()}).`);
+      }
+    } catch (apiErr: any) {
+      console.error("Settlement processing error:", apiErr);
+      setPayoutStatusMessage(`❌ Network error while recording settlement.`);
+      return;
     }
 
     setTimeout(() => {

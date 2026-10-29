@@ -279,6 +279,14 @@ export default function AdminPage() {
 
   const handleLogout = async () => {
     try {
+      await fetch("/api/admin/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.warn("Logout request failed:", err);
+    }
+    try {
       await supabase.auth.signOut();
     } catch (_) {}
     if (typeof window !== "undefined") {
@@ -287,8 +295,6 @@ export default function AdminPage() {
       localStorage.removeItem("zebalpha_access_token");
       localStorage.removeItem("admin_token");
       localStorage.removeItem("admin_active_tab");
-      document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
       window.location.href = "/";
     }
   };

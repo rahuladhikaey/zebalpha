@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 // GET /api/admin/cards
 export async function GET(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const { data, error } = await supabaseServer
       .from("card_applications")
@@ -18,6 +16,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: data || [] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Fetch card applications API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -26,10 +25,7 @@ export async function GET(req: Request) {
 // POST /api/admin/cards
 export async function POST(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const body = await req.json();
     const { data, error } = await supabaseServer
@@ -42,6 +38,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Create card application API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -50,10 +47,7 @@ export async function POST(req: Request) {
 // PUT /api/admin/cards
 export async function PUT(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const body = await req.json();
     const { appId, updates } = body;
@@ -72,6 +66,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Update card application API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }

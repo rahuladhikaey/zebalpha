@@ -4,11 +4,15 @@ import { getShiprocketToken, createShiprocketReturnOrder } from "@/shared/utils/
 import { initiateRazorpayRefund } from "@/shared/utils/razorpayRefund";
 import { generateReturnRefundLedgerEntries, DEFAULT_FINANCIAL_RULES } from "@/shared/services/financialLedgerService";
 
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
+
 export const dynamic = "force-dynamic";
 
 // GET /api/admin/returns - Fetch all return requests
 export async function GET(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const { data: returns, error } = await supabaseServer
       .from("order_returns")
       .select("*")
@@ -21,6 +25,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: returns || [] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Superadmin fetch returns exception:", error);
     return NextResponse.json({ success: false, message: error?.message || "Failed to fetch returns", data: [] }, { status: 500 });
   }
@@ -29,6 +34,7 @@ export async function GET(req: Request) {
 // PATCH /api/admin/returns - Update return / refund status
 export async function PATCH(req: Request) {
   try {
+    await requireSuperAdmin(req);
     const body = await req.json();
     const { id, orderId, status, rejection_reason, refund_status, refund_amount, refund_transaction_id, admin_notes } = body;
 
@@ -305,6 +311,7 @@ export async function PATCH(req: Request) {
       data: { ...returnUpdates, ...orderUpdates }
     });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Superadmin update returns exception:", error);
     return NextResponse.json({ success: false, message: error?.message || "Failed to update return", data: null }, { status: 500 });
   }

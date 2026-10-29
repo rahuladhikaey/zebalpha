@@ -12,51 +12,15 @@ export default function AdminLoginPage() {
 	const [showKey2, setShowKey2] = useState(false);
 	const [authError, setAuthError] = useState("");
 	const [loading, setLoading] = useState(false);
-	const [isAutoChecking, setIsAutoChecking] = useState(true);
-
-	// Auto-login: If keys are cached in browser, authenticate automatically
+	// SEC-01 Remediation: Purge legacy cached credentials on mount (zero browser credential storage)
 	useEffect(() => {
 		if (typeof window === "undefined") return;
-
-		const cachedKey1 = localStorage.getItem("zebalpha_admin_saved_key1");
-		const cachedKey2 = localStorage.getItem("zebalpha_admin_saved_key2");
-
-		if (cachedKey1 && cachedKey2) {
-			setAdminKey1(cachedKey1);
-			setAdminKey2(cachedKey2);
-			setLoading(true);
-
-			fetch("/api/admin/login", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ 
-					adminKey1: cachedKey1.trim(), 
-					adminKey2: cachedKey2.trim() 
-				}),
-			})
-				.then((res) => res.json())
-				.then((data) => {
-					if (data.success) {
-						if (data.token) {
-							localStorage.setItem("zebalpha_access_token", data.token);
-							localStorage.setItem("admin_token", data.token);
-						}
-						window.location.href = "/dashboard";
-					} else {
-						// Saved keys no longer valid, clear them
-						localStorage.removeItem("zebalpha_admin_saved_key1");
-						localStorage.removeItem("zebalpha_admin_saved_key2");
-						setLoading(false);
-						setIsAutoChecking(false);
-					}
-				})
-				.catch(() => {
-					setLoading(false);
-					setIsAutoChecking(false);
-				});
-		} else {
-			setIsAutoChecking(false);
-		}
+		try {
+			localStorage.removeItem("zebalpha_admin_saved_key1");
+			localStorage.removeItem("zebalpha_admin_saved_key2");
+			localStorage.removeItem("zebalpha_access_token");
+			localStorage.removeItem("admin_token");
+		} catch (_) {}
 	}, []);
 
 	const handleAccessSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -68,6 +32,7 @@ export default function AdminLoginPage() {
 			const res = await fetch("/api/admin/login", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
+				credentials: "include",
 				body: JSON.stringify({ 
 					adminKey1: adminKey1.trim(), 
 					adminKey2: adminKey2.trim() 
@@ -75,14 +40,7 @@ export default function AdminLoginPage() {
 			});
 			const data = await res.json();
 			if (res.ok && data.success) {
-				if (data.token) {
-					localStorage.setItem("zebalpha_access_token", data.token);
-					localStorage.setItem("admin_token", data.token);
-				}
-				// Save keys in browser cache for future auto-login
-				localStorage.setItem("zebalpha_admin_saved_key1", adminKey1.trim());
-				localStorage.setItem("zebalpha_admin_saved_key2", adminKey2.trim());
-
+				// Success: Session is stored exclusively in HttpOnly secure cookie
 				window.location.href = "/dashboard";
 			} else {
 				setAuthError(data.message || "Invalid administrative security factors.");
@@ -94,30 +52,6 @@ export default function AdminLoginPage() {
 		}
 	};
 
-	if (isAutoChecking) {
-		return (
-			<main className="min-h-screen flex items-center justify-center p-4 bg-black text-white">
-				<div className="rounded-3xl bg-zinc-950 border border-zinc-800 p-8 shadow-2xl flex flex-col items-center max-w-sm w-full text-center">
-					<div className="relative mb-4">
-						<Image
-							src={Logo}
-							alt="ZEB-ALPHA Super Admin"
-							className="h-14 w-14 rounded-full object-cover border border-zinc-700 shadow-md animate-pulse"
-						/>
-						<span className="absolute -bottom-1 -right-1 bg-emerald-500 text-black rounded-full p-1 border-2 border-black">
-							<ShieldCheck size={12} className="stroke-[3]" />
-						</span>
-					</div>
-					<h2 className="text-sm font-black tracking-tight text-white mb-1">
-						Authenticating Admin Session...
-					</h2>
-					<p className="text-[11px] text-zinc-400 font-medium">
-						Verifying cached security factors.
-					</p>
-				</div>
-			</main>
-		);
-	}
 
 	return (
 		<main className="min-h-screen flex items-center justify-center p-4 bg-black text-white">

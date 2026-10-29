@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 // GET /api/admin/support — Fetch all seller support tickets with seller metadata
 export async function GET(req: NextRequest) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     // 1. Fetch all tickets
     const { data: tickets, error: ticketError } = await supabaseServer
@@ -48,26 +46,15 @@ export async function GET(req: NextRequest) {
               city: seller.city || "",
               state: seller.state || "",
             }
-          : {
-              id: t.seller_id,
-              seller_code: "N/A",
-              business_name: "Seller ID: " + String(t.seller_id).slice(0, 8),
-              owner_name: "Merchant",
-              email: "N/A",
-              phone: "N/A",
-              city: "",
-              state: "",
-            },
+          : null,
       };
     });
 
     const stats = {
       total: enrichedTickets.length,
-      open: enrichedTickets.filter((t: any) => t.status?.toLowerCase() === "open").length,
-      in_progress: enrichedTickets.filter((t: any) => t.status?.toLowerCase() === "in_progress").length,
-      resolved: enrichedTickets.filter((t: any) => t.status?.toLowerCase() === "resolved").length,
-      closed: enrichedTickets.filter((t: any) => t.status?.toLowerCase() === "closed").length,
-      urgent: enrichedTickets.filter((t: any) => t.priority?.toLowerCase() === "urgent").length,
+      open: enrichedTickets.filter((t: any) => t.status === "open").length,
+      in_progress: enrichedTickets.filter((t: any) => t.status === "in_progress").length,
+      resolved: enrichedTickets.filter((t: any) => t.status === "resolved").length,
     };
 
     return NextResponse.json({
@@ -76,6 +63,7 @@ export async function GET(req: NextRequest) {
       stats,
     });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("GET /api/admin/support error:", error);
     return NextResponse.json(
       { success: false, message: error.message || "Failed to load support tickets." },
@@ -87,10 +75,7 @@ export async function GET(req: NextRequest) {
 // PATCH /api/admin/support — Update ticket status or add administrator reply
 export async function PATCH(req: NextRequest) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const body = await req.json();
     const { ticketId, status, response } = body;
@@ -137,6 +122,7 @@ export async function PATCH(req: NextRequest) {
       ticket: updated,
     });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("PATCH /api/admin/support error:", error);
     return NextResponse.json(
       { success: false, message: error.message || "Internal server error." },
@@ -148,10 +134,7 @@ export async function PATCH(req: NextRequest) {
 // DELETE /api/admin/support — Delete ticket
 export async function DELETE(req: NextRequest) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const { searchParams } = new URL(req.url);
     const ticketId = searchParams.get("id");
@@ -169,6 +152,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Ticket deleted successfully." });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     return NextResponse.json(
       { success: false, message: error.message || "Delete failed" },
       { status: 500 }

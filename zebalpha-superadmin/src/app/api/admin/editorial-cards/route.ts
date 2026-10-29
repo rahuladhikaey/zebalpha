@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/admin/editorial-cards
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const { data, error } = await supabaseServer
       .from("editorial_cards")
       .select("id, title, category, price, badge, href, image_url, display_order, is_active, created_at, updated_at")
@@ -31,6 +34,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: data || [] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Editorial Cards GET Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -39,6 +43,8 @@ export async function GET() {
 // POST /api/admin/editorial-cards (Create)
 export async function POST(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
     const { title, image_url, category, price, badge, href, display_order = 0, is_active = true } = body;
 
@@ -49,29 +55,24 @@ export async function POST(req: Request) {
       );
     }
 
-    const effectiveTitle = (title && title.trim()) || (category && category.trim()) || "ZEBALPHA EDIT";
-
-    const newRecord = {
-      title: effectiveTitle.toUpperCase(),
-      category: category && category.trim() ? category.trim().toUpperCase() : "ZEBALPHA EDIT",
-      price: price !== undefined && price !== "" ? Number(price) : null,
-      badge: badge && badge.trim() ? badge.trim().toUpperCase() : "EDITORIAL DROP",
-      href: href && href.trim() ? href.trim() : "/products",
+    const payload = {
+      title: (title || "").trim() || "Exclusive Collection",
       image_url: image_url.trim(),
-      display_order: Number(display_order) || 0,
+      category: (category || "").trim() || "Editorial Spotlight",
+      price: (price || "").trim() || "Starting ₹499",
+      badge: (badge || "").trim() || "FEATURED",
+      href: (href || "").trim() || "/categories",
+      display_order: parseInt(display_order, 10) || 0,
       is_active: Boolean(is_active),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabaseServer
       .from("editorial_cards")
-      .insert([newRecord])
+      .insert([payload])
       .select("id, title, category, price, badge, href, image_url, display_order, is_active, created_at, updated_at");
 
     if (error) {
-      console.warn("Notice inserting to editorial_cards table:", error.message);
-      // Fallback: sync into marketplace_settings key 'editorial_cards'
+      console.warn("Notice inserting into editorial_cards table, fallback to marketplace_settings:", error.message);
       const { data: settingData } = await supabaseServer
         .from("marketplace_settings")
         .select("setting_value")
@@ -79,25 +80,31 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       const existingList = settingData?.setting_value ? JSON.parse(settingData.setting_value) : [];
-      const itemWithId = { id: `card-${Date.now()}`, ...newRecord };
-      const updatedList = [...existingList, itemWithId].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      const newCard = {
+        ...payload,
+        id: `ed-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      existingList.push(newCard);
 
       await supabaseServer
         .from("marketplace_settings")
         .upsert(
           {
             setting_key: "editorial_cards",
-            setting_value: JSON.stringify(updatedList),
+            setting_value: JSON.stringify(existingList),
             updated_at: new Date().toISOString(),
           },
           { onConflict: "setting_key" }
         );
 
-      return NextResponse.json({ success: true, data: itemWithId });
+      return NextResponse.json({ success: true, data: newCard });
     }
 
     return NextResponse.json({ success: true, data: data?.[0] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Editorial Cards POST Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -106,6 +113,8 @@ export async function POST(req: Request) {
 // PUT /api/admin/editorial-cards (Update / Reorder)
 export async function PUT(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
     const { id, updates } = body;
 
@@ -154,6 +163,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true, data: data?.[0] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Editorial Cards PUT Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -162,6 +172,8 @@ export async function PUT(req: Request) {
 // DELETE /api/admin/editorial-cards (Delete)
 export async function DELETE(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -199,6 +211,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true, message: "Editorial card removed successfully." });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Editorial Cards DELETE Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }

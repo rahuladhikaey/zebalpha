@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export async function POST(req: Request) {
+  const auth = await requireSuperAdmin(req);
+  if (!auth.authenticated) {
+    return authErrorResponse(auth);
+  }
+
   try {
     const { targetType, targetId, newEddDate, reason, adminEmail } = await req.json();
 

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/admin/promotions/slots - Update/Upsert a Slot
 export async function POST(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
     const {
       campaign_id,
@@ -66,6 +69,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, data: updatedSlot });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Promotions Admin Slot POST Exception]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }

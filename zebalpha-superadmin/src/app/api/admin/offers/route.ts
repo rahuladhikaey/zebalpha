@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 // GET /api/admin/offers
 export async function GET(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const { data: offerData, error } = await supabaseServer
       .from("store_settings")
@@ -19,6 +17,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: offerData?.value || null });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Fetch special offer API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -27,10 +26,7 @@ export async function GET(req: Request) {
 // POST /api/admin/offers
 export async function POST(req: Request) {
   try {
-    const adminSession = req.headers.get("cookie")?.includes("admin_session");
-    if (!adminSession) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin(req);
 
     const body = await req.json();
     const { mainProductId, offerProductIds, isActive } = body;
@@ -58,6 +54,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, data: offerPayload });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("Save special offer API error:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }

@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { getShiprocketToken, createShiprocketOrder } from "@/lib/shiprocket";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export async function POST(req: Request) {
+  const auth = await requireSuperAdmin(req);
+  if (!auth.authenticated) {
+    return authErrorResponse(auth);
+  }
+
   try {
     const { orderId } = await req.json();
 

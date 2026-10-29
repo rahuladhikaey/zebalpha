@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -55,8 +56,10 @@ async function upsertSetting(key: string, value: any) {
 
 // GET /api/admin/settings
 // Returns all store_settings as an object { [key: string]: value } plus product list for selectors
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     // 1. Fetch all store settings
     const { data: settingsRows, error: settingsError } = await supabaseServer
       .from("store_settings")
@@ -70,55 +73,26 @@ export async function GET() {
       );
     }
 
+    // Transform array to key-value object
     const settingsMap: Record<string, any> = {};
-    if (settingsRows && Array.isArray(settingsRows)) {
-      settingsRows.forEach((row: any) => {
-        if (row.key) {
-          settingsMap[row.key] = row.value;
-        }
-      });
-    }
+    (settingsRows || []).forEach((row: any) => {
+      settingsMap[row.key] = row.value;
+    });
 
-    // 2. Fetch products for BOGO offer selector
-    let products: any[] = [];
-    try {
-      const { data: prodData } = await supabaseServer
-        .from("products")
-        .select("id, name, price")
-        .order("name", { ascending: true });
-      if (prodData) products = prodData;
-    } catch (prodErr) {
-      console.warn("[Settings API Products Warning]:", prodErr);
-    }
-
-    // 3. Fetch active platform finance configuration & versions
-    let activeFinanceConfig: any = null;
-    let financeVersions: any[] = [];
-    try {
-      const { data: activeFin } = await supabaseServer
-        .from("platform_finance_configs")
-        .select("*")
-        .eq("status", "ACTIVE")
-        .maybeSingle();
-      if (activeFin) activeFinanceConfig = activeFin;
-
-      const { data: verList } = await supabaseServer
-        .from("platform_finance_configs")
-        .select("*")
-        .order("version", { ascending: false });
-      if (verList) financeVersions = verList;
-    } catch (finErr) {
-      console.warn("[Settings API Finance Warning]:", finErr);
-    }
+    // 2. Also fetch active products list so admin UI dropdown selectors have live product data
+    const { data: products } = await supabaseServer
+      .from("products")
+      .select("id, name, slug, price, mrp, image_url, is_active, status, stock")
+      .order("created_at", { ascending: false })
+      .limit(200);
 
     return NextResponse.json({
       success: true,
       settings: settingsMap,
-      activeFinanceConfig,
-      financeVersions,
-      products
+      products: products || []
     });
   } catch (err: any) {
+    if (err.name === "AuthError") return authErrorResponse(err);
     console.error("[Settings API GET Exception]:", err);
     return NextResponse.json(
       { success: false, message: err?.message || "Failed to fetch settings", settings: {} },
@@ -131,6 +105,8 @@ export async function GET() {
 // Accepts single { key, value } or multiple { settings: { key: value, ... } }
 export async function POST(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
 
     const parseNum = (val: any, fallback = 0) => {
@@ -211,6 +187,7 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   } catch (err: any) {
+    if (err.name === "AuthError") return authErrorResponse(err);
     console.error("[Settings API POST Error]:", err);
     return NextResponse.json(
       { success: false, message: err?.message || "Failed to save settings to database" },

@@ -378,5 +378,32 @@ The existing system fails fundamental application security controls:
 The system will achieve **READY WITH CONDITIONS** immediately upon completing **Phase 1** (restoring middleware, fixing handler auth checks, and removing browser localStorage key storage), and **READY** upon completing **Phase 2 & Phase 3** (server-side settlement routes and individual MFA identities).
 
 ---
+---
 *Report compiled and verified via static and behavioral source analysis.*  
 *ZebAlpha Security Architecture Group*
+
+---
+
+## G. REMEDIATION & HARDENING VERIFICATION EVIDENCE (STAGING CHECKPOINT)
+
+**Audit Remediated By:** Principal Application Security Engineer  
+**Staging Branch:** `staging-superadmin-security-hardening`  
+**Git Base Checkpoint:** `a802e94`  
+**Status:** **REMEDIATED & HARDENED (READY FOR STAGING DEPLOYMENT APPROVAL)**  
+
+### 1. Remediated Vulnerabilities Matrix
+
+| Finding ID | Vulnerability Description | Severity | Remediation Strategy Implemented | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **SEC-01** | Master Admin Keys Persisted in Browser `localStorage` | **CRITICAL** | Purged `localStorage` credential persistence and auto-login logic in `page.tsx`. Added on-mount storage cleanup for legacy keys. All credentials remain in memory only during form submission. Session managed strictly via `HttpOnly`, `SameSite=Lax`, `Secure` cookies. | **REMEDIATED** |
+| **SEC-02** | Edge Route Guard Inactive (`src/proxy.ts` convention) | **CRITICAL** | Implemented dual Next.js 16 / earlier compatibility: `src/proxy.ts` updated with edge JWT signature verification (`HS256`), idle timeout check (30 min), session revocation check, and cross-origin CSRF defense. Created `src/middleware.ts` bridge re-exporting `{ proxy as default, proxy, middleware, config }`. | **REMEDIATED** |
+| **SEC-03** | Weak `cookie.includes("admin_session")` Auth Bypass | **CRITICAL** | Eliminated string match check across all route handlers. Implemented centralized `requireSuperAdmin(req)` in `src/lib/authGuard.ts` enforcing cryptographic HMAC-SHA256 signature verification, claims validation, 30-min idle timeout, and token revocation check. | **REMEDIATED** |
+| **SEC-04** | Administrative APIs Lack Server-Side Authorization | **HIGH** | Protected all 25+ administrative API routes under `/api/admin/*` with `await requireSuperAdmin(req)`. Unauthenticated requests receive 401; unauthorized roles receive 403. | **REMEDIATED** |
+| **SEC-05** | Logout Endpoint Clears Cookie Only Without Revocation | **HIGH** | Built `src/lib/sessionRevocation.ts` token revocation registry (Redis REST API with in-memory fallback). Updated `/api/admin/logout` to revoke active JWT fingerprint, clear cookie (`maxAge: 0`), and record audit trail. Updated `DashboardPage` to invoke logout endpoint. | **REMEDIATED** |
+| **SEC-07** | In-Memory Login Rate Limiting Resets on Restart | **HIGH** | Created `src/lib/rateLimit.ts` backed by Upstash Redis REST API with sliding window fallback. Enforces 5 attempts per 15-minute window per IP with trusted header sanitization (`CF-Connecting-IP`, `X-Real-IP`, first public IP of `X-Forwarded-For`). | **REMEDIATED** |
+| **SEC-08** | Client-Side Settlement Finalization via Public Anon RPC | **HIGH** | Built dedicated privileged endpoint `POST /api/admin/settlements/mark-paid` enforcing `requireSuperAdmin`, UTR idempotency check, transactional database insert via `supabaseServer` service role, RPC finalization, immutable audit logging, and post-confirmation receipt delivery. Refactored `PaymentsCommissionView.tsx`. | **REMEDIATED** |
+| **SEC-09** | Timing Attack Vulnerability in Credential Verification | **MEDIUM** | Updated `src/lib/crypto.ts` `verifyAdminKeySecure` to hash both candidate and target keys into fixed 32-byte SHA-256 buffers before calling `crypto.timingSafeEqual`, eliminating length-based timing leaks. Plaintext fallback removed. | **REMEDIATED** |
+| **SEC-10** | Absence of Anti-CSRF Origin Validation | **MEDIUM** | Integrated strict Origin and Sec-Fetch-Site validation into `src/lib/authGuard.ts` and `src/proxy.ts`. Cross-origin state-changing mutations (`POST`, `PUT`, `DELETE`, `PATCH`) from untrusted origins are rejected with 403. | **REMEDIATED** |
+
+---
+

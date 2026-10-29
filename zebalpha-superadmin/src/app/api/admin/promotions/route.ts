@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/admin/promotions?slug=top-deals
 export async function GET(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug") || "top-deals";
 
@@ -52,6 +55,7 @@ export async function GET(req: Request) {
       }
     });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Promotions Admin GET Exception]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -60,6 +64,8 @@ export async function GET(req: Request) {
 // PUT /api/admin/promotions - Update Campaign Settings or Publish Status
 export async function PUT(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
     const { id, title, subtitle, theme_preset, status, website_enabled, android_enabled } = body;
 
@@ -129,6 +135,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true, data: updatedCampaign });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Promotions Admin PUT Exception]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }

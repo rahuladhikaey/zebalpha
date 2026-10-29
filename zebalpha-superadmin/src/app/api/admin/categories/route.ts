@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
 import { resolveCategoryIcon } from "@/lib/serverCategoryIcons";
 import { invalidateCategoriesCache } from "@/lib/redisInvalidator";
+import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/admin/categories (Fetch all categories with product counts and hierarchy)
 export async function GET(req: NextRequest) {
   try {
+    await requireSuperAdmin(req);
+
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get("include_inactive") === "true";
 
@@ -53,6 +56,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: enriched });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Admin Categories GET Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -61,6 +65,8 @@ export async function GET(req: NextRequest) {
 // POST /api/admin/categories (Create Main Category or Subcategory with Auto-Icon)
 export async function POST(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
     const isArray = Array.isArray(body);
     const rawItems = isArray ? body : [body];
@@ -95,6 +101,7 @@ export async function POST(req: Request) {
     await invalidateCategoriesCache();
     return NextResponse.json({ success: true, data: isArray ? data : data?.[0] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Admin Categories POST Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -103,6 +110,8 @@ export async function POST(req: Request) {
 // PUT /api/admin/categories (Update Category)
 export async function PUT(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const body = await req.json();
     const { id, updates } = body;
 
@@ -129,6 +138,7 @@ export async function PUT(req: Request) {
     await invalidateCategoriesCache();
     return NextResponse.json({ success: true, data: data?.[0] });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Admin Categories PUT Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }
@@ -137,6 +147,8 @@ export async function PUT(req: Request) {
 // DELETE /api/admin/categories (Safe Archive or Reassign & Delete)
 export async function DELETE(req: Request) {
   try {
+    await requireSuperAdmin(req);
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     const mergeIntoId = searchParams.get("merge_into_id");
@@ -191,6 +203,7 @@ export async function DELETE(req: Request) {
     await invalidateCategoriesCache();
     return NextResponse.json({ success: true, message: "Category deleted successfully" });
   } catch (error: any) {
+    if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Admin Categories DELETE Error]:", error);
     return NextResponse.json({ success: false, message: error.message || "Server error" }, { status: 500 });
   }

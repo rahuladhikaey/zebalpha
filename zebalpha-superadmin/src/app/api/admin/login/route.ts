@@ -2,29 +2,7 @@ import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import { verifyPassword } from "@/lib/crypto";
 import { supabaseServer } from "@shared/utils/supabaseServer";
-
-// In-Memory Rate Limiting & Lockout Store for Admin Authentication
-interface FailedAttemptInfo {
-  count: number;
-  firstAttempt: number;
-  lockedUntil: number | null;
-}
-
-const loginAttempts = new Map<string, FailedAttemptInfo>();
-const MAX_FAILED_ATTEMPTS = 5;
-const ATTEMPT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes window
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout
-
-function cleanExpiredAttempts() {
-  const now = Date.now();
-  for (const [key, info] of loginAttempts.entries()) {
-    if (info.lockedUntil && info.lockedUntil < now) {
-      loginAttempts.delete(key);
-    } else if (!info.lockedUntil && now - info.firstAttempt > ATTEMPT_WINDOW_MS) {
-      loginAttempts.delete(key);
-    }
-  }
-}
+import { checkLoginRateLimit, recordLoginFailure, clearLoginRateLimit, extractClientIp } from "@/lib/rateLimit";
 
 async function recordAuditLog(
   actor: string,
@@ -47,29 +25,22 @@ async function recordAuditLog(
 }
 
 export async function POST(req: Request) {
-  cleanExpiredAttempts();
-
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-             req.headers.get("x-real-ip") || 
-             "127.0.0.1";
+  const ip = extractClientIp(req);
   const userAgent = req.headers.get("user-agent") || "unknown";
-  const rateLimitKey = `admin_login_${ip}`;
 
-  // Check Lockout
-  const attemptInfo = loginAttempts.get(rateLimitKey);
-  const now = Date.now();
-  if (attemptInfo && attemptInfo.lockedUntil && attemptInfo.lockedUntil > now) {
-    const remainingSecs = Math.ceil((attemptInfo.lockedUntil - now) / 1000);
-    recordAuditLog("SUPER_ADMIN", ip, userAgent, "LOGIN_LOCKED_OUT", `Attempt while locked out (${remainingSecs}s remaining)`);
+  // 1. Persistent Distributed Rate Limit & Lockout Check
+  const rateLimitStatus = await checkLoginRateLimit(req);
+  if (!rateLimitStatus.allowed) {
+    await recordAuditLog("SUPER_ADMIN", ip, userAgent, "LOGIN_LOCKED_OUT", `Attempt while locked out (${rateLimitStatus.retryAfterSeconds}s remaining)`);
     return NextResponse.json(
       {
         success: false,
-        message: `Too many failed attempts. Temporary lockout active. Please wait ${Math.ceil(remainingSecs / 60)} minutes.`,
-        retryAfter: remainingSecs
+        message: `Too many failed attempts. Temporary lockout active. Please wait ${Math.ceil(rateLimitStatus.retryAfterSeconds / 60)} minutes.`,
+        retryAfter: rateLimitStatus.retryAfterSeconds,
       },
-      { 
-        status: 429, 
-        headers: { "Retry-After": String(remainingSecs) } 
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimitStatus.retryAfterSeconds) },
       }
     );
   }
@@ -108,16 +79,17 @@ export async function POST(req: Request) {
 
     if (isTwoFactorVerified) {
       // Clear rate-limiting on success
-      loginAttempts.delete(rateLimitKey);
+      await clearLoginRateLimit(req, "founder_super_admin");
 
       const SECRET_KEY = new TextEncoder().encode(JWT_SECRET);
       const sessionExpirySeconds = 2 * 60 * 60; // 2 hours strict absolute expiry
 
-      // Sign JWT with role, username, issuedAt, expiresAt and idle timeout reference
+      // Sign JWT with role, username, jti, issuedAt, expiresAt and idle timeout reference
       const token = await new SignJWT({
         role: "SUPER_ADMIN",
         user: "SUPER_ADMIN",
-        lastActive: Date.now()
+        jti: crypto.randomUUID(),
+        lastActive: Date.now(),
       })
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
@@ -126,10 +98,10 @@ export async function POST(req: Request) {
 
       await recordAuditLog("SUPER_ADMIN", ip, userAgent, "LOGIN_SUCCESS", "Two-Factor Authentication Succeeded");
 
+      // SEC-01: Session token is delivered EXCLUSIVELY via HttpOnly cookie (never exposed in JSON response)
       const response = NextResponse.json({
         success: true,
-        token: token,
-        message: "Two-Factor Authentication successful. Authorized as SUPER_ADMIN."
+        message: "Two-Factor Authentication successful. Authorized as SUPER_ADMIN.",
       });
 
       response.cookies.set("admin_session", token, {
@@ -143,36 +115,28 @@ export async function POST(req: Request) {
       return response;
     }
 
-    // Failed Attempt Handling
-    const currentInfo = loginAttempts.get(rateLimitKey) || {
-      count: 0,
-      firstAttempt: now,
-      lockedUntil: null
-    };
+    // Failed Attempt Handling via Persistent Rate Limiter (Both IP and Target Administrator identity)
+    const failureResult = await recordLoginFailure(req, "founder_super_admin");
+    await recordAuditLog("SUPER_ADMIN", ip, userAgent, "LOGIN_FAILED", `Failed attempt (remaining: ${failureResult.remainingAttempts})`);
 
-    currentInfo.count += 1;
-    if (currentInfo.count >= MAX_FAILED_ATTEMPTS) {
-      currentInfo.lockedUntil = now + LOCKOUT_DURATION_MS;
-      loginAttempts.set(rateLimitKey, currentInfo);
-      await recordAuditLog("SUPER_ADMIN", ip, userAgent, "LOGIN_LOCKED_OUT", `Account locked after ${currentInfo.count} failed attempts`);
+    if (!failureResult.allowed) {
       return NextResponse.json(
         {
           success: false,
-          message: "Maximum login attempts exceeded. Temporary lockout initiated for 15 minutes."
+          message: "Maximum login attempts exceeded. Temporary lockout initiated for 15 minutes.",
+          retryAfter: failureResult.retryAfterSeconds,
         },
-        { status: 429 }
-      );
-    } else {
-      loginAttempts.set(rateLimitKey, currentInfo);
-      await recordAuditLog("SUPER_ADMIN", ip, userAgent, "LOGIN_FAILED", `Failed attempt ${currentInfo.count}/${MAX_FAILED_ATTEMPTS}`);
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Invalid security factor credentials. (${MAX_FAILED_ATTEMPTS - currentInfo.count} attempts remaining)`
-        },
-        { status: 401 }
+        { status: 429, headers: { "Retry-After": String(failureResult.retryAfterSeconds) } }
       );
     }
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: `Invalid security factor credentials. (${failureResult.remainingAttempts} attempts remaining)`,
+      },
+      { status: 401 }
+    );
 
   } catch (error: any) {
     console.error("[Login Error]:", error);
