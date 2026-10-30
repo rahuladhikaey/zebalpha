@@ -6,7 +6,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
 import { useCart } from "@/context/CartContext";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, Star, Bell, CheckCircle2, Sparkles, Flame } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Sparkles, Flame } from "lucide-react";
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
@@ -372,6 +372,9 @@ export default function ProductDetailTemplate({
   const [selectedSize, setSelectedSize] = useState<string>(() => initialVariant?.size || "");
   const [validationError, setValidationError] = useState<string>("");
   const [activeDetailTab, setActiveDetailTab] = useState<"specifications" | "description" | "highlights">("specifications");
+  const [isDescExpanded, setIsDescExpanded] = useState<boolean>(true);
+  const [isSpecsExpanded, setIsSpecsExpanded] = useState<boolean>(true);
+  const [isHighlightsExpanded, setIsHighlightsExpanded] = useState<boolean>(true);
 
   // Sync selectedColor and selectedSize if defaultColorName / initialVariant resolves
   useEffect(() => {
@@ -896,59 +899,102 @@ export default function ProductDetailTemplate({
 
               {/* Tab 1 Content: Specifications */}
               {activeDetailTab === "specifications" && sanitizedSpecs.length > 0 && (
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">
+                <div className="rounded-2xl bg-zinc-950/80 border border-zinc-850 overflow-hidden transition-all animate-in fade-in duration-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsSpecsExpanded(!isSpecsExpanded)}
+                    className="flex w-full items-center justify-between p-4 text-left hover:bg-zinc-900/40 transition-colors cursor-pointer select-none"
+                    aria-expanded={isSpecsExpanded}
+                  >
+                    <div className="flex items-center gap-2">
                       <Tag className="w-4 h-4 text-emerald-400" />
-                      Product Specifications
-                    </h3>
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                      Verified Quality
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-                    {sanitizedSpecs.map((item) => (
-                      <div
-                        key={item.key}
-                        className="p-3 rounded-xl bg-zinc-950 border border-zinc-850 flex flex-col gap-0.5"
-                      >
-                        <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-                          {item.label}
-                        </span>
-                        <span className="text-xs font-bold text-white capitalize">
-                          {item.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                      <h3 className="text-sm sm:text-base font-bold text-white">Product Specifications</h3>
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider ml-1">
+                        Verified Quality
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all shrink-0">
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isSpecsExpanded ? "rotate-180 text-emerald-400" : ""}`} />
+                    </div>
+                  </button>
 
-                  {/* Subtle Legal & Market Compliance Notice */}
-                  <p className="text-[10px] text-zinc-400 font-medium pt-1">
-                    Marketed By: <span className="text-zinc-300 font-semibold">{cleanSellerName}</span> • Country of Origin: <span className="text-zinc-300 font-semibold">{originCountry}</span> • Customer Care: <span className="text-zinc-300 font-semibold">support@zebalpha.shop</span>
-                  </p>
+                  {isSpecsExpanded && (
+                    <div className="p-4 pt-1 space-y-4 border-t border-zinc-850/60 animate-in fade-in duration-200">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                        {sanitizedSpecs.map((item) => (
+                          <div
+                            key={item.key}
+                            className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-850 flex flex-col gap-0.5"
+                          >
+                            <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                              {item.label}
+                            </span>
+                            <span className="text-xs font-bold text-white capitalize">
+                              {item.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Subtle Legal & Market Compliance Notice */}
+                      <p className="text-[10px] text-zinc-400 font-medium pt-1">
+                        Marketed By: <span className="text-zinc-300 font-semibold">{cleanSellerName}</span> • Country of Origin: <span className="text-zinc-300 font-semibold">{originCountry}</span> • Customer Care: <span className="text-zinc-300 font-semibold">support@zebalpha.shop</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Tab 2 Content: Product Description */}
+              {/* Tab 2 Content: Product Description (With right-side Up-Down Arrow) */}
               {activeDetailTab === "description" && (
-                <div className="space-y-3 animate-in fade-in duration-200 p-4 rounded-2xl bg-zinc-950/70 border border-zinc-850">
-                  <h3 className="text-sm font-bold text-zinc-300">Product Description</h3>
-                  <p className="text-sm font-medium leading-relaxed text-zinc-300 whitespace-pre-line">
-                    {product.description || "No description provided for this product."}
-                  </p>
+                <div className="rounded-2xl bg-zinc-950/80 border border-zinc-850 overflow-hidden transition-all animate-in fade-in duration-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsDescExpanded(!isDescExpanded)}
+                    className="flex w-full items-center justify-between p-4 text-left hover:bg-zinc-900/40 transition-colors cursor-pointer select-none"
+                    aria-expanded={isDescExpanded}
+                  >
+                    <h3 className="text-sm sm:text-base font-bold text-white">Product Description</h3>
+                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all shrink-0">
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDescExpanded ? "rotate-180 text-emerald-400" : ""}`} />
+                    </div>
+                  </button>
+
+                  {isDescExpanded && (
+                    <div className="p-4 pt-1 border-t border-zinc-850/60 animate-in fade-in duration-200">
+                      <p className="text-sm font-medium leading-relaxed text-zinc-300 whitespace-pre-line">
+                        {product.description || "No description provided for this product."}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Tab 3 Content: Highlights */}
               {activeDetailTab === "highlights" && (
-                <div className="space-y-3 animate-in fade-in duration-200 p-4 rounded-2xl bg-zinc-950/70 border border-zinc-850">
-                  <h3 className="text-sm font-bold text-zinc-300">Key Highlights</h3>
-                  <ul className="space-y-2.5 list-disc list-inside text-sm font-medium text-zinc-300">
-                    <li>100% Genuine & Certified Quality</li>
-                    <li>Exclusive Drop & Contemporary Fit</li>
-                    <li>Premium Durable Stitching & Fabric</li>
-                    <li>Dispatched in Tamper-Proof Packaging</li>
-                  </ul>
+                <div className="rounded-2xl bg-zinc-950/80 border border-zinc-850 overflow-hidden transition-all animate-in fade-in duration-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsHighlightsExpanded(!isHighlightsExpanded)}
+                    className="flex w-full items-center justify-between p-4 text-left hover:bg-zinc-900/40 transition-colors cursor-pointer select-none"
+                    aria-expanded={isHighlightsExpanded}
+                  >
+                    <h3 className="text-sm sm:text-base font-bold text-white">Key Highlights</h3>
+                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all shrink-0">
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isHighlightsExpanded ? "rotate-180 text-emerald-400" : ""}`} />
+                    </div>
+                  </button>
+
+                  {isHighlightsExpanded && (
+                    <div className="p-4 pt-1 border-t border-zinc-850/60 animate-in fade-in duration-200">
+                      <ul className="space-y-2.5 list-disc list-inside text-sm font-medium text-zinc-300">
+                        <li>100% Genuine & Certified Quality</li>
+                        <li>Exclusive Drop & Contemporary Fit</li>
+                        <li>Premium Durable Stitching & Fabric</li>
+                        <li>Dispatched in Tamper-Proof Packaging</li>
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
