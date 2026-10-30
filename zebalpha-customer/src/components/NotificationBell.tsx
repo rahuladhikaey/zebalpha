@@ -8,7 +8,12 @@ import { supabase } from "@/lib/supabaseClient";
 let lastCheckedTimestamp = 0;
 let cachedHasNew = false;
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+  className?: string;
+  iconClassName?: string;
+}
+
+export default function NotificationBell({ className, iconClassName }: NotificationBellProps = {}) {
   const [hasNew, setHasNew] = useState(cachedHasNew);
 
   useEffect(() => {
@@ -74,10 +79,10 @@ export default function NotificationBell() {
     <Link 
       href="/notifications" 
       onClick={handleClick}
-      className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-all shrink-0 active:scale-95" 
+      className={className || "relative flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-all shrink-0 active:scale-95"} 
       aria-label="Notifications"
     >
-      <Bell strokeWidth={2.2} className="h-4 w-4" />
+      <Bell strokeWidth={2.2} className={iconClassName || "h-4 w-4"} />
       {hasNew && (
         <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>

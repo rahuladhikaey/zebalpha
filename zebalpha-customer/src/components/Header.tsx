@@ -49,21 +49,21 @@ export function Header({
           {/* Scrolls away naturally when scrolling down; returns at top         */}
           {/* Contains: Hamburger Menu, Logo, Brand Name, Notification Icon       */}
           {/* =================================================================== */}
-          <header className="relative z-20 w-full border-b border-zinc-800/80 bg-zinc-950 px-3.5 py-2.5 text-white select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+          <header className="relative z-20 w-full border-b border-zinc-900 bg-black px-3.5 py-2.5 text-white select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
             <div className="flex w-full items-center justify-between">
               {/* Left: Hamburger Menu Icon */}
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-neutral-300 hover:text-white active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/90 border border-zinc-800 text-emerald-400 hover:text-emerald-300 active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
                 aria-label="Open Navigation Menu"
               >
-                <Menu className="h-5 w-5 stroke-[2.2]" />
+                <Menu className="h-6 w-6 stroke-[2.3] text-emerald-400" />
               </button>
 
-              {/* Center / Left: Existing Zebalpha Logo & Brand Name */}
+              {/* Center / Left: Existing Zebalpha Logo & Brand Name (CLEAN - NO green glow ring) */}
               <Link href="/" className="flex items-center gap-2.5 active:scale-95 transition-transform group">
-                <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 shadow-[0_0_12px_rgba(255,255,255,0.12)] group-hover:shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-all">
+                <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 transition-all">
                   <Image
                     src="/official-logo-sm.png"
                     alt="ZebAlpha Official Logo"
@@ -75,17 +75,20 @@ export function Header({
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white uppercase group-hover:text-neutral-200 transition-colors">
-                    ZebAlpha
+                    ZEBALPHA
                   </span>
                   <span className="text-[8px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5">
-                    Clothing For The Culture
+                    CLOTHING FOR THE CULTURE
                   </span>
                 </div>
               </Link>
 
               {/* Right: Notification Bell */}
               <div className="flex items-center justify-end">
-                <NotificationBell />
+                <NotificationBell 
+                  className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/90 border border-zinc-800 text-emerald-400 hover:text-emerald-300 active:scale-95 transition-all shadow-sm"
+                  iconClassName="h-5 w-5 stroke-[2.2] text-emerald-400"
+                />
               </div>
             </div>
           </header>
@@ -102,23 +105,23 @@ export function Header({
     // On other Android pages (non-home, e.g. /products, /categories, /profile)
     return (
       <>
-        <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+        <header className="sticky top-0 z-40 border-b border-zinc-900 bg-black/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
           <div className="flex w-full items-center justify-between">
             {/* Left: Back button if not home, or Hamburger */}
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-neutral-300 hover:text-white active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/90 border border-zinc-800 text-emerald-400 hover:text-emerald-300 active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
               aria-label="Go Back"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 stroke-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
 
-            {/* Center / Left: Existing Zebalpha Logo & Brand Name */}
+            {/* Center / Left: Existing Zebalpha Logo & Brand Name (CLEAN - NO green glow ring) */}
             <Link href="/" className="flex items-center gap-2.5 active:scale-95 transition-transform group">
-              <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 shadow-[0_0_12px_rgba(255,255,255,0.12)] group-hover:shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-all">
+              <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 transition-all">
                 <Image
                   src="/official-logo-sm.png"
                   alt="ZebAlpha Official Logo"
@@ -130,17 +133,20 @@ export function Header({
               </div>
               <div className="flex flex-col">
                 <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white uppercase group-hover:text-neutral-200 transition-colors">
-                  ZebAlpha
+                  ZEBALPHA
                 </span>
                 <span className="text-[8px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5">
-                  Clothing For The Culture
+                  CLOTHING FOR THE CULTURE
                 </span>
               </div>
             </Link>
 
             {/* Right: Notification Bell */}
             <div className="flex items-center justify-end">
-              <NotificationBell />
+              <NotificationBell 
+                className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/90 border border-zinc-800 text-emerald-400 hover:text-emerald-300 active:scale-95 transition-all shadow-sm"
+                iconClassName="h-5 w-5 stroke-[2.2] text-emerald-400"
+              />
             </div>
           </div>
         </header>

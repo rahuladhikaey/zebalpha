@@ -7,7 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchProducts } from "@/hooks/useCatalogQueries";
 
-const searchItems = ["Polos", "Oversized Tees", "Hoodies", "Smart Casuals", "Streetwear", "Joggers"];
+const searchItems = ["Mobiles", "Fashion", "Oversized Tees", "Hoodies", "Smart Casuals", "Streetwear", "Joggers"];
 
 export function MobileSearch({ className }: { className?: string } = {}) {
   const router = useRouter();
@@ -50,9 +50,12 @@ export function MobileSearch({ className }: { className?: string } = {}) {
   const hasResults = Array.isArray(searchResults) && searchResults.length > 0;
 
   return (
-    <div ref={containerRef} className={className || "mt-4 relative flex w-full flex-col min-h-[48px]"}>
-      <div className="relative flex w-full h-[48px] items-center rounded-2xl border border-neutral-800 bg-neutral-900/90 px-4 shadow-xl transition-all focus-within:border-white focus-within:bg-black">
-        <Search className="mr-2.5 h-5 w-5 text-neutral-400 flex-shrink-0" />
+    <div ref={containerRef} className={className || "relative flex w-full flex-col min-h-[50px]"}>
+      <div className="relative flex w-full h-[52px] items-center rounded-full border-[1.5px] border-emerald-500/80 bg-black/90 px-4 shadow-[0_0_18px_rgba(34,197,94,0.28)] transition-all focus-within:border-emerald-400 focus-within:shadow-[0_0_22px_rgba(34,197,94,0.45)]">
+        {/* Subtle inner green sheen line on top */}
+        <div className="absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent pointer-events-none" />
+
+        <Search className="mr-3 h-5 w-5 text-emerald-400 flex-shrink-0 stroke-[2.3]" />
         
         <div className="relative flex-1 h-6 overflow-hidden flex items-center">
           {!inputValue && searchItems.map((item, i) => {
@@ -70,7 +73,7 @@ export function MobileSearch({ className }: { className?: string } = {}) {
                       : "opacity-0 translate-y-4"
                 }`}
               >
-                <span className="text-neutral-500 text-xs font-semibold tracking-wide">
+                <span className="text-zinc-400 text-sm font-normal tracking-wide">
                   Search "{item}"
                 </span>
               </div>
@@ -88,15 +91,15 @@ export function MobileSearch({ className }: { className?: string } = {}) {
             }}
             onFocus={() => setIsOpen(true)}
             onKeyDown={handleSearch}
-            className="w-full bg-transparent text-xs font-semibold text-white outline-none relative z-10 pr-2" 
+            className="w-full bg-transparent text-sm font-medium text-white outline-none relative z-10 pr-2" 
           />
         </div>
 
         <button
           onClick={() => handleSearch()}
-          className="ml-2 px-3 py-1 rounded-lg bg-white text-black text-[10px] font-black uppercase tracking-wider hover:bg-neutral-200 transition-all active:scale-95"
+          className="ml-2 px-5 py-2 rounded-full bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 text-black text-xs font-black uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_14px_rgba(34,197,94,0.45)] flex items-center justify-center shrink-0 cursor-pointer"
         >
-          Go
+          GO
         </button>
       </div>
 

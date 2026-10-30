@@ -34,13 +34,13 @@ export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
         {/* Stops immediately below Android status bar during downward scroll   */}
         {/* =================================================================== */}
         <div
-          className="sticky z-40 w-full bg-black border-b border-zinc-800/90 shadow-xl select-none"
+          className="sticky z-40 w-full bg-black border-b border-zinc-900 shadow-xl select-none"
           style={{ top: "env(safe-area-inset-top, 0px)" }}
         >
           {/* 1. Sticky Search Bar */}
           <div className="w-full bg-black px-3.5 pt-2 pb-1.5">
-            <Suspense fallback={<div className="h-[48px] w-full rounded-2xl bg-neutral-900 animate-pulse" />}>
-              <MobileSearch className="relative flex w-full flex-col min-h-[48px]" />
+            <Suspense fallback={<div className="h-[52px] w-full rounded-full bg-neutral-900 animate-pulse" />}>
+              <MobileSearch className="relative flex w-full flex-col min-h-[50px]" />
             </Suspense>
           </div>
 
@@ -48,7 +48,7 @@ export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
           <CategoryNavigationBar
             initialCategories={initialCategories}
             isNativeApp={true}
-            className="border-t border-zinc-900/80 bg-black"
+            className="bg-black"
           />
         </div>
 
