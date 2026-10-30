@@ -371,6 +371,7 @@ export default function ProductDetailTemplate({
   const [selectedColor, setSelectedColor] = useState<string>(defaultColorName);
   const [selectedSize, setSelectedSize] = useState<string>(() => initialVariant?.size || "");
   const [validationError, setValidationError] = useState<string>("");
+  const [activeDetailTab, setActiveDetailTab] = useState<"specifications" | "description" | "highlights">("specifications");
 
   // Sync selectedColor and selectedSize if defaultColorName / initialVariant resolves
   useEffect(() => {
@@ -850,57 +851,107 @@ export default function ProductDetailTemplate({
               </div>
             )}
 
-            {/* Description & Highlights */}
-            <div className="grid gap-8 md:grid-cols-2 pt-4 border-t border-zinc-800">
-              <div className="space-y-4">
-                <h3 className="text-base font-black text-white border-b border-zinc-800 pb-2">Product Description</h3>
-                <p className="text-sm font-medium leading-relaxed text-zinc-300">{product.description}</p>
+            {/* Interactive Product Details Tabs (Matching Picture 1) */}
+            <div className="pt-6 border-t border-zinc-800 space-y-4">
+              {/* Pill Tabs Header */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                {sanitizedSpecs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailTab("specifications")}
+                    className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${
+                      activeDetailTab === "specifications"
+                        ? "bg-zinc-900 border border-zinc-600 text-white shadow-md"
+                        : "bg-zinc-950/80 border border-zinc-800/80 text-zinc-400 hover:text-white hover:border-zinc-750"
+                    }`}
+                  >
+                    Specifications
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab("description")}
+                  className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${
+                    activeDetailTab === "description"
+                      ? "bg-zinc-900 border border-zinc-600 text-white shadow-md"
+                      : "bg-zinc-950/80 border border-zinc-800/80 text-zinc-400 hover:text-white hover:border-zinc-750"
+                  }`}
+                >
+                  Description
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab("highlights")}
+                  className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${
+                    activeDetailTab === "highlights"
+                      ? "bg-zinc-900 border border-zinc-600 text-white shadow-md"
+                      : "bg-zinc-950/80 border border-zinc-800/80 text-zinc-400 hover:text-white hover:border-zinc-750"
+                  }`}
+                >
+                  Highlights
+                </button>
               </div>
-              <div className="space-y-4">
-                <h3 className="text-base font-black text-white border-b border-zinc-800 pb-2">Highlights</h3>
-                <ul className="space-y-2 list-disc list-inside text-sm font-medium text-zinc-300">
-                  <li>100% Genuine & Certified Quality</li>
-                  <li>Exclusive Drop & Contemporary Fit</li>
-                  <li>Premium Durable Stitching & Fabric</li>
-                  <li>Dispatched in Tamper-Proof Packaging</li>
-                </ul>
-              </div>
+
+              {/* Tab 1 Content: Specifications */}
+              {activeDetailTab === "specifications" && sanitizedSpecs.length > 0 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-emerald-400" />
+                      Product Specifications
+                    </h3>
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      Verified Quality
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                    {sanitizedSpecs.map((item) => (
+                      <div
+                        key={item.key}
+                        className="p-3 rounded-xl bg-zinc-950 border border-zinc-850 flex flex-col gap-0.5"
+                      >
+                        <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                          {item.label}
+                        </span>
+                        <span className="text-xs font-bold text-white capitalize">
+                          {item.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Subtle Legal & Market Compliance Notice */}
+                  <p className="text-[10px] text-zinc-400 font-medium pt-1">
+                    Marketed By: <span className="text-zinc-300 font-semibold">{cleanSellerName}</span> • Country of Origin: <span className="text-zinc-300 font-semibold">{originCountry}</span> • Customer Care: <span className="text-zinc-300 font-semibold">support@zebalpha.shop</span>
+                  </p>
+                </div>
+              )}
+
+              {/* Tab 2 Content: Product Description */}
+              {activeDetailTab === "description" && (
+                <div className="space-y-3 animate-in fade-in duration-200 p-4 rounded-2xl bg-zinc-950/70 border border-zinc-850">
+                  <h3 className="text-sm font-bold text-zinc-300">Product Description</h3>
+                  <p className="text-sm font-medium leading-relaxed text-zinc-300 whitespace-pre-line">
+                    {product.description || "No description provided for this product."}
+                  </p>
+                </div>
+              )}
+
+              {/* Tab 3 Content: Highlights */}
+              {activeDetailTab === "highlights" && (
+                <div className="space-y-3 animate-in fade-in duration-200 p-4 rounded-2xl bg-zinc-950/70 border border-zinc-850">
+                  <h3 className="text-sm font-bold text-zinc-300">Key Highlights</h3>
+                  <ul className="space-y-2.5 list-disc list-inside text-sm font-medium text-zinc-300">
+                    <li>100% Genuine & Certified Quality</li>
+                    <li>Exclusive Drop & Contemporary Fit</li>
+                    <li>Premium Durable Stitching & Fabric</li>
+                    <li>Dispatched in Tamper-Proof Packaging</li>
+                  </ul>
+                </div>
+              )}
             </div>
-
-            {/* Customer-Facing Product Specifications (Flipkart / Meesho Standard) */}
-            {sanitizedSpecs.length > 0 && (
-              <div className="space-y-4 pt-4 border-t border-zinc-800">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-black text-white flex items-center gap-2">
-                    <Tag className="w-4 h-4 text-emerald-400" />
-                    Product Specifications
-                  </h3>
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                    Verified Quality
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-                  {sanitizedSpecs.map((item) => (
-                    <div
-                      key={item.key}
-                      className="p-3 rounded-xl bg-zinc-950 border border-zinc-850 flex flex-col gap-0.5"
-                    >
-                      <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-                        {item.label}
-                      </span>
-                      <span className="text-xs font-bold text-white capitalize">
-                        {item.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Subtle Legal & Market Compliance Notice */}
-                <p className="text-[10px] text-zinc-400 font-medium pt-1">
-                  Marketed By: <span className="text-zinc-300 font-semibold">{cleanSellerName}</span> • Country of Origin: <span className="text-zinc-300 font-semibold">{originCountry}</span> • Customer Care: <span className="text-zinc-300 font-semibold">support@zebalpha.shop</span>
-                </p>
-              </div>
-            )}
 
             {/* Seller / Retailer Info (Meesho / Flipkart Clean Style) */}
             <div className="p-5 sm:p-6 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between shadow-xl">
