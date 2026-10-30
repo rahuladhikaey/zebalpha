@@ -8,12 +8,14 @@ import { SimilarProductItem } from "@/lib/similarProducts";
 interface SimilarProductsCarouselProps {
   products: SimilarProductItem[];
   title?: string;
+  subtitle?: string;
   className?: string;
 }
 
 export default function SimilarProductsCarousel({
   products,
   title = "Similar Products",
+  subtitle = "Customers viewing this item also viewed",
   className = "",
 }: SimilarProductsCarouselProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -45,10 +47,22 @@ export default function SimilarProductsCarousel({
   return (
     <section className={`w-full py-4 ${className}`} aria-label={title}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 px-1 sm:px-0">
-        <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-          {title}
-        </h2>
+      <div className="flex items-center justify-between mb-3.5 px-1 sm:px-0">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+              {title}
+            </h2>
+            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full">
+              {products.length} Items
+            </span>
+          </div>
+          {subtitle && (
+            <p className="text-xs text-zinc-400 font-medium mt-0.5">
+              {subtitle}
+            </p>
+          )}
+        </div>
 
         {/* Desktop Carousel Navigation Arrows */}
         <div className="hidden sm:flex items-center gap-1.5">
@@ -113,7 +127,7 @@ export default function SimilarProductsCarousel({
             <Link
               key={p.id}
               href={`/products/${p.id}`}
-              className="group shrink-0 w-[150px] sm:w-[175px] md:w-[190px] snap-start flex flex-col rounded-xl bg-[#0f0f12] border border-[#232328] hover:border-zinc-600 transition-all duration-200 overflow-hidden select-none"
+              className="group shrink-0 w-[150px] sm:w-[175px] md:w-[190px] snap-start flex flex-col rounded-2xl bg-zinc-950/90 border border-zinc-850 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(34,197,94,0.18)] transition-all duration-200 overflow-hidden select-none active:scale-[0.98]"
             >
               {/* Product Image Container */}
               <div className="relative aspect-[3/4] w-full bg-zinc-900 overflow-hidden flex items-center justify-center">

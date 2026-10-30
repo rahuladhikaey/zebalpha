@@ -100,7 +100,16 @@ async function SimilarProductsSection({ product }: { product: Product }) {
   const similarProducts = await getSimilarProducts(product, 20);
   if (!similarProducts || similarProducts.length === 0) return null;
 
-  return <SimilarProductsCarousel products={similarProducts} title="Similar Products" />;
+  const rawCat = product.category_name || (product.specifications as any)?.category || (product.specifications as any)?.product_type || "";
+  const title = rawCat ? `Similar Products in ${rawCat}` : "Similar Products";
+
+  return (
+    <SimilarProductsCarousel 
+      products={similarProducts} 
+      title={title} 
+      subtitle="Customers viewing this item also viewed"
+    />
+  );
 }
 
 import { extractProductAeoData } from "@/lib/aeo-geo/productAeo";
@@ -228,6 +237,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
           relatedProductsSlot={null}
         />
 
+        {/* Flipkart / Amazon-Style Same-Category Product Recommendations (Prime Position) */}
+        <div className="mt-8 pt-6 border-t border-zinc-800/80">
+          <Suspense fallback={<SimilarProductsSkeleton />}>
+            <SimilarProductsSection product={product} />
+          </Suspense>
+        </div>
+
         {/* Customer Help & Dynamic FAQs (Clean E-Commerce Standard) */}
         <div className="mt-12 space-y-8 pb-16">
           <DynamicFaqSection
@@ -235,11 +251,6 @@ export default async function ProductDetailPage({ params }: PageProps) {
             subtitle="Quick answers about materials, sizing accuracy, delivery and returns"
             faqs={aeo.faqs}
           />
-
-          {/* Flipkart-Style Similar Products Recommendation Carousel */}
-          <Suspense fallback={<SimilarProductsSkeleton />}>
-            <SimilarProductsSection product={product} />
-          </Suspense>
         </div>
       </div>
     </main>
