@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseServer } from "@/lib/supabaseServer";
 import { Product } from "@/lib/types";
 import { Header } from "@/components/Header";
 import ProductDetailTemplate from "./ProductDetailTemplate";
@@ -24,29 +25,67 @@ export const revalidate = 60;
 const SLIM_PDP_FIELDS = "id, name, brand, price, mrp, stock, status, is_active, image_url, images, category_id, seller_id, description, packages, offers, specifications, created_at";
 
 const getProduct = cache(async (productId: string) => {
-  // Attempt single roundtrip with embedded seller details
-  const { data, error } = await supabase
-    .from("products")
-    .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, owner_name, city, state, business_logo_url)`)
-    .eq("id", productId)
-    .maybeSingle();
+  if (!productId || typeof productId !== "string") return null;
 
-  let productData: any = data;
+  let productData: any = null;
 
-  // Fallback to select(*) if relationship or slim fields error
-  if (error || !productData) {
-    const fallback = await supabase
+  // 1. Authoritative Server Query (Service Role / Server Client)
+  try {
+    const { data, error } = await supabaseServer
       .from("products")
-      .select("*")
+      .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
       .eq("id", productId)
       .maybeSingle();
 
-    if (fallback.data) {
-      productData = fallback.data;
+    if (data && !error) {
+      productData = data;
     } else {
-      console.error("Error fetching product:", fallback.error || error);
-      return null;
+      // Fallback: select(*) via supabaseServer without relationship
+      const fallbackServer = await supabaseServer
+        .from("products")
+        .select("*")
+        .eq("id", productId)
+        .maybeSingle();
+
+      if (fallbackServer.data) {
+        productData = fallbackServer.data;
+      }
     }
+  } catch (serverErr) {
+    console.warn("supabaseServer product fetch failed, attempting public fallback:", serverErr);
+  }
+
+  // 2. Resilient Public Fallback (if server client is unavailable or during build phase)
+  if (!productData) {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
+        .eq("id", productId)
+        .maybeSingle();
+
+      if (data && !error) {
+        productData = data;
+      } else {
+        const fallback = await supabase
+          .from("products")
+          .select("*")
+          .eq("id", productId)
+          .maybeSingle();
+
+        if (fallback.data) {
+          productData = fallback.data;
+        } else {
+          console.error("Error fetching product via public fallback:", fallback.error || error);
+        }
+      }
+    } catch (anonErr) {
+      console.error("Anon client product fetch failed:", anonErr);
+    }
+  }
+
+  if (!productData) {
+    return null;
   }
 
   // Populate seller fields directly from embedded seller without extra sequential query
@@ -59,6 +98,24 @@ const getProduct = cache(async (productId: string) => {
       productData.seller_logo = s.business_logo_url;
     }
     delete productData.seller;
+  }
+
+  // If seller name is missing but seller_id is present, resolve seller metadata
+  if (!productData.seller_name && productData.seller_id) {
+    try {
+      const client = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseServer : supabase;
+      const { data: s } = await client
+        .from("sellers")
+        .select("business_name, city, state, business_logo_url")
+        .eq("id", productData.seller_id)
+        .maybeSingle();
+      if (s) {
+        productData.seller_name = s.business_name;
+        productData.business_name = s.business_name;
+        productData.seller_city = s.city;
+        productData.seller_logo = s.business_logo_url;
+      }
+    } catch (_) {}
   }
 
   if (productData) {

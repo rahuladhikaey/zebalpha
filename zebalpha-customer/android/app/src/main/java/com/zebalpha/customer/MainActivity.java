@@ -36,7 +36,7 @@ public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "ZebAlphaMainActivity";
     private static final String DEFAULT_URL = "https://zebalpha.shop";
-    private static final long NAVIGATION_TIMEOUT_MS = 20000; // 20s watchdog for slow/hanging connections
+    private static final long NAVIGATION_TIMEOUT_MS = 12000; // 12s watchdog for slow/hanging connections
     private static final int MAX_AUTO_RETRIES = 2;
 
     public enum AppState {
@@ -74,6 +74,7 @@ public class MainActivity extends BridgeActivity {
     private Button btnRetry;
     private ProgressBar pbRetry;
 
+    private volatile boolean hasError = false;
     private AppState currentState = AppState.LOADING;
     private String lastTargetUrl = DEFAULT_URL;
     private boolean isRetrying = false;
@@ -85,11 +86,12 @@ public class MainActivity extends BridgeActivity {
         runOnUiThread(() -> {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
             if (webView != null && webView.getProgress() < 100 && currentState != AppState.ERROR) {
-                Log.w(TAG, "Navigation watchdog fired after 20s timeout on: " + lastTargetUrl);
-                if (webView != null) {
-                    webView.stopLoading();
-                    webView.setVisibility(View.GONE);
-                }
+                Log.w(TAG, "Navigation watchdog fired after timeout on: " + lastTargetUrl);
+                hasError = true;
+                currentState = AppState.ERROR;
+                webView.stopLoading();
+                webView.loadUrl("about:blank");
+                webView.setVisibility(View.GONE);
                 showOfflineOverlay(ErrorType.TIMEOUT);
             }
         });
@@ -119,24 +121,40 @@ public class MainActivity extends BridgeActivity {
         }
 
         @Override
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            if (request != null && request.getUrl() != null) {
+                String target = request.getUrl().toString();
+                if (isValidHttpUrl(target)) {
+                    lastTargetUrl = target;
+                }
+            }
+            return super.shouldOverrideUrlLoading(view, request);
+        }
+
+        @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
 
             if (isValidHttpUrl(url)) {
+                hasError = false;
                 lastTargetUrl = url;
+                resetTimeoutWatchdog();
             }
-
-            // Start 20s watchdog timer for slow/unresponsive loading
-            resetTimeoutWatchdog();
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
+            if (hasError || currentState == AppState.ERROR || !isValidHttpUrl(url)) {
+                if (view != null) {
+                    view.setVisibility(View.GONE);
+                }
+                return;
+            }
             cancelTimeoutWatchdog();
 
             runOnUiThread(() -> {
-                if (currentState != AppState.ERROR && isNetworkConnected() && isValidHttpUrl(url)) {
+                if (!hasError && currentState != AppState.ERROR && isNetworkConnected() && isValidHttpUrl(url)) {
                     currentState = AppState.SUCCESS;
                     hideOfflineOverlay();
                     autoRetryCount = 0;
@@ -150,10 +168,16 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onPageCommitVisible(WebView view, String url) {
             super.onPageCommitVisible(view, url);
+            if (hasError || currentState == AppState.ERROR || !isValidHttpUrl(url)) {
+                if (view != null) {
+                    view.setVisibility(View.GONE);
+                }
+                return;
+            }
             cancelTimeoutWatchdog();
 
             runOnUiThread(() -> {
-                if (isValidHttpUrl(url) && currentState != AppState.ERROR) {
+                if (!hasError && isValidHttpUrl(url) && currentState != AppState.ERROR) {
                     currentState = AppState.SUCCESS;
                     hideOfflineOverlay();
                     if (view != null) {
@@ -172,6 +196,8 @@ public class MainActivity extends BridgeActivity {
                 return;
             }
 
+            hasError = true;
+            currentState = AppState.ERROR;
             cancelTimeoutWatchdog();
 
             String failedUrl = (request != null && request.getUrl() != null) ? request.getUrl().toString() : null;
@@ -179,14 +205,15 @@ public class MainActivity extends BridgeActivity {
                 lastTargetUrl = failedUrl;
             }
 
-            // CRITICAL: Stop WebView loading and hide it immediately to prevent Chromium default error page from painting
+            // CRITICAL: Stop WebView loading, clear with about:blank, and hide immediately
+            // to completely prevent Chromium default error page from painting
             if (view != null) {
                 view.stopLoading();
+                view.loadUrl("about:blank");
                 view.setVisibility(View.GONE);
             }
 
             runOnUiThread(() -> {
-                currentState = AppState.ERROR;
                 isRetrying = false;
                 showOfflineOverlay(ErrorType.NETWORK);
             });
@@ -199,6 +226,8 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
             // Legacy callback for Android < 6.0 / API 23 or legacy fallback
+            hasError = true;
+            currentState = AppState.ERROR;
             cancelTimeoutWatchdog();
 
             if (isValidHttpUrl(failingUrl)) {
@@ -207,11 +236,11 @@ public class MainActivity extends BridgeActivity {
 
             if (view != null) {
                 view.stopLoading();
+                view.loadUrl("about:blank");
                 view.setVisibility(View.GONE);
             }
 
             runOnUiThread(() -> {
-                currentState = AppState.ERROR;
                 isRetrying = false;
                 showOfflineOverlay(ErrorType.NETWORK);
             });
@@ -227,8 +256,10 @@ public class MainActivity extends BridgeActivity {
             }
 
             int statusCode = errorResponse != null ? errorResponse.getStatusCode() : 0;
-            // Only intercept server failure/gateway errors (500, 502, 503, 504)
+            // Intercept server failure/gateway errors (500, 502, 503, 504)
             if (statusCode == 500 || statusCode == 502 || statusCode == 503 || statusCode == 504) {
+                hasError = true;
+                currentState = AppState.ERROR;
                 cancelTimeoutWatchdog();
 
                 String failedUrl = request.getUrl() != null ? request.getUrl().toString() : null;
@@ -238,11 +269,11 @@ public class MainActivity extends BridgeActivity {
 
                 if (view != null) {
                     view.stopLoading();
+                    view.loadUrl("about:blank");
                     view.setVisibility(View.GONE);
                 }
 
                 runOnUiThread(() -> {
-                    currentState = AppState.ERROR;
                     isRetrying = false;
                     showOfflineOverlay(ErrorType.SERVER);
                 });
@@ -261,18 +292,33 @@ public class MainActivity extends BridgeActivity {
                 handler.cancel();
             }
 
+            hasError = true;
+            currentState = AppState.ERROR;
             cancelTimeoutWatchdog();
 
             if (view != null) {
                 view.stopLoading();
+                view.loadUrl("about:blank");
                 view.setVisibility(View.GONE);
             }
 
             runOnUiThread(() -> {
-                currentState = AppState.ERROR;
                 isRetrying = false;
                 showOfflineOverlay(ErrorType.SERVER);
             });
+        }
+    }
+
+    @Override
+    protected void load() {
+        super.load();
+        try {
+            Bridge bridge = getBridge();
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.setWebViewClient(new ZebAlphaWebViewClient(bridge));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error installing ZebAlphaWebViewClient in load()", e);
         }
     }
 
@@ -311,6 +357,7 @@ public class MainActivity extends BridgeActivity {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
             if (webView != null) {
                 webView.stopLoading();
+                webView.loadUrl("about:blank");
                 webView.setVisibility(View.GONE);
             }
             showOfflineOverlay(ErrorType.NETWORK);
@@ -333,6 +380,10 @@ public class MainActivity extends BridgeActivity {
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             );
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                offlineOverlayView.setElevation(999f);
+                offlineOverlayView.setTranslationZ(999f);
+            }
             offlineOverlayView.setVisibility(View.GONE);
 
             ImageButton btnBack = offlineOverlayView.findViewById(R.id.btn_error_back);
@@ -396,6 +447,8 @@ public class MainActivity extends BridgeActivity {
         if (offlineOverlayView != null && offlineOverlayView.getVisibility() == View.VISIBLE) {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
             if (webView != null && webView.canGoBack()) {
+                hasError = false;
+                currentState = AppState.LOADING;
                 hideOfflineOverlay();
                 webView.setVisibility(View.VISIBLE);
                 webView.goBack();
@@ -416,14 +469,19 @@ public class MainActivity extends BridgeActivity {
     private void navigateToUrl(String url) {
         WebView webView = getBridge() != null ? getBridge().getWebView() : null;
         if (webView != null) {
+            hasError = false;
+            currentState = AppState.LOADING;
             lastTargetUrl = url;
+            hideOfflineOverlay();
             webView.setVisibility(View.VISIBLE);
             webView.loadUrl(url);
+            resetTimeoutWatchdog();
         }
     }
 
     public void showOfflineOverlay(ErrorType type) {
         runOnUiThread(() -> {
+            hasError = true;
             currentState = AppState.ERROR;
             if (offlineOverlayView != null) {
                 if (tvErrorTitle != null && type != null) {
@@ -435,6 +493,10 @@ public class MainActivity extends BridgeActivity {
 
                 offlineOverlayView.setVisibility(View.VISIBLE);
                 offlineOverlayView.bringToFront();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    offlineOverlayView.setElevation(999f);
+                    offlineOverlayView.setTranslationZ(999f);
+                }
                 if (pbRetry != null) pbRetry.setVisibility(View.GONE);
                 if (btnRetry != null) {
                     btnRetry.setVisibility(View.VISIBLE);
@@ -446,6 +508,7 @@ public class MainActivity extends BridgeActivity {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
             if (webView != null) {
                 webView.stopLoading();
+                webView.loadUrl("about:blank");
                 webView.setVisibility(View.GONE);
             }
         });
@@ -490,6 +553,7 @@ public class MainActivity extends BridgeActivity {
 
         // 2. Connectivity is available
         isRetrying = true;
+        hasError = false;
         currentState = AppState.LOADING;
 
         if (pbRetry != null) pbRetry.setVisibility(View.VISIBLE);
@@ -622,6 +686,7 @@ public class MainActivity extends BridgeActivity {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
             if (webView != null) {
                 webView.stopLoading();
+                webView.loadUrl("about:blank");
                 webView.setVisibility(View.GONE);
             }
             showOfflineOverlay(ErrorType.NETWORK);

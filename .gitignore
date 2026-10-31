@@ -46,6 +46,7 @@ Thumbs.db
 # Android & large binary builds (GitHub 100MB limit)
 *.apk
 *.aab
+*.zip
 
 # Git backups
 *.git_backup
