@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer, createSupabaseServerClient } from "@/shared/utils/supabaseServer";
-import { createProviderPayout } from "@/shared/services/razorpayPayoutService";
+import { createProviderPayout, isValidUpiFormat } from "@/shared/services/razorpayPayoutService";
+import { decryptSensitiveData } from "@/shared/services/bankSecurityService";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -31,7 +32,7 @@ async function getAuthenticatedUser(req: NextRequest) {
  * 1. Balance Reservation (Available Balance -> Reserved Balance -> Withdrawn)
  * 2. Database Row-Level Locking (Guaranteed Zero Concurrent Overdraws)
  * 3. Idempotency Protection (Idempotency Key & Unique Withdrawal Number)
- * 4. Payout Queue & Razorpay Banking Rails
+ * 4. Payout Queue & Razorpay Banking Rails (with Zero-Plaintext Vault Decryption)
  * 5. Immutable Ledger Tracking (WITHDRAWAL_REQUESTED, WITHDRAWAL_SUCCESS, WITHDRAWAL_FAILED)
  */
 export async function POST(req: NextRequest) {
@@ -77,11 +78,30 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // Decrypt the raw UPI destination from zero-plaintext vault
+    let decryptedDestinationVpa: string | null = null;
+    if (payoutAccount.upi_id_encrypted) {
+      try {
+        decryptedDestinationVpa = decryptSensitiveData(payoutAccount.upi_id_encrypted);
+      } catch (decErr) {
+        console.error("[Withdrawal] Decryption of payout destination failed for seller:", sellerId);
+        return NextResponse.json({
+          success: false,
+          error: "Unable to securely decrypt payout destination. Please re-register your settlement UPI ID."
+        }, { status: 500 });
+      }
+    }
+
+    if (!decryptedDestinationVpa || !isValidUpiFormat(decryptedDestinationVpa)) {
+      return NextResponse.json({
+        success: false,
+        error: "Registered settlement UPI ID is invalid or could not be verified. Please update your settlement method."
+      }, { status: 400 });
+    }
+
     const settlementMethod = {
       id: payoutAccount.id,
       method_type: "UPI",
-      upi_id: payoutAccount.masked_upi_id,
-      destination_raw: payoutAccount.masked_upi_id,
       masked_destination: payoutAccount.masked_upi_id,
       verified_name: payoutAccount.beneficiary_name || seller.business_name || "Verified Merchant",
       is_verified: true,
@@ -109,7 +129,6 @@ export async function POST(req: NextRequest) {
     const uniqueSuffix = `${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const payoutNumber = `WTH-${uniqueSuffix}`;
     const idempotencyKey = String(body.idempotencyKey || req.headers.get("x-idempotency-key") || `withdraw_${sellerId}_${uniqueSuffix}`);
-    const destinationUpi = settlementMethod.upi_id || settlementMethod.destination_raw || (settlementMethod as any)?.metadata?.vpa;
 
     // 4. ATOMIC CONCURRENCY-SAFE BALANCE RESERVATION (RPC with Row-Level Locking)
     const { data: reserveResult, error: reserveErr } = await supabaseServer.rpc('reserve_seller_balance_for_withdrawal', {
@@ -118,7 +137,7 @@ export async function POST(req: NextRequest) {
       p_idempotency_key: idempotencyKey,
       p_payout_number: payoutNumber,
       p_destination_masked: settlementMethod.masked_destination,
-      p_destination_upi: destinationUpi,
+      p_destination_upi: settlementMethod.masked_destination, // Do not store plaintext VPA in unencrypted DB columns
       p_beneficiary_name: settlementMethod.verified_name || seller.business_name || "Seller Settlement",
       p_settlement_method_id: settlementMethod.id || null
     });
@@ -163,11 +182,11 @@ export async function POST(req: NextRequest) {
 
     const payoutRequestId = reserveResult.payout_id;
 
-    // 5. Asynchronously dispatch / process with Razorpay Provider if available
+    // 5. Asynchronously dispatch / process with Razorpay Provider if available using decrypted VPA
     createProviderPayout({
       sellerId,
       amount: requestedAmount,
-      vpa: destinationUpi,
+      vpa: decryptedDestinationVpa, // Valid decrypted destination passed to provider
       beneficiaryName: settlementMethod.verified_name || seller.business_name || "Seller Settlement",
       payoutNumber,
       idempotencyKey
@@ -179,12 +198,12 @@ export async function POST(req: NextRequest) {
           p_utr_number: providerResult.utrNumber || null
         });
       } else {
-        // Keep in PROCESSING status so Admin can disburse manually via PhonePe / GPay / NetBanking
-        console.log(`[Withdrawal ${payoutNumber}]: Queued for Admin disbursement to ${destinationUpi}. Reason: ${providerResult.failureReason || "Manual mode"}`);
+        // Keep in PROCESSING status so Admin can disburse manually; log only masked destination
+        console.log(`[Withdrawal ${payoutNumber}]: Queued for Admin disbursement to ${settlementMethod.masked_destination}. Reason: ${providerResult.failureReason || "Manual mode"}`);
         await supabaseServer
           .from("seller_payout_requests")
           .update({
-            notes: `Queued for Admin UPI Settlement (${destinationUpi})`,
+            notes: `Queued for Admin UPI Settlement (${settlementMethod.masked_destination})`,
             updated_at: new Date().toISOString()
           })
           .eq("id", payoutRequestId);

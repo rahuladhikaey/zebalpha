@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/shared/utils/supabaseServer";
+import crypto from "crypto";
 
 /**
  * Real-time Delivery & Shipment Webhook Receiver
@@ -8,6 +9,20 @@ import { supabaseServer } from "@/shared/utils/supabaseServer";
  */
 export async function POST(req: Request) {
   try {
+    // 1. TIMING-SAFE CRYPTOGRAPHIC WEBHOOK AUTHENTICATION (FINDING-17)
+    const webhookSecret = (process.env.SHIPROCKET_WEBHOOK_SECRET || process.env.TRACKING_WEBHOOK_SECRET || "").trim();
+    if (webhookSecret) {
+      const rawToken = req.headers.get("x-shiprocket-token") || req.headers.get("x-api-key") || req.headers.get("authorization") || "";
+      const token = rawToken.startsWith("Bearer ") ? rawToken.slice(7).trim() : rawToken.trim();
+      const expBuf = Buffer.from(webhookSecret);
+      const provBuf = Buffer.from(token);
+      if (expBuf.length !== provBuf.length || !crypto.timingSafeEqual(expBuf, provBuf)) {
+        return NextResponse.json({ success: false, message: "Unauthorized: Invalid or missing webhook token." }, { status: 401 });
+      }
+    } else if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ success: false, message: "Server misconfiguration: Webhook secret is required." }, { status: 500 });
+    }
+
     const payload = await req.json();
 
     const awb = payload.awb || payload.awb_code || payload.tracking_number;

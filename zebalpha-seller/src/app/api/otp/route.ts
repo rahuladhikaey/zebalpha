@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "@shared/utils/supabaseServer";
+import { supabaseServer } from "@/shared/utils/supabaseServer";
+import crypto from "crypto";
+import {
+  generatePasswordResetToken,
+  generateSignupProofToken,
+  checkRateLimit,
+} from "@/shared/services/securityTokenService";
 
 // In-memory temporary OTP storage cache
 const otpStore = new Map<string, {
@@ -9,9 +15,13 @@ const otpStore = new Map<string, {
 }>();
 
 const OTP_VALIDITY_MS = 15 * 60 * 1000; // 15 minutes validity
+const MAX_VERIFICATION_ATTEMPTS = 5;
 
+/**
+ * Cryptographically secure 6-digit OTP generator
+ */
 function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 function generateExpiry(): number {
@@ -73,10 +83,10 @@ async function sendEmailJsOtp(email: string, otp: string): Promise<boolean> {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { action, email } = body;
+    const body = await request.json().catch(() => ({}));
+    const { action, email, purpose } = body;
 
-    if (!email || typeof email !== "string") {
+    if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
         { success: false, error: "Valid email address is required" },
         { status: 400 }
@@ -84,6 +94,16 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown-ip";
+
+    // Rate Limiting: max 5 OTP requests per 10 minutes per email
+    const rateLimitKey = `otp_gen_${normalizedEmail}_${clientIp}`;
+    if ((action === "generate" || action === "resend") && !checkRateLimit(rateLimitKey, 5, 10 * 60 * 1000)) {
+      return NextResponse.json(
+        { success: false, error: "Too many OTP requests. Please wait a few minutes before trying again." },
+        { status: 429 }
+      );
+    }
 
     if (action === "generate" || action === "resend") {
       const otp = generateOTP();
@@ -132,6 +152,19 @@ export async function POST(request: NextRequest) {
       const cleanOtp = String(otp).trim();
       const stored = otpStore.get(normalizedEmail);
 
+      // Check brute-force attempt lockout
+      if (stored && stored.attempts >= MAX_VERIFICATION_ATTEMPTS) {
+        otpStore.delete(normalizedEmail);
+        return NextResponse.json(
+          {
+            success: false,
+            verified: false,
+            error: "Maximum verification attempts exceeded. For your security, this OTP has been invalidated. Please request a new code.",
+          },
+          { status: 429 }
+        );
+      }
+
       // 1. Check in-memory store
       const isStoredValid = Boolean(stored && cleanOtp === stored.otp && Date.now() <= stored.expiresAt);
 
@@ -170,35 +203,33 @@ export async function POST(request: NextRequest) {
           console.warn("Notice updating seller record email verification:", dbErr);
         }
 
+        // Generate cryptographically signed verification tokens
+        const resetToken = generatePasswordResetToken(normalizedEmail);
+        const signupToken = generateSignupProofToken(normalizedEmail);
+
         return NextResponse.json({
           success: true,
           verified: true,
+          resetToken,
+          signupToken,
           message: "Email verified successfully!",
         });
       }
 
-      // Diagnostic check: Did the seller submit an older/previous code?
-      try {
-        const { data: oldOtp } = await supabaseServer
-          .from("email_otps")
-          .select("id, created_at, is_verified")
-          .eq("email", normalizedEmail)
-          .eq("otp", cleanOtp)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (oldOtp) {
-          return NextResponse.json({
-            success: false,
-            verified: false,
-            error: "This is an older verification code. Please check your inbox for the newest 6-digit code.",
-          }, { status: 400 });
-        }
-      } catch (_) {}
-
+      // Increment attempt counter on failed verification
       if (stored) {
         stored.attempts += 1;
+        if (stored.attempts >= MAX_VERIFICATION_ATTEMPTS) {
+          otpStore.delete(normalizedEmail);
+          return NextResponse.json(
+            {
+              success: false,
+              verified: false,
+              error: "Maximum verification attempts exceeded. This OTP has been invalidated. Please request a new code.",
+            },
+            { status: 429 }
+          );
+        }
         otpStore.set(normalizedEmail, stored);
       }
 

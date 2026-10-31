@@ -95,10 +95,23 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const masked = maskUpiId(vpa);
-    const verifiedBeneficiaryName = cleanBeneficiaryName;
-    const maskedBeneficiary = maskBeneficiaryName(cleanBeneficiaryName);
-    const verificationStatus = 'verified';
+    // Perform authoritative verification of VPA, phone ownership, and beneficiary name
+    const upiResult = await verifyUpiWithProvider(vpa, candidateNames, {
+      accountHolderName: cleanBeneficiaryName,
+      registeredPhones
+    });
+
+    if (!upiResult.verified) {
+      return NextResponse.json({
+        success: false,
+        error: upiResult.error || "UPI verification failed. The provided UPI ID or beneficiary name could not be verified."
+      }, { status: 400 });
+    }
+
+    const masked = upiResult.maskedVpa || maskUpiId(vpa);
+    const verifiedBeneficiaryName = upiResult.verifiedName || cleanBeneficiaryName;
+    const maskedBeneficiary = upiResult.beneficiaryNameMasked || maskBeneficiaryName(verifiedBeneficiaryName);
+    const verificationStatus = upiResult.verificationStatus || 'verified';
 
     // Encrypt UPI ID for zero-plaintext vault storage
     const encryptedVpa = encryptSensitiveData(vpa);

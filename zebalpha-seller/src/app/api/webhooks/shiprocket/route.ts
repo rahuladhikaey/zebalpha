@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/shared/utils/supabaseServer";
 import { initiateRazorpayRefund } from "@/shared/utils/razorpayRefund";
+import crypto from "crypto";
 
 /**
  * Shiprocket Webhook Receiver
@@ -9,6 +10,21 @@ import { initiateRazorpayRefund } from "@/shared/utils/razorpayRefund";
  */
 export async function POST(req: Request) {
   try {
+    // 1. TIMING-SAFE CRYPTOGRAPHIC WEBHOOK AUTHENTICATION (FINDING-06)
+    const webhookSecret = (process.env.SHIPROCKET_WEBHOOK_SECRET || "").trim();
+    if (webhookSecret) {
+      const rawToken = req.headers.get("x-shiprocket-token") || req.headers.get("x-api-key") || req.headers.get("authorization") || "";
+      const token = rawToken.startsWith("Bearer ") ? rawToken.slice(7).trim() : rawToken.trim();
+      const expBuf = Buffer.from(webhookSecret);
+      const provBuf = Buffer.from(token);
+      if (expBuf.length !== provBuf.length || !crypto.timingSafeEqual(expBuf, provBuf)) {
+        console.warn("[Shiprocket Webhook] Rejected unauthorized webhook with invalid secret token.");
+        return NextResponse.json({ success: false, message: "Unauthorized: Invalid or missing webhook token." }, { status: 401 });
+      }
+    } else if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ success: false, message: "Server misconfiguration: SHIPROCKET_WEBHOOK_SECRET is required." }, { status: 500 });
+    }
+
     const payload = await req.json();
     console.log("[Shiprocket Webhook Seller Receiver]:", JSON.stringify(payload));
 
@@ -255,13 +271,18 @@ export async function POST(req: Request) {
           orderUpdate.restocked_at = nowIso;
         }
 
-        // Refund policy:
-        // Prepaid: Trigger Razorpay refund
-        // COD: Strictly NO refund for unpaid orders
+        // Authoritative order state validation for automatic financial refund:
+        // 1. Must be prepaid
+        // 2. Must have verified payment ID
+        // 3. Must not already be refunded
+        // 4. Order must have actually been in shipped/transit/rto status (cannot refund pending/confirmed orders via webhook!)
         const isPrepaid = String(order.payment_method || "").toUpperCase() !== "COD";
         const isPaid = String(order.payment_status || "").toUpperCase() === "PAID";
+        const validPriorStates = ["shipped", "out_for_delivery", "rto_initiated", "rto_in_transit", "rto"];
+        const hasValidShippingHistory = validPriorStates.includes(String(order.status || "").toLowerCase()) ||
+          validPriorStates.includes(String(order.order_status || "").toLowerCase());
 
-        if (isPrepaid && (isPaid || order.payment_id) && !order.razorpay_refund_id) {
+        if (isPrepaid && (isPaid || order.payment_id) && !order.razorpay_refund_id && hasValidShippingHistory && Number(order.total_amount) > 0) {
           try {
             const rzpRes = await initiateRazorpayRefund({
               paymentId: order.payment_id || order.razorpay_payment_id,

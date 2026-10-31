@@ -79,33 +79,15 @@ function sanitizeProductPackages(packages: any[]): any[] {
 // POST /api/products — Create a new product with full server-side validation & RLS bypass
 export async function POST(req: NextRequest) {
   try {
-    let user = await getAuthenticatedUser(req);
-    const body = await req.json();
-
-    // Resilient fallback: If cookie/Bearer token expired, resolve seller via passed seller_id
-    if (!user && (body.seller_id || body.sellerId)) {
-      const candidateId = body.seller_id || body.sellerId;
-      const { data: fallbackSeller } = await supabaseServer
-        .from("sellers")
-        .select("id, user_id, email, status, account_status")
-        .or(`id.eq.${candidateId},user_id.eq.${candidateId}`)
-        .maybeSingle();
-
-      if (fallbackSeller) {
-        user = {
-          id: fallbackSeller.user_id || fallbackSeller.id,
-          email: fallbackSeller.email || "",
-          user_metadata: {},
-        } as any;
-      }
-    }
-
+    const user = await getAuthenticatedUser(req);
     if (!user) {
       return NextResponse.json(
         { success: false, message: "Unauthorized: Please log in to add products." },
         { status: 401 }
       );
     }
+
+    const body = await req.json();
     const {
       name,
       description = "",
@@ -345,27 +327,7 @@ export async function POST(req: NextRequest) {
 // PUT /api/products — Update an existing product
 export async function PUT(req: NextRequest) {
   try {
-    let user = await getAuthenticatedUser(req);
-    const body = await req.json();
-
-    // Resilient fallback: If cookie/Bearer token expired, resolve seller via passed seller_id
-    if (!user && (body.seller_id || body.sellerId)) {
-      const candidateId = body.seller_id || body.sellerId;
-      const { data: fallbackSeller } = await supabaseServer
-        .from("sellers")
-        .select("id, user_id, email, status, account_status")
-        .or(`id.eq.${candidateId},user_id.eq.${candidateId}`)
-        .maybeSingle();
-
-      if (fallbackSeller) {
-        user = {
-          id: fallbackSeller.user_id || fallbackSeller.id,
-          email: fallbackSeller.email || "",
-          user_metadata: {},
-        } as any;
-      }
-    }
-
+    const user = await getAuthenticatedUser(req);
     if (!user) {
       return NextResponse.json(
         { success: false, message: "Unauthorized: Please log in to update products." },
@@ -373,6 +335,7 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    const body = await req.json();
     const { id, productId = id, ...updates } = body;
 
     const targetId = productId || id;
@@ -383,12 +346,33 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    // Resolve caller role to protect administrative fields
+    const { data: profile } = await supabaseServer
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const isAdmin = profile?.role === "super_admin" || profile?.role === "admin";
+    if (!isAdmin) {
+      delete updates.approval_status;
+      delete updates.is_approved;
+      delete updates.admin_notes;
+    }
+
     // Resolve caller seller
     const { data: seller } = await supabaseServer
       .from("sellers")
-      .select("id, user_id")
+      .select("id, user_id, status")
       .or(`user_id.eq.${user.id},id.eq.${user.id},email.eq.${user.email?.toLowerCase().trim()}`)
       .maybeSingle();
+
+    if (!isAdmin && seller?.status && ['suspended', 'banned', 'frozen', 'blocked'].includes(seller.status.toLowerCase())) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: Suspended accounts cannot update products." },
+        { status: 403 }
+      );
+    }
 
     const allowedSellerIds = [user.id, seller?.id].filter(Boolean) as string[];
 

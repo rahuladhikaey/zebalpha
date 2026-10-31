@@ -37,7 +37,20 @@ export async function POST(req: Request) {
 
     // 1. Authenticate caller (Seller or Admin)
     const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+        const { data: userData } = await supabaseServer.auth.getUser(token);
+        if (userData?.user) user = userData.user;
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ success: false, message: "Authentication required to perform return actions." }, { status: 401 });
+    }
 
     // 2. Fetch order using service role
     let query = supabaseServer.from("orders").select("*");
@@ -55,27 +68,25 @@ export async function POST(req: Request) {
     }
 
     // 3. Authorization check
-    if (user) {
-      const { data: seller } = await supabaseServer
-        .from("sellers")
-        .select("id, user_id, status")
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
+    const { data: seller } = await supabaseServer
+      .from("sellers")
+      .select("id, user_id, status")
+      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+      .maybeSingle();
 
-      const isOwner = seller && (
-        String(orderData.seller_id) === String(seller.id) || 
-        String(orderData.seller_id) === String(user.id)
-      );
-      const isAdmin = (user.user_metadata?.role || "").toLowerCase() === "super_admin" || 
-        user.email === "superadmin@zebalpha.shop" || 
-        user.email === "admin@zebalpha.shop";
+    const isOwner = seller && (
+      String(orderData.seller_id) === String(seller.id) || 
+      String(orderData.seller_id) === String(user.id)
+    );
+    const isAdmin = (user.user_metadata?.role || "").toLowerCase() === "super_admin" || 
+      user.email === "superadmin@zebalpha.shop" || 
+      user.email === "admin@zebalpha.shop";
 
-      if (!isOwner && !isAdmin) {
-        return NextResponse.json({
-          success: false,
-          message: "Forbidden: You cannot modify returns for another merchant's order."
-        }, { status: 403 });
-      }
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({
+        success: false,
+        message: "Forbidden: You cannot modify returns for another merchant's order."
+      }, { status: 403 });
     }
 
     const orderUpdates: Record<string, any> = { updated_at: nowIso };

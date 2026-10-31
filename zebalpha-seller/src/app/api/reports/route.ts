@@ -1,8 +1,25 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@shared/utils/supabaseServer";
+import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+async function getAuthenticatedUser(req: Request) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return user;
+  } catch (_) {}
+
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const { data: tokenUser } = await supabaseServer.auth.getUser(token);
+    if (tokenUser?.user) return tokenUser.user;
+  }
+
+  return null;
+}
 
 /**
  * GET /api/reports?type=sales|orders|returns|settlements|ledger
@@ -13,9 +30,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") || "sales";
 
-    const { data: { user } } = await supabaseServer.auth.getUser();
+    const user = await getAuthenticatedUser(req);
     if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized access: Please log in." }, { status: 401 });
     }
 
     const { data: seller } = await supabaseServer

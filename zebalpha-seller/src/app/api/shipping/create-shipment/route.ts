@@ -24,7 +24,23 @@ export async function POST(req: Request) {
 
     // 1. Authenticate seller session or allow superadmin execution
     const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+        const { data: tokenUser } = await supabaseServer.auth.getUser(token);
+        if (tokenUser?.user) user = tokenUser.user;
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: Please log in to generate shipments." },
+        { status: 401 }
+      );
+    }
 
     // 2. Fetch order details from Supabase using service role
     const { data: order, error: orderErr } = await supabaseServer
@@ -38,6 +54,38 @@ export async function POST(req: Request) {
         { success: false, message: "Order record not found in database." },
         { status: 404 }
       );
+    }
+
+    // Check authorization: caller must own the order or be platform admin
+    const { data: seller } = await supabaseServer
+      .from("sellers")
+      .select("id, status")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const { data: profile } = await supabaseServer
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const isAdmin = profile?.role === "super_admin" || profile?.role === "admin";
+    const callerSellerId = seller?.id || user.id;
+
+    if (!isAdmin) {
+      if (order.seller_id && order.seller_id !== callerSellerId && order.seller_id !== user.id) {
+        return NextResponse.json({
+          success: false,
+          message: "Forbidden: You are not authorized to create shipments for another seller's order."
+        }, { status: 403 });
+      }
+
+      if (seller?.status && ['suspended', 'banned', 'frozen', 'blocked'].includes(seller.status.toLowerCase())) {
+        return NextResponse.json({
+          success: false,
+          message: "Forbidden: Suspended accounts cannot generate shipments."
+        }, { status: 403 });
+      }
     }
 
     // 1-Hour Customer Cancellation Window Check: Accept button is locked for 1 hour after placement
