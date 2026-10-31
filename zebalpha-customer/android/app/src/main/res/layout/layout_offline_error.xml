@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/layout_offline_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FFFFFF"
+    android:clickable="true"
+    android:focusable="true"
+    android:fitsSystemWindows="true">
+
+    <!-- Top App Bar -->
+    <LinearLayout
+        android:id="@+id/error_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:background="#FFFFFF">
+
+        <!-- Back Button -->
+        <ImageButton
+            android:id="@+id/btn_error_back"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_arrow_back"
+            android:contentDescription="Back"
+            android:scaleType="centerInside" />
+
+        <!-- Spacer -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- Search Icon -->
+        <ImageButton
+            android:id="@+id/btn_error_search"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_search"
+            android:contentDescription="Search"
+            android:scaleType="centerInside" />
+
+        <!-- Wishlist Icon -->
+        <ImageButton
+            android:id="@+id/btn_error_wishlist"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_favorite_border"
+            android:contentDescription="Wishlist"
+            android:scaleType="centerInside" />
+
+        <!-- Cart Container with Notification Badge -->
+        <FrameLayout
+            android:id="@+id/btn_error_cart_container"
+            android:layout_width="44dp"
+            android:layout_height="44dp">
+
+            <ImageButton
+                android:id="@+id/btn_error_cart"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_shopping_cart"
+                android:contentDescription="Cart"
+                android:scaleType="centerInside" />
+
+            <TextView
+                android:id="@+id/tv_error_cart_badge"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="5dp"
+                android:layout_marginEnd="5dp"
+                android:background="@drawable/bg_cart_badge"
+                android:gravity="center"
+                android:text="9"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Center Content -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:layout_marginBottom="40dp">
+
+        <!-- Illustration -->
+        <ImageView
+            android:id="@+id/iv_error_illustration"
+            android:layout_width="180dp"
+            android:layout_height="180dp"
+            android:src="@drawable/ic_network_error_illustration"
+            android:contentDescription="Network Error" />
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/tv_error_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:text="Something went wrong!"
+            android:textColor="#212121"
+            android:textSize="20sp"
+            android:fontFamily="sans-serif-medium"
+            android:textStyle="bold" />
+
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/tv_error_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="Please try again later."
+            android:textColor="#757575"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif" />
+
+        <!-- Retry Button -->
+        <Button
+            android:id="@+id/btn_error_retry"
+            android:layout_width="140dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_retry_button"
+            android:text="Retry"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:elevation="2dp"
+            android:stateListAnimator="@null" />
+
+        <!-- Retry Loading Spinner -->
+        <ProgressBar
+            android:id="@+id/pb_error_retry"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginTop="16dp"
+            android:indeterminate="true"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</LinearLayout>

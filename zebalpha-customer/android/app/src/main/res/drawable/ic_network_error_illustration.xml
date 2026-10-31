@@ -1,0 +1,80 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+  <!-- 1. Soft grey circular background -->
+  <path
+      android:fillColor="#EBECEE"
+      android:pathData="M100,102 m-52,0 a52,52 0 1,0 104,0 a52,52 0 1,0 -104,0" />
+
+  <!-- 2. Bottom geometric shapes (Triangles) -->
+  <!-- Left red triangle -->
+  <path
+      android:fillColor="#EA4335"
+      android:pathData="M52,135 L88,135 L70,119 Z" />
+
+  <!-- Center yellow polygon -->
+  <path
+      android:fillColor="#FBBC05"
+      android:pathData="M80,135 L120,135 L100,116 Z" />
+
+  <!-- Right blue triangle -->
+  <path
+      android:fillColor="#1A73E8"
+      android:pathData="M112,135 L148,135 L130,117 Z" />
+
+  <!-- 3. Smartphone (Shadow & Body) -->
+  <!-- Subtle phone shadow -->
+  <path
+      android:fillColor="#1A000000"
+      android:pathData="M80,74 h40 a7,7 0 0,1 7,7 v60 a7,7 0 0,1 -7,7 h-40 a7,7 0 0,1 -7,-7 v-60 a7,7 0 0,1 7,-7 Z" />
+
+  <!-- Phone white body -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:strokeColor="#E0E0E0"
+      android:strokeWidth="1.5"
+      android:pathData="M81,72 h38 a6,6 0 0,1 6,6 v60 a6,6 0 0,1 -6,6 h-38 a6,6 0 0,1 -6,-6 v-60 a6,6 0 0,1 6,-6 Z" />
+
+  <!-- Phone top speaker slit -->
+  <path
+      android:fillColor="#D6D6D6"
+      android:pathData="M95,76 h10 a1,1 0 0,1 1,1 v0 a1,1 0 0,1 -1,1 h-10 a1,1 0 0,1 -1,-1 v0 a1,1 0 0,1 1,-1 Z" />
+
+  <!-- Exclamation mark circle in center of phone screen -->
+  <path
+      android:fillColor="#FCE8E6"
+      android:strokeColor="#EA4335"
+      android:strokeWidth="1.5"
+      android:pathData="M100,102 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0" />
+
+  <!-- Exclamation bar (red) -->
+  <path
+      android:fillColor="#EA4335"
+      android:pathData="M98.8,96.5 h2.4 v7 h-2.4 Z" />
+
+  <!-- Exclamation dot (red) -->
+  <path
+      android:fillColor="#EA4335"
+      android:pathData="M100,107 m-1.4,0 a1.4,1.4 0 1,0 2.8,0 a1.4,1.4 0 1,0 -2.8,0" />
+
+  <!-- 4. Raindrops under the cloud -->
+  <path
+      android:strokeColor="#FBBC05"
+      android:strokeWidth="1.5"
+      android:strokeLineCap="round"
+      android:pathData="M86,68 v5 M92,70 v4 M108,70 v4 M114,68 v5" />
+
+  <!-- 5. Storm Cloud (Yellow) -->
+  <path
+      android:fillColor="#F9BC05"
+      android:pathData="M85,62 a11,11 0 0,1 20,-5 a13,13 0 0,1 17,4 a9,9 0 0,1 -1,17 h-33 a8,8 0 0,1 -3,-16 Z" />
+
+  <!-- 6. Red Lightning Bolt -->
+  <path
+      android:fillColor="#EA4335"
+      android:pathData="M98,64 L96,73 L101,73 L98,82 L104,71 L100,71 Z" />
+
+</vector>
