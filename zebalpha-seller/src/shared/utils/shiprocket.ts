@@ -102,9 +102,11 @@ export async function addShiprocketPickupLocation(token: string, locationData: {
   contact_phone?: string;
   contact_email?: string;
 }) {
-  let safeAddress = (locationData.address || "Plot No. 1, Merchant Road").trim();
+  let rawAddr = (locationData.address || "Plot No. 1, Merchant Road").trim();
+  const hasIdentifier = /(?:house|flat|road|shop|plot|holding|lane|gali|street|no\.|building|near|bhavan|complex|market|premise)/i.test(rawAddr);
+  let safeAddress = hasIdentifier ? rawAddr : `Shop / Premise No. 1, ${rawAddr}`;
   if (!/\d/.test(safeAddress)) {
-    safeAddress = `Plot No. 1, ${safeAddress}`;
+    safeAddress = `Shop No. 1, ${safeAddress}`;
   }
 
     const cleanPin = String(locationData.pin_code || locationData.pincode || "").replace(/\D/g, "").slice(0, 6);

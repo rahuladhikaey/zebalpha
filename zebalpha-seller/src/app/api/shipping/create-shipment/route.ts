@@ -260,37 +260,62 @@ export async function POST(req: Request) {
     try {
       const token = await getShiprocketToken();
       if (token) {
-        // A. Match or register distinct pickup location in Shiprocket
+        // A. Match or register distinct pickup location in Shiprocket for this specific seller
         const srLocations = await getShiprocketPickupLocations(token);
 
         const sellerPincodeStr = String(pickupLocationData.pincode || "741254").replace(/\D/g, "").slice(0, 6);
-        const sellerNameStr = String(pickupLocationData.name || "").toLowerCase().trim();
-        const sellerAddrStr = String(pickupLocationData.address_line1 || "").toLowerCase().trim();
+        const sellerPhoneStr = String(pickupLocationData.phone || pickupLocationData.contact_phone || "9883637054").replace(/\D/g, "").slice(0, 10);
+        const sellerNameStr = String(pickupLocationData.name || pickupLocationData.location_name || "Seller Hub").trim();
+        const sellerAddrStr = String(pickupLocationData.address_line1 || pickupLocationData.address || "").toLowerCase().trim();
+        const expectedNick = `Hub_${sellerId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8)}_${sellerPincodeStr}`.slice(0, 30);
+        const existingSyncNick = String(pickupLocationData.shiprocket_pickup_location_id || pickupLocationData.shiprocket_location_id || "").trim();
 
-        // Check if seller's address/pincode or name matches any registered location in Shiprocket
-        const match = (srLocations || []).find((l: any) => {
-          const srPin = String(l.pin_code || l.pincode || "").trim();
-          const srName = String(l.pickup_location || l.name || "").toLowerCase().trim();
-          const srAddr = String(l.address || l.address_line1 || "").toLowerCase().trim();
+        // 1. Check if already matched by existing synced code or expected nickname
+        let match = (srLocations || []).find((l: any) => {
+          const srCode = String(l.pickup_location || l.name || "").trim().toLowerCase();
           return (
-            (srPin && srPin === sellerPincodeStr) ||
-            (srName && (srName === sellerNameStr || srName === "primary")) ||
-            (srAddr && sellerAddrStr && srAddr.includes(sellerAddrStr.slice(0, 15)))
+            (existingSyncNick && srCode === existingSyncNick.toLowerCase()) ||
+            (srCode === expectedNick.toLowerCase())
           );
         });
 
+        // 2. If not matched by code, check if location matches by pin AND (phone OR address snippet)
+        // CRITICAL: NEVER match simply because the location is named 'Primary'!
+        if (!match) {
+          match = (srLocations || []).find((l: any) => {
+            const srPin = String(l.pin_code || l.pincode || "").trim();
+            const srPhone = String(l.phone || "").replace(/\D/g, "").slice(0, 10);
+            const srAddr = String(l.address || l.address_line1 || "").toLowerCase().trim();
+            const srName = String(l.pickup_location || l.name || "").toLowerCase().trim();
+
+            const isPrimary = srName === "primary";
+            // If it's Primary, ONLY match if seller's address and phone actually match Primary
+            if (isPrimary) {
+              return srPin === sellerPincodeStr && srPhone === sellerPhoneStr && srAddr.length > 5 && sellerAddrStr.includes(srAddr.slice(0, 15));
+            }
+
+            return srPin === sellerPincodeStr && (
+              (srPhone && sellerPhoneStr && srPhone === sellerPhoneStr) ||
+              (srAddr && sellerAddrStr && (srAddr.includes(sellerAddrStr.slice(0, 15)) || sellerAddrStr.includes(srAddr.slice(0, 15))))
+            );
+          });
+        }
+
         if (match) {
-          activePickupName = match.pickup_location || match.name || "Primary";
+          activePickupName = match.pickup_location || match.name;
         } else {
-          // Attempt registering new pickup location with proper address formatting
-          const sanitizedNick = `Hub_${sellerId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10)}_${sellerPincodeStr}`.slice(0, 30);
+          // Attempt registering new dedicated pickup location in Shiprocket for this seller
           try {
+            const rawAddr = (pickupLocationData.address_line1 || pickupLocationData.address || "Merchant Dispatch Hub").trim();
+            const hasRoadOrHouse = /(?:house|flat|road|shop|plot|holding|lane|gali|street|no\.|building|near|bhavan|complex|market|premise)/i.test(rawAddr);
+            const formattedAddr = hasRoadOrHouse ? rawAddr : `Shop / Holding No. 1, ${rawAddr}`;
+
             const regRes = await addShiprocketPickupLocation(token, {
-              pickup_location: sanitizedNick,
-              name: (pickupLocationData.name || "Seller Hub").slice(0, 30),
-              email: "seller@zebalpha.com",
-              phone: String(pickupLocationData.phone || "9883637054").replace(/\D/g, "").slice(0, 10),
-              address: (pickupLocationData.address_line1 || "Merchant Dispatch Hub").slice(0, 80),
+              pickup_location: expectedNick,
+              name: sellerNameStr.slice(0, 30),
+              email: (pickupLocationData.email || pickupLocationData.contact_email || "seller@zebalpha.com").trim(),
+              phone: sellerPhoneStr,
+              address: formattedAddr.slice(0, 80),
               city: (pickupLocationData.city || "Kolkata").slice(0, 30),
               state: (pickupLocationData.state || "West Bengal").slice(0, 30),
               country: "India",
@@ -299,13 +324,26 @@ export async function POST(req: Request) {
 
             if (regRes && regRes.success && regRes.pickup_location) {
               activePickupName = regRes.pickup_location;
+              // Persist the synced Shiprocket pickup code to Supabase
+              if (pickupLocationData.id) {
+                await supabaseServer
+                  .from("seller_pickup_locations")
+                  .update({
+                    shiprocket_pickup_location_id: regRes.pickup_location,
+                    shiprocket_location_id: String(regRes.address_id || ""),
+                    shiprocket_sync_status: "synced",
+                    synced_at: new Date().toISOString()
+                  })
+                  .eq("id", pickupLocationData.id);
+              }
             } else if (srLocations && srLocations.length > 0) {
+              console.warn("Shiprocket location registration note:", regRes?.error || "Registration not completed, fallback to available location");
               activePickupName = srLocations[0].pickup_location || "Primary";
             } else {
               activePickupName = "Primary";
             }
           } catch (regErr: any) {
-            console.warn("Pickup location registration fallback to Primary:", regErr.message);
+            console.warn("Pickup location registration fallback:", regErr.message);
             activePickupName = srLocations?.[0]?.pickup_location || "Primary";
           }
         }

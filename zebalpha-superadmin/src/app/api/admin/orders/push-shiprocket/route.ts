@@ -101,18 +101,34 @@ export async function POST(req: Request) {
           const pickupData = await pickupRes.json();
           const srLocations = pickupData.data?.shipping_address || [];
 
+          const expectedNick = `Hub_${sellerId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8)}_${sellerPincode}`.slice(0, 30);
           const match = srLocations.find((l: any) => {
+            const srCode = String(l.pickup_location || l.name || "").trim().toLowerCase();
             const srPin = String(l.pin_code || l.pincode || "").trim();
-            const srName = String(l.pickup_location || l.name || "").toLowerCase().trim();
+            const srPhone = String(l.phone || "").replace(/\D/g, "").slice(0, 10);
             const srAddr = String(l.address || l.address_line1 || "").toLowerCase().trim();
-            return srPin === sellerPincode || (srName && srName === sellerName.toLowerCase()) || (srAddr && sellerAddress && srAddr.includes(sellerAddress.toLowerCase().slice(0, 15)));
+
+            if (srCode === expectedNick.toLowerCase()) return true;
+
+            const isPrimary = srCode === "primary";
+            if (isPrimary) {
+              return srPin === sellerPincode && srPhone === sellerPhone && srAddr.length > 5 && sellerAddress.toLowerCase().includes(srAddr.slice(0, 15));
+            }
+
+            return srPin === sellerPincode && (
+              (srPhone && sellerPhone && srPhone === sellerPhone) ||
+              (srAddr && sellerAddress && (srAddr.includes(sellerAddress.toLowerCase().slice(0, 15)) || sellerAddress.toLowerCase().includes(srAddr.slice(0, 15))))
+            );
           });
 
           if (match) {
             activePickup = match.pickup_location || match.name;
           } else {
             // Auto-register seller's pickup location in Shiprocket
-            const nick = `Hub_${sellerId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10)}_${sellerPincode}`.slice(0, 30);
+            const nick = expectedNick;
+            const hasRoadOrHouse = /(?:house|flat|road|shop|plot|holding|lane|gali|street|no\.|building|near|bhavan|complex|market|premise)/i.test(sellerAddress);
+            const formattedAddr = hasRoadOrHouse ? sellerAddress : `Shop / Holding No. 1, ${sellerAddress}`;
+
             const regRes = await fetch(`${SHIPROCKET_API}/settings/company/addpickup`, {
               method: "POST",
               headers: {
@@ -124,7 +140,7 @@ export async function POST(req: Request) {
                 name: sellerName.slice(0, 30),
                 email: "seller@zebalpha.com",
                 phone: sellerPhone,
-                address: sellerAddress.slice(0, 80),
+                address: formattedAddr.slice(0, 80),
                 city: sellerCity.slice(0, 30),
                 state: sellerState.slice(0, 30),
                 country: "India",
