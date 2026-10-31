@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "436972660863",
+    "project_id": "zebalpha-f691e",
+    "storage_bucket": "zebalpha-f691e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436972660863:android:52879f9c4021fadfe6f74a",
+        "android_client_info": {
+          "package_name": "com.zebalpha.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlVkdMDwDc_yhBKgmHy3CkL-55MjOsS5A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
