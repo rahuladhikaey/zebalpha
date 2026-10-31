@@ -65,4 +65,14 @@ docs/ui-ux-backups/
 scripts/capture-all-screenshots.ps1
 scripts/capture-cdp-screenshots.js
 
+# Internal Security audit reports
+security-audit/
+
+# Local Gradle cache folders
+.gradle_home/
+.gradle-cache/
+**/.gradle_home/
+**/.gradle-cache/
+
+
 

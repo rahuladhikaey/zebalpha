@@ -6,8 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'public',
   server: {
     url: 'https://zebalpha.shop',
-    androidScheme: 'https',
-    errorPath: 'offline.html'
+    androidScheme: 'https'
   },
   plugins: {
     SplashScreen: {

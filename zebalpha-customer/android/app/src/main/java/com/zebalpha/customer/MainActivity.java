@@ -6,6 +6,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -13,6 +14,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -37,18 +39,24 @@ public class MainActivity extends BridgeActivity {
     private static final long NAVIGATION_TIMEOUT_MS = 20000; // 20s watchdog for slow/hanging connections
     private static final int MAX_AUTO_RETRIES = 2;
 
+    public enum AppState {
+        LOADING,
+        SUCCESS,
+        ERROR
+    }
+
     public enum ErrorType {
-        OFFLINE(
-            "No Internet Connection",
-            "Please check your internet connection and try again."
+        NETWORK(
+            "Something went wrong!",
+            "Please try again later."
         ),
         SERVER(
             "Something went wrong!",
             "Please try again later."
         ),
         TIMEOUT(
-            "Taking longer than expected",
-            "Please check your connection and try again."
+            "Something went wrong!",
+            "Please try again later."
         );
 
         public final String title;
@@ -66,6 +74,7 @@ public class MainActivity extends BridgeActivity {
     private Button btnRetry;
     private ProgressBar pbRetry;
 
+    private AppState currentState = AppState.LOADING;
     private String lastTargetUrl = DEFAULT_URL;
     private boolean isRetrying = false;
     private int autoRetryCount = 0;
@@ -75,16 +84,33 @@ public class MainActivity extends BridgeActivity {
     private final Runnable timeoutWatchdog = () -> {
         runOnUiThread(() -> {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
-            if (webView != null && webView.getProgress() < 100) {
+            if (webView != null && webView.getProgress() < 100 && currentState != AppState.ERROR) {
                 Log.w(TAG, "Navigation watchdog fired after 20s timeout on: " + lastTargetUrl);
+                if (webView != null) {
+                    webView.stopLoading();
+                    webView.setVisibility(View.GONE);
+                }
                 showOfflineOverlay(ErrorType.TIMEOUT);
             }
         });
     };
 
     /**
-     * Custom BridgeWebViewClient to ensure main-frame errors are cleanly isolated
-     * from subresource errors (e.g. individual images or analytics scripts).
+     * Checks if a URL is a valid web destination and not an internal/error URL.
+     */
+    private boolean isValidHttpUrl(String url) {
+        if (url == null || url.trim().isEmpty()) return false;
+        String lower = url.trim().toLowerCase(Locale.ROOT);
+        return (lower.startsWith("http://") || lower.startsWith("https://")) &&
+               !lower.contains("offline.html") &&
+               !lower.equals("about:blank") &&
+               !lower.startsWith("chrome-error://") &&
+               !lower.contains("chromewebdata");
+    }
+
+    /**
+     * Custom BridgeWebViewClient ensuring native intercept of network errors,
+     * suppressing Chromium's default error page, and isolating main-frame from subresources.
      */
     private class ZebAlphaWebViewClient extends BridgeWebViewClient {
 
@@ -96,7 +122,7 @@ public class MainActivity extends BridgeActivity {
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
 
-            if (url != null && !url.contains("offline.html") && !url.equals("about:blank")) {
+            if (isValidHttpUrl(url)) {
                 lastTargetUrl = url;
             }
 
@@ -110,9 +136,13 @@ public class MainActivity extends BridgeActivity {
             cancelTimeoutWatchdog();
 
             runOnUiThread(() -> {
-                if (isNetworkConnected() && url != null && !url.contains("offline.html") && !url.equals("about:blank")) {
+                if (currentState != AppState.ERROR && isNetworkConnected() && isValidHttpUrl(url)) {
+                    currentState = AppState.SUCCESS;
                     hideOfflineOverlay();
                     autoRetryCount = 0;
+                    if (view != null) {
+                        view.setVisibility(View.VISIBLE);
+                    }
                 }
             });
         }
@@ -121,11 +151,22 @@ public class MainActivity extends BridgeActivity {
         public void onPageCommitVisible(WebView view, String url) {
             super.onPageCommitVisible(view, url);
             cancelTimeoutWatchdog();
+
+            runOnUiThread(() -> {
+                if (isValidHttpUrl(url) && currentState != AppState.ERROR) {
+                    currentState = AppState.SUCCESS;
+                    hideOfflineOverlay();
+                    if (view != null) {
+                        view.setVisibility(View.VISIBLE);
+                    }
+                }
+            });
         }
 
         @Override
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-            // CRITICAL: Distinguish main-frame navigation errors from subresource errors
+            // CRITICAL: Filter for MAIN FRAME ONLY.
+            // Do NOT trigger full-page error for secondary resource failures (images, analytics, fonts, css, scripts).
             if (request != null && !request.isForMainFrame()) {
                 Log.d(TAG, "Ignored subresource error for URL: " + request.getUrl());
                 return;
@@ -133,60 +174,105 @@ public class MainActivity extends BridgeActivity {
 
             cancelTimeoutWatchdog();
 
-            int errorCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && error != null
-                ? error.getErrorCode()
-                : WebViewClient.ERROR_UNKNOWN;
-
-            ErrorType type = ErrorType.OFFLINE;
-            if (errorCode == WebViewClient.ERROR_TIMEOUT) {
-                type = ErrorType.TIMEOUT;
-            } else if (!isNetworkConnected() || errorCode == WebViewClient.ERROR_HOST_LOOKUP || errorCode == WebViewClient.ERROR_CONNECT) {
-                type = ErrorType.OFFLINE;
-            } else {
-                type = ErrorType.SERVER;
+            String failedUrl = (request != null && request.getUrl() != null) ? request.getUrl().toString() : null;
+            if (isValidHttpUrl(failedUrl)) {
+                lastTargetUrl = failedUrl;
             }
 
-            final ErrorType finalType = type;
+            // CRITICAL: Stop WebView loading and hide it immediately to prevent Chromium default error page from painting
+            if (view != null) {
+                view.stopLoading();
+                view.setVisibility(View.GONE);
+            }
+
             runOnUiThread(() -> {
-                if (request != null && request.getUrl() != null) {
-                    String failedUrl = request.getUrl().toString();
-                    if (!failedUrl.contains("offline.html") && !failedUrl.equals("about:blank")) {
-                        lastTargetUrl = failedUrl;
-                    }
-                }
-                showOfflineOverlay(finalType);
+                currentState = AppState.ERROR;
+                isRetrying = false;
+                showOfflineOverlay(ErrorType.NETWORK);
             });
 
-            super.onReceivedError(view, request, error);
+            // CRITICAL: DO NOT call super.onReceivedError(view, request, error) for main frame!
+            // Suppresses Chromium internal chrome-error://chromewebdata/ and Capacitor redirect.
+        }
+
+        @SuppressWarnings("deprecation")
+        @Override
+        public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+            // Legacy callback for Android < 6.0 / API 23 or legacy fallback
+            cancelTimeoutWatchdog();
+
+            if (isValidHttpUrl(failingUrl)) {
+                lastTargetUrl = failingUrl;
+            }
+
+            if (view != null) {
+                view.stopLoading();
+                view.setVisibility(View.GONE);
+            }
+
+            runOnUiThread(() -> {
+                currentState = AppState.ERROR;
+                isRetrying = false;
+                showOfflineOverlay(ErrorType.NETWORK);
+            });
+
+            // DO NOT delegate to super
         }
 
         @Override
         public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
-            // CRITICAL: Only handle HTTP errors for main-frame
+            // CRITICAL: Main frame only
             if (request == null || !request.isForMainFrame()) {
                 return;
             }
 
-            cancelTimeoutWatchdog();
-
             int statusCode = errorResponse != null ? errorResponse.getStatusCode() : 0;
-            if (statusCode == 408 || statusCode == 504) {
+            // Only intercept server failure/gateway errors (500, 502, 503, 504)
+            if (statusCode == 500 || statusCode == 502 || statusCode == 503 || statusCode == 504) {
+                cancelTimeoutWatchdog();
+
+                String failedUrl = request.getUrl() != null ? request.getUrl().toString() : null;
+                if (isValidHttpUrl(failedUrl)) {
+                    lastTargetUrl = failedUrl;
+                }
+
+                if (view != null) {
+                    view.stopLoading();
+                    view.setVisibility(View.GONE);
+                }
+
                 runOnUiThread(() -> {
-                    if (request.getUrl() != null) {
-                        lastTargetUrl = request.getUrl().toString();
-                    }
-                    showOfflineOverlay(ErrorType.TIMEOUT);
-                });
-            } else if (statusCode >= 500) {
-                runOnUiThread(() -> {
-                    if (request.getUrl() != null) {
-                        lastTargetUrl = request.getUrl().toString();
-                    }
+                    currentState = AppState.ERROR;
+                    isRetrying = false;
                     showOfflineOverlay(ErrorType.SERVER);
                 });
+                return;
             }
 
+            // For client HTTP errors (4xx like 404, 401), keep website application error handling
             super.onReceivedHttpError(view, request, errorResponse);
+        }
+
+        @Override
+        public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+            Log.e(TAG, "SSL Certificate Error intercepted: " + (error != null ? error.toString() : "unknown"));
+            // Secure production behavior: NEVER proceed on SSL errors!
+            if (handler != null) {
+                handler.cancel();
+            }
+
+            cancelTimeoutWatchdog();
+
+            if (view != null) {
+                view.stopLoading();
+                view.setVisibility(View.GONE);
+            }
+
+            runOnUiThread(() -> {
+                currentState = AppState.ERROR;
+                isRetrying = false;
+                showOfflineOverlay(ErrorType.SERVER);
+            });
         }
     }
 
@@ -222,7 +308,12 @@ public class MainActivity extends BridgeActivity {
 
         // 4. Initial check: If app opened with no network connection
         if (!isNetworkConnected()) {
-            showOfflineOverlay(ErrorType.OFFLINE);
+            WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+            if (webView != null) {
+                webView.stopLoading();
+                webView.setVisibility(View.GONE);
+            }
+            showOfflineOverlay(ErrorType.NETWORK);
         }
 
         // 5. Automatic network reconnection callback with non-idempotent action safeguards
@@ -306,6 +397,7 @@ public class MainActivity extends BridgeActivity {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
             if (webView != null && webView.canGoBack()) {
                 hideOfflineOverlay();
+                webView.setVisibility(View.VISIBLE);
                 webView.goBack();
             } else {
                 finish();
@@ -325,12 +417,14 @@ public class MainActivity extends BridgeActivity {
         WebView webView = getBridge() != null ? getBridge().getWebView() : null;
         if (webView != null) {
             lastTargetUrl = url;
+            webView.setVisibility(View.VISIBLE);
             webView.loadUrl(url);
         }
     }
 
     public void showOfflineOverlay(ErrorType type) {
         runOnUiThread(() -> {
+            currentState = AppState.ERROR;
             if (offlineOverlayView != null) {
                 if (tvErrorTitle != null && type != null) {
                     tvErrorTitle.setText(type.title);
@@ -340,6 +434,7 @@ public class MainActivity extends BridgeActivity {
                 }
 
                 offlineOverlayView.setVisibility(View.VISIBLE);
+                offlineOverlayView.bringToFront();
                 if (pbRetry != null) pbRetry.setVisibility(View.GONE);
                 if (btnRetry != null) {
                     btnRetry.setVisibility(View.VISIBLE);
@@ -351,6 +446,7 @@ public class MainActivity extends BridgeActivity {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
             if (webView != null) {
                 webView.stopLoading();
+                webView.setVisibility(View.GONE);
             }
         });
     }
@@ -371,8 +467,30 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void retryConnection() {
-        if (isRetrying) return;
+        if (isRetrying) {
+            Log.d(TAG, "Retry clicked while already retrying, ignoring.");
+            return;
+        }
+
+        // 1. Check current network connectivity
+        if (!isNetworkConnected()) {
+            // If there is no usable network: remain on custom error screen!
+            Log.d(TAG, "Retry tapped while offline. Remaining on custom error screen.");
+            if (tvErrorTitle != null) tvErrorTitle.setText("Something went wrong!");
+            if (tvErrorSubtitle != null) tvErrorSubtitle.setText("Please try again later.");
+            if (pbRetry != null) pbRetry.setVisibility(View.GONE);
+            if (btnRetry != null) {
+                btnRetry.setVisibility(View.VISIBLE);
+                btnRetry.setEnabled(true);
+                btnRetry.setText("Retry");
+            }
+            Toast.makeText(MainActivity.this, "No internet connection. Please check your network and try again.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 2. Connectivity is available
         isRetrying = true;
+        currentState = AppState.LOADING;
 
         if (pbRetry != null) pbRetry.setVisibility(View.VISIBLE);
         if (btnRetry != null) {
@@ -380,43 +498,36 @@ public class MainActivity extends BridgeActivity {
             btnRetry.setText("");
         }
 
-        if (isNetworkConnected()) {
-            WebView webView = getBridge() != null ? getBridge().getWebView() : null;
-            if (webView != null) {
-                String target = (lastTargetUrl != null && !lastTargetUrl.isEmpty() && !lastTargetUrl.contains("offline.html") && !lastTargetUrl.equals("about:blank"))
-                    ? lastTargetUrl
-                    : DEFAULT_URL;
-                webView.loadUrl(target);
-            }
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView != null) {
+            String target = (lastTargetUrl != null && !lastTargetUrl.isEmpty() && isValidHttpUrl(lastTargetUrl))
+                ? lastTargetUrl
+                : DEFAULT_URL;
 
-            // Watchdog fallback in case network connects but server hangs
-            resetTimeoutWatchdog();
+            Log.i(TAG, "Retrying original URL: " + target);
 
-            if (offlineOverlayView != null) {
-                offlineOverlayView.postDelayed(() -> {
-                    if (isRetrying) {
-                        isRetrying = false;
-                        if (pbRetry != null) pbRetry.setVisibility(View.GONE);
-                        if (btnRetry != null) {
-                            btnRetry.setEnabled(true);
-                            btnRetry.setText("Retry");
-                        }
-                    }
-                }, 3000);
-            }
+            hideOfflineOverlay();
+            webView.setVisibility(View.VISIBLE);
+            webView.loadUrl(target);
         } else {
-            if (offlineOverlayView != null) {
-                offlineOverlayView.postDelayed(() -> {
+            isRetrying = false;
+        }
+
+        // Watchdog fallback in case network connects but server hangs
+        resetTimeoutWatchdog();
+
+        // Safety debounce release
+        if (offlineOverlayView != null) {
+            offlineOverlayView.postDelayed(() -> {
+                if (isRetrying) {
                     isRetrying = false;
                     if (pbRetry != null) pbRetry.setVisibility(View.GONE);
                     if (btnRetry != null) {
                         btnRetry.setEnabled(true);
                         btnRetry.setText("Retry");
                     }
-                    showOfflineOverlay(ErrorType.OFFLINE);
-                    Toast.makeText(MainActivity.this, "No internet connection. Please check your network and try again.", Toast.LENGTH_SHORT).show();
-                }, 600);
-            }
+                }
+            }, 4000);
         }
     }
 
@@ -445,7 +556,7 @@ public class MainActivity extends BridgeActivity {
                             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
                             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
                             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-                        );
+                        ) && (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
                     }
                 } else {
                     android.net.NetworkInfo networkInfo = cm.getActiveNetworkInfo();
@@ -470,14 +581,14 @@ public class MainActivity extends BridgeActivity {
                     @Override
                     public void onAvailable(Network network) {
                         runOnUiThread(() -> {
-                            if (offlineOverlayView != null && offlineOverlayView.getVisibility() == View.VISIBLE) {
+                            if (offlineOverlayView != null && offlineOverlayView.getVisibility() == View.VISIBLE && currentState == AppState.ERROR) {
                                 // CRITICAL: Never repeat checkout, payment, or order submissions automatically!
                                 if (isNonIdempotentUrl(lastTargetUrl)) {
                                     Toast.makeText(MainActivity.this, "Connection restored. Tap Retry to proceed safely.", Toast.LENGTH_LONG).show();
                                     return;
                                 }
 
-                                // For safe idempotent pages (e.g. products, home, categories), auto-recover safely
+                                // For safe idempotent pages (e.g. products, home, categories), auto-recover safely with debounce
                                 if (autoRetryCount < MAX_AUTO_RETRIES) {
                                     autoRetryCount++;
                                     Toast.makeText(MainActivity.this, "Connection restored. Loading...", Toast.LENGTH_SHORT).show();
@@ -508,7 +619,12 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         if (!isNetworkConnected()) {
-            showOfflineOverlay(ErrorType.OFFLINE);
+            WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+            if (webView != null) {
+                webView.stopLoading();
+                webView.setVisibility(View.GONE);
+            }
+            showOfflineOverlay(ErrorType.NETWORK);
         }
     }
 
