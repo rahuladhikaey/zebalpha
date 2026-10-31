@@ -47,6 +47,7 @@ Thumbs.db
 *.apk
 *.aab
 *.zip
+*.log
 
 # Git backups
 *.git_backup
