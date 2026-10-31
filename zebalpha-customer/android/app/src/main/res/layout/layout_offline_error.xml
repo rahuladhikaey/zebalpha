@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FFFFFF"
+    android:background="#050505"
     android:clickable="true"
     android:focusable="true"
     android:fitsSystemWindows="true">
@@ -18,9 +18,9 @@
         android:gravity="center_vertical"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
-        android:background="#FFFFFF">
+        android:background="#050505">
 
-        <!-- Back Button -->
+        <!-- Back Navigation Button -->
         <ImageButton
             android:id="@+id/btn_error_back"
             android:layout_width="44dp"
@@ -56,19 +56,21 @@
             android:contentDescription="Wishlist"
             android:scaleType="centerInside" />
 
-        <!-- Cart Container with Notification Badge -->
+        <!-- Cart Container with Badge -->
         <FrameLayout
             android:id="@+id/btn_error_cart_container"
             android:layout_width="44dp"
-            android:layout_height="44dp">
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless">
 
             <ImageButton
                 android:id="@+id/btn_error_cart"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@null"
                 android:src="@drawable/ic_shopping_cart"
                 android:contentDescription="Cart"
+                android:clickable="false"
                 android:scaleType="centerInside" />
 
             <TextView
@@ -87,6 +89,12 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Subtle divider line below top bar -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#18181B" />
+
     <!-- Center Content -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -96,9 +104,9 @@
         android:orientation="vertical"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
-        android:layout_marginBottom="40dp">
+        android:layout_marginBottom="32dp">
 
-        <!-- Illustration -->
+        <!-- Custom Offline Illustration -->
         <ImageView
             android:id="@+id/iv_error_illustration"
             android:layout_width="180dp"
@@ -106,55 +114,65 @@
             android:src="@drawable/ic_network_error_illustration"
             android:contentDescription="Network Error" />
 
-        <!-- Title -->
+        <!-- Heading / Title -->
         <TextView
             android:id="@+id/tv_error_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:gravity="center"
-            android:text="Something went wrong!"
-            android:textColor="#212121"
+            android:text="No Internet Connection"
+            android:textColor="#FFFFFF"
             android:textSize="20sp"
             android:fontFamily="sans-serif-medium"
             android:textStyle="bold" />
 
-        <!-- Subtitle -->
+        <!-- Helpful Subtitle / Description -->
         <TextView
             android:id="@+id/tv_error_subtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:gravity="center"
-            android:text="Please try again later."
-            android:textColor="#757575"
+            android:text="Please check your internet connection and try again."
+            android:textColor="#9CA3AF"
             android:textSize="14sp"
+            android:lineSpacingExtra="3dp"
             android:fontFamily="sans-serif" />
 
-        <!-- Retry Button -->
-        <Button
-            android:id="@+id/btn_error_retry"
-            android:layout_width="140dp"
-            android:layout_height="44dp"
-            android:layout_marginTop="24dp"
-            android:background="@drawable/bg_retry_button"
-            android:text="Retry"
-            android:textAllCaps="false"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:elevation="2dp"
-            android:stateListAnimator="@null" />
+        <!-- Large Retry Button Container with Spinner -->
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp">
 
-        <!-- Retry Loading Spinner -->
-        <ProgressBar
-            android:id="@+id/pb_error_retry"
-            style="?android:attr/progressBarStyleSmall"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginTop="16dp"
-            android:indeterminate="true"
-            android:visibility="gone" />
+            <Button
+                android:id="@+id/btn_error_retry"
+                android:layout_width="160dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_retry_button"
+                android:text="Retry"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:elevation="4dp"
+                android:stateListAnimator="@null" />
+
+            <!-- Retry Loading Spinner inside Button -->
+            <ProgressBar
+                android:id="@+id/pb_error_retry"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:indeterminateTint="#FFFFFF"
+                android:visibility="gone" />
+
+        </FrameLayout>
 
     </LinearLayout>
 

@@ -12,8 +12,8 @@
       -webkit-tap-highlight-color: transparent;
     }
     body {
-      background-color: #ffffff;
-      color: #212121;
+      background-color: #050505;
+      color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       height: 100vh;
       display: flex;
@@ -22,16 +22,17 @@
       user-select: none;
     }
 
-    /* Top Navigation Bar matching Picture 2 */
+    /* Top Navigation Bar */
     .top-bar {
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 16px;
-      background: #ffffff;
+      background: #050505;
       position: relative;
       z-index: 10;
+      border-bottom: 1px solid #18181b;
     }
     .back-btn {
       background: none;
@@ -41,8 +42,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #212121;
+      color: #ffffff;
       border-radius: 50%;
+      transition: background-color 0.15s ease;
+    }
+    .back-btn:active {
+      background-color: #1f1f23;
     }
     .actions-group {
       display: flex;
@@ -57,14 +62,19 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #212121;
+      color: #ffffff;
       position: relative;
+      border-radius: 50%;
+      transition: background-color 0.15s ease;
+    }
+    .icon-btn:active {
+      background-color: #1f1f23;
     }
     .cart-badge {
       position: absolute;
       top: 0;
       right: 0;
-      background: #e53935;
+      background: #ef4444;
       color: #ffffff;
       font-size: 10px;
       font-weight: 700;
@@ -86,7 +96,7 @@
       justify-content: center;
       padding: 24px;
       text-align: center;
-      margin-top: -30px;
+      margin-top: -24px;
     }
 
     .illustration {
@@ -98,46 +108,50 @@
     .title {
       font-size: 21px;
       font-weight: 700;
-      color: #212121;
+      color: #ffffff;
       margin-bottom: 8px;
+      letter-spacing: -0.01em;
     }
 
     .subtitle {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 400;
-      color: #757575;
+      color: #9ca3af;
       margin-bottom: 28px;
+      max-width: 290px;
+      line-height: 1.5;
     }
 
     .retry-btn {
       background-color: #16a34a;
       color: #ffffff;
       border: none;
-      border-radius: 6px;
-      padding: 12px 36px;
+      border-radius: 8px;
+      padding: 13px 36px;
       font-size: 15px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 2px 6px rgba(22, 163, 74, 0.35);
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
       transition: background-color 0.2s, transform 0.1s, opacity 0.2s;
-      min-width: 140px;
+      min-width: 160px;
+      height: 48px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
     }
     .retry-btn:active {
       transform: scale(0.98);
       background-color: #15803d;
     }
     .retry-btn:disabled {
-      opacity: 0.7;
+      opacity: 0.75;
       cursor: not-allowed;
     }
 
     .spinner {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-top-color: #ffffff;
       border-radius: 50%;
@@ -154,7 +168,8 @@
       bottom: 28px;
       left: 50%;
       transform: translateX(-50%) translateY(100px);
-      background: rgba(33, 33, 33, 0.92);
+      background: rgba(24, 24, 27, 0.95);
+      border: 1px solid #27272a;
       color: #ffffff;
       padding: 10px 20px;
       border-radius: 24px;
@@ -166,7 +181,7 @@
       z-index: 100;
       max-width: 90%;
       text-align: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
     .toast.show {
       transform: translateX(-50%) translateY(0);
@@ -176,7 +191,7 @@
 </head>
 <body>
 
-  <!-- Top bar matching 2nd picture -->
+  <!-- Top bar with Back and Action icons -->
   <div class="top-bar">
     <button class="back-btn" onclick="handleBack()" aria-label="Go Back">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -185,18 +200,18 @@
       </svg>
     </button>
     <div class="actions-group">
-      <button class="icon-btn" onclick="handleAction('Search')" aria-label="Search">
+      <button class="icon-btn" onclick="handleAction('search')" aria-label="Search">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
       </button>
-      <button class="icon-btn" onclick="handleAction('Wishlist')" aria-label="Wishlist">
+      <button class="icon-btn" onclick="handleAction('wishlist')" aria-label="Wishlist">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
         </svg>
       </button>
-      <button class="icon-btn" onclick="handleAction('Cart')" aria-label="Shopping Cart">
+      <button class="icon-btn" onclick="handleAction('cart')" aria-label="Shopping Cart">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle>
           <circle cx="20" cy="21" r="1"></circle>
@@ -207,45 +222,32 @@
     </div>
   </div>
 
-  <!-- Center Content with exact illustration from Picture 2 -->
+  <!-- Center Content with custom minimal network error illustration -->
   <div class="content">
     <svg class="illustration" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Grey circular backdrop -->
-      <circle cx="100" cy="102" r="52" fill="#EBECEE" />
-
-      <!-- Geometric shapes at base (Triangles) -->
-      <polygon points="52,135 88,135 70,119" fill="#EA4335" />
-      <polygon points="80,135 120,135 100,116" fill="#FBBC05" />
-      <polygon points="112,135 148,135 130,117" fill="#1A73E8" />
-
-      <!-- Phone shadow -->
-      <rect x="80" y="74" width="40" height="67" rx="7" fill="rgba(0,0,0,0.08)" />
-
-      <!-- Phone white silhouette -->
-      <rect x="81" y="72" width="38" height="66" rx="6" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1.5" />
-      <!-- Phone notch/speaker -->
-      <rect x="95" y="76" width="10" height="1.5" rx="0.75" fill="#D6D6D6" />
-
-      <!-- Exclamation mark circle -->
-      <circle cx="100" cy="102" r="11" fill="#FCE8E6" stroke="#EA4335" stroke-width="1.5" />
-      <rect x="98.8" y="96.5" width="2.4" height="7" rx="1.2" fill="#EA4335" />
-      <circle cx="100" cy="107" r="1.4" fill="#EA4335" />
-
-      <!-- Raindrops under cloud -->
-      <line x1="86" y1="68" x2="86" y2="73" stroke="#FBBC05" stroke-width="1.5" stroke-linecap="round" />
-      <line x1="92" y1="70" x2="92" y2="74" stroke="#FBBC05" stroke-width="1.5" stroke-linecap="round" />
-      <line x1="108" y1="70" x2="108" y2="74" stroke="#FBBC05" stroke-width="1.5" stroke-linecap="round" />
-      <line x1="114" y1="68" x2="114" y2="73" stroke="#FBBC05" stroke-width="1.5" stroke-linecap="round" />
-
-      <!-- Yellow Cloud -->
-      <path d="M85 62 A11 11 0 0 1 105 57 A13 13 0 0 1 122 61 A9 9 0 0 1 121 78 L88 78 A8 8 0 0 1 85 62 Z" fill="#F9BC05" />
-
-      <!-- Red Lightning Bolt -->
-      <polygon points="98,64 96,73 101,73 98,82 104,71 100,71" fill="#EA4335" />
+      <!-- Ambient Glow -->
+      <circle cx="100" cy="100" r="64" fill="#0D1E14" />
+      <!-- Base Circular Card -->
+      <circle cx="100" cy="100" r="52" fill="#141418" stroke="#27272A" stroke-width="1.5" />
+      <!-- Accent Orbit Ring -->
+      <circle cx="100" cy="100" r="42" stroke="#1F2922" stroke-width="1" />
+      <!-- Cloud Outline -->
+      <path d="M78 102 h44 a11 11 0 0 0 3 -21.6 a16 16 0 0 0 -29 -5 a13 13 0 0 0 -18 7.6 a10.5 10.5 0 0 0 0 19 Z" fill="#1C1C24" stroke="#52525B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- Disconnected Wi-Fi Signal Arcs -->
+      <path d="M84 116 a22 22 0 0 1 32 0" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
+      <path d="M89 122 a15 15 0 0 1 22 0" stroke="#22C55E" stroke-width="2" stroke-linecap="round" />
+      <circle cx="100" cy="129" r="2.5" fill="#22C55E" />
+      <!-- Offline Slash Line -->
+      <line x1="82" y1="132" x2="118" y2="92" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" />
+      <!-- Node Accents -->
+      <circle cx="60" cy="94" r="2" fill="#22C55E" />
+      <circle cx="140" cy="94" r="2" fill="#71717A" />
+      <line x1="62" y1="94" x2="70" y2="94" stroke="#27272A" stroke-width="1" stroke-linecap="round" />
+      <line x1="130" y1="94" x2="138" y2="94" stroke="#27272A" stroke-width="1" stroke-linecap="round" />
     </svg>
 
-    <h1 class="title">Something went wrong!</h1>
-    <p class="subtitle">Please try again later.</p>
+    <h1 id="errorTitle" class="title">No Internet Connection</h1>
+    <p id="errorSubtitle" class="subtitle">Please check your internet connection and try again.</p>
 
     <button id="retryBtn" class="retry-btn" onclick="handleRetry()">
       <span class="spinner" id="retrySpinner"></span>
@@ -256,13 +258,41 @@
   <div id="toast" class="toast">No internet connection. Please check your network and try again.</div>
 
   <script>
+    const DEFAULT_URL = "https://zebalpha.shop";
+
+    // Parse Error Type from URL query params
+    const params = new URLSearchParams(window.location.search);
+    const errorType = params.get("type");
+    const targetUrl = params.get("url") || sessionStorage.getItem("zebalpha_last_url") || DEFAULT_URL;
+
+    if (errorType === "server") {
+      document.getElementById("errorTitle").textContent = "Something went wrong!";
+      document.getElementById("errorSubtitle").textContent = "Please try again later.";
+    } else if (errorType === "timeout") {
+      document.getElementById("errorTitle").textContent = "Taking longer than expected";
+      document.getElementById("errorSubtitle").textContent = "Please check your connection and try again.";
+    } else {
+      document.getElementById("errorTitle").textContent = "No Internet Connection";
+      document.getElementById("errorSubtitle").textContent = "Please check your internet connection and try again.";
+    }
+
+    function isNonIdempotent(url) {
+      if (!url) return false;
+      const lower = url.toLowerCase();
+      return lower.includes("/checkout") ||
+             lower.includes("/order") ||
+             lower.includes("/payment") ||
+             lower.includes("/razorpay") ||
+             lower.includes("/pay");
+    }
+
     function showToast(msg) {
       const toast = document.getElementById("toast");
       if (msg) toast.textContent = msg;
       toast.classList.add("show");
       setTimeout(() => {
         toast.classList.remove("show");
-      }, 2500);
+      }, 3000);
     }
 
     function handleBack() {
@@ -277,13 +307,25 @@
 
     function handleAction(name) {
       if (navigator.onLine) {
-        handleRetry();
+        if (name === "search") {
+          window.location.href = "https://zebalpha.shop/categories";
+        } else if (name === "wishlist") {
+          window.location.href = "https://zebalpha.shop/wishlist";
+        } else if (name === "cart") {
+          window.location.href = "https://zebalpha.shop/cart";
+        } else {
+          window.location.href = targetUrl;
+        }
       } else {
         showToast("Please check your internet connection.");
       }
     }
 
+    let isRetrying = false;
     function handleRetry() {
+      if (isRetrying) return;
+      isRetrying = true;
+
       const btn = document.getElementById("retryBtn");
       const spinner = document.getElementById("retrySpinner");
       const text = document.getElementById("retryText");
@@ -294,23 +336,29 @@
 
       if (navigator.onLine) {
         setTimeout(() => {
-          window.location.href = "https://zebalpha.shop";
+          window.location.href = targetUrl;
         }, 300);
       } else {
         setTimeout(() => {
+          isRetrying = false;
           btn.disabled = false;
           spinner.style.display = "none";
           text.textContent = "Retry";
           showToast("No internet connection. Please try again.");
-        }, 800);
+        }, 700);
       }
     }
 
-    // Auto-reload when network reconnects
+    // Auto-reload on network recovery with non-idempotent action safeguard
     window.addEventListener("online", () => {
+      if (isNonIdempotent(targetUrl)) {
+        showToast("Connection restored. Tap Retry to proceed safely.");
+        return;
+      }
+
       showToast("Connected! Loading...");
       setTimeout(() => {
-        window.location.href = "https://zebalpha.shop";
+        window.location.href = targetUrl;
       }, 500);
     });
   </script>
