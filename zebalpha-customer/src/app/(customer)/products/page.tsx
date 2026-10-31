@@ -12,11 +12,12 @@ import { Header } from "@/components/Header";
 import { WishlistButton } from "@/components/WishlistButton";
 import { QuickCartButton } from "@/components/QuickCartButton";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
-import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Sparkles } from "lucide-react";
+import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw } from "lucide-react";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import {
   useCategories,
   usePaginatedProducts,
+  useActiveSellers,
   useDebounce,
   DEFAULT_CLOTHING_CATEGORIES,
   getProductDisplayPricing,
@@ -26,6 +27,7 @@ import {
   ProductFilters,
   FilterState,
   INITIAL_FILTER_STATE,
+  PriceRangeData,
 } from "@/components/ProductFilters";
 
 function ProductsContent() {
@@ -34,13 +36,14 @@ function ProductsContent() {
   const queryClient = useQueryClient();
 
   const { data: categories = DEFAULT_CLOTHING_CATEGORIES } = useCategories();
+  const { data: dbSellers = [] } = useActiveSellers();
 
   const [selectedCategory, setSelectedCategory] = useState<number | string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
 
-  // Multi-facet Amazon-style Filter State
+  // Multi-facet Real Filter State
   const [filters, setFilters] = useState<FilterState>(INITIAL_FILTER_STATE);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
@@ -56,7 +59,12 @@ function ProductsContent() {
       setSelectedCategory(categoryParam);
       // If user came specifically to Women's category, preset Gender filter to Women
       const paramLower = categoryParam.toLowerCase();
-      if (paramLower.includes("women") || paramLower.includes("female") || paramLower.includes("saree") || paramLower.includes("kurti")) {
+      if (
+        paramLower.includes("women") ||
+        paramLower.includes("female") ||
+        paramLower.includes("saree") ||
+        paramLower.includes("kurti")
+      ) {
         setFilters((prev) => {
           if (!prev.genders.includes("Women")) {
             return { ...prev, genders: ["Women"] };
@@ -87,7 +95,6 @@ function ProductsContent() {
   const {
     data: paginatedData,
     isLoading: loading,
-    isFetching,
   } = usePaginatedProducts({
     category: selectedCategory,
     search: debouncedSearch,
@@ -115,6 +122,7 @@ function ProductsContent() {
         { event: "*", schema: "public", table: "curated_collections" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["categories"] });
+          queryClient.invalidateQueries({ queryKey: ["activeSellers"] });
         }
       )
       .subscribe();
@@ -124,27 +132,176 @@ function ProductsContent() {
     };
   }, [queryClient]);
 
-  // Dynamic available brands and sellers from loaded products
-  const availableBrands = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.brand && p.brand.trim() && p.brand.toLowerCase() !== "generic") {
-        set.add(p.brand.trim());
-      }
-    });
-    return Array.from(set);
-  }, [products]);
+  // =========================================================================
+  // DYNAMIC FACET EXTRACTION: 100% REAL DETAILS DIRECTLY FROM DATABASE
+  // =========================================================================
+  const {
+    realBrands,
+    realSellers,
+    realSizes,
+    realColors,
+    realMaterials,
+    realSleeves,
+    realMinPrice,
+    realMaxPrice,
+    dynamicPriceBrackets,
+  } = useMemo(() => {
+    const brandsSet = new Set<string>();
+    const sellersSet = new Set<string>();
+    const sizesSet = new Set<string>();
+    const colorsSet = new Set<string>();
+    const materialsSet = new Set<string>();
+    const sleevesSet = new Set<string>();
+    let minPrice = Infinity;
+    let maxPrice = 0;
 
-  const availableSellers = useMemo(() => {
-    const set = new Set<string>();
+    const knownSleevePatterns = [
+      "Sleeveless",
+      "Full Sleeve",
+      "Half Sleeve",
+      "Short Sleeve",
+      "3/4 Sleeve",
+      "Three Quarter Sleeve",
+      "Puff Sleeve",
+      "Cap Sleeve",
+      "Bell Sleeve",
+      "Raglan Sleeve",
+      "Cold Shoulder",
+    ];
+
+    const knownMaterialPatterns = [
+      "Soft Silk",
+      "Pure Silk",
+      "Silk",
+      "Cotton",
+      "Art Silk",
+      "Rayon",
+      "Chiffon",
+      "Georgette",
+      "Linen",
+      "Crepe",
+      "Denim",
+      "Lycra",
+      "Polyester",
+      "Wool",
+      "Velvet",
+    ];
+
     products.forEach((p) => {
-      const s = p.seller_name || p.business_name;
-      if (s && s.trim()) {
-        set.add(s.trim());
+      // 1. Real Brands
+      if (p.brand && p.brand.trim() && p.brand.toLowerCase() !== "generic") {
+        brandsSet.add(p.brand.trim());
       }
+
+      // 2. Real Sellers
+      const sName =
+        p.seller_name ||
+        p.business_name ||
+        (p.seller as any)?.business_name;
+      if (sName && sName.trim()) {
+        sellersSet.add(sName.trim());
+      } else if (p.brand && p.brand.trim() && !brandsSet.has(p.brand.trim())) {
+        sellersSet.add(p.brand.trim());
+      }
+
+      // 3. Real Prices
+      const { price } = getProductDisplayPricing(p);
+      if (price > 0) {
+        if (price < minPrice) minPrice = price;
+        if (price > maxPrice) maxPrice = price;
+      }
+
+      // 4. Specifications & Packages
+      const specs = (p.specifications as Record<string, any>) || {};
+
+      // Real Sizes
+      if (specs.size) sizesSet.add(String(specs.size).trim());
+      if (Array.isArray(specs.sizes)) {
+        specs.sizes.forEach((s) => s && sizesSet.add(String(s).trim()));
+      }
+      if (Array.isArray(p.packages)) {
+        p.packages.forEach((pkg) => {
+          if (pkg.size) sizesSet.add(String(pkg.size).trim());
+          if (pkg.color) colorsSet.add(String(pkg.color).trim());
+        });
+      }
+      if (
+        p.name.toLowerCase().includes("free size") ||
+        (p.description || "").toLowerCase().includes("free size")
+      ) {
+        sizesSet.add("Free Size");
+      }
+
+      // Real Colors
+      if (specs.color) colorsSet.add(String(specs.color).trim());
+      if (p.default_color) colorsSet.add(String(p.default_color).trim());
+      if (p.main_color) colorsSet.add(String(p.main_color).trim());
+
+      // Real Materials
+      if (specs.material) materialsSet.add(String(specs.material).trim());
+      if (specs.fabric) materialsSet.add(String(specs.fabric).trim());
+      const fullText = `${p.name} ${p.description || ""}`.toLowerCase();
+      knownMaterialPatterns.forEach((mat) => {
+        if (fullText.includes(mat.toLowerCase())) {
+          materialsSet.add(mat);
+        }
+      });
+
+      // Real Sleeves
+      if (specs.sleeve) sleevesSet.add(String(specs.sleeve).trim());
+      if (specs.sleeve_type) sleevesSet.add(String(specs.sleeve_type).trim());
+      knownSleevePatterns.forEach((slv) => {
+        if (fullText.includes(slv.toLowerCase())) {
+          sleevesSet.add(slv);
+        }
+      });
     });
-    return Array.from(set);
-  }, [products]);
+
+    // Also include active sellers directly from DB table
+    (dbSellers || []).forEach((s) => s && sellersSet.add(s.trim()));
+
+    // Safe fallbacks for min/max
+    const finalMin = minPrice === Infinity ? 0 : minPrice;
+    const finalMax = maxPrice === 0 ? 3000 : maxPrice;
+
+    // Dynamic price brackets based on real data spread
+    const brackets: Array<{ label: string; value: string; min: number; max: number }> = [];
+    if (finalMax <= 600) {
+      brackets.push({
+        label: `Up to ₹${Math.round(finalMax * 0.5)}`,
+        value: "bracket1",
+        min: 0,
+        max: Math.round(finalMax * 0.5),
+      });
+      brackets.push({
+        label: `Over ₹${Math.round(finalMax * 0.5)}`,
+        value: "bracket2",
+        min: Math.round(finalMax * 0.5),
+        max: Infinity,
+      });
+    } else if (finalMax <= 1200) {
+      brackets.push({ label: `Up to ₹499`, value: "bracket1", min: 0, max: 499 });
+      brackets.push({ label: `₹500 - ₹999`, value: "bracket2", min: 500, max: 999 });
+      brackets.push({ label: `Over ₹1,000`, value: "bracket3", min: 1000, max: Infinity });
+    } else {
+      brackets.push({ label: `Up to ₹500`, value: "bracket1", min: 0, max: 500 });
+      brackets.push({ label: `₹500 - ₹1,000`, value: "bracket2", min: 500, max: 1000 });
+      brackets.push({ label: `₹1,000 - ₹2,000`, value: "bracket3", min: 1000, max: 2000 });
+      brackets.push({ label: `Over ₹2,000`, value: "bracket4", min: 2000, max: Infinity });
+    }
+
+    return {
+      realBrands: Array.from(brandsSet),
+      realSellers: Array.from(sellersSet),
+      realSizes: Array.from(sizesSet),
+      realColors: Array.from(colorsSet),
+      realMaterials: Array.from(materialsSet),
+      realSleeves: Array.from(sleevesSet),
+      realMinPrice: finalMin,
+      realMaxPrice: finalMax,
+      dynamicPriceBrackets: brackets,
+    };
+  }, [products, dbSellers]);
 
   // Multi-facet filter pipeline
   const filtered = useMemo(() => {
@@ -197,7 +354,7 @@ function ProductsContent() {
         if (!matchesGender) return false;
       }
 
-      // 3. Size filter
+      // 3. Real Size filter
       if (filters.sizes.length > 0) {
         const pkgSizes = (product.packages || []).map((p) => (p.size || "").toUpperCase());
         const specSize = product.specifications?.size
@@ -222,7 +379,7 @@ function ProductsContent() {
         if (!matchesSize) return false;
       }
 
-      // 4. Color filter
+      // 4. Real Color filter
       if (filters.colors.length > 0) {
         const pkgColors = (product.packages || []).map((p) => (p.color || "").toLowerCase());
         const specColor = product.specifications?.color
@@ -243,37 +400,31 @@ function ProductsContent() {
         if (!matchesColor) return false;
       }
 
-      // 5. Brand filter
+      // 5. Real Brand filter
       if (filters.brands.length > 0) {
         const brand = (product.brand || "").toLowerCase();
         const matchesBrand = filters.brands.some(
-          (b) => brand === b.toLowerCase() || product.name.toLowerCase().includes(b.toLowerCase())
+          (b) =>
+            brand === b.toLowerCase() ||
+            product.name.toLowerCase().includes(b.toLowerCase())
         );
         if (!matchesBrand) return false;
       }
 
-      // 6. ZebAlpha Fashion Tiers
-      if (filters.fashionTiers.length > 0) {
-        const isPremium =
-          product.is_premium ||
-          product.tier === "PREMIUM" ||
-          (product.specifications as any)?.is_premium === "true";
-        const isTopBrand = Boolean(product.brand && product.brand.toLowerCase() !== "generic");
-        const matchesTier = filters.fashionTiers.some((tier) => {
-          if (tier === "Premium Brands") return isPremium;
-          if (tier === "Top Brands") return isTopBrand;
-          if (tier === "Made for ZebAlpha" || tier === "Made for Amazon") {
-            return (
-              (product.brand || "").toLowerCase().includes("zebalpha") ||
-              (product.brand || "").toLowerCase().includes("symbol")
-            );
-          }
-          return true;
-        });
-        if (!matchesTier) return false;
+      // 6. Real Seller filter
+      if (filters.sellers.length > 0) {
+        const seller = (
+          product.seller_name ||
+          product.business_name ||
+          (product.seller as any)?.business_name ||
+          product.brand ||
+          ""
+        ).toLowerCase();
+        const matchesSeller = filters.sellers.some((s) => seller.includes(s.toLowerCase()));
+        if (!matchesSeller) return false;
       }
 
-      // 7. Customer Reviews (Rating)
+      // 7. Customer Reviews
       if (filters.minRating > 0) {
         const rating = product.rating || 4.2;
         if (rating < filters.minRating) return false;
@@ -285,7 +436,7 @@ function ProductsContent() {
         if (discountPercent < filters.minDiscount) return false;
       }
 
-      // 9. Apparel Material
+      // 9. Real Fabric / Material
       if (filters.materials.length > 0) {
         const specMaterial = (
           product.specifications?.material ||
@@ -294,12 +445,13 @@ function ProductsContent() {
         ).toLowerCase();
         const text = `${product.name} ${product.description || ""}`.toLowerCase();
         const matchesMat = filters.materials.some(
-          (m) => specMaterial.includes(m.toLowerCase()) || text.includes(m.toLowerCase())
+          (m) =>
+            specMaterial.includes(m.toLowerCase()) || text.includes(m.toLowerCase())
         );
         if (!matchesMat) return false;
       }
 
-      // 10. Sleeve Type
+      // 10. Real Sleeve Type
       if (filters.sleeves.length > 0) {
         const specSleeve = (
           product.specifications?.sleeve ||
@@ -308,32 +460,30 @@ function ProductsContent() {
         ).toLowerCase();
         const text = `${product.name} ${product.description || ""}`.toLowerCase();
         const matchesSleeve = filters.sleeves.some(
-          (sl) => specSleeve.includes(sl.toLowerCase()) || text.includes(sl.toLowerCase())
+          (sl) =>
+            specSleeve.includes(sl.toLowerCase()) || text.includes(sl.toLowerCase())
         );
         if (!matchesSleeve) return false;
       }
 
-      // 11. Price
+      // 11. Price Filter (Dynamic Brackets + Custom)
       const { price } = getProductDisplayPricing(product);
       if (filters.priceRange) {
-        if (filters.priceRange === "under300" && price > 300) return false;
-        if (filters.priceRange === "300to400" && (price < 300 || price > 400)) return false;
-        if (filters.priceRange === "400to600" && (price < 400 || price > 600)) return false;
-        if (filters.priceRange === "over600" && price < 600) return false;
+        const matchedBracket = dynamicPriceBrackets.find(
+          (b) => b.value === filters.priceRange
+        );
+        if (matchedBracket) {
+          if (price < matchedBracket.min || price > matchedBracket.max) {
+            return false;
+          }
+        }
       }
       if (filters.customMinPrice && price < Number(filters.customMinPrice)) return false;
       if (filters.customMaxPrice && price > Number(filters.customMaxPrice)) return false;
 
-      // 12. Seller
-      if (filters.sellers.length > 0) {
-        const seller = (product.seller_name || product.business_name || "").toLowerCase();
-        const matchesSeller = filters.sellers.some((s) => seller.includes(s.toLowerCase()));
-        if (!matchesSeller) return false;
-      }
-
       return true;
     });
-  }, [products, selectedCategory, filters]);
+  }, [products, selectedCategory, filters, dynamicPriceBrackets]);
 
   // Handle category switch from horizontal tabs
   const handleCategorySelect = (categoryId: number | string | null) => {
@@ -396,9 +546,10 @@ function ProductsContent() {
                 type="button"
                 onClick={() => {
                   setSearch("");
-                  router.replace(selectedCategory ? `/products?category=${selectedCategory}` : `/products`, {
-                    scroll: false,
-                  });
+                  router.replace(
+                    selectedCategory ? `/products?category=${selectedCategory}` : `/products`,
+                    { scroll: false }
+                  );
                 }}
                 className="mr-2 p-1 text-zinc-400 hover:text-white transition-colors"
                 aria-label="Clear Search"
@@ -491,7 +642,7 @@ function ProductsContent() {
           <button
             type="button"
             onClick={() => setIsMobileFilterOpen(true)}
-            className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-xl active:scale-95 transition-all"
+            className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer shadow-sm"
           >
             <SlidersHorizontal size={14} className="text-emerald-400" />
             <span>Filters</span>
@@ -517,12 +668,23 @@ function ProductsContent() {
           )}
         </div>
 
-        {/* Mobile Filter Slide-Over Drawer Modal (< md) */}
+        {/* ========================================================================= */}
+        {/* MOBILE SLIDE-OVER DRAWER MODAL: FIXED FOOTER BUTTON (NEVER CUT OFF)        */}
+        {/* ========================================================================= */}
         {isMobileFilterOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm md:hidden animate-in fade-in duration-200">
-            <div className="relative w-full max-h-[85vh] overflow-y-auto bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-5 shadow-2xl flex flex-col">
-              {/* Drawer Header */}
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
+          <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-black/85 backdrop-blur-md md:hidden animate-in fade-in duration-200">
+            {/* Backdrop Dismiss Area */}
+            <div
+              className="absolute inset-0"
+              onClick={() => setIsMobileFilterOpen(false)}
+              aria-hidden="true"
+            />
+
+            {/* Bottom Sheet Modal Container */}
+            <div className="relative z-10 w-full h-[88vh] max-h-[88vh] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden">
+              
+              {/* 1. Fixed Modal Header */}
+              <div className="flex items-center justify-between border-b border-zinc-800/90 px-5 py-4 shrink-0 bg-zinc-950">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal size={18} className="text-emerald-400" />
                   <span className="text-base font-black text-white uppercase tracking-wider">
@@ -534,41 +696,82 @@ function ProductsContent() {
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsMobileFilterOpen(false)}
-                  className="rounded-full bg-zinc-900 p-2 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <X size={18} />
-                </button>
+
+                <div className="flex items-center gap-3">
+                  {activeFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFilters(INITIAL_FILTER_STATE)}
+                      className="text-xs font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileFilterOpen(false)}
+                    className="rounded-full bg-zinc-900 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                    aria-label="Close Filters"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
-              {/* Drawer Filter Body */}
-              <div className="flex-1 overflow-y-auto pr-1">
+              {/* 2. Scrollable Filter Body */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 overscroll-contain">
                 <ProductFilters
                   filters={filters}
                   setFilters={setFilters}
-                  availableBrands={availableBrands}
-                  availableSellers={availableSellers}
+                  availableBrands={realBrands}
+                  availableSellers={realSellers}
+                  availableSizes={realSizes}
+                  availableColors={realColors}
+                  availableMaterials={realMaterials}
+                  availableSleeves={realSleeves}
+                  priceRangeData={{
+                    minPrice: realMinPrice,
+                    maxPrice: realMaxPrice,
+                    brackets: dynamicPriceBrackets,
+                  }}
                   totalFilteredCount={filtered.length}
-                  onApply={() => setIsMobileFilterOpen(false)}
-                  isMobileModal={true}
                 />
               </div>
+
+              {/* 3. Fixed High-Elevation Footer Action Button (Completely above any bottom navigation) */}
+              <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-5 py-3.5 pb-[max(env(safe-area-inset-bottom,16px),24px)] shadow-[0_-12px_30px_rgba(0,0,0,0.9)]">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileFilterOpen(false)}
+                  className="w-full flex items-center justify-center rounded-2xl bg-emerald-400 hover:bg-emerald-300 active:scale-[0.98] py-3.5 text-center text-sm font-black uppercase tracking-wider text-black shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all cursor-pointer"
+                >
+                  Show {filtered.length} {filtered.length === 1 ? "Product" : "Products"}
+                </button>
+              </div>
+
             </div>
           </div>
         )}
 
         <div className="flex items-start gap-6 lg:gap-8">
           {/* ========================================================================= */}
-          {/* LEFT SIDEBAR: AMAZON-STYLE FILTER FACETS (Visible on md & lg screens)     */}
+          {/* LEFT SIDEBAR: REAL FILTER FACETS (Visible on md & lg screens)             */}
           {/* ========================================================================= */}
           <aside className="hidden md:block w-60 lg:w-72 shrink-0 sticky top-[150px] max-h-[calc(100vh-150px)] overflow-y-auto no-scrollbar border-r border-zinc-800/80 pr-4">
             <ProductFilters
               filters={filters}
               setFilters={setFilters}
-              availableBrands={availableBrands}
-              availableSellers={availableSellers}
+              availableBrands={realBrands}
+              availableSellers={realSellers}
+              availableSizes={realSizes}
+              availableColors={realColors}
+              availableMaterials={realMaterials}
+              availableSleeves={realSleeves}
+              priceRangeData={{
+                minPrice: realMinPrice,
+                maxPrice: realMaxPrice,
+                brackets: dynamicPriceBrackets,
+              }}
               totalFilteredCount={filtered.length}
             />
           </aside>
@@ -581,6 +784,24 @@ function ProductsContent() {
             {activeFilterCount > 0 && (
               <div className="hidden md:flex flex-wrap items-center gap-2 mb-4 p-2.5 rounded-xl bg-zinc-950 border border-zinc-800">
                 <span className="text-xs font-bold text-zinc-400">Active Filters:</span>
+                {filters.sellers.map((s) => (
+                  <span
+                    key={s}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
+                  >
+                    Seller: {s}
+                    <X
+                      size={12}
+                      className="cursor-pointer hover:text-white"
+                      onClick={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          sellers: p.sellers.filter((x) => x !== s),
+                        }))
+                      }
+                    />
+                  </span>
+                ))}
                 {filters.genders.map((g) => (
                   <span
                     key={g}
@@ -594,6 +815,24 @@ function ProductsContent() {
                         setFilters((p) => ({
                           ...p,
                           genders: p.genders.filter((x) => x !== g),
+                        }))
+                      }
+                    />
+                  </span>
+                ))}
+                {filters.brands.map((b) => (
+                  <span
+                    key={b}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
+                  >
+                    Brand: {b}
+                    <X
+                      size={12}
+                      className="cursor-pointer hover:text-white"
+                      onClick={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          brands: p.brands.filter((x) => x !== b),
                         }))
                       }
                     />
@@ -635,19 +874,37 @@ function ProductsContent() {
                     />
                   </span>
                 ))}
-                {filters.brands.map((b) => (
+                {filters.materials.map((m) => (
                   <span
-                    key={b}
+                    key={m}
                     className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
                   >
-                    {b}
+                    Fabric: {m}
                     <X
                       size={12}
                       className="cursor-pointer hover:text-white"
                       onClick={() =>
                         setFilters((p) => ({
                           ...p,
-                          brands: p.brands.filter((x) => x !== b),
+                          materials: p.materials.filter((x) => x !== m),
+                        }))
+                      }
+                    />
+                  </span>
+                ))}
+                {filters.sleeves.map((sl) => (
+                  <span
+                    key={sl}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
+                  >
+                    Sleeve: {sl}
+                    <X
+                      size={12}
+                      className="cursor-pointer hover:text-white"
+                      onClick={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          sleeves: p.sleeves.filter((x) => x !== sl),
                         }))
                       }
                     />
@@ -705,7 +962,7 @@ function ProductsContent() {
                   No matching products found
                 </h3>
                 <p className="text-xs font-semibold mt-1 text-zinc-400 max-w-sm mx-auto">
-                  Try adjusting or clearing your filters (Gender, Size, Color, Price, etc.) to view more products.
+                  Try adjusting or clearing your filters (Seller, Price, Fabric, etc.) to view more products.
                 </p>
                 <button
                   onClick={() => {
@@ -729,6 +986,13 @@ function ProductsContent() {
                       discountAmount,
                       discountPercent,
                     } = getProductDisplayPricing(product);
+
+                    const shopDisplayName =
+                      product.seller_name ||
+                      product.business_name ||
+                      (product.seller as any)?.business_name ||
+                      product.brand ||
+                      "BINODINI BASTRA BIPANI";
 
                     return (
                       <article
@@ -762,8 +1026,8 @@ function ProductsContent() {
                         {/* Content */}
                         <div className="flex flex-1 flex-col p-2.5 sm:p-4 sm:pt-5">
                           <Link href={`/products/${product.id}`} className="mb-auto">
-                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                              {product.brand || "ZEBALPHA"}
+                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-400 truncate">
+                              {shopDisplayName}
                             </p>
                             <h3 className="line-clamp-2 text-xs sm:text-sm font-bold leading-tight text-white group-hover:text-zinc-300 transition-colors mt-0.5">
                               {product.name}

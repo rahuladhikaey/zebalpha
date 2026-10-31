@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, ChevronDown, ChevronUp, Star, RotateCcw, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Star, RotateCcw } from "lucide-react";
 
 export interface FilterState {
   genders: string[];
@@ -35,46 +35,29 @@ export const INITIAL_FILTER_STATE: FilterState = {
   sellers: [],
 };
 
-// Preset Amazon-standard filter options specified by User
-export const GENDER_OPTIONS = ["Women", "Men", "Unisex"];
-
-export const SIZE_OPTIONS = [
-  "5XS", "4XS", "3XS", "2XS", "XS", "S", "M", "L", "XL",
-  "2XL", "3XL", "4XL", "5XL", "6XL", "7XL", "8XL", "9XL", "Free Size"
-];
-
-export const COLOR_OPTIONS = [
-  { name: "Black", hex: "#000000", border: "#333333" },
-  { name: "White", hex: "#FFFFFF", border: "#CCCCCC" },
-  { name: "Red", hex: "#EF4444", border: "#EF4444" },
-  { name: "Blue", hex: "#3B82F6", border: "#3B82F6" },
-  { name: "Green", hex: "#10B981", border: "#10B981" },
-  { name: "Yellow", hex: "#F59E0B", border: "#F59E0B" },
-  { name: "Pink", hex: "#EC4899", border: "#EC4899" },
-  { name: "Beige", hex: "#D4B996", border: "#D4B996" },
-  { name: "Maroon", hex: "#800000", border: "#800000" },
-  { name: "Grey", hex: "#6B7280", border: "#6B7280" },
-  { name: "Navy", hex: "#1E3A8A", border: "#1E3A8A" },
-  { name: "Multi", hex: "linear-gradient(135deg, #EF4444 0%, #3B82F6 50%, #10B981 100%)", border: "#666666" },
-];
-
-export const DEFAULT_BRANDS = [
-  "Jawdrobe",
-  "rytras",
-  "Shasmi",
-  "Symbol Premium",
-  "Amazon Brand - Symbol",
-  "Leriya Fashion",
-  "ANNI DESIGNER",
-  "Binodini Bastra Bipani",
-  "ZebAlpha",
-];
-
-export const FASHION_TIER_OPTIONS = [
-  "Top Brands",
-  "Made for ZebAlpha",
-  "Premium Brands",
-];
+// Known Standard Colors for visual swatch matching
+const COLOR_PALETTE: Record<string, { hex: string; border: string }> = {
+  black: { hex: "#000000", border: "#333333" },
+  white: { hex: "#FFFFFF", border: "#CCCCCC" },
+  red: { hex: "#EF4444", border: "#EF4444" },
+  blue: { hex: "#3B82F6", border: "#3B82F6" },
+  green: { hex: "#10B981", border: "#10B981" },
+  yellow: { hex: "#F59E0B", border: "#F59E0B" },
+  pink: { hex: "#EC4899", border: "#EC4899" },
+  beige: { hex: "#D4B996", border: "#D4B996" },
+  maroon: { hex: "#800000", border: "#800000" },
+  grey: { hex: "#6B7280", border: "#6B7280" },
+  gray: { hex: "#6B7280", border: "#6B7280" },
+  navy: { hex: "#1E3A8A", border: "#1E3A8A" },
+  gold: { hex: "#D97706", border: "#F59E0B" },
+  golden: { hex: "#D97706", border: "#F59E0B" },
+  orange: { hex: "#F97316", border: "#F97316" },
+  purple: { hex: "#8B5CF6", border: "#8B5CF6" },
+  multi: {
+    hex: "linear-gradient(135deg, #EF4444 0%, #3B82F6 50%, #10B981 100%)",
+    border: "#666666",
+  },
+};
 
 export const DISCOUNT_OPTIONS = [
   { label: "10% Off or more", value: 10 },
@@ -85,60 +68,29 @@ export const DISCOUNT_OPTIONS = [
   { label: "70% Off or more", value: 70 },
 ];
 
-export const MATERIAL_OPTIONS = [
-  "Cotton",
-  "Rayon",
-  "Silk",
-  "Art Silk",
-  "Chiffon",
-  "Corduroy",
-  "Crepe",
-  "Georgette",
-  "Linen",
-  "Polyester",
+export const FASHION_TIER_OPTIONS = [
+  "Top Verified Sellers",
+  "Premium Collection",
+  "Handcrafted & Ethnic",
 ];
 
-export const SLEEVE_OPTIONS = [
-  "Cap Sleeve",
-  "Raglan Sleeve",
-  "Cuff Sleeve",
-  "Balloon Sleeve",
-  "Batwing Sleeve",
-  "Bell Sleeve",
-  "Bishop Sleeve",
-  "Butterfly Sleeve",
-  "Cape Sleeve",
-  "Cold Shoulder Sleeve",
-  "Flutter Sleeve",
-  "Kimono Sleeve",
-  "Lantern Sleeve",
-  "Puff Sleeve",
-  "Ruffle Sleeve",
-  "Split Sleeve",
-];
-
-export const PRICE_OPTIONS = [
-  { label: "Up to ₹300", value: "under300" },
-  { label: "₹300 - ₹400", value: "300to400" },
-  { label: "₹400 - ₹600", value: "400to600" },
-  { label: "Over ₹600", value: "over600" },
-];
-
-export const DEFAULT_SELLERS = [
-  "Cocoblu Retail",
-  "Overseas_shop",
-  "Binodini Bastra Bipani",
-  "ZebAlpha Direct",
-];
+export interface PriceRangeData {
+  minPrice: number;
+  maxPrice: number;
+  brackets: Array<{ label: string; value: string; min: number; max: number }>;
+}
 
 interface ProductFiltersProps {
   filters: FilterState;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   availableBrands?: string[];
   availableSellers?: string[];
+  availableSizes?: string[];
+  availableColors?: string[];
+  availableMaterials?: string[];
+  availableSleeves?: string[];
+  priceRangeData?: PriceRangeData;
   totalFilteredCount?: number;
-  onApply?: () => void;
-  isMobileModal?: boolean;
 }
 
 export function ProductFilters({
@@ -146,17 +98,20 @@ export function ProductFilters({
   setFilters,
   availableBrands = [],
   availableSellers = [],
+  availableSizes = [],
+  availableColors = [],
+  availableMaterials = [],
+  availableSleeves = [],
+  priceRangeData,
   totalFilteredCount,
-  onApply,
-  isMobileModal = false,
 }: ProductFiltersProps) {
   // Expansion toggles for long lists
   const [showAllBrands, setShowAllBrands] = useState(false);
+  const [showAllSellers, setShowAllSellers] = useState(false);
   const [showAllMaterials, setShowAllMaterials] = useState(false);
   const [showAllSleeves, setShowAllSleeves] = useState(false);
-  const [showAllSellers, setShowAllSellers] = useState(false);
 
-  // Temporary local min/max price input
+  // Temporary local min/max price inputs
   const [tempMin, setTempMin] = useState(filters.customMinPrice);
   const [tempMax, setTempMax] = useState(filters.customMaxPrice);
 
@@ -199,15 +154,37 @@ export function ProductFilters({
     setTempMax("");
   };
 
-  // Combine default and dynamic brands/sellers
-  const allBrands = Array.from(new Set([...DEFAULT_BRANDS, ...availableBrands]));
-  const displayedBrands = showAllBrands ? allBrands : allBrands.slice(0, 7);
+  // 1. REAL SELLERS (Filtered & De-duplicated)
+  const displayedSellers = showAllSellers ? availableSellers : availableSellers.slice(0, 5);
 
-  const displayedMaterials = showAllMaterials ? MATERIAL_OPTIONS : MATERIAL_OPTIONS.slice(0, 7);
-  const displayedSleeves = showAllSleeves ? SLEEVE_OPTIONS : SLEEVE_OPTIONS.slice(0, 6);
+  // 2. REAL BRANDS (Filtered & De-duplicated)
+  const displayedBrands = showAllBrands ? availableBrands : availableBrands.slice(0, 6);
 
-  const allSellers = Array.from(new Set([...DEFAULT_SELLERS, ...availableSellers]));
-  const displayedSellers = showAllSellers ? allSellers : allSellers.slice(0, 4);
+  // 3. REAL SIZES (De-duplicated)
+  const defaultSizes = ["Free Size", "XS", "S", "M", "L", "XL", "2XL", "3XL"];
+  const sizesToDisplay = availableSizes.length > 0 ? availableSizes : defaultSizes;
+
+  // 4. REAL COLORS (De-duplicated & mapped to swatches)
+  const defaultColorNames = ["Red", "Yellow", "White", "Black", "Blue", "Green", "Pink", "Golden"];
+  const colorNamesToDisplay = availableColors.length > 0 ? availableColors : defaultColorNames;
+
+  // 5. REAL MATERIALS
+  const displayedMaterials = showAllMaterials ? availableMaterials : availableMaterials.slice(0, 6);
+
+  // 6. REAL SLEEVES
+  const displayedSleeves = showAllSleeves ? availableSleeves : availableSleeves.slice(0, 6);
+
+  // 7. REAL PRICE BRACKETS
+  const minPriceDisplay = priceRangeData?.minPrice ? Math.floor(priceRangeData.minPrice) : 88;
+  const maxPriceDisplay = priceRangeData?.maxPrice ? Math.ceil(priceRangeData.maxPrice) : 5000;
+  const priceBrackets = priceRangeData?.brackets && priceRangeData.brackets.length > 0
+    ? priceRangeData.brackets
+    : [
+        { label: "Up to ₹500", value: "bracket1", min: 0, max: 500 },
+        { label: "₹500 - ₹1,000", value: "bracket2", min: 500, max: 1000 },
+        { label: "₹1,000 - ₹2,000", value: "bracket3", min: 1000, max: 2000 },
+        { label: "Over ₹2,000", value: "bracket4", min: 2000, max: Infinity },
+      ];
 
   // Calculate total active filters count
   const activeCount =
@@ -224,7 +201,7 @@ export function ProductFilters({
     filters.sellers.length;
 
   return (
-    <div className="flex flex-col gap-6 text-zinc-300 select-none pb-6">
+    <div className="flex flex-col gap-5 text-zinc-300 select-none pb-4">
       {/* Header with Clear All */}
       <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
         <div className="flex items-center gap-2">
@@ -249,13 +226,124 @@ export function ProductFilters({
         )}
       </div>
 
-      {/* 1. GENDER */}
+      {/* 1. REAL SELLER SHOP / MERCHANT */}
+      {availableSellers.length > 0 && (
+        <div className="border-b border-zinc-800/60 pb-4">
+          <div className="flex items-center justify-between mb-2.5">
+            <h4 className="text-xs font-black uppercase tracking-wider text-white">
+              Seller Shop
+            </h4>
+            <span className="text-[10px] font-bold text-emerald-400">
+              Verified
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {displayedSellers.map((seller) => {
+              const isChecked = filters.sellers.includes(seller);
+              return (
+                <label
+                  key={seller}
+                  onClick={() => toggleItem("sellers", seller)}
+                  className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
+                >
+                  <div
+                    className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
+                      isChecked
+                        ? "border-emerald-500 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+                        : "border-zinc-700 bg-zinc-900 group-hover:border-zinc-500"
+                    }`}
+                  >
+                    {isChecked && <Check size={12} strokeWidth={3.5} />}
+                  </div>
+                  <span className={`truncate ${isChecked ? "text-white font-bold" : "text-zinc-300"}`}>
+                    {seller}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {availableSellers.length > 5 && (
+            <button
+              type="button"
+              onClick={() => setShowAllSellers(!showAllSellers)}
+              className="flex items-center gap-1 mt-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+            >
+              {showAllSellers ? (
+                <>
+                  <span>See less</span>
+                  <ChevronUp size={14} />
+                </>
+              ) : (
+                <>
+                  <span>See more ({availableSellers.length - 5})</span>
+                  <ChevronDown size={14} />
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 2. REAL BRANDS */}
+      {availableBrands.length > 0 && (
+        <div className="border-b border-zinc-800/60 pb-4">
+          <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
+            Brand
+          </h4>
+          <div className="flex flex-col gap-1.5">
+            {displayedBrands.map((brand) => {
+              const isChecked = filters.brands.includes(brand);
+              return (
+                <label
+                  key={brand}
+                  onClick={() => toggleItem("brands", brand)}
+                  className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
+                >
+                  <div
+                    className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
+                      isChecked
+                        ? "border-emerald-500 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+                        : "border-zinc-700 bg-zinc-900 group-hover:border-zinc-500"
+                    }`}
+                  >
+                    {isChecked && <Check size={12} strokeWidth={3.5} />}
+                  </div>
+                  <span className={`truncate ${isChecked ? "text-white font-bold" : "text-zinc-300"}`}>
+                    {brand}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {availableBrands.length > 6 && (
+            <button
+              type="button"
+              onClick={() => setShowAllBrands(!showAllBrands)}
+              className="flex items-center gap-1 mt-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+            >
+              {showAllBrands ? (
+                <>
+                  <span>See less</span>
+                  <ChevronUp size={14} />
+                </>
+              ) : (
+                <>
+                  <span>See more ({availableBrands.length - 6})</span>
+                  <ChevronDown size={14} />
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 3. GENDER */}
       <div className="border-b border-zinc-800/60 pb-4">
         <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
           Gender
         </h4>
         <div className="flex flex-col gap-1.5">
-          {GENDER_OPTIONS.map((gender) => {
+          {["Women", "Men", "Unisex"].map((gender) => {
             const isChecked = filters.genders.includes(gender);
             return (
               <label
@@ -281,11 +369,11 @@ export function ProductFilters({
         </div>
       </div>
 
-      {/* 2. WOMEN'S GENERAL SIZE */}
+      {/* 4. REAL SIZES */}
       <div className="border-b border-zinc-800/60 pb-4">
         <div className="flex items-center justify-between mb-2.5">
           <h4 className="text-xs font-black uppercase tracking-wider text-white">
-            Women&apos;s General Size
+            Size
           </h4>
           {filters.sizes.length > 0 && (
             <button
@@ -297,7 +385,7 @@ export function ProductFilters({
           )}
         </div>
         <div className="grid grid-cols-4 gap-1.5">
-          {SIZE_OPTIONS.map((size) => {
+          {sizesToDisplay.map((size) => {
             const isSelected = filters.sizes.includes(size);
             return (
               <button
@@ -317,7 +405,7 @@ export function ProductFilters({
         </div>
       </div>
 
-      {/* 3. COLOUR */}
+      {/* 5. REAL COLOURS */}
       <div className="border-b border-zinc-800/60 pb-4">
         <div className="flex items-center justify-between mb-2.5">
           <h4 className="text-xs font-black uppercase tracking-wider text-white">
@@ -333,20 +421,22 @@ export function ProductFilters({
           )}
         </div>
         <div className="grid grid-cols-4 gap-2">
-          {COLOR_OPTIONS.map((c) => {
-            const isSelected = filters.colors.includes(c.name);
+          {colorNamesToDisplay.map((cName) => {
+            const lower = cName.toLowerCase();
+            const palette = COLOR_PALETTE[lower] || { hex: "#6B7280", border: "#4B5563" };
+            const isSelected = filters.colors.includes(cName);
             return (
               <button
-                key={c.name}
+                key={cName}
                 type="button"
-                onClick={() => toggleItem("colors", c.name)}
-                title={c.name}
+                onClick={() => toggleItem("colors", cName)}
+                title={cName}
                 className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none"
               >
                 <div
                   style={{
-                    background: c.hex,
-                    borderColor: c.border,
+                    background: palette.hex,
+                    borderColor: palette.border,
                   }}
                   className={`h-7 w-7 rounded-full border transition-all flex items-center justify-center ${
                     isSelected
@@ -358,7 +448,7 @@ export function ProductFilters({
                     <Check
                       size={14}
                       strokeWidth={3}
-                      className={c.name === "White" || c.name === "Yellow" ? "text-black" : "text-white"}
+                      className={lower === "white" || lower === "yellow" ? "text-black" : "text-white"}
                     />
                   )}
                 </div>
@@ -367,7 +457,7 @@ export function ProductFilters({
                     isSelected ? "text-emerald-400 font-extrabold" : "text-zinc-400 group-hover:text-zinc-200"
                   }`}
                 >
-                  {c.name}
+                  {cName}
                 </span>
               </button>
             );
@@ -375,120 +465,168 @@ export function ProductFilters({
         </div>
       </div>
 
-      {/* 4. BRANDS */}
+      {/* 6. REAL PRICE RANGE */}
       <div className="border-b border-zinc-800/60 pb-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
-          Brands
-        </h4>
-        <div className="flex flex-col gap-1.5">
-          {displayedBrands.map((brand) => {
-            const isChecked = filters.brands.includes(brand);
+        <div className="flex items-center justify-between mb-1">
+          <h4 className="text-xs font-black uppercase tracking-wider text-white">
+            Price
+          </h4>
+          <span className="text-[10px] text-emerald-400 font-bold font-mono">
+            ₹{minPriceDisplay.toLocaleString("en-IN")} – ₹{maxPriceDisplay.toLocaleString("en-IN")}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1.5 mt-2">
+          {priceBrackets.map((opt) => {
+            const isSelected = filters.priceRange === opt.value;
             return (
-              <label
-                key={brand}
-                onClick={() => toggleItem("brands", brand)}
-                className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => handlePriceRange(opt.value)}
+                className={`text-left text-xs font-semibold py-0.5 transition-colors cursor-pointer hover:text-white ${
+                  isSelected ? "text-emerald-400 font-extrabold flex items-center gap-1.5" : "text-zinc-400"
+                }`}
               >
-                <div
-                  className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
-                    isChecked
-                      ? "border-emerald-500 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-                      : "border-zinc-700 bg-zinc-900 group-hover:border-zinc-500"
-                  }`}
-                >
-                  {isChecked && <Check size={12} strokeWidth={3.5} />}
-                </div>
-                <span className={`truncate ${isChecked ? "text-white font-bold" : "text-zinc-300"}`}>
-                  {brand}
-                </span>
-              </label>
+                {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                <span>{opt.label}</span>
+              </button>
             );
           })}
         </div>
-        {allBrands.length > 7 && (
+
+        {/* Custom Price Range Form */}
+        <form onSubmit={handleApplyCustomPrice} className="mt-3 flex items-center gap-2">
+          <input
+            type="number"
+            placeholder="₹ Min"
+            value={tempMin}
+            onChange={(e) => setTempMin(e.target.value)}
+            className="w-16 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-emerald-500"
+          />
+          <span className="text-zinc-600 text-xs">-</span>
+          <input
+            type="number"
+            placeholder="₹ Max"
+            value={tempMax}
+            onChange={(e) => setTempMax(e.target.value)}
+            className="w-16 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-emerald-500"
+          />
           <button
-            type="button"
-            onClick={() => setShowAllBrands(!showAllBrands)}
-            className="flex items-center gap-1 mt-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+            type="submit"
+            className="rounded-lg bg-zinc-800 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-500 hover:text-black transition-colors cursor-pointer"
           >
-            {showAllBrands ? (
-              <>
-                <span>See less</span>
-                <ChevronUp size={14} />
-              </>
-            ) : (
-              <>
-                <span>See more ({allBrands.length - 7})</span>
-                <ChevronDown size={14} />
-              </>
-            )}
+            Go
           </button>
-        )}
+        </form>
       </div>
 
-      {/* 5. AMAZON / ZEBALPHA FASHION */}
-      <div className="border-b border-zinc-800/60 pb-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
-          ZebAlpha Fashion
-        </h4>
-        <div className="flex flex-col gap-1.5">
-          {FASHION_TIER_OPTIONS.map((tier) => {
-            const isChecked = filters.fashionTiers.includes(tier);
-            return (
-              <label
-                key={tier}
-                onClick={() => toggleItem("fashionTiers", tier)}
-                className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
-              >
-                <div
-                  className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
-                    isChecked
-                      ? "border-emerald-500 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-                      : "border-zinc-700 bg-zinc-900 group-hover:border-zinc-500"
-                  }`}
+      {/* 7. REAL APPAREL MATERIAL / FABRIC */}
+      {availableMaterials.length > 0 && (
+        <div className="border-b border-zinc-800/60 pb-4">
+          <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
+            Fabric / Material
+          </h4>
+          <div className="flex flex-col gap-1.5">
+            {displayedMaterials.map((mat) => {
+              const isChecked = filters.materials.includes(mat);
+              return (
+                <label
+                  key={mat}
+                  onClick={() => toggleItem("materials", mat)}
+                  className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
                 >
-                  {isChecked && <Check size={12} strokeWidth={3.5} />}
-                </div>
-                <span className={isChecked ? "text-white font-bold" : "text-zinc-300"}>
-                  {tier}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 6. CUSTOMER REVIEWS */}
-      <div className="border-b border-zinc-800/60 pb-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
-          Customer Reviews
-        </h4>
-        <button
-          type="button"
-          onClick={() =>
-            setFilters((p) => ({
-              ...p,
-              minRating: p.minRating === 4 ? 0 : 4,
-            }))
-          }
-          className={`flex items-center gap-2 py-1 px-2 rounded-lg text-xs font-bold transition-all w-full text-left cursor-pointer ${
-            filters.minRating === 4
-              ? "bg-amber-500/10 border border-amber-500/40 text-amber-300"
-              : "hover:bg-zinc-900 text-zinc-300 hover:text-white"
-          }`}
-        >
-          <div className="flex items-center text-amber-400">
-            <Star size={14} className="fill-amber-400 text-amber-400" />
-            <Star size={14} className="fill-amber-400 text-amber-400" />
-            <Star size={14} className="fill-amber-400 text-amber-400" />
-            <Star size={14} className="fill-amber-400 text-amber-400" />
-            <Star size={14} className="text-zinc-600" />
+                  <div
+                    className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
+                      isChecked
+                        ? "border-emerald-500 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+                        : "border-zinc-700 bg-zinc-900 group-hover:border-zinc-500"
+                    }`}
+                  >
+                    {isChecked && <Check size={12} strokeWidth={3.5} />}
+                  </div>
+                  <span className={isChecked ? "text-white font-bold" : "text-zinc-300"}>
+                    {mat}
+                  </span>
+                </label>
+              );
+            })}
           </div>
-          <span className="text-xs font-semibold">& Up</span>
-        </button>
-      </div>
+          {availableMaterials.length > 6 && (
+            <button
+              type="button"
+              onClick={() => setShowAllMaterials(!showAllMaterials)}
+              className="flex items-center gap-1 mt-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+            >
+              {showAllMaterials ? (
+                <>
+                  <span>See less</span>
+                  <ChevronUp size={14} />
+                </>
+              ) : (
+                <>
+                  <span>See more ({availableMaterials.length - 6})</span>
+                  <ChevronDown size={14} />
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* 7. DISCOUNT */}
+      {/* 8. REAL SLEEVE TYPE */}
+      {availableSleeves.length > 0 && (
+        <div className="border-b border-zinc-800/60 pb-4">
+          <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
+            Sleeve Type
+          </h4>
+          <div className="flex flex-col gap-1.5">
+            {displayedSleeves.map((sleeve) => {
+              const isChecked = filters.sleeves.includes(sleeve);
+              return (
+                <label
+                  key={sleeve}
+                  onClick={() => toggleItem("sleeves", sleeve)}
+                  className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
+                >
+                  <div
+                    className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
+                      isChecked
+                        ? "border-emerald-500 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+                        : "border-zinc-700 bg-zinc-900 group-hover:border-zinc-500"
+                    }`}
+                  >
+                    {isChecked && <Check size={12} strokeWidth={3.5} />}
+                  </div>
+                  <span className={isChecked ? "text-white font-bold" : "text-zinc-300"}>
+                    {sleeve}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {availableSleeves.length > 6 && (
+            <button
+              type="button"
+              onClick={() => setShowAllSleeves(!showAllSleeves)}
+              className="flex items-center gap-1 mt-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+            >
+              {showAllSleeves ? (
+                <>
+                  <span>See less</span>
+                  <ChevronUp size={14} />
+                </>
+              ) : (
+                <>
+                  <span>See more ({availableSleeves.length - 6})</span>
+                  <ChevronDown size={14} />
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 9. DISCOUNT */}
       <div className="border-b border-zinc-800/60 pb-4">
         <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
           Discount
@@ -518,18 +656,48 @@ export function ProductFilters({
         </div>
       </div>
 
-      {/* 8. APPAREL MATERIAL */}
+      {/* 10. CUSTOMER REVIEWS */}
       <div className="border-b border-zinc-800/60 pb-4">
         <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
-          Apparel Material
+          Customer Reviews
+        </h4>
+        <button
+          type="button"
+          onClick={() =>
+            setFilters((p) => ({
+              ...p,
+              minRating: p.minRating === 4 ? 0 : 4,
+            }))
+          }
+          className={`flex items-center gap-2 py-1 px-2 rounded-lg text-xs font-bold transition-all w-full text-left cursor-pointer ${
+            filters.minRating === 4
+              ? "bg-amber-500/10 border border-amber-500/40 text-amber-300"
+              : "hover:bg-zinc-900 text-zinc-300 hover:text-white"
+          }`}
+        >
+          <div className="flex items-center text-amber-400">
+            <Star size={14} className="fill-amber-400 text-amber-400" />
+            <Star size={14} className="fill-amber-400 text-amber-400" />
+            <Star size={14} className="fill-amber-400 text-amber-400" />
+            <Star size={14} className="fill-amber-400 text-amber-400" />
+            <Star size={14} className="text-zinc-600" />
+          </div>
+          <span className="text-xs font-semibold">& Up</span>
+        </button>
+      </div>
+
+      {/* 11. ZEBALPHA SELECTION */}
+      <div className="pb-1">
+        <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
+          Marketplace Badges
         </h4>
         <div className="flex flex-col gap-1.5">
-          {displayedMaterials.map((mat) => {
-            const isChecked = filters.materials.includes(mat);
+          {FASHION_TIER_OPTIONS.map((tier) => {
+            const isChecked = filters.fashionTiers.includes(tier);
             return (
               <label
-                key={mat}
-                onClick={() => toggleItem("materials", mat)}
+                key={tier}
+                onClick={() => toggleItem("fashionTiers", tier)}
                 className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
               >
                 <div
@@ -542,200 +710,13 @@ export function ProductFilters({
                   {isChecked && <Check size={12} strokeWidth={3.5} />}
                 </div>
                 <span className={isChecked ? "text-white font-bold" : "text-zinc-300"}>
-                  {mat}
+                  {tier}
                 </span>
               </label>
             );
           })}
         </div>
-        {MATERIAL_OPTIONS.length > 7 && (
-          <button
-            type="button"
-            onClick={() => setShowAllMaterials(!showAllMaterials)}
-            className="flex items-center gap-1 mt-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
-          >
-            {showAllMaterials ? (
-              <>
-                <span>See less</span>
-                <ChevronUp size={14} />
-              </>
-            ) : (
-              <>
-                <span>See more ({MATERIAL_OPTIONS.length - 7})</span>
-                <ChevronDown size={14} />
-              </>
-            )}
-          </button>
-        )}
       </div>
-
-      {/* 9. SLEEVE TYPE */}
-      <div className="border-b border-zinc-800/60 pb-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
-          Sleeve Type
-        </h4>
-        <div className="flex flex-col gap-1.5">
-          {displayedSleeves.map((sleeve) => {
-            const isChecked = filters.sleeves.includes(sleeve);
-            return (
-              <label
-                key={sleeve}
-                onClick={() => toggleItem("sleeves", sleeve)}
-                className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
-              >
-                <div
-                  className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
-                    isChecked
-                      ? "border-emerald-500 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-                      : "border-zinc-700 bg-zinc-900 group-hover:border-zinc-500"
-                  }`}
-                >
-                  {isChecked && <Check size={12} strokeWidth={3.5} />}
-                </div>
-                <span className={isChecked ? "text-white font-bold" : "text-zinc-300"}>
-                  {sleeve}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        {SLEEVE_OPTIONS.length > 6 && (
-          <button
-            type="button"
-            onClick={() => setShowAllSleeves(!showAllSleeves)}
-            className="flex items-center gap-1 mt-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
-          >
-            {showAllSleeves ? (
-              <>
-                <span>See less</span>
-                <ChevronUp size={14} />
-              </>
-            ) : (
-              <>
-                <span>See more ({SLEEVE_OPTIONS.length - 6})</span>
-                <ChevronDown size={14} />
-              </>
-            )}
-          </button>
-        )}
-      </div>
-
-      {/* 10. PRICE */}
-      <div className="border-b border-zinc-800/60 pb-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-white mb-1">
-          Price
-        </h4>
-        <p className="text-[10px] text-zinc-500 mb-2 font-mono">₹88–₹48,300+</p>
-        <div className="flex flex-col gap-1.5">
-          {PRICE_OPTIONS.map((opt) => {
-            const isSelected = filters.priceRange === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => handlePriceRange(opt.value)}
-                className={`text-left text-xs font-semibold py-0.5 transition-colors cursor-pointer hover:text-white ${
-                  isSelected ? "text-emerald-400 font-extrabold flex items-center gap-1.5" : "text-zinc-400"
-                }`}
-              >
-                {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                <span>{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Custom Price Inputs */}
-        <form onSubmit={handleApplyCustomPrice} className="mt-3 flex items-center gap-2">
-          <input
-            type="number"
-            placeholder="₹ Min"
-            value={tempMin}
-            onChange={(e) => setTempMin(e.target.value)}
-            className="w-16 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-emerald-500"
-          />
-          <span className="text-zinc-600 text-xs">-</span>
-          <input
-            type="number"
-            placeholder="₹ Max"
-            value={tempMax}
-            onChange={(e) => setTempMax(e.target.value)}
-            className="w-16 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-emerald-500"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-zinc-800 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-500 hover:text-black transition-colors cursor-pointer"
-          >
-            Go
-          </button>
-        </form>
-      </div>
-
-      {/* 11. SELLER */}
-      <div className="pb-2">
-        <h4 className="text-xs font-black uppercase tracking-wider text-white mb-2.5">
-          Seller
-        </h4>
-        <div className="flex flex-col gap-1.5">
-          {displayedSellers.map((seller) => {
-            const isChecked = filters.sellers.includes(seller);
-            return (
-              <label
-                key={seller}
-                onClick={() => toggleItem("sellers", seller)}
-                className="flex items-center gap-2.5 text-xs font-semibold py-0.5 cursor-pointer hover:text-white transition-colors group"
-              >
-                <div
-                  className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
-                    isChecked
-                      ? "border-emerald-500 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-                      : "border-zinc-700 bg-zinc-900 group-hover:border-zinc-500"
-                  }`}
-                >
-                  {isChecked && <Check size={12} strokeWidth={3.5} />}
-                </div>
-                <span className={`truncate ${isChecked ? "text-white font-bold" : "text-zinc-300"}`}>
-                  {seller}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        {allSellers.length > 4 && (
-          <button
-            type="button"
-            onClick={() => setShowAllSellers(!showAllSellers)}
-            className="flex items-center gap-1 mt-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
-          >
-            {showAllSellers ? (
-              <>
-                <span>See less</span>
-                <ChevronUp size={14} />
-              </>
-            ) : (
-              <>
-                <span>See more ({allSellers.length - 4})</span>
-                <ChevronDown size={14} />
-              </>
-            )}
-          </button>
-        )}
-      </div>
-
-      {/* Mobile Drawer Apply Action Button */}
-      {isMobileModal && onApply && (
-        <div className="sticky bottom-0 left-0 right-0 pt-4 bg-gradient-to-t from-black via-black/95 to-transparent mt-4">
-          <button
-            type="button"
-            onClick={onApply}
-            className="w-full rounded-2xl bg-emerald-400 py-3.5 text-center text-sm font-black uppercase tracking-wider text-black shadow-lg hover:bg-emerald-300 transition-all active:scale-[0.99] cursor-pointer"
-          >
-            {totalFilteredCount !== undefined
-              ? `Show ${totalFilteredCount} Products`
-              : "Apply Filters"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

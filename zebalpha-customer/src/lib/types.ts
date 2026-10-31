@@ -58,6 +58,7 @@ export type Product = {
   seller_id?: string;
   seller_name?: string;
   business_name?: string;
+  seller?: { business_name?: string; city?: string; state?: string; business_logo_url?: string };
   seller_city?: string;
   seller_logo?: string;
   virtual_tryon_image?: string;

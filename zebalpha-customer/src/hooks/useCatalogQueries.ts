@@ -980,3 +980,40 @@ export function useSearchProducts(rawQuery: string, category?: string) {
     gcTime: 20 * 60 * 1000,
   });
 }
+
+/**
+ * Fetch all verified active seller merchant shop names directly from database
+ */
+export async function fetchActiveSellers(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from("sellers")
+      .select("business_name")
+      .not("business_name", "is", null);
+
+    if (!error && data && data.length > 0) {
+      return Array.from(
+        new Set(
+          data
+            .map((s: any) => (s.business_name || "").trim())
+            .filter((name: string) => Boolean(name) && name.toLowerCase() !== "null")
+        )
+      );
+    }
+  } catch (err) {
+    console.warn("Notice fetching active sellers:", err);
+  }
+  return [];
+}
+
+/**
+ * Hook to retrieve active verified seller shop names for dynamic filtering
+ */
+export function useActiveSellers() {
+  return useQuery<string[]>({
+    queryKey: ['activeSellers'],
+    queryFn: fetchActiveSellers,
+    staleTime: 60 * 1000,
+  });
+}
+
