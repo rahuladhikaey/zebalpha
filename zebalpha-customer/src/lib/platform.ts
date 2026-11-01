@@ -45,6 +45,11 @@ export function checkIsNativeApp(): boolean {
 }
 
 /**
+ * Direct non-hook function alias for checking native platform in helper functions / utilities.
+ */
+export const isNativeApp = checkIsNativeApp;
+
+/**
  * React hook to reactively determine if the user is in the native Android App shell.
  * Defaults to false on SSR and initializes on client mount.
  */

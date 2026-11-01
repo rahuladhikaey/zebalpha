@@ -1,5 +1,6 @@
 import { getCachedOrFetch, invalidateCacheKey, invalidateCachePattern } from './cacheHelper';
 import { supabaseServer } from './supabaseServer';
+export { supabaseServer } from './supabaseServer';
 import { Product, Category, CuratedCollection, EditorialCard, PromotionalCampaign, PromotionalSlot } from './types';
 
 /**

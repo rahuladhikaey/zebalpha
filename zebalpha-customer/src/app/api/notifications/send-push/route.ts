@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/cachedQueries";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 interface PushPayload {
   title: string;
