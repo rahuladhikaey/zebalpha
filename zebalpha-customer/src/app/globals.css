@@ -187,3 +187,28 @@ img {
   color: #ffffff !important;
 }
 
+/* ── ANDROID SPLASH & ONBOARDING ZERO-FLASH GUARD ── */
+html.zebalpha-onboarding-pending body {
+  background-color: #050505 !important;
+  overflow: hidden !important;
+}
+
+html.zebalpha-onboarding-pending main,
+html.zebalpha-onboarding-pending header,
+html.zebalpha-onboarding-pending nav,
+html.zebalpha-onboarding-pending footer,
+html.zebalpha-onboarding-pending [data-android-bottom-nav] {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#zebalpha-instant-splash {
+  display: none;
+}
+
+html.zebalpha-onboarding-pending #zebalpha-instant-splash {
+  display: flex;
+}
+
+

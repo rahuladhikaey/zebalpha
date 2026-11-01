@@ -256,36 +256,40 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<LanguageCode>("en");
-  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
-  const [onboardingLanguageCompleted, setOnboardingLanguageCompletedState] = useState(false);
-  const [onboardingCompleted, setOnboardingCompletedState] = useState(false);
-  const [isGuestMode, setIsGuestModeState] = useState(false);
-
-  // Initialize from localStorage on client mount
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      const savedLang = window.localStorage.getItem(LANGUAGE_STORAGE_KEY) as LanguageCode | null;
-      if (savedLang === "hi" || savedLang === "en") {
-        setLanguageState(savedLang);
-      } else {
-        setLanguageState("en");
-      }
-
-      const langCompleted = window.localStorage.getItem(ONBOARDING_LANG_KEY) === "true";
-      setOnboardingLanguageCompletedState(langCompleted);
-
-      const fullCompleted = window.localStorage.getItem(ONBOARDING_COMPLETED_KEY) === "true";
-      setOnboardingCompletedState(fullCompleted);
-
-      const guestMode = window.localStorage.getItem(ONBOARDING_GUEST_KEY) === "true";
-      setIsGuestModeState(guestMode);
-    } catch (err) {
-      console.warn("[Language Context Storage Notice]:", err);
+  const [language, setLanguageState] = useState<LanguageCode>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedLang = window.localStorage.getItem(LANGUAGE_STORAGE_KEY) as LanguageCode | null;
+        if (savedLang === "hi" || savedLang === "bn" || savedLang === "en") return savedLang;
+      } catch (e) {}
     }
-  }, []);
+    return "en";
+  });
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+  const [onboardingLanguageCompleted, setOnboardingLanguageCompletedState] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return window.localStorage.getItem(ONBOARDING_LANG_KEY) === "true";
+      } catch (e) {}
+    }
+    return false;
+  });
+  const [onboardingCompleted, setOnboardingCompletedState] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return window.localStorage.getItem(ONBOARDING_COMPLETED_KEY) === "true";
+      } catch (e) {}
+    }
+    return false;
+  });
+  const [isGuestMode, setIsGuestModeState] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return window.localStorage.getItem(ONBOARDING_GUEST_KEY) === "true";
+      } catch (e) {}
+    }
+    return false;
+  });
 
   const setLanguage = useCallback((lang: LanguageCode) => {
     setLanguageState(lang);

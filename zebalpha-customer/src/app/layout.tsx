@@ -88,8 +88,47 @@ export default function RootLayout({
             gtag('config', 'G-5RNS8TDRG5');
           `}
         </Script>
+
+        {/* Android Native Splash & Onboarding Zero-Flash Guard: Runs synchronously before any DOM paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var ua = navigator.userAgent || "";
+                  var isNative = !!(window.Capacitor || ua.indexOf("ZEBALPHA_ANDROID_APP") !== -1 || ua.indexOf("Capacitor") !== -1 || window.location.search.indexOf("view=app") !== -1);
+                  if (isNative) {
+                    var langDone = localStorage.getItem("zebalpha_onboarding_language_completed") === "true";
+                    var guest = localStorage.getItem("zebalpha_onboarding_guest_mode") === "true";
+                    var fullDone = localStorage.getItem("zebalpha_onboarding_completed") === "true";
+                    if (!langDone || (!fullDone && !guest)) {
+                      document.documentElement.classList.add("zebalpha-onboarding-pending");
+                    }
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body suppressHydrationWarning className="min-h-full font-sans bg-black text-white overflow-x-hidden">
+        {/* Instant Native Splash overlay while onboarding is pending (0 ms delay, eliminates flash of home) */}
+        <div
+          id="zebalpha-instant-splash"
+          className="fixed inset-0 z-[99] bg-[#050505] flex flex-col items-center justify-center p-6 select-none"
+        >
+          <div className="relative h-20 w-20 rounded-full overflow-hidden bg-black flex items-center justify-center p-1 border border-zinc-800 shadow-2xl animate-pulse">
+            <img
+              src="/official-logo-sm.png"
+              alt="ZebAlpha"
+              className="h-full w-full object-cover rounded-full"
+            />
+          </div>
+          <span className="mt-4 text-xs font-black tracking-[0.25em] text-white/60 uppercase">
+            ZebAlpha
+          </span>
+        </div>
+
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe

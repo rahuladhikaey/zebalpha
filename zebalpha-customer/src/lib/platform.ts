@@ -49,7 +49,12 @@ export function checkIsNativeApp(): boolean {
  * Defaults to false on SSR and initializes on client mount.
  */
 export function useIsNativeApp(): boolean {
-  const [isNative, setIsNative] = useState(false);
+  const [isNative, setIsNative] = useState(() => {
+    if (typeof window !== "undefined") {
+      return checkIsNativeApp();
+    }
+    return false;
+  });
 
   useEffect(() => {
     const native = checkIsNativeApp();

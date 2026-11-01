@@ -25,9 +25,35 @@ export function AndroidOnboardingManager() {
     setGuestMode,
   } = useLanguage();
 
-  const [mounted, setMounted] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [step, setStep] = useState<OnboardingStep>("language");
+  // Initialize synchronously on client to eliminate flash of home page
+  const [mounted, setMounted] = useState(() => typeof window !== "undefined");
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const ua = navigator.userAgent || "";
+        const isNative = !!(
+          (window as any).Capacitor?.isNativePlatform?.() ||
+          ua.includes("ZEBALPHA_ANDROID_APP") ||
+          ua.includes("Capacitor") ||
+          window.location.search.includes("view=app")
+        );
+        const langDone = window.localStorage.getItem("zebalpha_onboarding_language_completed") === "true";
+        const guest = window.localStorage.getItem("zebalpha_onboarding_guest_mode") === "true";
+        const fullDone = window.localStorage.getItem("zebalpha_onboarding_completed") === "true";
+        return isNative && (!langDone || (!fullDone && !guest));
+      } catch (e) {}
+    }
+    return false;
+  });
+  const [step, setStep] = useState<OnboardingStep>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const langDone = window.localStorage.getItem("zebalpha_onboarding_language_completed") === "true";
+        return langDone ? "login" : "language";
+      } catch (e) {}
+    }
+    return "language";
+  });
 
   // Auth form states
   const [email, setEmail] = useState("");
@@ -52,10 +78,24 @@ export function AndroidOnboardingManager() {
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
+  // Clean up initial zero-flash blocker when onboarding is resolved/closed
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (!isOpen || !isNativeApp) {
+        document.documentElement.classList.remove("zebalpha-onboarding-pending");
+      }
+    }
+  }, [isOpen, isNativeApp]);
+
   // Determine initial onboarding state
   useEffect(() => {
     setMounted(true);
-    if (!isNativeApp) return;
+    if (!isNativeApp) {
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.remove("zebalpha-onboarding-pending");
+      }
+      return;
+    }
 
     // 1. If language onboarding has never been completed: Show Language Screen (Step 1)
     if (!onboardingLanguageCompleted) {
@@ -67,12 +107,18 @@ export function AndroidOnboardingManager() {
     // 2. If user is authenticated: Home directly
     if (user) {
       setIsOpen(false);
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.remove("zebalpha-onboarding-pending");
+      }
       return;
     }
 
     // 3. If user previously chose Skip: Allow guest home browsing
     if (isGuestMode) {
       setIsOpen(false);
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.remove("zebalpha-onboarding-pending");
+      }
       return;
     }
 
@@ -146,6 +192,9 @@ export function AndroidOnboardingManager() {
     setGuestMode(true);
     setStatusMessage("");
     setIsOpen(false);
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.remove("zebalpha-onboarding-pending");
+    }
   };
 
   // Step 1: Language Continue
@@ -366,6 +415,9 @@ export function AndroidOnboardingManager() {
     setOnboardingCompleted(true);
     setGuestMode(false);
     setIsOpen(false);
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.remove("zebalpha-onboarding-pending");
+    }
   };
 
   // --- PROGRESS BAR HELPER ---
