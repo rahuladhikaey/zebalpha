@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   Trash2,
@@ -11,8 +11,14 @@ import {
   EyeOff,
   Edit2,
   Check,
-  AlertCircle
+  AlertCircle,
+  FolderTree,
+  Tag,
+  Link2,
+  Layers,
+  ArrowUpRight
 } from "lucide-react";
+import { DYNAMIC_CATEGORY_CATALOG } from "@/shared/constants/productAttributeEngine";
 
 export interface CuratedCollectionRecord {
   id: string | number;
@@ -36,6 +42,12 @@ export default function CuratedCollectionsView() {
   const [collections, setCollections] = useState<CuratedCollectionRecord[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Category & Subcategory Hierarchy State
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [selectedMainCatId, setSelectedMainCatId] = useState<string>("");
+  const [selectedSubcatId, setSelectedSubcatId] = useState<string>("");
 
   // Form State
   const [editingId, setEditingId] = useState<string | number | null>(null);
@@ -79,9 +91,119 @@ export default function CuratedCollectionsView() {
     }
   };
 
+  const fetchCategoryHierarchy = async () => {
+    setLoadingCategories(true);
+    try {
+      const res = await fetch("/api/admin/categories?include_inactive=true");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        setCategories(json.data);
+      } else {
+        // Direct Supabase client fallback
+        const { supabase } = await import("@shared/utils/supabaseClient");
+        const { data: dbCats } = await supabase
+          .from("categories")
+          .select("id, name, slug, description, parent_id, is_active, display_order")
+          .order("display_order", { ascending: true })
+          .order("name", { ascending: true });
+        if (dbCats && dbCats.length > 0) {
+          setCategories(dbCats);
+        }
+      }
+    } catch (err) {
+      console.warn("Notice loading categories in CuratedCollectionsView:", err);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
   useEffect(() => {
     fetchCollections();
+    fetchCategoryHierarchy();
   }, []);
+
+  // Main Categories: categories where parent_id is null/empty
+  const mainCategoriesList = useMemo(() => {
+    const fromDb = categories
+      .filter((c) => !c.parent_id)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+
+    if (fromDb.length > 0) return fromDb;
+
+    // Fallback to DYNAMIC_CATEGORY_CATALOG if DB has no main categories
+    return DYNAMIC_CATEGORY_CATALOG.map((dc) => ({
+      id: dc.id,
+      name: dc.name,
+      slug: dc.id,
+      isCatalog: true,
+    }));
+  }, [categories]);
+
+  // Subcategories available under the selected Main Category
+  const availableSubcategories = useMemo(() => {
+    if (!selectedMainCatId) return [];
+
+    // 1. Direct DB subcategories where parent_id matches selectedMainCatId
+    const dbSubcats = categories.filter((c) => String(c.parent_id) === String(selectedMainCatId));
+
+    // 2. Also check if selectedMainCat matches DYNAMIC_CATEGORY_CATALOG
+    const selectedMainObj = categories.find((c) => String(c.id) === String(selectedMainCatId));
+    const mainName = selectedMainObj?.name || selectedMainCatId;
+
+    const catalogMain = DYNAMIC_CATEGORY_CATALOG.find(
+      (dc) => dc.name.toLowerCase() === mainName.toLowerCase() || dc.id === selectedMainCatId
+    );
+
+    // If DB has subcategories, prioritize and return them
+    if (dbSubcats.length > 0) {
+      return dbSubcats;
+    }
+
+    // Fallback to catalog subcategories if no DB subcategories are defined yet
+    if (catalogMain && catalogMain.subcategories) {
+      const catalogSubs: any[] = [];
+      for (const sub of catalogMain.subcategories) {
+        catalogSubs.push({
+          id: sub.name,
+          name: sub.name,
+          slug: sub.id,
+          isCatalog: true,
+        });
+      }
+      return catalogSubs;
+    }
+
+    return [];
+  }, [categories, selectedMainCatId]);
+
+  const handleMainCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const mainId = e.target.value;
+    setSelectedMainCatId(mainId);
+    setSelectedSubcatId("");
+  };
+
+  const handleSubcategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const subId = e.target.value;
+    setSelectedSubcatId(subId);
+
+    const subObj = availableSubcategories.find((s) => String(s.id) === String(subId));
+    if (subObj) {
+      // Auto-populate Title
+      setTitle(subObj.name.toUpperCase());
+
+      // Auto-generate Slug
+      const generatedSlug = subObj.slug || subObj.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      setSlug(generatedSlug);
+
+      // Auto-generate target URL pointing directly to this subcategory
+      const targetParam = subObj.id ? subObj.id : encodeURIComponent(subObj.name);
+      setLinkUrl(`/products?category=${targetParam}`);
+
+      if (subObj.description && !shortDescription) {
+        setShortDescription(subObj.description);
+      }
+    }
+  };
 
   // Strict Client-Side 95 KB & Type Validation BEFORE Upload (Deferred Storage Upload)
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -323,6 +445,41 @@ export default function CuratedCollectionsView() {
       const parts = col.image_url.split("homepage/curated-collections/");
       setPreviousFilePath(parts[1] ? `homepage/curated-collections/${parts[1]}` : null);
     }
+
+    // Preselect linked Main Category and Subcategory
+    let matchedSubId = "";
+    let matchedParentId = "";
+
+    if (col.link_url) {
+      const match = col.link_url.match(/category=([^&]+)/);
+      const targetParam = match ? decodeURIComponent(match[1]) : "";
+      if (targetParam) {
+        const found = categories.find(
+          (c) =>
+            String(c.id).toLowerCase() === targetParam.toLowerCase() ||
+            c.slug?.toLowerCase() === targetParam.toLowerCase() ||
+            c.name.toLowerCase() === targetParam.toLowerCase()
+        );
+        if (found) {
+          matchedSubId = String(found.id);
+          matchedParentId = found.parent_id || "";
+        }
+      }
+    }
+
+    if (!matchedSubId && col.title) {
+      const found = categories.find(
+        (c) => c.name.toLowerCase() === col.title.toLowerCase()
+      );
+      if (found) {
+        matchedSubId = String(found.id);
+        matchedParentId = found.parent_id || "";
+      }
+    }
+
+    setSelectedMainCatId(matchedParentId);
+    setSelectedSubcatId(matchedSubId);
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -343,6 +500,8 @@ export default function CuratedCollectionsView() {
     setUploadedFileInfo(null);
     setPreviousImageUrl(null);
     setPreviousFilePath(null);
+    setSelectedMainCatId("");
+    setSelectedSubcatId("");
   };
 
   return (
@@ -491,9 +650,81 @@ export default function CuratedCollectionsView() {
               )}
             </div>
 
+            {/* Category & Subcategory Selection (From Admin Created Categories) */}
+            <div className="space-y-3 p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-black uppercase text-violet-300">
+                  <FolderTree className="w-3.5 h-3.5 text-violet-400" />
+                  <span>Link to Admin Subcategory</span>
+                </div>
+                {loadingCategories && (
+                  <span className="text-[10px] text-zinc-500 animate-pulse">Loading categories...</span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* 1. Main Category */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-zinc-400">1. Select Main Category *</label>
+                  <select
+                    value={selectedMainCatId}
+                    onChange={handleMainCategoryChange}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-xs font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer"
+                  >
+                    <option value="">-- Choose Category --</option>
+                    {mainCategoriesList.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Subcategory */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-zinc-400">2. Select Subcategory *</label>
+                  <select
+                    value={selectedSubcatId}
+                    onChange={handleSubcategoryChange}
+                    disabled={!selectedMainCatId || availableSubcategories.length === 0}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-xs font-bold text-white focus:outline-none focus:border-violet-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <option value="">
+                      {!selectedMainCatId
+                        ? "-- Choose Main Cat First --"
+                        : availableSubcategories.length === 0
+                        ? "-- No Subcategories Found --"
+                        : "-- Choose Subcategory --"}
+                    </option>
+                    {availableSubcategories.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.name} {sub.product_count !== undefined ? `(${sub.product_count})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {selectedSubcatId && (
+                <div className="flex items-center gap-1.5 pt-1 text-[11px] font-mono text-emerald-400">
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">
+                    Linked: <strong>{availableSubcategories.find(s => String(s.id) === String(selectedSubcatId))?.name}</strong> (Clicking this collection will show all products of this subcategory)
+                  </span>
+                </div>
+              )}
+            </div>
+
             {/* Collection Title */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-zinc-300">Collection Title *</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-zinc-300">Collection Title *</label>
+                {selectedSubcatId && (
+                  <span className="text-[10px] text-zinc-500 font-normal">
+                    (Auto-filled from subcategory, editable)
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 required
@@ -501,6 +732,24 @@ export default function CuratedCollectionsView() {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. OVERSIZED STREETWEAR TEES"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-extrabold uppercase text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
+              />
+            </div>
+
+            {/* Destination Link URL */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-zinc-400 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Link2 className="w-3 h-3 text-zinc-500" />
+                  Destination Link URL
+                </span>
+                <span className="text-[10px] font-mono text-violet-400">Auto-targeted</span>
+              </label>
+              <input
+                type="text"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="/products?category=..."
+                className="w-full px-3.5 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-[11px] font-mono text-violet-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
               />
             </div>
 
@@ -597,9 +846,10 @@ export default function CuratedCollectionsView() {
                     {col.short_description && (
                       <p className="text-[10px] text-zinc-400 truncate mt-0.5">{col.short_description}</p>
                     )}
-                    <span className="font-mono text-[9px] text-zinc-500 truncate block mt-0.5">
-                      {col.link_url || `/products?category=${col.title}`}
-                    </span>
+                    <div className="flex items-center gap-1 mt-1.5 text-[9px] font-mono text-violet-300 truncate bg-violet-950/40 border border-violet-900/40 px-2 py-0.5 rounded-lg">
+                      <Link2 className="w-2.5 h-2.5 shrink-0 text-violet-400" />
+                      <span className="truncate">{col.link_url || `/products?category=${col.title}`}</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-zinc-900">

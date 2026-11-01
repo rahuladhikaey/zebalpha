@@ -456,12 +456,15 @@ export function buildCategoryFilterClauses(categoryInput: string): string[] {
  */
 export function doesProductMatchCategory(product: any, categoryNameOrId: string | number): boolean {
   if (!product || !categoryNameOrId) return true;
-  const target = String(categoryNameOrId).toLowerCase().trim().replace(/-/g, " ");
-  if (!target || target === "all") return true;
+  const rawTarget = String(categoryNameOrId).toLowerCase().trim();
+  if (!rawTarget || rawTarget === "all") return true;
 
-  // Direct category_id or subcategory_id match
+  // Direct category_id or subcategory_id match (preserving UUID hyphens)
   const pCatId = String(product.category_id || "").toLowerCase().trim();
   const pSubcatId = String(product.subcategory_id || "").toLowerCase().trim();
+  if ((pCatId && pCatId === rawTarget) || (pSubcatId && pSubcatId === rawTarget)) return true;
+
+  const target = rawTarget.replace(/-/g, " ");
   if ((pCatId && pCatId === target) || (pSubcatId && pSubcatId === target)) return true;
 
   const pName = (product.name || "").toLowerCase();
@@ -765,7 +768,15 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
 
       if (isUuid) {
         let catIds = [cat];
+        let catName = "";
         try {
+          const { data: catRecord } = await supabase
+            .from("categories")
+            .select("id, name")
+            .eq("id", cat)
+            .maybeSingle();
+          if (catRecord?.name) catName = catRecord.name.trim();
+
           const { data: subcats } = await supabase
             .from("categories")
             .select("id")
@@ -776,7 +787,11 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
         } catch (_) {}
 
         if (catIds.length === 1) {
-          query = query.or(`category_id.eq.${cat},subcategory_id.eq.${cat}`);
+          if (catName) {
+            query = query.or(`category_id.eq.${cat},subcategory_id.eq.${cat},name.ilike.%${catName}%,category.ilike.%${catName}%`);
+          } else {
+            query = query.or(`category_id.eq.${cat},subcategory_id.eq.${cat}`);
+          }
         } else {
           query = query.or(`category_id.in.(${catIds.join(",")}),subcategory_id.in.(${catIds.join(",")})`);
         }
