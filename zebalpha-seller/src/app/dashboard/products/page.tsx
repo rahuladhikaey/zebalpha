@@ -40,6 +40,7 @@ export default function SellerProducts() {
 
   // Multi-step Catalog Wizard state
   const [isWizardModalOpen, setIsWizardModalOpen] = useState(false);
+  const [isNewDropInitial, setIsNewDropInitial] = useState(false);
 
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,18 +77,22 @@ export default function SellerProducts() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    if (uploadedImages.length + files.length > 4) {
-      setImageError("❌ You can upload a maximum of 4 images.");
+    const maxAllowed = form.is_new_drop ? 2 : 4;
+    if (uploadedImages.length + files.length > maxAllowed) {
+      setImageError(form.is_new_drop ? "❌ Maximum 2 photos allowed for New Drop." : "❌ You can upload a maximum of 4 images.");
       return;
     }
+
+    const MAX_ALLOWED_BYTES = form.is_new_drop ? 80 * 1024 : 150 * 1024;
+    const limitLabel = form.is_new_drop ? "80 KB" : "150 KB";
 
     const processedImages: string[] = [];
 
     for (const file of files) {
       try {
-        const { blob } = await compressImageTo100KB(file, 150 * 1024);
-        if (blob.size > 150 * 1024) {
-          setImageError(`❌ Image "${file.name}" exceeds 150 KB limit (${(blob.size / 1024).toFixed(1)} KB).`);
+        const { blob } = await compressImageTo100KB(file, MAX_ALLOWED_BYTES);
+        if (blob.size > MAX_ALLOWED_BYTES) {
+          setImageError(`❌ Image "${file.name}" exceeds ${limitLabel} limit (${(blob.size / 1024).toFixed(1)} KB).`);
           return;
         }
 
@@ -353,6 +358,8 @@ export default function SellerProducts() {
       alert("🚫 Your seller account is suspended by Admin. Product modification is disabled.");
       return;
     }
+    const isDrop = Boolean(product.is_new_drop || product.status === "COMING_SOON" || product.tier === "DROP");
+    setIsNewDropInitial(isDrop);
     try {
       // Fetch complete fresh record to guarantee all images, packages, measurements, and specifications are loaded
       const { data: fullProduct } = await supabase
@@ -723,6 +730,18 @@ export default function SellerProducts() {
           <button
             onClick={() => {
               setEditingProduct(null);
+              setIsNewDropInitial(true);
+              setIsWizardModalOpen(true);
+            }}
+            disabled={accountStatus.toLowerCase() === "suspended"}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-black bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <span className="text-sm">⚡</span> Add New Drop
+          </button>
+          <button
+            onClick={() => {
+              setEditingProduct(null);
+              setIsNewDropInitial(false);
               setIsWizardModalOpen(true);
             }}
             disabled={accountStatus.toLowerCase() === "suspended"}
@@ -867,11 +886,12 @@ export default function SellerProducts() {
           <button
             onClick={() => {
               setEditingProduct(null);
+              setIsNewDropInitial(activeTab === "DROPS");
               setIsWizardModalOpen(true);
             }}
             className="mt-6 rounded-2xl border border-white/20 px-5 py-3 text-xs font-black text-white hover:bg-white/10 transition-all cursor-pointer"
           >
-            {activeTab === "DROPS" ? "Add New Drop Now" : "Add Product Now"}
+            {activeTab === "DROPS" ? "⚡ Add New Drop Now" : "Add Product Now"}
           </button>
         </div>
       ) : (
@@ -964,9 +984,17 @@ export default function SellerProducts() {
                       {(product as any).categories?.name || "General"}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-black text-foreground text-base">₹{product.price}</div>
-                      {product.mrp && product.mrp > product.price && (
-                        <div className="text-[11px] font-bold text-text-muted line-through">₹{product.mrp}</div>
+                      {product.is_new_drop && (!product.price || Number(product.price) === 0) ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30">
+                          <span>⚡</span> Drop Teaser
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-black text-foreground text-base">₹{product.price}</div>
+                          {product.mrp && product.mrp > product.price && (
+                            <div className="text-[11px] font-bold text-text-muted line-through">₹{product.mrp}</div>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -1054,13 +1082,15 @@ export default function SellerProducts() {
         </div>
       )}
 
-      {/* 4-Step Seller Catalog Upload Wizard Modal */}
+      {/* Seller Catalog Upload Wizard Modal */}
       <CatalogUploadWizardModal
         isOpen={isWizardModalOpen}
         onClose={() => {
           setIsWizardModalOpen(false);
           setEditingProduct(null);
+          setIsNewDropInitial(false);
         }}
+        initialIsNewDrop={isNewDropInitial}
         sellerId={sellerId || userId}
         sellerProfile={sellerProfile}
         categories={categories}

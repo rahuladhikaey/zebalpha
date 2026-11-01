@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, CheckCircle2, ChevronRight, ChevronLeft, UploadCloud, AlertTriangle } from "lucide-react";
+import { X, CheckCircle2, ChevronRight, ChevronLeft, UploadCloud, AlertTriangle, Flame, Sparkles, Loader2 } from "lucide-react";
 import Step1AddProduct from "./Step1AddProduct";
 import Step2BasicDetails from "./Step2BasicDetails";
 import Step3AdditionalDetails from "./Step3AdditionalDetails";
@@ -24,6 +24,7 @@ export interface CatalogUploadWizardModalProps {
   categories: Category[];
   editingProduct?: any | null;
   onSuccess: () => void;
+  initialIsNewDrop?: boolean;
 }
 
 export interface MasterCatalogFormState {
@@ -178,6 +179,7 @@ export default function CatalogUploadWizardModal({
   categories,
   editingProduct,
   onSuccess,
+  initialIsNewDrop = false,
 }: CatalogUploadWizardModalProps): React.JSX.Element | null {
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<MasterCatalogFormState>(INITIAL_FORM_STATE);
@@ -593,6 +595,8 @@ export default function CatalogUploadWizardModal({
     } else {
       setForm({
         ...INITIAL_FORM_STATE,
+        is_new_drop: Boolean(initialIsNewDrop),
+        tier: initialIsNewDrop ? "DROP" : "STANDARD",
         manufacturer_same_as_pickup: true,
         manufacturer_name: initialSellerOrigin?.name || sellerProfile?.business_name || sellerProfile?.store_name || "",
         manufacturer_address: initialSellerOrigin?.address || sellerProfile?.pickup_address || sellerProfile?.warehouse_address || "",
@@ -603,7 +607,7 @@ export default function CatalogUploadWizardModal({
         packer_pincode: initialSellerOrigin?.pincode || sellerProfile?.pincode || "",
       });
     }
-  }, [editingProduct, isOpen]);
+  }, [editingProduct, isOpen, initialIsNewDrop]);
 
   // Keep manufacturer details synchronized with seller origin info whenever it loads or seller navigates to Step 2
   React.useEffect(() => {
@@ -683,6 +687,27 @@ export default function CatalogUploadWizardModal({
 
   const validateStep = (step: number): boolean => {
     setErrorMsg("");
+
+    // Fast validation for New Drop teaser
+    if (form.is_new_drop) {
+      if (!form.name.trim()) {
+        setErrorMsg("Please enter a drop title / product name.");
+        scrollModalToTop();
+        return false;
+      }
+      if (form.images.length === 0) {
+        setErrorMsg("Please upload 2 photos for this New Drop teaser (Cover & Showcase).");
+        scrollModalToTop();
+        return false;
+      }
+      if (!form.target_drop_date || !form.target_drop_date.trim()) {
+        setErrorMsg("Please select a target launch / drop date.");
+        scrollModalToTop();
+        return false;
+      }
+      return true;
+    }
+
     if (step === 1) {
       if (!form.name.trim()) {
         setErrorMsg("Please enter a product title/name.");
@@ -784,6 +809,26 @@ export default function CatalogUploadWizardModal({
 
   const validateAllSteps = (): boolean => {
     setErrorMsg("");
+
+    // Fast validation for New Drop teaser: only title, 2 pics, and launch date
+    if (form.is_new_drop) {
+      if (!form.name.trim()) {
+        setErrorMsg("Please enter a drop title / product name.");
+        scrollModalToTop();
+        return false;
+      }
+      if (form.images.length === 0) {
+        setErrorMsg("Please upload 2 photos for your New Drop teaser (Cover & Showcase).");
+        scrollModalToTop();
+        return false;
+      }
+      if (!form.target_drop_date || !form.target_drop_date.trim()) {
+        setErrorMsg("Please select a target launch / drop date.");
+        scrollModalToTop();
+        return false;
+      }
+      return true;
+    }
 
     // Step 1 check
     if (!form.name.trim()) {
@@ -1217,10 +1262,14 @@ export default function CatalogUploadWizardModal({
         typeof id === "string" &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id).trim());
 
-      if (!isValidUuid(form.category_id)) {
+      let primaryCatId: string | null = null;
+      if (isValidUuid(form.category_id)) {
+        primaryCatId = String(form.category_id).trim();
+      } else if (categories && categories.length > 0 && isValidUuid(categories[0].id)) {
+        primaryCatId = String(categories[0].id).trim();
+      } else if (!form.is_new_drop) {
         throw new Error("Please select an approved Main Category for your product in Step 1 before publishing.");
       }
-      const primaryCatId = String(form.category_id).trim();
 
       let resolvedSubcatId: string | null = null;
       if (isValidUuid(form.subcategory_id)) {
@@ -1253,11 +1302,13 @@ export default function CatalogUploadWizardModal({
       ) || sortedVariants[0];
 
       // Synchronize parent product price and MRP strictly with the primary default variant
-      // to ensure 100% mathematical consistency with the storefront catalog cards & PDP
       let effectivePrice = 0;
       let effectiveMrp = 0;
 
-      if (defaultVariant && parseFloat(defaultVariant.price) > 0) {
+      if (form.is_new_drop) {
+        effectivePrice = parseFloat(form.price) || 0;
+        effectiveMrp = parseFloat(form.mrp) || effectivePrice;
+      } else if (defaultVariant && parseFloat(defaultVariant.price) > 0) {
         effectivePrice = parseFloat(defaultVariant.price);
         effectiveMrp = parseFloat(defaultVariant.mrp) || effectivePrice;
       } else if (hasSizeDetails && form.size_details[0] && parseFloat(form.size_details[0].selling_price) > 0) {
@@ -1271,15 +1322,37 @@ export default function CatalogUploadWizardModal({
       if (effectiveMrp < effectivePrice) {
         effectiveMrp = effectivePrice;
       }
-      const defaultColorCover = defaultVariant?.image_url || defaultVariant?.gallery?.[0] || coverImageUrl;
-      const defaultColorGallery = defaultVariant?.gallery && defaultVariant.gallery.length > 0
-        ? defaultVariant.gallery
-        : uploadedImagesList;
 
-      const finalProductCover = defaultColorCover || coverImageUrl;
+      const defaultColorGallery: string[] = Array.isArray(defaultVariant?.gallery) && defaultVariant.gallery.length > 0
+        ? defaultVariant.gallery
+        : (defaultVariant?.image_url ? [defaultVariant.image_url] : []);
+
+      const finalImagesList = form.is_new_drop
+        ? uploadedImagesList.slice(0, 2)
+        : (defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList);
+      const defaultColorCover = defaultVariant?.image_url || defaultVariant?.gallery?.[0] || coverImageUrl;
+      const finalProductCover = form.is_new_drop
+        ? (finalImagesList[0] || coverImageUrl)
+        : (defaultColorCover || coverImageUrl);
 
       // Build packages JSON array for multi-color and multi-size matrix
-      const computedPackages = hasVariants
+      const computedPackages = form.is_new_drop
+        ? [
+            {
+              id: `pkg_drop_${Date.now()}`,
+              name: "New Drop Teaser",
+              color: "Standard",
+              size: "Free Size",
+              price: 0,
+              mrp: 0,
+              stock: 0,
+              sku: form.name ? `DROP_${form.name.toUpperCase().replace(/[^A-Z0-9]/g, "_").slice(0, 20)}` : "DROP_TEASER",
+              image_url: finalProductCover,
+              gallery: finalImagesList,
+              isBestSeller: true,
+            }
+          ]
+        : hasVariants
         ? sortedVariants.map((v, idx) => {
             const isMain = (v.color || "").trim().toLowerCase() === activeDefaultCol.toLowerCase();
             const isStandard = (v.color || "").trim().toLowerCase() === "standard" || (v.color || "").trim().toLowerCase() === "default";
@@ -1362,7 +1435,7 @@ export default function CatalogUploadWizardModal({
         category_id: primaryCatId,
         subcategory_id: resolvedSubcatId,
         image_url: finalProductCover,
-        images: defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList,
+        images: form.is_new_drop ? finalImagesList : (defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList),
         default_color: activeDefaultCol,
         main_color: activeDefaultCol,
         mainColorId: activeDefaultCol,
@@ -1434,8 +1507,8 @@ export default function CatalogUploadWizardModal({
           mrp: effectiveMrp,
           category_id: primaryCatId,
           subcategory_id: resolvedSubcatId,
-          image_url: coverImageUrl,
-          images: uploadedImagesList,
+          image_url: finalProductCover,
+          images: form.is_new_drop ? finalImagesList : uploadedImagesList,
           specifications: specificationsData,
           brand: form.brand || "zebalpha",
           stock: calculatedStock,
@@ -1487,10 +1560,25 @@ export default function CatalogUploadWizardModal({
         <div className="p-4 md:p-5 border-b border-[#27272a] flex items-center justify-between bg-[#141418]">
           <div>
             <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
-              <UploadCloud className="w-5 h-5 text-emerald-400" />
-              Upload Product Catalog
+              {form.is_new_drop ? (
+                <>
+                  <span className="w-6 h-6 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center text-sm font-black">
+                    ⚡
+                  </span>
+                  Add New Drop (Teaser Launch)
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="w-5 h-5 text-emerald-400" />
+                  Upload Product Catalog
+                </>
+              )}
             </h2>
-            <p className="text-xs text-zinc-400">Step {currentStep} of 4: {STEPS[currentStep - 1].desc}</p>
+            <p className="text-xs text-zinc-400">
+              {form.is_new_drop
+                ? "Fast Drop Studio: 2 photos, title & launch date only. No sizes, price, or complex fields required."
+                : `Step ${currentStep} of 4: ${STEPS[currentStep - 1].desc}`}
+            </p>
           </div>
 
           <button
@@ -1502,40 +1590,57 @@ export default function CatalogUploadWizardModal({
         </div>
 
         {/* Stepper Progress Indicator */}
-        <div className="grid grid-cols-4 border-b border-[#27272a] bg-[#050505]">
-          {STEPS.map((s) => {
-            const isActive = currentStep === s.id;
-            const isCompleted = currentStep > s.id;
-            return (
-              <div
-                key={s.id}
-                onClick={() => isCompleted && setCurrentStep(s.id)}
-                className={`p-3 md:p-4 text-center cursor-pointer transition-all border-b-2 ${
-                  isActive
-                    ? "border-white bg-[#141418]"
-                    : isCompleted
-                    ? "border-emerald-500 bg-[#0d0d10]"
-                    : "border-transparent opacity-50"
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <span
-                    className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
-                      isCompleted
-                        ? "bg-emerald-500 text-black"
-                        : isActive
-                        ? "bg-white text-black"
-                        : "bg-[#27272a] text-zinc-400"
-                    }`}
-                  >
-                    {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : s.id}
-                  </span>
-                  <span className="hidden md:inline text-xs font-bold text-zinc-200">{s.title}</span>
+        {form.is_new_drop ? (
+          <div className="px-5 py-3 border-b border-[#27272a] bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                ⚡ 1-Step Teaser Upload
+              </span>
+              <span className="text-xs text-zinc-300 font-medium hidden sm:inline">
+                Price, MRP, Sizes, Categories &amp; Variants are automatically skipped.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+              <span>Status: COMING SOON</span>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-4 border-b border-[#27272a] bg-[#050505]">
+            {STEPS.map((s) => {
+              const isActive = currentStep === s.id;
+              const isCompleted = currentStep > s.id;
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => isCompleted && setCurrentStep(s.id)}
+                  className={`p-3 md:p-4 text-center cursor-pointer transition-all border-b-2 ${
+                    isActive
+                      ? "border-white bg-[#141418]"
+                      : isCompleted
+                      ? "border-emerald-500 bg-[#0d0d10]"
+                      : "border-transparent opacity-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span
+                      className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
+                        isCompleted
+                          ? "bg-emerald-500 text-black"
+                          : isActive
+                          ? "bg-white text-black"
+                          : "bg-[#27272a] text-zinc-400"
+                      }`}
+                    >
+                      {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : s.id}
+                    </span>
+                    <span className="hidden md:inline text-xs font-bold text-zinc-200">{s.title}</span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Modal Body / Active Step */}
         <div ref={modalBodyRef} className="p-4 md:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-4">
@@ -1565,73 +1670,104 @@ export default function CatalogUploadWizardModal({
 
         {/* Navigation Footer */}
         <div className="p-4 border-t border-[#27272a] bg-[#141418] flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
-            <button
-              type="button"
-              onClick={handleBack}
-              disabled={currentStep === 1 || submitting}
-              className={`py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                currentStep === 1
-                  ? "opacity-30 cursor-not-allowed text-zinc-500 bg-[#18181b]"
-                  : "bg-[#18181b] text-white hover:bg-zinc-800 border border-[#27272a] cursor-pointer"
-              }`}
-            >
-              <ChevronLeft className="w-4 h-4" /> Back
-            </button>
-
-            {errorMsg && (
-              <div className="sm:hidden text-xs text-red-400 font-medium flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-2.5 py-1.5 rounded-lg max-w-[200px] truncate">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400" />
-                <span className="truncate">{errorMsg}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            {errorMsg && (
-              <div className="hidden sm:flex text-xs text-red-400 font-medium items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg max-w-sm truncate">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400" />
-                <span className="truncate">{errorMsg}</span>
-              </div>
-            )}
-
-            {form.is_new_drop && currentStep < 4 && (
+          {form.is_new_drop ? (
+            <>
               <button
                 type="button"
-                onClick={handleSubmitCatalog}
+                onClick={onClose}
                 disabled={submitting}
-                className="py-2.5 px-4 rounded-xl bg-orange-500 text-black hover:bg-orange-400 text-xs font-bold shadow-lg shadow-orange-500/20 flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                className="py-2.5 px-4 rounded-xl text-xs font-semibold bg-[#18181b] text-zinc-300 hover:text-white hover:bg-zinc-800 border border-[#27272a] transition-all cursor-pointer w-full sm:w-auto"
               >
-                {submitting ? "Publishing..." : "⚡ Publish New Drop Now"}
+                Cancel
               </button>
-            )}
 
-            {currentStep < 4 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="py-2.5 px-6 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-bold shadow-lg shadow-white/10 flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmitCatalog}
-                disabled={submitting}
-                className="py-2.5 px-6 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {submitting ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    {uploadStatus || "Uploading Catalog..."}
-                  </>
-                ) : (
-                  "Submit & Publish Catalog"
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                {errorMsg && (
+                  <div className="text-xs text-red-400 font-medium flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg max-w-sm truncate">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400" />
+                    <span className="truncate">{errorMsg}</span>
+                  </div>
                 )}
-              </button>
-            )}
-          </div>
+
+                <button
+                  type="button"
+                  onClick={handleSubmitCatalog}
+                  disabled={submitting}
+                  className="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-orange-500 text-black hover:bg-orange-400 text-xs font-bold shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      {uploadStatus || "Publishing Drop..."}
+                    </>
+                  ) : (
+                    <>
+                      <span>⚡ Publish New Drop Now</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  disabled={currentStep === 1 || submitting}
+                  className={`py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                    currentStep === 1
+                      ? "opacity-30 cursor-not-allowed text-zinc-500 bg-[#18181b]"
+                      : "bg-[#18181b] text-white hover:bg-zinc-800 border border-[#27272a] cursor-pointer"
+                  }`}
+                >
+                  <ChevronLeft className="w-4 h-4" /> Back
+                </button>
+
+                {errorMsg && (
+                  <div className="sm:hidden text-xs text-red-400 font-medium flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-2.5 py-1.5 rounded-lg max-w-[200px] truncate">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400" />
+                    <span className="truncate">{errorMsg}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                {errorMsg && (
+                  <div className="hidden sm:flex text-xs text-red-400 font-medium items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg max-w-sm truncate">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400" />
+                    <span className="truncate">{errorMsg}</span>
+                  </div>
+                )}
+
+                {currentStep < 4 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="py-2.5 px-6 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-bold shadow-lg shadow-white/10 flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmitCatalog}
+                    disabled={submitting}
+                    className="py-2.5 px-6 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {submitting ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        {uploadStatus || "Uploading Catalog..."}
+                      </>
+                    ) : (
+                      "Submit & Publish Catalog"
+                    )}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

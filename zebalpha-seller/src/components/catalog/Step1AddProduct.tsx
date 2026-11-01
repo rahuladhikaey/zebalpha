@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2, Tag } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2, Tag, Flame, Calendar, Sparkles } from "lucide-react";
 import type { Category } from "@shared/types";
 import {
   DYNAMIC_CATEGORY_CATALOG,
@@ -269,18 +269,24 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    if (formData.images.length + files.length > 4) {
-      setImageError("Maximum 4 images allowed for catalog listing.");
+    const maxAllowedImages = formData.is_new_drop ? 2 : 4;
+    if (formData.images.length + files.length > maxAllowedImages) {
+      setImageError(
+        formData.is_new_drop
+          ? "❌ Maximum 2 photos allowed for New Drop teaser."
+          : "❌ Maximum 4 images allowed for catalog listing."
+      );
       return;
     }
 
-    const MAX_ALLOWED_BYTES = 150 * 1024; // Strictly 150 KB (153,600 bytes)
+    const MAX_ALLOWED_BYTES = formData.is_new_drop ? 80 * 1024 : 150 * 1024; // 80 KB for New Drop, 150 KB for standard
+    const limitLabel = formData.is_new_drop ? "80 KB" : "150 KB";
 
-    // 1. Strict raw file size check: completely reject any file over 150 KB
+    // 1. Strict raw file size check: completely reject any file over limit
     for (const file of files) {
       if (file.size > MAX_ALLOWED_BYTES) {
         setImageError(
-          `❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is 150 KB. Please select an image under 150 KB.`
+          `❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is ${limitLabel}. Please select an image under ${limitLabel}.`
         );
         e.target.value = "";
         return;
@@ -293,7 +299,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
       try {
         const { blob } = await compressImageTo100KB(file, MAX_ALLOWED_BYTES);
         if (blob.size > MAX_ALLOWED_BYTES) {
-          setImageError(`❌ Image "${file.name}" exceeds 150 KB (${(blob.size / 1024).toFixed(1)} KB). Please choose a smaller image.`);
+          setImageError(`❌ Image "${file.name}" exceeds ${limitLabel} (${(blob.size / 1024).toFixed(1)} KB). Please choose a smaller image under ${limitLabel}.`);
           e.target.value = "";
           return;
         }
@@ -310,10 +316,9 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
       }
     }
 
-
     if (processedImages.length > 0) {
       onChange({
-        images: [...formData.images, ...processedImages].slice(0, 4),
+        images: [...formData.images, ...processedImages].slice(0, maxAllowedImages),
       });
     }
   };
@@ -394,8 +399,248 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         </div>
       </div>
 
-      {/* Centralized Database-Driven Category & Subcategory Selection */}
-      <div className="space-y-4 p-5 rounded-2xl bg-[#141418] border border-[#27272a]">
+      {formData.is_new_drop ? (
+        /* ================= ⚡ NEW DROP TEASER MODE (ONLY 2 PICS, TITLE, LAUNCH DATE) ================= */
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Informational banner */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent border border-orange-500/30 flex items-start gap-3 shadow-lg shadow-orange-500/5">
+            <div className="p-2.5 rounded-xl bg-orange-500/20 text-orange-400 shrink-0 mt-0.5">
+              <Flame className="w-5 h-5 text-orange-400 fill-orange-400" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h4 className="text-sm font-black text-white flex items-center gap-2">
+                  <span>⚡ New Drop Teaser Launch</span>
+                  <span className="text-[10px] font-bold text-orange-300 bg-orange-500/20 border border-orange-500/30 px-2 py-0.5 rounded-full">
+                    3-Field Fast Upload
+                  </span>
+                </h4>
+                <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  No Sizes or Pricing Required
+                </span>
+              </div>
+              <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                Just upload <strong>2 photos</strong> (Max <strong>80 KB</strong> each), provide the <strong>product title</strong>, and set the <strong>launch date</strong>. Everything else is automated and will feature on <code>/new-drops</code>!
+              </p>
+            </div>
+          </div>
+
+          {/* 1. 2 Pictures Selection */}
+          <div className="space-y-3 p-5 rounded-2xl bg-[#141418] border border-[#27272a]">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <label className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Product Photos</span>
+                  <span className="text-orange-400 font-black">(Select Exactly 2 Pics &bull; Max 80 KB)</span>
+                  <span className="text-red-400">*</span>
+                </label>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Pic 1: Front / Cover Photo • Pic 2: Angle / Showcase Photo (Strictly under 80 KB per photo)
+                </p>
+              </div>
+              <span className="text-xs font-black text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-full">
+                {formData.images.length}/2 Photos Selected
+              </span>
+            </div>
+
+            {imageError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center justify-between gap-2 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {imageError}
+                </span>
+                <a
+                  href="https://imagecompressor.11zon.com/en/compress-webp/compress-webp-to-100kb"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] font-bold text-white bg-red-600 px-2.5 py-1 rounded-lg hover:bg-red-500 transition"
+                >
+                  Compress to 80KB ↗
+                </a>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Slot 1: Cover Photo */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-zinc-300">Pic 1: Cover / Front Photo</span>
+                  {formData.images[0] && (
+                    <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Primary Cover
+                    </span>
+                  )}
+                </div>
+
+                {formData.images[0] ? (
+                  <div className="relative aspect-3/4 rounded-2xl border-2 border-emerald-500/80 overflow-hidden bg-black group shadow-lg">
+                    <img
+                      src={formData.images[0]}
+                      alt="Pic 1 Cover"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-emerald-500 text-black text-[10px] font-black uppercase tracking-wider shadow">
+                      Cover Photo
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeImage(0)}
+                      className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-black/80 text-rose-400 hover:bg-rose-500 hover:text-white transition cursor-pointer"
+                      title="Remove Cover Photo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="aspect-3/4 rounded-2xl border-2 border-dashed border-zinc-700 hover:border-orange-400 bg-zinc-950/60 hover:bg-zinc-900/60 cursor-pointer flex flex-col items-center justify-center gap-2.5 p-4 text-center transition-all group">
+                    <div className="p-3 rounded-full bg-zinc-900 group-hover:bg-orange-500/20 text-zinc-400 group-hover:text-orange-400 transition">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-bold text-white">Select Pic 1 (Cover)</span>
+                    <span className="text-[10px] text-zinc-400">WebP, PNG, JPG (Strictly Max 80KB)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Slot 2: Showcase Photo */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-zinc-300">Pic 2: Showcase / Angle Photo</span>
+                  {formData.images[1] && (
+                    <span className="text-orange-400 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Showcase Angle
+                    </span>
+                  )}
+                </div>
+
+                {formData.images[1] ? (
+                  <div className="relative aspect-3/4 rounded-2xl border-2 border-orange-500/80 overflow-hidden bg-black group shadow-lg">
+                    <img
+                      src={formData.images[1]}
+                      alt="Pic 2 Showcase"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-orange-500 text-black text-[10px] font-black uppercase tracking-wider shadow">
+                      Showcase Photo
+                    </div>
+                    <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const swapped = [formData.images[1], formData.images[0]];
+                          onChange({ images: swapped, front_image_index: 0 });
+                        }}
+                        className="py-1 px-2.5 rounded-lg bg-black/80 hover:bg-white hover:text-black text-[10px] font-bold text-zinc-200 transition"
+                      >
+                        Set as Cover
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeImage(1)}
+                      className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-black/80 text-rose-400 hover:bg-rose-500 hover:text-white transition cursor-pointer"
+                      title="Remove Showcase Photo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="aspect-3/4 rounded-2xl border-2 border-dashed border-zinc-700 hover:border-orange-400 bg-zinc-950/60 hover:bg-zinc-900/60 cursor-pointer flex flex-col items-center justify-center gap-2.5 p-4 text-center transition-all group">
+                    <div className="p-3 rounded-full bg-zinc-900 group-hover:bg-orange-500/20 text-zinc-400 group-hover:text-orange-400 transition">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-bold text-white">Select Pic 2 (Showcase)</span>
+                    <span className="text-[10px] text-zinc-400">WebP, PNG, JPG (Strictly Max 80KB)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Drop Title */}
+          <div className="space-y-2 p-5 rounded-2xl bg-[#141418] border border-[#27272a]">
+            <label className="text-sm font-bold text-white flex items-center gap-1.5">
+              <span>Drop Title / Product Name</span>
+              <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              placeholder="e.g. Acid Wash Heavyweight Oversized Graphic Hoodie"
+              className="w-full p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a] text-white text-sm font-semibold focus:border-orange-400 focus:outline-none transition-colors"
+            />
+            <p className="text-[11px] text-zinc-400">
+              The headline that will be showcased on <code>/new-drops</code> hype cards and customer launch alerts.
+            </p>
+          </div>
+
+          {/* 3. Launch Date */}
+          <div className="space-y-2 p-5 rounded-2xl bg-[#141418] border border-[#27272a]">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-white flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-orange-400" />
+                <span>Launch Date & Time</span>
+                <span className="text-red-400">*</span>
+              </label>
+              {formData.target_drop_date && (
+                <span className="text-[10px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full">
+                  ⚡ Countdown Active
+                </span>
+              )}
+            </div>
+            <input
+              type="datetime-local"
+              required
+              value={formData.target_drop_date || ""}
+              onChange={(e) => onChange({ target_drop_date: e.target.value })}
+              className="w-full p-3.5 rounded-xl bg-[#0d0d11] border border-[#27272a] focus:border-orange-400 text-white text-sm font-semibold focus:outline-none transition-colors"
+            />
+            {(() => {
+              const parsedDate = formData.target_drop_date ? new Date(formData.target_drop_date) : null;
+              const isDateValid = parsedDate && !isNaN(parsedDate.getTime());
+              if (isDateValid) {
+                return (
+                  <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-xs font-semibold text-orange-300 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-orange-400 shrink-0" />
+                    <span>
+                      Launches on:{" "}
+                      <strong>
+                        {parsedDate.toLocaleString("en-IN", {
+                          dateStyle: "full",
+                          timeStyle: "short",
+                        })}
+                      </strong>
+                    </span>
+                  </div>
+                );
+              }
+              return (
+                <p className="text-[11px] text-zinc-400">
+                  Pick the date & time when this drop reveals. Customers will see a real-time countdown on <code>/new-drops</code>.
+                </p>
+              );
+            })()}
+          </div>
+        </div>
+      ) : (
+        /* ================= 🏷️ STANDARD / 💎 PREMIUM CATALOG MODE ================= */
+        <div className="space-y-6">
+          {/* Centralized Database-Driven Category & Subcategory Selection */}
+          <div className="space-y-4 p-5 rounded-2xl bg-[#141418] border border-[#27272a]">
         <div className="flex items-center justify-between">
           <div>
             <label className="text-sm font-bold text-white flex items-center gap-1.5">
@@ -725,24 +970,6 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         />
       </div>
 
-      {/* Target Launch Date for New Drops */}
-      {formData.is_new_drop && (
-        <div className="space-y-2 p-4 rounded-xl bg-orange-500/10 border border-orange-500/30">
-          <label className="text-sm font-semibold text-orange-300 flex items-center gap-1">
-            ⚡ Target Launch / Drop Date <span className="text-red-400">*</span>
-          </label>
-          <input
-            type="datetime-local"
-            value={formData.target_drop_date || ""}
-            onChange={(e) => onChange({ target_drop_date: e.target.value })}
-            className="w-full p-3 rounded-lg bg-[#0d0d11] border border-orange-500/40 text-white text-sm"
-          />
-          <p className="text-[11px] text-zinc-400">
-            💡 Displayed on the customer <code>/new-drops</code> hype countdown with voting and launch alerts.
-          </p>
-        </div>
-      )}
-
       {/* Meesho-Style Size-Specific Details & Measurements: Render ONLY if category has a sizing system */}
       {hasSizingSystem ? (
         <SizeSpecificDetailsSection
@@ -1014,6 +1241,8 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
           className="w-full p-3 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-sm focus:border-white transition-colors"
         />
       </div>
+        </div>
+      )}
     </div>
   );
 }
