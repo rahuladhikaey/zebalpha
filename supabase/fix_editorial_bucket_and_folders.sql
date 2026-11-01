@@ -1,22 +1,23 @@
 -- ====================================================================
 -- ZEBALPHA: FIX "editorial" STORAGE BUCKET, POLICIES & FOLDER STRUCTURE
+-- (Clean Version with NO ON-CONFLICT constraints to prevent 42P10 error)
 -- Run this script in your Supabase SQL Editor:
 -- Dashboard -> SQL Editor -> New Query -> Paste & Run
 -- ====================================================================
 
 -- 1. Ensure the 'editorial' bucket exists and is set to PUBLIC
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-    'editorial',
-    'editorial',
-    true,
-    5242880, -- 5 MB limit
-    ARRAY['image/webp', 'image/jpeg', 'image/png', 'image/jpg']
-)
-ON CONFLICT (id) DO UPDATE 
+SELECT 'editorial', 'editorial', true, 5242880, ARRAY['image/webp', 'image/jpeg', 'image/png', 'image/jpg']
+WHERE NOT EXISTS (
+    SELECT 1 FROM storage.buckets WHERE id = 'editorial'
+);
+
+-- Ensure public flag is true and mime types allowed
+UPDATE storage.buckets 
 SET public = true,
     file_size_limit = 5242880,
-    allowed_mime_types = ARRAY['image/webp', 'image/jpeg', 'image/png', 'image/jpg'];
+    allowed_mime_types = ARRAY['image/webp', 'image/jpeg', 'image/png', 'image/jpg']
+WHERE id = 'editorial';
 
 -- 2. Storage Policies for 'editorial' Bucket
 -- (Allows public image viewing on homepage and full management for admin/service role)
@@ -52,12 +53,26 @@ USING (bucket_id = 'editorial');
 --        ├── 📁 woven/ (for Woven to Be Remembered cards)
 --        └── 📁 curated-collections/ (for Square collections)
 
+-- Create homepage/.emptyFolderPlaceholder
 INSERT INTO storage.objects (bucket_id, name, metadata)
-VALUES 
-    ('editorial', 'homepage/.emptyFolderPlaceholder', '{"mimetype":"application/x-empty"}'::jsonb),
-    ('editorial', 'homepage/woven/.emptyFolderPlaceholder', '{"mimetype":"application/x-empty"}'::jsonb),
-    ('editorial', 'homepage/curated-collections/.emptyFolderPlaceholder', '{"mimetype":"application/x-empty"}'::jsonb)
-ON CONFLICT (bucket_id, name) DO NOTHING;
+SELECT 'editorial', 'homepage/.emptyFolderPlaceholder', '{"mimetype":"application/x-empty"}'::jsonb
+WHERE NOT EXISTS (
+    SELECT 1 FROM storage.objects WHERE bucket_id = 'editorial' AND name = 'homepage/.emptyFolderPlaceholder'
+);
+
+-- Create homepage/woven/.emptyFolderPlaceholder
+INSERT INTO storage.objects (bucket_id, name, metadata)
+SELECT 'editorial', 'homepage/woven/.emptyFolderPlaceholder', '{"mimetype":"application/x-empty"}'::jsonb
+WHERE NOT EXISTS (
+    SELECT 1 FROM storage.objects WHERE bucket_id = 'editorial' AND name = 'homepage/woven/.emptyFolderPlaceholder'
+);
+
+-- Create homepage/curated-collections/.emptyFolderPlaceholder
+INSERT INTO storage.objects (bucket_id, name, metadata)
+SELECT 'editorial', 'homepage/curated-collections/.emptyFolderPlaceholder', '{"mimetype":"application/x-empty"}'::jsonb
+WHERE NOT EXISTS (
+    SELECT 1 FROM storage.objects WHERE bucket_id = 'editorial' AND name = 'homepage/curated-collections/.emptyFolderPlaceholder'
+);
 
 -- 4. Verify results
 SELECT id, name, public FROM storage.buckets WHERE id = 'editorial';
