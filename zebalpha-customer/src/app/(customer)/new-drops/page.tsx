@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { supabase } from "@/lib/supabaseClient";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
+import { subscribeToDropAlert } from "@/lib/pushNotifications";
 import { Star, Flame, Bell, CheckCircle2, Clock, Sparkles, ShoppingBag, ArrowRight } from "lucide-react";
 
 interface ComingSoonDesign {
@@ -126,9 +127,12 @@ export default function NewDropsPage() {
     setTimeout(() => setNotificationMsg(""), 3500);
   };
 
-  const handleNotifyMe = (designId: string, designName: string) => {
+  const handleNotifyMe = async (designId: string, designName: string) => {
     setNotifiedItems((prev) => ({ ...prev, [designId]: true }));
     setNotificationMsg(`🔔 VIP Drop Notification Registered for "${designName}"! We'll alert you on launch.`);
+    try {
+      await subscribeToDropAlert(designId, designName);
+    } catch (_) {}
     setTimeout(() => setNotificationMsg(""), 4000);
   };
 
