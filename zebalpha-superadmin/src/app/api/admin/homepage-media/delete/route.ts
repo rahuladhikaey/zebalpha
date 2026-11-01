@@ -25,7 +25,8 @@ export async function POST(req: Request) {
     // Safety constraint: only allow deleting files within homepage dedicated directories
     if (
       !filePath.startsWith("homepage/curated-collections/") &&
-      !filePath.startsWith("homepage/woven/")
+      !filePath.startsWith("homepage/woven/") &&
+      !filePath.startsWith("homepage/banner/")
     ) {
       return NextResponse.json(
         {

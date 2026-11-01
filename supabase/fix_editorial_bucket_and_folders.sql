@@ -51,7 +51,8 @@ USING (bucket_id = 'editorial');
 -- In Supabase Storage, folders appear once placeholder marker objects exist:
 --   📁 homepage/
 --        ├── 📁 woven/ (for Woven to Be Remembered cards)
---        └── 📁 curated-collections/ (for Square collections)
+--        ├── 📁 curated-collections/ (for Square collections)
+--        └── 📁 banner/ (for Hero Banner Carousel Images <= 50KB)
 
 -- Create homepage/.emptyFolderPlaceholder
 INSERT INTO storage.objects (bucket_id, name, metadata)
@@ -72,6 +73,13 @@ INSERT INTO storage.objects (bucket_id, name, metadata)
 SELECT 'editorial', 'homepage/curated-collections/.emptyFolderPlaceholder', '{"mimetype":"application/x-empty"}'::jsonb
 WHERE NOT EXISTS (
     SELECT 1 FROM storage.objects WHERE bucket_id = 'editorial' AND name = 'homepage/curated-collections/.emptyFolderPlaceholder'
+);
+
+-- Create homepage/banner/.emptyFolderPlaceholder
+INSERT INTO storage.objects (bucket_id, name, metadata)
+SELECT 'editorial', 'homepage/banner/.emptyFolderPlaceholder', '{"mimetype":"application/x-empty"}'::jsonb
+WHERE NOT EXISTS (
+    SELECT 1 FROM storage.objects WHERE bucket_id = 'editorial' AND name = 'homepage/banner/.emptyFolderPlaceholder'
 );
 
 -- 4. Verify results

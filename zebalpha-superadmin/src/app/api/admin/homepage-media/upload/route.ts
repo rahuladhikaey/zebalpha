@@ -4,7 +4,8 @@ import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
-const MAX_IMAGE_SIZE_BYTES = 95 * 1024; // Strictly 95 KB PER IMAGE
+const MAX_IMAGE_SIZE_BYTES = 95 * 1024; // Strictly 95 KB PER IMAGE FOR EDITORIAL & COLLECTIONS
+const MAX_BANNER_SIZE_BYTES = 50 * 1024; // Strictly 50 KB PER IMAGE FOR HERO BANNERS
 const ALLOWED_MIME_TYPES = ["image/webp", "image/jpeg", "image/png"];
 
 // Inspect file magic bytes for tamper detection
@@ -53,7 +54,10 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const section = (formData.get("section") as string) || "woven"; // 'curated-collections' or 'woven'
+    const section = (formData.get("section") as string) || "woven"; // 'curated-collections', 'woven', or 'banner'
+    const isBanner = section === "banner";
+    const maxAllowedBytes = isBanner ? MAX_BANNER_SIZE_BYTES : MAX_IMAGE_SIZE_BYTES;
+    const maxKbLabel = isBanner ? "50 KB" : "95 KB";
 
     if (!file) {
       return NextResponse.json(
@@ -64,14 +68,14 @@ export async function POST(req: Request) {
 
     // 1. Independent Server-Side File Size Verification (Never trust client value)
     const actualSizeBytes = file.size;
-    if (actualSizeBytes > MAX_IMAGE_SIZE_BYTES) {
+    if (actualSizeBytes > maxAllowedBytes) {
       const sizeKb = (actualSizeBytes / 1024).toFixed(1);
       return NextResponse.json(
         {
           success: false,
-          message: `Image must be 95 KB or smaller. Uploaded file is ${sizeKb} KB. Please compress or optimize before uploading.`,
+          message: `Image must be ${maxKbLabel} or smaller. Uploaded file is ${sizeKb} KB. Please compress or optimize before uploading.`,
           actualSize: actualSizeBytes,
-          maxAllowed: MAX_IMAGE_SIZE_BYTES,
+          maxAllowed: maxAllowedBytes,
         },
         { status: 400 }
       );
@@ -108,19 +112,38 @@ export async function POST(req: Request) {
     if (mimeType === "image/jpeg") ext = "jpg";
     else if (mimeType === "image/png") ext = "png";
 
-    const folderPrefix =
-      section === "curated-collections"
-        ? "homepage/curated-collections"
-        : "homepage/woven";
+    let folderPrefix = "homepage/woven";
+    let filePrefix = "woven";
+    if (section === "curated-collections") {
+      folderPrefix = "homepage/curated-collections";
+      filePrefix = "coll";
+    } else if (section === "banner") {
+      folderPrefix = "homepage/banner";
+      filePrefix = "banner";
+    }
 
     const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    const filePath = `${folderPrefix}/${section === "curated-collections" ? "coll" : "woven"}_${uniqueId}.${ext}`;
+    const filePath = `${folderPrefix}/${filePrefix}_${uniqueId}.${ext}`;
 
     // 5. Upload to Supabase Storage Bucket ('editorial' primary, fallback to 'editorial-images' or 'product-images')
     const candidateBuckets = ["editorial", "editorial-images", "product-images"];
     let targetBucket = "editorial";
     let uploadSuccess = false;
     let lastUploadError: any = null;
+
+    // For banner section: ensure homepage/banner folder marker exists in editorial bucket
+    if (section === "banner") {
+      try {
+        await supabaseServer.storage
+          .from("editorial")
+          .upload("homepage/banner/.emptyFolderPlaceholder", Buffer.from(""), {
+            contentType: "application/x-empty",
+            upsert: false,
+          });
+      } catch (_) {
+        // Safe to ignore if already exists
+      }
+    }
 
     for (const b of candidateBuckets) {
       const { error } = await supabaseServer.storage

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { 
   Settings, 
@@ -23,10 +23,17 @@ import {
   AlertCircle,
   RotateCcw,
   Layers,
-  ChevronRight
+  ChevronRight,
+  UploadCloud,
+  Upload,
+  X,
+  Loader2,
+  Link as LinkIcon,
+  Image as ImageIcon
 } from "lucide-react";
 import { DYNAMIC_CATEGORY_CATALOG, MainCategoryConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
 import MarketplaceCommissionFeesEngine from "@/components/admin/MarketplaceCommissionFeesEngine";
+import { compressBannerTo50KB } from "@shared/services/uploadService";
 
 interface MarketplaceSettingsViewProps {
   initialTab?: "general" | "fees" | "offers" | "coupons" | "homepage" | "categories";
@@ -96,6 +103,16 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
   const [newBannerUrl, setNewBannerUrl] = useState("");
   const [newBannerAlt, setNewBannerAlt] = useState("");
   const [newBannerLink, setNewBannerLink] = useState("");
+  const [bannerInputMode, setBannerInputMode] = useState<"upload" | "url">("upload");
+  const [selectedBannerFile, setSelectedBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string>("");
+  const [bannerFileSizeFormatted, setBannerFileSizeFormatted] = useState<string>("");
+  const [isBannerValid, setIsBannerValid] = useState<boolean>(false);
+  const [optimizingBanner, setOptimizingBanner] = useState<boolean>(false);
+  const [uploadingBanner, setUploadingBanner] = useState<boolean>(false);
+  const [bannerErrorMessage, setBannerErrorMessage] = useState<string>("");
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
+
   const [marqueeItems, setMarqueeItems] = useState<any[]>([]);
   const [newMarqueeText, setNewMarqueeText] = useState("");
   const [newMarqueeIcon, setNewMarqueeIcon] = useState("badge");
@@ -436,35 +453,150 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
   };
 
   // --- HOMEPAGE BANNER HANDLERS ---
-  const handleAddBanner = async () => {
-    if (!newBannerUrl.trim()) {
-      alert("Please enter a valid image URL for the banner.");
+  const handleBannerFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setBannerErrorMessage("");
+
+    const fileType = file.type.toLowerCase();
+    if (fileType && !fileType.startsWith("image/")) {
+      setBannerErrorMessage(`Please select a valid image (WebP, JPEG, PNG). Provided: ${fileType || "unknown"}`);
+      if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
       return;
     }
+
+    setOptimizingBanner(true);
+
+    try {
+      // Auto-compress and optimize banner to strictly <= 50 KB WebP
+      const { file: optimizedFile, actualKb } = await compressBannerTo50KB(file, 50 * 1024);
+
+      if (bannerPreviewUrl && bannerPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(bannerPreviewUrl);
+      }
+
+      const localBlob = URL.createObjectURL(optimizedFile);
+      setSelectedBannerFile(optimizedFile);
+      setBannerPreviewUrl(localBlob);
+      setBannerFileSizeFormatted(`${actualKb} KB / 50 KB Max (WebP)`);
+      setIsBannerValid(true);
+      notify(`✓ Banner image auto-optimized to ${actualKb} KB WebP (Within 50 KB limit)!`);
+    } catch (err: any) {
+      console.error("Banner optimization error:", err);
+      setBannerErrorMessage(err.message || "Failed to process and compress banner image.");
+      setSelectedBannerFile(null);
+      setBannerPreviewUrl("");
+      setBannerFileSizeFormatted("");
+      setIsBannerValid(false);
+    } finally {
+      setOptimizingBanner(false);
+      if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
+    }
+  };
+
+  const handleClearBannerFile = () => {
+    if (bannerPreviewUrl && bannerPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(bannerPreviewUrl);
+    }
+    setSelectedBannerFile(null);
+    setBannerPreviewUrl("");
+    setBannerFileSizeFormatted("");
+    setIsBannerValid(false);
+    setBannerErrorMessage("");
+    if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
+  };
+
+  const handleAddBanner = async () => {
+    let finalBannerUrl = "";
+    setBannerErrorMessage("");
+
+    if (bannerInputMode === "upload") {
+      if (!selectedBannerFile) {
+        setBannerErrorMessage("Please select or drop a banner image file (Max 50 KB).");
+        return;
+      }
+      setUploadingBanner(true);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", selectedBannerFile);
+        formData.append("section", "banner");
+
+        const res = await fetch("/api/admin/homepage-media/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!data.success || !data.publicUrl) {
+          throw new Error(data.message || "Banner image upload failed.");
+        }
+        finalBannerUrl = data.publicUrl;
+      } catch (err: any) {
+        setUploadingBanner(false);
+        setBannerErrorMessage(err.message || "Failed to upload banner to editorial storage.");
+        return;
+      } finally {
+        setUploadingBanner(false);
+      }
+    } else {
+      // URL input mode
+      if (!newBannerUrl.trim()) {
+        setBannerErrorMessage("Please enter a valid image URL for the banner.");
+        return;
+      }
+      finalBannerUrl = newBannerUrl.trim();
+    }
+
     const newBanner = {
       id: Date.now(),
-      src: newBannerUrl.trim(),
-      alt: newBannerAlt.trim() || "Banner Image",
+      src: finalBannerUrl,
+      alt: newBannerAlt.trim() || "Hero Banner",
       link: newBannerLink.trim() || "/"
     };
     const updated = [...herobanners, newBanner];
     try {
       await saveSettingToDb("hero_banners", updated);
       setHeroBanners(updated);
+      handleClearBannerFile();
       setNewBannerUrl("");
       setNewBannerAlt("");
       setNewBannerLink("");
-      notify("✅ Hero banner added! Customer homepage will reflect immediately.");
+      notify("✅ Hero banner added! Saved in editorial/homepage/banner. Changes reflect immediately.");
     } catch (err: any) {
       notify(err.message || "Failed to save banner.", "error");
     }
   };
 
   const handleDeleteBanner = async (index: number) => {
+    if (!confirm("Are you sure you want to delete this hero banner?")) return;
+    const bannerToDelete = herobanners[index];
     const updated = herobanners.filter((_, idx) => idx !== index);
     try {
       await saveSettingToDb("hero_banners", updated);
       setHeroBanners(updated);
+
+      // If the image was saved in editorial storage (homepage/banner), remove it safely
+      if (bannerToDelete?.src && bannerToDelete.src.includes("homepage/banner/")) {
+        try {
+          const parts = bannerToDelete.src.split("homepage/banner/");
+          if (parts[1]) {
+            const rawFileName = parts[1].split("?")[0];
+            await fetch("/api/admin/homepage-media/delete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                filePath: `homepage/banner/${rawFileName}`,
+                bucket: "editorial",
+              }),
+            });
+          }
+        } catch (delErr) {
+          console.warn("Storage deletion notice:", delErr);
+        }
+      }
+
       notify("✅ Banner removed.");
     } catch (err: any) {
       notify(err.message || "Failed to delete banner.", "error");
@@ -936,25 +1068,166 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
           {activeTab === "homepage" && (
             <div className="space-y-6">
               {/* Hero Banners Manager */}
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      🖼️ Hero Banner Carousel
-                    </h2>
-                    <p className="text-xs font-bold text-slate-500">Add banner image URLs to show on the customer homepage carousel. Changes reflect instantly.</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                        🖼️ Hero Banner Carousel
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        Max 50 KB
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                        📁 editorial/homepage/banner
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-500 mt-1">
+                      Directly upload banner pictures (Strictly ≤ 50 KB WebP, saved into editorial storage folder <span className="font-mono text-emerald-600 dark:text-emerald-400">homepage/banner</span>) or paste image URL. Changes reflect instantly on customer homepage.
+                    </p>
                   </div>
                   <button
                     onClick={loadSettings}
                     title="Reload from DB"
-                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer self-start sm:self-auto"
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Input Mode Selector */}
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl w-fit">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerInputMode("upload");
+                      setBannerErrorMessage("");
+                    }}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      bannerInputMode === "upload"
+                        ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <UploadCloud className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Direct Image Upload (≤ 50 KB)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerInputMode("url");
+                      setBannerErrorMessage("");
+                    }}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      bannerInputMode === "url"
+                        ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <LinkIcon className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Paste Image URL</span>
+                  </button>
+                </div>
+
+                {/* Direct File Upload Mode */}
+                {bannerInputMode === "upload" && (
+                  <div className="space-y-3">
+                    <input
+                      ref={bannerFileInputRef}
+                      type="file"
+                      accept="image/webp,image/jpeg,image/png,image/jpg"
+                      onChange={handleBannerFileSelect}
+                      className="hidden"
+                    />
+
+                    {!bannerPreviewUrl && !optimizingBanner && (
+                      <div
+                        onClick={() => bannerFileInputRef.current?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) {
+                            const syntheticEvent = { target: { files: [file] } } as any;
+                            handleBannerFileSelect(syntheticEvent);
+                          }
+                        }}
+                        className="group relative border-2 border-dashed border-emerald-500/40 hover:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 rounded-2xl p-6 text-center cursor-pointer transition-all duration-200"
+                      >
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform shadow-sm">
+                            <UploadCloud className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-slate-800 dark:text-slate-200">
+                              Click to select banner picture, or drag and drop here
+                            </p>
+                            <p className="text-[11px] font-bold text-slate-400 mt-0.5">
+                              Strictly ≤ 50 KB • Auto-optimizes to WebP • Stored in editorial/homepage/banner
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-900/40 px-3 py-1 rounded-full">
+                            <span>Accepted: WebP, JPEG, PNG • Target: max 50 KB</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {optimizingBanner && (
+                      <div className="p-8 rounded-2xl border-2 border-dashed border-emerald-500/30 bg-emerald-50/10 dark:bg-emerald-950/10 flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-7 h-7 text-emerald-600 animate-spin" />
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-300">
+                          Auto-compressing & optimizing banner image to strictly ≤ 50 KB WebP...
+                        </p>
+                      </div>
+                    )}
+
+                    {bannerPreviewUrl && (
+                      <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/40 bg-zinc-950 shadow-md">
+                        <div className="relative w-full aspect-[2.7/1] max-h-56 overflow-hidden flex items-center justify-center bg-black">
+                          <img
+                            src={bannerPreviewUrl}
+                            alt="Banner Preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+                          
+                          {/* Verified Size Badge */}
+                          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-500/50 text-white shadow-lg">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span className="text-[10px] font-mono font-black text-emerald-300">
+                              {bannerFileSizeFormatted}
+                            </span>
+                          </div>
+
+                          {/* Destination Folder Tag */}
+                          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/80 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-white text-[10px] font-mono">
+                            <span className="text-emerald-400">Save Destination:</span>
+                            <span className="text-slate-200">editorial/homepage/banner/</span>
+                          </div>
+
+                          {/* Remove / Replace Button */}
+                          <button
+                            type="button"
+                            onClick={handleClearBannerFile}
+                            className="absolute top-3 right-3 p-1.5 rounded-xl bg-black/70 hover:bg-rose-600 text-white border border-white/20 transition-all cursor-pointer shadow-lg"
+                            title="Remove / Choose another"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* URL Input Mode */}
+                {bannerInputMode === "url" && (
+                  <div className="space-y-3">
                     <input
                       type="url"
                       placeholder="Image URL (e.g. https://... or /banner.jpg)"
@@ -962,76 +1235,116 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                       onChange={e => setNewBannerUrl(e.target.value)}
                       className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
                     />
-                    <input
-                      type="text"
-                      placeholder="Alt text / description"
-                      value={newBannerAlt}
-                      onChange={e => setNewBannerAlt(e.target.value)}
-                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Target Link (e.g. /category/hoodies)"
-                      value={newBannerLink}
-                      onChange={e => setNewBannerLink(e.target.value)}
-                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
-                    />
-                  </div>
 
-                  {newBannerUrl && (
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
-                      <div className="w-24 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 shrink-0">
-                        <img 
-                          src={newBannerUrl} 
-                          alt="Banner Preview" 
-                          className="w-full h-full object-cover"
-                          onError={(e) => { (e.target as any).style.display = 'none'; }}
-                        />
+                    {newBannerUrl && (
+                      <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <div className="w-24 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 shrink-0">
+                          <img 
+                            src={newBannerUrl} 
+                            alt="Banner Preview" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.target as any).style.display = 'none'; }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-500">Live URL Image Preview</span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-500">Live Image Preview</span>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
 
-                  <button
-                    onClick={handleAddBanner}
-                    className="px-6 py-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 shrink-0 cursor-pointer shadow-md shadow-emerald-600/20 transition-all"
-                  >
-                    + Add Banner to Carousel
-                  </button>
+                {/* Metadata Fields (Alt text & Target Link) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Alt text / description (e.g. Summer Release Drop 2026)"
+                    value={newBannerAlt}
+                    onChange={e => setNewBannerAlt(e.target.value)}
+                    className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Target Link (e.g. /category/hoodies, /products, default: /)"
+                    value={newBannerLink}
+                    onChange={e => setNewBannerLink(e.target.value)}
+                    className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
+                  />
                 </div>
 
+                {/* Error Banner */}
+                {bannerErrorMessage && (
+                  <div className="flex items-center gap-2 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-bold">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{bannerErrorMessage}</span>
+                  </div>
+                )}
+
+                {/* Add Banner Button */}
+                <button
+                  type="button"
+                  onClick={handleAddBanner}
+                  disabled={uploadingBanner || optimizingBanner}
+                  className="px-6 py-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2"
+                >
+                  {uploadingBanner ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Uploading to editorial/homepage/banner & Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Add Banner to Carousel</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Existing Banners */}
                 {herobanners.length > 0 ? (
-                  <div className="space-y-2 pt-2">
-                    <p className="text-[10px] font-black uppercase text-slate-400">Current Banners ({herobanners.length})</p>
+                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-black uppercase text-slate-400">Current Carousel Banners ({herobanners.length})</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {herobanners.map((b: any, i: number) => (
-                        <div key={b.id || i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 border border-slate-200 dark:border-slate-700">
-                          <img 
-                            src={b.src} 
-                            alt={b.alt} 
-                            className="w-20 h-14 object-cover rounded-xl shrink-0 border border-slate-300 dark:border-slate-700" 
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{b.alt}</p>
-                            <p className="text-[10px] font-mono text-slate-400 truncate">{b.src}</p>
-                            {b.link && (
-                              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate flex items-center gap-1 mt-0.5">
-                                <ExternalLink size={10} /> {b.link}
-                              </p>
-                            )}
+                      {herobanners.map((b: any, i: number) => {
+                        const isStoredInBannerFolder = typeof b.src === "string" && b.src.includes("homepage/banner");
+                        return (
+                          <div key={b.id || i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 border border-slate-200 dark:border-slate-700">
+                            <div className="relative w-24 h-14 rounded-xl overflow-hidden shrink-0 border border-slate-300 dark:border-slate-700 bg-zinc-950">
+                              <img 
+                                src={b.src} 
+                                alt={b.alt} 
+                                className="w-full h-full object-cover" 
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{b.alt}</p>
+                                {isStoredInBannerFolder && (
+                                  <span className="text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 px-1.5 py-0.5 rounded-md shrink-0">
+                                    📁 banner
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] font-mono text-slate-400 truncate mt-0.5">{b.src}</p>
+                              {b.link && (
+                                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate flex items-center gap-1 mt-0.5">
+                                  <ExternalLink size={10} /> {b.link}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleDeleteBanner(i)}
+                              className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 text-[10px] font-black hover:bg-rose-100 cursor-pointer transition-colors shrink-0"
+                            >
+                              Remove
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleDeleteBanner(i)}
-                            className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 text-[10px] font-black hover:bg-rose-100 cursor-pointer transition-colors"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-slate-400 italic">No custom banners in database yet. Customer homepage uses default fallback banners.</p>
+                  <p className="text-xs font-semibold text-slate-400 italic pt-2 border-t border-slate-100 dark:border-slate-800">
+                    No custom banners in database yet. Customer homepage uses default fallback banners.
+                  </p>
                 )}
               </div>
 
