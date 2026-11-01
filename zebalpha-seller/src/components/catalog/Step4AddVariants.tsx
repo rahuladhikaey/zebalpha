@@ -163,6 +163,10 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
   const [previewColor, setPreviewColor] = useState<string>("");
   const [previewSize, setPreviewSize] = useState<string>("");
 
+  // Color renaming state
+  const [editingColorName, setEditingColorName] = useState<string | null>(null);
+  const [tempColorName, setTempColorName] = useState("");
+
   const showSuccessBanner = (msg: string) => {
     setBulkActionSuccess(msg);
     setTimeout(() => setBulkActionSuccess(""), 2600);
@@ -217,11 +221,15 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
         variants: initialMainVariants,
       });
     } else if (mainGallery.length > 0) {
+      // ONLY sync Step 1 photoshoot images to base color variants ("Main Color", "Standard", "Default")
+      // NEVER copy Step 1 photoshoot images to custom added colors like "Pink", "Blue", etc.
       let needsUpdate = false;
       const updated = formData.variants.map((v) => {
-        const isMainCol = (v.color || "").trim().toLowerCase() === mainColor.toLowerCase();
-        const isStandardCol = (v.color || "").trim().toLowerCase() === "standard" || (v.color || "").trim().toLowerCase() === "default";
-        if ((isMainCol || isStandardCol) && (!v.image_url || !v.gallery || v.gallery.length === 0) && mainCoverImg) {
+        const col = (v.color || "").trim().toLowerCase();
+        const isBaseCol = col === "main color" || col === "standard" || col === "default";
+        const isOnlySingleColor = formData.variants.every((item) => (item.color || "").trim().toLowerCase() === col);
+
+        if ((isBaseCol || isOnlySingleColor) && (!v.image_url || !v.gallery || v.gallery.length === 0) && mainCoverImg) {
           needsUpdate = true;
           return {
             ...v,
@@ -238,21 +246,39 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     }
   }, [formData.images?.length, formData.variants?.length, formData.default_color, formData.main_color, formData.price, formData.mrp, formData.selected_sizes?.length]);
 
-  // Self-healing sanitizer: If non-main colors were previously populated with the main product's Step 1 image,
-  // clean them up so they start with an empty gallery and seller can upload the true color photos.
-  // NOTE: "Standard" and "Default" represent the base product photoshoot from Step 1 and must NEVER be stripped!
+  // Self-healing sanitizer: Non-base color variants (e.g. "Pink", "Blue", etc.) must NEVER have
+  // the main product's Step 1 photoshoot images copied into them. If they were accidentally contaminated,
+  // sanitize them so they start clean with an empty gallery and prompt the seller to upload actual photos.
   React.useEffect(() => {
     if (!formData.variants || formData.variants.length === 0) return;
-    const mainColor = (formData.default_color || formData.main_color || formData.variants[0]?.color || "Main Color").trim().toLowerCase();
     const mainImages = formData.images || [];
     if (mainImages.length === 0) return;
+
+    // Identify which color group actually owns the Step 1 photoshoot
+    const baseColorName = (
+      formData.variants.find((v) => {
+        const c = (v.color || "").trim().toLowerCase();
+        return c === "main color" || c === "standard" || c === "default";
+      })?.color ||
+      formData.variants[0]?.color ||
+      "Main Color"
+    ).trim().toLowerCase();
+
+    // If only one color exists in the entire catalog, it represents the base product photoshoot
+    const uniqueColors = Array.from(new Set(formData.variants.map((v) => (v.color || "Black").trim().toLowerCase())));
+    if (uniqueColors.length <= 1) return;
 
     let hasContamination = false;
     const sanitized = formData.variants.map((v) => {
       const col = (v.color || "").trim().toLowerCase();
-      const isMain = col === mainColor || col === "main color";
-      const isStandard = col === "standard" || col === "default";
-      if (!isMain && !isStandard) {
+      const isBaseCol =
+        col === baseColorName ||
+        col === "main color" ||
+        col === "standard" ||
+        col === "default";
+
+      // Non-base colors (like Pink, Maroon, etc. added as a second color) must NOT contain mainImages
+      if (!isBaseCol) {
         const rawGal = Array.isArray(v.gallery) ? v.gallery : (v.image_url ? [v.image_url] : []);
         const filteredGallery = rawGal.filter((img) => !mainImages.includes(img));
         const isCoverContaminated = v.image_url ? mainImages.includes(v.image_url) : false;
@@ -273,7 +299,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     if (hasContamination) {
       onChange({ variants: sanitized });
     }
-  }, [formData.variants?.length, formData.default_color, formData.main_color, formData.images]);
+  }, [formData.variants, formData.images]);
 
   // Group variants by color
   const colorGroups = useMemo(() => {
@@ -286,34 +312,42 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     }[] = [];
     const map = new Map<string, typeof groups[0]>();
 
-    const mainColName = (
-      formData.default_color ||
-      formData.main_color ||
-      formData.variants[0]?.color ||
+    const baseColorName = (
+      formData.variants.find((v) => {
+        const c = (v.color || "").trim().toLowerCase();
+        return c === "main color" || c === "standard" || c === "default";
+      })?.color ||
+      (formData.variants.length > 0 ? formData.variants[0]?.color : "") ||
       "Main Color"
     ).trim().toLowerCase();
 
+    const uniqueColorCount = new Set(formData.variants.map((v) => (v.color || "Black").trim().toLowerCase())).size;
+    const isSingleColorOnly = uniqueColorCount <= 1;
+
     for (const v of formData.variants) {
       const col = (v.color || "Black").trim() || "Black";
-      const isMainCol = col.toLowerCase() === mainColName || col.toLowerCase() === "main color";
-      const isStandardCol = col.toLowerCase() === "standard" || col.toLowerCase() === "default";
-      const shouldInheritMainImages = isMainCol || isStandardCol;
+      const isBasePhotoshootColor =
+        col.toLowerCase() === baseColorName ||
+        col.toLowerCase() === "main color" ||
+        col.toLowerCase() === "standard" ||
+        col.toLowerCase() === "default" ||
+        isSingleColorOnly;
 
       if (!map.has(col)) {
-        // Main product color AND Standard/Default color inherit formData.images from Step 1.
-        // Other custom colors (White, Maroon, etc.) have their own independent gallery unless uploaded.
+        // ONLY the original base photoshoot color inherits formData.images from Step 1.
+        // Any other color (e.g. Pink, Blue, White) added by the seller has its OWN independent gallery and starts empty!
         const vGallery = Array.isArray(v.gallery) && v.gallery.length > 0
           ? v.gallery
           : v.image_url
           ? [v.image_url]
-          : shouldInheritMainImages && formData.images && formData.images.length > 0
+          : isBasePhotoshootColor && formData.images && formData.images.length > 0
           ? formData.images
           : [];
 
         const group = {
           color: col,
           color_hex: v.color_hex || PRESET_COLORS.find((c) => c.name.toLowerCase() === col.toLowerCase())?.hex || "#18181b",
-          image_url: v.image_url || (shouldInheritMainImages ? vGallery[0] : undefined),
+          image_url: v.image_url || (isBasePhotoshootColor ? vGallery[0] : undefined),
           gallery: vGallery,
           items: [],
         };
@@ -430,12 +464,43 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     };
 
     if (!formData.default_color && !formData.main_color) {
-      updates.default_color = cleanName;
-      updates.main_color = cleanName;
+      const existingFirst = formData.variants[0]?.color;
+      updates.default_color = existingFirst || cleanName;
+      updates.main_color = existingFirst || cleanName;
     }
 
     onChange(updates);
     showSuccessBanner(`Added "${cleanName}" with ${targetSizes.length} sizes`);
+  };
+
+  const renameColorGroup = (oldColorName: string, newColorName: string) => {
+    if (!newColorName.trim() || oldColorName.trim().toLowerCase() === newColorName.trim().toLowerCase()) return;
+    const cleanNew = newColorName.trim();
+    if (colorGroups.some((g) => g.color.toLowerCase() === cleanNew.toLowerCase())) {
+      alert(`A color named "${cleanNew}" already exists.`);
+      return;
+    }
+    const matchedPreset = PRESET_COLORS.find((c) => c.name.toLowerCase() === cleanNew.toLowerCase());
+    const updated = formData.variants.map((v) => {
+      if ((v.color || "Black").trim().toLowerCase() === oldColorName.trim().toLowerCase()) {
+        return {
+          ...v,
+          color: cleanNew,
+          color_hex: matchedPreset?.hex || v.color_hex,
+        };
+      }
+      return v;
+    });
+
+    const updates: Partial<Step4Props["formData"]> = { variants: updated };
+    if (formData.default_color?.toLowerCase() === oldColorName.toLowerCase()) {
+      updates.default_color = cleanNew;
+    }
+    if (formData.main_color?.toLowerCase() === oldColorName.toLowerCase()) {
+      updates.main_color = cleanNew;
+    }
+    onChange(updates);
+    showSuccessBanner(`Renamed "${oldColorName}" to "${cleanNew}"`);
   };
 
   const removeColorGroup = (colorName: string) => {
@@ -497,40 +562,44 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     const validUrls = dataUrls.filter(Boolean);
     if (validUrls.length === 0) return;
 
+    const baseColorName = (
+      formData.variants.find((v) => {
+        const c = (v.color || "").trim().toLowerCase();
+        return c === "main color" || c === "standard" || c === "default";
+      })?.color ||
+      formData.variants[0]?.color ||
+      "Main Color"
+    ).trim().toLowerCase();
 
+    const isBaseCol =
+      colorName.trim().toLowerCase() === baseColorName ||
+      colorName.trim().toLowerCase() === "main color" ||
+      colorName.trim().toLowerCase() === "standard" ||
+      colorName.trim().toLowerCase() === "default";
+    const mainImages = formData.images || [];
 
-      const mainColName = (
-        formData.default_color ||
-        formData.main_color ||
-        formData.variants[0]?.color ||
-        "Main Color"
-      ).trim().toLowerCase();
-      const isTargetMainCol = colorName.trim().toLowerCase() === mainColName || colorName.trim().toLowerCase() === "main color";
-      const mainImages = formData.images || [];
+    const updated = formData.variants.map((v) => {
+      if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
+        // For non-base colors, strip any accidental main product images from existing gallery
+        let rawGallery = Array.isArray(v.gallery) && v.gallery.length > 0
+          ? v.gallery
+          : (v.image_url ? [v.image_url] : []);
 
-      const updated = formData.variants.map((v) => {
-        if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
-          // For non-main colors, strip any accidental main product images from existing gallery
-          let rawGallery = Array.isArray(v.gallery) && v.gallery.length > 0
-            ? v.gallery
-            : (v.image_url ? [v.image_url] : []);
-
-          const isStandard = colorName.trim().toLowerCase() === "standard" || colorName.trim().toLowerCase() === "default";
-          if (!isTargetMainCol && !isStandard && mainImages.length > 0) {
-            rawGallery = rawGallery.filter((img) => !mainImages.includes(img));
-          }
-
-          const combined = Array.from(new Set([...rawGallery, ...validUrls].filter(Boolean)));
-          return {
-            ...v,
-            image_url: combined[0] || undefined,
-            gallery: combined,
-          };
+        if (!isBaseCol && mainImages.length > 0) {
+          rawGallery = rawGallery.filter((img) => !mainImages.includes(img));
         }
-        return v;
-      });
-      onChange({ variants: updated });
-      showSuccessBanner(`Uploaded ${validUrls.length} photo(s) for ${colorName}`);
+
+        const combined = Array.from(new Set([...rawGallery, ...validUrls].filter(Boolean)));
+        return {
+          ...v,
+          image_url: combined[0] || undefined,
+          gallery: combined,
+        };
+      }
+      return v;
+    });
+    onChange({ variants: updated });
+    showSuccessBanner(`Uploaded ${validUrls.length} photo(s) for ${colorName}`);
   };
 
 
@@ -1346,9 +1415,59 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="text-base font-black text-white capitalize">
-                                  {group.color}
-                                </span>
+                                {editingColorName === group.color ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={tempColorName}
+                                      onChange={(e) => setTempColorName(e.target.value)}
+                                      className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-white text-xs font-bold w-28"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          renameColorGroup(group.color, tempColorName);
+                                          setEditingColorName(null);
+                                        } else if (e.key === "Escape") {
+                                          setEditingColorName(null);
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        renameColorGroup(group.color, tempColorName);
+                                        setEditingColorName(null);
+                                      }}
+                                      className="px-1.5 py-0.5 text-[10px] bg-emerald-500 text-black font-bold rounded cursor-pointer"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingColorName(null)}
+                                      className="px-1.5 py-0.5 text-[10px] bg-zinc-800 text-zinc-300 rounded cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="text-base font-black text-white capitalize">
+                                      {group.color}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingColorName(group.color);
+                                        setTempColorName(group.color);
+                                      }}
+                                      className="text-[10px] text-zinc-500 hover:text-white underline cursor-pointer"
+                                      title={`Rename ${group.color}`}
+                                    >
+                                      Rename
+                                    </button>
+                                  </>
+                                )}
                                 <input
                                   type="color"
                                   value={group.color_hex || "#000000"}
@@ -1793,8 +1912,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {colorGroups.map((grp) => {
                   const isMainCol =
-                    grp.color.toLowerCase() === activeDefaultColor.toLowerCase() ||
-                    grp.color.toLowerCase() === "main color";
+                    grp.color.toLowerCase() === activeDefaultColor.toLowerCase();
                   const gallery = grp.gallery || (grp.image_url ? [grp.image_url] : []);
 
                   return (
@@ -1809,7 +1927,57 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                             className="w-4 h-4 rounded-full border border-white/20 shadow-sm"
                             style={{ backgroundColor: grp.color_hex || "#3b82f6" }}
                           />
-                          <h5 className="text-sm font-bold text-white">{grp.color}</h5>
+                          {editingColorName === grp.color ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={tempColorName}
+                                onChange={(e) => setTempColorName(e.target.value)}
+                                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-white text-xs font-bold w-28"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    renameColorGroup(grp.color, tempColorName);
+                                    setEditingColorName(null);
+                                  } else if (e.key === "Escape") {
+                                    setEditingColorName(null);
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  renameColorGroup(grp.color, tempColorName);
+                                  setEditingColorName(null);
+                                }}
+                                className="px-1.5 py-0.5 text-[10px] bg-emerald-500 text-black font-bold rounded cursor-pointer"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingColorName(null)}
+                                className="px-1.5 py-0.5 text-[10px] bg-zinc-800 text-zinc-300 rounded cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 group/rename">
+                              <h5 className="text-sm font-bold text-white">{grp.color}</h5>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingColorName(grp.color);
+                                  setTempColorName(grp.color);
+                                }}
+                                className="text-[10px] text-zinc-500 hover:text-white underline cursor-pointer"
+                                title={`Rename ${grp.color}`}
+                              >
+                                Rename
+                              </button>
+                            </div>
+                          )}
                           {isMainCol && (
                             <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
                               ★ Main Color
@@ -1903,10 +2071,10 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                         {gallery.length === 0
                           ? "💡 No photos uploaded yet for this color. Click '+ Photo' to upload — the 1st photo will be used as this color's cover on the customer page."
                           : isMainCol
-                          ? "💡 Primary thumbnail for Main Color (from Step 1). First photo is used as default storefront cover."
+                          ? `💡 Primary thumbnail for ${grp.color} (Main Color). First photo is used as default storefront cover.`
                           : grp.color.toLowerCase() === "standard" || grp.color.toLowerCase() === "default"
                           ? "💡 Standard product photos synced from Step 1."
-                          : "💡 First photo is used as primary thumbnail for this color on the customer page."}
+                          : `💡 First photo is used as primary thumbnail for ${grp.color} on the customer page.`}
                       </p>
                     </div>
                   );
