@@ -204,8 +204,8 @@ const SLIM_PRODUCT_FIELDS = 'id, name, brand, price, mrp, image_url, images, cat
 
 export async function getCachedHomeProducts(brandFilter?: string, limit: number = 12): Promise<Product[]> {
   const brandKey = brandFilter ? brandFilter.toLowerCase().trim() : 'all';
-  // Bumped to v4 to instantly invalidate any stale empty arrays in Redis
-  const cacheKey = `homepage:section:featured:v4:brand:${brandKey}:limit:${limit}`;
+  // Bumped to v5 to strictly exclude any new drop / coming soon items from homepage featured grid
+  const cacheKey = `homepage:section:featured:v5:brand:${brandKey}:limit:${limit}`;
   return getCachedOrFetch<Product[]>(
     cacheKey,
     async () => {
@@ -214,6 +214,8 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
         .select(SLIM_PRODUCT_FIELDS)
         .or('is_active.is.null,is_active.eq.true')
         .neq('approval_status', 'rejected')
+        .neq('status', 'COMING_SOON')
+        .neq('tier', 'DROP')
         .order('created_at', { ascending: false });
 
       if (brandFilter) {
@@ -232,6 +234,8 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
           .select('*')
           .or('is_active.is.null,is_active.eq.true')
           .neq('approval_status', 'rejected')
+          .neq('status', 'COMING_SOON')
+          .neq('tier', 'DROP')
           .order('created_at', { ascending: false })
           .limit(limit);
 
@@ -245,21 +249,33 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
       }
 
       const rawList = data || [];
-      return rawList.map((p: any) => {
-        const specs = p.specifications || {};
-        const isPrem = p.is_premium === true || p.tier === 'PREMIUM' || specs.is_premium === true || specs.is_premium === 'true' || specs.tier === 'PREMIUM' || (p.name || '').toLowerCase().includes('premium');
-        const isDrop = p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === 'true' || p.status === 'COMING_SOON';
-        return {
-          ...p,
-          thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || '',
-          is_premium: isPrem,
-          tier: isPrem ? 'PREMIUM' : (p.tier || specs.tier || 'STANDARD'),
-          is_new_drop: isDrop,
-          collection: p.collection || specs.collection || '',
-          target_drop_date: p.target_drop_date || specs.target_drop_date || '',
-          category: p.category || specs.category || 'Apparel',
-        };
-      }) as unknown as Product[];
+      return rawList
+        .filter((p: any) => {
+          const specs = p.specifications || {};
+          const isDrop =
+            p.is_new_drop === true ||
+            p.is_new_drop === 'true' ||
+            specs.is_new_drop === true ||
+            specs.is_new_drop === 'true' ||
+            p.status === 'COMING_SOON' ||
+            p.tier === 'DROP' ||
+            specs.tier === 'DROP';
+          return !isDrop;
+        })
+        .map((p: any) => {
+          const specs = p.specifications || {};
+          const isPrem = p.is_premium === true || p.tier === 'PREMIUM' || specs.is_premium === true || specs.is_premium === 'true' || specs.tier === 'PREMIUM' || (p.name || '').toLowerCase().includes('premium');
+          return {
+            ...p,
+            thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || '',
+            is_premium: isPrem,
+            tier: isPrem ? 'PREMIUM' : (p.tier || specs.tier || 'STANDARD'),
+            is_new_drop: false,
+            collection: p.collection || specs.collection || '',
+            target_drop_date: p.target_drop_date || specs.target_drop_date || '',
+            category: p.category || specs.category || 'Apparel',
+          };
+        }) as unknown as Product[];
     },
     120 // 2 min TTL
   );

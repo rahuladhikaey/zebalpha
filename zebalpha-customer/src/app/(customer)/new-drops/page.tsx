@@ -14,6 +14,7 @@ interface ComingSoonDesign {
   tagline: string;
   description: string;
   image: string;
+  images: string[];
   targetDropDate: string;
   category: string;
   price: number;
@@ -28,6 +29,7 @@ export default function NewDropsPage() {
   const [filterTab, setFilterTab] = useState<"ALL" | "UPCOMING" | "LIVE">("ALL");
   const [userRatings, setUserRatings] = useState<Record<string, number>>({});
   const [notifiedItems, setNotifiedItems] = useState<Record<string, boolean>>({});
+  const [activeImageIndices, setActiveImageIndices] = useState<Record<string, number>>({});
   const [notificationMsg, setNotificationMsg] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
@@ -51,12 +53,18 @@ export default function NewDropsPage() {
           const dropStatus = getDropDisplayStatus(item);
           const live = isDropLive(item);
 
+          const rawImages: string[] = Array.isArray(item.images) && item.images.length > 0
+            ? item.images.filter((img: any) => typeof img === "string" && img.trim().length > 0)
+            : (item.image_url ? [item.image_url] : []);
+          const finalImages = rawImages.length > 0 ? rawImages : ["/banner-animated.png"];
+
           return {
             id: item.id?.toString() || `db-${idx}`,
             name: item.name,
             tagline: item.description ? item.description.slice(0, 50) + "..." : "Exclusive Designer Drop",
-            description: item.description || "Upcoming premium design from seller store.",
-            image: item.image_url || item.images?.[0] || "/banner-animated.png",
+            description: item.description || "Upcoming exclusive design from seller store.",
+            image: finalImages[0],
+            images: finalImages,
             targetDropDate: dropStatus.dateText,
             category: item.collection || (item.specifications as any)?.collection || item.category_name || item.category || "Streetwear Drop",
             price: Number(item.price || 0),
@@ -245,28 +253,64 @@ export default function NewDropsPage() {
                   </div>
 
                   {/* Product Image Preview Showcase */}
-                  <div className="relative h-72 sm:h-80 w-full rounded-2xl overflow-hidden bg-black border border-zinc-800/80 shadow-inner group">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className="object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60" />
-                    
-                    {/* Floating Demand Pill */}
-                    <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/80 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white border border-white/20 backdrop-blur-md">
-                      <Flame className="h-3.5 w-3.5 text-rose-500 fill-rose-500 animate-pulse" />
-                      Demand Score: {item.demandPercentage}%
-                    </div>
+                  {(() => {
+                    const currentImgIndex = activeImageIndices[item.id] || 0;
+                    const activeImg = item.images[currentImgIndex] || item.image || "/banner-animated.png";
 
-                    {/* Price Pill */}
-                    {item.price > 0 && (
-                      <div className="absolute top-3 right-3 rounded-full bg-black/80 px-3 py-1 text-xs font-black uppercase tracking-wider text-white border border-white/20 backdrop-blur-md">
-                        ₹{item.price}
+                    return (
+                      <div className="relative h-72 sm:h-80 w-full rounded-2xl overflow-hidden bg-black border border-zinc-800/80 shadow-inner group">
+                        <Image
+                          src={activeImg}
+                          alt={item.name}
+                          fill
+                          className="object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60" />
+
+                        {/* Interactive 2-Image Switcher (Pic 1 / Pic 2) */}
+                        {item.images.length > 1 && (
+                          <div className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-full bg-black/85 px-2.5 py-1 text-[10px] font-black uppercase text-white border border-white/20 backdrop-blur-md shadow-lg">
+                            {item.images.map((_, imgIdx) => (
+                              <button
+                                key={imgIdx}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setActiveImageIndices((prev) => ({ ...prev, [item.id]: imgIdx }));
+                                }}
+                                className={`px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider transition-all cursor-pointer ${
+                                  currentImgIndex === imgIdx
+                                    ? "bg-orange-500 text-black shadow-sm"
+                                    : "text-zinc-400 hover:text-white"
+                                }`}
+                                aria-label={`View Photo ${imgIdx + 1}`}
+                              >
+                                Pic {imgIdx + 1}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Floating Demand Pill */}
+                        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/80 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white border border-white/20 backdrop-blur-md">
+                          <Flame className="h-3.5 w-3.5 text-rose-500 fill-rose-500 animate-pulse" />
+                          Demand Score: {item.demandPercentage}%
+                        </div>
+
+                        {/* Price Pill or Drop Teaser Badge */}
+                        {item.price > 0 ? (
+                          <div className="absolute top-3 right-3 rounded-full bg-black/80 px-3 py-1 text-xs font-black uppercase tracking-wider text-white border border-white/20 backdrop-blur-md">
+                            ₹{item.price}
+                          </div>
+                        ) : (
+                          <div className="absolute top-3 right-3 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-black shadow-lg shadow-orange-500/20 backdrop-blur-md">
+                            ⚡ TEASER DROP
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
 
                   {/* Title & Description */}
                   <div className="mt-6 space-y-2">

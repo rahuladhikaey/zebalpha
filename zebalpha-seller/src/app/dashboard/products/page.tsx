@@ -691,14 +691,15 @@ export default function SellerProducts() {
     }
   };
 
-  const premiumCount = products.filter(p => p.is_premium).length;
-  const normalCount = products.length - premiumCount;
-  const dropCount = products.filter(p => p.is_new_drop).length;
+  const dropCount = products.filter(p => p.is_new_drop || p.status === "COMING_SOON" || p.tier === "DROP").length;
+  const premiumCount = products.filter(p => p.is_premium && !p.is_new_drop && p.tier !== "DROP").length;
+  const normalCount = products.filter(p => !p.is_premium && !p.is_new_drop && p.status !== "COMING_SOON" && p.tier !== "DROP").length;
 
   const filteredProducts = products.filter(p => {
-    if (activeTab === "PREMIUM") return p.is_premium;
-    if (activeTab === "NORMAL") return !p.is_premium;
-    if (activeTab === "DROPS") return p.is_new_drop;
+    const isDrop = p.is_new_drop === true || p.status === "COMING_SOON" || p.tier === "DROP";
+    if (activeTab === "PREMIUM") return p.is_premium && !isDrop;
+    if (activeTab === "NORMAL") return !p.is_premium && !isDrop;
+    if (activeTab === "DROPS") return isDrop;
     return true;
   });
 

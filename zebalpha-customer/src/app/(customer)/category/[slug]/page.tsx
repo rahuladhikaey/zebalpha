@@ -90,10 +90,15 @@ async function getCategoryProducts(slug: string) {
         .from("products")
         .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications, packages")
         .eq("is_active", true)
+        .neq("status", "COMING_SOON")
+        .neq("tier", "DROP")
         .or(`category_id.in.(${allIds.join(",")}),subcategory_id.in.(${allIds.join(",")})`)
         .limit(24);
 
-      return prods || [];
+      return (prods || []).filter((p: any) => {
+        const specs = p.specifications || {};
+        return !(p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === "true" || specs.tier === "DROP");
+      });
     }
 
     return [];

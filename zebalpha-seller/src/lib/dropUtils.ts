@@ -7,6 +7,8 @@ export function isProductNewDrop(product: any): boolean {
     product.is_new_drop === true ||
     product.is_new_drop === "true" ||
     product.status === "COMING_SOON" ||
+    product.tier === "DROP" ||
+    (product.specifications as any)?.tier === "DROP" ||
     (product.specifications as any)?.is_new_drop === "true" ||
     (product.specifications as any)?.is_new_drop === true
   );

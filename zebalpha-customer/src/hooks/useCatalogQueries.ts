@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Product, Category } from '@/lib/types';
 import { resolveCategoryIcon } from '@/lib/categoryIcons';
+import { isProductNewDrop } from '@/lib/dropUtils';
 
 export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [];
 
@@ -753,7 +754,9 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       .from("products")
       .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
       .or("is_active.is.null,is_active.eq.true")
-      .neq("approval_status", "rejected");
+      .neq("approval_status", "rejected")
+      .neq("status", "COMING_SOON")
+      .neq("tier", "DROP");
 
     // Server-side category & collection filtering using stable UUIDs and descendant hierarchies
     if (params.category && String(params.category).trim() !== "" && String(params.category) !== "all") {
@@ -847,21 +850,22 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
     }
 
     const rawList = data || [];
-    const products: Product[] = rawList.map((p: any) => {
-      const specs = p.specifications || {};
-      const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium");
-      const isDrop = p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
-      return {
-        ...p,
-        thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
-        is_premium: isPrem,
-        tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
-        is_new_drop: isDrop,
-        collection: p.collection || specs.collection || "",
-        target_drop_date: p.target_drop_date || specs.target_drop_date || "",
-        category: p.category || specs.category || "Apparel",
-      };
-    });
+    const products: Product[] = rawList
+      .filter((p: any) => !isProductNewDrop(p))
+      .map((p: any) => {
+        const specs = p.specifications || {};
+        const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium");
+        return {
+          ...p,
+          thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
+          is_premium: isPrem,
+          tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
+          is_new_drop: false,
+          collection: p.collection || specs.collection || "",
+          target_drop_date: p.target_drop_date || specs.target_drop_date || "",
+          category: p.category || specs.category || "Apparel",
+        };
+      });
     const totalCount = count !== null ? count : products.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 

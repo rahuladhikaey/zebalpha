@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { CategoryIconRenderer, getLocalizedCategoryName } from "@/lib/categoryIcons";
-import { Compass, ShoppingBag } from "lucide-react";
+import { Compass, ShoppingBag, Flame } from "lucide-react";
 
 export interface NavigationCategory {
   id: string;
@@ -295,6 +295,68 @@ export function CategoryNavigationBar({
             {/* Active Indicator Underline - ALWAYS VISIBLE */}
             {isForYouActive && (
               <span className="absolute bottom-0 w-7 sm:w-8 h-[2.5px] rounded-full bg-emerald-400 shadow-[0_0_10px_#22c55e]" />
+            )}
+          </Link>
+
+          {/* =================================================================== */}
+          {/* NEW DROPS & HYPE SHOWCASE TAB                                      */}
+          {/* =================================================================== */}
+          <Link
+            href="/new-drops"
+            role="tab"
+            aria-selected={pathname === "/new-drops"}
+            data-active={pathname === "/new-drops"}
+            className={`group relative flex flex-col items-center justify-end shrink-0 transition-all cursor-pointer focus:outline-none ${
+              isCollapsed
+                ? "min-w-[56px] sm:min-w-[64px] px-2 py-1.5"
+                : "w-[62px] sm:w-[70px] md:w-[80px] py-1"
+            } ${
+              pathname === "/new-drops" ? "text-amber-400" : "text-zinc-300 hover:text-white"
+            }`}
+          >
+            {/* Collapsible Icon Box */}
+            <div
+              aria-hidden={isCollapsed}
+              style={{
+                height: isCollapsed ? 0 : `${currentIconHeight}px`,
+                width: isCollapsed ? 0 : `${currentIconHeight}px`,
+                opacity: currentIconOpacity,
+                transform: `scale(${currentIconScale})`,
+                marginBottom: isCollapsed ? 0 : `${Math.round((1 - collapseProgress) * 6)}px`,
+                display: isCollapsed ? "none" : "flex",
+                visibility: isCollapsed ? "hidden" : "visible",
+                pointerEvents: isCollapsed ? "none" : "auto",
+                overflow: "hidden",
+                transition: "height 0.15s ease-out, opacity 0.15s ease-out, transform 0.15s ease-out, margin 0.15s ease-out",
+              }}
+              className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
+                pathname === "/new-drops"
+                  ? "bg-amber-950/40 text-amber-400 border-[1.5px] border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+                  : "bg-zinc-900/60 text-amber-400 border border-amber-500/30 group-hover:border-amber-400 group-active:scale-95"
+              }`}
+            >
+              <Flame
+                size={isNativeApp ? 19 : 20}
+                className={`transition-transform stroke-[2.3] ${
+                  pathname === "/new-drops" ? "text-amber-400 scale-105" : "text-amber-400 group-hover:scale-110"
+                }`}
+              />
+            </div>
+
+            {/* Label */}
+            <span
+              className={`text-[10px] sm:text-[11px] font-bold text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
+                pathname === "/new-drops"
+                  ? "text-amber-400 font-extrabold"
+                  : "text-amber-400/90 group-hover:text-amber-300"
+              }`}
+            >
+              ⚡ Drops
+            </span>
+
+            {/* Active Indicator Underline */}
+            {pathname === "/new-drops" && (
+              <span className="absolute bottom-0 w-7 sm:w-8 h-[2.5px] rounded-full bg-amber-400 shadow-[0_0_10px_#f59e0b]" />
             )}
           </Link>
 

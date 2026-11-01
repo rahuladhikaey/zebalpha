@@ -11,27 +11,31 @@ import { DeliveryEstimateWidget } from "./DeliveryEstimateWidget";
 import { supabase } from "@/lib/supabaseClient";
 import { SLIM_PRODUCT_CARD_FIELDS, getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 
+import { isProductNewDrop } from "@/lib/dropUtils";
+
 interface InfiniteProductFeedProps {
   initialProducts: Product[];
   brandFilter?: string;
 }
 
 export function InfiniteProductFeed({ initialProducts = [], brandFilter }: InfiniteProductFeedProps) {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [hasMore, setHasMore] = useState(initialProducts.length >= 12);
+  const cleanInitial = (initialProducts || []).filter((p) => !isProductNewDrop(p));
+  const [products, setProducts] = useState<Product[]>(cleanInitial);
+  const [hasMore, setHasMore] = useState(cleanInitial.length >= 12);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastCreatedAt, setLastCreatedAt] = useState<string | null>(
-    initialProducts.length > 0 ? initialProducts[initialProducts.length - 1].created_at || null : null
+    cleanInitial.length > 0 ? cleanInitial[cleanInitial.length - 1].created_at || null : null
   );
 
   const observerRef = useRef<HTMLDivElement | null>(null);
 
-  // Sync initial products when SSR revalidates
+  // Sync initial products when SSR revalidates (filtering out any new drops)
   useEffect(() => {
-    if (initialProducts.length > 0) {
-      setProducts(initialProducts);
-      setLastCreatedAt(initialProducts[initialProducts.length - 1].created_at || null);
-      setHasMore(initialProducts.length >= 12);
+    const clean = (initialProducts || []).filter((p) => !isProductNewDrop(p));
+    if (clean.length > 0) {
+      setProducts(clean);
+      setLastCreatedAt(clean[clean.length - 1].created_at || null);
+      setHasMore(clean.length >= 12);
     }
   }, [initialProducts]);
 
@@ -46,6 +50,8 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
             .select(SLIM_PRODUCT_CARD_FIELDS)
             .or("is_active.is.null,is_active.eq.true")
             .neq("approval_status", "rejected")
+            .neq("status", "COMING_SOON")
+            .neq("tier", "DROP")
             .order("created_at", { ascending: false })
             .limit(12);
 
@@ -60,27 +66,31 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
               .select("*")
               .or("is_active.is.null,is_active.eq.true")
               .neq("approval_status", "rejected")
+              .neq("status", "COMING_SOON")
+              .neq("tier", "DROP")
               .order("created_at", { ascending: false })
               .limit(12);
             data = fallback.data;
           }
 
           if (isMounted && data && data.length > 0) {
-            const mapped = data.map((p: any) => {
+            const nonDrops = data.filter((p: any) => !isProductNewDrop(p));
+            const mapped = nonDrops.map((p: any) => {
               const specs = p.specifications || {};
               const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM";
-              const isDrop = p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
               return {
                 ...p,
                 thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
                 is_premium: isPrem,
                 tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
-                is_new_drop: isDrop,
+                is_new_drop: false,
                 category: p.category || specs.category || "Apparel",
               };
             });
             setProducts(mapped);
-            setLastCreatedAt(mapped[mapped.length - 1].created_at || null);
+            if (mapped.length > 0) {
+              setLastCreatedAt(mapped[mapped.length - 1].created_at || null);
+            }
             setHasMore(mapped.length >= 12);
           }
         } catch (e) {
@@ -104,6 +114,8 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
         .select(SLIM_PRODUCT_CARD_FIELDS)
         .or("is_active.is.null,is_active.eq.true")
         .neq("approval_status", "rejected")
+        .neq("status", "COMING_SOON")
+        .neq("tier", "DROP")
         .lt("created_at", lastCreatedAt)
         .order("created_at", { ascending: false })
         .limit(12);
@@ -119,6 +131,8 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           .select("*")
           .or("is_active.is.null,is_active.eq.true")
           .neq("approval_status", "rejected")
+          .neq("status", "COMING_SOON")
+          .neq("tier", "DROP")
           .lt("created_at", lastCreatedAt)
           .order("created_at", { ascending: false })
           .limit(12);
@@ -127,16 +141,16 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
       }
 
       if (!error && data && data.length > 0) {
-        const newBatch: Product[] = data.map((p: any) => {
+        const nonDrops = data.filter((p: any) => !isProductNewDrop(p));
+        const newBatch: Product[] = nonDrops.map((p: any) => {
           const specs = p.specifications || {};
           const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM";
-          const isDrop = p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
           return {
             ...p,
             thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
             is_premium: isPrem,
             tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
-            is_new_drop: isDrop,
+            is_new_drop: false,
             category: p.category || specs.category || "Apparel",
           };
         });
@@ -147,7 +161,9 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           return [...prev, ...uniqueNew];
         });
 
-        setLastCreatedAt(newBatch[newBatch.length - 1].created_at || null);
+        if (newBatch.length > 0) {
+          setLastCreatedAt(newBatch[newBatch.length - 1].created_at || null);
+        }
         setHasMore(newBatch.length >= 12);
       } else {
         setHasMore(false);
