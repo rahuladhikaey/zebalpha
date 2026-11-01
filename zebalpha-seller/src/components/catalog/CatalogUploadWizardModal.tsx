@@ -589,13 +589,14 @@ export default function CatalogUploadWizardModal({
         variants: loadedVariants,
         default_color: (editingProduct as any).default_color || (editingProduct.specifications as any)?.default_color || editingProduct.packages?.[0]?.color || loadedVariants[0]?.color || "",
         main_color: (editingProduct as any).main_color || (editingProduct as any).default_color || (editingProduct.specifications as any)?.main_color || loadedVariants[0]?.color || "",
-        single_stock: String(editingProduct.stock ?? 20),
+        single_stock: (editingProduct.is_new_drop === true || editingProduct.status === "COMING_SOON") ? "0" : String(editingProduct.stock ?? 20),
         single_sku: editingProduct.sku || "",
       });
     } else {
       setForm({
         ...INITIAL_FORM_STATE,
         is_new_drop: Boolean(initialIsNewDrop),
+        single_stock: initialIsNewDrop ? "0" : "20",
         tier: initialIsNewDrop ? "DROP" : "STANDARD",
         manufacturer_same_as_pickup: true,
         manufacturer_name: initialSellerOrigin?.name || sellerProfile?.business_name || sellerProfile?.store_name || "",
@@ -1409,11 +1410,13 @@ export default function CatalogUploadWizardModal({
             }
           ];
 
-      const calculatedStock = form.has_variants
+      const calculatedStock = form.is_new_drop
+        ? 0
+        : form.has_variants
         ? processedVariants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
         : hasSizeDetails
         ? form.size_details.reduce((acc, d) => acc + (parseInt(d.inventory) || 0), 0)
-        : (parseInt(form.single_stock) || 20);
+        : (parseInt(form.single_stock) || 0);
 
       const generateSlug = (text: string) => {
         const base = text ? text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "") : "";

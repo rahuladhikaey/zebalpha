@@ -248,11 +248,12 @@ export default function SellerProducts() {
       const mappedProducts: Product[] = productsData.map((p: any) => {
         const specs = p.specifications || {};
         const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium") || (p.name || "").toLowerCase().includes("supima");
-        const isDrop = p.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON";
+        const isDrop = p.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON" || p.tier === "DROP";
         const coll = p.collection || specs.collection || "";
         const dropDate = p.target_drop_date || p.drop_date || specs.target_drop_date || "";
         return {
           ...p,
+          stock: isDrop ? 0 : (p.stock ?? 0),
           is_premium: isPrem,
           is_new_drop: isDrop,
           collection: coll,
@@ -338,7 +339,7 @@ export default function SellerProducts() {
       category_id: categories[0]?.id.toString() || "",
       image_url: "",
       brand: "ZEBALPHA",
-      stock: "20",
+      stock: isDrop ? "0" : "20",
       low_stock_limit: "5",
       sku: "",
       specificationsText: "",
@@ -474,7 +475,7 @@ export default function SellerProducts() {
     const isDrop = form.is_new_drop;
     const price = Number(form.price) || 0;
     const mrp = form.mrp ? Number(form.mrp) : null;
-    const stock = Number(form.stock) || 0;
+    const stock = isDrop ? 0 : (Number(form.stock) || 0);
     const low_stock_limit = Number(form.low_stock_limit) || 0;
 
     if (!form.name.trim()) {
@@ -999,17 +1000,24 @@ export default function SellerProducts() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className={`h-2.5 w-2.5 rounded-full ${(product.stock ?? 0) === 0
-                            ? "bg-rose-500"
-                            : (product.stock ?? 0) <= (product.low_stock_limit ?? 5)
-                              ? "bg-amber-500"
-                              : "bg-emerald-500"
-                          }`} />
-                        <span className="font-bold text-text-secondary">
-                          {product.stock ?? 0} in stock
-                        </span>
-                      </div>
+                      {isProductNewDrop(product) ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                          <span className="h-1.5 w-1.5 rounded-full bg-orange-400 animate-pulse" />
+                          <span>Hype Teaser (No Stock)</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2.5 w-2.5 rounded-full ${(product.stock ?? 0) === 0
+                              ? "bg-rose-500"
+                              : (product.stock ?? 0) <= (product.low_stock_limit ?? 5)
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                            }`} />
+                          <span className="font-bold text-text-secondary">
+                            {product.stock ?? 0} in stock
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
