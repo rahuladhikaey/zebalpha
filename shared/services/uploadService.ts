@@ -246,12 +246,12 @@ export function validateBannerImageSize(
 }
 
 /**
- * Automatically compress any banner image to strictly <= 50 KB WebP
+ * Automatically compress any banner image to strictly <= 50 KB WebP while preserving exact aspect ratio
  */
 export async function compressBannerTo50KB(
   file: File | Blob,
   maxBytes: number = 50 * 1024
-): Promise<{ file: File; actualKb: number; blob: Blob }> {
+): Promise<{ file: File; actualKb: number; blob: Blob; width: number; height: number; aspectRatio: number }> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined") {
       const b = file as Blob;
@@ -259,6 +259,9 @@ export async function compressBannerTo50KB(
         file: file instanceof File ? file : new File([b], "banner.webp", { type: "image/webp" }),
         actualKb: Number((b.size / 1024).toFixed(1)),
         blob: b,
+        width: 1400,
+        height: 600,
+        aspectRatio: 2.333,
       });
     }
 
@@ -271,21 +274,22 @@ export async function compressBannerTo50KB(
         try {
           const naturalW = img.naturalWidth || img.width;
           const naturalH = img.naturalHeight || img.height;
+          const originalAspect = naturalW / naturalH;
 
-          // Limit maximum dimensions for wide banner (e.g. max width 1400px)
+          // Limit maximum width for wide banner while keeping exact proportional height
           let targetW = naturalW;
           let targetH = naturalH;
-          const MAX_WIDTH = 1400;
+          const MAX_WIDTH = 1600;
           if (targetW > MAX_WIDTH) {
-            targetH = Math.round((targetH * MAX_WIDTH) / targetW);
             targetW = MAX_WIDTH;
+            targetH = Math.round(targetW / originalAspect);
           }
 
           const canvas = document.createElement("canvas");
           let currentW = targetW;
           let currentH = targetH;
           let blob: Blob | null = null;
-          let quality = 0.85;
+          let quality = 0.88;
 
           while (quality >= 0.2) {
             canvas.width = currentW;
@@ -303,8 +307,8 @@ export async function compressBannerTo50KB(
             }
             quality -= 0.12;
             if (quality < 0.35 && blob && blob.size > maxBytes) {
-              currentW = Math.max(400, Math.round(currentW * 0.85));
-              currentH = Math.max(150, Math.round(currentH * 0.85));
+              currentW = Math.max(320, Math.round(currentW * 0.88));
+              currentH = Math.round(currentW / originalAspect);
               quality = 0.75;
             }
           }
@@ -314,8 +318,8 @@ export async function compressBannerTo50KB(
           }
 
           if (blob.size > maxBytes) {
-            currentW = Math.max(350, Math.round(currentW * 0.75));
-            currentH = Math.max(120, Math.round(currentH * 0.75));
+            currentW = Math.max(300, Math.round(currentW * 0.8));
+            currentH = Math.round(currentW / originalAspect);
             canvas.width = currentW;
             canvas.height = currentH;
             const ctx = canvas.getContext("2d");
@@ -338,7 +342,14 @@ export async function compressBannerTo50KB(
           const processedFile = new File([blob], `${baseName}-banner.webp`, { type: "image/webp" });
           const actualKb = Number((blob.size / 1024).toFixed(1));
 
-          resolve({ file: processedFile, actualKb, blob });
+          resolve({
+            file: processedFile,
+            actualKb,
+            blob,
+            width: currentW,
+            height: currentH,
+            aspectRatio: Number(originalAspect.toFixed(3)),
+          });
         } catch (err) {
           reject(err);
         }

@@ -111,6 +111,7 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
   const [optimizingBanner, setOptimizingBanner] = useState<boolean>(false);
   const [uploadingBanner, setUploadingBanner] = useState<boolean>(false);
   const [bannerErrorMessage, setBannerErrorMessage] = useState<string>("");
+  const [bannerMeta, setBannerMeta] = useState<{ width?: number; height?: number; aspectRatio?: number }>({});
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
   const [marqueeItems, setMarqueeItems] = useState<any[]>([]);
@@ -469,8 +470,8 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
     setOptimizingBanner(true);
 
     try {
-      // Auto-compress and optimize banner to strictly <= 50 KB WebP
-      const { file: optimizedFile, actualKb } = await compressBannerTo50KB(file, 50 * 1024);
+      // Auto-compress and optimize banner to strictly <= 50 KB WebP while preserving exact aspect ratio
+      const { file: optimizedFile, actualKb, width, height, aspectRatio } = await compressBannerTo50KB(file, 50 * 1024);
 
       if (bannerPreviewUrl && bannerPreviewUrl.startsWith("blob:")) {
         URL.revokeObjectURL(bannerPreviewUrl);
@@ -480,14 +481,16 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
       setSelectedBannerFile(optimizedFile);
       setBannerPreviewUrl(localBlob);
       setBannerFileSizeFormatted(`${actualKb} KB / 50 KB Max (WebP)`);
+      setBannerMeta({ width, height, aspectRatio });
       setIsBannerValid(true);
-      notify(`✓ Banner image auto-optimized to ${actualKb} KB WebP (Within 50 KB limit)!`);
+      notify(`✓ Banner image auto-optimized to ${actualKb} KB WebP (Actual: ${width}x${height}, ratio: ${aspectRatio}:1)!`);
     } catch (err: any) {
       console.error("Banner optimization error:", err);
       setBannerErrorMessage(err.message || "Failed to process and compress banner image.");
       setSelectedBannerFile(null);
       setBannerPreviewUrl("");
       setBannerFileSizeFormatted("");
+      setBannerMeta({});
       setIsBannerValid(false);
     } finally {
       setOptimizingBanner(false);
@@ -502,6 +505,7 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
     setSelectedBannerFile(null);
     setBannerPreviewUrl("");
     setBannerFileSizeFormatted("");
+    setBannerMeta({});
     setIsBannerValid(false);
     setBannerErrorMessage("");
     if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
@@ -553,7 +557,10 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
       id: Date.now(),
       src: finalBannerUrl,
       alt: newBannerAlt.trim() || "Hero Banner",
-      link: newBannerLink.trim() || "/"
+      link: newBannerLink.trim() || "/",
+      width: bannerMeta.width,
+      height: bannerMeta.height,
+      aspectRatio: bannerMeta.aspectRatio
     };
     const updated = [...herobanners, newBanner];
     try {
@@ -1188,13 +1195,15 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
 
                     {bannerPreviewUrl && (
                       <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/40 bg-zinc-950 shadow-md">
-                        <div className="relative w-full aspect-[2.7/1] max-h-56 overflow-hidden flex items-center justify-center bg-black">
+                        <div 
+                          className="relative w-full max-h-72 overflow-hidden flex items-center justify-center bg-black transition-all"
+                          style={{ aspectRatio: `${bannerMeta.aspectRatio || 2.4}` }}
+                        >
                           <img
                             src={bannerPreviewUrl}
                             alt="Banner Preview"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain object-center"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
                           
                           {/* Verified Size Badge */}
                           <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-500/50 text-white shadow-lg">
@@ -1202,11 +1211,16 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                             <span className="text-[10px] font-mono font-black text-emerald-300">
                               {bannerFileSizeFormatted}
                             </span>
+                            {bannerMeta.width && bannerMeta.height && (
+                              <span className="text-[9px] font-mono text-slate-300 ml-1">
+                                ({bannerMeta.width}x{bannerMeta.height})
+                              </span>
+                            )}
                           </div>
 
                           {/* Destination Folder Tag */}
                           <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/80 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-white text-[10px] font-mono">
-                            <span className="text-emerald-400">Save Destination:</span>
+                            <span className="text-emerald-400">Destination:</span>
                             <span className="text-slate-200">editorial/homepage/banner/</span>
                           </div>
 
@@ -1232,21 +1246,44 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                       type="url"
                       placeholder="Image URL (e.g. https://... or /banner.jpg)"
                       value={newBannerUrl}
-                      onChange={e => setNewBannerUrl(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setNewBannerUrl(val);
+                        if (val && (val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/"))) {
+                          const testImg = new window.Image();
+                          testImg.onload = () => {
+                            if (testImg.naturalWidth && testImg.naturalHeight) {
+                              setBannerMeta({
+                                width: testImg.naturalWidth,
+                                height: testImg.naturalHeight,
+                                aspectRatio: Number((testImg.naturalWidth / testImg.naturalHeight).toFixed(3)),
+                              });
+                            }
+                          };
+                          testImg.src = val;
+                        }
+                      }}
                       className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-emerald-500"
                     />
 
                     {newBannerUrl && (
                       <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
-                        <div className="w-24 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 shrink-0">
+                        <div className="w-24 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-700 shrink-0 flex items-center justify-center">
                           <img 
                             src={newBannerUrl} 
                             alt="Banner Preview" 
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain object-center"
                             onError={(e) => { (e.target as any).style.display = 'none'; }}
                           />
                         </div>
-                        <span className="text-[11px] font-bold text-slate-500">Live URL Image Preview</span>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-bold text-slate-500">Live URL Image Preview</span>
+                          {bannerMeta.aspectRatio && (
+                            <span className="text-[10px] font-mono text-emerald-500 font-bold">
+                              Actual: {bannerMeta.width}x{bannerMeta.height} ({bannerMeta.aspectRatio}:1)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1307,11 +1344,11 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                         const isStoredInBannerFolder = typeof b.src === "string" && b.src.includes("homepage/banner");
                         return (
                           <div key={b.id || i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 rounded-2xl p-3 border border-slate-200 dark:border-slate-700">
-                            <div className="relative w-24 h-14 rounded-xl overflow-hidden shrink-0 border border-slate-300 dark:border-slate-700 bg-zinc-950">
+                            <div className="relative w-24 h-14 rounded-xl overflow-hidden shrink-0 border border-slate-300 dark:border-slate-700 bg-zinc-950 flex items-center justify-center">
                               <img 
                                 src={b.src} 
                                 alt={b.alt} 
-                                className="w-full h-full object-cover" 
+                                className="w-full h-full object-contain object-center" 
                               />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1320,6 +1357,11 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                                 {isStoredInBannerFolder && (
                                   <span className="text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 px-1.5 py-0.5 rounded-md shrink-0">
                                     📁 banner
+                                  </span>
+                                )}
+                                {b.aspectRatio && (
+                                  <span className="text-[9px] font-mono text-slate-400 font-bold bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded shrink-0">
+                                    {b.width && b.height ? `${b.width}×${b.height}` : `${b.aspectRatio}:1`}
                                   </span>
                                 )}
                               </div>
