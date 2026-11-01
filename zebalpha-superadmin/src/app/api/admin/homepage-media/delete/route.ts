@@ -5,13 +5,15 @@ import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const auth = await requireSuperAdmin(req);
-  if (!auth.authenticated) {
-    return authErrorResponse(auth);
+  try {
+    await requireSuperAdmin(req);
+  } catch (authErr: any) {
+    if (authErr.name === "AuthError") return authErrorResponse(authErr);
+    return NextResponse.json({ success: false, message: authErr.message || "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const { filePath, bucket = "editorial-images" } = await req.json();
+    const { filePath, bucket } = await req.json();
 
     if (!filePath || typeof filePath !== "string") {
       return NextResponse.json(
@@ -34,14 +36,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const { error } = await supabaseServer.storage.from(bucket).remove([filePath]);
-
-    if (error) {
-      console.warn("[Storage Delete Warning]:", error.message);
-      // Try fallback bucket if primary wasn't matching
-      if (bucket === "editorial-images") {
-        await supabaseServer.storage.from("product-images").remove([filePath]);
-      }
+    const candidateBuckets = bucket ? [bucket] : ["editorial", "editorial-images", "product-images"];
+    for (const b of candidateBuckets) {
+      try {
+        await supabaseServer.storage.from(b).remove([filePath]);
+      } catch (_) {}
     }
 
     return NextResponse.json({ success: true, message: "Storage media cleaned safely." });

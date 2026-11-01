@@ -116,30 +116,36 @@ export async function POST(req: Request) {
     const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const filePath = `${folderPrefix}/${section === "curated-collections" ? "coll" : "woven"}_${uniqueId}.${ext}`;
 
-    // 5. Upload to Supabase Storage Bucket ('editorial-images' with fallback to 'product-images')
-    let targetBucket = "editorial-images";
-    let { error: uploadError } = await supabaseServer.storage
-      .from(targetBucket)
-      .upload(filePath, buffer, {
-        contentType: mimeType,
-        upsert: true,
-      });
+    // 5. Upload to Supabase Storage Bucket ('editorial' primary, fallback to 'editorial-images' or 'product-images')
+    const candidateBuckets = ["editorial", "editorial-images", "product-images"];
+    let targetBucket = "editorial";
+    let uploadSuccess = false;
+    let lastUploadError: any = null;
 
-    if (uploadError && uploadError.message?.toLowerCase().includes("bucket not found")) {
-      targetBucket = "product-images";
-      const fallbackUpload = await supabaseServer.storage
-        .from(targetBucket)
+    for (const b of candidateBuckets) {
+      const { error } = await supabaseServer.storage
+        .from(b)
         .upload(filePath, buffer, {
           contentType: mimeType,
           upsert: true,
         });
-      uploadError = fallbackUpload.error;
+
+      if (!error) {
+        targetBucket = b;
+        uploadSuccess = true;
+        break;
+      } else {
+        lastUploadError = error;
+        if (error.message?.toLowerCase().includes("bucket not found")) {
+          continue;
+        }
+      }
     }
 
-    if (uploadError) {
-      console.error("[Storage Upload Error]:", uploadError);
+    if (!uploadSuccess) {
+      console.error("[Storage Upload Error]:", lastUploadError);
       return NextResponse.json(
-        { success: false, message: `Storage upload failed: ${uploadError.message}` },
+        { success: false, message: `Storage upload failed: ${lastUploadError?.message || "Storage bucket not accessible"}` },
         { status: 500 }
       );
     }
