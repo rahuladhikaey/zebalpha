@@ -19,6 +19,13 @@ export function AndroidLanguageModal() {
       fontClass: "font-sans",
     },
     {
+      code: "bn" as const,
+      symbol: "অ",
+      name: "Bengali",
+      nativeName: "বাংলা",
+      fontClass: "font-sans",
+    },
+    {
       code: "hi" as const,
       symbol: "ह",
       name: "Hindi",

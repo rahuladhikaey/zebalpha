@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { checkIsNativeApp } from "@/lib/platform";
 
-export type LanguageCode = "en" | "hi";
+export type LanguageCode = "en" | "hi" | "bn";
 
 const LANGUAGE_STORAGE_KEY = "zebalpha_selected_language";
 const ONBOARDING_LANG_KEY = "zebalpha_onboarding_language_completed";
@@ -23,6 +23,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     select_language_title: "Which language do you want to see Zebalpha in?",
     english: "English",
     hindi: "Hindi",
+    bengali: "Bengali",
 
     // Login Screen
     welcome_back: "Welcome Back",
@@ -85,6 +86,81 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     close: "Close",
     done: "Done",
   },
+  bn: {
+    // Progress
+    step_language: "ভাষা",
+    step_login: "লগ ইন",
+    step_welcome: "স্বাগতম",
+    skip: "এড়িয়ে যান",
+    continue: "এগিয়ে যান",
+
+    // Language Screen
+    select_language_title: "আপনি কোন ভাষায় জেবআলফা দেখতে চান?",
+    english: "English",
+    hindi: "हिंदी",
+    bengali: "বাংলা",
+
+    // Login Screen
+    welcome_back: "স্বাগতম",
+    login_subtitle: "আপনার বুটিক কালেকশন এবং অ্যাকাউন্ট অ্যাক্সেস করতে সাইন ইন করুন।",
+    email_label: "ইমেল ঠিকানা",
+    email_placeholder: "ইমেল ঠিকানা লিখুন",
+    password_label: "পাসওয়ার্ড",
+    password_placeholder: "পাসওয়ার্ড লিখুন",
+    sign_in_button: "সাইন ইন করুন ✨",
+    signing_in: "যাচাই করা হচ্ছে...",
+    new_here: "নতুন গ্রাহক?",
+    create_account: "অ্যাকাউন্ট তৈরি করুন",
+
+    // Signup Screen
+    create_account_title: "অ্যাকাউন্ট তৈরি করুন",
+    signup_subtitle: "কালচারের সাথে যুক্ত হোন। কয়েক সেকেন্ডে আপনার জেবআলফা অ্যাকাউন্ট তৈরি করুন।",
+    full_name_label: "সম্পূর্ণ নাম",
+    full_name_placeholder: "আপনার পুরো নাম লিখুন",
+    new_password_label: "পাসওয়ার্ড",
+    new_password_placeholder: "পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)",
+    confirm_password_label: "পাসওয়ার্ড নিশ্চিত করুন",
+    confirm_password_placeholder: "পাসওয়ার্ড নিশ্চিত করুন",
+    send_otp_button: "যাচাইকরণ কোড পাঠান 📨",
+    sending_otp: "কোড পাঠানো হচ্ছে...",
+    already_have_account: "ইতিমধ্যে একটি অ্যাকাউন্ট আছে?",
+    sign_in_here: "এখানে সাইন ইন করুন",
+
+    // OTP Screen
+    verify_email_title: "ওটিপি কোড লিখুন",
+    otp_subtitle: "আপনার ইমেলে পাঠানো ৬-সংখ্যার ওটিপি কোডটি লিখুন।",
+    verify_button: "যাচাই করুন ও অ্যাকাউন্ট তৈরি করুন ✨",
+    verifying_otp: "যাচাই করা হচ্ছে...",
+    resend_code: "কোড পুনরায় পাঠান 📨",
+    resend_in: "পুনরায় পাঠান",
+    change_email: "ইমেল পরিবর্তন করুন",
+
+    // Welcome Screen
+    welcome_title: "জেবআলফায় আপনাকে স্বাগতম!",
+    welcome_subtitle: "ক্লোথিং ফর দ্য কালচার ✦",
+    welcome_greeting: "নমস্কার, {name}! আপনার অ্যাকাউন্ট সক্রিয় ও যাচাইকৃত হয়েছে।",
+    welcome_benefit_1: "১০০% খাঁটি ভারতীয় স্ট্রিটওয়্যার ও ড্রপস",
+    welcome_benefit_2: "সদস্যদের জন্য বিশেষ রিওয়ার্ড ও প্রাথমিক অ্যাক্সেস",
+    welcome_benefit_3: "₹৯৯৯+ এর অর্ডারে বিনামূল্যে এক্সপ্রেস ডেলিভারি",
+    start_shopping: "কালেকশন ব্রাউজ করুন ✦",
+
+    // Navigation & Bottom Nav
+    nav_home: "হোম",
+    nav_categories: "ক্যাটাগরি",
+    nav_account: "অ্যাকাউন্ট",
+    nav_cart: "কার্ট",
+    nav_wishlist: "পছন্দের তালিকা",
+
+    // Drawer & Profile
+    language_settings: "ভাষা সেটিংস",
+    choose_language: "ভাষা নির্বাচন করুন",
+    my_orders: "আমার অর্ডারসমূহ",
+    saved_addresses: "সংরক্ষিত ঠিকানা",
+    sign_out: "সাইন আউট",
+    public_store: "স্টোর হোম",
+    close: "বন্ধ করুন",
+    done: "সম্পন্ন",
+  },
   hi: {
     // Progress
     step_language: "भाषा",
@@ -97,6 +173,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     select_language_title: "आप ज़ेबअल्फा किस भाषा में देखना चाहते हैं?",
     english: "English",
     hindi: "हिंदी",
+    bengali: "बंगाली",
 
     // Login Screen
     welcome_back: "वापसी पर स्वागत है",

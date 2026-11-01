@@ -566,33 +566,16 @@ export function AndroidOnboardingManager() {
           <div className="flex-1 flex flex-col justify-between">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 mb-6 leading-snug">
-                {selectedLang === "hi"
+                {selectedLang === "bn"
+                  ? "আপনি কোন ভাষায় জেবআলফা দেখতে চান?"
+                  : selectedLang === "hi"
                   ? "आप ज़ेबअल्फा किस भाषा में देखना चाहते हैं?"
                   : "Which language do you want to see Zebalpha in?"}
               </h1>
 
-              {/* Language Cards: ONLY English and Hindi */}
+              {/* Language Cards: English, Bengali, and Hindi */}
               <div className="space-y-3.5">
-                {/* 1. Hindi Card */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedLang("hi")}
-                  className={`w-full p-4 rounded-2xl border transition-all flex items-center justify-between cursor-pointer active:scale-[0.99] ${
-                    selectedLang === "hi"
-                      ? "border-2 border-black bg-neutral-50 shadow-sm"
-                      : "border-neutral-200 bg-white hover:border-neutral-400"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-100 text-2xl font-black text-black font-serif">
-                      ह
-                    </span>
-                    <span className="text-base font-bold text-neutral-900">हिंदी</span>
-                  </div>
-                  <ChevronRight size={18} className="text-neutral-400" />
-                </button>
-
-                {/* 2. English Card */}
+                {/* 1. English Card */}
                 <button
                   type="button"
                   onClick={() => setSelectedLang("en")}
@@ -610,6 +593,44 @@ export function AndroidOnboardingManager() {
                   </div>
                   <ChevronRight size={18} className="text-neutral-400" />
                 </button>
+
+                {/* 2. Bengali Card */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedLang("bn")}
+                  className={`w-full p-4 rounded-2xl border transition-all flex items-center justify-between cursor-pointer active:scale-[0.99] ${
+                    selectedLang === "bn"
+                      ? "border-2 border-black bg-neutral-50 shadow-sm"
+                      : "border-neutral-200 bg-white hover:border-neutral-400"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-100 text-2xl font-black text-black">
+                      অ
+                    </span>
+                    <span className="text-base font-bold text-neutral-900">বাংলা (Bengali)</span>
+                  </div>
+                  <ChevronRight size={18} className="text-neutral-400" />
+                </button>
+
+                {/* 3. Hindi Card */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedLang("hi")}
+                  className={`w-full p-4 rounded-2xl border transition-all flex items-center justify-between cursor-pointer active:scale-[0.99] ${
+                    selectedLang === "hi"
+                      ? "border-2 border-black bg-neutral-50 shadow-sm"
+                      : "border-neutral-200 bg-white hover:border-neutral-400"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-100 text-2xl font-black text-black font-serif">
+                      ह
+                    </span>
+                    <span className="text-base font-bold text-neutral-900">हिंदी (Hindi)</span>
+                  </div>
+                  <ChevronRight size={18} className="text-neutral-400" />
+                </button>
               </div>
             </div>
 
@@ -620,7 +641,7 @@ export function AndroidOnboardingManager() {
                 onClick={handleLanguageContinue}
                 className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/25 hover:bg-emerald-500 active:scale-[0.98] transition-all cursor-pointer"
               >
-                <span>{selectedLang === "hi" ? "आगे बढ़ें" : "Continue"}</span>
+                <span>{selectedLang === "bn" ? "এগিয়ে যান" : selectedLang === "hi" ? "आगे बढ़ें" : "Continue"}</span>
                 <span className="text-base">✦</span>
               </button>
             </div>
