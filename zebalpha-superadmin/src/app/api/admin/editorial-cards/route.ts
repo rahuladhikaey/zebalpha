@@ -14,25 +14,27 @@ export async function GET(req: Request) {
       .select("id, title, category, price, badge, href, image_url, display_order, is_active, created_at, updated_at")
       .order("display_order", { ascending: true });
 
-    if (error) {
-      console.warn("Table editorial_cards fetch note:", error.message);
-      // Fallback check in marketplace_settings
-      const { data: settingData } = await supabaseServer
-        .from("marketplace_settings")
-        .select("setting_value")
-        .eq("setting_key", "editorial_cards")
-        .maybeSingle();
-
-      if (settingData?.setting_value) {
-        const parsed = JSON.parse(settingData.setting_value);
-        if (Array.isArray(parsed)) {
-          return NextResponse.json({ success: true, data: parsed });
-        }
-      }
-      return NextResponse.json({ success: true, data: [] });
+    if (!error && data && data.length > 0) {
+      return NextResponse.json({ success: true, data });
     }
 
-    return NextResponse.json({ success: true, data: data || [] });
+    // Fallback: Check marketplace_settings key 'editorial_cards'
+    const { data: settingData } = await supabaseServer
+      .from("marketplace_settings")
+      .select("setting_value")
+      .eq("setting_key", "editorial_cards")
+      .maybeSingle();
+
+    if (settingData?.setting_value) {
+      const parsed = typeof settingData.setting_value === "string"
+        ? JSON.parse(settingData.setting_value)
+        : settingData.setting_value;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return NextResponse.json({ success: true, data: parsed });
+      }
+    }
+
+    return NextResponse.json({ success: true, data: [] });
   } catch (error: any) {
     if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Editorial Cards GET Error]:", error);
@@ -55,14 +57,18 @@ export async function POST(req: Request) {
       );
     }
 
+    const numPrice = typeof price === "number"
+      ? price
+      : (price && !isNaN(Number(price)) ? Number(price) : null);
+
     const payload = {
       title: (title || "").trim() || "Exclusive Collection",
       image_url: image_url.trim(),
-      category: (category || "").trim() || "Editorial Spotlight",
-      price: (price || "").trim() || "Starting ₹499",
-      badge: (badge || "").trim() || "FEATURED",
-      href: (href || "").trim() || "/categories",
-      display_order: parseInt(display_order, 10) || 0,
+      category: (category || "").trim() || "ZEBALPHA EDIT",
+      price: numPrice,
+      badge: (badge || "").trim() || "EDITORIAL DROP",
+      href: (href || "").trim() || "/products",
+      display_order: parseInt(String(display_order), 10) || 0,
       is_active: Boolean(is_active),
     };
 
@@ -79,7 +85,9 @@ export async function POST(req: Request) {
         .eq("setting_key", "editorial_cards")
         .maybeSingle();
 
-      const existingList = settingData?.setting_value ? JSON.parse(settingData.setting_value) : [];
+      const existingList = settingData?.setting_value
+        ? (typeof settingData.setting_value === "string" ? JSON.parse(settingData.setting_value) : settingData.setting_value)
+        : [];
       const newCard = {
         ...payload,
         id: `ed-${Date.now()}`,
@@ -127,41 +135,48 @@ export async function PUT(req: Request) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabaseServer
-      .from("editorial_cards")
-      .update(sanitizedUpdates)
-      .eq("id", id)
-      .select("id, title, category, price, badge, href, image_url, display_order, is_active, created_at, updated_at");
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
 
-    if (error) {
-      console.warn("Notice updating editorial_cards table:", error.message);
-      const { data: settingData } = await supabaseServer
-        .from("marketplace_settings")
-        .select("setting_value")
-        .eq("setting_key", "editorial_cards")
-        .maybeSingle();
+    if (isUuid) {
+      const { data, error } = await supabaseServer
+        .from("editorial_cards")
+        .update(sanitizedUpdates)
+        .eq("id", id)
+        .select("id, title, category, price, badge, href, image_url, display_order, is_active, created_at, updated_at");
 
-      const existingList = settingData?.setting_value ? JSON.parse(settingData.setting_value) : [];
-      const updatedList = existingList.map((item: any) =>
-        String(item.id) === String(id) ? { ...item, ...sanitizedUpdates } : item
-      );
-
-      await supabaseServer
-        .from("marketplace_settings")
-        .upsert(
-          {
-            setting_key: "editorial_cards",
-            setting_value: JSON.stringify(updatedList),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "setting_key" }
-        );
-
-      const updatedItem = updatedList.find((item: any) => String(item.id) === String(id));
-      return NextResponse.json({ success: true, data: updatedItem });
+      if (!error && data && data.length > 0) {
+        return NextResponse.json({ success: true, data: data[0] });
+      }
     }
 
-    return NextResponse.json({ success: true, data: data?.[0] });
+    // Fallback update in marketplace_settings
+    const { data: settingData } = await supabaseServer
+      .from("marketplace_settings")
+      .select("setting_value")
+      .eq("setting_key", "editorial_cards")
+      .maybeSingle();
+
+    const existingList = settingData?.setting_value
+      ? (typeof settingData.setting_value === "string" ? JSON.parse(settingData.setting_value) : settingData.setting_value)
+      : [];
+
+    const updatedList = existingList.map((item: any) =>
+      String(item.id) === String(id) ? { ...item, ...sanitizedUpdates } : item
+    );
+
+    await supabaseServer
+      .from("marketplace_settings")
+      .upsert(
+        {
+          setting_key: "editorial_cards",
+          setting_value: JSON.stringify(updatedList),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "setting_key" }
+      );
+
+    const updatedItem = updatedList.find((item: any) => String(item.id) === String(id));
+    return NextResponse.json({ success: true, data: updatedItem });
   } catch (error: any) {
     if (error.name === "AuthError") return authErrorResponse(error);
     console.error("[Editorial Cards PUT Error]:", error);
@@ -181,33 +196,34 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, message: "Missing editorial card id." }, { status: 400 });
     }
 
-    const { error } = await supabaseServer
-      .from("editorial_cards")
-      .delete()
-      .eq("id", id);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
 
-    if (error) {
-      console.warn("Notice deleting from editorial_cards table:", error.message);
-      const { data: settingData } = await supabaseServer
-        .from("marketplace_settings")
-        .select("setting_value")
-        .eq("setting_key", "editorial_cards")
-        .maybeSingle();
-
-      const existingList = settingData?.setting_value ? JSON.parse(settingData.setting_value) : [];
-      const filteredList = existingList.filter((item: any) => String(item.id) !== String(id));
-
-      await supabaseServer
-        .from("marketplace_settings")
-        .upsert(
-          {
-            setting_key: "editorial_cards",
-            setting_value: JSON.stringify(filteredList),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "setting_key" }
-        );
+    if (isUuid) {
+      await supabaseServer.from("editorial_cards").delete().eq("id", id);
     }
+
+    // Fallback: Also remove from marketplace_settings
+    const { data: settingData } = await supabaseServer
+      .from("marketplace_settings")
+      .select("setting_value")
+      .eq("setting_key", "editorial_cards")
+      .maybeSingle();
+
+    const existingList = settingData?.setting_value
+      ? (typeof settingData.setting_value === "string" ? JSON.parse(settingData.setting_value) : settingData.setting_value)
+      : [];
+    const filteredList = existingList.filter((item: any) => String(item.id) !== String(id));
+
+    await supabaseServer
+      .from("marketplace_settings")
+      .upsert(
+        {
+          setting_key: "editorial_cards",
+          setting_value: JSON.stringify(filteredList),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "setting_key" }
+      );
 
     return NextResponse.json({ success: true, message: "Editorial card removed successfully." });
   } catch (error: any) {

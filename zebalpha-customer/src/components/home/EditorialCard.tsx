@@ -68,15 +68,26 @@ export function EditorialCard({
 
         {/* Minimal Bottom Left Text Overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 z-10 flex flex-col text-left space-y-0.5">
-          <span className="text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest text-amber-400/90 group-hover:text-amber-300 transition-colors">
-            {item.category}
-          </span>
-          <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight leading-snug line-clamp-2 drop-shadow-md">
+          {(() => {
+            const isDuplicate = item.category?.trim().toUpperCase() === item.title?.trim().toUpperCase();
+            const displayCategory = isDuplicate
+              ? (item.badge?.trim().toUpperCase() || "ZEBALPHA EDIT")
+              : (item.category?.trim().toUpperCase() || "ZEBALPHA EDIT");
+            return (
+              <span className="text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest text-amber-400/90 group-hover:text-amber-300 transition-colors truncate">
+                {displayCategory}
+              </span>
+            );
+          })()}
+          <h3
+            className="text-xs sm:text-sm font-bold text-white tracking-tight leading-snug line-clamp-2 drop-shadow-md"
+            title={item.title}
+          >
             {item.title}
           </h3>
-          {item.price !== undefined && (
+          {item.price !== undefined && item.price !== null && (
             <span className="text-[10px] sm:text-[11px] font-semibold text-neutral-200 pt-0.5 font-mono">
-              ₹{item.price.toLocaleString("en-IN")}
+              ₹{Number(item.price).toLocaleString("en-IN")}
             </span>
           )}
         </div>

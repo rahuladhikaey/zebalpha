@@ -43,9 +43,11 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireSuperAdmin(req);
-  if (!auth.authenticated) {
-    return authErrorResponse(auth);
+  try {
+    await requireSuperAdmin(req);
+  } catch (authErr: any) {
+    if (authErr.name === "AuthError") return authErrorResponse(authErr);
+    return NextResponse.json({ success: false, message: authErr.message || "Unauthorized" }, { status: 401 });
   }
 
   try {

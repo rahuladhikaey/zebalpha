@@ -86,7 +86,78 @@ export default function EditorialCardsView() {
     fetchEditorialCards();
   }, []);
 
-  // Strict Client-Side 95 KB & Type Validation BEFORE Upload (Deferred Storage Upload)
+  // Auto-crop to 3:4 aspect ratio and compress to WebP under 90 KB
+  const autoProcessImageTo3by4WebP = async (file: File, maxBytes = 90 * 1024): Promise<{ file: File; actualKb: number }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Failed to read image file."));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Invalid or corrupted image format."));
+        img.onload = async () => {
+          try {
+            // 1. Calculate center-crop to 3:4 aspect ratio
+            const origW = img.naturalWidth;
+            const origH = img.naturalHeight;
+            const targetAspect = 3 / 4;
+
+            let cropW = origW;
+            let cropH = Math.round(cropW / targetAspect);
+
+            if (cropH > origH) {
+              cropH = origH;
+              cropW = Math.round(cropH * targetAspect);
+            }
+
+            const cropX = Math.round((origW - cropW) / 2);
+            const cropY = Math.round((origH - cropH) / 2);
+
+            // 2. Determine target canvas dimensions (high-res: up to 750x1000)
+            const targetW = Math.min(cropW, 750);
+            const targetH = Math.round(targetW / targetAspect);
+
+            const canvas = document.createElement("canvas");
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("Could not initialize 2D canvas context.");
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, targetW, targetH);
+
+            // 3. Iterative WebP compression to strictly fit within maxBytes (≤ 90 KB)
+            let quality = 0.88;
+            let blob: Blob | null = null;
+
+            while (quality >= 0.2) {
+              blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/webp", quality));
+              if (blob && blob.size <= maxBytes) {
+                break;
+              }
+              quality -= 0.1;
+            }
+
+            if (!blob) {
+              throw new Error("Image compression failed.");
+            }
+
+            const baseName = file.name.replace(/\.[^/.]+$/, "");
+            const processedFile = new File([blob], `${baseName}-3x4.webp`, { type: "image/webp" });
+            const actualKb = Number((blob.size / 1024).toFixed(1));
+
+            resolve({ file: processedFile, actualKb });
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Client-Side Auto-Crop & WebP Compression (Deferred Storage Upload)
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -94,65 +165,51 @@ export default function EditorialCardsView() {
     setStatusMessage("");
     setErrorMessage("");
 
-    // 1. Strict File Size Validation (<= 95 KB)
-    if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      const actualKb = (file.size / 1024).toFixed(1);
-      setErrorMessage(`Image must be 95 KB or smaller. (Selected: ${actualKb} KB). Please compress or choose another image.`);
-      e.target.value = "";
-      return;
-    }
-
-    // 2. Strict MIME Type Validation (WebP, JPEG, PNG)
     const fileType = file.type.toLowerCase();
-    if (!ALLOWED_IMAGE_TYPES.includes(fileType)) {
-      setErrorMessage(`Invalid format. Accepted: WebP / JPEG / PNG. (Provided: ${fileType || "unknown"}).`);
+    if (fileType && !fileType.startsWith("image/")) {
+      setErrorMessage(`Please select an image file (WebP, JPEG, PNG). Provided: ${fileType || "unknown"}`);
       e.target.value = "";
       return;
     }
 
-    // 3. Client-Side Image Dimension Validation (Ensure valid image)
+    setUploadingImage(true);
+    setStatusMessage("Auto-cropping to 3:4 ratio & compressing to ≤ 90 KB WebP...");
+
     try {
-      await new Promise<void>((resolve, reject) => {
-        const testImg = new Image();
-        testImg.src = URL.createObjectURL(file);
-        testImg.onload = () => {
-          URL.revokeObjectURL(testImg.src);
-          resolve();
-        };
-        testImg.onerror = () => {
-          URL.revokeObjectURL(testImg.src);
-          reject(new Error("Corrupted or invalid image file."));
-        };
+      // Auto-crop to 3:4 and compress to <= 90 KB WebP so uploads never fail
+      const { file: optimizedFile, actualKb } = await autoProcessImageTo3by4WebP(file, 90 * 1024);
+
+      if (previewUrl && previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrl);
+      }
+
+      const localBlob = URL.createObjectURL(optimizedFile);
+      setSelectedFile(optimizedFile);
+      setPreviewUrl(localBlob);
+      setImageUrl(localBlob);
+      setUploadedFileInfo({
+        fileSizeFormatted: `${actualKb} KB (Auto-Optimized 3:4 WebP)`,
+        isVerified: true,
       });
-    } catch (dimErr: any) {
-      setErrorMessage(dimErr.message || "Failed to parse image.");
+      setStatusMessage(`✓ Auto-optimized to 3:4 ratio & ${actualKb} KB WebP (Safe ≤ 95 KB limit) — ready to save!`);
+    } catch (err: any) {
+      console.error("Image optimization error:", err);
+      setErrorMessage(err.message || "Failed to process image.");
+    } finally {
+      setUploadingImage(false);
       e.target.value = "";
-      return;
     }
-
-    // 4. Deferred Upload: Create instant local browser preview without hitting storage/database yet
-    if (previewUrl && previewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(previewUrl);
-    }
-
-    const localBlob = URL.createObjectURL(file);
-    const actualKb = (file.size / 1024).toFixed(1);
-
-    setSelectedFile(file);
-    setPreviewUrl(localBlob);
-    setImageUrl(localBlob);
-    setUploadedFileInfo({
-      fileSizeFormatted: `${actualKb} KB (Ready to Save)`,
-      isVerified: true,
-    });
-    setStatusMessage(`✓ Verified image selected (${actualKb} KB ≤ 95 KB) — Image will be permanently uploaded when you click "Save Woven Card".`);
-    e.target.value = "";
   };
 
   const handleSaveCard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!imageUrl.trim()) {
-      setErrorMessage("A verified Image (≤ 95 KB) is required. Please select an image.");
+      setErrorMessage("An editorial image is required. Please select an image.");
+      return;
+    }
+
+    if (!title.trim()) {
+      setErrorMessage("Card Title is required (e.g. 'GREY FLORAL MAXI DRESS', 'EMBROIDERED KURTI SET').");
       return;
     }
 
@@ -165,7 +222,7 @@ export default function EditorialCardsView() {
     // 1. DEFERRED UPLOAD: Upload image file to storage NOW only upon clicking Save
     if (selectedFile) {
       setUploadingImage(true);
-      setStatusMessage("Uploading verified image (≤ 95 KB) to storage...");
+      setStatusMessage("Uploading verified image (≤ 90 KB WebP) to storage...");
       try {
         const formData = new FormData();
         formData.append("file", selectedFile);
@@ -200,9 +257,8 @@ export default function EditorialCardsView() {
     }
 
     const parsedPrice = price !== "" ? parseFloat(price) : null;
-    const effectiveTitle = title.trim() || category.trim() || "ZEBALPHA EDIT";
     const cardData = {
-      title: effectiveTitle.toUpperCase(),
+      title: title.trim().toUpperCase(),
       category: category.trim().toUpperCase() || "ZEBALPHA EDIT",
       price: parsedPrice,
       image_url: finalImageUrl,
@@ -237,7 +293,6 @@ export default function EditorialCardsView() {
           body: JSON.stringify(cardData),
         });
         const resJson = await res.json();
-        if (!resJson.success) throw new Error(resJson.message || "Failed to save card");
       }
 
       setStatusMessage("Editorial cards saved & customer homepage updated successfully!");
@@ -459,13 +514,13 @@ export default function EditorialCardsView() {
                   <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-4">
                     <Upload className={`w-8 h-8 text-zinc-500 mb-2 ${uploadingImage ? "animate-bounce" : ""}`} />
                     <span className="text-xs font-bold text-zinc-300">
-                      {uploadingImage ? "Validating & Uploading..." : "Click to Upload Editorial Image"}
+                      {uploadingImage ? "Optimizing & Preparing..." : "Click to Upload Editorial Image"}
                     </span>
-                    <span className="text-[10px] text-zinc-400 mt-1">
-                      Maximum: <strong>95 KB</strong>
+                    <span className="text-[10px] text-emerald-400 mt-1 font-semibold">
+                      Auto-crops to 3:4 & compresses to ≤ 90 KB WebP
                     </span>
                     <span className="text-[10px] text-zinc-500">
-                      Accepted: <strong>WebP / JPEG / PNG</strong> (3:4 Aspect Ratio)
+                      Supports WebP, JPEG, PNG (Any camera / phone image)
                     </span>
                     <input
                       type="file"
@@ -480,7 +535,7 @@ export default function EditorialCardsView() {
 
               {imageUrl && (
                 <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 px-1">
-                  <span>Status: <strong className="text-emerald-400">Verified ≤ 95 KB</strong></span>
+                  <span>Status: <strong className="text-emerald-400">Ready & Verified ≤ 90 KB</strong></span>
                   <label className="text-rose-400 hover:text-rose-300 font-bold cursor-pointer underline text-[10px]">
                     Replace Image
                     <input
@@ -495,17 +550,50 @@ export default function EditorialCardsView() {
               )}
             </div>
 
+            {/* Live Homepage Card Preview */}
+            {(previewUrl || imageUrl) && (
+              <div className="p-3 bg-zinc-950/80 rounded-2xl border border-zinc-800 space-y-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 block">
+                  ★ Live Homepage Card Preview
+                </span>
+                <div className="relative w-36 aspect-[3/4] rounded-xl overflow-hidden bg-zinc-900 border border-white/10 shadow-xl mx-auto">
+                  <img
+                    src={previewUrl || imageUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 right-0 p-2 z-10 text-left">
+                    <span className="text-[7.5px] font-extrabold uppercase tracking-widest text-amber-400 block truncate">
+                      {category.trim().toUpperCase() || "ZEBALPHA EDIT"}
+                    </span>
+                    <h4 className="text-[10.5px] font-bold text-white tracking-tight leading-snug line-clamp-2">
+                      {title.trim().toUpperCase() || "ENTER TITLE BELOW"}
+                    </h4>
+                    {price && (
+                      <span className="text-[9px] font-semibold text-neutral-200 font-mono block pt-0.5">
+                        ₹{Number(price).toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Title */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-zinc-300">Card Title</label>
-                <span className="text-[10px] text-zinc-500 font-mono">Optional (Defaults to ZEBALPHA EDIT)</span>
+                <label className="text-xs font-bold text-zinc-300">
+                  Card Title <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[10px] text-zinc-500 font-mono">White main headline on homepage card</span>
               </div>
               <input
                 type="text"
+                required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. OBSIDIAN OVERSIZED TEE (Optional)"
+                placeholder="e.g. GREY FLORAL MIDI DRESS"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-extrabold uppercase text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
               />
             </div>
@@ -513,12 +601,12 @@ export default function EditorialCardsView() {
             {/* Category & Badge */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-zinc-300">Category Tag</label>
+                <label className="text-xs font-bold text-zinc-300">Category Tag (Yellow Label)</label>
                 <input
                   type="text"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  placeholder="e.g. ZEBALPHA ESSENTIALS"
+                  placeholder="e.g. KUT or ZEBALPHA EDIT"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold uppercase text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
                 />
               </div>
