@@ -129,3 +129,4 @@ If an extreme image (e.g., pure uncompressible white noise or corrupted file for
 ## 8. Conclusion
 
 The ZebAlpha automatic WebP compression system is fully implemented, verified, and active across all seller listing workflows. High-resolution seller images are smoothly ingested, compressed to $< 50$ KB WebP format in under 120ms, and stored with production-grade CDN caching.
+
