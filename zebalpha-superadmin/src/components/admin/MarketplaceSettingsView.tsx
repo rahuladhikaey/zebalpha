@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { DYNAMIC_CATEGORY_CATALOG, MainCategoryConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
 import MarketplaceCommissionFeesEngine from "@/components/admin/MarketplaceCommissionFeesEngine";
-import { compressBannerTo50KB } from "@shared/services/uploadService";
+import { compressBannerTo80KB } from "@shared/services/uploadService";
 
 interface MarketplaceSettingsViewProps {
   initialTab?: "general" | "fees" | "offers" | "coupons" | "homepage" | "categories";
@@ -470,8 +470,8 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
     setOptimizingBanner(true);
 
     try {
-      // Auto-compress and optimize banner to strictly <= 50 KB WebP while preserving exact aspect ratio
-      const { file: optimizedFile, actualKb, width, height, aspectRatio } = await compressBannerTo50KB(file, 50 * 1024);
+      // Auto-compress and optimize banner to strictly <= 80 KB WebP while preserving exact aspect ratio
+      const { file: optimizedFile, actualKb, width, height, aspectRatio } = await compressBannerTo80KB(file, 80 * 1024);
 
       if (bannerPreviewUrl && bannerPreviewUrl.startsWith("blob:")) {
         URL.revokeObjectURL(bannerPreviewUrl);
@@ -480,7 +480,7 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
       const localBlob = URL.createObjectURL(optimizedFile);
       setSelectedBannerFile(optimizedFile);
       setBannerPreviewUrl(localBlob);
-      setBannerFileSizeFormatted(`${actualKb} KB / 50 KB Max (WebP)`);
+      setBannerFileSizeFormatted(`${actualKb} KB / 80 KB Max (WebP)`);
       setBannerMeta({ width, height, aspectRatio });
       setIsBannerValid(true);
       notify(`✓ Banner image auto-optimized to ${actualKb} KB WebP (Actual: ${width}x${height}, ratio: ${aspectRatio}:1)!`);
@@ -517,7 +517,7 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
 
     if (bannerInputMode === "upload") {
       if (!selectedBannerFile) {
-        setBannerErrorMessage("Please select or drop a banner image file (Max 50 KB).");
+        setBannerErrorMessage("Please select or drop a banner image file (Max 80 KB).");
         return;
       }
       setUploadingBanner(true);
@@ -1083,14 +1083,14 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                         🖼️ Hero Banner Carousel
                       </h2>
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                        Max 50 KB
+                        Max 80 KB
                       </span>
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                         📁 editorial/homepage/banner
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-500 mt-1">
-                      Directly upload banner pictures (Strictly ≤ 50 KB WebP, saved into editorial storage folder <span className="font-mono text-emerald-600 dark:text-emerald-400">homepage/banner</span>) or paste image URL. Changes reflect instantly on customer homepage.
+                      Directly upload banner pictures (Strictly ≤ 80 KB WebP, saved into editorial storage folder <span className="font-mono text-emerald-600 dark:text-emerald-400">homepage/banner</span>) or paste image URL. Changes reflect instantly on customer homepage.
                     </p>
                   </div>
                   <button
@@ -1117,7 +1117,7 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                     }`}
                   >
                     <UploadCloud className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Direct Image Upload (≤ 50 KB)</span>
+                    <span>Direct Image Upload (≤ 80 KB)</span>
                   </button>
                   <button
                     type="button"
@@ -1174,11 +1174,11 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                               Click to select banner picture, or drag and drop here
                             </p>
                             <p className="text-[11px] font-bold text-slate-400 mt-0.5">
-                              Strictly ≤ 50 KB • Auto-optimizes to WebP • Stored in editorial/homepage/banner
+                              Strictly ≤ 80 KB • Auto-optimizes to WebP • Stored in editorial/homepage/banner
                             </p>
                           </div>
                           <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-900/40 px-3 py-1 rounded-full">
-                            <span>Accepted: WebP, JPEG, PNG • Target: max 50 KB</span>
+                            <span>Accepted: WebP, JPEG, PNG • Target: max 80 KB</span>
                           </div>
                         </div>
                       </div>
@@ -1188,7 +1188,7 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
                       <div className="p-8 rounded-2xl border-2 border-dashed border-emerald-500/30 bg-emerald-50/10 dark:bg-emerald-950/10 flex flex-col items-center justify-center gap-2">
                         <Loader2 className="w-7 h-7 text-emerald-600 animate-spin" />
                         <p className="text-xs font-black text-slate-700 dark:text-slate-300">
-                          Auto-compressing & optimizing banner image to strictly ≤ 50 KB WebP...
+                          Auto-compressing & optimizing banner image to strictly ≤ 80 KB WebP...
                         </p>
                       </div>
                     )}

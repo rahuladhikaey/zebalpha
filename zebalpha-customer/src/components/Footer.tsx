@@ -9,11 +9,6 @@ const FOOTER_VIDEOS = [
     src: "/Create_a_premium_viral_Gen_Z.mp4",
     title: "ZEBALPHA ORIGINAL FILM",
     subtitle: "GEN Z STREETWEAR 2026",
-  },
-  {
-    src: "/create_best_ad_video_best_the.mp4",
-    title: "EXCLUSIVE CAMPAIGN DROP",
-    subtitle: "SIGNATURE STREETWEAR ESSENTIALS",
   }
 ];
 

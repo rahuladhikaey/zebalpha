@@ -276,11 +276,11 @@ export async function compressAndValidateWebPImage(
 }
 
 /**
- * Validates that a banner image file does not exceed 50 KB limit
+ * Validates that a banner image file does not exceed 80 KB limit
  */
 export function validateBannerImageSize(
   fileOrBlob: File | Blob,
-  maxKbLimit: number = 50
+  maxKbLimit: number = 80
 ): { isValid: boolean; message?: string; sizeKb: number } {
   const sizeBytes = fileOrBlob.size;
   const sizeKb = Number((sizeBytes / 1024).toFixed(1));
@@ -298,11 +298,11 @@ export function validateBannerImageSize(
 }
 
 /**
- * Automatically compress any banner image to strictly <= 50 KB WebP while preserving exact aspect ratio
+ * Automatically compress any banner image to strictly <= 80 KB WebP while preserving exact aspect ratio
  */
 export async function compressBannerTo50KB(
   file: File | Blob,
-  maxBytes: number = 50 * 1024
+  maxBytes: number = 80 * 1024
 ): Promise<{ file: File; actualKb: number; blob: Blob; width: number; height: number; aspectRatio: number }> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined") {
