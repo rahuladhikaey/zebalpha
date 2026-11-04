@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>No Internet Connection - ZebAlpha</title>
   <style>
     * {
@@ -11,6 +13,7 @@
       padding: 0;
       -webkit-tap-highlight-color: transparent;
     }
+
     body {
       background-color: #050505;
       color: #ffffff;
@@ -34,6 +37,7 @@
       z-index: 10;
       border-bottom: 1px solid #18181b;
     }
+
     .back-btn {
       background: none;
       border: none;
@@ -46,14 +50,17 @@
       border-radius: 50%;
       transition: background-color 0.15s ease;
     }
+
     .back-btn:active {
       background-color: #1f1f23;
     }
+
     .actions-group {
       display: flex;
       align-items: center;
       gap: 16px;
     }
+
     .icon-btn {
       background: none;
       border: none;
@@ -67,9 +74,11 @@
       border-radius: 50%;
       transition: background-color 0.15s ease;
     }
+
     .icon-btn:active {
       background-color: #1f1f23;
     }
+
     .cart-badge {
       position: absolute;
       top: 0;
@@ -140,10 +149,12 @@
       justify-content: center;
       gap: 10px;
     }
+
     .retry-btn:active {
       transform: scale(0.98);
       background-color: #15803d;
     }
+
     .retry-btn:disabled {
       opacity: 0.75;
       cursor: not-allowed;
@@ -158,8 +169,11 @@
       animation: spin 0.8s linear infinite;
       display: none;
     }
+
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     /* Toast Notification */
@@ -181,38 +195,46 @@
       z-index: 100;
       max-width: 90%;
       text-align: center;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
+
     .toast.show {
       transform: translateX(-50%) translateY(0);
       opacity: 1;
     }
   </style>
 </head>
+
 <body>
 
   <!-- Top bar with Back and Action icons -->
   <div class="top-bar">
     <button class="back-btn" onclick="handleBack()" aria-label="Go Back">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
         <line x1="19" y1="12" x2="5" y2="12"></line>
         <polyline points="12 19 5 12 12 5"></polyline>
       </svg>
     </button>
     <div class="actions-group">
       <button class="icon-btn" onclick="handleAction('search')" aria-label="Search">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
       </button>
       <button class="icon-btn" onclick="handleAction('wishlist')" aria-label="Wishlist">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z">
+          </path>
         </svg>
       </button>
       <button class="icon-btn" onclick="handleAction('cart')" aria-label="Shopping Cart">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle>
           <circle cx="20" cy="21" r="1"></circle>
           <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
@@ -232,7 +254,8 @@
       <!-- Accent Orbit Ring -->
       <circle cx="100" cy="100" r="42" stroke="#1F2922" stroke-width="1" />
       <!-- Cloud Outline -->
-      <path d="M78 102 h44 a11 11 0 0 0 3 -21.6 a16 16 0 0 0 -29 -5 a13 13 0 0 0 -18 7.6 a10.5 10.5 0 0 0 0 19 Z" fill="#1C1C24" stroke="#52525B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M78 102 h44 a11 11 0 0 0 3 -21.6 a16 16 0 0 0 -29 -5 a13 13 0 0 0 -18 7.6 a10.5 10.5 0 0 0 0 19 Z"
+        fill="#1C1C24" stroke="#52525B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
       <!-- Disconnected Wi-Fi Signal Arcs -->
       <path d="M84 116 a22 22 0 0 1 32 0" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
       <path d="M89 122 a15 15 0 0 1 22 0" stroke="#22C55E" stroke-width="2" stroke-linecap="round" />
@@ -280,10 +303,10 @@
       if (!url) return false;
       const lower = url.toLowerCase();
       return lower.includes("/checkout") ||
-             lower.includes("/order") ||
-             lower.includes("/payment") ||
-             lower.includes("/razorpay") ||
-             lower.includes("/pay");
+        lower.includes("/order") ||
+        lower.includes("/payment") ||
+        lower.includes("/razorpay") ||
+        lower.includes("/pay");
     }
 
     function showToast(msg) {
@@ -293,7 +316,7 @@
       setTimeout(() => {
         toast.classList.remove("show");
       }, 3000);
-    } 
+    }
 
     function handleBack() {
       if (window.history.length > 1) {
@@ -363,4 +386,5 @@
     });
   </script>
 </body>
+
 </html>
