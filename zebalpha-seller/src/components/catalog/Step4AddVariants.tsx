@@ -568,7 +568,7 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
       )?.gallery || [];
 
     if (existingColGallery.length + validUrls.length > MAX_GALLERY_PHOTOS) {
-      alert(❌ Maximum  photos allowed for . You already have  photo(s).);
+      alert(`Maximum ${MAX_GALLERY_PHOTOS} photos allowed for ${colorName}. You already have ${existingColGallery.length} photo(s).`);
       return;
     }
 
