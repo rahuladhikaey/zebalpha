@@ -157,12 +157,64 @@ export async function uploadToSupabaseBucket(
 }
 
 /**
- * Upload image (Directly saves to Supabase Storage 'product-images' bucket under 100KB)
+ * Cloudinary Direct Upload Integration
+ * Cloud Name: vtweyirx
+ */
+const CLOUDINARY_CLOUD_NAME = "vtweyirx";
+const CLOUDINARY_UPLOAD_PRESET = "zebalpha_preset"; // Optional or unsigned preset
+const CLOUDINARY_API_KEY = "317122266961536";
+
+export async function uploadDirectToCloudinary(
+  fileOrBase64: File | Blob | string,
+  folder: string = "products"
+): Promise<string> {
+  try {
+    let base64Data = "";
+    if (typeof fileOrBase64 === "string") {
+      base64Data = fileOrBase64;
+    } else {
+      base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(fileOrBase64);
+      });
+    }
+
+    // Call Cloudinary Upload API directly
+    const formData = new FormData();
+    formData.append("file", base64Data);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    formData.append("folder", folder);
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.secure_url) {
+        // Automatically inject Cloudinary's dynamic WebP and auto quality transforms
+        // e.g. https://res.cloudinary.com/vtweyirx/image/upload/f_auto,q_auto/v...
+        return data.secure_url.replace("/upload/", "/upload/f_auto,q_auto/");
+      }
+    }
+  } catch (err) {
+    console.warn("Direct Cloudinary upload fallback:", err);
+  }
+
+  // Graceful fallback to Supabase Storage if Cloudinary unsigned preset is not yet created
+  return await uploadToSupabaseBucket("product-images", fileOrBase64);
+}
+
+/**
+ * Upload image (Directly saves to Cloudinary CDN with fallback to Supabase Storage)
  */
 export async function uploadToCloudinary(
   fileOrBase64: File | Blob | string
 ): Promise<string> {
-  return await uploadToSupabaseBucket("product-images", fileOrBase64);
+  return await uploadDirectToCloudinary(fileOrBase64, "products");
 }
 
 /**

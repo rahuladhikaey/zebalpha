@@ -224,7 +224,7 @@ function CategoriesContent() {
           {categorySearchResults ? (
             <div className="space-y-6 mb-12">
               {categorySearchResults.matchedMains.length === 0 &&
-              categorySearchResults.matchedSubs.length === 0 ? (
+                categorySearchResults.matchedSubs.length === 0 ? (
                 <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-10 text-center text-zinc-400">
                   <ShoppingBag size={40} className="mx-auto mb-3 opacity-30 text-white" />
                   <h3 className="text-sm sm:text-base font-bold text-white uppercase tracking-wider">
@@ -450,11 +450,10 @@ function CategoriesContent() {
                 <button
                   type="button"
                   onClick={() => handleSelectSubcategory(null)}
-                  className={`shrink-0 px-4 py-2 rounded-full text-xs font-black tracking-wide transition-all cursor-pointer ${
-                    selectedSubcategory === null
+                  className={`shrink-0 px-4 py-2 rounded-full text-xs font-black tracking-wide transition-all cursor-pointer ${selectedSubcategory === null
                       ? "bg-white text-black shadow-lg shadow-white/10"
                       : "bg-zinc-950 border border-zinc-800 text-zinc-300 hover:border-zinc-600 hover:text-white"
-                  }`}
+                    }`}
                 >
                   ALL
                 </button>
@@ -470,11 +469,10 @@ function CategoriesContent() {
                       key={sub.id}
                       type="button"
                       onClick={() => handleSelectSubcategory(sub.id)}
-                      className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                        isSelected
+                      className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${isSelected
                           ? "bg-white text-black shadow-lg shadow-white/10"
                           : "bg-zinc-950 border border-zinc-800 text-zinc-300 hover:border-zinc-600 hover:text-white"
-                      }`}
+                        }`}
                     >
                       <CategoryIconRenderer
                         iconKey={(sub as any).icon_key}
