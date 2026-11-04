@@ -20,9 +20,14 @@ import {
   AlertCircle,
   HelpCircle,
   Star,
+  Loader2,
 } from "lucide-react";
 import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
-import { compressImageTo100KB } from "@shared/services";
+import {
+  compressImageTo100KB,
+  compressToTargetWebP,
+  STRICT_PRODUCT_IMAGE_MAX_BYTES,
+} from "@shared/services";
 
 
 export interface CatalogVariant {
@@ -165,6 +170,8 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
 
   // Color renaming state
   const [editingColorName, setEditingColorName] = useState<string | null>(null);
+  const [compressingColor, setCompressingColor] = useState<string | null>(null);
+  const [compressionProgressMsg, setCompressionProgressMsg] = useState<string>("");
   const [tempColorName, setTempColorName] = useState("");
 
   const showSuccessBanner = (msg: string) => {
@@ -536,82 +543,94 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files);
-    const MAX_ALLOWED_BYTES = 80 * 1024; // Strictly 80 KB max
     const MAX_GALLERY_PHOTOS = 3;
+    const RAW_INPUT_LIMIT = 25 * 1024 * 1024; // 25 MB max raw input
+
+    const existingColGallery =
+      formData.variants.find(
+        (v) => (v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()
+      )?.gallery || [];
+
+    if (existingColGallery.length + fileList.length > MAX_GALLERY_PHOTOS) {
+      alert(`❌ Maximum ${MAX_GALLERY_PHOTOS} photos allowed for ${colorName}. You already have ${existingColGallery.length} photo(s).`);
+      return;
+    }
 
     for (const file of fileList) {
-      if (file.size > MAX_ALLOWED_BYTES) {
-        alert(`❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is 80 KB. Please choose an image under 80 KB.`);
+      if (file.size > RAW_INPUT_LIMIT) {
+        alert(`❌ File "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Please choose an image under 25 MB.`);
         return;
       }
     }
 
-    const compressedPromises = fileList.map(async (file) => {
-      try {
-        const { blob } = await compressImageTo100KB(file, MAX_ALLOWED_BYTES);
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve((e.target?.result as string) || "");
-          reader.readAsDataURL(blob);
-        });
-      } catch {
-        return "";
-      }
-    });
+    setCompressingColor(colorName);
+    const validUrls: string[] = [];
 
-    const dataUrls = await Promise.all(compressedPromises);
-    const validUrls = dataUrls.filter(Boolean);
-    if (validUrls.length === 0) return;
-    const existingColGallery =
-      formData.variants.find(
-        (v) => (v.color || 'Black').trim().toLowerCase() === colorName.trim().toLowerCase()
-      )?.gallery || [];
+    try {
+      for (let idx = 0; idx < fileList.length; idx++) {
+        const file = fileList[idx];
+        const origSizeKb = Number((file.size / 1024).toFixed(1));
+        setCompressionProgressMsg(`Optimizing "${file.name}" (${origSizeKb} KB ➔ ≤ 49.7 KB WebP)...`);
 
-    if (existingColGallery.length + validUrls.length > MAX_GALLERY_PHOTOS) {
-      alert(`Maximum ${MAX_GALLERY_PHOTOS} photos allowed for ${colorName}. You already have ${existingColGallery.length} photo(s).`);
-      return;
-    }
-
-    const baseColorName = (
-      formData.variants.find((v) => {
-        const c = (v.color || "").trim().toLowerCase();
-        return c === "main color" || c === "standard" || c === "default";
-      })?.color ||
-      formData.variants[0]?.color ||
-      "Main Color"
-    ).trim().toLowerCase();
-
-    const isBaseCol =
-      colorName.trim().toLowerCase() === baseColorName ||
-      colorName.trim().toLowerCase() === "main color" ||
-      colorName.trim().toLowerCase() === "standard" ||
-      colorName.trim().toLowerCase() === "default";
-    const mainImages = formData.images || [];
-
-    const updated = formData.variants.map((v) => {
-      if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
-        // For non-base colors, strip any accidental main product images from existing gallery
-        let rawGallery = Array.isArray(v.gallery) && v.gallery.length > 0
-          ? v.gallery
-          : (v.image_url ? [v.image_url] : []);
-
-        if (!isBaseCol && mainImages.length > 0) {
-          rawGallery = rawGallery.filter((img) => !mainImages.includes(img));
+        const result = await compressToTargetWebP(file, STRICT_PRODUCT_IMAGE_MAX_BYTES);
+        if (!result.isWithinLimit && result.compressedSizeBytes > STRICT_PRODUCT_IMAGE_MAX_BYTES) {
+          alert(`⚠️ Image "${file.name}" could not be compressed under 49.7 KB without severe distortion. Please try another photo.`);
+          continue;
         }
 
-        const combined = Array.from(new Set([...rawGallery, ...validUrls].filter(Boolean)));
-        return {
-          ...v,
-          image_url: combined[0] || undefined,
-          gallery: combined,
-        };
+        if (result.dataUrl) {
+          validUrls.push(result.dataUrl);
+        }
       }
-      return v;
-    });
-    onChange({ variants: updated });
-    showSuccessBanner(`Uploaded ${validUrls.length} photo(s) for ${colorName}`);
-  };
 
+      if (validUrls.length === 0) return;
+
+      const baseColorName = (
+        formData.variants.find((v) => {
+          const c = (v.color || "").trim().toLowerCase();
+          return c === "main color" || c === "standard" || c === "default";
+        })?.color ||
+        formData.variants[0]?.color ||
+        "Main Color"
+      ).trim().toLowerCase();
+
+      const isBaseCol =
+        colorName.trim().toLowerCase() === baseColorName ||
+        colorName.trim().toLowerCase() === "main color" ||
+        colorName.trim().toLowerCase() === "standard" ||
+        colorName.trim().toLowerCase() === "default";
+      const mainImages = formData.images || [];
+
+      const updated = formData.variants.map((v) => {
+        if ((v.color || "Black").trim().toLowerCase() === colorName.trim().toLowerCase()) {
+          // For non-base colors, strip any accidental main product images from existing gallery
+          let rawGallery = Array.isArray(v.gallery) && v.gallery.length > 0
+            ? v.gallery
+            : (v.image_url ? [v.image_url] : []);
+
+          if (!isBaseCol && mainImages.length > 0) {
+            rawGallery = rawGallery.filter((img) => !mainImages.includes(img));
+          }
+
+          const combined = Array.from(new Set([...rawGallery, ...validUrls].filter(Boolean)));
+          return {
+            ...v,
+            image_url: combined[0] || undefined,
+            gallery: combined,
+          };
+        }
+        return v;
+      });
+      onChange({ variants: updated });
+      showSuccessBanner(`Uploaded & optimized ${validUrls.length} WebP photo(s) for ${colorName}`);
+    } catch (err: any) {
+      console.error("Gallery compression error:", err);
+      alert("❌ Compression error: " + (err?.message || "Unknown error"));
+    } finally {
+      setCompressingColor(null);
+      setCompressionProgressMsg("");
+    }
+  };
 
   const removeColorGalleryImage = (colorName: string, indexToRemove: number) => {
     const updated = formData.variants.map((v) => {
@@ -1917,6 +1936,12 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                   Upload multiple product photos for each color (Front, Back, Model shoot, Texture detail).
                   When a customer clicks that color on the storefront, the gallery instantly switches to these exact photos.
                 </p>
+                {compressingColor && (
+                  <div className="mt-3 p-3 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-300 text-xs flex items-center gap-2 animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin text-violet-400 shrink-0" />
+                    <span className="font-medium">{compressionProgressMsg || `Compressing & converting ${compressingColor} photos to WebP (≤ 49.7 KB)...`}</span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -2061,20 +2086,30 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
                           </div>
                         ))}
 
-                        {/* Add Photo Button */}
-                        <label className="aspect-square rounded-xl border-2 border-dashed border-[#3f3f46] hover:border-emerald-400 bg-[#141418] cursor-pointer flex flex-col items-center justify-center transition-colors">
-                          <Upload className="w-4 h-4 text-zinc-400 group-hover:text-white" />
-                          <span className="text-[9px] text-zinc-400 mt-1 font-bold">+ Photo</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={(e) =>
-                              handleUploadColorGalleryImages(grp.color, e.target.files)
-                            }
-                            className="hidden"
-                          />
-                        </label>
+                        {/* Add Photo Button / Compression Spinner */}
+                        {compressingColor === grp.color ? (
+                          <div className="aspect-square rounded-xl border-2 border-dashed border-violet-500/50 bg-violet-500/10 flex flex-col items-center justify-center text-center p-2">
+                            <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
+                            <span className="text-[8px] text-violet-300 font-bold mt-1">Optimizing WebP...</span>
+                          </div>
+                        ) : (
+                          <label className="aspect-square rounded-xl border-2 border-dashed border-[#3f3f46] hover:border-emerald-400 bg-[#141418] cursor-pointer flex flex-col items-center justify-center transition-colors">
+                            <Upload className="w-4 h-4 text-zinc-400 group-hover:text-white" />
+                            <span className="text-[9px] text-zinc-400 mt-1 font-bold">+ Photo</span>
+                            <span className="text-[7px] text-emerald-400 font-semibold mt-0.5">Auto ≤ 49.7KB</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              disabled={Boolean(compressingColor)}
+                              onChange={(e) => {
+                                handleUploadColorGalleryImages(grp.color, e.target.files);
+                                e.target.value = "";
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
                       </div>
 
                       <p className="text-[10px] text-zinc-500">

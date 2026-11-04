@@ -412,3 +412,220 @@ export async function compressBannerTo50KB(
   });
 }
 
+/**
+ * Alias for compressBannerTo50KB supporting 80KB banner limit
+ */
+export const compressBannerTo80KB = compressBannerTo50KB;
+
+/**
+ * Strict product image max bytes allowed: exactly 50,883 bytes (~49.69 KiB)
+ */
+export const STRICT_PRODUCT_IMAGE_MAX_BYTES = 50883;
+
+/**
+ * Validates binary WebP signature:
+ * Byte 0..3: RIFF (0x52, 0x49, 0x46, 0x46)
+ * Byte 8..11: WEBP (0x57, 0x45, 0x42, 0x50)
+ */
+export function verifyWebPBuffer(buffer: ArrayBuffer | Uint8Array): boolean {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  if (bytes.length < 12) return false;
+  const isRiff = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+  const isWebp = bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+  return isRiff && isWebp;
+}
+
+export interface WebPCompressionResult {
+  blob: Blob;
+  dataUrl: string;
+  originalSizeBytes: number;
+  compressedSizeBytes: number;
+  compressionRatioPercent: number;
+  isWithinLimit: boolean;
+  isValidWebP: boolean;
+  width: number;
+  height: number;
+  qualityUsed: number;
+}
+
+/**
+ * Adaptive WebP Compression Engine for ZebAlpha Seller Products
+ * Automatically converts any input (JPEG, PNG, WebP up to 25MB+) to WebP
+ * and adaptively optimizes quality and dimensions until output size <= 50,883 bytes.
+ */
+export async function compressToTargetWebP(
+  fileOrBase64: File | Blob | string,
+  targetMaxBytes: number = STRICT_PRODUCT_IMAGE_MAX_BYTES
+): Promise<WebPCompressionResult> {
+  // Determine original size
+  let originalSizeBytes = 0;
+  if (typeof fileOrBase64 === "string") {
+    const base64Str = fileOrBase64.split(",")[1] || fileOrBase64;
+    originalSizeBytes = Math.round((base64Str.length * 3) / 4);
+  } else {
+    originalSizeBytes = fileOrBase64.size;
+  }
+
+  if (typeof window === "undefined") {
+    // SSR / Node fallback
+    const blob = typeof fileOrBase64 === "string" ? dataURLtoBlob(fileOrBase64) : (fileOrBase64 as Blob);
+    const dataUrl = typeof fileOrBase64 === "string" ? fileOrBase64 : "";
+    return {
+      blob,
+      dataUrl,
+      originalSizeBytes,
+      compressedSizeBytes: blob.size,
+      compressionRatioPercent: 0,
+      isWithinLimit: blob.size <= targetMaxBytes,
+      isValidWebP: true,
+      width: 800,
+      height: 800,
+      qualityUsed: 0.8,
+    };
+  }
+
+  return new Promise((resolve, reject) => {
+    let src = "";
+    if (typeof fileOrBase64 === "string") {
+      src = fileOrBase64;
+    } else {
+      src = URL.createObjectURL(fileOrBase64);
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    img.onload = async () => {
+      if (typeof fileOrBase64 !== "string") {
+        URL.revokeObjectURL(src);
+      }
+
+      try {
+        const naturalW = img.naturalWidth || img.width;
+        const naturalH = img.naturalHeight || img.height;
+        const originalAspect = naturalW / naturalH;
+
+        // Bounding maximum dimension for sharp product images: 1200px
+        const MAX_DIMENSION = 1200;
+        let baseW = naturalW;
+        let baseH = naturalH;
+        if (baseW > MAX_DIMENSION || baseH > MAX_DIMENSION) {
+          if (baseW >= baseH) {
+            baseW = MAX_DIMENSION;
+            baseH = Math.max(1, Math.round(baseW / originalAspect));
+          } else {
+            baseH = MAX_DIMENSION;
+            baseW = Math.max(1, Math.round(baseH * originalAspect));
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { alpha: true });
+        if (!ctx) {
+          throw new Error("Could not initialize 2D canvas context.");
+        }
+
+        // Adaptive search loop
+        let currentW = baseW;
+        let currentH = baseH;
+        let bestBlob: Blob | null = null;
+        let bestQuality = 0.82;
+        let quality = 0.82;
+        const MIN_DIMENSION = 380;
+        const MIN_QUALITY = 0.35;
+
+        let attempts = 0;
+        const maxAttempts = 24;
+
+        while (attempts < maxAttempts) {
+          attempts++;
+          canvas.width = currentW;
+          canvas.height = currentH;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.clearRect(0, 0, currentW, currentH);
+          ctx.drawImage(img, 0, 0, currentW, currentH);
+
+          const currentBlob = await new Promise<Blob | null>((res) =>
+            canvas.toBlob(res, "image/webp", quality)
+          );
+
+          if (!currentBlob) {
+            break;
+          }
+
+          bestBlob = currentBlob;
+          bestQuality = quality;
+
+          if (currentBlob.size <= targetMaxBytes) {
+            // Target satisfied!
+            break;
+          }
+
+          // Need further reduction:
+          if (quality > 0.42) {
+            quality = Math.max(0.38, Number((quality - 0.08).toFixed(2)));
+          } else if (Math.min(currentW, currentH) > 320) {
+            // Scale dimensions down by 12%
+            const nextW = Math.max(320, Math.round(currentW * 0.88));
+            currentH = Math.max(1, Math.round(nextW / originalAspect));
+            currentW = nextW;
+            // Bounce quality slightly to maintain crisp edges at lower resolution
+            quality = Math.min(0.72, quality + 0.15);
+          } else if (quality > MIN_QUALITY) {
+            quality = Math.max(MIN_QUALITY, Number((quality - 0.05).toFixed(2)));
+          } else {
+            // Reached minimum safety thresholds
+            break;
+          }
+        }
+
+        if (!bestBlob) {
+          throw new Error("Failed to produce WebP blob from canvas.");
+        }
+
+        // Convert blob to ArrayBuffer to strictly verify WebP signature
+        const arrayBuf = await bestBlob.arrayBuffer();
+        const isValidWebP = verifyWebPBuffer(arrayBuf);
+
+        // Convert to dataUrl for immediate reactive seller preview
+        const dataUrl = await new Promise<string>((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res((reader.result as string) || "");
+          reader.onerror = () => res("");
+          reader.readAsDataURL(bestBlob);
+        });
+
+        const compressedSizeBytes = bestBlob.size;
+        const isWithinLimit = compressedSizeBytes <= targetMaxBytes;
+        const compressionRatioPercent =
+          originalSizeBytes > 0
+            ? Math.max(0, Math.round(((originalSizeBytes - compressedSizeBytes) / originalSizeBytes) * 100))
+            : 0;
+
+        resolve({
+          blob: bestBlob,
+          dataUrl,
+          originalSizeBytes,
+          compressedSizeBytes,
+          compressionRatioPercent,
+          isWithinLimit,
+          isValidWebP,
+          width: currentW,
+          height: currentH,
+          qualityUsed: bestQuality,
+        });
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    img.onerror = () => {
+      reject(new Error("Failed to decode image for WebP compression."));
+    };
+
+    img.src = src;
+  });
+}
+
+

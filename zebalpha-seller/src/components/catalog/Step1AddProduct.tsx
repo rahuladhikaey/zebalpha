@@ -5,7 +5,10 @@ import {
   DYNAMIC_CATEGORY_CATALOG,
   resolveProductTypeConfig,
 } from "@shared/constants/productAttributeEngine";
-import { compressImageTo100KB } from "@shared/services";
+import {
+  compressToTargetWebP,
+  STRICT_PRODUCT_IMAGE_MAX_BYTES,
+} from "@shared/services";
 import { CategoryIconRenderer } from "@/lib/categoryIcons";
 import SizeSpecificDetailsSection, {
   SizeVariantDetail,
@@ -255,6 +258,9 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
   };
 
   const [imageError, setImageError] = useState<string>("");
+  const [compressingImages, setCompressingImages] = useState<boolean>(false);
+  const [compressionProgressText, setCompressionProgressText] = useState<string>("");
+  const [imageStatsMap, setImageStatsMap] = useState<Record<string, { origKb: number; compKb: number; ratio: number }>>({});
 
   // Resolve current active product type configuration dynamically
   const activeProductTypeConfig = useMemo(() => {
@@ -274,52 +280,62 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
       setImageError(
         formData.is_new_drop
           ? "❌ Maximum 2 photos allowed for New Drop teaser."
-          : "❌ Maximum 3 images allowed for catalog listing."
+          : `❌ Maximum ${maxAllowedImages} images allowed for catalog listing.`
       );
+      e.target.value = "";
       return;
     }
 
-    const MAX_ALLOWED_BYTES = 80 * 1024; // Strictly 80 KB per photo for optimal performance & CDN speed
-    const limitLabel = "80 KB";
-
-    // 1. Strict raw file size check: completely reject any file over limit
+    // Accept raw images up to 25 MB - then compress to <= 50,883 bytes
+    const RAW_INPUT_LIMIT = 25 * 1024 * 1024;
     for (const file of files) {
-      if (file.size > MAX_ALLOWED_BYTES) {
-        setImageError(
-          `❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is ${limitLabel}. Please select an image under ${limitLabel}.`
-        );
+      if (file.size > RAW_INPUT_LIMIT) {
+        setImageError(`❌ File "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Please choose an image under 25 MB.`);
         e.target.value = "";
         return;
       }
     }
 
+    setCompressingImages(true);
     const processedImages: string[] = [];
+    const newStats: Record<string, { origKb: number; compKb: number; ratio: number }> = { ...imageStatsMap };
 
-    for (const file of files) {
-      try {
-        const { blob } = await compressImageTo100KB(file, MAX_ALLOWED_BYTES);
-        if (blob.size > MAX_ALLOWED_BYTES) {
-          setImageError(`❌ Image "${file.name}" exceeds ${limitLabel} (${(blob.size / 1024).toFixed(1)} KB). Please choose a smaller image under ${limitLabel}.`);
-          e.target.value = "";
-          return;
+    try {
+      for (let idx = 0; idx < files.length; idx++) {
+        const file = files[idx];
+        const origSizeKb = Number((file.size / 1024).toFixed(1));
+        setCompressionProgressText(`Converting & compressing "${file.name}" (${origSizeKb} KB ➔ ≤ 49.7 KB WebP)...`);
+
+        const result = await compressToTargetWebP(file, STRICT_PRODUCT_IMAGE_MAX_BYTES);
+
+        if (!result.isWithinLimit && result.compressedSizeBytes > STRICT_PRODUCT_IMAGE_MAX_BYTES) {
+          setImageError(`⚠️ Image "${file.name}" could not be compressed under 49.7 KB without severe distortion. Please try another photo.`);
+          continue;
         }
 
-        const b64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (evt) => resolve((evt.target?.result as string) || "");
-          reader.readAsDataURL(blob);
-        });
-
-        if (b64) processedImages.push(b64);
-      } catch (err) {
-        console.warn("Image compression notice:", err);
+        if (result.dataUrl) {
+          processedImages.push(result.dataUrl);
+          newStats[result.dataUrl] = {
+            origKb: Number((result.originalSizeBytes / 1024).toFixed(1)),
+            compKb: Number((result.compressedSizeBytes / 1024).toFixed(1)),
+            ratio: result.compressionRatioPercent,
+          };
+        }
       }
-    }
 
-    if (processedImages.length > 0) {
-      onChange({
-        images: [...formData.images, ...processedImages].slice(0, maxAllowedImages),
-      });
+      if (processedImages.length > 0) {
+        setImageStatsMap(newStats);
+        onChange({
+          images: [...formData.images, ...processedImages].slice(0, maxAllowedImages),
+        });
+      }
+    } catch (err: any) {
+      console.error("Compression pipeline error:", err);
+      setImageError("❌ Error processing selected images: " + (err?.message || "Unknown error"));
+    } finally {
+      setCompressingImages(false);
+      setCompressionProgressText("");
+      e.target.value = "";
     }
   };
 
@@ -866,36 +882,31 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <p className="text-xs text-zinc-400 flex items-center gap-1">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-            Upload product photos (Front, Back, Detail) — <strong className="text-emerald-400">Strict Max 80 KB per photo</strong>.
+            <AlertCircle className="w-3.5 h-3.5 text-emerald-400" />
+            Upload product photos (Front, Back, Detail) — <strong className="text-emerald-400">Auto-compressed strictly ≤ 49.7 KB WebP</strong>.
           </p>
-          <a
-            href="https://imagecompressor.11zon.com/en/compress-webp/compress-webp-to-100kb"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[11px] font-bold text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-1"
-          >
-            Resize / Compress Photo (80KB) ↗
-          </a>
+          <span className="text-[11px] font-semibold text-zinc-400 inline-flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Flipkart-Grade Auto-Optimization
+          </span>
         </div>
+
+        {compressingImages && (
+          <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-300 text-xs flex items-center gap-2 animate-pulse">
+            <Loader2 className="w-4 h-4 animate-spin text-violet-400 shrink-0" />
+            <span className="font-medium">{compressionProgressText || "Processing and optimizing images..."}</span>
+          </div>
+        )}
 
         {imageError && (
           <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center justify-between gap-2 flex-wrap">
             <span>{imageError}</span>
-            <a
-              href="https://imagecompressor.11zon.com/en/compress-webp/compress-webp-to-100kb"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] font-bold text-white bg-red-600/80 hover:bg-red-600 px-2.5 py-1 rounded-md transition shrink-0"
-            >
-              Resize to 80KB ↗
-            </a>
           </div>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2">
           {formData.images.map((imgUrl, index) => {
             const isFront = formData.front_image_index === index;
+            const stats = imageStatsMap[imgUrl];
             return (
               <div
                 key={index}
@@ -905,6 +916,13 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
               >
                 <img src={imgUrl} alt={`Product preview ${index + 1}`} className="w-full h-full object-cover" />
                 
+                {/* Size reduction pill */}
+                {stats && (
+                  <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-mono text-emerald-400 border border-emerald-500/30 shadow-lg pointer-events-none">
+                    {stats.compKb} KB ({stats.ratio}% saved)
+                  </div>
+                )}
+
                 {/* Delete overlay */}
                 <button
                   type="button"
@@ -943,11 +961,12 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
                 <Upload className="w-5 h-5 text-white" />
               </div>
               <span className="text-xs font-medium text-zinc-300">Upload Image</span>
-              <span className="text-[10px] text-emerald-400 font-semibold">WebP, PNG, JPG (Max 80KB)</span>
+              <span className="text-[10px] text-emerald-400 font-semibold">Any Size (Auto WebP ≤ 49.7 KB)</span>
               <input
                 type="file"
                 accept="image/*"
                 multiple
+                disabled={compressingImages}
                 onChange={handleImageUpload}
                 className="hidden"
               />
