@@ -536,11 +536,12 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files);
-    const MAX_ALLOWED_BYTES = 150 * 1024; // 150 KB
+    const MAX_ALLOWED_BYTES = 80 * 1024; // Strictly 80 KB max
+    const MAX_GALLERY_PHOTOS = 3;
 
     for (const file of fileList) {
       if (file.size > MAX_ALLOWED_BYTES) {
-        alert(`❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is 150 KB. Please choose an image under 150 KB.`);
+        alert(`❌ File "${file.name}" is ${(file.size / 1024).toFixed(1)} KB. Maximum allowed size is 80 KB. Please choose an image under 80 KB.`);
         return;
       }
     }
@@ -561,6 +562,15 @@ export default function Step4AddVariants({ formData, onChange }: Step4Props) {
     const dataUrls = await Promise.all(compressedPromises);
     const validUrls = dataUrls.filter(Boolean);
     if (validUrls.length === 0) return;
+    const existingColGallery =
+      formData.variants.find(
+        (v) => (v.color || 'Black').trim().toLowerCase() === colorName.trim().toLowerCase()
+      )?.gallery || [];
+
+    if (existingColGallery.length + validUrls.length > MAX_GALLERY_PHOTOS) {
+      alert(❌ Maximum  photos allowed for . You already have  photo(s).);
+      return;
+    }
 
     const baseColorName = (
       formData.variants.find((v) => {

@@ -269,18 +269,18 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const maxAllowedImages = formData.is_new_drop ? 2 : 4;
+    const maxAllowedImages = formData.is_new_drop ? 2 : 3;
     if (formData.images.length + files.length > maxAllowedImages) {
       setImageError(
         formData.is_new_drop
           ? "❌ Maximum 2 photos allowed for New Drop teaser."
-          : "❌ Maximum 4 images allowed for catalog listing."
+          : "❌ Maximum 3 images allowed for catalog listing."
       );
       return;
     }
 
-    const MAX_ALLOWED_BYTES = formData.is_new_drop ? 80 * 1024 : 150 * 1024; // 80 KB for New Drop, 150 KB for standard
-    const limitLabel = formData.is_new_drop ? "80 KB" : "150 KB";
+    const MAX_ALLOWED_BYTES = 80 * 1024; // Strictly 80 KB per photo for optimal performance & CDN speed
+    const limitLabel = "80 KB";
 
     // 1. Strict raw file size check: completely reject any file over limit
     for (const file of files) {
@@ -861,13 +861,13 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
             Product Images <span className="text-red-400">*</span>
           </label>
           <span className="text-xs text-zinc-400">
-            {formData.images.length}/4 Images Uploaded
+            {formData.images.length}/3 Images Uploaded
           </span>
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <p className="text-xs text-zinc-400 flex items-center gap-1">
             <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-            Upload product photos (Front, Back, Detail, Model) — <strong className="text-emerald-400">Strict Max 150 KB per photo</strong>.
+            Upload product photos (Front, Back, Detail) — <strong className="text-emerald-400">Strict Max 80 KB per photo</strong>.
           </p>
           <a
             href="https://imagecompressor.11zon.com/en/compress-webp/compress-webp-to-100kb"
@@ -875,7 +875,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
             rel="noopener noreferrer"
             className="text-[11px] font-bold text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-1"
           >
-            Resize / Compress Photo (100KB) ↗
+            Resize / Compress Photo (80KB) ↗
           </a>
         </div>
 
@@ -888,12 +888,12 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
               rel="noopener noreferrer"
               className="text-[11px] font-bold text-white bg-red-600/80 hover:bg-red-600 px-2.5 py-1 rounded-md transition shrink-0"
             >
-              Resize to 100KB ↗
+              Resize to 80KB ↗
             </a>
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2">
           {formData.images.map((imgUrl, index) => {
             const isFront = formData.front_image_index === index;
             return (
@@ -937,13 +937,13 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
             );
           })}
 
-          {formData.images.length < 4 && (
+          {formData.images.length < 3 && (
             <label className="aspect-3/4 rounded-xl border-2 border-dashed border-[#27272a] hover:border-zinc-400 bg-[#0d0d11] hover:bg-[#141418] cursor-pointer flex flex-col items-center justify-center gap-2 transition-all p-3 text-center group">
               <div className="p-3 rounded-full bg-[#18181b] group-hover:bg-zinc-800 text-zinc-300 transition-colors">
                 <Upload className="w-5 h-5 text-white" />
               </div>
               <span className="text-xs font-medium text-zinc-300">Upload Image</span>
-              <span className="text-[10px] text-emerald-400 font-semibold">WebP, PNG, JPG (Max 150KB)</span>
+              <span className="text-[10px] text-emerald-400 font-semibold">WebP, PNG, JPG (Max 80KB)</span>
               <input
                 type="file"
                 accept="image/*"
