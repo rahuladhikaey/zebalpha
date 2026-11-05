@@ -81,18 +81,34 @@ ALTER TABLE public.customer_login_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customer_audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customer_segment_configs ENABLE ROW LEVEL SECURITY;
 
--- Allow anon and authenticated clients to insert / update their own session heartbeats
-CREATE POLICY "Allow public session heartbeats" ON public.customer_sessions
-    FOR ALL
-    USING (true)
+-- Clean up existing policies for idempotent re-execution
+DROP POLICY IF EXISTS "Allow public session heartbeats" ON public.customer_sessions;
+DROP POLICY IF EXISTS "Allow public session insert" ON public.customer_sessions;
+DROP POLICY IF EXISTS "Allow public session update own" ON public.customer_sessions;
+DROP POLICY IF EXISTS "Allow public login event logging" ON public.customer_login_logs;
+DROP POLICY IF EXISTS "Allow public read segment configs" ON public.customer_segment_configs;
+DROP POLICY IF EXISTS "Service role full access customer_sessions" ON public.customer_sessions;
+DROP POLICY IF EXISTS "Service role full access customer_login_logs" ON public.customer_login_logs;
+DROP POLICY IF EXISTS "Service role full access customer_audit_logs" ON public.customer_audit_logs;
+DROP POLICY IF EXISTS "Service role full access customer_segment_configs" ON public.customer_segment_configs;
+
+-- Allow insert of sessions (for anonymous and authenticated heartbeats)
+CREATE POLICY "Allow public session insert" ON public.customer_sessions
+    FOR INSERT
     WITH CHECK (true);
 
--- Allow public insert of login events
+-- Restrict updates: users can only update unassigned sessions or their own session
+CREATE POLICY "Allow public session update own" ON public.customer_sessions
+    FOR UPDATE
+    USING (auth.uid() = user_id OR user_id IS NULL)
+    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+
+-- Allow public insert of login events (write-only audit logging)
 CREATE POLICY "Allow public login event logging" ON public.customer_login_logs
     FOR INSERT
     WITH CHECK (true);
 
--- Allow read of segment configs
+-- Allow read of segment configs (read-only for public)
 CREATE POLICY "Allow public read segment configs" ON public.customer_segment_configs
     FOR SELECT
     USING (true);
