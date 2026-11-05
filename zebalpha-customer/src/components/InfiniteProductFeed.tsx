@@ -6,6 +6,7 @@ import { Product } from "@/lib/types";
 import { ProductCardImageSlider } from "./ProductCardImageSlider";
 import { ProductCardSkeleton } from "@/components/skeletons";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
+import { useNetworkAdaptive } from "@/hooks/useNetworkAdaptive";
 import { AddToCartButton } from "./AddToCartButton";
 import { WishlistButton } from "./WishlistButton";
 import { QuickCartButton } from "./QuickCartButton";
@@ -22,10 +23,12 @@ interface InfiniteProductFeedProps {
 
 export function InfiniteProductFeed({ initialProducts = [], brandFilter }: InfiniteProductFeedProps) {
   useScrollRestoration("home_feed");
-  const BATCH_SIZE = 20;
+  const { recommendedBatchSize, prefetchMargin, isOnline } = useNetworkAdaptive();
+  const currentBatchSize = isOnline ? recommendedBatchSize : 20;
+
   const cleanInitial = (initialProducts || []).filter((p) => !isProductNewDrop(p));
   const [products, setProducts] = useState<Product[]>(cleanInitial);
-  const [hasMore, setHasMore] = useState(cleanInitial.length >= BATCH_SIZE);
+  const [hasMore, setHasMore] = useState(cleanInitial.length >= 8);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastCreatedAt, setLastCreatedAt] = useState<string | null>(
     cleanInitial.length > 0 ? cleanInitial[cleanInitial.length - 1].created_at || null : null
@@ -39,7 +42,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     if (clean.length > 0) {
       setProducts(clean);
       setLastCreatedAt(clean[clean.length - 1].created_at || null);
-      setHasMore(clean.length >= BATCH_SIZE);
+      setHasMore(clean.length >= 8);
     }
   }, [initialProducts]);
 
@@ -57,7 +60,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
             .neq("status", "COMING_SOON")
             .neq("tier", "DROP")
             .order("created_at", { ascending: false })
-            .limit(BATCH_SIZE);
+            .limit(currentBatchSize);
 
           if (brandFilter) {
             query = query.ilike("brand", `%${brandFilter}%`);
@@ -73,7 +76,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
               .neq("status", "COMING_SOON")
               .neq("tier", "DROP")
               .order("created_at", { ascending: false })
-              .limit(BATCH_SIZE);
+              .limit(currentBatchSize);
             data = fallback.data;
           }
 
@@ -95,7 +98,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
             if (mapped.length > 0) {
               setLastCreatedAt(mapped[mapped.length - 1].created_at || null);
             }
-            setHasMore(mapped.length >= BATCH_SIZE);
+            setHasMore(mapped.length >= currentBatchSize);
           }
         } catch (e) {
           console.warn("Notice in client product fetch:", e);
@@ -105,7 +108,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
         isMounted = false;
       };
     }
-  }, [products.length, brandFilter]);
+  }, [products.length, brandFilter, currentBatchSize]);
 
   // Lazy load next batch on scroll
   const loadMoreProducts = useCallback(async () => {
@@ -122,7 +125,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
         .neq("tier", "DROP")
         .lt("created_at", lastCreatedAt)
         .order("created_at", { ascending: false })
-        .limit(BATCH_SIZE);
+        .limit(currentBatchSize);
 
       if (brandFilter) {
         query = query.ilike("brand", `%${brandFilter}%`);
@@ -139,7 +142,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           .neq("tier", "DROP")
           .lt("created_at", lastCreatedAt)
           .order("created_at", { ascending: false })
-          .limit(BATCH_SIZE);
+          .limit(currentBatchSize);
         data = fallback.data;
         error = fallback.error;
       }
@@ -168,7 +171,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
         if (newBatch.length > 0) {
           setLastCreatedAt(newBatch[newBatch.length - 1].created_at || null);
         }
-        setHasMore(newBatch.length >= BATCH_SIZE);
+        setHasMore(newBatch.length >= currentBatchSize);
       } else {
         setHasMore(false);
       }
@@ -177,25 +180,25 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, lastCreatedAt, brandFilter]);
+  }, [isLoadingMore, hasMore, lastCreatedAt, brandFilter, currentBatchSize]);
 
-  // Intersection Observer trigger with intelligent 600px prefetch margin
+  // Intersection Observer trigger with network-adaptive prefetch margin
   useEffect(() => {
     const sentinel = observerRef.current;
     if (!sentinel) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && isOnline) {
           loadMoreProducts();
         }
       },
-      { rootMargin: "600px 0px" } // Preload when 5 products remain before viewport bottom
+      { rootMargin: prefetchMargin } // 600px for 4G/Wi-Fi, 250px for 3G, 0px for 2G/Data Saver
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [loadMoreProducts, hasMore, isLoadingMore]);
+  }, [loadMoreProducts, hasMore, isLoadingMore, prefetchMargin, isOnline]);
 
   return (
     <div className="w-full">

@@ -47,3 +47,4 @@ export function ProductCardSkeleton({ count = 1 }: ProductCardSkeletonProps) {
     </>
   );
 }
+

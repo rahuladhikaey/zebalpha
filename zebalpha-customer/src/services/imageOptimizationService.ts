@@ -16,6 +16,7 @@ export interface ImageVariantOptions {
   format?: "auto" | "webp" | "avif";
   crop?: "limit" | "fill" | "thumb" | "fit";
   blur?: number; // for LQIP (Low Quality Image Placeholder)
+  dpr?: "auto" | number;
 }
 
 /**
@@ -56,6 +57,7 @@ export function getOptimizedImageUrl(
     // Format & Quality (lossy WebP/AVIF auto-negotiation)
     transformParts.push(`f_${format}`);
     transformParts.push(`q_${quality}`);
+    transformParts.push(`dpr_${options.dpr || "auto"}`);
 
     // Dimensions
     if (width) transformParts.push(`w_${width}`);
@@ -195,3 +197,4 @@ export function prefetchImage(url: string, priority: "high" | "low" = "low"): vo
     setTimeout(runPrefetch, 250);
   }
 }
+

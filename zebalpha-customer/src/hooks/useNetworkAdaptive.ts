@@ -6,9 +6,11 @@ export interface NetworkAdaptiveState {
   isOnline: boolean;
   effectiveType: "4g" | "3g" | "2g" | "slow-2g" | "unknown";
   saveData: boolean;
+  networkTier: "fast" | "medium" | "slow" | "offline";
   isSlowConnection: boolean;
   prefetchAllowed: boolean;
   recommendedBatchSize: number;
+  prefetchMargin: string;
 }
 
 export function useNetworkAdaptive(): NetworkAdaptiveState {
@@ -16,9 +18,11 @@ export function useNetworkAdaptive(): NetworkAdaptiveState {
     isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
     effectiveType: "unknown",
     saveData: false,
+    networkTier: "fast",
     isSlowConnection: false,
     prefetchAllowed: true,
     recommendedBatchSize: 20,
+    prefetchMargin: "600px 0px",
   });
 
   useEffect(() => {
@@ -35,23 +39,47 @@ export function useNetworkAdaptive(): NetworkAdaptiveState {
         connection?.effectiveType || "4g";
       const saveData: boolean = Boolean(connection?.saveData);
 
-      const isSlow =
-        !isOnline ||
-        effectiveType === "2g" ||
-        effectiveType === "slow-2g" ||
-        effectiveType === "3g" ||
-        saveData;
+      let networkTier: "fast" | "medium" | "slow" | "offline" = "fast";
+      let recommendedBatchSize = 20;
+      let prefetchMargin = "600px 0px";
+      let prefetchAllowed = true;
+      let isSlow = false;
 
-      const prefetchAllowed = isOnline && !isSlow && !saveData;
-      const recommendedBatchSize = isSlow ? 10 : 20;
+      if (!isOnline) {
+        networkTier = "offline";
+        recommendedBatchSize = 0;
+        prefetchMargin = "0px 0px";
+        prefetchAllowed = false;
+        isSlow = true;
+      } else if (effectiveType === "2g" || effectiveType === "slow-2g" || saveData) {
+        networkTier = "slow";
+        recommendedBatchSize = 8; // 8 for slow networks per enterprise SLA
+        prefetchMargin = "0px 0px"; // Prefetch disabled on slow connection
+        prefetchAllowed = false;
+        isSlow = true;
+      } else if (effectiveType === "3g") {
+        networkTier = "medium";
+        recommendedBatchSize = 12; // 12 for medium 3G networks
+        prefetchMargin = "250px 0px";
+        prefetchAllowed = true;
+        isSlow = true;
+      } else {
+        networkTier = "fast";
+        recommendedBatchSize = 20; // 20 for fast 4G/Wi-Fi
+        prefetchMargin = "600px 0px";
+        prefetchAllowed = true;
+        isSlow = false;
+      }
 
       setState({
         isOnline,
         effectiveType,
         saveData,
+        networkTier,
         isSlowConnection: isSlow,
         prefetchAllowed,
         recommendedBatchSize,
+        prefetchMargin,
       });
     };
 
@@ -126,3 +154,4 @@ export class RequestManager {
     this.abortControllers.delete(key);
   }
 }
+
