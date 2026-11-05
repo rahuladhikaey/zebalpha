@@ -100,3 +100,4 @@ Every section of the ZebAlpha architecture was inspected against real source cod
 - [x] Android WebView and Web browser compatibility verified.
 - [x] Offline alert banner non-blocking and automatically dismissible on reconnection.
 - [x] Checkout and Razorpay payment flow preserved without aggressive caching.
+
