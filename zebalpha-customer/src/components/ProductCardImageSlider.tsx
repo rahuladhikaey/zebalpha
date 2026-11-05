@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 interface ProductCardImageSliderProps {
   images: string[];
@@ -71,31 +72,38 @@ export function ProductCardImageSlider({
       onMouseLeave={() => setIsHovered(false)}
     >
       <Link href={href} className="relative block w-full h-full">
-        {/* Images Sliding Container */}
-        {slideImages.map((imgSrc, idx) => (
-          <div
-            key={idx}
-            className={`absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out ${
-              idx === currentIndex ? "opacity-100 z-10 scale-100" : "opacity-0 z-0 scale-105"
-            }`}
-          >
-            <Image
-              src={imgSrc}
-              alt={`${alt} - View ${idx + 1}`}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
-              loading={idx === 0 && isAboveTheFold ? "eager" : "lazy"}
-              decoding="async"
-              onError={(e: any) => {
-                // Fallback on broken image link
-                if (e.currentTarget?.src) {
-                  e.currentTarget.src = "/placeholder.jpg";
-                }
-              }}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover/slider:scale-108"
-            />
-          </div>
-        ))}
+        {/* Images Sliding Container (Progressive mount: slide 0 immediately, slides 1+ on hover) */}
+        {slideImages.map((imgSrc, idx) => {
+          if (idx > 0 && !isHovered) {
+            return null;
+          }
+          const optimizedSrc = IMAGE_VARIANTS.productGridCard(imgSrc);
+
+          return (
+            <div
+              key={idx}
+              className={`absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out ${
+                idx === currentIndex ? "opacity-100 z-10 scale-100" : "opacity-0 z-0 scale-105"
+              }`}
+            >
+              <Image
+                src={optimizedSrc}
+                alt={`${alt} - View ${idx + 1}`}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
+                loading={idx === 0 && isAboveTheFold ? "eager" : "lazy"}
+                decoding="async"
+                onError={(e: any) => {
+                  // Fallback on broken image link
+                  if (e.currentTarget?.src) {
+                    e.currentTarget.src = "/placeholder.jpg";
+                  }
+                }}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover/slider:scale-108"
+              />
+            </div>
+          );
+        })}
       </Link>
 
       {/* Discount Badge */}

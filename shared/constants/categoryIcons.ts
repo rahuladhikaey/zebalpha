@@ -278,7 +278,7 @@ export const CATEGORY_TRANSLATIONS: Record<'en' | 'hi', Record<string, string>> 
 
 export function getLocalizedCategoryName(
   categoryName: string,
-  lang: 'en' | 'hi' = 'en'
+  lang?: string
 ): string {
   if (!categoryName) return '';
   if (lang !== 'hi') return categoryName;

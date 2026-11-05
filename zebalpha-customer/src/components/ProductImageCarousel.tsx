@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 export default function ProductImageCarousel({
   images,
@@ -136,20 +137,32 @@ export default function ProductImageCarousel({
           className="flex transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
           style={{ transform: `translateX(${currentIndex * -100}%)` }}
         >
-          {normalizedImages.map((img, idx) => (
-            <div key={idx} className="flex-none w-full p-1 sm:p-2">
-              <div className="relative overflow-hidden rounded-[2rem] bg-zinc-950 flex items-center justify-center w-full aspect-[3/4] min-h-[380px] sm:min-h-[500px] md:min-h-[600px] max-h-[750px]">
-                <img
-                  src={img || "/placeholder.jpg"}
-                  alt={`${productName} - View ${idx + 1}`}
-                  loading={idx === 0 ? "eager" : "lazy"}
-                  decoding="async"
-                  fetchPriority={idx === 0 ? "high" : "low"}
-                  className="h-full w-full object-contain transition-transform duration-300"
-                />
+          {normalizedImages.map((img, idx) => {
+            const isVisibleOrAdjacent =
+              idx === currentIndex ||
+              idx === (currentIndex + 1) % totalSlides ||
+              idx === (currentIndex - 1 + totalSlides) % totalSlides;
+            const optimizedSrc = IMAGE_VARIANTS.productDetailMain(img);
+
+            return (
+              <div key={idx} className="flex-none w-full p-1 sm:p-2">
+                <div className="relative overflow-hidden rounded-[2rem] bg-zinc-950 flex items-center justify-center w-full aspect-[3/4] min-h-[380px] sm:min-h-[500px] md:min-h-[600px] max-h-[750px]">
+                  {isVisibleOrAdjacent ? (
+                    <img
+                      src={optimizedSrc || "/placeholder.jpg"}
+                      alt={`${productName} - View ${idx + 1}`}
+                      loading={idx === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                      fetchPriority={idx === 0 ? "high" : "low"}
+                      className="h-full w-full object-contain transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-zinc-900/40 animate-pulse" />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

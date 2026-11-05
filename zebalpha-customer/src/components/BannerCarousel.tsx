@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 interface BannerItem {
   id?: number | string;
@@ -59,6 +60,19 @@ export function BannerCarousel() {
   const [isCustomBanners, setIsCustomBanners] = useState(false);
   const [naturalDimensions, setNaturalDimensions] = useState<Record<string, { width: number; height: number; ratio: number }>>({});
   const [isHovered, setIsHovered] = useState(false);
+  const [loadedSlides, setLoadedSlides] = useState<Set<number>>(new Set([0]));
+
+  // Progressive slide preloader: only load adjacent slide when needed
+  useEffect(() => {
+    if (banners.length > 0) {
+      setLoadedSlides((prev) => {
+        const next = new Set(prev);
+        next.add(currentIndex);
+        next.add((currentIndex + 1) % banners.length);
+        return next;
+      });
+    }
+  }, [currentIndex, banners.length]);
 
   useEffect(() => {
     // Load admin-configured banners from store_settings DB if present
@@ -154,10 +168,22 @@ export function BannerCarousel() {
       >
         {banners.map((banner, index) => {
           const isActive = index === currentIndex;
+          const isPreloadable = loadedSlides.has(index);
           const SlideWrapper = banner.link ? Link : "div";
           const wrapperProps = banner.link
             ? { href: banner.link, "aria-label": banner.alt || "Featured ZebAlpha collection promotion" }
             : {};
+
+          if (!isPreloadable && !isActive) {
+            return (
+              <div
+                key={banner.id || index}
+                className="absolute inset-0 w-full h-full bg-neutral-900/40 opacity-0 pointer-events-none"
+              />
+            );
+          }
+
+          const bannerSrc = IMAGE_VARIANTS.heroBanner(banner.src);
 
           return (
             <SlideWrapper
@@ -185,10 +211,10 @@ export function BannerCarousel() {
                     {/* Ambient subtle blur backdrop matching image color to smoothly fill any boundary */}
                     <div 
                       className="absolute inset-0 bg-cover bg-center filter blur-2xl opacity-20 scale-105 pointer-events-none"
-                      style={{ backgroundImage: `url(${banner.src})` }}
+                      style={{ backgroundImage: `url(${bannerSrc})` }}
                     />
                     <Image
-                      src={banner.src}
+                      src={bannerSrc}
                       alt={banner.alt || "Zeb-alpha Banner"}
                       fill
                       priority={index === 0}

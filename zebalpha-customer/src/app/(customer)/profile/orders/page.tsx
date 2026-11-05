@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Header } from "@/components/Header";
+import { OrderSkeleton } from "@/components/skeletons";
 
 interface Order {
   id: string;
@@ -419,10 +420,10 @@ export default function MyOrdersPage() {
 
   if (authLoading || (loadingOrders && user)) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-black">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent" />
-          <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Loading Orders...</span>
+      <main className="min-h-screen bg-black text-white">
+        <Header title="My Orders" subtitle="Track orders & returns" />
+        <div className="mx-auto max-w-4xl px-4 py-8">
+          <OrderSkeleton />
         </div>
       </main>
     );

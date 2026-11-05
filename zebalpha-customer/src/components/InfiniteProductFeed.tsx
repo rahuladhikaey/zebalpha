@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Product } from "@/lib/types";
 import { ProductCardImageSlider } from "./ProductCardImageSlider";
+import { ProductCardSkeleton } from "@/components/skeletons";
+import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { AddToCartButton } from "./AddToCartButton";
 import { WishlistButton } from "./WishlistButton";
 import { QuickCartButton } from "./QuickCartButton";
@@ -19,9 +21,11 @@ interface InfiniteProductFeedProps {
 }
 
 export function InfiniteProductFeed({ initialProducts = [], brandFilter }: InfiniteProductFeedProps) {
+  useScrollRestoration("home_feed");
+  const BATCH_SIZE = 20;
   const cleanInitial = (initialProducts || []).filter((p) => !isProductNewDrop(p));
   const [products, setProducts] = useState<Product[]>(cleanInitial);
-  const [hasMore, setHasMore] = useState(cleanInitial.length >= 12);
+  const [hasMore, setHasMore] = useState(cleanInitial.length >= BATCH_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastCreatedAt, setLastCreatedAt] = useState<string | null>(
     cleanInitial.length > 0 ? cleanInitial[cleanInitial.length - 1].created_at || null : null
@@ -35,7 +39,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     if (clean.length > 0) {
       setProducts(clean);
       setLastCreatedAt(clean[clean.length - 1].created_at || null);
-      setHasMore(clean.length >= 12);
+      setHasMore(clean.length >= BATCH_SIZE);
     }
   }, [initialProducts]);
 
@@ -53,7 +57,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
             .neq("status", "COMING_SOON")
             .neq("tier", "DROP")
             .order("created_at", { ascending: false })
-            .limit(12);
+            .limit(BATCH_SIZE);
 
           if (brandFilter) {
             query = query.ilike("brand", `%${brandFilter}%`);
@@ -69,7 +73,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
               .neq("status", "COMING_SOON")
               .neq("tier", "DROP")
               .order("created_at", { ascending: false })
-              .limit(12);
+              .limit(BATCH_SIZE);
             data = fallback.data;
           }
 
@@ -91,7 +95,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
             if (mapped.length > 0) {
               setLastCreatedAt(mapped[mapped.length - 1].created_at || null);
             }
-            setHasMore(mapped.length >= 12);
+            setHasMore(mapped.length >= BATCH_SIZE);
           }
         } catch (e) {
           console.warn("Notice in client product fetch:", e);
@@ -118,7 +122,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
         .neq("tier", "DROP")
         .lt("created_at", lastCreatedAt)
         .order("created_at", { ascending: false })
-        .limit(12);
+        .limit(BATCH_SIZE);
 
       if (brandFilter) {
         query = query.ilike("brand", `%${brandFilter}%`);
@@ -135,7 +139,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           .neq("tier", "DROP")
           .lt("created_at", lastCreatedAt)
           .order("created_at", { ascending: false })
-          .limit(12);
+          .limit(BATCH_SIZE);
         data = fallback.data;
         error = fallback.error;
       }
@@ -164,7 +168,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
         if (newBatch.length > 0) {
           setLastCreatedAt(newBatch[newBatch.length - 1].created_at || null);
         }
-        setHasMore(newBatch.length >= 12);
+        setHasMore(newBatch.length >= BATCH_SIZE);
       } else {
         setHasMore(false);
       }
@@ -175,7 +179,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     }
   }, [isLoadingMore, hasMore, lastCreatedAt, brandFilter]);
 
-  // Intersection Observer trigger
+  // Intersection Observer trigger with intelligent 600px prefetch margin
   useEffect(() => {
     const sentinel = observerRef.current;
     if (!sentinel) return;
@@ -186,7 +190,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           loadMoreProducts();
         }
       },
-      { rootMargin: "300px" } // Preload 300px before reaching the bottom
+      { rootMargin: "600px 0px" } // Preload when 5 products remain before viewport bottom
     );
 
     observer.observe(sentinel);
@@ -279,12 +283,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
       {/* Infinite Scroll Shimmer Loading Indicators */}
       {isLoadingMore && (
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1920px]:grid-cols-6 lg:gap-5 mt-6">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="h-80 rounded-2xl md:rounded-3xl bg-neutral-900/60 border border-neutral-800 animate-pulse"
-            />
-          ))}
+          <ProductCardSkeleton count={4} />
         </div>
       )}
 

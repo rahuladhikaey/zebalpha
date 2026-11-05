@@ -6,7 +6,7 @@ import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Product, Category } from "@/lib/types";
-import { LoadingCard } from "@/components/LoadingCard";
+import { ProductCardSkeleton } from "@/components/skeletons";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { Header } from "@/components/Header";
 import { WishlistButton } from "@/components/WishlistButton";
@@ -22,6 +22,7 @@ import {
   DEFAULT_CLOTHING_CATEGORIES,
   getProductDisplayPricing,
 } from "@/hooks/useCatalogQueries";
+import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ProductFilters,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ProductFilters";
 
 function ProductsContent() {
+  useScrollRestoration("products_catalog");
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -951,9 +953,7 @@ function ProductsContent() {
             {/* Product Grid / Loading / Empty states */}
             {loading ? (
               <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-6">
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <LoadingCard key={index} />
-                ))}
+                <ProductCardSkeleton count={8} />
               </div>
             ) : filtered.length === 0 ? (
               <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-12 text-center text-zinc-400 my-8">

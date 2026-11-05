@@ -5,6 +5,7 @@ import { useCart } from "@/context/CartContext";
 import { Header } from "@/components/Header";
 import Link from "next/link";
 import { Trash2, ShoppingCart } from "lucide-react";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 export default function WishlistPage() {
   const { wishlist, removeFromWishlist } = useWishlist();
@@ -54,8 +55,10 @@ export default function WishlistPage() {
                     {/* Item Image */}
                     <Link href={`/products/${item.id}`} className="h-24 w-24 md:h-32 md:w-32 shrink-0 overflow-hidden rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
                       <img
-                        src={item.images?.[0] || item.image_url}
+                        src={IMAGE_VARIANTS.productDetailThumb(item.images?.[0] || item.image_url)}
                         alt={item.name}
+                        loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
                       />
                     </Link>

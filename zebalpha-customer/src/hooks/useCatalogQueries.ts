@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/apiService';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
@@ -953,6 +953,60 @@ export function useProducts(params?: {
       return res.data;
     },
     staleTime: 30 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+}
+
+export interface CursorProductsResponse {
+  items: Product[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  totalCount: number;
+}
+
+/**
+ * Enterprise Cursor-Based Infinite Query Hook (Flipkart & Meesho-Grade)
+ * Fetches batches of 20 products with nextCursor progression.
+ */
+export function useCursorProducts(params?: {
+  category?: string | number | null;
+  subcategory?: string | number | null;
+  search?: string;
+  brand?: string;
+  sort?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  limit?: number;
+}) {
+  const limit = params?.limit || 20;
+
+  return useInfiniteQuery<CursorProductsResponse>({
+    queryKey: ['cursorProducts', params],
+    queryFn: async ({ pageParam }) => {
+      const qParams = new URLSearchParams();
+      if (params?.category) qParams.set('category', String(params.category));
+      if (params?.subcategory) qParams.set('subcategory', String(params.subcategory));
+      if (params?.search) qParams.set('search', params.search);
+      if (params?.brand) qParams.set('brand', params.brand);
+      if (params?.sort) qParams.set('sort', params.sort);
+      if (params?.minPrice !== undefined && params?.minPrice !== null) {
+        qParams.set('minPrice', String(params.minPrice));
+      }
+      if (params?.maxPrice !== undefined && params?.maxPrice !== null) {
+        qParams.set('maxPrice', String(params.maxPrice));
+      }
+      qParams.set('limit', String(limit));
+      if (pageParam) qParams.set('cursor', String(pageParam));
+
+      const res = await fetch(`/api/products?${qParams.toString()}`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch cursor-paginated products');
+      }
+      return res.json();
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
 }

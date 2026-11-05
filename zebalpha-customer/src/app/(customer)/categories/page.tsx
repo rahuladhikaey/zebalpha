@@ -14,7 +14,7 @@ import {
   getProductDisplayPricing,
 } from "@/hooks/useCatalogQueries";
 import { CategoryIconRenderer } from "@/lib/categoryIcons";
-import { LoadingCard } from "@/components/LoadingCard";
+import { ProductCardSkeleton } from "@/components/skeletons";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 import { WishlistButton } from "@/components/WishlistButton";
 import { QuickCartButton } from "@/components/QuickCartButton";
@@ -513,9 +513,7 @@ function CategoriesContent() {
           {/* Product Grid */}
           {isProductsLoading ? (
             <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <LoadingCard key={i} />
-              ))}
+              <ProductCardSkeleton count={8} />
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-10 sm:p-14 text-center text-zinc-400 my-4 shadow-2xl">

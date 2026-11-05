@@ -203,7 +203,7 @@ export async function getCachedEditorialCards(): Promise<EditorialCard[]> {
  */
 const SLIM_PRODUCT_FIELDS = 'id, name, brand, price, mrp, image_url, images, category_id, stock, low_stock_limit, status, is_active, is_approved, approval_status, created_at, specifications, seller_id';
 
-export async function getCachedHomeProducts(brandFilter?: string, limit: number = 12): Promise<Product[]> {
+export async function getCachedHomeProducts(brandFilter?: string, limit: number = 20): Promise<Product[]> {
   const brandKey = brandFilter ? brandFilter.toLowerCase().trim() : 'all';
   // Bumped to v5 to strictly exclude any new drop / coming soon items from homepage featured grid
   const cacheKey = `homepage:section:featured:v5:brand:${brandKey}:limit:${limit}`;

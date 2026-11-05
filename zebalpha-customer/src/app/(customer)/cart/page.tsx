@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Sparkles, Truck } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useIsNativeApp } from "@/lib/platform";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 export default function CartPage() {
   const router = useRouter();
@@ -297,7 +298,13 @@ export default function CartPage() {
                 <div key={itemKey} className={`flex gap-4 items-center ${outOfStock ? "opacity-50 grayscale" : ""}`}>
                   <div className="h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 relative">
                     {displayImg ? (
-                      <img src={displayImg} alt={item.name} className="h-full w-full object-cover" />
+                      <img
+                        src={IMAGE_VARIANTS.productDetailThumb(displayImg)}
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-zinc-500">🛒</div>
                     )}
@@ -383,7 +390,13 @@ export default function CartPage() {
                 <div key={product.id} className="w-32 shrink-0 bg-zinc-950 rounded-2xl p-3 border border-zinc-800 flex flex-col gap-2 relative shadow-xl">
                   <div className="h-24 w-full rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden relative">
                     {product.images && product.images.length > 0 ? (
-                      <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
+                      <img
+                        src={IMAGE_VARIANTS.productDetailThumb(product.images[0])}
+                        alt={product.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-zinc-500">🛒</div>
                     )}
