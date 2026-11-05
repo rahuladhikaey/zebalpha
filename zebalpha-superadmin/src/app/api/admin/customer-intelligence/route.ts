@@ -54,7 +54,7 @@ export async function GET(req: Request) {
       supabaseServer.from("orders").select("id, order_number, user_id, customer_name, phone, items, product_details, total_amount, discount_amount, order_status, payment_status, created_at").order("created_at", { ascending: false }),
       supabaseServer.from("customer_sessions").select("session_id, user_id, platform, device_type, is_active, created_at, last_heartbeat").order("last_heartbeat", { ascending: false }),
       supabaseServer.from("customer_login_logs").select("user_id, login_method, platform, status, created_at").order("created_at", { ascending: false }).limit(200),
-      supabaseServer.from("cart_items").select("user_id, updated_at, created_at"),
+      supabaseServer.from("cart_items").select("id, user_id, product_id, quantity, updated_at, created_at"),
     ]);
 
     const rawProfiles: any[] = profilesRes.data || [];
@@ -174,16 +174,28 @@ export async function GET(req: Request) {
       const userSessions = rawSessions.filter((s) => s.user_id === cust.id);
       const isOnline = cust.id ? onlineUserIds.has(cust.id) : false;
       const latestSession = userSessions[0];
-      const lastActive = latestSession?.last_heartbeat || cust.updated_at || cust.created_at;
+
+      // Last Login
+      const userLogins = rawLogins.filter((l) => l.user_id === cust.id && l.status === "SUCCESS");
+      const lastLogin = userLogins[0]?.created_at || cust.created_at;
+
+      // Multi-source latest reliable activity timestamp:
+      // Includes session heartbeat, order placement, successful login, profile update, and account creation
+      const candidateTimestamps: number[] = [
+        latestSession?.last_heartbeat ? new Date(latestSession.last_heartbeat).getTime() : 0,
+        custOrders[0]?.created_at ? new Date(custOrders[0].created_at).getTime() : 0,
+        userLogins[0]?.created_at ? new Date(userLogins[0].created_at).getTime() : 0,
+        cust.updated_at ? new Date(cust.updated_at).getTime() : 0,
+        cust.created_at ? new Date(cust.created_at).getTime() : 0,
+      ].filter((t) => !isNaN(t) && t > 0);
+
+      const latestActivityMs = candidateTimestamps.length > 0 ? Math.max(...candidateTimestamps) : new Date(cust.created_at).getTime();
+      const lastActive = new Date(latestActivityMs).toISOString();
 
       // Customer platform preference
       const androidSessions = userSessions.filter((s) => s.platform === "android").length;
       const webSessions = userSessions.filter((s) => s.platform === "website").length;
       const platformPreference = androidSessions >= webSessions && androidSessions > 0 ? "android" : "website";
-
-      // Last Login
-      const userLogins = rawLogins.filter((l) => l.user_id === cust.id && l.status === "SUCCESS");
-      const lastLogin = userLogins[0]?.created_at || cust.created_at;
 
       return {
         id: cust.id,
@@ -229,7 +241,7 @@ export async function GET(req: Request) {
 
     // 7. Aggregate KPI Metrics
     const totalCustomersCount = customer360List.length;
-    const purchasedCustomers = customer360List.filter((c) => c.total_orders > 0);
+    const purchasedCustomers = customer360List.filter((c) => c.delivered_orders > 0);
     const purchasedCount = purchasedCustomers.length;
 
     const newSegmentCount = customer360List.filter((c) => c.segment === "New").length;
@@ -265,53 +277,166 @@ export async function GET(req: Request) {
       loginMethodsBreakdown[m] = (loginMethodsBreakdown[m] || 0) + 1;
     });
 
-    // Retention Metrics (Cohort simulation from actual order dates)
-    const customersWithOrders = customer360List.filter((c) => c.orders.length > 0);
-    let retained7DCount = 0;
-    let retained30DCount = 0;
-    let retained90DCount = 0;
+    // 7. Retention Metrics: Cohort Analysis (Distinct Visit vs Purchase Retention)
+    const registeredCustomers = customer360List.filter((c) => !c.is_guest);
+    const guestCustomers = customer360List.filter((c) => c.is_guest);
 
-    customersWithOrders.forEach((c) => {
-      const dates = c.orders.map((o: any) => new Date(o.created_at).getTime()).sort((a: number, b: number) => a - b);
-      if (dates.length > 1) {
-        const first = dates[0];
-        const spanDays = (dates[dates.length - 1] - first) / 86400000;
-        if (spanDays <= 7) retained7DCount++;
-        if (spanDays <= 30) retained30DCount++;
-        if (spanDays <= 90) retained90DCount++;
+    // A. Purchase Retention Cohorts (Repeat Purchase within 7d, 30d, 90d from 1st delivered order)
+    const customersWithDeliveredOrders = registeredCustomers.filter((c) => c.delivered_orders > 0);
+    let purchaseRetained7DCount = 0;
+    let purchaseCohort7DBase = 0;
+    let purchaseRetained30DCount = 0;
+    let purchaseCohort30DBase = 0;
+    let purchaseRetained90DCount = 0;
+    let purchaseCohort90DBase = 0;
+
+    customersWithDeliveredOrders.forEach((c) => {
+      const deliveredOrds = c.orders.filter((o: any) => {
+        const os = String(o.order_status || "").toLowerCase();
+        const ps = String(o.payment_status || "").toUpperCase();
+        return ps !== "FAILED" && (os === "delivered" || os === "partially_returned");
+      }).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      if (deliveredOrds.length > 0) {
+        const firstDeliveredTime = new Date(deliveredOrds[0].created_at).getTime();
+        const daysSinceFirst = (now.getTime() - firstDeliveredTime) / 86400000;
+
+        if (daysSinceFirst >= 7) {
+          purchaseCohort7DBase++;
+          const hasSecondWithin7D = deliveredOrds.some((o: any, idx: number) => {
+            if (idx === 0) return false;
+            const t = new Date(o.created_at).getTime();
+            return (t - firstDeliveredTime) <= 7 * 86400000;
+          });
+          if (hasSecondWithin7D) purchaseRetained7DCount++;
+        }
+
+        if (daysSinceFirst >= 30) {
+          purchaseCohort30DBase++;
+          const hasSecondWithin30D = deliveredOrds.some((o: any, idx: number) => {
+            if (idx === 0) return false;
+            const t = new Date(o.created_at).getTime();
+            return (t - firstDeliveredTime) <= 30 * 86400000;
+          });
+          if (hasSecondWithin30D) purchaseRetained30DCount++;
+        }
+
+        if (daysSinceFirst >= 90) {
+          purchaseCohort90DBase++;
+          const hasSecondWithin90D = deliveredOrds.some((o: any, idx: number) => {
+            if (idx === 0) return false;
+            const t = new Date(o.created_at).getTime();
+            return (t - firstDeliveredTime) <= 90 * 86400000;
+          });
+          if (hasSecondWithin90D) purchaseRetained90DCount++;
+        }
       }
     });
 
-    const retention7D = customersWithOrders.length > 0 ? Math.round((retained7DCount / customersWithOrders.length) * 100) : 0;
-    const retention30D = customersWithOrders.length > 0 ? Math.round((retained30DCount / customersWithOrders.length) * 100) : 0;
-    const retention90D = customersWithOrders.length > 0 ? Math.round((retained90DCount / customersWithOrders.length) * 100) : 0;
+    const purchaseRetention7D = purchaseCohort7DBase > 0 ? Math.round((purchaseRetained7DCount / purchaseCohort7DBase) * 100) : 0;
+    const purchaseRetention30D = purchaseCohort30DBase > 0 ? Math.round((purchaseRetained30DCount / purchaseCohort30DBase) * 100) : 0;
+    const purchaseRetention90D = purchaseCohort90DBase > 0 ? Math.round((purchaseRetained90DCount / purchaseCohort90DBase) * 100) : 0;
 
-    // Inactive customers (no activity in 30 days)
-    const inactiveCount = customer360List.filter((c) => new Date(c.last_active) < thirtyDaysAgo).length;
+    // B. Visit / Platform Activity Retention (Session/Login activity between Day 1 and Day N after registration)
+    let visitCohort7DBase = 0;
+    let visitRetained7DCount = 0;
+    let visitCohort30DBase = 0;
+    let visitRetained30DCount = 0;
+    let visitCohort90DBase = 0;
+    let visitRetained90DCount = 0;
+
+    registeredCustomers.forEach((c) => {
+      const regTime = new Date(c.registration_date).getTime();
+      const daysSinceReg = (now.getTime() - regTime) / 86400000;
+      const lastActiveTime = new Date(c.last_active).getTime();
+      const returnedAfterDay1 = (lastActiveTime - regTime) >= 86400000;
+
+      if (daysSinceReg >= 7) {
+        visitCohort7DBase++;
+        if (returnedAfterDay1 && (lastActiveTime - regTime) <= 7 * 86400000) {
+          visitRetained7DCount++;
+        }
+      }
+      if (daysSinceReg >= 30) {
+        visitCohort30DBase++;
+        if (returnedAfterDay1 && (lastActiveTime - regTime) <= 30 * 86400000) {
+          visitRetained30DCount++;
+        }
+      }
+      if (daysSinceReg >= 90) {
+        visitCohort90DBase++;
+        if (returnedAfterDay1 && (lastActiveTime - regTime) <= 90 * 86400000) {
+          visitRetained90DCount++;
+        }
+      }
+    });
+
+    const visitRetention7D = visitCohort7DBase > 0 ? Math.round((visitRetained7DCount / visitCohort7DBase) * 100) : 0;
+    const visitRetention30D = visitCohort30DBase > 0 ? Math.round((visitRetained30DCount / visitCohort30DBase) * 100) : 0;
+    const visitRetention90D = visitCohort90DBase > 0 ? Math.round((visitRetained90DCount / visitCohort90DBase) * 100) : 0;
+
+    // Inactive registered customers (no activity across any source in 30 days)
+    const inactiveCount = registeredCustomers.filter((c) => new Date(c.last_active) < thirtyDaysAgo).length;
 
     // Real Cart Abandoners Calculation
+    // Rules: Valid user_id, age >= 24h, not expired (> 30d), qty > 0, no subsequent completed order, no purchased cart item match
     let cartAbandonersCount = 0;
     if (cartAvailable && rawCartItems.length > 0) {
-      const usersWithCart = new Set(rawCartItems.map((ci: any) => ci.user_id).filter(Boolean));
-      const oneDayAgo = new Date(now.getTime() - 24 * 3600000);
-      usersWithCart.forEach((uid: string) => {
+      const twentyFourHoursAgoMs = now.getTime() - 24 * 3600000;
+      const thirtyDaysAgoMs = now.getTime() - 30 * 86400000;
+      const cartItemsByUser: Record<string, any[]> = {};
+
+      rawCartItems.forEach((item: any) => {
+        const uid = item.user_id;
+        const qty = Number(item.quantity) || 0;
+        if (!uid || qty <= 0) return; // Ignore unowned, zero-quantity, or corrupt rows
+
+        const itemTime = new Date(item.updated_at || item.created_at).getTime();
+        // Item age must be >= 24 hours, and within 30 days window (not expired garbage)
+        if (itemTime <= twentyFourHoursAgoMs && itemTime >= thirtyDaysAgoMs) {
+          if (!cartItemsByUser[uid]) cartItemsByUser[uid] = [];
+          cartItemsByUser[uid].push({ ...item, itemTime });
+        }
+      });
+
+      Object.entries(cartItemsByUser).forEach(([uid, items]) => {
         const userOrds = ordersByCustomerKey[uid] || [];
-        const hasRecentDelivered = userOrds.some(
-          (o) => new Date(o.created_at) >= oneDayAgo && String(o.order_status).toLowerCase() === "delivered"
-        );
-        if (!hasRecentDelivered) {
+        const newestItemTime = Math.max(...items.map((i) => i.itemTime));
+        const cartProductIds = new Set(items.map((i) => String(i.product_id)));
+
+        // Check if user placed a subsequent successful/confirmed/delivered order
+        const hasSubsequentOrder = userOrds.some((o: any) => {
+          const ordTime = new Date(o.created_at).getTime();
+          const os = String(o.order_status || "").toLowerCase();
+          const ps = String(o.payment_status || "").toUpperCase();
+          const isValidOrder = ps !== "FAILED" && !["cancelled", "rejected"].includes(os);
+          return isValidOrder && ordTime >= newestItemTime;
+        });
+
+        // Check if any subsequent order purchased any of the cart products
+        const hasPurchasedCartProducts = userOrds.some((o: any) => {
+          const ordTime = new Date(o.created_at).getTime();
+          if (ordTime < newestItemTime) return false;
+          const orderItems = o.items || o.product_details || [];
+          if (Array.isArray(orderItems)) {
+            return orderItems.some((oi: any) => cartProductIds.has(String(oi.product_id || oi.id)));
+          }
+          return false;
+        });
+
+        if (!hasSubsequentOrder && !hasPurchasedCartProducts) {
           cartAbandonersCount++;
         }
       });
     }
 
-    // Retention Card Scope (Filtered by selected Date Range)
+    // Retention Card Scope (Filtered by selected Date Range - Customer Acquisition Cohort)
     const dateFilterType = url.searchParams.get("dateFilter") || "all";
     let rangeStart: Date | null = null;
     let rangeEnd: Date | null = null;
 
     if (dateFilterType === "today") {
-      rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
       rangeEnd = now;
     } else if (dateFilterType === "last7days") {
       rangeStart = new Date(now.getTime() - 7 * 86400000);
@@ -323,38 +448,63 @@ export async function GET(req: Request) {
       rangeStart = new Date(now.getTime() - 90 * 86400000);
       rangeEnd = now;
     } else if (startDateParam && endDateParam) {
-      rangeStart = new Date(startDateParam);
-      rangeEnd = new Date(endDateParam);
+      rangeStart = new Date(startDateParam + "T00:00:00.000Z");
+      rangeEnd = new Date(endDateParam + "T23:59:59.999Z");
     }
 
-    const scopeList = (rangeStart && rangeEnd)
-      ? customer360List.filter((c) => {
-          const act = new Date(c.last_active);
+    // Registered customer acquisition cohort within date filter
+    const scopedRegistered = (rangeStart && rangeEnd)
+      ? registeredCustomers.filter((c) => {
           const reg = new Date(c.registration_date);
-          return (act >= rangeStart! && act <= rangeEnd!) || (reg >= rangeStart! && reg <= rangeEnd!);
+          return reg >= rangeStart! && reg <= rangeEnd!;
         })
-      : customer360List;
+      : registeredCustomers;
 
-    const scopeTotal = scopeList.length;
-    const scopeNew = scopeList.filter((c) => c.segment === "New").length;
-    const scopeRepeat = scopeList.filter((c) => c.segment === "Repeat").length;
-    const scopeLoyal = scopeList.filter((c) => c.segment === "Loyal").length;
-    const scopeInactive = scopeList.filter((c) => new Date(c.last_active) < thirtyDaysAgo).length;
-    const scopeRepeatRate = scopeTotal > 0 ? Number((((scopeRepeat + scopeLoyal) / scopeTotal) * 100).toFixed(1)) : 0;
+    const scopeRegisteredTotal = scopedRegistered.length;
+
+    // 3 Mutually Exclusive Purchase Segments: New, Repeat, Loyal
+    // Every registered customer belongs to exactly one segment: New (0-1), Repeat (2-4), Loyal (5+)
+    const scopeNew = scopedRegistered.filter((c) => c.delivered_orders <= config.new_max_delivered).length;
+    const scopeRepeat = scopedRegistered.filter(
+      (c) => c.delivered_orders >= config.repeat_min_delivered && c.delivered_orders <= config.repeat_max_delivered
+    ).length;
+    const scopeLoyal = scopedRegistered.filter((c) => c.delivered_orders >= config.loyal_min_delivered).length;
+
+    // Percentages calculated strictly over scopeRegisteredTotal
+    let pNew = scopeRegisteredTotal > 0 ? Number(((scopeNew / scopeRegisteredTotal) * 100).toFixed(1)) : 0;
+    let pRepeat = scopeRegisteredTotal > 0 ? Number(((scopeRepeat / scopeRegisteredTotal) * 100).toFixed(1)) : 0;
+    let pLoyal = scopeRegisteredTotal > 0 ? Number(((scopeLoyal / scopeRegisteredTotal) * 100).toFixed(1)) : 0;
+
+    // Mathematical reconciliation to ensure exact 100.0% sum
+    if (scopeRegisteredTotal > 0) {
+      const sum = Number((pNew + pRepeat + pLoyal).toFixed(1));
+      const diff = Number((100.0 - sum).toFixed(1));
+      if (Math.abs(diff) > 0.001) {
+        if (pNew >= pRepeat && pNew >= pLoyal) pNew = Number((pNew + diff).toFixed(1));
+        else if (pRepeat >= pLoyal) pRepeat = Number((pRepeat + diff).toFixed(1));
+        else pLoyal = Number((pLoyal + diff).toFixed(1));
+      }
+    }
 
     const retentionSegments = [
-      { id: "new", name: "New Customers", count: scopeNew, color: "#38BDF8", description: "≤ 1 Delivered Order" },
-      { id: "repeat", name: "Frequent / Repeat", count: scopeRepeat, color: "#FBBF24", description: "2–4 Delivered Orders" },
-      { id: "loyal", name: "Loyal Customers", count: scopeLoyal, color: "#A855F7", description: "5+ Delivered Orders" },
-      { id: "inactive", name: "Inactive Customers", count: scopeInactive, color: "#F43F5E", description: "No activity in 30+ days" },
-      { id: "cart_abandoners", name: "Cart Abandoners", count: cartAbandonersCount, color: "#FB923C", description: "Unpurchased cart > 24h", isUnavailable: !cartAvailable },
+      { id: "new", name: "New Customers", count: scopeNew, color: "#38BDF8", description: "0–1 Delivered Orders", percentage: pNew },
+      { id: "repeat", name: "Frequent / Repeat", count: scopeRepeat, color: "#FBBF24", description: "2–4 Delivered Orders", percentage: pRepeat },
+      { id: "loyal", name: "Loyal Customers", count: scopeLoyal, color: "#A855F7", description: "5+ Delivered Orders", percentage: pLoyal },
     ];
 
-    const totalSegmentUnits = retentionSegments.reduce((sum, s) => sum + s.count, 0);
-    const retentionSegmentsWithPct = retentionSegments.map((s) => ({
-      ...s,
-      percentage: totalSegmentUnits > 0 ? Number(((s.count / totalSegmentUnits) * 100).toFixed(1)) : 0,
-    }));
+    // Repeat Purchase Rate: Denominator is customers with at least 1 delivered order
+    const scopePurchasedCount = scopedRegistered.filter((c) => c.delivered_orders >= 1).length;
+    const scopeRepeatCount = scopeRepeat + scopeLoyal;
+    const scopeRepeatPurchaseRate = scopePurchasedCount > 0
+      ? Number(((scopeRepeatCount / scopePurchasedCount) * 100).toFixed(1))
+      : 0;
+    const scopeRepeatShareOfTotal = scopeRegisteredTotal > 0
+      ? Number(((scopeRepeatCount / scopeRegisteredTotal) * 100).toFixed(1))
+      : 0;
+
+    // Activity counts for the scoped registered customers
+    const scopeInactive = scopedRegistered.filter((c) => new Date(c.last_active) < thirtyDaysAgo).length;
+    const scopeActive = Math.max(0, scopeRegisteredTotal - scopeInactive);
 
     // 8. Filter Customer Table
     let filteredList = customer360List;
@@ -427,23 +577,43 @@ export async function GET(req: Request) {
           loginMethodsBreakdown,
         },
         retention: {
-          retention7D,
-          retention30D,
-          retention90D,
+          retention7D: purchaseRetention7D,
+          retention30D: purchaseRetention30D,
+          retention90D: purchaseRetention90D,
+          visitRetention7D,
+          visitRetention30D,
+          visitRetention90D,
           inactiveCount,
         },
         retentionCard: {
-          totalCustomers: scopeTotal,
+          totalCustomers: scopeRegisteredTotal,
           registeredCount: rawProfiles.length,
           guestCount: Object.keys(guestProfilesMap).length,
-          activeCount: Math.max(0, scopeTotal - scopeInactive),
+          purchasedCount: scopePurchasedCount,
+          activeCount: scopeActive,
           inactiveCount: scopeInactive,
-          repeatPurchaseRate: scopeRepeatRate,
-          retentionRate7D: retention7D,
-          retentionRate30D: retention30D,
-          retentionRate90D: retention90D,
+          repeatPurchaseRate: scopeRepeatPurchaseRate,
+          repeatShareOfRegistered: scopeRepeatShareOfTotal,
+          retentionRate7D: purchaseRetention7D,
+          retentionRate30D: purchaseRetention30D,
+          retentionRate90D: purchaseRetention90D,
           dateFilterApplied: dateFilterType,
-          segments: retentionSegmentsWithPct,
+          dateFilterScopeDoc: "Customer Acquisition Cohort: Scoped to registered customers whose account was created within the selected date range, tracking their lifetime purchase segment (New, Repeat, Loyal) and activity status.",
+          segments: retentionSegments,
+          activityMetrics: {
+            activeCustomersCount: scopeActive,
+            inactiveCustomersCount: scopeInactive,
+            cartAbandonersCount: cartAbandonersCount,
+            isCartUnavailable: !cartAvailable,
+            guestVisitorsCount: Object.keys(guestProfilesMap).length,
+            registeredCustomersCount: rawProfiles.length,
+            visitRetentionRate7D: visitRetention7D,
+            visitRetentionRate30D: visitRetention30D,
+            visitRetentionRate90D: visitRetention90D,
+            purchaseRetentionRate7D: purchaseRetention7D,
+            purchaseRetentionRate30D: purchaseRetention30D,
+            purchaseRetentionRate90D: purchaseRetention90D,
+          },
         },
         config,
         customers: filteredList.slice(0, 100), // Paginated preview

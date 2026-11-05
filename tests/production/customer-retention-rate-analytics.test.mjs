@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 console.log('========================================================================');
-console.log('📊 ZEBALPHA PREMIUM CUSTOMER RETENTION ANALYTICS AUDIT & TEST SUITE');
+console.log('📊 ZEBALPHA CUSTOMER RETENTION LOGIC HARDENING & ACCURACY TEST SUITE');
 console.log('========================================================================\n');
 
 let totalTests = 0;
@@ -20,11 +20,11 @@ function test(name, fn) {
 }
 
 // -------------------------------------------------------------------
-// 1. SEGMENTATION & CLASSIFICATION LOGIC VERIFICATION
+// 1. SEGMENT EXCLUSIVITY (MUTUALLY EXCLUSIVE PARTITION)
 // -------------------------------------------------------------------
-console.log('--- 1. Real Database Customer Segmentation Classification ---');
+console.log('--- 1. Purchase Segment Exclusivity & Partitioning ---');
 
-test('Correctly classifies New, Repeat, Loyal, Inactive and Cart Abandoner customers', () => {
+test('Every registered customer belongs to exactly one purchase segment (New, Repeat, Loyal)', () => {
   const config = {
     new_max_delivered: 1,
     repeat_min_delivered: 2,
@@ -32,191 +32,260 @@ test('Correctly classifies New, Repeat, Loyal, Inactive and Cart Abandoner custo
     loyal_min_delivered: 5,
   };
 
-  const now = new Date('2026-11-05T12:00:00Z');
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
-
-  const customers = [
-    { id: 'c1', delivered_orders: 0, last_active: '2026-11-05T10:00:00Z' }, // New (0 delivered)
-    { id: 'c2', delivered_orders: 1, last_active: '2026-11-04T15:00:00Z' }, // New (1 delivered)
-    { id: 'c3', delivered_orders: 3, last_active: '2026-11-05T11:00:00Z' }, // Repeat (3 delivered)
-    { id: 'c4', delivered_orders: 7, last_active: '2026-11-05T09:00:00Z' }, // Loyal (7 delivered)
-    { id: 'c5', delivered_orders: 1, last_active: '2026-09-01T00:00:00Z' }, // Inactive (>30d idle)
+  const registeredCustomers = [
+    { id: 'c1', delivered_orders: 0 },
+    { id: 'c2', delivered_orders: 1 },
+    { id: 'c3', delivered_orders: 2 },
+    { id: 'c4', delivered_orders: 4 },
+    { id: 'c5', delivered_orders: 5 },
+    { id: 'c6', delivered_orders: 12 },
   ];
 
-  const getSegment = (delivered) => {
-    if (delivered >= config.loyal_min_delivered) return 'Loyal';
-    if (delivered >= config.repeat_min_delivered && delivered <= config.repeat_max_delivered) return 'Repeat';
+  const getSegment = (d) => {
+    if (d >= config.loyal_min_delivered) return 'Loyal';
+    if (d >= config.repeat_min_delivered && d <= config.repeat_max_delivered) return 'Repeat';
     return 'New';
   };
 
-  const newCount = customers.filter(c => getSegment(c.delivered_orders) === 'New').length;
-  const repeatCount = customers.filter(c => getSegment(c.delivered_orders) === 'Repeat').length;
-  const loyalCount = customers.filter(c => getSegment(c.delivered_orders) === 'Loyal').length;
-  const inactiveCount = customers.filter(c => new Date(c.last_active) < thirtyDaysAgo).length;
+  const segments = registeredCustomers.map(c => getSegment(c.delivered_orders));
+  const newCount = segments.filter(s => s === 'New').length;
+  const repeatCount = segments.filter(s => s === 'Repeat').length;
+  const loyalCount = segments.filter(s => s === 'Loyal').length;
 
-  assert.equal(newCount, 3, 'New customers count (c1, c2, c5)');
-  assert.equal(repeatCount, 1, 'Repeat customers count (c3)');
-  assert.equal(loyalCount, 1, 'Loyal customers count (c4)');
-  assert.equal(inactiveCount, 1, 'Inactive customers count (c5)');
+  assert.equal(newCount, 2, 'New: 0-1 delivered');
+  assert.equal(repeatCount, 2, 'Repeat: 2-4 delivered');
+  assert.equal(loyalCount, 2, 'Loyal: 5+ delivered');
+  assert.equal(newCount + repeatCount + loyalCount, registeredCustomers.length, 'Segments strictly partition total customers');
 });
 
 // -------------------------------------------------------------------
-// 2. REAL ANALYTICS CALCULATIONS & ZERO FAKE DATA
+// 2. 100% PERCENTAGE RECONCILIATION
 // -------------------------------------------------------------------
-console.log('\n--- 2. Real Analytics Calculations & Percentages ---');
+console.log('\n--- 2. Exact 100% Percentage Reconciliation ---');
 
-test('Segment percentages and repeat rate calculate deterministically from counts', () => {
-  const segments = [
-    { id: 'new', name: 'New Customers', count: 120, color: '#38BDF8' },
-    { id: 'repeat', name: 'Frequent / Repeat', count: 50, color: '#FBBF24' },
-    { id: 'loyal', name: 'Loyal Customers', count: 30, color: '#A855F7' },
-    { id: 'inactive', name: 'Inactive Customers', count: 40, color: '#F43F5E' },
-    { id: 'cart_abandoners', name: 'Cart Abandoners', count: 10, color: '#FB923C' },
-  ];
+test('Primary purchase segment percentages strictly reconcile to 100.0%', () => {
+  const scopeTotal = 17;
+  const scopeNew = 7;
+  const scopeRepeat = 5;
+  const scopeLoyal = 5;
 
-  const totalSegmentUnits = segments.reduce((sum, s) => sum + s.count, 0);
-  assert.equal(totalSegmentUnits, 250);
+  let pNew = Number(((scopeNew / scopeTotal) * 100).toFixed(1));       // 41.2
+  let pRepeat = Number(((scopeRepeat / scopeTotal) * 100).toFixed(1)); // 29.4
+  let pLoyal = Number(((scopeLoyal / scopeTotal) * 100).toFixed(1));   // 29.4
+  // Raw sum: 41.2 + 29.4 + 29.4 = 100.0
 
-  const withPercentages = segments.map(s => ({
-    ...s,
-    percentage: Number(((s.count / totalSegmentUnits) * 100).toFixed(1)),
-  }));
+  const sum = Number((pNew + pRepeat + pLoyal).toFixed(1));
+  const diff = Number((100.0 - sum).toFixed(1));
+  if (Math.abs(diff) > 0.001) {
+    if (pNew >= pRepeat && pNew >= pLoyal) pNew = Number((pNew + diff).toFixed(1));
+    else if (pRepeat >= pLoyal) pRepeat = Number((pRepeat + diff).toFixed(1));
+    else pLoyal = Number((pLoyal + diff).toFixed(1));
+  }
 
-  assert.equal(withPercentages[0].percentage, 48.0); // 120 / 250
-  assert.equal(withPercentages[1].percentage, 20.0); // 50 / 250
-  assert.equal(withPercentages[2].percentage, 12.0); // 30 / 250
-  assert.equal(withPercentages[3].percentage, 16.0); // 40 / 250
-  assert.equal(withPercentages[4].percentage, 4.0);  // 10 / 250
-
-  const sumPct = withPercentages.reduce((sum, s) => sum + s.percentage, 0);
-  assert.ok(Math.abs(sumPct - 100) < 0.2, `Sum of percentages should equal 100% (actual: ${sumPct}%)`);
+  const reconciledSum = Number((pNew + pRepeat + pLoyal).toFixed(1));
+  assert.equal(reconciledSum, 100.0, 'Reconciled percentages must equal 100.0% exactly');
 });
 
-test('Graceful fallback for Cart Abandoners when cart table has no active records', () => {
-  const cartAvailable = false;
-  const cartAbandonersCount = 0;
+// -------------------------------------------------------------------
+// 3. OVERLAPPING ACTIVITY & PURCHASE STATES DECOUPLING
+// -------------------------------------------------------------------
+console.log('\n--- 3. Overlapping Activity & Purchase States Decoupling ---');
 
-  const segment = {
-    id: 'cart_abandoners',
-    name: 'Cart Abandoners',
-    count: cartAbandonersCount,
-    color: '#FB923C',
-    description: 'Unpurchased cart > 24h',
-    isUnavailable: !cartAvailable,
+test('A loyal customer who is inactive or has an abandoned cart is classified in Loyal for purchases, and tracked separately for activity', () => {
+  const now = new Date('2026-11-05T12:00:00Z');
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+
+  const customer = {
+    id: 'loyal_but_inactive',
+    delivered_orders: 8,
+    last_active: '2026-09-01T00:00:00Z', // Inactive (65 days dormant)
+    has_abandoned_cart: true,
   };
 
-  assert.equal(segment.isUnavailable, true, 'isUnavailable must be true when cart items cannot be queried');
-  assert.equal(segment.count, 0, 'No fake or invented count is injected');
+  // 1. Purchase segment is strictly Loyal
+  const segment = customer.delivered_orders >= 5 ? 'Loyal' : 'New';
+  assert.equal(segment, 'Loyal');
+
+  // 2. Activity metrics track inactivity independently without polluting purchase segments
+  const isInactive = new Date(customer.last_active) < thirtyDaysAgo;
+  assert.equal(isInactive, true);
 });
 
 // -------------------------------------------------------------------
-// 3. TRIGONOMETRIC DONUT / PIE CHART SVG MATH VERIFICATION
+// 4. GUEST VS REGISTERED CUSTOMER SEPARATION
 // -------------------------------------------------------------------
-console.log('\n--- 3. Trigonometric Donut Chart SVG Path Mathematics ---');
+console.log('\n--- 4. Guest vs Registered Customer Separation ---');
 
-test('Generates valid SVG arc path data covering entire 2*PI radians', () => {
-  const segments = [
-    { id: 'new', count: 50 },
-    { id: 'repeat', count: 30 },
-    { id: 'loyal', count: 20 },
+test('Guest shoppers are isolated from registered customer purchase retention distribution', () => {
+  const allProfiles = [
+    { id: 'u_reg_1', is_guest: false, delivered_orders: 1 },
+    { id: 'u_reg_2', is_guest: false, delivered_orders: 3 },
+    { id: 'guest_phone_99999', is_guest: true, delivered_orders: 1 },
+    { id: 'guest_phone_88888', is_guest: true, delivered_orders: 0 },
   ];
 
-  const totalCount = segments.reduce((sum, s) => sum + s.count, 0);
-  assert.equal(totalCount, 100);
+  const registered = allProfiles.filter(p => !p.is_guest);
+  const guests = allProfiles.filter(p => p.is_guest);
 
-  let currentAngle = -Math.PI / 2; // 12 o'clock
-  const cx = 160;
-  const cy = 160;
-  const outerR = 135;
-  const innerR = 75;
+  assert.equal(registered.length, 2, 'Only 2 registered customer accounts');
+  assert.equal(guests.length, 2, '2 guest customer profiles');
 
-  const slices = segments.map((seg) => {
-    const sliceAngle = (seg.count / totalCount) * 2 * Math.PI;
-    const startAngle = currentAngle;
-    const endAngle = currentAngle + sliceAngle;
-    currentAngle = endAngle;
-
-    const x1 = cx + outerR * Math.cos(startAngle);
-    const y1 = cy + outerR * Math.sin(startAngle);
-    const x2 = cx + outerR * Math.cos(endAngle);
-    const y2 = cy + outerR * Math.sin(endAngle);
-
-    const x3 = cx + innerR * Math.cos(endAngle);
-    const y3 = cy + innerR * Math.sin(endAngle);
-    const x4 = cx + innerR * Math.cos(startAngle);
-    const y4 = cy + innerR * Math.sin(startAngle);
-
-    const largeArc = sliceAngle > Math.PI ? 1 : 0;
-    const pathData = `M ${x1.toFixed(1)} ${y1.toFixed(1)} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} L ${x3.toFixed(1)} ${y3.toFixed(1)} A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4.toFixed(1)} ${y4.toFixed(1)} Z`;
-
-    const midAngle = startAngle + sliceAngle / 2;
-    const labelR = (outerR + innerR) / 2;
-    const labelX = cx + labelR * Math.cos(midAngle);
-    const labelY = cy + labelR * Math.sin(midAngle);
-
-    return {
-      id: seg.id,
-      pathData,
-      labelX,
-      labelY,
-      sliceAngle,
-      percentage: (seg.count / totalCount) * 100,
-    };
-  });
-
-  assert.equal(slices.length, 3);
-  // Verify slice 1 (50% = Math.PI radians)
-  assert.ok(Math.abs(slices[0].sliceAngle - Math.PI) < 0.001);
-  // Verify label position for 50% slice is valid finite coordinates
-  assert.ok(Number.isFinite(slices[0].labelX));
-  assert.ok(Number.isFinite(slices[0].labelY));
-  // Verify final angle completed full circle (currentAngle == -PI/2 + 2*PI = 3*PI/2)
-  assert.ok(Math.abs(currentAngle - (3 * Math.PI / 2)) < 0.001, 'Angle must complete full 360 degrees');
-});
-
-test('Labels are only rendered on chart slices with percentage >= 8%', () => {
-  const slices = [
-    { id: 's1', percentage: 40 },
-    { id: 's2', percentage: 25 },
-    { id: 's3', percentage: 2 },  // Tiny slice
-    { id: 's4', percentage: 7.9 }, // Just below threshold
-    { id: 's5', percentage: 8.0 }, // Exact threshold
-  ];
-
-  const visibleLabelSlices = slices.filter(s => s.percentage >= 8);
-  assert.equal(visibleLabelSlices.length, 3);
-  assert.deepEqual(visibleLabelSlices.map(s => s.id), ['s1', 's2', 's5']);
+  // Registered repeat share: 1 repeat out of 2 registered = 50%
+  const regRepeat = registered.filter(p => p.delivered_orders >= 2).length;
+  assert.equal(regRepeat, 1);
 });
 
 // -------------------------------------------------------------------
-// 4. DATE RANGE FILTERING VERIFICATION
+// 5. REPEAT PURCHASE RATE (DENOMINATOR = BUYERS WITH >= 1 DELIVERED ORDER)
 // -------------------------------------------------------------------
-console.log('\n--- 4. Date Range Filtering Behavior ---');
+console.log('\n--- 5. Repeat Purchase Rate Standard Denominator ---');
 
-test('Filters customers by date ranges: Today, Last 7 Days, Last 30 Days, Last 90 Days', () => {
-  const now = new Date('2026-11-05T12:00:00Z');
-  const todayStart = new Date('2026-11-05T00:00:00Z');
-  const last7Days = new Date(now.getTime() - 7 * 86400000);
-  const last30Days = new Date(now.getTime() - 30 * 86400000);
-  const last90Days = new Date(now.getTime() - 90 * 86400000);
-
-  const records = [
-    { id: 'u1', last_active: '2026-11-05T08:00:00Z' }, // Today
-    { id: 'u2', last_active: '2026-11-02T10:00:00Z' }, // 3 days ago (in 7d)
-    { id: 'u3', last_active: '2026-10-20T12:00:00Z' }, // 16 days ago (in 30d)
-    { id: 'u4', last_active: '2026-09-10T12:00:00Z' }, // 56 days ago (in 90d)
-    { id: 'u5', last_active: '2026-06-01T12:00:00Z' }, // 157 days ago (outside 90d)
+test('Repeat purchase rate uses customers with >= 1 delivered order as denominator', () => {
+  const cohort = [
+    { id: 'c1', delivered_orders: 0 }, // Registered, never purchased
+    { id: 'c2', delivered_orders: 0 }, // Registered, never purchased
+    { id: 'c3', delivered_orders: 1 }, // 1st time buyer
+    { id: 'c4', delivered_orders: 2 }, // Repeat buyer
+    { id: 'c5', delivered_orders: 6 }, // Loyal buyer
   ];
 
-  const inToday = records.filter(r => new Date(r.last_active) >= todayStart);
-  const in7D = records.filter(r => new Date(r.last_active) >= last7Days);
-  const in30D = records.filter(r => new Date(r.last_active) >= last30Days);
-  const in90D = records.filter(r => new Date(r.last_active) >= last90Days);
+  const purchasedCustomers = cohort.filter(c => c.delivered_orders >= 1);
+  assert.equal(purchasedCustomers.length, 3, '3 customers with at least 1 delivered order');
 
-  assert.equal(inToday.length, 1);
-  assert.equal(in7D.length, 2);
-  assert.equal(in30D.length, 3);
-  assert.equal(in90D.length, 4);
+  const repeatCustomers = cohort.filter(c => c.delivered_orders >= 2);
+  assert.equal(repeatCustomers.length, 2, '2 customers returned to buy again');
+
+  const repeatPurchaseRate = Number(((repeatCustomers.length / purchasedCustomers.length) * 100).toFixed(1));
+  assert.equal(repeatPurchaseRate, 66.7, 'Repeat purchase rate is 2 / 3 = 66.7% (not 2 / 5 = 40%)');
+});
+
+// -------------------------------------------------------------------
+// 6. COHORT RETENTION: PURCHASE VS VISIT RETENTION
+// -------------------------------------------------------------------
+console.log('\n--- 6. Cohort Retention: Purchase vs Visit Differentiation ---');
+
+test('Visit retention tracks session/login returns, while purchase retention tracks second order placement', () => {
+  const now = new Date('2026-11-05T12:00:00Z').getTime();
+
+  // Customer A: Registered 45d ago, bought 1st order 45d ago, bought 2nd order 10d later
+  const customerA = {
+    registration_date: new Date(now - 45 * 86400000).toISOString(),
+    orders: [
+      { created_at: new Date(now - 45 * 86400000).toISOString(), order_status: 'delivered' },
+      { created_at: new Date(now - 35 * 86400000).toISOString(), order_status: 'delivered' },
+    ],
+    last_active: new Date(now - 35 * 86400000).toISOString(),
+  };
+
+  // Customer B: Registered 45d ago, bought 1st order 45d ago, visited app 10d later but never bought again
+  const customerB = {
+    registration_date: new Date(now - 45 * 86400000).toISOString(),
+    orders: [
+      { created_at: new Date(now - 45 * 86400000).toISOString(), order_status: 'delivered' },
+    ],
+    last_active: new Date(now - 35 * 86400000).toISOString(), // Had active visit
+  };
+
+  // Both customers had a return visit within 30 days -> Visit Retention = 2/2 = 100%
+  // Only Customer A placed a 2nd order within 30 days -> Purchase Retention = 1/2 = 50%
+  const visitRetained = [customerA, customerB].filter(c => {
+    const diff = new Date(c.last_active).getTime() - new Date(c.registration_date).getTime();
+    return diff >= 86400000 && diff <= 30 * 86400000;
+  }).length;
+
+  const purchaseRetained = [customerA, customerB].filter(c => {
+    return c.orders.length > 1 && (new Date(c.orders[1].created_at).getTime() - new Date(c.orders[0].created_at).getTime()) <= 30 * 86400000;
+  }).length;
+
+  assert.equal(visitRetained, 2, 'Both retained by visit');
+  assert.equal(purchaseRetained, 1, 'Only Customer A retained by purchase');
+});
+
+// -------------------------------------------------------------------
+// 7. PARTIAL REFUNDS AND RETURNS LIFECYCLE
+// -------------------------------------------------------------------
+console.log('\n--- 7. Order Lifecycle: Partial Returns & Refunds ---');
+
+test('Delivered orders with partial returns are counted as delivered, with net revenue deducted', () => {
+  const order = {
+    order_status: 'partially_returned',
+    payment_status: 'PAID',
+    total_amount: 1500,
+    refund_amount: 500,
+  };
+
+  const isValidDelivered = ['delivered', 'partially_returned'].includes(order.order_status) && order.payment_status !== 'FAILED';
+  const netRevenue = Math.max(0, order.total_amount - (order.refund_amount || 0));
+
+  assert.equal(isValidDelivered, true, 'Partially returned order counts toward customer delivered count');
+  assert.equal(netRevenue, 1000, 'Net revenue is deducted properly');
+});
+
+// -------------------------------------------------------------------
+// 8. DATE FILTER BOUNDARIES & TIMEZONE CONSISTENCY
+// -------------------------------------------------------------------
+console.log('\n--- 8. Date Filter Boundaries & Timezones ---');
+
+test('Date filters enforce explicit UTC start (00:00:00.000) and end (23:59:59.999) timestamps', () => {
+  const startParam = '2026-11-01';
+  const endParam = '2026-11-03';
+
+  const rangeStart = new Date(startParam + 'T00:00:00.000Z');
+  const rangeEnd = new Date(endParam + 'T23:59:59.999Z');
+
+  const regOnBoundary = new Date('2026-11-03T23:30:00.000Z');
+  const regJustOutside = new Date('2026-11-04T00:00:01.000Z');
+
+  assert.ok(regOnBoundary >= rangeStart && regOnBoundary <= rangeEnd, 'Includes boundary record');
+  assert.ok(!(regJustOutside >= rangeStart && regJustOutside <= rangeEnd), 'Excludes records outside boundary');
+});
+
+// -------------------------------------------------------------------
+// 9. EMPTY DATABASE RESILIENCE
+// -------------------------------------------------------------------
+console.log('\n--- 9. Empty Database Resilience ---');
+
+test('Zero-mock empty database returns 0s without NaN or division by zero errors', () => {
+  const emptyList = [];
+  const scopeTotal = emptyList.length;
+  const scopePurchased = emptyList.filter(c => c.delivered_orders > 0).length;
+
+  const pNew = scopeTotal > 0 ? Number(((0 / scopeTotal) * 100).toFixed(1)) : 0;
+  const repeatRate = scopePurchased > 0 ? Number(((0 / scopePurchased) * 100).toFixed(1)) : 0;
+
+  assert.equal(pNew, 0);
+  assert.equal(repeatRate, 0);
+  assert.ok(!Number.isNaN(pNew));
+  assert.ok(!Number.isNaN(repeatRate));
+});
+
+// -------------------------------------------------------------------
+// 10. CART ABANDONMENT RIGOR
+// -------------------------------------------------------------------
+console.log('\n--- 10. Cart Abandonment Validation ---');
+
+test('Cart item is not counted as abandoned if user subsequently placed an order or purchased the item', () => {
+  const now = new Date('2026-11-05T12:00:00Z').getTime();
+  const cartItem = {
+    user_id: 'u100',
+    product_id: 'prod_99',
+    quantity: 1,
+    created_at: new Date(now - 28 * 3600000).toISOString(), // Added 28h ago
+  };
+
+  const userOrders = [
+    {
+      created_at: new Date(now - 2 * 3600000).toISOString(), // Ordered 2h ago
+      order_status: 'delivered',
+      payment_status: 'PAID',
+      items: [{ product_id: 'prod_99', quantity: 1 }],
+    },
+  ];
+
+  const itemTime = new Date(cartItem.created_at).getTime();
+  const hasSubsequentOrder = userOrders.some(o => new Date(o.created_at).getTime() >= itemTime);
+
+  assert.equal(hasSubsequentOrder, true, 'User converted and purchased; item is NOT abandoned');
 });
 
 // -------------------------------------------------------------------
@@ -231,4 +300,3 @@ if (passedTests === totalTests) {
 } else {
   process.exit(1);
 }
-

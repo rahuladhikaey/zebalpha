@@ -9,21 +9,39 @@ export interface RetentionSegment {
   percentage: number;
   color: string;
   description: string;
-  isUnavailable?: boolean;
+}
+
+export interface RetentionActivityMetrics {
+  activeCustomersCount: number;
+  inactiveCustomersCount: number;
+  cartAbandonersCount: number;
+  isCartUnavailable?: boolean;
+  guestVisitorsCount: number;
+  registeredCustomersCount: number;
+  visitRetentionRate7D: number;
+  visitRetentionRate30D: number;
+  visitRetentionRate90D: number;
+  purchaseRetentionRate7D: number;
+  purchaseRetentionRate30D: number;
+  purchaseRetentionRate90D: number;
 }
 
 export interface RetentionCardData {
   totalCustomers: number;
   registeredCount: number;
   guestCount: number;
+  purchasedCount?: number;
   activeCount: number;
   inactiveCount: number;
   repeatPurchaseRate: number;
+  repeatShareOfRegistered?: number;
   retentionRate7D: number;
   retentionRate30D: number;
   retentionRate90D: number;
   dateFilterApplied?: string;
+  dateFilterScopeDoc?: string;
   segments: RetentionSegment[];
+  activityMetrics?: RetentionActivityMetrics;
 }
 
 interface CustomerRetentionChartCardProps {
@@ -44,9 +62,10 @@ export default function CustomerRetentionChartCard({
   const [customEnd, setCustomEnd] = useState("");
   const [showCustomRange, setShowCustomRange] = useState(false);
 
+  // The 3 mutually exclusive purchase segments: New, Repeat, Loyal
   const segments = useMemo(() => data?.segments || [], [data?.segments]);
   const totalCount = useMemo(() => {
-    return segments.reduce((sum, s) => sum + (s.isUnavailable ? 0 : s.count), 0);
+    return segments.reduce((sum, s) => sum + s.count, 0);
   }, [segments]);
 
   // Compute SVG Donut Slices Trigonometrically
@@ -60,7 +79,7 @@ export default function CustomerRetentionChartCard({
     const innerR = 75;
 
     return segments
-      .filter((s) => !s.isUnavailable && s.count > 0)
+      .filter((s) => s.count > 0)
       .map((seg) => {
         const sliceAngle = (seg.count / totalCount) * 2 * Math.PI;
         const startAngle = currentAngle;
@@ -96,7 +115,7 @@ export default function CustomerRetentionChartCard({
           labelX,
           labelY,
           sliceAngle,
-          percentage: Number(((seg.count / totalCount) * 100).toFixed(1)),
+          percentage: seg.percentage,
         };
       });
   }, [segments, totalCount]);
@@ -138,7 +157,7 @@ export default function CustomerRetentionChartCard({
             Customer Retention Rate & Cohort Distribution
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            Real database segmentation tracking acquisition, repeat purchases, and inactivity
+            {data?.dateFilterScopeDoc || "Real database segmentation tracking acquisition, repeat purchases, and inactivity"}
           </p>
         </div>
 
@@ -206,7 +225,7 @@ export default function CustomerRetentionChartCard({
               <div className="w-64 h-64 rounded-full border-4 border-slate-800 border-t-sky-400 animate-spin"></div>
             ) : totalCount === 0 ? (
               <div className="text-center p-6">
-                <p className="text-sm font-bold text-slate-400">No customer records in selected range.</p>
+                <p className="text-sm font-bold text-slate-400">No registered customers in selected acquisition cohort.</p>
               </div>
             ) : (
               <>
@@ -268,13 +287,13 @@ export default function CustomerRetentionChartCard({
                   ) : (
                     <div>
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                        REPEAT RATE
+                        REPEAT BUYER RATE
                       </span>
                       <p className="text-3xl sm:text-4xl font-black text-white mt-0.5">
                         {data?.repeatPurchaseRate ?? 0}%
                       </p>
-                      <span className="text-[11px] font-bold text-slate-400">
-                        {data?.totalCustomers ?? 0} total customers
+                      <span className="text-[10px] font-bold text-slate-400 block mt-0.5">
+                        of {data?.purchasedCount ?? 0} buyers ({data?.totalCustomers ?? 0} cohort)
                       </span>
                     </div>
                   )}
@@ -285,74 +304,131 @@ export default function CustomerRetentionChartCard({
         </div>
 
         {/* RIGHT COLUMN: Legend & Statistics (7 Cols) */}
-        <div className="lg:col-span-7 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800/60 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-            <span>Customer Segment</span>
-            <div className="flex items-center gap-6">
-              <span>Customer Count</span>
-              <span className="w-14 text-right">Share</span>
+        <div className="lg:col-span-7 space-y-4">
+          {/* Primary Purchase Segments (Mutually Exclusive, 100% Reconciled) */}
+          <div>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800/60 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+              <span>Primary Purchase Segments (100% Reconciled)</span>
+              <div className="flex items-center gap-6">
+                <span>Customer Count</span>
+                <span className="w-14 text-right">Share</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 mt-2">
+              {segments.map((seg) => {
+                const isHovered = hoveredSlice?.id === seg.id;
+                return (
+                  <div
+                    key={seg.id}
+                    onMouseEnter={() => setHoveredSlice(seg)}
+                    onMouseLeave={() => setHoveredSlice(null)}
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                      isHovered
+                        ? "bg-slate-800/80 border-slate-600 shadow-lg"
+                        : "bg-slate-900/40 border-slate-800/80 hover:bg-slate-850"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
+                          style={{ backgroundColor: seg.color }}
+                        ></span>
+                        <div>
+                          <span className="text-xs font-bold text-white">{seg.name}</span>
+                          <span className="text-[10px] text-slate-400 block">{seg.description}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6">
+                        <span className="text-sm font-black font-mono text-white">
+                          {seg.count}
+                        </span>
+                        <span
+                          className="w-14 text-right text-xs font-black font-mono px-2 py-0.5 rounded-full"
+                          style={{
+                            backgroundColor: `${seg.color}20`,
+                            color: seg.color,
+                            border: `1px solid ${seg.color}40`,
+                          }}
+                        >
+                          {seg.percentage}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Micro Progress Bar */}
+                    <div className="h-1.5 w-full bg-slate-950 rounded-full mt-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${seg.percentage}%`, backgroundColor: seg.color }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {segments.map((seg) => {
-            const isHovered = hoveredSlice?.id === seg.id;
-            return (
-              <div
-                key={seg.id}
-                onMouseEnter={() => setHoveredSlice(seg)}
-                onMouseLeave={() => setHoveredSlice(null)}
-                className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                  isHovered
-                    ? "bg-slate-800/80 border-slate-600 shadow-lg"
-                    : "bg-slate-900/40 border-slate-800/80 hover:bg-slate-850"
-                }`}
-              >
+          {/* Separate Customer Activity & Pipeline Metrics */}
+          <div className="pt-2 border-t border-slate-800/60">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                Customer Activity & Operational Pipeline
+              </span>
+              <span className="text-[9px] font-bold text-slate-500">
+                Non-overlapping independent metrics
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
-                      style={{ backgroundColor: seg.color }}
-                    ></span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">{seg.name}</span>
-                        {seg.isUnavailable && (
-                          <span className="text-[9px] font-black uppercase text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                            Unavailable
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-400 block">{seg.description}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-6">
-                    <span className="text-sm font-black font-mono text-white">
-                      {seg.count}
-                    </span>
-                    <span
-                      className="w-14 text-right text-xs font-black font-mono px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor: `${seg.color}20`,
-                        color: seg.color,
-                        border: `1px solid ${seg.color}40`,
-                      }}
-                    >
-                      {seg.percentage}%
-                    </span>
-                  </div>
+                  <span className="text-slate-400 font-bold text-[11px]">Active (Last 30d)</span>
+                  <span className="font-mono font-black text-emerald-400">
+                    {data?.activityMetrics?.activeCustomersCount ?? data?.activeCount ?? 0}
+                  </span>
                 </div>
-
-                {/* Micro Progress Bar */}
-                <div className="h-1.5 w-full bg-slate-950 rounded-full mt-2.5 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${seg.percentage}%`, backgroundColor: seg.color }}
-                  ></div>
-                </div>
+                <span className="text-[9px] text-slate-500 block mt-0.5">Multi-source activity</span>
               </div>
-            );
-          })}
+
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-bold text-[11px]">Inactive (30d+ Dormant)</span>
+                  <span className="font-mono font-black text-rose-400">
+                    {data?.activityMetrics?.inactiveCustomersCount ?? data?.inactiveCount ?? 0}
+                  </span>
+                </div>
+                <span className="text-[9px] text-slate-500 block mt-0.5">Zero activity across all logs</span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-bold text-[11px]">Cart Abandoners (24h+)</span>
+                  {data?.activityMetrics?.isCartUnavailable ? (
+                    <span className="text-[9px] font-black uppercase text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                      Unavailable
+                    </span>
+                  ) : (
+                    <span className="font-mono font-black text-amber-400">
+                      {data?.activityMetrics?.cartAbandonersCount ?? 0}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[9px] text-slate-500 block mt-0.5">Unpurchased cart &gt; 24h</span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-bold text-[11px]">Guest Shoppers</span>
+                  <span className="font-mono font-black text-sky-400">
+                    {data?.activityMetrics?.guestVisitorsCount ?? data?.guestCount ?? 0}
+                  </span>
+                </div>
+                <span className="text-[9px] text-slate-500 block mt-0.5">Unregistered browsing</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -363,21 +439,26 @@ export default function CustomerRetentionChartCard({
           <p className="text-lg font-black text-white mt-0.5">{data?.registeredCount ?? 0}</p>
         </div>
         <div className="p-3 bg-black/40 rounded-xl border border-slate-800/60 text-center">
-          <span className="text-[9px] font-black uppercase text-slate-400">Guest Shoppers</span>
-          <p className="text-lg font-black text-white mt-0.5">{data?.guestCount ?? 0}</p>
-        </div>
-        <div className="p-3 bg-black/40 rounded-xl border border-slate-800/60 text-center">
           <span className="text-[9px] font-black uppercase text-slate-400">Active vs Inactive</span>
           <p className="text-lg font-black text-emerald-400 mt-0.5">
             {data?.activeCount ?? 0} <span className="text-xs text-rose-400 font-bold">/ {data?.inactiveCount ?? 0}</span>
           </p>
         </div>
         <div className="p-3 bg-black/40 rounded-xl border border-slate-800/60 text-center">
-          <span className="text-[9px] font-black uppercase text-slate-400">30-Day Cohort Retention</span>
-          <p className="text-lg font-black text-sky-400 mt-0.5">{data?.retentionRate30D ?? 0}%</p>
+          <span className="text-[9px] font-black uppercase text-slate-400">Repeat Purchase Rate</span>
+          <p className="text-lg font-black text-amber-400 mt-0.5">{data?.repeatPurchaseRate ?? 0}%</p>
+          <span className="text-[9px] text-slate-500 block mt-0.5">of {data?.purchasedCount ?? 0} buyers</span>
+        </div>
+        <div className="p-3 bg-black/40 rounded-xl border border-slate-800/60 text-center">
+          <span className="text-[9px] font-black uppercase text-slate-400">30-Day Retention</span>
+          <p className="text-lg font-black text-sky-400 mt-0.5">
+            {data?.retentionRate30D ?? 0}%
+          </p>
+          <span className="text-[9px] text-purple-400 font-bold block mt-0.5">
+            ({data?.activityMetrics?.visitRetentionRate30D ?? 0}% visit return)
+          </span>
         </div>
       </div>
     </div>
   );
 }
-
