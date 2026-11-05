@@ -15,7 +15,7 @@ export interface NetworkAdaptiveState {
 
 export function useNetworkAdaptive(): NetworkAdaptiveState {
   const [state, setState] = useState<NetworkAdaptiveState>({
-    isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
+    isOnline: true,
     effectiveType: "unknown",
     saveData: false,
     networkTier: "fast",
@@ -25,11 +25,41 @@ export function useNetworkAdaptive(): NetworkAdaptiveState {
     prefetchMargin: "600px 0px",
   });
 
+  const isCheckingRef = useRef(false);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const updateNetworkStatus = () => {
-      const isOnline = navigator.onLine;
+    // Active verification against backend to prevent false offline flags in mobile browsers
+    const verifyConnectivity = async (): Promise<boolean> => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch("/api/ping", {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        return res.ok;
+      } catch {
+        return false;
+      }
+    };
+
+    const updateNetworkStatus = async () => {
+      let isOnline = navigator.onLine;
+
+      // If browser reports offline, verify with active ping before showing false offline alerts
+      if (!isOnline && !isCheckingRef.current) {
+        isCheckingRef.current = true;
+        const reallyReachable = await verifyConnectivity();
+        isCheckingRef.current = false;
+        if (reallyReachable) {
+          isOnline = true;
+        }
+      }
+
       const connection =
         (navigator as any).connection ||
         (navigator as any).mozConnection ||
@@ -87,6 +117,7 @@ export function useNetworkAdaptive(): NetworkAdaptiveState {
 
     window.addEventListener("online", updateNetworkStatus);
     window.addEventListener("offline", updateNetworkStatus);
+    window.addEventListener("focus", updateNetworkStatus);
 
     const connection =
       (navigator as any).connection ||
@@ -100,6 +131,7 @@ export function useNetworkAdaptive(): NetworkAdaptiveState {
     return () => {
       window.removeEventListener("online", updateNetworkStatus);
       window.removeEventListener("offline", updateNetworkStatus);
+      window.removeEventListener("focus", updateNetworkStatus);
       if (connection) {
         connection.removeEventListener("change", updateNetworkStatus);
       }
