@@ -82,3 +82,4 @@
 1. **P1 (Critical):** Checkout impacted, financial discrepancy, or data leak $\rightarrow$ **Execute immediate Rollback Runbook**; notify founder immediately.
 2. **P2 (Major):** Heartbeat API latency > 500ms or online user count divergence $\rightarrow$ Adjust inactivity timeout or throttle client heartbeat from 45s to 60s.
 3. **P3 (Minor):** UI cosmetic or filter sorting misalignment $\rightarrow$ Fix in scheduled maintenance window.
+
