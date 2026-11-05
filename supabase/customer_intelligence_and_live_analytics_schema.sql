@@ -109,3 +109,4 @@ CREATE POLICY "Service role full access customer_audit_logs" ON public.customer_
 
 CREATE POLICY "Service role full access customer_segment_configs" ON public.customer_segment_configs
     FOR ALL USING (auth.role() = 'service_role');
+

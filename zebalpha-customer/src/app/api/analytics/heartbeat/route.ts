@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
 
+const SESSION_REGEX = /^[a-zA-Z0-9_\-\.]{8,128}$/;
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const { sessionId, userId, platform = "website", deviceType = "mobile", deviceModel, appVersion, action = "ping" } = body;
 
-    if (!sessionId || typeof sessionId !== "string") {
-      return NextResponse.json({ success: false, message: "Valid sessionId is required" }, { status: 400 });
+    // Security validation against fabricated session injection
+    if (!sessionId || typeof sessionId !== "string" || !SESSION_REGEX.test(sessionId)) {
+      return NextResponse.json({ success: false, message: "Valid sessionId format is required" }, { status: 400 });
     }
 
     const isEnding = action === "end";
     const now = new Date().toISOString();
+    const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
+    const userAgent = req.headers.get("user-agent") || null;
 
     const sessionPayload: Record<string, any> = {
       session_id: sessionId,
@@ -19,6 +24,8 @@ export async function POST(req: Request) {
       device_type: deviceType,
       is_active: !isEnding,
       last_heartbeat: now,
+      ip_address: ipAddress,
+      user_agent: userAgent,
       ...(userId ? { user_id: userId } : {}),
       ...(deviceModel ? { device_model: deviceModel } : {}),
       ...(appVersion ? { app_version: appVersion } : {}),
@@ -61,3 +68,4 @@ export async function GET(req: Request) {
     return new Response(null, { status: 204 });
   }
 }
+

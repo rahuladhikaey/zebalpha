@@ -229,3 +229,4 @@ if (passedTests === totalTests) {
 } else {
   process.exit(1);
 }
+

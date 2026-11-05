@@ -67,10 +67,12 @@ export async function GET(req: Request) {
     );
 
     const onlineUserIds = new Set(onlineSessions.filter((s) => s.user_id).map((s) => s.user_id));
-    const onlineAndroidCount = onlineSessions.filter((s) => s.platform === "android").length;
-    const onlineWebsiteCount = onlineSessions.filter((s) => s.platform === "website").length;
-    const onlineGuestCount = onlineSessions.filter((s) => !s.user_id).length;
-    const currentlyOnlineTotal = onlineSessions.length;
+    const onlineGuestSessionIds = new Set(onlineSessions.filter((s) => !s.user_id).map((s) => s.session_id));
+    const onlineAndroidCount = new Set(onlineSessions.filter((s) => s.platform === "android").map((s) => s.user_id || s.session_id)).size;
+    const onlineWebsiteCount = new Set(onlineSessions.filter((s) => s.platform === "website").map((s) => s.user_id || s.session_id)).size;
+    const onlineGuestCount = onlineGuestSessionIds.size;
+    // Deduplicated unique online customer count (1 user with multiple tabs = 1 online customer)
+    const currentlyOnlineTotal = onlineUserIds.size + onlineGuestCount;
 
     // 5. Aggregate Customer 360° Profiles
     // Group orders by user_id or guest phone/name
@@ -123,10 +125,10 @@ export async function GET(req: Request) {
       const deliveredCount = deliveredOrders.length;
 
       const cancelledCount = custOrders.filter(
-        (o) => String(o.order_status || "").toLowerCase() === "cancelled"
+        (o) => ["cancelled", "failed", "rejected"].includes(String(o.order_status || "").toLowerCase())
       );
       const returnedCount = custOrders.filter(
-        (o) => String(o.order_status || "").toLowerCase() === "returned"
+        (o) => ["returned", "partially_returned", "refunded", "rto"].includes(String(o.order_status || "").toLowerCase())
       );
 
       const totalPurchaseValue = deliveredOrders.reduce(
@@ -363,3 +365,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

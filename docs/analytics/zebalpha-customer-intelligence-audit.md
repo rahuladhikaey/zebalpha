@@ -109,3 +109,4 @@ SUITE RESULTS: 14 / 14 TESTS PASSED
 - [x] Protected admin APIs `/api/admin/customer-intelligence` and `/config` active with `requireSuperAdmin`.
 - [x] Full Customer Intelligence 360° View integrated into Super Admin dashboard with `LIVE` navigation badge.
 - [x] Zero compilation errors across all 3 apps (`zebalpha-customer`, `zebalpha-seller`, `zebalpha-superadmin`).
+
