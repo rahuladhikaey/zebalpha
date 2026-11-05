@@ -119,10 +119,14 @@ export async function GET(req: Request) {
       const custOrders = ordersByCustomerKey[cust.id] || [];
       const totalOrdersCount = custOrders.length;
 
-      const deliveredOrders = custOrders.filter(
-        (o) => String(o.order_status || "").toLowerCase() === "delivered"
-      );
-      const deliveredCount = deliveredOrders.length;
+      // 1. Eligible delivered or partially returned orders (strictly excluding failed payments & full returns)
+      const validDeliveredOrders = custOrders.filter((o) => {
+        const os = String(o.order_status || "").toLowerCase();
+        const ps = String(o.payment_status || "").toUpperCase();
+        if (ps === "FAILED") return false;
+        return os === "delivered" || os === "partially_returned";
+      });
+      const deliveredCount = validDeliveredOrders.length;
 
       const cancelledCount = custOrders.filter(
         (o) => ["cancelled", "failed", "rejected"].includes(String(o.order_status || "").toLowerCase())
@@ -131,19 +135,26 @@ export async function GET(req: Request) {
         (o) => ["returned", "partially_returned", "refunded", "rto"].includes(String(o.order_status || "").toLowerCase())
       );
 
-      const totalPurchaseValue = deliveredOrders.reduce(
-        (sum, o) => sum + (Number(o.total_amount) || 0),
+      // Net order revenue deducting any refund or returned item amounts
+      const getOrderNetRevenue = (o: any) => {
+        const total = Number(o.total_amount) || 0;
+        const refund = Number(o.refund_amount || o.returned_amount || 0);
+        return Math.max(0, total - refund);
+      };
+
+      const totalPurchaseValue = validDeliveredOrders.reduce(
+        (sum, o) => sum + getOrderNetRevenue(o),
         0
       );
 
-      // First time vs Repeat revenue calculation
-      const sortedDelivered = [...deliveredOrders].sort(
+      // First time vs Repeat revenue calculation with net financial rules
+      const sortedDelivered = [...validDeliveredOrders].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
       if (sortedDelivered.length > 0) {
-        totalFirstTimeRevenue += Number(sortedDelivered[0].total_amount) || 0;
+        totalFirstTimeRevenue += getOrderNetRevenue(sortedDelivered[0]);
         for (let i = 1; i < sortedDelivered.length; i++) {
-          totalRepeatRevenue += Number(sortedDelivered[i].total_amount) || 0;
+          totalRepeatRevenue += getOrderNetRevenue(sortedDelivered[i]);
         }
       }
       totalValidDeliveredRevenue += totalPurchaseValue;

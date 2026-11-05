@@ -13,6 +13,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Valid sessionId format is required" }, { status: 400 });
     }
 
+    // Verify session ownership to prevent cross-user session tampering
+    const { data: existingSession } = await supabaseServer
+      .from("customer_sessions")
+      .select("user_id")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (existingSession && existingSession.user_id && userId && existingSession.user_id !== userId) {
+      return NextResponse.json({ success: false, message: "Session ownership mismatch" }, { status: 403 });
+    }
+
     const isEnding = action === "end";
     const now = new Date().toISOString();
     const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
