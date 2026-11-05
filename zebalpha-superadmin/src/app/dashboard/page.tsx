@@ -96,6 +96,7 @@ const CuratedCollectionsView = dynamic(() => import("@/components/admin/CuratedC
 const SupportDeskView = dynamic(() => import("@/components/admin/SupportDeskView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const AeoGeoManagementView = dynamic(() => import("@/components/admin/AeoGeoManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const CategoryManagementView = dynamic(() => import("@/components/admin/CategoryManagementView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const CustomerIntelligenceView = dynamic(() => import("@/components/admin/CustomerIntelligenceView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 
 export default function AdminPage() {
   const router = useRouter();
@@ -126,6 +127,7 @@ export default function AdminPage() {
 
   const VALID_TABS = new Set([
     "dashboard",
+    "customers",
     "sellers",
     "products",
     "categories",
@@ -226,9 +228,10 @@ export default function AdminPage() {
         }));
       }
 
-      const [cRes, oRes] = await Promise.all([
+      const [cRes, oRes, custRes] = await Promise.all([
         supabase.from("categories").select("*").order("name"),
-        fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] }))
+        fetch("/api/admin/orders").then(r => r.json()).catch(() => ({ data: [] })),
+        supabase.from("profiles").select("*").order("created_at", { ascending: false })
       ]);
 
       let loadedOrders = oRes.data || [];
@@ -253,6 +256,7 @@ export default function AdminPage() {
       setProducts(productsData || []);
       setCategories(cRes.data || []);
       setSellers(sellersData);
+      setCustomers(custRes.data || []);
     } catch (e) {
       console.warn("Notice loading dashboard overview data:", e);
     } finally {
@@ -309,6 +313,7 @@ export default function AdminPage() {
 
   const MENU_ITEMS = [
     { id: 'dashboard', label: 'Overview & Analytics', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z' },
+    { id: 'customers', label: 'Customer Intelligence', badge: 'LIVE', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { id: 'sellers', label: 'Seller Management', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
     { id: 'products', label: 'Product Approvals', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' },
     { id: 'categories', label: 'Categories & Taxonomy', badge: 'DYNAMIC', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
@@ -500,6 +505,10 @@ export default function AdminPage() {
                   loading={loading}
                   onRefresh={fetchData}
                 />
+              )}
+
+              {tab === "customers" && (
+                <CustomerIntelligenceView />
               )}
 
               {tab === "sellers" && (

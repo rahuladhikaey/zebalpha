@@ -136,6 +136,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         if (currentUser) {
           await fetchOrSyncProfile(currentUser);
+
+          // Log customer sign-in event for Super Admin Customer Intelligence
+          if (event === "SIGNED_IN") {
+            try {
+              const isNative = typeof window !== "undefined" && !!(
+                (window as any).Capacitor || 
+                navigator.userAgent.includes("ZEBALPHA_ANDROID_APP") || 
+                navigator.userAgent.includes("Capacitor") ||
+                window.location.search.includes("view=app")
+              );
+              const method = currentUser.app_metadata?.provider === "google" ? "google_oauth" : "email_password";
+              fetch("/api/analytics/login-event", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  userId: currentUser.id,
+                  email: currentUser.email,
+                  phone: currentUser.phone,
+                  loginMethod: method,
+                  platform: isNative ? "android" : "website",
+                  status: "SUCCESS"
+                })
+              }).catch(() => {});
+            } catch (_) {}
+          }
         }
       } else if (event === "SIGNED_OUT") {
         inFlightSyncRef.current = null;

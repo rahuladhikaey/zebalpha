@@ -8,11 +8,13 @@ import { VariantSelectorProvider } from "@/context/VariantSelectorContext";
 import { MeeshoVariantBottomSheet } from "@/components/MeeshoVariantBottomSheet";
 import FloatingCartBanner from "@/components/FloatingCartBanner";
 import DesktopSideCart from "@/components/DesktopSideCart";
+import { ActiveSessionTracker } from "@/components/ActiveSessionTracker";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <LanguageProvider>
       <AuthProvider>
+        <ActiveSessionTracker />
         <WishlistProvider>
           <CartProvider>
             <VariantSelectorProvider>

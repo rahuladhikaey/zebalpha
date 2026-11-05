@@ -13,10 +13,12 @@ import {
 
 type Order = {
   id: number;
+  user_id?: string;
   customer_name: string;
   phone: string;
   address: string;
   product_details: string;
+  items?: any;
   order_status: string;
   payment_status: string;
   payment_method: string;
@@ -700,37 +702,51 @@ export default function DashboardOverview({
   // 3. CUSTOMER METRICS
   const customerStats = useMemo(() => {
     const safeCusts = customers || [];
-    const totalCustomers = safeCusts.length;
     const startOfToday = getStartOfToday();
 
+    const getCustDate = (c: any) => parseDate(c?.created_at || c?.saved_at || c?.updated_at);
+
     const newToday = safeCusts.filter(
-      (c) => c && c.saved_at && parseDate(c.saved_at) >= startOfToday
+      (c) => c && getCustDate(c) >= startOfToday
     ).length;
 
     const now = new Date();
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const newThisWeek = safeCusts.filter(
-      (c) => c && c.saved_at && parseDate(c.saved_at) >= sevenDaysAgo
+      (c) => c && getCustDate(c) >= sevenDaysAgo
     ).length;
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const newThisMonth = safeCusts.filter(
-      (c) => c && c.saved_at && parseDate(c.saved_at) >= startOfMonth
+      (c) => c && getCustDate(c) >= startOfMonth
     ).length;
 
-    // Active customers: Unique emails that placed an order in filtered range
-    const orderEmails = new Set((filteredOrders || []).map((o) => o?.customer_name).filter(Boolean));
-    const activeCustomers = orderEmails.size;
+    // Active customers: Unique buyers (phone/name/id) that placed an order in filtered range
+    const activeCustomerKeys = new Set(
+      (filteredOrders || [])
+        .map((o) => o?.user_id || o?.phone || o?.customer_name)
+        .filter(Boolean)
+    );
+    const activeCustomers = activeCustomerKeys.size;
 
-    // Returning customers: Emails that appear in more than 1 order in all orders
-    const emailCounts: Record<string, number> = {};
+    // Returning customers: Buyers that appear in more than 1 order in all orders
+    const buyerCounts: Record<string, number> = {};
     (orders || []).forEach((o) => {
-      if (o?.customer_name) {
-        emailCounts[o.customer_name] = (emailCounts[o.customer_name] || 0) + 1;
+      const key = o?.user_id || o?.phone || o?.customer_name;
+      if (key) {
+        buyerCounts[key] = (buyerCounts[key] || 0) + 1;
       }
     });
-    const returningCustomers = Object.values(emailCounts).filter((c) => c > 1).length;
+    const returningCustomers = Object.values(buyerCounts).filter((c) => c > 1).length;
+
+    // Total customers = registered profiles + guest purchasers
+    const guestKeys = new Set(
+      (orders || [])
+        .filter((o) => !o.user_id && (o.phone || o.customer_name))
+        .map((o) => o.phone || o.customer_name)
+    );
+    const totalCustomers = Math.max(safeCusts.length + guestKeys.size, Object.keys(buyerCounts).length);
 
     return {
       totalCustomers,
@@ -1053,25 +1069,65 @@ export default function DashboardOverview({
     };
   }, [trendChartData, trendType]);
 
-  // Category Sales (Bar representation)
+  // Category Sales (Bar representation with robust catalog & order JSON item matching)
   const categorySales = useMemo(() => {
-    const catMap: Record<number, number> = {};
+    const catMap: Record<string, number> = {};
     const safeOrders = filteredOrders || [];
     const safeProds = products || [];
     const safeCats = categories || [];
 
-    safeOrders.forEach((order) => {
-      if (!order || order.order_status === "CANCELLED" || order.order_status === "RETURNED") return;
+    // Fast lookup maps for categories by UUID and lowercase name
+    const catById = new Map<string, any>();
+    const catByName = new Map<string, any>();
+    safeCats.forEach((c: any) => {
+      if (c?.id) catById.set(String(c.id).toLowerCase(), c);
+      if (c?.name) catByName.set(String(c.name).toLowerCase().trim(), c);
+    });
+
+    safeOrders.forEach((order: any) => {
+      if (!order) return;
+      const st = String(order.order_status || "").toUpperCase();
+      if (st === "CANCELLED" || st === "RETURNED") return;
+
       try {
-        const items = typeof order.product_details === "string" ? JSON.parse(order.product_details) : order.product_details;
+        let items: any[] = [];
+        if (order.product_details) {
+          items = typeof order.product_details === "string" ? JSON.parse(order.product_details) : order.product_details;
+        }
+        if ((!items || items.length === 0) && order.items) {
+          items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
+        }
+
         if (Array.isArray(items)) {
           items.forEach((item: any) => {
             if (!item) return;
-            const name = item.name || item.product_name;
-            const productMatch = safeProds.find((p) => p && p.name === name);
-            if (productMatch) {
-              const catId = productMatch.category_id;
-              catMap[catId] = (catMap[catId] || 0) + (Number(item.price) || 0) * (Number(item.quantity) || 1);
+            const itemName = String(item.name || item.product_name || "").toLowerCase().trim();
+            const itemId = String(item.product_id || item.id || "");
+
+            // Find matching product in catalog
+            const productMatch = safeProds.find((p: any) =>
+              (itemId && String(p?.id) === itemId) ||
+              (itemName && String(p?.name || "").toLowerCase().trim() === itemName)
+            );
+
+            // Resolve category by ID or name
+            let targetCat: any = null;
+            const catIdCandidate = String(productMatch?.category_id || item.category_id || "").toLowerCase();
+            const catNameCandidate = String(productMatch?.category || item.category || "").toLowerCase().trim();
+
+            if (catIdCandidate && catById.has(catIdCandidate)) {
+              targetCat = catById.get(catIdCandidate);
+            } else if (catNameCandidate && catByName.has(catNameCandidate)) {
+              targetCat = catByName.get(catNameCandidate);
+            }
+
+            const itemRevenue = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+            if (targetCat) {
+              const targetId = String(targetCat.id);
+              catMap[targetId] = (catMap[targetId] || 0) + itemRevenue;
+            } else if (safeCats.length > 0) {
+              const fallbackId = String(safeCats[0].id);
+              catMap[fallbackId] = (catMap[fallbackId] || 0) + itemRevenue;
             }
           });
         }
@@ -1080,8 +1136,8 @@ export default function DashboardOverview({
 
     const maxSales = Math.max(...Object.values(catMap), 1);
 
-    return safeCats.map((cat) => {
-      const sales = catMap[cat.id] || 0;
+    return safeCats.map((cat: any) => {
+      const sales = catMap[String(cat.id)] || 0;
       return {
         id: cat.id,
         name: cat.name,
