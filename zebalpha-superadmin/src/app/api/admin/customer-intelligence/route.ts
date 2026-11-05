@@ -230,7 +230,7 @@ export async function GET(req: Request) {
           action: "VIEW_CUSTOMER_360",
           ip_address: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1",
           details: { customer_name: targetCustomer.name, segment: targetCustomer.segment },
-        }).then(() => {}).catch(() => {});
+        }).then(() => { }).catch(() => { });
 
         return NextResponse.json({
           success: true,
@@ -253,19 +253,48 @@ export async function GET(req: Request) {
       ? Math.round((repeatCustomersTotal / purchasedCount) * 100)
       : 0;
 
-    // Login analytics
+    // Comprehensive Daily Active Users (DAU): Unites logins, active customer sessions, and orders placed
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-    const loginsToday = rawLogins.filter((l) => new Date(l.created_at) >= startOfToday);
-    const uniqueLoginsToday = new Set(loginsToday.map((l) => l.user_id).filter(Boolean)).size;
+    const activeUserIdsToday = new Set<string>();
+    const activeUserIdsLast7D = new Set<string>();
+    const activeUserIdsLast30D = new Set<string>();
 
-    const loginsLast7D = rawLogins.filter((l) => new Date(l.created_at) >= sevenDaysAgo);
-    const uniqueLoginsLast7D = new Set(loginsLast7D.map((l) => l.user_id).filter(Boolean)).size;
+    // 1. From customer login logs
+    rawLogins.forEach((l) => {
+      if (l.user_id) {
+        const t = new Date(l.created_at).getTime();
+        if (t >= startOfToday.getTime()) activeUserIdsToday.add(l.user_id);
+        if (t >= sevenDaysAgo.getTime()) activeUserIdsLast7D.add(l.user_id);
+        if (t >= thirtyDaysAgo.getTime()) activeUserIdsLast30D.add(l.user_id);
+      }
+    });
 
-    const loginsLast30D = rawLogins.filter((l) => new Date(l.created_at) >= thirtyDaysAgo);
-    const uniqueLoginsLast30D = new Set(loginsLast30D.map((l) => l.user_id).filter(Boolean)).size;
+    // 2. From active sessions
+    rawSessions.forEach((s) => {
+      if (s.user_id && s.last_heartbeat) {
+        const t = new Date(s.last_heartbeat).getTime();
+        if (t >= startOfToday.getTime()) activeUserIdsToday.add(s.user_id);
+        if (t >= sevenDaysAgo.getTime()) activeUserIdsLast7D.add(s.user_id);
+        if (t >= thirtyDaysAgo.getTime()) activeUserIdsLast30D.add(s.user_id);
+      }
+    });
+
+    // 3. From customer orders placed
+    rawOrders.forEach((o) => {
+      if (o.user_id && o.created_at) {
+        const t = new Date(o.created_at).getTime();
+        if (t >= startOfToday.getTime()) activeUserIdsToday.add(o.user_id);
+        if (t >= sevenDaysAgo.getTime()) activeUserIdsLast7D.add(o.user_id);
+        if (t >= thirtyDaysAgo.getTime()) activeUserIdsLast30D.add(o.user_id);
+      }
+    });
+
+    const uniqueLoginsToday = activeUserIdsToday.size;
+    const uniqueLoginsLast7D = activeUserIdsLast7D.size;
+    const uniqueLoginsLast30D = activeUserIdsLast30D.size;
 
     const totalSuccessfulLogins = rawLogins.filter((l) => l.status === "SUCCESS").length;
     const totalFailedLogins = rawLogins.filter((l) => l.status === "FAILED").length;
@@ -455,9 +484,9 @@ export async function GET(req: Request) {
     // Registered customer acquisition cohort within date filter
     const scopedRegistered = (rangeStart && rangeEnd)
       ? registeredCustomers.filter((c) => {
-          const reg = new Date(c.registration_date);
-          return reg >= rangeStart! && reg <= rangeEnd!;
-        })
+        const reg = new Date(c.registration_date);
+        return reg >= rangeStart! && reg <= rangeEnd!;
+      })
       : registeredCustomers;
 
     const scopeRegisteredTotal = scopedRegistered.length;

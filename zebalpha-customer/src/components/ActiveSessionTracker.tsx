@@ -12,6 +12,11 @@ export function ActiveSessionTracker() {
   const isNative = useIsNativeApp();
   const sessionIdRef = useRef<string>("");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     // 1. Initialize or restore session ID from sessionStorage
@@ -46,7 +51,7 @@ export function ActiveSessionTracker() {
           keepalive: action === "end",
           body: JSON.stringify({
             sessionId,
-            userId: user?.id || null,
+            userId: userRef.current?.id || null,
             platform,
             action,
             deviceType: window.innerWidth < 768 ? "mobile" : window.innerWidth < 1024 ? "tablet" : "desktop"
@@ -61,29 +66,21 @@ export function ActiveSessionTracker() {
     sendHeartbeat("ping");
 
     // 4. Start recurring interval while tab is active
-    const startHeartbeat = () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = setInterval(() => {
-        if (typeof document !== "undefined" && !document.hidden) {
-          sendHeartbeat("ping");
-        }
-      }, HEARTBEAT_INTERVAL_MS);
-    };
-
-    startHeartbeat();
-
-    // 5. Visibility and Page Lifecycle Listeners
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // Pause and notify backend
-        sendHeartbeat("end");
-      } else {
-        // User resumed / returned to tab
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      if (typeof document !== "undefined" && !document.hidden) {
         sendHeartbeat("ping");
-        startHeartbeat();
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+
+    // 5. Visibility listeners: if returning to tab, send immediate heartbeat
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        sendHeartbeat("ping");
       }
     };
 
+    // 6. Page unload listeners: send "end" only when tab is actually closing
     const handlePageHide = () => {
       sendHeartbeat("end");
     };
@@ -97,8 +94,25 @@ export function ActiveSessionTracker() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("beforeunload", handlePageHide);
-      sendHeartbeat("end");
     };
+  }, [isNative]);
+
+  // When user auth state resolves or changes, immediately sync session with userId
+  useEffect(() => {
+    if (user?.id && sessionIdRef.current) {
+      const platform = isNative ? "android" : "website";
+      fetch("/api/analytics/heartbeat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: sessionIdRef.current,
+          userId: user.id,
+          platform,
+          action: "ping",
+          deviceType: window.innerWidth < 768 ? "mobile" : window.innerWidth < 1024 ? "tablet" : "desktop"
+        })
+      }).catch(() => {});
+    }
   }, [user?.id, isNative]);
 
   return null;
