@@ -43,3 +43,4 @@
 * **New Customer:** $\le 1$ delivered order.
 * **Repeat Customer:** $2 \text{ to } 4$ delivered orders.
 * **Loyal Customer:** $\ge 5$ delivered orders.
+

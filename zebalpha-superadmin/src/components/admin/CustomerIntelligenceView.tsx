@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import CustomerRetentionChartCard, { RetentionCardData } from "./CustomerRetentionChartCard";
 
 interface Customer360 {
   id: string;
@@ -62,6 +63,7 @@ interface IntelligenceData {
     retention90D: number;
     inactiveCount: number;
   };
+  retentionCard?: RetentionCardData;
   config: {
     new_max_delivered: number;
     repeat_min_delivered: number;
@@ -81,6 +83,11 @@ export default function CustomerIntelligenceView() {
   const [platformFilter, setPlatformFilter] = useState("all");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer360 | null>(null);
 
+  // Retention Date Filter State
+  const [retentionFilter, setRetentionFilter] = useState<"today" | "last7days" | "last30days" | "last90days" | "all" | "custom">("all");
+  const [retentionStart, setRetentionStart] = useState("");
+  const [retentionEnd, setRetentionEnd] = useState("");
+
   // Config Modal State
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configNewMax, setConfigNewMax] = useState(1);
@@ -97,6 +104,9 @@ export default function CustomerIntelligenceView() {
       if (search) params.set("search", search);
       if (segmentFilter !== "all") params.set("segment", segmentFilter);
       if (platformFilter !== "all") params.set("platform", platformFilter);
+      if (retentionFilter) params.set("dateFilter", retentionFilter);
+      if (retentionStart) params.set("startDate", retentionStart);
+      if (retentionEnd) params.set("endDate", retentionEnd);
 
       const res = await fetch(`/api/admin/customer-intelligence?${params.toString()}`);
       const json = await res.json();
@@ -115,7 +125,22 @@ export default function CustomerIntelligenceView() {
     } finally {
       setLoading(false);
     }
-  }, [search, segmentFilter, platformFilter]);
+  }, [search, segmentFilter, platformFilter, retentionFilter, retentionStart, retentionEnd]);
+
+  const handleRetentionDateFilter = (
+    filter: "today" | "last7days" | "last30days" | "last90days" | "all" | "custom",
+    start?: string,
+    end?: string
+  ) => {
+    setRetentionFilter(filter);
+    if (filter === "custom" && start && end) {
+      setRetentionStart(start);
+      setRetentionEnd(end);
+    } else {
+      setRetentionStart("");
+      setRetentionEnd("");
+    }
+  };
 
   useEffect(() => {
     fetchIntelligence();
@@ -248,6 +273,14 @@ export default function CustomerIntelligenceView() {
           </p>
         </div>
       </div>
+
+      {/* 🎯 PREMIUM CUSTOMER RETENTION RATE ANALYTICS */}
+      <CustomerRetentionChartCard
+        data={data?.retentionCard}
+        loading={loading}
+        activeDateFilter={retentionFilter}
+        onDateFilterChange={handleRetentionDateFilter}
+      />
 
       {/* 🔄 REPEAT REVENUE & RETENTION BREAKDOWN */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

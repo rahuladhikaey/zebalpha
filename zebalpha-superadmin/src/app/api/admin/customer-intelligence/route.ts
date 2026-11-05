@@ -49,17 +49,20 @@ export async function GET(req: Request) {
     const cutoffDate = new Date(now.getTime() - config.inactivity_timeout_seconds * 1000);
     const cutoffIso = cutoffDate.toISOString();
 
-    const [profilesRes, ordersRes, sessionsRes, loginsRes] = await Promise.all([
+    const [profilesRes, ordersRes, sessionsRes, loginsRes, cartRes] = await Promise.all([
       supabaseServer.from("profiles").select("id, full_name, email, phone_no, created_at, updated_at, status"),
-      supabaseServer.from("orders").select("id, order_number, user_id, customer_name, phone, items, product_details, total_amount, order_status, payment_status, created_at").order("created_at", { ascending: false }),
+      supabaseServer.from("orders").select("id, order_number, user_id, customer_name, phone, items, product_details, total_amount, discount_amount, order_status, payment_status, created_at").order("created_at", { ascending: false }),
       supabaseServer.from("customer_sessions").select("session_id, user_id, platform, device_type, is_active, created_at, last_heartbeat").order("last_heartbeat", { ascending: false }),
       supabaseServer.from("customer_login_logs").select("user_id, login_method, platform, status, created_at").order("created_at", { ascending: false }).limit(200),
+      supabaseServer.from("cart_items").select("user_id, updated_at, created_at"),
     ]);
 
     const rawProfiles: any[] = profilesRes.data || [];
     const rawOrders: any[] = ordersRes.data || [];
     const rawSessions: any[] = sessionsRes.data || [];
     const rawLogins: any[] = loginsRes.data || [];
+    const rawCartItems: any[] = cartRes.data || [];
+    const cartAvailable = !cartRes.error && Array.isArray(cartRes.data);
 
     // 4. Live Session & Online Computation
     const onlineSessions = rawSessions.filter(
@@ -286,6 +289,73 @@ export async function GET(req: Request) {
     // Inactive customers (no activity in 30 days)
     const inactiveCount = customer360List.filter((c) => new Date(c.last_active) < thirtyDaysAgo).length;
 
+    // Real Cart Abandoners Calculation
+    let cartAbandonersCount = 0;
+    if (cartAvailable && rawCartItems.length > 0) {
+      const usersWithCart = new Set(rawCartItems.map((ci: any) => ci.user_id).filter(Boolean));
+      const oneDayAgo = new Date(now.getTime() - 24 * 3600000);
+      usersWithCart.forEach((uid: string) => {
+        const userOrds = ordersByCustomerKey[uid] || [];
+        const hasRecentDelivered = userOrds.some(
+          (o) => new Date(o.created_at) >= oneDayAgo && String(o.order_status).toLowerCase() === "delivered"
+        );
+        if (!hasRecentDelivered) {
+          cartAbandonersCount++;
+        }
+      });
+    }
+
+    // Retention Card Scope (Filtered by selected Date Range)
+    const dateFilterType = url.searchParams.get("dateFilter") || "all";
+    let rangeStart: Date | null = null;
+    let rangeEnd: Date | null = null;
+
+    if (dateFilterType === "today") {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      rangeEnd = now;
+    } else if (dateFilterType === "last7days") {
+      rangeStart = new Date(now.getTime() - 7 * 86400000);
+      rangeEnd = now;
+    } else if (dateFilterType === "last30days") {
+      rangeStart = new Date(now.getTime() - 30 * 86400000);
+      rangeEnd = now;
+    } else if (dateFilterType === "last90days") {
+      rangeStart = new Date(now.getTime() - 90 * 86400000);
+      rangeEnd = now;
+    } else if (startDateParam && endDateParam) {
+      rangeStart = new Date(startDateParam);
+      rangeEnd = new Date(endDateParam);
+    }
+
+    const scopeList = (rangeStart && rangeEnd)
+      ? customer360List.filter((c) => {
+          const act = new Date(c.last_active);
+          const reg = new Date(c.registration_date);
+          return (act >= rangeStart! && act <= rangeEnd!) || (reg >= rangeStart! && reg <= rangeEnd!);
+        })
+      : customer360List;
+
+    const scopeTotal = scopeList.length;
+    const scopeNew = scopeList.filter((c) => c.segment === "New").length;
+    const scopeRepeat = scopeList.filter((c) => c.segment === "Repeat").length;
+    const scopeLoyal = scopeList.filter((c) => c.segment === "Loyal").length;
+    const scopeInactive = scopeList.filter((c) => new Date(c.last_active) < thirtyDaysAgo).length;
+    const scopeRepeatRate = scopeTotal > 0 ? Number((((scopeRepeat + scopeLoyal) / scopeTotal) * 100).toFixed(1)) : 0;
+
+    const retentionSegments = [
+      { id: "new", name: "New Customers", count: scopeNew, color: "#38BDF8", description: "≤ 1 Delivered Order" },
+      { id: "repeat", name: "Frequent / Repeat", count: scopeRepeat, color: "#FBBF24", description: "2–4 Delivered Orders" },
+      { id: "loyal", name: "Loyal Customers", count: scopeLoyal, color: "#A855F7", description: "5+ Delivered Orders" },
+      { id: "inactive", name: "Inactive Customers", count: scopeInactive, color: "#F43F5E", description: "No activity in 30+ days" },
+      { id: "cart_abandoners", name: "Cart Abandoners", count: cartAbandonersCount, color: "#FB923C", description: "Unpurchased cart > 24h", isUnavailable: !cartAvailable },
+    ];
+
+    const totalSegmentUnits = retentionSegments.reduce((sum, s) => sum + s.count, 0);
+    const retentionSegmentsWithPct = retentionSegments.map((s) => ({
+      ...s,
+      percentage: totalSegmentUnits > 0 ? Number(((s.count / totalSegmentUnits) * 100).toFixed(1)) : 0,
+    }));
+
     // 8. Filter Customer Table
     let filteredList = customer360List;
 
@@ -361,6 +431,19 @@ export async function GET(req: Request) {
           retention30D,
           retention90D,
           inactiveCount,
+        },
+        retentionCard: {
+          totalCustomers: scopeTotal,
+          registeredCount: rawProfiles.length,
+          guestCount: Object.keys(guestProfilesMap).length,
+          activeCount: Math.max(0, scopeTotal - scopeInactive),
+          inactiveCount: scopeInactive,
+          repeatPurchaseRate: scopeRepeatRate,
+          retentionRate7D: retention7D,
+          retentionRate30D: retention30D,
+          retentionRate90D: retention90D,
+          dateFilterApplied: dateFilterType,
+          segments: retentionSegmentsWithPct,
         },
         config,
         customers: filteredList.slice(0, 100), // Paginated preview

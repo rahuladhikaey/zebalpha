@@ -27,3 +27,4 @@
 ### Issue 02: Category Sales Discrepancy
 * **Root Cause:** `categorySales` initialized `const catMap: Record<number, number> = {}` while Supabase uses UUID strings for `categories.id`. Additionally, orders storing items in `order.items` were overlooked.
 * **Fix:** Updated lookup maps to support UUID strings and normalized lowercase category names, checking both `order.product_details` and `order.items`.
+
