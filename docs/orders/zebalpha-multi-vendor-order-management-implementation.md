@@ -113,3 +113,4 @@ Status: DELIVERED    Status: IN_TRANSIT Status: OUT_FOR_DELIVERY
   }
   ```
 - **Delivery Override Defense:** Prevents arbitrary manual marking of orders as "delivered" without verified courier tracking (AWB) or explicit POD documentation.
+
