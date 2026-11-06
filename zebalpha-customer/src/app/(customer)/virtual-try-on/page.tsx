@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Product } from "@/lib/types";
-import { LiveCameraFittingRoom } from "@/components/vto/LiveCameraFittingRoom";
+import { GenZAvatarFittingRoom } from "@/components/vto/GenZAvatarFittingRoom";
 import { ClothingCollectionSection } from "@/components/vto/ClothingCollectionSection";
 import {
   ChevronLeft,
@@ -134,12 +134,12 @@ function VirtualTryOnContent() {
                   <span className="text-xs md:text-sm font-black tracking-[0.2em] uppercase text-white">
                     ZEBALPHA
                   </span>
-                  <span className="rounded-full bg-white/10 px-1.5 py-0.2 text-[8px] font-black uppercase tracking-wider text-zinc-300 border border-white/10">
-                    Live AR
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-400 border border-emerald-500/30">
+                    Gen-Z Avatar
                   </span>
                 </div>
                 <span className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase">
-                  Virtual Fitting Room
+                  Drip Fitting Studio
                 </span>
               </div>
             </Link>
@@ -149,7 +149,7 @@ function VirtualTryOnContent() {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-300 shadow-sm">
               <ShieldCheck size={14} className="text-emerald-400" />
-              <span className="font-bold text-[11px]">Strict View-Only • No Camera Recording</span>
+              <span className="font-bold text-[11px]">100% Client-Side • Zero Camera Needed</span>
             </div>
 
             <Link
@@ -167,14 +167,14 @@ function VirtualTryOnContent() {
           MAIN FITTING ROOM STAGE (2-PANEL LAYOUT)
          ========================================================================= */}
       <main className="mx-auto max-w-[1500px] px-3 sm:px-6 md:px-8 py-5 sm:py-6">
-        {/* DESKTOP: 2-PANEL GRID (Left: Camera Fitting Room | Right: Interactive Catalogue)
-            MOBILE: Camera Fitting Room Takes Priority at Top, Catalogue Below */}
+        {/* DESKTOP: 2-PANEL GRID (Left: Gen-Z Avatar Stage | Right: Interactive Catalogue)
+            MOBILE: Avatar Stage Takes Priority at Top, Catalogue Below */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* =====================================================================
-              LEFT PANEL (DESKTOP: 6/12 or 7/12 COLS - LIVE CAMERA FITTING ROOM)
+              LEFT PANEL (DESKTOP: 6/12 COLS - GEN-Z STREETWEAR AVATAR STUDIO)
              ===================================================================== */}
           <div className="lg:col-span-6 xl:col-span-6 lg:sticky lg:top-20 space-y-4">
-            <LiveCameraFittingRoom
+            <GenZAvatarFittingRoom
               selectedProduct={selectedProduct}
               selectedColor={selectedColor}
               selectedSize={selectedSize}

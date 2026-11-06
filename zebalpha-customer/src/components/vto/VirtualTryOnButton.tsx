@@ -18,8 +18,8 @@ export function VirtualTryOnButton({
   href,
   className = "",
   variant = "pdp",
-  label = "TRY IT ON ✨",
-  subtitle = "Instant AI fitting room preview on your photo",
+  label = "AVATAR TRY-ON ✨",
+  subtitle = "Instant Gen-Z fitting room • Custom Male & Female Avatars",
 }: VirtualTryOnButtonProps) {
   // Compact button for list views or mobile quick actions
   if (variant === "compact") {
