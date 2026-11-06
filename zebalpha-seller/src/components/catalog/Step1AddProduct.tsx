@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2, Tag, Flame, Calendar, Sparkles } from "lucide-react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { Upload, X, CheckCircle2, AlertCircle, Layers, Plus, Loader2, Tag, Flame, Calendar, Sparkles, ChevronDown } from "lucide-react";
 import type { Category } from "@shared/types";
 import {
   DYNAMIC_CATEGORY_CATALOG,
@@ -164,6 +164,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
   // Canonical string key for sizing engine / subcategory fallback
   const selectedMainCat = useMemo(() => {
     const slugOrName = (currentDbMainCat?.slug || currentDbMainCat?.name || "men").toLowerCase();
+    if (slugOrName.includes("footwear") || slugOrName.includes("shoe")) return "footwear";
     if (slugOrName.includes("women") || slugOrName.includes("ladies") || slugOrName.includes("female")) return "women";
     if (slugOrName.includes("kid") || slugOrName.includes("boy") || slugOrName.includes("girl") || slugOrName.includes("baby")) return "kids";
     if (slugOrName.includes("home") || slugOrName.includes("kitchen")) return "home";
@@ -269,6 +270,97 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
   }, [currentDbMainCat, formData.subcategory_name]);
 
   const hasSizingSystem = activeProductTypeConfig.sizingSystem !== "none";
+
+  // Sizing & Pricing Mode: "size_variants" (Multi-size with individual pricing/stock) vs "free_size" (Single SKU / General Pricing)
+  const [pricingMode, setPricingMode] = useState<"size_variants" | "free_size">(() => {
+    if (formData.selected_sizes && formData.selected_sizes.length > 0) {
+      if (formData.selected_sizes.length === 1 && formData.selected_sizes[0] === "Free Size") {
+        return "free_size";
+      }
+      return "size_variants";
+    }
+    const mainLower = (currentDbMainCat?.slug || currentDbMainCat?.name || "").toLowerCase();
+    const subLower = (formData.subcategory_name || "").toLowerCase();
+    const isSizedCategory =
+      mainLower.includes("footwear") ||
+      mainLower.includes("shoe") ||
+      mainLower.includes("men") ||
+      mainLower.includes("women") ||
+      mainLower.includes("kid") ||
+      subLower.includes("croc") ||
+      subLower.includes("clog") ||
+      subLower.includes("shoe") ||
+      subLower.includes("sandal") ||
+      subLower.includes("slipper") ||
+      subLower.includes("boot") ||
+      subLower.includes("shirt") ||
+      subLower.includes("pant") ||
+      subLower.includes("jean");
+    return isSizedCategory ? "size_variants" : "free_size";
+  });
+
+  const userExplicitModeChangeRef = useRef(false);
+
+  // Sync mode if category changes to footwear / apparel and user hasn't explicitly set free_size
+  useEffect(() => {
+    if (userExplicitModeChangeRef.current) return;
+    const mainLower = (currentDbMainCat?.slug || currentDbMainCat?.name || "").toLowerCase();
+    const subLower = (formData.subcategory_name || "").toLowerCase();
+    const isSizedCategory =
+      mainLower.includes("footwear") ||
+      mainLower.includes("shoe") ||
+      mainLower.includes("men") ||
+      mainLower.includes("women") ||
+      mainLower.includes("kid") ||
+      subLower.includes("croc") ||
+      subLower.includes("clog") ||
+      subLower.includes("shoe") ||
+      subLower.includes("sandal") ||
+      subLower.includes("slipper") ||
+      subLower.includes("boot") ||
+      subLower.includes("shirt") ||
+      subLower.includes("pant") ||
+      subLower.includes("jean");
+
+    if (isSizedCategory && pricingMode !== "size_variants" && (!formData.selected_sizes || formData.selected_sizes.length === 0 || (formData.selected_sizes.length === 1 && formData.selected_sizes[0] === "Free Size"))) {
+      setPricingMode("size_variants");
+    }
+  }, [currentDbMainCat, formData.subcategory_name, pricingMode, formData.selected_sizes]);
+
+  const handlePricingModeChange = (mode: "size_variants" | "free_size") => {
+    userExplicitModeChangeRef.current = true;
+    setPricingMode(mode);
+
+    if (mode === "free_size") {
+      const currentPrice = formData.price || (formData.size_details?.[0]?.selling_price ?? "");
+      const currentMrp = formData.mrp || (formData.size_details?.[0]?.mrp ?? "");
+      const currentStock = formData.single_stock || (formData.size_details?.[0]?.inventory ?? "20");
+      const currentSku = formData.single_sku || formData.style_code || `SKU_${Date.now().toString(36).slice(-4)}`;
+      const currentReturn = formData.defective_returns_price || (formData.size_details?.[0]?.return_price ?? "");
+
+      onChange({
+        selected_sizes: ["Free Size"],
+        size_details: [
+          {
+            id: "pkg_free_size",
+            size: "Free Size",
+            selling_price: currentPrice,
+            mrp: currentMrp,
+            return_price: currentReturn,
+            inventory: currentStock,
+            sku: currentSku,
+          },
+        ],
+      });
+    } else {
+      const filteredSizes = (formData.selected_sizes || []).filter((s) => s !== "Free Size");
+      const filteredDetails = (formData.size_details || []).filter((d) => d.size !== "Free Size");
+      onChange({
+        selected_sizes: filteredSizes,
+        size_details: filteredDetails,
+      });
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError("");
@@ -989,11 +1081,52 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
         />
       </div>
 
-      {/* Meesho-Style Size-Specific Details & Measurements: Render ONLY if category has a sizing system */}
-      {hasSizingSystem ? (
+      {/* SIZING & PRICING INVENTORY MODE DROPDOWN SELECTOR */}
+      <div className="p-4 rounded-2xl bg-[#121216] border border-[#27272a] space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Layers className="w-4 h-4" />
+            </span>
+            <div>
+              <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span>Pricing & Sizing Mode</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  {pricingMode === "size_variants" ? "Multi-Size Variants Active" : "Single SKU / Free Size Active"}
+                </span>
+              </label>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Choose size-wise pricing & inventory (UK sizes for Footwear, S–XXL for Clothing) or general single-price inventory.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Dropdown Selector */}
+        <div className="relative">
+          <select
+            value={pricingMode}
+            onChange={(e) => handlePricingModeChange(e.target.value as "size_variants" | "free_size")}
+            className="w-full p-3 rounded-xl bg-[#0a0a0d] border border-[#27272a] text-white text-xs font-semibold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all appearance-none cursor-pointer pr-10"
+          >
+            <option value="size_variants" className="bg-[#121216] text-white py-2">
+              📏 Size-Wise Pricing & Inventory (Multi-Size: UK 4–12 for Footwear, S–XXL for Clothing, 28–42 for Pants)
+            </option>
+            <option value="free_size" className="bg-[#121216] text-white py-2">
+              🏷️ Single SKU / Free Size (General Product Pricing & Inventory — 1 Price & 1 Stock for all)
+            </option>
+          </select>
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+            <ChevronDown className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+
+      {/* Render Size-Specific Section IF pricingMode is "size_variants" */}
+      {pricingMode === "size_variants" ? (
         <SizeSpecificDetailsSection
-          selectedSizes={formData.selected_sizes || []}
-          sizeDetails={formData.size_details || []}
+          selectedSizes={(formData.selected_sizes || []).filter((s) => s !== "Free Size")}
+          sizeDetails={(formData.size_details || []).filter((d) => d.size !== "Free Size")}
           sizeMeasurements={formData.size_measurements || []}
           measurementUnit={formData.measurement_unit || "inches"}
           isMeasurementsEnabled={formData.is_measurements_enabled ?? true}

@@ -77,7 +77,24 @@ export default function SizeSpecificDetailsSection({
   const catLower = (categoryName || "").toLowerCase();
   const isLowerBody = subLower.includes("jean") || subLower.includes("trouser") || subLower.includes("pant") || subLower.includes("cargo") || subLower.includes("short") || subLower.includes("jogger") || subLower.includes("legging");
   const isDress = subLower.includes("dress") || subLower.includes("jumpsuit") || subLower.includes("gown") || subLower.includes("saree");
-  const isFootwear = subLower.includes("shoe") || subLower.includes("sneaker") || subLower.includes("sandal") || subLower.includes("footwear") || subLower.includes("boot") || subLower.includes("heel");
+  const isFootwear =
+    catLower.includes("footwear") ||
+    catLower.includes("shoe") ||
+    subLower.includes("shoe") ||
+    subLower.includes("sneaker") ||
+    subLower.includes("sandal") ||
+    subLower.includes("footwear") ||
+    subLower.includes("boot") ||
+    subLower.includes("heel") ||
+    subLower.includes("croc") ||
+    subLower.includes("clog") ||
+    subLower.includes("slipper") ||
+    subLower.includes("slide") ||
+    subLower.includes("flip") ||
+    subLower.includes("chappal") ||
+    subLower.includes("loafer") ||
+    subLower.includes("flat") ||
+    subLower.includes("mule");
   const isBed = subLower.includes("bedsheet") || subLower.includes("bedding") || subLower.includes("mattress") || subLower.includes("cover");
   const isVolume = subLower.includes("bottle") || subLower.includes("flask") || subLower.includes("tumbler") || subLower.includes("container") || subLower.includes("shaker");
 
@@ -167,9 +184,28 @@ export default function SizeSpecificDetailsSection({
     }
   };
 
-  // Select all common standard sizes (S, M, L, XL)
+  // Select common standard sizes according to the active tab (e.g. UK 6-10 for footwear, S-XL for clothing)
   const selectCommonSizes = () => {
-    const common = ["S", "M", "L", "XL"];
+    let common = ["S", "M", "L", "XL"];
+    let label = "S, M, L, XL";
+
+    if (sizeGroupTab === "footwear") {
+      common = ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"];
+      label = "UK 6, 7, 8, 9, 10";
+    } else if (sizeGroupTab === "waist") {
+      common = ["30", "32", "34", "36"];
+      label = "30, 32, 34, 36";
+    } else if (sizeGroupTab === "kids") {
+      common = ["1-2Y", "2-3Y", "3-4Y", "4-5Y"];
+      label = "1-2Y, 2-3Y, 3-4Y, 4-5Y";
+    } else if (sizeGroupTab === "bed") {
+      common = ["Single", "Double", "Queen", "King"];
+      label = "Single, Double, Queen, King";
+    } else if (sizeGroupTab === "volume") {
+      common = ["500 ml", "750 ml", "1000 ml (1 L)"];
+      label = "500 ml, 750 ml, 1 L";
+    }
+
     const merged = Array.from(new Set([...selectedSizes, ...common]));
     const cleanPrefix = styleCode ? styleCode.trim().toUpperCase() : "SKU";
 
@@ -179,12 +215,12 @@ export default function SizeSpecificDetailsSection({
     common.forEach((sz) => {
       if (!updatedDetails.some((d) => d.size === sz)) {
         updatedDetails.push({
-          id: `size_${sz.toLowerCase()}_${Date.now()}`,
+          id: `size_${sz.toLowerCase().replace(/[\s\(\)\/]+/g, "_")}_${Date.now()}`,
           size: sz,
           mrp: defaultMrp || (sizeDetails[0]?.mrp ?? ""),
           selling_price: defaultPrice || (sizeDetails[0]?.selling_price ?? ""),
           inventory: sizeDetails[0]?.inventory || "50",
-          sku: `${cleanPrefix}-${sz}`,
+          sku: `${cleanPrefix}-${sz.toUpperCase().replace(/[\s\(\)\/]+/g, "")}`,
           return_price: defaultPrice
             ? String(Math.max(0, parseFloat(defaultPrice) - 5))
             : sizeDetails[0]?.return_price || "",
@@ -208,7 +244,63 @@ export default function SizeSpecificDetailsSection({
     onSizesChange(merged);
     onSizeDetailsChange(updatedDetails);
     onSizeMeasurementsChange(updatedMeasurements);
-    showFeedback("✓ Added S, M, L, XL sizes");
+    showFeedback(`✓ Added common sizes: ${label}`);
+  };
+
+  // Select all sizes in the active tab with 1 click
+  const selectAllSizesInTab = () => {
+    const allForTab =
+      sizeGroupTab === "standard"
+        ? STANDARD_GARMENT_SIZES
+        : sizeGroupTab === "waist"
+        ? WAIST_NUMERIC_SIZES
+        : sizeGroupTab === "kids"
+        ? KIDS_SIZES
+        : sizeGroupTab === "footwear"
+        ? FOOTWEAR_SIZES
+        : sizeGroupTab === "bed"
+        ? BED_SIZES
+        : VOLUME_SIZES;
+
+    const merged = Array.from(new Set([...selectedSizes, ...allForTab]));
+    const cleanPrefix = styleCode ? styleCode.trim().toUpperCase() : "SKU";
+
+    const updatedDetails = [...sizeDetails];
+    const updatedMeasurements = [...sizeMeasurements];
+
+    allForTab.forEach((sz) => {
+      if (!updatedDetails.some((d) => d.size === sz)) {
+        updatedDetails.push({
+          id: `size_${sz.toLowerCase().replace(/[\s\(\)\/]+/g, "_")}_${Date.now()}`,
+          size: sz,
+          mrp: defaultMrp || (sizeDetails[0]?.mrp ?? ""),
+          selling_price: defaultPrice || (sizeDetails[0]?.selling_price ?? ""),
+          inventory: sizeDetails[0]?.inventory || "50",
+          sku: `${cleanPrefix}-${sz.toUpperCase().replace(/[\s\(\)\/]+/g, "")}`,
+          return_price: defaultPrice
+            ? String(Math.max(0, parseFloat(defaultPrice) - 5))
+            : sizeDetails[0]?.return_price || "",
+        });
+      }
+      if (!updatedMeasurements.some((m) => m.size === sz)) {
+        updatedMeasurements.push({
+          size: sz,
+          bust_chest: "",
+          waist: "",
+          shoulder: "",
+          length: "",
+          hip: "",
+          sleeve_length: "",
+          inseam: "",
+          thigh: "",
+        });
+      }
+    });
+
+    onSizesChange(merged);
+    onSizeDetailsChange(updatedDetails);
+    onSizeMeasurementsChange(updatedMeasurements);
+    showFeedback(`✓ Selected all ${sizeGroupTab} sizes`);
   };
 
   // Update a single field in Size-Specific Details
@@ -338,14 +430,33 @@ export default function SizeSpecificDetailsSection({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={selectCommonSizes}
               className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Select S, M, L, XL</span>
+              <span>
+                {sizeGroupTab === "footwear"
+                  ? "Select UK 6–10"
+                  : sizeGroupTab === "waist"
+                  ? "Select 30–36"
+                  : sizeGroupTab === "kids"
+                  ? "Select 1–5Y"
+                  : sizeGroupTab === "bed"
+                  ? "Select Common Bed"
+                  : sizeGroupTab === "volume"
+                  ? "Select Common Volumes"
+                  : "Select S, M, L, XL"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={selectAllSizesInTab}
+              className="px-3 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 transition-colors cursor-pointer"
+            >
+              Select All {sizeGroupTab === "footwear" ? "UK Sizes" : "Sizes"}
             </button>
           </div>
         </div>

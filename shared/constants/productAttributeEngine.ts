@@ -600,6 +600,38 @@ export const DYNAMIC_CATEGORY_CATALOG: MainCategoryConfig[] = [
     ],
   },
   {
+    id: "footwear",
+    name: "Footwear",
+    label: "Footwear",
+    icon: "👟",
+    subcategories: [
+      {
+        id: "footwear_all",
+        name: "Footwear & Shoes",
+        label: "Footwear & Shoes",
+        productTypes: [
+          {
+            id: "shoes_all",
+            name: "Footwear (Crocs, Shoes, Sandals)",
+            label: "Shoes, Sneakers, Crocs & Sandals",
+            sizingSystem: "footwear",
+            supportsColor: true,
+            defaultHasVariants: true,
+            sizeChartColumns: ["UK/IND Size", "EU Size", "Foot Length (cm)"],
+            sizeChartNotes: "Follow standard Indian / UK shoe measurement scale (UK 4 - UK 12).",
+            attributes: [
+              { id: "upper_material", name: "upper_material", label: "Upper Material", type: "select", required: true, options: ["EVA / Croslite", "Genuine Leather", "Synthetic Leather (PU)", "Breathable Mesh", "Canvas", "Rubber", "Suede"] },
+              { id: "sole_material", name: "sole_material", label: "Sole Material", type: "select", required: true, options: ["EVA Foam", "Rubber Sole", "Air Cushion TPR", "Phylon", "Polyurethane"] },
+              { id: "fastening", name: "fastening", label: "Fastening / Closure", type: "select", required: false, options: ["Slip-On / Backstrap", "Lace-Up", "Velcro / Hook & Loop", "Buckle", "Zip"] },
+              { id: "toe_shape", name: "toe_shape", label: "Toe Shape", type: "select", required: false, options: ["Round Toe", "Square Toe", "Pointed Toe"] },
+              { id: "occasion", name: "occasion", label: "Occasion", type: "select", required: false, options: ["Casual / Daily", "Sports / Running", "Formal", "Party / Festive", "Beach / Monsoon"] },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "custom",
     name: "Custom Category",
     label: "✍️ Custom Category",
@@ -639,9 +671,14 @@ export const DYNAMIC_CATEGORY_CATALOG: MainCategoryConfig[] = [
 export function findMainCategory(idOrName: string): MainCategoryConfig | undefined {
   if (!idOrName) return undefined;
   const lower = idOrName.toLowerCase().trim();
-  return DYNAMIC_CATEGORY_CATALOG.find(
+  const direct = DYNAMIC_CATEGORY_CATALOG.find(
     (c) => c.id.toLowerCase() === lower || c.name.toLowerCase() === lower
   );
+  if (direct) return direct;
+  if (lower.includes("footwear") || lower.includes("shoe")) {
+    return DYNAMIC_CATEGORY_CATALOG.find((c) => c.id === "footwear");
+  }
+  return undefined;
 }
 
 /**
@@ -661,6 +698,34 @@ export function resolveProductTypeConfig(
   // 1. Direct search across all categories by productTypeId or subcat name
   const subLower = (subcatNameOrId || "").toLowerCase().trim();
   const prodTypeLower = (productTypeId || "").toLowerCase().trim();
+  const mainLower = (mainCatIdOrName || "").toLowerCase().trim();
+
+  // 1.5 Explicit Footwear department or subcategory matching (Crocs, Shoes, Sandals, etc.)
+  const isFootwearCategory =
+    mainLower.includes("footwear") ||
+    mainLower.includes("shoe") ||
+    subLower.includes("croc") ||
+    subLower.includes("clog") ||
+    subLower.includes("sandal") ||
+    subLower.includes("slipper") ||
+    subLower.includes("slide") ||
+    subLower.includes("flip") ||
+    subLower.includes("chappal") ||
+    subLower.includes("boot") ||
+    subLower.includes("loafer") ||
+    subLower.includes("heel") ||
+    subLower.includes("flat") ||
+    subLower.includes("mule") ||
+    subLower.includes("shoe") ||
+    subLower.includes("sneaker") ||
+    subLower.includes("footwear");
+
+  if (isFootwearCategory) {
+    const footMain = DYNAMIC_CATEGORY_CATALOG.find((c) => c.id === "footwear");
+    if (footMain && footMain.subcategories[0]?.productTypes[0]) {
+      return footMain.subcategories[0].productTypes[0];
+    }
+  }
 
   for (const mainCat of DYNAMIC_CATEGORY_CATALOG) {
     for (const sub of mainCat.subcategories) {
