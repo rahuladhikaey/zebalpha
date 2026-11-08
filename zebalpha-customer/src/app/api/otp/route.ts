@@ -8,7 +8,7 @@ const otpStore = new Map<string, {
   attempts: number;
 }>();
 
-const OTP_VALIDITY_MS = 15 * 60 * 1000; // 15 minutes validity
+const OTP_VALIDITY_MS = 2 * 60 * 60 * 1000; // 2 hours validity (auto-expires and deletes after 2hr)
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -98,8 +98,14 @@ export async function POST(request: NextRequest) {
         attempts: 0
       });
 
-      // 1. Store persistent OTP in PostgreSQL email_otps table
+      // 1. Store persistent OTP in PostgreSQL email_otps table (Valid for 2 Hours)
       try {
+        // Auto-purge any stale OTPs older than 2 hours
+        await supabaseServer
+          .from("email_otps")
+          .delete()
+          .lt("expires_at", new Date().toISOString());
+
         await supabaseServer.from("email_otps").insert([{
           email: normalizedEmail,
           otp,
@@ -154,7 +160,8 @@ export async function POST(request: NextRequest) {
 
         if (dbOtp) {
           isDbValid = true;
-          await supabaseServer.from("email_otps").update({ is_verified: true }).eq("id", dbOtp.id);
+          // Auto-delete verified OTP from database
+          await supabaseServer.from("email_otps").delete().eq("id", dbOtp.id);
         }
       } catch (dbVerifyErr) {
         console.warn("Customer DB OTP verify notice:", dbVerifyErr);
