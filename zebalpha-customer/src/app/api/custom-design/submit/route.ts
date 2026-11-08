@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       `<b>Order Token:</b> <code>#${orderToken}</code>`,
       `─────────────────────────`,
       `👤 <b>Customer:</b> ${customerName}`,
-      `📞 <b>WhatsApp / Phone:</b> +${formattedPhone}`,
+      `📞 <b>WhatsApp / Phone:</b> <code>+${formattedPhone}</code>`,
       customerEmail ? `📧 <b>Email:</b> ${customerEmail}` : null,
       `─────────────────────────`,
       `👕 <b>Garment Base:</b> ${garmentName || garmentType.replace(/_/g, " ").toUpperCase()}${garmentGsm ? ` (${garmentGsm})` : ""}`,
@@ -70,22 +70,30 @@ export async function POST(request: NextRequest) {
 
     const caption = captionLines.join("\n");
 
-    // Interactive WhatsApp & Call inline action buttons
+    // Interactive WhatsApp action button (Telegram strictly requires http/https URLs for inline keyboards)
     const whatsappGreeting = encodeURIComponent(
-      `Hi ${customerName}, we received your custom design request (#${orderToken}) for ${quantity}x ${garmentType.replace(/_/g, " ")} (${garmentColor}, ${garmentSize}) on ZebAlpha! Let's finalize your print proof.`
+      `Hi ${customerName}, we received your custom design request (#${orderToken}) for ${quantity}x ${garmentName || garmentType} (${garmentColor}, ${garmentSize}) on ZebAlpha! Let's finalize your print proof.`
     );
     const inlineKeyboard = {
       inline_keyboard: [
         [
           { text: "💬 Chat on WhatsApp", url: `https://wa.me/${formattedPhone}?text=${whatsappGreeting}` },
-          { text: "📞 Call Customer", url: `tel:+${formattedPhone}` },
         ],
       ],
     };
 
-    // 3. Read Telegram Credentials from Server Environment
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID || process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
+    // 3. Read Telegram Credentials with Production Fail-Safe Fallbacks
+    const DEFAULT_TELEGRAM_BOT_TOKEN = "9121248586:AAFURzRsuwkYzdnEeQBu6BaWAuavwV3rfMM";
+    const DEFAULT_TELEGRAM_CHAT_ID = "8787523327";
+
+    const botToken =
+      process.env.TELEGRAM_BOT_TOKEN ||
+      process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN ||
+      DEFAULT_TELEGRAM_BOT_TOKEN;
+    const chatId =
+      process.env.TELEGRAM_CHAT_ID ||
+      process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID ||
+      DEFAULT_TELEGRAM_CHAT_ID;
 
     // 4. Zero-Database Streaming: Stream directly to Telegram
     if (botToken && chatId) {
@@ -115,46 +123,96 @@ export async function POST(request: NextRequest) {
             photoFormData.append("reply_markup", JSON.stringify(inlineKeyboard));
             photoFormData.append("photo", artworkFile, artworkFile.name || `design_${orderToken}.png`);
 
-            await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+            const photoRes = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
               method: "POST",
               body: photoFormData,
             });
+
+            if (!photoRes.ok) {
+              // Final fallback: text dispatch
+              await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  chat_id: chatId,
+                  text: caption,
+                  parse_mode: "HTML",
+                  reply_markup: inlineKeyboard,
+                }),
+              });
+            }
           }
         } else if (designMode === "preset_vault" && presetImageUrl) {
-          // Send preset graphic using photo URL
-          const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              photo: presetImageUrl,
-              caption,
-              parse_mode: "HTML",
-              reply_markup: inlineKeyboard,
-            }),
-          });
+          // Handle Base64 Data URL or HTTP URL
+          let sent = false;
 
-          if (!tgRes.ok) {
-            // Text fallback if image URL isn't directly reachable by Telegram
+          if (presetImageUrl.startsWith("data:")) {
+            try {
+              const base64Data = presetImageUrl.replace(/^data:image\/\w+;base64,/, "");
+              const buffer = Buffer.from(base64Data, "base64");
+              const blob = new Blob([buffer], { type: "image/webp" });
+
+              const photoFormData = new FormData();
+              photoFormData.append("chat_id", chatId);
+              photoFormData.append("caption", caption);
+              photoFormData.append("parse_mode", "HTML");
+              photoFormData.append("reply_markup", JSON.stringify(inlineKeyboard));
+              photoFormData.append("photo", blob, `preset_${orderToken}.webp`);
+
+              const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                method: "POST",
+                body: photoFormData,
+              });
+              if (res.ok) sent = true;
+            } catch (b64Err) {
+              console.warn("Base64 WebP sendPhoto notice:", b64Err);
+            }
+          } else if (presetImageUrl.startsWith("http")) {
+            // Direct Public URL
+            const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: chatId,
+                photo: presetImageUrl,
+                caption,
+                parse_mode: "HTML",
+                reply_markup: inlineKeyboard,
+              }),
+            });
+            if (res.ok) sent = true;
+          }
+
+          if (!sent) {
+            // Text dispatch fallback (never send raw 20kb base64 in text body)
+            const cleanUrl = presetImageUrl.startsWith("http") ? `\n\n🔗 <b>Preset Link:</b> ${presetImageUrl}` : "";
             await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 chat_id: chatId,
-                text: `${caption}\n\n🔗 <b>Preset Art Link:</b> ${presetImageUrl}`,
+                text: `${caption}${cleanUrl}`,
                 parse_mode: "HTML",
                 reply_markup: inlineKeyboard,
               }),
             });
           }
+        } else {
+          // No file/preset attached, send clean text message
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: caption,
+              parse_mode: "HTML",
+              reply_markup: inlineKeyboard,
+            }),
+          });
         }
       } catch (tgError) {
         console.error("Telegram API dispatch notice:", tgError);
       }
-    } else {
-      console.log(
-        `[ZebAlpha Custom Design Demo Mode] Submission #${orderToken} by ${customerName} (${whatsappPhone}).\nNote: Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env.local to stream directly to Telegram.`
-      );
     }
 
     // 5. Success Response back to customer (ZERO Database writes)
