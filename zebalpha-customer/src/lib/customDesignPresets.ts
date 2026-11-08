@@ -91,3 +91,4 @@ export const ADMIN_PRESET_DESIGNS: PresetDesign[] = [
     tags: ["Minimal", "Badge", "Luxury", "Clean"],
   },
 ];
+
