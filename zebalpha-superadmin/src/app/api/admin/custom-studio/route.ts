@@ -108,33 +108,35 @@ async function getStoredSetting(key: string): Promise<any> {
 async function persistSetting(key: string, value: any): Promise<boolean> {
   const now = new Date().toISOString();
 
-  // 1. Try store_settings table
+  // 1. Primary: Try store_settings table
   try {
-    const { data: existing } = await supabaseServer
+    const { data: existing, error: selErr } = await supabaseServer
       .from("store_settings")
       .select("id")
       .eq("key", key)
       .maybeSingle();
 
-    if (existing?.id) {
+    if (!selErr && existing?.id) {
       const { error: updErr } = await supabaseServer
         .from("store_settings")
         .update({ value, updated_at: now })
         .eq("id", existing.id);
       if (!updErr) return true;
+      console.warn(`[StoreSettings Update Error for ${key}]:`, updErr.message);
     } else {
       const { error: insErr } = await supabaseServer
         .from("store_settings")
-        .insert([{ key, value, updated_at: now }]);
+        .upsert({ key, value, updated_at: now }, { onConflict: "key" });
       if (!insErr) return true;
+      console.warn(`[StoreSettings Upsert Error for ${key}]:`, insErr.message);
     }
-  } catch (err) {
-    console.warn("[StoreSettings Notice]:", err);
+  } catch (err: any) {
+    console.warn(`[StoreSettings Notice for ${key}]:`, err?.message);
   }
 
   // 2. Fallback try marketplace_settings table
   try {
-    await supabaseServer
+    const { error: mktErr } = await supabaseServer
       .from("marketplace_settings")
       .upsert(
         {
@@ -144,7 +146,7 @@ async function persistSetting(key: string, value: any): Promise<boolean> {
         },
         { onConflict: "setting_key" }
       );
-    return true;
+    if (!mktErr) return true;
   } catch (_) {}
 
   return false;
@@ -206,14 +208,26 @@ export async function POST(req: Request) {
       if (!Array.isArray(presets)) {
         return NextResponse.json({ success: false, message: "Presets must be an array." }, { status: 400 });
       }
-      await persistSetting("custom_design_presets", presets);
+      const saved = await persistSetting("custom_design_presets", presets);
+      if (!saved) {
+        return NextResponse.json(
+          { success: false, message: "Failed to persist artwork presets to database store_settings table." },
+          { status: 500 }
+        );
+      }
     }
 
     if (action === "update_bases" || apparelBases !== undefined) {
       if (!Array.isArray(apparelBases)) {
         return NextResponse.json({ success: false, message: "Apparel bases must be an array." }, { status: 400 });
       }
-      await persistSetting("custom_design_apparel_bases", apparelBases);
+      const saved = await persistSetting("custom_design_apparel_bases", apparelBases);
+      if (!saved) {
+        return NextResponse.json(
+          { success: false, message: "Failed to persist apparel bases to database store_settings table." },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
