@@ -7,6 +7,7 @@ import { AndroidBottomNav } from "@/components/AndroidBottomNav";
 import { AndroidOnboardingManager } from "@/components/AndroidOnboardingManager";
 import { AndroidLanguageModal } from "@/components/AndroidLanguageModal";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { MobilePullToRefresh } from "@/components/MobilePullToRefresh";
 import dynamic from "next/dynamic";
 
 const ClientAssistant = dynamic(() => import("@/components/ClientAssistant"));
@@ -120,6 +121,7 @@ export default function RootLayout({
     <>
       <Providers>
         <NetworkStatusBanner />
+        <MobilePullToRefresh />
         <div className="min-h-screen">
           {children}
         </div>
