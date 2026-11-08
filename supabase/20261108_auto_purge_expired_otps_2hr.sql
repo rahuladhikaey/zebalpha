@@ -40,3 +40,4 @@ CREATE TRIGGER trg_purge_stale_otps
 BEFORE INSERT ON public.email_otps
 FOR EACH STATEMENT
 EXECUTE FUNCTION public.trigger_purge_stale_otps();
+
