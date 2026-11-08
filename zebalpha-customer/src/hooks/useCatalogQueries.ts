@@ -743,6 +743,114 @@ export function doesProductMatchCategory(product: any, categoryNameOrId: string 
 }
 
 /**
+ * Systematic category & collection taxonomy keywords & synonyms engine
+ */
+export function getCategoryTaxonomyKeywords(term: string): {
+  cleanTerm: string;
+  slugTerm: string;
+  synonyms: string[];
+} {
+  const clean = term.toLowerCase().replace(/[-_]/g, " ").trim();
+  const slug = term.toLowerCase().replace(/\s+/g, "-").trim();
+  const synSet = new Set<string>();
+
+  // Footwear / Crocs / Clogs / Shoes / Sandals
+  if (/\b(crocs?|clogs?)\b/i.test(clean)) {
+    synSet.add("croc");
+    synSet.add("crocs");
+    synSet.add("clog");
+    synSet.add("clogs");
+    synSet.add("footwear");
+    synSet.add("shoe");
+    synSet.add("shoes");
+    synSet.add("sandal");
+    synSet.add("sandals");
+    synSet.add("slides");
+  } else if (/\b(shoes?|sneakers?|footwear|sandals?|slippers?|slides?|loafers?|boots?)\b/i.test(clean)) {
+    synSet.add("shoe");
+    synSet.add("shoes");
+    synSet.add("sneaker");
+    synSet.add("sneakers");
+    synSet.add("footwear");
+    synSet.add("croc");
+    synSet.add("clog");
+    synSet.add("sandal");
+  }
+
+  // Kurtis / Suits / Ethnic Wear
+  if (/\b(kurtis?|kurtas?|suits?|anarkali)\b/i.test(clean)) {
+    synSet.add("kurti");
+    synSet.add("kurtis");
+    synSet.add("kurta");
+    synSet.add("suit");
+    synSet.add("suits");
+    synSet.add("ethnic");
+    synSet.add("anarkali");
+  }
+
+  // Sarees / Saris / Silk
+  if (/\b(sarees?|saris?)\b/i.test(clean)) {
+    synSet.add("saree");
+    synSet.add("sarees");
+    synSet.add("sari");
+    synSet.add("saris");
+    synSet.add("silk");
+    synSet.add("ethnic");
+  }
+
+  // Bags / Tote Bags / Handbags / Backpacks
+  if (/\b(bags?|totes?|handbags?|backpacks?|clutches?)\b/i.test(clean)) {
+    synSet.add("bag");
+    synSet.add("bags");
+    synSet.add("tote");
+    synSet.add("totes");
+    synSet.add("handbag");
+    synSet.add("handbags");
+    synSet.add("backpack");
+  }
+
+  // T-Shirts / Polos / Tops / Streetwear
+  if (/\b(t[- ]?shirts?|tees?|polos?|tops?)\b/i.test(clean)) {
+    synSet.add("t-shirt");
+    synSet.add("tshirt");
+    synSet.add("t-shirts");
+    synSet.add("tshirts");
+    synSet.add("tee");
+    synSet.add("tees");
+    synSet.add("polo");
+    synSet.add("polos");
+    synSet.add("topwear");
+  }
+
+  // Bottomwear / Jeans / Pants / Trousers / Cargo
+  if (/\b(jeans?|denims?|pants?|trousers?|cargos?|shorts?|joggers?)\b/i.test(clean)) {
+    synSet.add("jean");
+    synSet.add("jeans");
+    synSet.add("denim");
+    synSet.add("pant");
+    synSet.add("pants");
+    synSet.add("trouser");
+    synSet.add("trousers");
+    synSet.add("bottomwear");
+  }
+
+  // Hoodies / Sweatshirts / Jackets
+  if (/\b(hoodies?|sweatshirts?|jackets?)\b/i.test(clean)) {
+    synSet.add("hoodie");
+    synSet.add("hoodies");
+    synSet.add("sweatshirt");
+    synSet.add("sweatshirts");
+    synSet.add("jacket");
+  }
+
+  return {
+    cleanTerm: clean,
+    slugTerm: slug,
+    synonyms: Array.from(synSet),
+  };
+}
+
+/**
  * Paginated Slim Products Fetcher
  * Pushes filtering and limit/offset pagination to the database with resilient fallback.
  */
@@ -796,27 +904,65 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
           query = query.or(`category_id.in.(${catIds.join(",")}),subcategory_id.in.(${catIds.join(",")})`);
         }
       } else {
-        // Resolve category ID from slug or name
+        // Resolve category IDs and metadata from taxonomy keywords
+        const { cleanTerm, slugTerm, synonyms } = getCategoryTaxonomyKeywords(cat);
+        let matchedCatIds: string[] = [];
+
         try {
+          // Flexible category search with wildcards and synonyms
+          const catFilters: string[] = [
+            `slug.eq.${slugTerm}`,
+            `slug.ilike.%${slugTerm}%`,
+            `name.ilike.%${cleanTerm}%`,
+            `description.ilike.%${cleanTerm}%`,
+          ];
+          synonyms.forEach((syn) => {
+            catFilters.push(`name.ilike.%${syn}%`);
+            catFilters.push(`slug.ilike.%${syn}%`);
+          });
+
           const { data: matchedCats } = await supabase
             .from("categories")
-            .select("id")
-            .or(`slug.eq.${cat.toLowerCase()},name.ilike.${cat}`);
+            .select("id, name, parent_id")
+            .or(catFilters.join(","));
 
           if (matchedCats && matchedCats.length > 0) {
-            const foundId = matchedCats[0].id;
+            const directIds = matchedCats.map((c: any) => c.id);
             const { data: subcats } = await supabase
               .from("categories")
               .select("id")
-              .eq("parent_id", foundId);
-            const allIds = [foundId, ...(subcats || []).map((s: any) => s.id)];
-            query = query.or(`category_id.in.(${allIds.join(",")}),subcategory_id.in.(${allIds.join(",")})`);
-          } else {
-            // Target category not found in DB - return empty result
-            query = query.eq("category_id", "00000000-0000-0000-0000-000000000000");
+              .in("parent_id", directIds);
+
+            matchedCatIds = Array.from(
+              new Set([...directIds, ...(subcats || []).map((s: any) => s.id)])
+            );
           }
-        } catch (_) {
-          query = query.eq("category_id", "00000000-0000-0000-0000-000000000000");
+        } catch (catErr) {
+          console.warn("Category resolution notice:", catErr);
+        }
+
+        // Multi-facet OR conditions ensuring products are always found systematically
+        const productOrConditions: string[] = [];
+
+        if (matchedCatIds.length > 0) {
+          productOrConditions.push(`category_id.in.(${matchedCatIds.join(",")})`);
+          productOrConditions.push(`subcategory_id.in.(${matchedCatIds.join(",")})`);
+        }
+
+        // Always match product textual attributes
+        productOrConditions.push(`name.ilike.%${cleanTerm}%`);
+        productOrConditions.push(`collection.ilike.%${cleanTerm}%`);
+        productOrConditions.push(`category.ilike.%${cleanTerm}%`);
+        productOrConditions.push(`description.ilike.%${cleanTerm}%`);
+
+        synonyms.forEach((syn) => {
+          productOrConditions.push(`name.ilike.%${syn}%`);
+          productOrConditions.push(`collection.ilike.%${syn}%`);
+          productOrConditions.push(`category.ilike.%${syn}%`);
+        });
+
+        if (productOrConditions.length > 0) {
+          query = query.or(productOrConditions.join(","));
         }
       }
     }

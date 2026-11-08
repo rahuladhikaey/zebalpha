@@ -73,6 +73,9 @@ function ProductsContent() {
           }
           return prev;
         });
+      } else {
+        // Reset gender filter for neutral/unisex categories like Crocs, Tote Bags, etc.
+        setFilters((prev) => ({ ...prev, genders: [] }));
       }
     } else {
       setSelectedCategory(null);
@@ -783,9 +786,22 @@ function ProductsContent() {
           {/* ========================================================================= */}
           <div className="flex-1 min-w-0 pb-16">
             {/* Active Filters Summary Bar */}
-            {activeFilterCount > 0 && (
+            {(activeFilterCount > 0 || selectedCategory) && (
               <div className="hidden md:flex flex-wrap items-center gap-2 mb-4 p-2.5 rounded-xl bg-zinc-950 border border-zinc-800">
                 <span className="text-xs font-bold text-zinc-400">Active Filters:</span>
+                {selectedCategory && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold text-emerald-400 capitalize">
+                    <span>Category: {String(selectedCategory).replace(/[-_]/g, " ")}</span>
+                    <X
+                      size={12}
+                      className="cursor-pointer hover:text-white"
+                      onClick={() => {
+                        setSelectedCategory(null);
+                        router.replace("/products", { scroll: false });
+                      }}
+                    />
+                  </span>
+                )}
                 {filters.sellers.map((s) => (
                   <span
                     key={s}

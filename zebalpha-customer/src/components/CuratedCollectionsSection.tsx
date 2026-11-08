@@ -67,12 +67,29 @@ export function CuratedCollectionsSection({
   );
 
   // Strictly display admin-managed curated collections ONLY
-  const displayItems = validCollections.map((c) => ({
-    id: c.id,
-    title: c.title,
-    image_url: c.image_url,
-    href: c.link_url || `/products?category=${encodeURIComponent(c.slug || c.title)}`,
-  }));
+  const displayItems = validCollections.map((c) => {
+    const rawLink = (c.link_url || "").trim();
+    // Check if admin provided a dedicated product/collection link, otherwise route systematically to products catalog
+    const isGenericLink =
+      !rawLink ||
+      rawLink === "/categories" ||
+      rawLink === "/categories/" ||
+      rawLink === "/" ||
+      rawLink === "/products" ||
+      rawLink === "/products/";
+
+    const term = (c.slug || c.title || "").trim();
+    const finalHref = isGenericLink
+      ? `/products?category=${encodeURIComponent(term)}`
+      : rawLink;
+
+    return {
+      id: c.id,
+      title: c.title,
+      image_url: c.image_url,
+      href: finalHref,
+    };
+  });
 
   // If no admin-managed curated collections are active, cleanly hide section
   if (displayItems.length === 0) {

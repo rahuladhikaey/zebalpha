@@ -59,25 +59,144 @@ export async function GET(request: NextRequest) {
       if (isUuid) {
         query = query.or(`category_id.eq.${cat},subcategory_id.eq.${cat}`);
       } else {
-        // Find category ID by slug or name
-        const { data: matchedCats } = await supabase
-          .from("categories")
-          .select("id")
-          .or(`slug.eq.${cat.toLowerCase()},name.ilike.${cat}`);
+        const clean = cat.toLowerCase().replace(/[-_]/g, " ").trim();
+        const slug = cat.toLowerCase().replace(/\s+/g, "-").trim();
+        const synSet = new Set<string>();
 
-        if (matchedCats && matchedCats.length > 0) {
-          const foundId = matchedCats[0].id;
-          const { data: subcats } = await supabase
+        if (/\b(crocs?|clogs?)\b/i.test(clean)) {
+          synSet.add("croc");
+          synSet.add("crocs");
+          synSet.add("clog");
+          synSet.add("clogs");
+          synSet.add("footwear");
+          synSet.add("shoe");
+          synSet.add("shoes");
+          synSet.add("sandal");
+          synSet.add("sandals");
+          synSet.add("slides");
+        } else if (/\b(shoes?|sneakers?|footwear|sandals?|slippers?|slides?|loafers?|boots?)\b/i.test(clean)) {
+          synSet.add("shoe");
+          synSet.add("shoes");
+          synSet.add("sneaker");
+          synSet.add("sneakers");
+          synSet.add("footwear");
+          synSet.add("croc");
+          synSet.add("clog");
+          synSet.add("sandal");
+        }
+
+        if (/\b(kurtis?|kurtas?|suits?|anarkali)\b/i.test(clean)) {
+          synSet.add("kurti");
+          synSet.add("kurtis");
+          synSet.add("kurta");
+          synSet.add("suit");
+          synSet.add("suits");
+          synSet.add("ethnic");
+          synSet.add("anarkali");
+        }
+
+        if (/\b(sarees?|saris?)\b/i.test(clean)) {
+          synSet.add("saree");
+          synSet.add("sarees");
+          synSet.add("sari");
+          synSet.add("saris");
+          synSet.add("silk");
+          synSet.add("ethnic");
+        }
+
+        if (/\b(bags?|totes?|handbags?|backpacks?|clutches?)\b/i.test(clean)) {
+          synSet.add("bag");
+          synSet.add("bags");
+          synSet.add("tote");
+          synSet.add("totes");
+          synSet.add("handbag");
+          synSet.add("handbags");
+          synSet.add("backpack");
+        }
+
+        if (/\b(t[- ]?shirts?|tees?|polos?|tops?)\b/i.test(clean)) {
+          synSet.add("t-shirt");
+          synSet.add("tshirt");
+          synSet.add("t-shirts");
+          synSet.add("tshirts");
+          synSet.add("tee");
+          synSet.add("tees");
+          synSet.add("polo");
+          synSet.add("polos");
+          synSet.add("topwear");
+        }
+
+        if (/\b(jeans?|denims?|pants?|trousers?|cargos?|shorts?|joggers?)\b/i.test(clean)) {
+          synSet.add("jean");
+          synSet.add("jeans");
+          synSet.add("denim");
+          synSet.add("pant");
+          synSet.add("pants");
+          synSet.add("trouser");
+          synSet.add("trousers");
+          synSet.add("bottomwear");
+        }
+
+        if (/\b(hoodies?|sweatshirts?|jackets?)\b/i.test(clean)) {
+          synSet.add("hoodie");
+          synSet.add("hoodies");
+          synSet.add("sweatshirt");
+          synSet.add("sweatshirts");
+          synSet.add("jacket");
+        }
+
+        const synonyms = Array.from(synSet);
+        let matchedCatIds: string[] = [];
+
+        try {
+          const catFilters: string[] = [
+            `slug.eq.${slug}`,
+            `slug.ilike.%${slug}%`,
+            `name.ilike.%${clean}%`,
+            `description.ilike.%${clean}%`,
+          ];
+          synonyms.forEach((syn) => {
+            catFilters.push(`name.ilike.%${syn}%`);
+            catFilters.push(`slug.ilike.%${syn}%`);
+          });
+
+          const { data: matchedCats } = await supabase
             .from("categories")
-            .select("id")
-            .eq("parent_id", foundId);
+            .select("id, name, parent_id")
+            .or(catFilters.join(","));
 
-          const allIds = [foundId, ...(subcats || []).map((s: any) => s.id)];
-          query = query.or(
-            `category_id.in.(${allIds.join(",")}),subcategory_id.in.(${allIds.join(",")})`
-          );
-        } else {
-          query = query.ilike("name", `%${cat}%`);
+          if (matchedCats && matchedCats.length > 0) {
+            const directIds = matchedCats.map((c: any) => c.id);
+            const { data: subcats } = await supabase
+              .from("categories")
+              .select("id")
+              .in("parent_id", directIds);
+
+            matchedCatIds = Array.from(
+              new Set([...directIds, ...(subcats || []).map((s: any) => s.id)])
+            );
+          }
+        } catch (_) {}
+
+        const orConditions: string[] = [];
+        if (matchedCatIds.length > 0) {
+          orConditions.push(`category_id.in.(${matchedCatIds.join(",")})`);
+          orConditions.push(`subcategory_id.in.(${matchedCatIds.join(",")})`);
+        }
+
+        orConditions.push(`name.ilike.%${clean}%`);
+        orConditions.push(`collection.ilike.%${clean}%`);
+        orConditions.push(`category.ilike.%${clean}%`);
+        orConditions.push(`description.ilike.%${clean}%`);
+
+        synonyms.forEach((syn) => {
+          orConditions.push(`name.ilike.%${syn}%`);
+          orConditions.push(`collection.ilike.%${syn}%`);
+          orConditions.push(`category.ilike.%${syn}%`);
+        });
+
+        if (orConditions.length > 0) {
+          query = query.or(orConditions.join(","));
         }
       }
     }
