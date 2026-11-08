@@ -16,64 +16,23 @@ export default function NotificationsBroadcastView() {
     if (!title.trim() || !message.trim()) return;
 
     setSending(true);
-    const nowIso = new Date().toISOString();
-    const newBroadcastItem = {
-      id: `bc-${Date.now()}`,
-      title: title.trim(),
-      message: message.trim(),
-      target_group: targetGroup,
-      is_active: true,
-      created_at: nowIso,
-    };
+    setStatusMsg("");
 
     try {
-      // 1. Dual-write to store_settings (broadcast_messages) so customer /notifications & bell ALWAYS see it
-      try {
-        const { data: existing } = await supabase
-          .from("store_settings")
-          .select("value")
-          .eq("key", "broadcast_messages")
-          .maybeSingle();
+      const res = await fetch("/api/admin/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          message: message.trim(),
+          targetGroup,
+        }),
+      });
 
-        const messages = Array.isArray(existing?.value) ? existing.value : [];
-        const updated = [newBroadcastItem, ...messages].slice(0, 50);
+      const json = await res.json();
 
-        await supabase.from("store_settings").upsert(
-          {
-            key: "broadcast_messages",
-            value: updated,
-            updated_at: nowIso,
-          },
-          { onConflict: "key" }
-        );
-      } catch (stErr) {
-        console.warn("[StoreSettings broadcast notice]:", stErr);
-      }
-
-      // 2. Also write to notifications table if present
-      try {
-        await supabase
-          .from("notifications")
-          .insert({
-            title: title.trim(),
-            message: message.trim(),
-            target_group: targetGroup,
-            is_active: true,
-            created_at: nowIso,
-          });
-      } catch (_) {}
-
-      // 3. Supabase Realtime Broadcast: Instantly pushes to all open devices & phones!
-      try {
-        const broadcastChannel = supabase.channel("zebalpha-global-notifications");
-        await broadcastChannel.subscribe();
-        await broadcastChannel.send({
-          type: "broadcast",
-          event: "broadcast-message",
-          payload: newBroadcastItem,
-        });
-      } catch (rtErr) {
-        console.warn("[Realtime Broadcast notice]:", rtErr);
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to broadcast notification");
       }
 
       setStatusMsg(`🎉 Broadcast notification successfully dispatched to ${targetGroup.toUpperCase()}! Devices alerted in real-time.`);
@@ -81,7 +40,7 @@ export default function NotificationsBroadcastView() {
       setMessage("");
       setTimeout(() => setStatusMsg(""), 4500);
     } catch (e: any) {
-      alert("Notice sending notification: " + (e.message || "Failed"));
+      alert("Error sending notification: " + (e.message || "Failed"));
     } finally {
       setSending(false);
     }
