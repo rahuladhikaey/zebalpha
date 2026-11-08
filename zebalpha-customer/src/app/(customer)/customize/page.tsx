@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -14,8 +14,10 @@ import {
 } from "@/components/customize/GarmentMockupPreview";
 import {
   ADMIN_PRESET_DESIGNS,
+  DEFAULT_APPAREL_BASES,
   PRESET_CATEGORIES,
   PresetDesign,
+  ApparelBaseConfig,
 } from "@/lib/customDesignPresets";
 import {
   Upload,
@@ -41,6 +43,11 @@ export default function CustomizePage() {
   // Mode selection: 'upload' (customer file) | 'vault' (admin presets)
   const [designMode, setDesignMode] = useState<"upload" | "vault">("vault");
 
+  // Dynamic Catalog Configs (Admin Controlled)
+  const [apparelBases, setApparelBases] = useState<ApparelBaseConfig[]>(DEFAULT_APPAREL_BASES);
+  const [selectedBase, setSelectedBase] = useState<ApparelBaseConfig>(DEFAULT_APPAREL_BASES[0]);
+  const [presetVault, setPresetVault] = useState<PresetDesign[]>(ADMIN_PRESET_DESIGNS);
+
   // Garment base settings
   const [selectedGarment, setSelectedGarment] = useState<GarmentType>("oversized_tee");
   const [selectedColor, setSelectedColor] = useState<GarmentColorOption>(GARMENT_COLORS[0]);
@@ -51,6 +58,38 @@ export default function CustomizePage() {
   // Vault preset selection
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activePreset, setActivePreset] = useState<PresetDesign>(ADMIN_PRESET_DESIGNS[0]);
+
+  // Load Admin configurations (GSM, Pricing, 20KB WebP Artwork) on mount
+  useEffect(() => {
+    fetch("/api/custom-design/config")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          if (Array.isArray(json.data.apparelBases) && json.data.apparelBases.length > 0) {
+            setApparelBases(json.data.apparelBases);
+            setSelectedBase(json.data.apparelBases[0]);
+            setSelectedGarment(json.data.apparelBases[0].id);
+          }
+          if (Array.isArray(json.data.presets) && json.data.presets.length > 0) {
+            setPresetVault(json.data.presets);
+            setActivePreset(json.data.presets[0]);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn("Notice loading studio config, using local defaults:", err);
+      });
+  }, []);
+
+  // Filtered preset designs
+  const filteredPresets = useMemo(() => {
+    if (selectedCategory === "all") return presetVault;
+    return presetVault.filter((d) => d.category === selectedCategory);
+  }, [selectedCategory, presetVault]);
+
+  // Real-time Pricing Calculations
+  const unitPrice = selectedBase?.basePrice || 799;
+  const estimatedTotal = unitPrice * quantity;
 
   // Custom upload state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -67,12 +106,6 @@ export default function CustomizePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submittedToken, setSubmittedToken] = useState<string | null>(null);
-
-  // Filtered preset designs
-  const filteredPresets = useMemo(() => {
-    if (selectedCategory === "all") return ADMIN_PRESET_DESIGNS;
-    return ADMIN_PRESET_DESIGNS.filter((d) => d.category === selectedCategory);
-  }, [selectedCategory]);
 
   // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,6 +165,10 @@ export default function CustomizePage() {
       formData.append("whatsappPhone", cleanPhone);
       formData.append("customerEmail", customerEmail.trim());
       formData.append("garmentType", selectedGarment);
+      formData.append("garmentName", selectedBase?.name || "Custom Apparel");
+      formData.append("garmentGsm", selectedBase?.gsm || "");
+      formData.append("unitPrice", String(unitPrice));
+      formData.append("totalEstimatedPrice", String(estimatedTotal));
       formData.append("garmentColor", selectedColor.name);
       formData.append("garmentSize", selectedSize);
       formData.append("quantity", String(quantity));
@@ -207,12 +244,25 @@ export default function CustomizePage() {
           <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-24 space-y-4">
             <GarmentMockupPreview
               garmentType={selectedGarment}
+              garmentLabel={selectedBase?.name}
               selectedColor={selectedColor}
               designImageSrc={activeArtworkUrl}
               designTitle={activeArtworkTitle}
               placement={selectedPlacement}
               isSubmitting={isSubmitting}
             />
+
+            {/* Live Pricing & Spec Bar */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl">
+              <div>
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Selected Fabric</span>
+                <span className="text-xs font-black text-white">{selectedBase?.name} <span className="text-emerald-400 font-mono">({selectedBase?.gsm})</span></span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Estimated Price</span>
+                <span className="text-base font-black text-emerald-400 font-mono">₹{estimatedTotal}</span>
+              </div>
+            </div>
 
             {/* Quality & Production Guarantees */}
             <div className="grid grid-cols-3 gap-2.5 p-3.5 rounded-2xl bg-neutral-900/60 border border-neutral-800 text-center">
@@ -403,23 +453,38 @@ export default function CustomizePage() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {GARMENT_TYPES.map((g) => {
-                  const isSelected = selectedGarment === g.id;
+                {apparelBases.map((base) => {
+                  const isSelected = selectedGarment === base.id;
                   return (
                     <button
-                      key={g.id}
+                      key={base.id}
                       type="button"
-                      onClick={() => setSelectedGarment(g.id)}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative ${
+                      onClick={() => {
+                        setSelectedGarment(base.id);
+                        setSelectedBase(base);
+                      }}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
                         isSelected
-                          ? "border-emerald-400 bg-neutral-850 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                          ? "border-emerald-400 bg-neutral-850 shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30"
                           : "border-neutral-800 bg-black hover:border-neutral-700"
                       }`}
                     >
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-neutral-800 text-neutral-300 uppercase">
-                        {g.gsm}
-                      </span>
-                      <p className="text-xs font-black text-white mt-1.5">{g.label}</p>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-neutral-800 text-emerald-300 font-mono uppercase">
+                          {base.gsm}
+                        </span>
+                        {base.badge && (
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">
+                            {base.badge}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-xs font-black text-white leading-tight">{base.name}</p>
+                        <p className="text-xs font-black text-emerald-400 mt-1 font-mono">
+                          ₹{base.basePrice}
+                        </p>
+                      </div>
                     </button>
                   );
                 })}
@@ -637,6 +702,26 @@ export default function CustomizePage() {
                 </div>
               )}
 
+              {/* Order Summary & Pricing Breakdown */}
+              <div className="p-4 rounded-2xl bg-black border border-neutral-800 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-neutral-400">Garment Base:</span>
+                  <span className="font-bold text-white">{selectedBase?.name} ({selectedBase?.gsm})</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-neutral-400">Base Unit Price:</span>
+                  <span className="font-mono font-bold text-neutral-300">₹{unitPrice}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-neutral-400">Quantity:</span>
+                  <span className="font-mono font-bold text-neutral-300">{quantity} Pc(s)</span>
+                </div>
+                <div className="pt-2 border-t border-neutral-850 flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-white">Estimated Total:</span>
+                  <span className="text-base font-black text-emerald-400 font-mono">₹{estimatedTotal}</span>
+                </div>
+              </div>
+
               {/* Submit CTA */}
               <button
                 type="submit"
@@ -687,8 +772,12 @@ export default function CustomizePage() {
 
             <div className="p-3.5 rounded-2xl bg-neutral-900/80 border border-neutral-800 text-left text-xs space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-neutral-400">Garment:</span>
-                <span className="font-bold text-white capitalize">{selectedGarment.replace(/_/g, " ")}</span>
+                <span className="text-neutral-400">Garment Base:</span>
+                <span className="font-bold text-white">{selectedBase?.name} ({selectedBase?.gsm})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-400">Est. Total:</span>
+                <span className="font-bold text-emerald-400 font-mono">₹{estimatedTotal} ({quantity} Pc)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-400">Color & Size:</span>

@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import Image from "next/image";
 import { Sparkles, Move, Maximize2 } from "lucide-react";
 
-export type GarmentType = "oversized_tee" | "hoodie" | "standard_tee" | "tote_bag";
+export type GarmentType = "oversized_tee" | "hoodie" | "standard_tee" | "tote_bag" | string;
 export type PlacementPosition = "front_chest" | "full_front" | "pocket" | "back";
 
 export interface GarmentColorOption {
@@ -22,15 +22,16 @@ export const GARMENT_COLORS: GarmentColorOption[] = [
   { name: "Forest Green", hex: "#0A2818", isDark: true },
 ];
 
-export const GARMENT_TYPES: { id: GarmentType; label: string; gsm: string; badge: string }[] = [
-  { id: "oversized_tee", label: "Oversized Heavy Tee", gsm: "240 GSM", badge: "POPULAR" },
-  { id: "hoodie", label: "Streetwear Fleece Hoodie", gsm: "380 GSM", badge: "WINTER" },
-  { id: "standard_tee", label: "Classic Combed Cotton Tee", gsm: "190 GSM", badge: "DAILY" },
-  { id: "tote_bag", label: "Heavy Canvas Tote Bag", gsm: "340 GSM", badge: "ECO" },
+export const GARMENT_TYPES: { id: GarmentType; label: string; gsm: string; badge: string; basePrice?: number }[] = [
+  { id: "oversized_tee", label: "Oversized Heavy Tee", gsm: "240 GSM", badge: "POPULAR", basePrice: 799 },
+  { id: "hoodie", label: "Streetwear Fleece Hoodie", gsm: "380 GSM", badge: "WINTER", basePrice: 1499 },
+  { id: "standard_tee", label: "Classic Combed Cotton Tee", gsm: "190 GSM", badge: "DAILY", basePrice: 499 },
+  { id: "tote_bag", label: "Heavy Canvas Tote Bag", gsm: "340 GSM", badge: "ECO", basePrice: 399 },
 ];
 
 interface GarmentMockupPreviewProps {
   garmentType: GarmentType;
+  garmentLabel?: string;
   selectedColor: GarmentColorOption;
   designImageSrc: string | null;
   designTitle?: string;
@@ -40,6 +41,7 @@ interface GarmentMockupPreviewProps {
 
 export function GarmentMockupPreview({
   garmentType,
+  garmentLabel,
   selectedColor,
   designImageSrc,
   designTitle = "Custom Graphic",
@@ -72,7 +74,7 @@ export function GarmentMockupPreview({
       {/* Floating Status Badges */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
         <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-black/60 border border-neutral-700 text-white backdrop-blur-md">
-          {GARMENT_TYPES.find((g) => g.id === garmentType)?.label || "Garment"}
+          {garmentLabel || GARMENT_TYPES.find((g) => g.id === garmentType)?.label || "Garment"}
         </span>
         <span
           className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border backdrop-blur-md"

@@ -11,6 +11,10 @@ export async function POST(request: NextRequest) {
     const whatsappPhone = (formData.get("whatsappPhone") as string || "").trim();
     const customerEmail = (formData.get("customerEmail") as string || "").trim();
     const garmentType = (formData.get("garmentType") as string || "oversized_tee").trim();
+    const garmentName = (formData.get("garmentName") as string || "").trim();
+    const garmentGsm = (formData.get("garmentGsm") as string || "").trim();
+    const unitPrice = (formData.get("unitPrice") as string || "").trim();
+    const totalEstimatedPrice = (formData.get("totalEstimatedPrice") as string || "").trim();
     const garmentColor = (formData.get("garmentColor") as string || "Jet Black").trim();
     const garmentSize = (formData.get("garmentSize") as string || "L").trim();
     const quantity = parseInt((formData.get("quantity") as string) || "1", 10) || 1;
@@ -51,7 +55,9 @@ export async function POST(request: NextRequest) {
       `📞 <b>WhatsApp / Phone:</b> +${formattedPhone}`,
       customerEmail ? `📧 <b>Email:</b> ${customerEmail}` : null,
       `─────────────────────────`,
-      `👕 <b>Garment Base:</b> ${garmentType.replace(/_/g, " ").toUpperCase()}`,
+      `👕 <b>Garment Base:</b> ${garmentName || garmentType.replace(/_/g, " ").toUpperCase()}${garmentGsm ? ` (${garmentGsm})` : ""}`,
+      unitPrice ? `💰 <b>Base Price:</b> ₹${unitPrice} per item` : null,
+      totalEstimatedPrice ? `💵 <b>Estimated Total:</b> ₹${totalEstimatedPrice} (${quantity} Pc${quantity > 1 ? "s" : ""})` : null,
       `🎨 <b>Garment Color:</b> ${garmentColor}`,
       `📏 <b>Target Size:</b> ${garmentSize}`,
       `📦 <b>Quantity:</b> ${quantity} Pc(s)`,
