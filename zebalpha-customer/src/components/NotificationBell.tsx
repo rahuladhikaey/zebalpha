@@ -17,44 +17,64 @@ export default function NotificationBell({ className, iconClassName }: Notificat
   const [hasNew, setHasNew] = useState(cachedHasNew);
 
   useEffect(() => {
-    async function checkNewProducts() {
+    async function checkNewAlerts() {
       const now = Date.now();
-      // Throttle repeated checks to once every 60 seconds across client route transitions
-      if (now - lastCheckedTimestamp < 60000) {
+      if (now - lastCheckedTimestamp < 30000) {
         setHasNew(cachedHasNew);
         return;
       }
       lastCheckedTimestamp = now;
 
-      try {
-        const { data } = await supabase
-          .from("products")
-          .select("created_at")
-          .order("created_at", { ascending: false })
-          .limit(1);
+      let isUnread = false;
 
-        if (data && data.length > 0) {
-          const latestCreatedAt = data[0].created_at;
-          const lastSeenAt = localStorage.getItem("last_seen_product_created_at");
-          if (!lastSeenAt || new Date(latestCreatedAt) > new Date(lastSeenAt)) {
-            setHasNew(true);
-            cachedHasNew = true;
-          } else {
-            setHasNew(false);
-            cachedHasNew = false;
+      // 1. Check latest broadcast message
+      try {
+        const { data: broadcastData } = await supabase
+          .from("store_settings")
+          .select("value")
+          .eq("key", "broadcast_messages")
+          .maybeSingle();
+
+        if (broadcastData?.value && Array.isArray(broadcastData.value) && broadcastData.value.length > 0) {
+          const latestMsg = broadcastData.value[0];
+          const lastSeenMsgAt = localStorage.getItem("last_seen_broadcast_at");
+          if (!lastSeenMsgAt || new Date(latestMsg.created_at) > new Date(lastSeenMsgAt)) {
+            isUnread = true;
           }
         }
-      } catch (err) {
-        console.warn("Notice checking new products for notification bell:", err);
+      } catch (_) {}
+
+      // 2. Check latest products if not already marked unread
+      if (!isUnread) {
+        try {
+          const { data } = await supabase
+            .from("products")
+            .select("created_at")
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          if (data && data.length > 0) {
+            const latestCreatedAt = data[0].created_at;
+            const lastSeenAt = localStorage.getItem("last_seen_product_created_at");
+            if (!lastSeenAt || new Date(latestCreatedAt) > new Date(lastSeenAt)) {
+              isUnread = true;
+            }
+          }
+        } catch (_) {}
       }
+
+      setHasNew(isUnread);
+      cachedHasNew = isUnread;
     }
-    checkNewProducts();
-    
+
+    checkNewAlerts();
+
+    // Listen to realtime products
     const channel = supabase
-      .channel('customer-new-products-bell')
+      .channel("customer-new-products-bell")
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'products' },
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "products" },
         () => {
           setHasNew(true);
           cachedHasNew = true;
@@ -62,8 +82,17 @@ export default function NotificationBell({ className, iconClassName }: Notificat
       )
       .subscribe();
 
+    // Listen to local window broadcast event
+    const handleBroadcastEvent = () => {
+      setHasNew(true);
+      cachedHasNew = true;
+    };
+
+    window.addEventListener("zebalpha:new-broadcast", handleBroadcastEvent);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener("zebalpha:new-broadcast", handleBroadcastEvent);
     };
   }, []);
 
@@ -71,7 +100,9 @@ export default function NotificationBell({ className, iconClassName }: Notificat
     setHasNew(false);
     cachedHasNew = false;
     try {
-      localStorage.setItem("last_seen_product_created_at", new Date().toISOString());
+      const nowIso = new Date().toISOString();
+      localStorage.setItem("last_seen_product_created_at", nowIso);
+      localStorage.setItem("last_seen_broadcast_at", nowIso);
     } catch (_) {}
   };
 
@@ -85,8 +116,8 @@ export default function NotificationBell({ className, iconClassName }: Notificat
       <Bell strokeWidth={2.2} className={iconClassName || "h-4 w-4"} />
       {hasNew && (
         <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
         </span>
       )}
     </Link>

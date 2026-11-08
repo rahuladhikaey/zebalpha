@@ -8,6 +8,8 @@ import { AndroidOnboardingManager } from "@/components/AndroidOnboardingManager"
 import { AndroidLanguageModal } from "@/components/AndroidLanguageModal";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { MobilePullToRefresh } from "@/components/MobilePullToRefresh";
+import { InAppBroadcastToast } from "@/components/InAppBroadcastToast";
+import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import dynamic from "next/dynamic";
 
 const ClientAssistant = dynamic(() => import("@/components/ClientAssistant"));
@@ -122,6 +124,8 @@ export default function RootLayout({
       <Providers>
         <NetworkStatusBanner />
         <MobilePullToRefresh />
+        <InAppBroadcastToast />
+        <NotificationPermissionPrompt />
         <div className="min-h-screen">
           {children}
         </div>

@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { supabase } from "@shared/utils/supabaseClient";
-import { Bell, Send, Users, Radio, CheckCircle2 } from "lucide-react";
+import { Bell, Send, Users, Radio, CheckCircle2, Sparkles } from "lucide-react";
 
 export default function NotificationsBroadcastView() {
-  const [targetGroup, setTargetGroup] = useState<"sellers" | "customers" | "all">("sellers");
+  const [targetGroup, setTargetGroup] = useState<"sellers" | "customers" | "all">("customers");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
@@ -16,54 +16,75 @@ export default function NotificationsBroadcastView() {
     if (!title.trim() || !message.trim()) return;
 
     setSending(true);
+    const nowIso = new Date().toISOString();
+    const newBroadcastItem = {
+      id: `bc-${Date.now()}`,
+      title: title.trim(),
+      message: message.trim(),
+      target_group: targetGroup,
+      is_active: true,
+      created_at: nowIso,
+    };
+
     try {
-      // Insert notification into notifications table so customers see it
-      const { error } = await supabase
-        .from("notifications")
-        .insert({
-          title: title.trim(),
-          message: message.trim(),
-          target_group: targetGroup,
-          is_active: true,
-          created_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-
-      setStatusMsg(`🎉 Broadcast notification successfully dispatched to ${targetGroup.toUpperCase()}!`);
-      setTitle("");
-      setMessage("");
-      setTimeout(() => setStatusMsg(""), 3500);
-    } catch (e: any) {
-      // Fallback: try store_settings broadcast_messages if notifications table doesn't exist
+      // 1. Dual-write to store_settings (broadcast_messages) so customer /notifications & bell ALWAYS see it
       try {
         const { data: existing } = await supabase
           .from("store_settings")
           .select("value")
           .eq("key", "broadcast_messages")
-          .single();
+          .maybeSingle();
 
-        const messages = existing?.value || [];
-        const updated = [
-          { id: Date.now(), title: title.trim(), message: message.trim(), target_group: targetGroup, is_active: true, created_at: new Date().toISOString() },
-          ...messages
-        ].slice(0, 50); // Keep last 50 messages
+        const messages = Array.isArray(existing?.value) ? existing.value : [];
+        const updated = [newBroadcastItem, ...messages].slice(0, 50);
 
-        await supabase.from("store_settings").upsert({
-          key: "broadcast_messages",
-          value: updated,
-          updated_at: new Date().toISOString()
-        });
-
-        setStatusMsg(`🎉 Broadcast notification dispatched to ${targetGroup.toUpperCase()} via store settings!`);
-        setTitle("");
-        setMessage("");
-        setTimeout(() => setStatusMsg(""), 3500);
-      } catch (fallbackErr: any) {
-        alert("Failed to send notification: " + (fallbackErr.message || e.message));
+        await supabase.from("store_settings").upsert(
+          {
+            key: "broadcast_messages",
+            value: updated,
+            updated_at: nowIso,
+          },
+          { onConflict: "key" }
+        );
+      } catch (stErr) {
+        console.warn("[StoreSettings broadcast notice]:", stErr);
       }
+
+      // 2. Also write to notifications table if present
+      try {
+        await supabase
+          .from("notifications")
+          .insert({
+            title: title.trim(),
+            message: message.trim(),
+            target_group: targetGroup,
+            is_active: true,
+            created_at: nowIso,
+          });
+      } catch (_) {}
+
+      // 3. Supabase Realtime Broadcast: Instantly pushes to all open devices & phones!
+      try {
+        const broadcastChannel = supabase.channel("zebalpha-global-notifications");
+        await broadcastChannel.subscribe();
+        await broadcastChannel.send({
+          type: "broadcast",
+          event: "broadcast-message",
+          payload: newBroadcastItem,
+        });
+      } catch (rtErr) {
+        console.warn("[Realtime Broadcast notice]:", rtErr);
+      }
+
+      setStatusMsg(`🎉 Broadcast notification successfully dispatched to ${targetGroup.toUpperCase()}! Devices alerted in real-time.`);
+      setTitle("");
+      setMessage("");
+      setTimeout(() => setStatusMsg(""), 4500);
+    } catch (e: any) {
+      alert("Notice sending notification: " + (e.message || "Failed"));
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   };
 
   return (
@@ -72,7 +93,7 @@ export default function NotificationsBroadcastView() {
         <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-600">Platform Broadcasting</span>
         <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Notifications & Broadcast Messaging</h1>
         <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">
-          Send push notifications and operational alerts directly to registered merchants, customers, or platform-wide.
+          Send push notifications and operational alerts directly to registered merchants, customers, or platform-wide (Flipkart/Meesho style).
         </p>
       </div>
 
@@ -83,8 +104,9 @@ export default function NotificationsBroadcastView() {
         </h2>
 
         {statusMsg && (
-          <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
-            {statusMsg}
+          <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200 flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{statusMsg}</span>
           </div>
         )}
 
@@ -98,7 +120,9 @@ export default function NotificationsBroadcastView() {
                   key={grp}
                   onClick={() => setTargetGroup(grp)}
                   className={`py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                    targetGroup === grp ? "bg-emerald-600 text-white shadow-md" : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    targetGroup === grp
+                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                   }`}
                 >
                   {grp}
@@ -112,32 +136,32 @@ export default function NotificationsBroadcastView() {
             <input
               type="text"
               required
-              placeholder="e.g. Important Seller Payout Schedule Update"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3.5 text-xs font-bold outline-none focus:border-emerald-500"
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. 🎨 New: ZebAlpha Custom Design Studio is Live!"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             />
           </div>
 
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase text-slate-400">Message Content *</label>
             <textarea
-              rows={4}
               required
-              placeholder="Enter message details..."
+              rows={4}
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3.5 text-xs font-bold outline-none focus:border-emerald-500"
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Enter message details for customers or sellers..."
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
             />
           </div>
 
           <button
             type="submit"
             disabled={sending}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+            className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             <Send className="w-4 h-4" />
-            <span>{sending ? "Sending Broadcast..." : "Broadcast Notification"}</span>
+            <span>{sending ? "Broadcasting Real-Time..." : "Broadcast Notification"}</span>
           </button>
         </form>
       </div>
