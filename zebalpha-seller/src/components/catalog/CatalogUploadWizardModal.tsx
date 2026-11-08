@@ -1124,15 +1124,25 @@ export default function CatalogUploadWizardModal({
         console.warn("Notice verifying seller record:", sellerErr);
       }
 
+      // Category detection for domain-clean specifications
+      const subcatText = `${form.subcategory_name || ""} ${form.category_id || ""}`.toLowerCase();
+      const titleText = `${form.name || ""}`.toLowerCase();
+      const combinedCatText = `${subcatText} ${titleText}`;
+
+      const isFootwearCategory =
+        /\b(footwear|shoes?|sneakers?|crocs?|clogs?|sandals?|slippers?|slides?|chappal|loafers?|boots?|flip[\s-]?flops?)\b/i.test(
+          combinedCatText
+        );
+
+      const isBottomwearCategory =
+        /\b(jeans?|pants?|trousers?|cargos?|shorts?|joggers?|trackpants?|leggings?)\b/i.test(
+          combinedCatText
+        );
+
       // Specifications JSON payload
-      const specificationsData = {
+      const baseSpecs: Record<string, any> = {
         ...(form.custom_attributes || {}),
-        fabric: form.fabric,
         pattern: form.pattern,
-        fit_type: form.fit_type,
-        sleeve_type: form.sleeve_type,
-        neck_type: form.neck_type,
-        care_instructions: form.care_instructions,
         target_gender: form.target_gender,
         weight_grams: form.weight_grams,
         country_of_origin: form.country_of_origin || "India",
@@ -1163,6 +1173,28 @@ export default function CatalogUploadWizardModal({
         target_drop_date: form.target_drop_date,
         tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
       };
+
+      if (isFootwearCategory) {
+        // Footwear specific specifications (never dump cotton, sleeve, or neck types)
+        baseSpecs.care_instructions =
+          form.care_instructions && !form.care_instructions.toLowerCase().includes("machine wash")
+            ? form.care_instructions
+            : "Wipe with a clean, dry cloth";
+      } else if (isBottomwearCategory) {
+        // Bottomwear specific specifications (no sleeve or neck types)
+        baseSpecs.fabric = form.fabric;
+        baseSpecs.fit_type = form.fit_type;
+        baseSpecs.care_instructions = form.care_instructions;
+      } else {
+        // Standard Topwear / Apparel specifications
+        baseSpecs.fabric = form.fabric;
+        baseSpecs.fit_type = form.fit_type;
+        baseSpecs.sleeve_type = form.sleeve_type;
+        baseSpecs.neck_type = form.neck_type;
+        baseSpecs.care_instructions = form.care_instructions;
+      }
+
+      const specificationsData = baseSpecs;
 
       // Save size measurements if enabled
       if (form.is_measurements_enabled && form.size_measurements && form.size_measurements.length > 0) {

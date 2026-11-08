@@ -221,9 +221,9 @@ export const DYNAMIC_CATEGORY_CATALOG: MainCategoryConfig[] = [
             sizeChartColumns: ["UK/IND Size", "EU Size", "Foot Length (cm)"],
             sizeChartNotes: "Follow standard Indian / UK shoe measurement scale.",
             attributes: [
-              { id: "upper_material", name: "upper_material", label: "Upper Material", type: "select", required: true, options: ["Genuine Leather", "Synthetic Leather (PU)", "Breathable Mesh", "Canvas", "Suede"] },
-              { id: "sole_material", name: "sole_material", label: "Sole Material", type: "select", required: true, options: ["Rubber Sole", "EVA Foam", "Air Cushion TPR", "Phylon"] },
-              { id: "closure_type", name: "closure_type", label: "Closure", type: "select", options: ["Lace-Up", "Slip-On", "Velcro Straps"] },
+              { id: "upper_material", name: "upper_material", label: "Upper Material", type: "select", required: true, options: ["Genuine Leather", "Synthetic Leather (PU)", "Breathable Mesh", "Canvas", "Suede", "EVA / Croslite Foam Resin"] },
+              { id: "sole_material", name: "sole_material", label: "Sole Material", type: "select", required: true, options: ["Rubber Sole", "EVA Foam", "Air Cushion TPR", "Phylon", "Croslite / EVA Resin"] },
+              { id: "closure_type", name: "closure_type", label: "Closure", type: "select", options: ["Lace-Up", "Slip-On", "Velcro Straps", "Backstrap / Clog Strap"] },
               { id: "water_resistant", name: "water_resistant", label: "Water Resistance", type: "select", options: ["No", "Water Resistant", "Fully Waterproof"] },
             ],
           },
@@ -694,7 +694,19 @@ export function resolveProductTypeConfig(
   if (subLower.includes("jean") || subLower.includes("denim") || subLower.includes("pant") || subLower.includes("trouser")) {
     return resolveProductTypeConfig("men", "", "jeans_men");
   }
-  if (subLower.includes("shoe") || subLower.includes("sneaker") || subLower.includes("footwear")) {
+  if (
+    subLower.includes("shoe") ||
+    subLower.includes("sneaker") ||
+    subLower.includes("footwear") ||
+    subLower.includes("croc") ||
+    subLower.includes("clog") ||
+    subLower.includes("sandal") ||
+    subLower.includes("slipper") ||
+    subLower.includes("slide") ||
+    subLower.includes("chappal") ||
+    subLower.includes("boot") ||
+    subLower.includes("loafer")
+  ) {
     return resolveProductTypeConfig("men", "", "shoes_men");
   }
   if (subLower.includes("earphone") || subLower.includes("headphone") || subLower.includes("earbud") || subLower.includes("audio")) {

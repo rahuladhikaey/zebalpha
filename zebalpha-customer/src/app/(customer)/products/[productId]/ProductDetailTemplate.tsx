@@ -222,9 +222,24 @@ export default function ProductDetailTemplate({
     "sku",
     "weight_grams",
     "volumetric_weight",
+    "volumetricweight",
+    "billable_weight",
+    "billableweight",
     "weight",
     "package_weight",
+    "packageweight",
     "shipping_weight",
+    "shippingweight",
+    "package_length",
+    "packagelength",
+    "package_width",
+    "packagewidth",
+    "package_height",
+    "packageheight",
+    "package_dimensions",
+    "packagedimensions",
+    "estimated_shipping_fee",
+    "shipping_fee",
     "custom_attributes",
     "maincategory",
     "subcategory",
@@ -242,6 +257,7 @@ export default function ProductDetailTemplate({
     "default_color",
     "main_color",
     "dimensions",
+    "unit",
     "gsm",
   ]), []);
 
@@ -274,12 +290,51 @@ export default function ProductDetailTemplate({
     top_type: "Top Type",
     dress_type: "Dress Type",
     closure: "Closure",
+    closure_type: "Closure",
+    fastening: "Fastening",
+    upper_material: "Upper Material",
+    sole_material: "Sole Material",
+    toe_shape: "Toe Shape",
+    water_resistant: "Water Resistance",
+    insole: "Insole",
+    ankle_height: "Ankle Height",
+    cushioning: "Cushioning",
+    heel_height: "Heel Height",
     lining: "Lining",
     surface_styling: "Ornamentation",
     ornamentation: "Ornamentation",
     multipack_set: "Multipack",
     net_quantity: "Net Quantity",
   }), []);
+
+  // Category classification for clean domain-specific specifications
+  const isFootwear = useMemo(() => {
+    const textToCheck = [
+      product.name || "",
+      product.category || "",
+      product.category_name || "",
+      (product.specifications as any)?.subcategory || "",
+      (product.specifications as any)?.category || "",
+      (product.specifications as any)?.product_type || "",
+      (product.specifications as any)?.upper_material || "",
+      (product.specifications as any)?.sole_material || "",
+    ].join(" ").toLowerCase();
+
+    return /\b(footwear|shoes?|sneakers?|crocs?|clogs?|sandals?|slippers?|slides?|chappal|loafers?|boots?|flip[\s-]?flops?|heels?|flats?)\b/i.test(textToCheck);
+  }, [product]);
+
+  const isBottomwear = useMemo(() => {
+    const textToCheck = [
+      product.name || "",
+      product.category || "",
+      product.category_name || "",
+      (product.specifications as any)?.subcategory || "",
+      (product.specifications as any)?.category || "",
+      (product.specifications as any)?.product_type || "",
+    ].join(" ").toLowerCase();
+
+    return /\b(jeans?|pants?|trousers?|cargos?|shorts?|joggers?|trackpants?|leggings?|pyjamas?|boxers?|briefs?)\b/i.test(textToCheck);
+  }, [product]);
 
   const sanitizedSpecs = useMemo(() => {
     if (!product.specifications || typeof product.specifications !== "object") return [];
@@ -288,19 +343,25 @@ export default function ProductDetailTemplate({
     const results: Array<{ key: string; label: string; value: string }> = [];
     const seenLabels = new Set<string>();
 
+    // Check if footwear already has a specific material field
+    const hasFootwearMaterial = Boolean(
+      (product.specifications as any)?.upper_material ||
+      (product.specifications as any)?.material
+    );
+
     for (const [rawKey, rawVal] of entries) {
       if (!rawVal || typeof rawVal !== "string") continue;
-      const valStr = rawVal.trim();
+      let valStr = rawVal.trim();
       if (!valStr || valStr === "null" || valStr === "undefined") continue;
 
       const normalizedKey = rawKey.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-      // 1. Strict blacklist check
+      // 1. Strict blacklist check (courier, shipping, margins, internal codes)
       if (SENSITIVE_SPEC_KEYS.has(rawKey.toLowerCase()) || SENSITIVE_SPEC_KEYS.has(normalizedKey)) {
         continue;
       }
 
-      // 2. Heuristic check to prevent any leak of seller warehouse / pricing data
+      // 2. Heuristic check to prevent any leak of seller warehouse / logistics / pricing data
       if (
         normalizedKey.includes("packer") ||
         normalizedKey.includes("manufacturer") ||
@@ -313,13 +374,70 @@ export default function ProductDetailTemplate({
         normalizedKey.includes("stylecode") ||
         normalizedKey.includes("weightgram") ||
         normalizedKey.includes("volumetric") ||
+        normalizedKey.includes("billableweight") ||
+        normalizedKey.includes("packagelength") ||
+        normalizedKey.includes("packagewidth") ||
+        normalizedKey.includes("packageheight") ||
+        normalizedKey.includes("packagedimension") ||
+        normalizedKey.includes("shippingfee") ||
         normalizedKey.includes("pincode") ||
         normalizedKey.includes("selleraddress")
       ) {
         continue;
       }
 
-      // 3. Resolve customer-friendly label
+      // 3. Category-Aware Filtering: Never show apparel attributes on footwear
+      if (isFootwear) {
+        const isApparelExclusiveKey =
+          normalizedKey.includes("neck") ||
+          normalizedKey.includes("collar") ||
+          normalizedKey.includes("sleeve") ||
+          normalizedKey.includes("sleevelength") ||
+          normalizedKey.includes("kurtitype") ||
+          normalizedKey.includes("toptype") ||
+          normalizedKey.includes("dresstype") ||
+          normalizedKey.includes("weavetype") ||
+          normalizedKey.includes("hemline") ||
+          normalizedKey.includes("transparency") ||
+          normalizedKey.includes("fittype") ||
+          normalizedKey === "fit";
+
+        if (isApparelExclusiveKey) {
+          continue;
+        }
+
+        // For footwear, "fabric: 100% Pure Cotton" is a catalog upload default bug
+        if (normalizedKey === "fabric") {
+          if (hasFootwearMaterial || valStr.toLowerCase().includes("cotton")) {
+            continue;
+          }
+        }
+
+        // For footwear care, don't show "Machine Wash Cold"
+        if (normalizedKey.includes("care") || normalizedKey.includes("wash")) {
+          if (valStr.toLowerCase().includes("machine wash") || valStr.toLowerCase().includes("wash cold")) {
+            valStr = "Wipe with a clean, dry cloth";
+          }
+        }
+      }
+
+      // 4. Category-Aware Filtering: Never show neck/sleeve attributes on bottomwear
+      if (isBottomwear) {
+        const isUpperBodyExclusive =
+          normalizedKey.includes("neck") ||
+          normalizedKey.includes("collar") ||
+          normalizedKey.includes("sleeve") ||
+          normalizedKey.includes("sleevelength") ||
+          normalizedKey.includes("kurtitype") ||
+          normalizedKey.includes("toptype") ||
+          normalizedKey.includes("dresstype");
+
+        if (isUpperBodyExclusive) {
+          continue;
+        }
+      }
+
+      // 5. Resolve customer-friendly label
       const label =
         CUSTOMER_FRIENDLY_SPEC_LABELS[rawKey.toLowerCase()] ||
         CUSTOMER_FRIENDLY_SPEC_LABELS[normalizedKey] ||
@@ -338,7 +456,7 @@ export default function ProductDetailTemplate({
     }
 
     return results;
-  }, [product.specifications, SENSITIVE_SPEC_KEYS, CUSTOMER_FRIENDLY_SPEC_LABELS]);
+  }, [product.specifications, SENSITIVE_SPEC_KEYS, CUSTOMER_FRIENDLY_SPEC_LABELS, isFootwear, isBottomwear]);
 
   const cleanSellerName = useMemo(() => {
     const raw = product.seller_name || product.business_name || product.brand || "ZebAlpha Official Store";

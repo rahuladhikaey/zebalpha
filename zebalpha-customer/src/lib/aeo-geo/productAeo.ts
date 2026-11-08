@@ -115,17 +115,36 @@ export function extractProductAeoData(product: any): ProductAeoData {
   const inStock = totalStock > 0 || (product.stock && Number(product.stock) > 0);
 
   // 2. Factual Attribute Resolution from live database specifications
-  const material = specs.fabric || specs.material || "100% Combed Cotton";
-  const fitType = specs.fit_type || specs.fit || "Relaxed Modern Fit";
-  const neckType = specs.neck_type || specs.collar || undefined;
-  const sleeveType = specs.sleeve_type || specs.sleeves || undefined;
+  const isFootwear = /\b(footwear|shoes?|sneakers?|crocs?|clogs?|sandals?|slippers?|slides?|chappal|loafers?|boots?|flip[\s-]?flops?)\b/i.test(
+    `${product.name || ""} ${product.category_name || ""} ${specs.category || ""} ${specs.subcategory || ""}`
+  );
+  const isBottomwear = !isFootwear && /\b(jeans?|pants?|trousers?|cargos?|shorts?|joggers?|trackpants?|leggings?)\b/i.test(
+    `${product.name || ""} ${product.category_name || ""} ${specs.category || ""} ${specs.subcategory || ""}`
+  );
+
+  const material = isFootwear
+    ? (specs.upper_material || specs.material || "Premium EVA / Croslite Foam Resin")
+    : (specs.fabric || specs.material || "100% Combed Cotton");
+
+  const fitType = isFootwear
+    ? (specs.fit_type || specs.fit || "Standard Fit")
+    : (specs.fit_type || specs.fit || "Relaxed Modern Fit");
+
+  const neckType = (isFootwear || isBottomwear) ? undefined : (specs.neck_type || specs.collar || undefined);
+  const sleeveType = (isFootwear || isBottomwear) ? undefined : (specs.sleeve_type || specs.sleeves || undefined);
   const pattern = specs.pattern || undefined;
-  const careInstructions = specs.care_instructions || "Machine wash cold with like colors. Do not bleach. Tumble dry low or line dry in shade. Warm iron inside out.";
-  const gsm = specs.gsm || (material.toLowerCase().includes("oversized") ? "240 GSM" : "220 GSM");
+
+  const careInstructions = isFootwear
+    ? (specs.care_instructions && !specs.care_instructions.toLowerCase().includes("machine wash")
+        ? specs.care_instructions
+        : "Wipe with a clean damp cloth or soft sponge with mild soap. Air dry in shade away from direct sunlight.")
+    : (specs.care_instructions || "Machine wash cold with like colors. Do not bleach. Tumble dry low or line dry in shade. Warm iron inside out.");
+
+  const gsm = isFootwear ? undefined : (specs.gsm || (material.toLowerCase().includes("oversized") ? "240 GSM" : "220 GSM"));
   const countryOfOrigin = specs.country_of_origin || "India";
 
   const brand = (product.brand || ZEBALPHA_BRAND_ENTITY.brand).trim();
-  const categoryName = product.category_name || specs.category || "Apparel";
+  const categoryName = product.category_name || specs.category || (isFootwear ? "Footwear" : isBottomwear ? "Bottomwear" : "Apparel");
   const categorySlug = categoryName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const rawSeller = product.seller_name || product.business_name || product.brand || ZEBALPHA_BRAND_ENTITY.name;
   const sellerName = rawSeller.replace(/\b(warehouse|godown)\b/gi, "Store").trim();
@@ -138,14 +157,21 @@ export function extractProductAeoData(product: any): ProductAeoData {
   const sizesText = sizesList.length > 0 ? sizesList.join(", ") : "Standard";
   const priceDisplay = minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice} - ₹${maxPrice}`;
 
-  const shortDirectAnswer = `${product.name} by ${brand} is crafted from ${material} with a comfortable ${fitType}${neckType ? `, ${neckType}` : ""}${sleeveType ? `, and ${sleeveType}` : ""}. Available in sizes ${sizesText} at ${priceDisplay} with express delivery across India.`;
+  const shortDirectAnswer = isFootwear
+    ? `${product.name} by ${brand} is crafted from ${material} with durable construction and ergonomic comfort. Available in sizes ${sizesText} at ${priceDisplay} with express delivery across India.`
+    : `${product.name} by ${brand} is crafted from ${material} with a comfortable ${fitType}${neckType ? `, ${neckType}` : ""}${sleeveType ? `, and ${sleeveType}` : ""}. Available in sizes ${sizesText} at ${priceDisplay} with express delivery across India.`;
 
   // 4. Dynamic FAQs based STRICTLY on real product data & marketplace policies (Clean consumer questions)
+  const materialFaqQuestion = isFootwear ? `What material is used in this footwear?` : `What fabric and material is used in this item?`;
+  const materialFaqAnswer = isFootwear
+    ? `This pair is crafted from high-grade ${material} engineered for flexibility, lightweight shock absorption, and all-day wearability.`
+    : `This item is crafted from genuine ${material} with a ${fitType}. It is breathable, soft on skin, and designed for long-lasting everyday comfort.`;
+
   const faqs: FaqItem[] = [
     {
-      question: `What fabric and material is used in this garment?`,
-      answer: `This item is crafted from genuine ${material} with a ${fitType}. It is breathable, soft on skin, and designed for long-lasting everyday comfort.`,
-      category: "Material & Fabric"
+      question: materialFaqQuestion,
+      answer: materialFaqAnswer,
+      category: isFootwear ? "Materials & Build" : "Material & Fabric"
     },
     {
       question: `How do I choose the right size and fit?`,
