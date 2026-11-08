@@ -81,15 +81,56 @@ export default function CustomizePage() {
       });
   }, []);
 
+  // Dynamic categories extracted automatically from all active admin vault presets
+  const dynamicCategories = useMemo(() => {
+    const catMap = new Map<string, string>([
+      ["all", "All Artworks"],
+      ["genz", "⚡ Gen-Z & Cyberpunk"],
+      ["anime", "🎌 Anime & Manga"],
+      ["bengali", "🎨 Bengali Typography & Folk"],
+      ["streetwear", "🔥 Streetwear Graphics"],
+      ["minimal", "✦ Minimalist Badges"],
+    ]);
+
+    presetVault.forEach((p) => {
+      if (p.category && !catMap.has(p.category)) {
+        catMap.set(p.category, p.category.charAt(0).toUpperCase() + p.category.slice(1));
+      }
+    });
+
+    return Array.from(catMap.entries()).map(([id, label]) => ({ id, label }));
+  }, [presetVault]);
+
   // Filtered preset designs
   const filteredPresets = useMemo(() => {
     if (selectedCategory === "all") return presetVault;
     return presetVault.filter((d) => d.category === selectedCategory);
   }, [selectedCategory, presetVault]);
 
+  // Keep active preset in sync with category selection
+  useEffect(() => {
+    if (filteredPresets.length > 0 && !filteredPresets.some((p) => p.id === activePreset?.id)) {
+      setActivePreset(filteredPresets[0]);
+    }
+  }, [filteredPresets, activePreset]);
+
   // Real-time Pricing Calculations
   const unitPrice = selectedBase?.basePrice || 799;
   const estimatedTotal = unitPrice * quantity;
+
+  // Dynamic available sizes based on selected garment base
+  const currentAvailableSizes = useMemo(() => {
+    if (selectedBase?.availableSizes && selectedBase.availableSizes.length > 0) {
+      return selectedBase.availableSizes;
+    }
+    return ["S", "M", "L", "XL", "XXL", "3XL"];
+  }, [selectedBase]);
+
+  useEffect(() => {
+    if (currentAvailableSizes.length > 0 && !currentAvailableSizes.includes(selectedSize)) {
+      setSelectedSize(currentAvailableSizes[0]);
+    }
+  }, [currentAvailableSizes, selectedSize]);
 
   // Custom upload state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -390,7 +431,7 @@ export default function CustomizePage() {
                 <div className="space-y-3 animate-in fade-in duration-200">
                   {/* Category Pills */}
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                    {PRESET_CATEGORIES.map((cat) => (
+                    {dynamicCategories.map((cat) => (
                       <button
                         key={cat.id}
                         type="button"
@@ -570,7 +611,7 @@ export default function CustomizePage() {
                     Target Size:
                   </label>
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {["S", "M", "L", "XL", "XXL", "3XL", "Free Size"].map((sz) => (
+                    {currentAvailableSizes.map((sz) => (
                       <button
                         key={sz}
                         type="button"

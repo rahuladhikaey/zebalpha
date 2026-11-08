@@ -65,11 +65,13 @@ export default function CustomStudioAdminView() {
   const [newBasePrice, setNewBasePrice] = useState<number>(799);
   const [newBaseBadge, setNewBaseBadge] = useState("NEW");
   const [newBaseDesc, setNewBaseDesc] = useState("");
+  const [newBaseSizes, setNewBaseSizes] = useState("S, M, L, XL, XXL");
 
   // New Artwork Form State
   const [showAddPresetModal, setShowAddPresetModal] = useState(false);
   const [newPresetTitle, setNewPresetTitle] = useState("");
   const [newPresetCategory, setNewPresetCategory] = useState("genz");
+  const [customCategoryInput, setCustomCategoryInput] = useState("");
   const [newPresetColor, setNewPresetColor] = useState("Jet Black");
   const [newPresetPlacement, setNewPresetPlacement] = useState("front_chest");
   const [newPresetDesc, setNewPresetDesc] = useState("");
@@ -264,10 +266,15 @@ export default function CustomStudioAdminView() {
         // Fallback to data URL if offline/unconfigured
       }
 
+      const finalCategory =
+        newPresetCategory === "custom" && customCategoryInput.trim()
+          ? customCategoryInput.trim().toLowerCase().replace(/\s+/g, "-")
+          : newPresetCategory;
+
       const newPreset: PresetDesignConfig = {
         id: `preset-${Date.now()}`,
         title: newPresetTitle.trim(),
-        category: newPresetCategory,
+        category: finalCategory,
         imageUrl: finalImageUrl,
         fileSizeKb: compressedSizeKb || 19.5,
         recommendedGarmentColor: newPresetColor,
@@ -316,6 +323,11 @@ export default function CustomStudioAdminView() {
       return;
     }
 
+    const parsedSizes = newBaseSizes
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     const newBase: ApparelBaseConfig = {
       id: `apparel_${Date.now()}`,
       name: newBaseName.trim(),
@@ -323,7 +335,7 @@ export default function CustomStudioAdminView() {
       basePrice: Number(newBasePrice),
       badge: newBaseBadge.trim() || "NEW",
       description: newBaseDesc.trim() || `${newBaseGsm} heavyweight construction.`,
-      availableSizes: ["S", "M", "L", "XL", "XXL"],
+      availableSizes: parsedSizes.length > 0 ? parsedSizes : ["S", "M", "L", "XL", "XXL"],
       isActive: true,
     };
 
@@ -739,6 +751,17 @@ export default function CustomStudioAdminView() {
               </div>
 
               <div>
+                <label className="text-[11px] font-bold text-zinc-300 block mb-1">Available Sizes (comma-separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. S, M, L, XL, XXL or Standard"
+                  value={newBaseSizes}
+                  onChange={(e) => setNewBaseSizes(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-white text-xs focus:border-emerald-400 focus:outline-none"
+                />
+              </div>
+
+              <div>
                 <label className="text-[11px] font-bold text-zinc-300 block mb-1">Description</label>
                 <textarea
                   rows={2}
@@ -884,7 +907,18 @@ export default function CustomStudioAdminView() {
                     <option value="bengali">🎨 Bengali Typography</option>
                     <option value="streetwear">🔥 Streetwear Graphics</option>
                     <option value="minimal">✦ Minimalist Badges</option>
+                    <option value="custom">➕ + Custom Category...</option>
                   </select>
+                  {newPresetCategory === "custom" && (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Type custom category..."
+                      value={customCategoryInput}
+                      onChange={(e) => setCustomCategoryInput(e.target.value)}
+                      className="mt-2 w-full px-3 py-1.5 rounded-lg bg-zinc-800 border border-emerald-400 text-white text-xs focus:outline-none"
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -962,3 +996,4 @@ export default function CustomStudioAdminView() {
     </div>
   );
 }
+
