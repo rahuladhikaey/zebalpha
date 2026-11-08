@@ -84,7 +84,8 @@ export async function POST(request: NextRequest) {
 
     // 3. Read Telegram Credentials with Production Fail-Safe Fallbacks
     const DEFAULT_TELEGRAM_BOT_TOKEN = "9121248586:AAFURzRsuwkYzdnEeQBu6BaWAuavwV3rfMM";
-    const DEFAULT_TELEGRAM_CHAT_ID = "8787523327";
+    // Zebalpha production🤝 Telegram Supergroup Chat ID
+    const DEFAULT_TELEGRAM_CHAT_ID = "-1004487850740";
 
     const botToken =
       process.env.TELEGRAM_BOT_TOKEN ||
