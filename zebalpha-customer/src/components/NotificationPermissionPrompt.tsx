@@ -74,7 +74,15 @@ export function NotificationPermissionPrompt() {
   const handleRequestPermission = async () => {
     if (typeof window === "undefined") return;
 
-    // 1. If Native Android App
+    // 1. If Native Android App with JavaScript Bridge
+    const win = window as any;
+    if (win.ZebAlphaNative?.requestPermission) {
+      win.ZebAlphaNative.requestPermission();
+      setShowPrompt(false);
+      return;
+    }
+
+    // 1b. If Native Android App with Capacitor
     if (isNativeApp()) {
       const cap = (window as any).Capacitor;
       const PushNotifications = cap?.Plugins?.PushNotifications;

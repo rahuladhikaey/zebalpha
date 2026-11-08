@@ -26,6 +26,15 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.webkit.JavascriptInterface;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -329,17 +338,22 @@ public class MainActivity extends BridgeActivity {
         // 1. Setup offline error overlay view
         setupOfflineOverlay();
 
-        // 2. Attach custom BridgeWebViewClient to ensure main-frame vs subresource isolation
+        // 2. Attach custom BridgeWebViewClient & Native JavaScript Bridge
         try {
             Bridge bridge = getBridge();
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.setWebViewClient(new ZebAlphaWebViewClient(bridge));
+                bridge.getWebView().addJavascriptInterface(new ZebAlphaNativeInterface(), "ZebAlphaNative");
             }
         } catch (Exception e) {
             Log.e(TAG, "Error installing custom ZebAlphaWebViewClient", e);
         }
 
-        // 3. Custom User-Agent header for Android App identification
+        // 3. Register Notification Channel & System Permissions
+        createNotificationChannel();
+        checkAndRequestNotificationPermission();
+
+        // 4. Custom User-Agent header for Android App identification
         try {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 WebSettings settings = getBridge().getWebView().getSettings();
@@ -368,6 +382,106 @@ public class MainActivity extends BridgeActivity {
 
         // 6. Back navigation handling
         setupBackNavigation();
+    }
+
+    public static final String NOTIFICATION_CHANNEL_ID = "zebalpha_alerts_channel";
+    public static final String NOTIFICATION_CHANNEL_NAME = "ZebAlpha Drops & Orders";
+    private static final int PERMISSION_REQUEST_CODE_NOTIF = 2001;
+
+    /**
+     * Creates the Android Notification Channel required by Android 8.0+ (Oreo through Android 15).
+     * Enables system notification toggles, sound, vibration, and lockscreen presentation.
+     */
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                NOTIFICATION_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("VIP drops, flash discounts, and custom print proofs alerts");
+            channel.enableLights(true);
+            channel.enableVibration(true);
+            channel.setShowBadge(true);
+            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+                Log.i(TAG, "NotificationChannel created: " + NOTIFICATION_CHANNEL_ID);
+            }
+        }
+    }
+
+    /**
+     * Checks and requests runtime notification permission on Android 13+ (API 33+).
+     */
+    private void checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST_CODE_NOTIF);
+            }
+        }
+    }
+
+    /**
+     * JavaScript Bridge Interface allowing the web app to trigger real native Android System Notifications.
+     */
+    public class ZebAlphaNativeInterface {
+
+        @JavascriptInterface
+        public void showNotification(String title, String message, String url) {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(MainActivity.this, MainActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    if (url != null && !url.trim().isEmpty()) {
+                        intent.putExtra("target_url", url);
+                    }
+
+                    int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        flags |= PendingIntent.FLAG_IMMUTABLE;
+                    }
+
+                    PendingIntent pendingIntent = PendingIntent.getActivity(
+                        MainActivity.this,
+                        (int) System.currentTimeMillis(),
+                        intent,
+                        flags
+                    );
+
+                    NotificationCompat.Builder builder = new NotificationCompat.Builder(MainActivity.this, NOTIFICATION_CHANNEL_ID)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle(title)
+                        .setContentText(message)
+                        .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setDefaults(NotificationCompat.DEFAULT_ALL)
+                        .setAutoCancel(true)
+                        .setContentIntent(pendingIntent);
+
+                    NotificationManagerCompat manager = NotificationManagerCompat.from(MainActivity.this);
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                        ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                        manager.notify((int) System.currentTimeMillis(), builder.build());
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error displaying native notification", e);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void requestPermission() {
+            runOnUiThread(() -> checkAndRequestNotificationPermission());
+        }
+
+        @JavascriptInterface
+        public boolean isNotificationEnabled() {
+            NotificationManagerCompat manager = NotificationManagerCompat.from(MainActivity.this);
+            return manager.areNotificationsEnabled();
+        }
     }
 
     private void setupOfflineOverlay() {

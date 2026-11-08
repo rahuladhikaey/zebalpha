@@ -31,36 +31,45 @@ export function InAppBroadcastToast() {
       } catch (_) {}
     }
 
-    // 2. Dispatch to Phone's Native Notification Shade (Lock screen / Status bar)
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-      try {
-        if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.ready.then((reg) => {
-            (reg as any).showNotification(payload.title, {
-              body: payload.message,
-              icon: "/official-logo-sm.png",
-              badge: "/official-logo-sm.png",
-              image: payload.image_url || undefined,
-              tag: `broadcast-${payload.id}`,
-              renotify: true,
-              data: {
-                url: payload.action_url || "/notifications",
-              },
+    // 2. Dispatch to Phone's Native Notification Shade (Android Native App or Web Notification)
+    if (typeof window !== "undefined") {
+      const win = window as any;
+      if (win.ZebAlphaNative?.showNotification) {
+        try {
+          win.ZebAlphaNative.showNotification(payload.title, payload.message, payload.action_url || "/notifications");
+        } catch (nativeErr) {
+          console.warn("[Native Android Notification Error]:", nativeErr);
+        }
+      } else if ("Notification" in window && Notification.permission === "granted") {
+        try {
+          if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.ready.then((reg) => {
+              (reg as any).showNotification(payload.title, {
+                body: payload.message,
+                icon: "/official-logo-sm.png",
+                badge: "/official-logo-sm.png",
+                image: payload.image_url || undefined,
+                tag: `broadcast-${payload.id}`,
+                renotify: true,
+                data: {
+                  url: payload.action_url || "/notifications",
+                },
+              });
+            }).catch(() => {
+              new Notification(payload.title, {
+                body: payload.message,
+                icon: "/official-logo-sm.png",
+              });
             });
-          }).catch(() => {
+          } else {
             new Notification(payload.title, {
               body: payload.message,
               icon: "/official-logo-sm.png",
             });
-          });
-        } else {
-          new Notification(payload.title, {
-            body: payload.message,
-            icon: "/official-logo-sm.png",
-          });
+          }
+        } catch (err) {
+          console.warn("[System Notification Notice]:", err);
         }
-      } catch (err) {
-        console.warn("[System Notification Notice]:", err);
       }
     }
 
