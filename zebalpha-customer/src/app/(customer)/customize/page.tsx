@@ -41,12 +41,12 @@ import {
 
 export default function CustomizePage() {
   // Mode selection: 'upload' (customer file) | 'vault' (admin presets)
-  const [designMode, setDesignMode] = useState<"upload" | "vault">("vault");
+  const [designMode, setDesignMode] = useState<"upload" | "vault">("upload");
 
   // Dynamic Catalog Configs (Admin Controlled)
   const [apparelBases, setApparelBases] = useState<ApparelBaseConfig[]>(DEFAULT_APPAREL_BASES);
   const [selectedBase, setSelectedBase] = useState<ApparelBaseConfig>(DEFAULT_APPAREL_BASES[0]);
-  const [presetVault, setPresetVault] = useState<PresetDesign[]>(ADMIN_PRESET_DESIGNS);
+  const [presetVault, setPresetVault] = useState<PresetDesign[]>([]);
 
   // Garment base settings
   const [selectedGarment, setSelectedGarment] = useState<GarmentType>("oversized_tee");
@@ -57,7 +57,7 @@ export default function CustomizePage() {
 
   // Vault preset selection
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [activePreset, setActivePreset] = useState<PresetDesign>(ADMIN_PRESET_DESIGNS[0]);
+  const [activePreset, setActivePreset] = useState<PresetDesign | null>(null);
 
   // Load Admin configurations (GSM, Pricing, 20KB WebP Artwork) on mount
   useEffect(() => {
@@ -73,6 +73,11 @@ export default function CustomizePage() {
           if (Array.isArray(json.data.presets) && json.data.presets.length > 0) {
             setPresetVault(json.data.presets);
             setActivePreset(json.data.presets[0]);
+            setDesignMode("vault");
+          } else {
+            setPresetVault([]);
+            setActivePreset(null);
+            setDesignMode("upload");
           }
         }
       })
@@ -448,38 +453,55 @@ export default function CustomizePage() {
                   </div>
 
                   {/* Preset Graphics Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-[260px] overflow-y-auto pr-1 no-scrollbar">
-                    {filteredPresets.map((preset) => {
-                      const isSelected = activePreset?.id === preset.id;
-                      return (
-                        <div
-                          key={preset.id}
-                          onClick={() => setActivePreset(preset)}
-                          className={`group relative rounded-xl bg-neutral-950 border p-2 flex flex-col items-center cursor-pointer transition-all ${
-                            isSelected
-                              ? "border-emerald-400 ring-2 ring-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-neutral-900"
-                              : "border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900"
-                          }`}
-                        >
-                          <div className="w-full aspect-square rounded-lg bg-neutral-900 overflow-hidden mb-1.5 flex items-center justify-center p-1.5">
-                            <img
-                              src={preset.imageUrl}
-                              alt={preset.title}
-                              className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-300"
-                            />
-                          </div>
-                          <span className="text-[10px] font-bold text-neutral-300 group-hover:text-white truncate max-w-full text-center">
-                            {preset.title}
-                          </span>
-                          {isSelected && (
-                            <div className="absolute top-1 right-1 h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center text-black text-[9px] font-black">
-                              ✓
+                  {filteredPresets.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-black border border-dashed border-neutral-800 text-center space-y-2">
+                      <Sparkles className="w-5 h-5 text-emerald-400 mx-auto" />
+                      <p className="text-xs font-bold text-neutral-300">No artwork presets found</p>
+                      <p className="text-[10px] text-neutral-500">
+                        Switch to &quot;Upload My Own&quot; to print your custom graphics.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setDesignMode("upload")}
+                        className="mt-1 px-4 py-1.5 rounded-full bg-emerald-400 text-black text-[10px] font-black uppercase tracking-wider cursor-pointer"
+                      >
+                        Upload Custom Graphic
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-[260px] overflow-y-auto pr-1 no-scrollbar">
+                      {filteredPresets.map((preset) => {
+                        const isSelected = activePreset?.id === preset.id;
+                        return (
+                          <div
+                            key={preset.id}
+                            onClick={() => setActivePreset(preset)}
+                            className={`group relative rounded-xl bg-neutral-950 border p-2 flex flex-col items-center cursor-pointer transition-all ${
+                              isSelected
+                                ? "border-emerald-400 ring-2 ring-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-neutral-900"
+                                : "border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900"
+                            }`}
+                          >
+                            <div className="w-full aspect-square rounded-lg bg-neutral-900 overflow-hidden mb-1.5 flex items-center justify-center p-1.5">
+                              <img
+                                src={preset.imageUrl}
+                                alt={preset.title}
+                                className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-300"
+                              />
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                            <span className="text-[10px] font-bold text-neutral-300 group-hover:text-white truncate max-w-full text-center">
+                              {preset.title}
+                            </span>
+                            {isSelected && (
+                              <div className="absolute top-1 right-1 h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center text-black text-[9px] font-black">
+                                ✓
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

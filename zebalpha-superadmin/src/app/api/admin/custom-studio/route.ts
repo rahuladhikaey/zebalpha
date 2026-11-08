@@ -71,80 +71,7 @@ export const DEFAULT_APPAREL_BASES: ApparelBaseConfig[] = [
   },
 ];
 
-export const DEFAULT_PRESET_DESIGNS: PresetDesignConfig[] = [
-  {
-    id: "genz-01",
-    title: "NEO TOKYO 2099",
-    category: "genz",
-    imageUrl: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=80",
-    fileSizeKb: 18.5,
-    recommendedGarmentColor: "Jet Black",
-    placement: "front_chest",
-    description: "Cyberpunk dystopian glowing aesthetic typography with glitch accents.",
-    tags: ["Cyberpunk", "Neon", "Glitch", "Streetwear"],
-    isActive: true,
-  },
-  {
-    id: "bengali-01",
-    title: "কলকাতা মেলোডি (Kolkata Melody)",
-    category: "bengali",
-    imageUrl: "https://images.unsplash.com/photo-1582560475093-ba66accbc424?w=800&auto=format&fit=crop&q=80",
-    fileSizeKb: 19.2,
-    recommendedGarmentColor: "Vintage Beige",
-    placement: "front_chest",
-    description: "Traditional Bengali calligraphy blended with vintage yellow taxi and street art.",
-    tags: ["Bangla", "Kolkata", "Art", "Culture"],
-    isActive: true,
-  },
-  {
-    id: "anime-01",
-    title: "DEMON SLAYER BLADE",
-    category: "anime",
-    imageUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80",
-    fileSizeKb: 17.8,
-    recommendedGarmentColor: "Jet Black",
-    placement: "front_chest",
-    description: "High-contrast Japanese manga flame warrior katana illustration.",
-    tags: ["Anime", "Manga", "Japanese", "Warrior"],
-    isActive: true,
-  },
-  {
-    id: "streetwear-01",
-    title: "OVERTHINKING CLUB",
-    category: "streetwear",
-    imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80",
-    fileSizeKb: 16.4,
-    recommendedGarmentColor: "Off-White",
-    placement: "front_chest",
-    description: "Modern raw acid-wash typography design with distressed grunge texturing.",
-    tags: ["Streetwear", "Minimal", "Acid Wash"],
-    isActive: true,
-  },
-  {
-    id: "bengali-02",
-    title: "একলা চলো রে (Ekla Cholo Re)",
-    category: "bengali",
-    imageUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80",
-    fileSizeKb: 18.9,
-    recommendedGarmentColor: "Forest Green",
-    placement: "front_chest",
-    description: "Iconic Rabindranath Tagore inspired lyrical calligraphy in gold & white.",
-    tags: ["Bangla", "Poetry", "Tagore", "Calligraphy"],
-    isActive: true,
-  },
-  {
-    id: "anime-02",
-    title: "CYBER MECHA EVANGELION",
-    category: "anime",
-    imageUrl: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&auto=format&fit=crop&q=80",
-    fileSizeKb: 19.5,
-    recommendedGarmentColor: "Royal Navy",
-    placement: "full_front",
-    description: "Futuristic mecha robot portrait with purple & green neon vector accents.",
-    tags: ["Mecha", "Anime", "Sci-Fi", "Vector"],
-    isActive: true,
-  },
-];
+export const DEFAULT_PRESET_DESIGNS: PresetDesignConfig[] = [];
 
 // GET /api/admin/custom-studio
 export async function GET(req: Request) {
@@ -157,18 +84,18 @@ export async function GET(req: Request) {
       .select("setting_key, setting_value")
       .in("setting_key", ["custom_design_presets", "custom_design_apparel_bases"]);
 
-    let presets: PresetDesignConfig[] = DEFAULT_PRESET_DESIGNS;
+    let presets: PresetDesignConfig[] = [];
     let apparelBases: ApparelBaseConfig[] = DEFAULT_APPAREL_BASES;
 
     if (settings && Array.isArray(settings)) {
       for (const row of settings) {
-        if (row.setting_key === "custom_design_presets" && row.setting_value) {
+        if (row.setting_key === "custom_design_presets" && row.setting_value !== undefined && row.setting_value !== null) {
           try {
             const parsed = typeof row.setting_value === "string" ? JSON.parse(row.setting_value) : row.setting_value;
-            if (Array.isArray(parsed) && parsed.length > 0) presets = parsed;
+            if (Array.isArray(parsed)) presets = parsed;
           } catch (_) {}
         }
-        if (row.setting_key === "custom_design_apparel_bases" && row.setting_value) {
+        if (row.setting_key === "custom_design_apparel_bases" && row.setting_value !== undefined && row.setting_value !== null) {
           try {
             const parsed = typeof row.setting_value === "string" ? JSON.parse(row.setting_value) : row.setting_value;
             if (Array.isArray(parsed) && parsed.length > 0) apparelBases = parsed;
@@ -205,7 +132,7 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
     const upserts: any[] = [];
 
-    if (action === "update_presets" || presets) {
+    if (action === "update_presets" || presets !== undefined) {
       if (!Array.isArray(presets)) {
         return NextResponse.json({ success: false, message: "Presets must be an array." }, { status: 400 });
       }

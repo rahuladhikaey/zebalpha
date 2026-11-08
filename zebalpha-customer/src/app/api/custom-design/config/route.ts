@@ -21,10 +21,10 @@ export async function GET() {
 
     if (!error && settings && Array.isArray(settings)) {
       for (const row of settings) {
-        if (row.setting_key === "custom_design_presets" && row.setting_value) {
+        if (row.setting_key === "custom_design_presets" && row.setting_value !== undefined && row.setting_value !== null) {
           try {
             const parsed = typeof row.setting_value === "string" ? JSON.parse(row.setting_value) : row.setting_value;
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
               presets = parsed.filter((p: any) => p.isActive !== false);
             }
           } catch (_) {}

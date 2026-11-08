@@ -356,17 +356,66 @@ export default function CustomStudioAdminView() {
     setTimeout(() => setSuccessMessage(null), 5000);
   };
 
-  // Toggle Preset Active
-  const togglePresetActive = (id: string) => {
-    setPresets((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
-    );
+  // Toggle Preset Active (Instantly Saved to Database)
+  const togglePresetActive = async (id: string) => {
+    const updated = presets.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p));
+    setPresets(updated);
+    try {
+      await fetch("/api/admin/custom-studio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presets: updated }),
+      });
+    } catch (err) {
+      console.warn("Notice updating preset status:", err);
+    }
   };
 
-  // Delete Preset
-  const deletePreset = (id: string) => {
+  // Delete Preset (Instantly Saved to Database)
+  const deletePreset = async (id: string) => {
     if (!confirm("Are you sure you want to remove this artwork preset?")) return;
-    setPresets((prev) => prev.filter((p) => p.id !== id));
+    const updated = presets.filter((p) => p.id !== id);
+    setPresets(updated);
+
+    try {
+      const res = await fetch("/api/admin/custom-studio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presets: updated }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setSuccessMessage("Artwork preset deleted permanently from database.");
+        setTimeout(() => setSuccessMessage(null), 3500);
+      } else {
+        setErrorMessage(json.message || "Failed to persist deletion.");
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Network error deleting preset.");
+    }
+  };
+
+  // Delete All Presets / Wipe Vault (Instantly Saved to Database)
+  const deleteAllPresets = async () => {
+    if (!confirm("Are you sure you want to delete ALL artwork presets from the vault? This cannot be undone.")) return;
+    setPresets([]);
+
+    try {
+      const res = await fetch("/api/admin/custom-studio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presets: [] }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setSuccessMessage("All artwork presets successfully deleted. Vault is completely clean.");
+        setTimeout(() => setSuccessMessage(null), 4000);
+      } else {
+        setErrorMessage(json.message || "Failed to clear presets.");
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Network error clearing presets.");
+    }
   };
 
   // Update Base Price / GSM inline
@@ -376,14 +425,25 @@ export default function CustomStudioAdminView() {
     );
   };
 
-  // Delete Apparel Base
-  const deleteBase = (id: string) => {
+  // Delete Apparel Base (Instantly Saved to Database)
+  const deleteBase = async (id: string) => {
     if (apparelBases.length <= 1) {
       alert("At least one apparel base must remain active.");
       return;
     }
     if (!confirm("Are you sure you want to remove this apparel base?")) return;
-    setApparelBases((prev) => prev.filter((b) => b.id !== id));
+    const updated = apparelBases.filter((b) => b.id !== id);
+    setApparelBases(updated);
+
+    try {
+      await fetch("/api/admin/custom-studio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apparelBases: updated }),
+      });
+      setSuccessMessage("Apparel base removed and saved.");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (_) {}
   };
 
   if (loading) {
@@ -603,7 +663,7 @@ export default function CustomStudioAdminView() {
       {/* TAB 2: DESIGN VAULT PRESETS (STRICTLY <= 20 KB WEBP) */}
       {activeSubTab === "presets" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-black text-white uppercase tracking-wider">
                 Admin Curated Artwork Vault
@@ -612,69 +672,100 @@ export default function CustomStudioAdminView() {
                 All uploaded artwork is dynamically optimized into <strong className="text-emerald-400">≤ 20 KB pure WebP</strong> for zero-lag mobile loading.
               </p>
             </div>
-            <button
-              onClick={() => setShowAddPresetModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-emerald-500/20"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Upload New Artwork (20KB WebP)</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-            {presets.map((preset) => (
-              <div
-                key={preset.id}
-                className="group p-3 rounded-2xl bg-zinc-950 border border-zinc-800 hover:border-emerald-500/50 flex flex-col justify-between transition-all shadow-xl relative"
+            <div className="flex items-center gap-2">
+              {presets.length > 0 && (
+                <button
+                  onClick={deleteAllPresets}
+                  className="px-3.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold text-xs uppercase flex items-center gap-1.5 transition cursor-pointer border border-rose-500/20"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete All ({presets.length})</span>
+                </button>
+              )}
+              <button
+                onClick={() => setShowAddPresetModal(true)}
+                className="px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-emerald-500/20"
               >
-                <div className="w-full aspect-square rounded-xl bg-zinc-900 overflow-hidden mb-2 relative flex items-center justify-center p-2">
-                  <img
-                    src={preset.imageUrl}
-                    alt={preset.title}
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                  />
-                  <div className="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-mono font-bold text-emerald-400 border border-emerald-500/30">
-                    {preset.fileSizeKb ? `${preset.fileSizeKb} KB` : "≤ 20 KB"}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black uppercase text-zinc-400 truncate">
-                      {preset.category}
-                    </span>
-                    <button
-                      onClick={() => deletePreset(preset.id)}
-                      className="text-zinc-600 hover:text-rose-400 p-0.5 cursor-pointer"
-                      title="Remove"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <h4 className="text-xs font-bold text-white truncate" title={preset.title}>
-                    {preset.title}
-                  </h4>
-                  <p className="text-[10px] text-zinc-500 truncate">{preset.recommendedGarmentColor}</p>
-                </div>
-
-                <div className="mt-3 pt-2 border-t border-zinc-850 flex items-center justify-between">
-                  <button
-                    onClick={() => togglePresetActive(preset.id)}
-                    className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full cursor-pointer ${
-                      preset.isActive
-                        ? "bg-emerald-500/20 text-emerald-400"
-                        : "bg-zinc-800 text-zinc-500"
-                    }`}
-                  >
-                    {preset.isActive ? "Active" : "Disabled"}
-                  </button>
-                  <span className="text-[9px] font-mono text-zinc-500 uppercase">
-                    {preset.placement.replace("_", " ")}
-                  </span>
-                </div>
-              </div>
-            ))}
+                <Plus className="w-4 h-4" />
+                <span>Upload New Artwork (20KB WebP)</span>
+              </button>
+            </div>
           </div>
+
+          {presets.length === 0 ? (
+            <div className="p-12 rounded-3xl bg-zinc-950 border border-dashed border-zinc-800 text-center space-y-3">
+              <div className="h-12 w-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mx-auto">
+                <Sparkles className="w-6 h-6 text-emerald-400" />
+              </div>
+              <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                Artwork Vault is Clean
+              </h4>
+              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                All sample presets have been removed. Click &quot;Upload New Artwork&quot; to add your real production designs in strictly ≤ 20 KB WebP format.
+              </p>
+              <button
+                onClick={() => setShowAddPresetModal(true)}
+                className="mt-2 px-5 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase tracking-wider cursor-pointer"
+              >
+                + Upload First Artwork
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+              {presets.map((preset) => (
+                <div
+                  key={preset.id}
+                  className="group p-3 rounded-2xl bg-zinc-950 border border-zinc-800 hover:border-emerald-500/50 flex flex-col justify-between transition-all shadow-xl relative"
+                >
+                  <div className="w-full aspect-square rounded-xl bg-zinc-900 overflow-hidden mb-2 relative flex items-center justify-center p-2">
+                    <img
+                      src={preset.imageUrl}
+                      alt={preset.title}
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                    />
+                    <div className="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-mono font-bold text-emerald-400 border border-emerald-500/30">
+                      {preset.fileSizeKb ? `${preset.fileSizeKb} KB` : "≤ 20 KB"}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase text-zinc-400 truncate">
+                        {preset.category}
+                      </span>
+                      <button
+                        onClick={() => deletePreset(preset.id)}
+                        className="text-zinc-600 hover:text-rose-400 p-0.5 cursor-pointer"
+                        title="Remove"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <h4 className="text-xs font-bold text-white truncate" title={preset.title}>
+                      {preset.title}
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 truncate">{preset.recommendedGarmentColor}</p>
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-zinc-850 flex items-center justify-between">
+                    <button
+                      onClick={() => togglePresetActive(preset.id)}
+                      className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full cursor-pointer ${
+                        preset.isActive
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-zinc-800 text-zinc-500"
+                      }`}
+                    >
+                      {preset.isActive ? "Active" : "Disabled"}
+                    </button>
+                    <span className="text-[9px] font-mono text-zinc-500 uppercase">
+                      {preset.placement.replace("_", " ")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
