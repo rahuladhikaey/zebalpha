@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
 import { Bell, Sparkles, X, ArrowRight } from "lucide-react";
 
 interface BroadcastPayload {
@@ -12,80 +11,120 @@ interface BroadcastPayload {
   image_url?: string;
   action_url?: string;
   target_group?: string;
+  created_at?: string;
 }
 
 export function InAppBroadcastToast() {
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastPayload | null>(null);
+  const lastProcessedIdRef = useRef<string | null>(null);
+
+  const displayNotification = useCallback((payload: BroadcastPayload) => {
+    // Target check
+    if (payload.target_group === "sellers") return;
+
+    setActiveBroadcast(payload);
+
+    // 1. Phone / Native Vibration
+    if (typeof window !== "undefined" && "vibrate" in navigator) {
+      try {
+        navigator.vibrate([150, 70, 150]);
+      } catch (_) {}
+    }
+
+    // 2. Dispatch to Phone's Native Notification Shade (Lock screen / Status bar)
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      try {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.ready.then((reg) => {
+            (reg as any).showNotification(payload.title, {
+              body: payload.message,
+              icon: "/official-logo-sm.png",
+              badge: "/official-logo-sm.png",
+              image: payload.image_url || undefined,
+              tag: `broadcast-${payload.id}`,
+              renotify: true,
+              data: {
+                url: payload.action_url || "/notifications",
+              },
+            });
+          }).catch(() => {
+            new Notification(payload.title, {
+              body: payload.message,
+              icon: "/official-logo-sm.png",
+            });
+          });
+        } else {
+          new Notification(payload.title, {
+            body: payload.message,
+            icon: "/official-logo-sm.png",
+          });
+        }
+      } catch (err) {
+        console.warn("[System Notification Notice]:", err);
+      }
+    }
+
+    // 3. Notify header NotificationBell to blink
+    window.dispatchEvent(new CustomEvent("zebalpha:new-broadcast"));
+  }, []);
+
+  const checkLatestBroadcast = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications/latest", {
+        cache: "no-store",
+      });
+      const data = await res.json();
+
+      if (data.success && data.latest?.id) {
+        const latestId = String(data.latest.id);
+        const storedLastSeenId = localStorage.getItem("last_seen_broadcast_id");
+
+        // First visit initialization: mark current latest as seen so we don't spam old notifications
+        if (!storedLastSeenId && !lastProcessedIdRef.current) {
+          localStorage.setItem("last_seen_broadcast_id", latestId);
+          lastProcessedIdRef.current = latestId;
+          return;
+        }
+
+        // New broadcast detected!
+        if (latestId !== storedLastSeenId && latestId !== lastProcessedIdRef.current) {
+          lastProcessedIdRef.current = latestId;
+          localStorage.setItem("last_seen_broadcast_id", latestId);
+          displayNotification(data.latest);
+        }
+      }
+    } catch (_) {}
+  }, [displayNotification]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // 1. Supabase Realtime Broadcast Channel Listener
-    const channel = supabase
-      .channel("zebalpha-global-notifications")
-      .on(
-        "broadcast",
-        { event: "broadcast-message" },
-        (response) => {
-          const payload = response.payload as BroadcastPayload;
-          if (!payload?.title) return;
+    // Initial check
+    checkLatestBroadcast();
 
-          // Target check
-          if (payload.target_group === "sellers") return; // Customer app ignores seller-only alerts
+    // Check on tab focus / visibility change (e.g. user unlocks phone or switches back to tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        checkLatestBroadcast();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
-          // Trigger in-app toast
-          setActiveBroadcast(payload);
-
-          // Trigger Haptic Vibration
-          if ("vibrate" in navigator) {
-            try {
-              navigator.vibrate([150, 60, 150]);
-            } catch (_) {}
-          }
-
-          // Trigger Phone / Native System Notification if permission is granted
-          try {
-            if ("Notification" in window && Notification.permission === "granted") {
-              if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.ready.then((reg) => {
-                  (reg as any).showNotification(payload.title, {
-                    body: payload.message,
-                    icon: "/official-logo-sm.png",
-                    badge: "/official-logo-sm.png",
-                    image: payload.image_url || undefined,
-                    data: {
-                      url: payload.action_url || "/notifications",
-                    },
-                  });
-                });
-              } else {
-                new Notification(payload.title, {
-                  body: payload.message,
-                  icon: "/official-logo-sm.png",
-                });
-              }
-            }
-          } catch (e) {
-            console.warn("Native notification dispatch notice:", e);
-          }
-
-          // Dispatch window event for NotificationBell update
-          window.dispatchEvent(new CustomEvent("zebalpha:new-broadcast"));
-        }
-      )
-      .subscribe();
+    // Active polling interval (checks every 7 seconds for instant alert delivery)
+    const interval = setInterval(checkLatestBroadcast, 7000);
 
     return () => {
-      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(interval);
     };
-  }, []);
+  }, [checkLatestBroadcast]);
 
   // Auto-dismiss in-app toast after 8 seconds
   useEffect(() => {
     if (!activeBroadcast) return;
     const timer = setTimeout(() => {
       setActiveBroadcast(null);
-    }, 8000);
+    }, 8500);
     return () => clearTimeout(timer);
   }, [activeBroadcast]);
 
@@ -128,14 +167,14 @@ export function InAppBroadcastToast() {
               <Link
                 href={activeBroadcast.action_url || "/notifications"}
                 onClick={() => setActiveBroadcast(null)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-[11px] uppercase tracking-wider transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-[11px] uppercase tracking-wider transition-all cursor-pointer"
               >
                 <span>View Details</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
               <button
                 onClick={() => setActiveBroadcast(null)}
-                className="px-2.5 py-1.5 text-zinc-400 hover:text-white font-medium text-xs transition-colors"
+                className="px-2.5 py-1.5 text-zinc-400 hover:text-white font-medium text-xs transition-colors cursor-pointer"
               >
                 Dismiss
               </button>
@@ -145,7 +184,7 @@ export function InAppBroadcastToast() {
           {/* Close X */}
           <button
             onClick={() => setActiveBroadcast(null)}
-            className="text-zinc-500 hover:text-zinc-300 p-1 -mr-1 -mt-1 transition-colors"
+            className="text-zinc-500 hover:text-zinc-300 p-1 -mr-1 -mt-1 transition-colors cursor-pointer"
             aria-label="Close"
           >
             <X className="w-4 h-4" />

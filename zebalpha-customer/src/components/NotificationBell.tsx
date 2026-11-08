@@ -27,18 +27,13 @@ export default function NotificationBell({ className, iconClassName }: Notificat
 
       let isUnread = false;
 
-      // 1. Check latest broadcast message
+      // 1. Check latest broadcast message via fast resilient API
       try {
-        const { data: broadcastData } = await supabase
-          .from("store_settings")
-          .select("value")
-          .eq("key", "broadcast_messages")
-          .maybeSingle();
-
-        if (broadcastData?.value && Array.isArray(broadcastData.value) && broadcastData.value.length > 0) {
-          const latestMsg = broadcastData.value[0];
-          const lastSeenMsgAt = localStorage.getItem("last_seen_broadcast_at");
-          if (!lastSeenMsgAt || new Date(latestMsg.created_at) > new Date(lastSeenMsgAt)) {
+        const res = await fetch("/api/notifications/latest", { cache: "no-store" });
+        const json = await res.json();
+        if (json.success && json.latest?.id) {
+          const lastSeenId = localStorage.getItem("last_seen_broadcast_id");
+          if (!lastSeenId || String(json.latest.id) !== lastSeenId) {
             isUnread = true;
           }
         }

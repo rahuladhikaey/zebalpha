@@ -45,15 +45,18 @@ export default function NotificationsPage() {
           .from("store_settings")
           .select("value")
           .eq("key", "broadcast_messages")
-          .single();
+          .maybeSingle();
 
         if (msgData?.value && Array.isArray(msgData.value)) {
           // Filter to only customer/all target messages
-          setAdminMessages(
-            msgData.value.filter(
-              (m: any) => m.target_group === "customers" || m.target_group === "all"
-            )
+          const filtered = msgData.value.filter(
+            (m: any) => m.target_group === "customers" || m.target_group === "all"
           );
+          setAdminMessages(filtered);
+
+          if (filtered.length > 0) {
+            localStorage.setItem("last_seen_broadcast_id", String(filtered[0].id));
+          }
         }
       } catch (err) {
         // Ignore if no broadcast messages exist yet
