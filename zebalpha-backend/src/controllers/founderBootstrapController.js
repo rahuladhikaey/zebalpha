@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { supabaseA } from '../lib/supabase.js';
 import { HTTP_STATUS } from '../constants/index.js';
-import logger from '../utils/logger.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Check Founder Bootstrap Initialization Status (Public/Auth-Safe)
