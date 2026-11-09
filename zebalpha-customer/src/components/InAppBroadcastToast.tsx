@@ -88,10 +88,18 @@ export function InAppBroadcastToast() {
         const latestId = String(data.latest.id);
         const storedLastSeenId = localStorage.getItem("last_seen_broadcast_id");
 
-        // First visit initialization: mark current latest as seen so we don't spam old notifications
+        // Check if broadcast is fresh (created within the last 24 hours)
+        const isFresh = data.latest.created_at
+          ? (Date.now() - new Date(data.latest.created_at).getTime()) < 24 * 60 * 60 * 1000
+          : true;
+
+        // First visit: if the latest broadcast is fresh, display it so new/re-opened sessions don't miss it!
         if (!storedLastSeenId && !lastProcessedIdRef.current) {
           localStorage.setItem("last_seen_broadcast_id", latestId);
           lastProcessedIdRef.current = latestId;
+          if (isFresh) {
+            displayNotification(data.latest);
+          }
           return;
         }
 

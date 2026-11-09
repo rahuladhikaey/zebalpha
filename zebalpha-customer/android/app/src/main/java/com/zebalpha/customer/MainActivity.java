@@ -30,6 +30,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.provider.Settings;
+import android.net.Uri;
 import android.content.pm.PackageManager;
 import android.webkit.JavascriptInterface;
 import androidx.core.app.NotificationCompat;
@@ -481,6 +483,26 @@ public class MainActivity extends BridgeActivity {
         public boolean isNotificationEnabled() {
             NotificationManagerCompat manager = NotificationManagerCompat.from(MainActivity.this);
             return manager.areNotificationsEnabled();
+        }
+
+        @JavascriptInterface
+        public void openNotificationSettings() {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent();
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        intent.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+                    } else {
+                        intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        intent.setData(Uri.parse("package:" + getPackageName()));
+                    }
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to open notification settings", e);
+                }
+            });
         }
     }
 

@@ -76,8 +76,15 @@ export function NotificationPermissionPrompt() {
 
     // 1. If Native Android App with JavaScript Bridge
     const win = window as any;
-    if (win.ZebAlphaNative?.requestPermission) {
-      win.ZebAlphaNative.requestPermission();
+    if (win.ZebAlphaNative) {
+      if (typeof win.ZebAlphaNative.isNotificationEnabled === "function" && !win.ZebAlphaNative.isNotificationEnabled()) {
+        if (typeof win.ZebAlphaNative.openNotificationSettings === "function") {
+          win.ZebAlphaNative.openNotificationSettings();
+        }
+      }
+      if (typeof win.ZebAlphaNative.requestPermission === "function") {
+        win.ZebAlphaNative.requestPermission();
+      }
       setShowPrompt(false);
       return;
     }

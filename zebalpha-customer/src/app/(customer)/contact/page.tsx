@@ -105,10 +105,18 @@ export default function ContactPage() {
                 <div className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 flex flex-col gap-5 sm:flex-row sm:items-center">
                   <div className="flex-1">
                     <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white">Instagram</p>
-                    <p className="mt-2 text-sm leading-6 text-zinc-400">Scan or click to connect and see our latest updates!</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">Scan or click to connect and see our latest drops &amp; updates!</p>
+                    <a
+                      href="https://www.instagram.com/zebalpha_official?psln=MW5jZHU3YjF0M2x3eg=="
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-pink-400 hover:text-pink-300 transition-colors"
+                    >
+                      @zebalpha_official
+                    </a>
                   </div>
                   <a
-                    href="https://www.instagram.com/"
+                    href="https://www.instagram.com/zebalpha_official?psln=MW5jZHU3YjF0M2x3eg=="
                     target="_blank"
                     rel="noopener noreferrer"
                     className="shrink-0 block p-2 bg-white rounded-2xl shadow-xl border border-zinc-800 transition-transform hover:scale-105"
