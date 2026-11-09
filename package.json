@@ -7,17 +7,23 @@
     "zebalpha-seller",
     "zebalpha-superadmin",
     "zebalpha-backend",
+    "media-panel",
+    "operations-panel",
     "shared"
   ],
   "scripts": {
-    "build": "npm run build:customer && npm run build:seller && npm run build:admin",
+    "build": "npm run build:customer && npm run build:seller && npm run build:admin && npm run build:media && npm run build:ops",
     "dev": "npm --prefix zebalpha-customer run dev",
     "dev:customer": "npm --prefix zebalpha-customer run dev",
     "dev:seller": "npm --prefix zebalpha-seller run dev",
     "dev:admin": "npm --prefix zebalpha-superadmin run dev",
+    "dev:media": "npm --prefix media-panel run dev",
+    "dev:ops": "npm --prefix operations-panel run dev",
     "build:customer": "npm --prefix zebalpha-customer run build",
     "build:seller": "npm --prefix zebalpha-seller run build",
-    "build:admin": "npm --prefix zebalpha-superadmin run build"
+    "build:admin": "npm --prefix zebalpha-superadmin run build",
+    "build:media": "npm --prefix media-panel run build",
+    "build:ops": "npm --prefix operations-panel run build"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

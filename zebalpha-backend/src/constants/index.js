@@ -11,5 +11,12 @@ export const HTTP_STATUS = {
 export const ROLES = {
   CUSTOMER: 'customer',
   SELLER: 'seller',
-  SUPER_ADMIN: 'super_admin'
+  SUPER_ADMIN: 'super_admin',
+  OWNER: 'OWNER',
+  MEDIA_ADMIN: 'Media Admin',
+  OPERATIONS_MANAGER: 'Operations Manager',
+  HR_MANAGER: 'HR Manager',
+  CUSTOMER_SUPPORT_MANAGER: 'Customer Support Manager',
+  SELLER_SUPPORT_MANAGER: 'Seller Support Manager',
+  SUPPORT_EXECUTIVE: 'Support Executive'
 };

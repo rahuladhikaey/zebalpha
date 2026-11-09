@@ -58,10 +58,33 @@ export const authenticateJWT = async (req, res, next) => {
           }
         } catch (_) {}
 
+        // Check if user possesses enterprise app memberships
+        let memberships = [];
+        try {
+          const { data: memRecords } = await supabaseA
+            .from('user_app_memberships')
+            .select('app_name, role, custom_permissions')
+            .eq('user_id', data.user.id)
+            .eq('is_active', true);
+
+          if (memRecords && memRecords.length > 0) {
+            memberships = memRecords;
+            const ownerMem = memRecords.find(m => m.role === 'OWNER' && (m.app_name === 'all' || m.app_name === 'superadmin'));
+            if (ownerMem) {
+              role = 'OWNER';
+            } else if (memRecords.some(m => m.app_name === 'superadmin' && m.role === 'SUPER_ADMIN')) {
+              role = 'super_admin';
+            } else {
+              role = memRecords[0].role;
+            }
+          }
+        } catch (_) {}
+
         req.user = {
           id: data.user.id,
           email: data.user.email,
           role: role,
+          memberships: memberships,
           user_metadata: data.user.user_metadata
         };
         return next();
@@ -100,6 +123,51 @@ export const requireRole = (allowedRoles = []) => {
         success: false,
         error: 'Forbidden: Insufficient role permissions for this resource'
       });
+    }
+
+    next();
+  };
+};
+
+/**
+ * Enterprise Application-Scoped RBAC Middleware
+ * Validates that req.user has an active membership in the target app with allowed roles
+ */
+export const requireAppMembership = (appName, allowedRoles = []) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    const memberships = req.user.memberships || [];
+    
+    // Enterprise Owner across 'all' apps always has root bypass
+    const isGlobalOwner = memberships.some(m => m.app_name === 'all' && m.role === 'OWNER');
+    if (isGlobalOwner) {
+      return next();
+    }
+
+    // Check specific application scope
+    const appMembership = memberships.find(m => m.app_name === appName || m.app_name === 'all');
+    if (!appMembership) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: `Forbidden: No authorized access to the ${appName} application domain`
+      });
+    }
+
+    if (allowedRoles.length > 0) {
+      const normalizedAllowed = allowedRoles.map(r => r.toLowerCase());
+      const userRole = (appMembership.role || '').toLowerCase();
+      if (!normalizedAllowed.includes(userRole)) {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
+          success: false,
+          error: `Forbidden: Role ${appMembership.role} is not permitted for this operation in ${appName}`
+        });
+      }
     }
 
     next();

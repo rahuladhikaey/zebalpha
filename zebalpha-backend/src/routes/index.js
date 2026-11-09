@@ -19,11 +19,13 @@ import pickupAddressRoutes from './pickupAddressRoutes.js';
 import financeConfigRoutes from './financeConfigRoutes.js';
 import cacheRoutes from './cacheRoutes.js';
 import payoutAccountRoutes from './payoutAccountRoutes.js';
+import founderRoutes from './founderRoutes.js';
 
 const router = Router();
 
 router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
+router.use('/founder', founderRoutes);
 router.use('/products', productRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
