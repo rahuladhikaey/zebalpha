@@ -163,10 +163,21 @@ END;
 $$;
 
 -- ------------------------------------------------------------------------------
--- 3. RESTORE BASELINE TABLE PRIVILEGES
+-- 3. RESTORE BASELINE TABLE & FUNCTION PRIVILEGES
 -- ------------------------------------------------------------------------------
 GRANT SELECT ON TABLE public.enterprise_audit_logs TO authenticated;
 GRANT SELECT ON TABLE public.employee_invitations TO authenticated;
+
+-- Restore Baseline schema_migrations state (pre-remediation baseline)
+DROP POLICY IF EXISTS "Service role manages schema_migrations" ON public.schema_migrations;
+ALTER TABLE public.schema_migrations DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.schema_migrations TO PUBLIC, anon, authenticated;
+
+-- Restore default execution privileges on baseline functions
+GRANT EXECUTE ON FUNCTION public.prevent_bootstrap_vault_tamper() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.prevent_bootstrap_vault_deletion() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.validate_support_ticket_mutation() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.prevent_audit_log_mutation() TO PUBLIC;
 
 -- ------------------------------------------------------------------------------
 -- 4. RESTORE BASELINE RLS POLICIES

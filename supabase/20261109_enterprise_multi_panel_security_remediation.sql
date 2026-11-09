@@ -12,6 +12,11 @@
 BEGIN;
 
 -- ------------------------------------------------------------------------------
+-- PRE-MIGRATION EXCLUSIVE CONCURRENCY TRANSACTION LOCK
+-- ------------------------------------------------------------------------------
+SELECT pg_advisory_xact_lock(hashtextextended('20261109_enterprise_multi_panel_security_remediation', 0));
+
+-- ------------------------------------------------------------------------------
 -- 0. SCHEMA MIGRATION TRACKING
 -- ------------------------------------------------------------------------------
 INSERT INTO public.schema_migrations (version, description)
@@ -474,8 +479,36 @@ BEFORE TRUNCATE ON public.notification_delivery_audit_logs
 FOR EACH STATEMENT EXECUTE FUNCTION public.prevent_audit_log_mutation();
 
 -- ------------------------------------------------------------------------------
+-- 6.1 HARDEN TRIGGER FUNCTIONS (REVOKE DIRECT INVOCATION FROM UNTRUSTED ROLES)
+-- ------------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.prevent_bootstrap_vault_tamper() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prevent_bootstrap_vault_deletion() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.validate_employee_profile_mutation() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.validate_support_ticket_mutation() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prevent_audit_log_mutation() FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.prevent_bootstrap_vault_tamper() TO service_role;
+GRANT EXECUTE ON FUNCTION public.prevent_bootstrap_vault_deletion() TO service_role;
+GRANT EXECUTE ON FUNCTION public.validate_employee_profile_mutation() TO service_role;
+GRANT EXECUTE ON FUNCTION public.validate_support_ticket_mutation() TO service_role;
+GRANT EXECUTE ON FUNCTION public.prevent_audit_log_mutation() TO service_role;
+
+-- ------------------------------------------------------------------------------
 -- 7. LEAST-PRIVILEGE DATABASE TABLE PRIVILEGES (REVOKE & SELECTIVE GRANT)
 -- ------------------------------------------------------------------------------
+
+-- 7.0 Harden Schema Migrations Registry Table
+ALTER TABLE public.schema_migrations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.schema_migrations FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.schema_migrations TO service_role;
+
+DROP POLICY IF EXISTS "Public view schema_migrations" ON public.schema_migrations;
+DROP POLICY IF EXISTS "Authenticated view schema_migrations" ON public.schema_migrations;
+DROP POLICY IF EXISTS "Service role manages schema_migrations" ON public.schema_migrations;
+CREATE POLICY "Service role manages schema_migrations" ON public.schema_migrations
+FOR ALL TO service_role
+USING (TRUE)
+WITH CHECK (TRUE);
 
 -- 7.1 Revoke ALL from public and anon on all 16 tables
 REVOKE ALL ON TABLE public.departments FROM public, anon;
@@ -517,6 +550,7 @@ GRANT ALL ON TABLE public.enterprise_audit_logs TO service_role;
 GRANT SELECT ON TABLE public.departments TO authenticated, anon;
 GRANT SELECT, UPDATE ON TABLE public.employee_profiles TO authenticated;
 GRANT SELECT ON TABLE public.user_app_memberships TO authenticated;
+GRANT SELECT ON TABLE public.employee_invitations TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.media_campaigns TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.creative_assets TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.social_posts TO authenticated;
@@ -599,17 +633,11 @@ WITH CHECK (
     )
 );
 
--- Customer client INSERT policy strictly guarded (if backend API is bypassed)
+-- Customer Support Tickets: Direct authenticated INSERT is intentionally NOT granted.
+-- Ticket creation is strictly backend-only via trusted server-side API (service_role),
+-- which enforces authenticated caller identity, verified email matching, server-side
+-- order ownership validation, and anti-abuse rate limits.
 DROP POLICY IF EXISTS "Customers create support tickets" ON public.customer_support_tickets;
-CREATE POLICY "Customers create support tickets" ON public.customer_support_tickets
-FOR INSERT TO authenticated
-WITH CHECK (
-    customer_id = auth.uid()
-    AND status = 'open'
-    AND priority IN ('low', 'medium')
-    AND assigned_to IS NULL
-    AND resolution_notes IS NULL
-);
 
 -- Clean user_app_memberships policies
 DROP POLICY IF EXISTS "User views own memberships" ON public.user_app_memberships;
