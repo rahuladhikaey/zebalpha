@@ -67,10 +67,14 @@ assert(hasSchemaSrGrant && hasSchemaSrPolicy, 'public.schema_migrations grants e
 const hasTicketSelectUpdate = /GRANT SELECT,\s*UPDATE ON TABLE public\.customer_support_tickets TO authenticated;/i.test(remediationSql);
 const hasNoAuthenticatedTicketInsert = !/GRANT\s+[^;]*INSERT[^;]*ON TABLE public\.customer_support_tickets TO\s+[^;]*authenticated/i.test(remediationSql);
 const hasDroppedClientInsertPolicy = /DROP POLICY IF EXISTS "Customers create support tickets" ON public\.customer_support_tickets;/i.test(remediationSql);
+const hasNoRecreatedInsertPolicy = !/CREATE\s+POLICY\s+"Customers create support tickets"/i.test(remediationSql);
+const hasNoTicketInsertPolicy = !/CREATE\s+POLICY\s+[^;]+ON\s+public\.customer_support_tickets\s+FOR\s+INSERT/i.test(remediationSql);
 
 assert(hasTicketSelectUpdate, 'customer_support_tickets grants SELECT and UPDATE only to authenticated.');
 assert(hasNoAuthenticatedTicketInsert, 'Direct authenticated INSERT is intentionally NOT granted on customer_support_tickets.');
-assert(hasDroppedClientInsertPolicy, 'Direct customer INSERT policy is purged, confirming backend-only ticket creation.');
+assert(hasDroppedClientInsertPolicy, 'Direct customer INSERT policy is purged via DROP statement.');
+assert(hasNoRecreatedInsertPolicy, 'Policy "Customers create support tickets" is NOT recreated anywhere in the forward migration.');
+assert(hasNoTicketInsertPolicy, 'Zero INSERT policies exist on customer_support_tickets, guaranteeing backend-only insertion.');
 
 // -----------------------------------------------------------------------------
 // TEST 5: Trigger Function Execution Privilege Hardening (Correction E)
@@ -121,12 +125,19 @@ const rollbackHasBegin = /BEGIN\s*;/i.test(rollbackSql);
 const rollbackHasCommit = /COMMIT\s*;/i.test(rollbackSql);
 const rollbackRestoresInvitations = /GRANT SELECT ON TABLE public\.employee_invitations TO authenticated;/i.test(rollbackSql);
 const rollbackRestoresSchema = /ALTER TABLE public\.schema_migrations DISABLE ROW LEVEL SECURITY;/i.test(rollbackSql);
+const rollbackRevokesSchemaFromPublic = /REVOKE\s+ALL\s+ON\s+TABLE\s+public\.schema_migrations\s+FROM\s+PUBLIC,\s*anon,\s*authenticated;/i.test(rollbackSql);
+const rollbackGrantsSchemaToServiceRole = /GRANT\s+ALL\s+ON\s+TABLE\s+public\.schema_migrations\s+TO\s+service_role;/i.test(rollbackSql);
+const rollbackDoesNotGrantSchemaToPublic = !/GRANT\s+ALL\s+ON\s+TABLE\s+public\.schema_migrations\s+TO\s+[^;]*PUBLIC/i.test(rollbackSql);
+const rollbackDropsValidateEmployeeMutation = /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.validate_employee_profile_mutation\(\);/i.test(rollbackSql);
 const rollbackRestoresTriggers = /GRANT EXECUTE ON FUNCTION public\.prevent_audit_log_mutation\(\) TO PUBLIC;/i.test(rollbackSql);
 const rollbackPreservesData = !/(DELETE|TRUNCATE) FROM public\.(user_app_memberships|employee_profiles|founder_bootstrap_vault|enterprise_audit_logs)/i.test(rollbackSql);
 
 assert(rollbackHasBegin && rollbackHasCommit, 'Rollback script is encapsulated in explicit transaction.');
 assert(rollbackRestoresInvitations, 'Rollback restores baseline SELECT on employee_invitations.');
 assert(rollbackRestoresSchema, 'Rollback restores baseline schema_migrations state.');
+assert(rollbackRevokesSchemaFromPublic && rollbackGrantsSchemaToServiceRole, 'Rollback restores exact baseline ACL on schema_migrations (service_role only).');
+assert(rollbackDoesNotGrantSchemaToPublic, 'Rollback does NOT erroneously grant ALL on schema_migrations to PUBLIC/anon/authenticated.');
+assert(rollbackDropsValidateEmployeeMutation, 'Rollback drops remediation-specific validate_employee_profile_mutation() trigger function.');
 assert(rollbackRestoresTriggers, 'Rollback restores baseline function execution privileges.');
 assert(rollbackPreservesData, 'Rollback contains ZERO deletion/truncation of Founder or enterprise business data.');
 

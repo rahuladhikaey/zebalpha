@@ -168,12 +168,15 @@ $$;
 GRANT SELECT ON TABLE public.enterprise_audit_logs TO authenticated;
 GRANT SELECT ON TABLE public.employee_invitations TO authenticated;
 
--- Restore Baseline schema_migrations state (pre-remediation baseline)
+-- Restore Baseline schema_migrations state (pre-remediation baseline: service_role has ALL, public/anon/authenticated have no grants, RLS disabled)
 DROP POLICY IF EXISTS "Service role manages schema_migrations" ON public.schema_migrations;
 ALTER TABLE public.schema_migrations DISABLE ROW LEVEL SECURITY;
-GRANT ALL ON TABLE public.schema_migrations TO PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.schema_migrations FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.schema_migrations TO service_role;
 
 -- Restore default execution privileges on baseline functions
+-- (Note: validate_employee_profile_mutation() was newly introduced in remediation
+-- and dropped at line 141; hence no privilege restoration is applicable for it)
 GRANT EXECUTE ON FUNCTION public.prevent_bootstrap_vault_tamper() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION public.prevent_bootstrap_vault_deletion() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION public.validate_support_ticket_mutation() TO PUBLIC;
