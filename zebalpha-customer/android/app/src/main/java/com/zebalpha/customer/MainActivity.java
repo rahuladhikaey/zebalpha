@@ -327,9 +327,23 @@ public class MainActivity extends BridgeActivity {
             Bridge bridge = getBridge();
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.setWebViewClient(new ZebAlphaWebViewClient(bridge));
+                bridge.getWebView().addJavascriptInterface(new ZebAlphaNativeInterface(), "ZebAlphaNative");
             }
         } catch (Exception e) {
             Log.e(TAG, "Error installing ZebAlphaWebViewClient in load()", e);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        try {
+            Bridge bridge = getBridge();
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().addJavascriptInterface(new ZebAlphaNativeInterface(), "ZebAlphaNative");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error attaching ZebAlphaNative in onStart()", e);
         }
     }
 
@@ -423,6 +437,24 @@ public class MainActivity extends BridgeActivity {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST_CODE_NOTIF);
             }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_CODE_NOTIF) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            Log.i(TAG, "Notification permission result: granted = " + granted);
+            runOnUiThread(() -> {
+                Bridge bridge = getBridge();
+                if (bridge != null && bridge.getWebView() != null) {
+                    bridge.getWebView().evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('zebalpha:notification-permission', { detail: { granted: " + granted + " } }));",
+                        null
+                    );
+                }
+            });
         }
     }
 

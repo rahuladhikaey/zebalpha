@@ -105,8 +105,18 @@ export function NotificationPermissionPrompt() {
 
     checkPermissions();
 
+    const handleNativePermission = (e: any) => {
+      if (e.detail?.granted) {
+        markGranted();
+      } else {
+        setShowDeniedGuide(true);
+      }
+    };
+    window.addEventListener("zebalpha:notification-permission", handleNativePermission);
+
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      window.removeEventListener("zebalpha:notification-permission", handleNativePermission);
     };
   }, []);
 
@@ -127,15 +137,32 @@ export function NotificationPermissionPrompt() {
       // 1. Android Native App with JavaScript Bridge
       const win = window as any;
       if (win.ZebAlphaNative) {
-        if (typeof win.ZebAlphaNative.isNotificationEnabled === "function" && !win.ZebAlphaNative.isNotificationEnabled()) {
-          if (typeof win.ZebAlphaNative.openNotificationSettings === "function") {
-            win.ZebAlphaNative.openNotificationSettings();
-          }
+        const isEnabled = typeof win.ZebAlphaNative.isNotificationEnabled === "function" 
+          ? win.ZebAlphaNative.isNotificationEnabled() 
+          : false;
+
+        if (isEnabled) {
+          markGranted();
+          return;
         }
+
+        // Trigger native permission request
         if (typeof win.ZebAlphaNative.requestPermission === "function") {
           win.ZebAlphaNative.requestPermission();
         }
-        markGranted();
+
+        // Verify status after a brief moment
+        setTimeout(() => {
+          const checkAgain = typeof win.ZebAlphaNative.isNotificationEnabled === "function" 
+            ? win.ZebAlphaNative.isNotificationEnabled() 
+            : false;
+
+          if (checkAgain) {
+            markGranted();
+          } else {
+            setShowDeniedGuide(true);
+          }
+        }, 900);
         return;
       }
 
@@ -154,6 +181,9 @@ export function NotificationPermissionPrompt() {
             setShowDeniedGuide(true);
             return;
           }
+        } else {
+          setShowDeniedGuide(true);
+          return;
         }
       }
 
@@ -194,6 +224,7 @@ export function NotificationPermissionPrompt() {
       }
     } catch (err) {
       console.warn("Notification permission error:", err);
+      setShowDeniedGuide(true);
     }
   };
 
@@ -251,26 +282,27 @@ export function NotificationPermissionPrompt() {
             </div>
           </div>
         ) : showDeniedGuide ? (
-          // Guide when notifications were previously blocked in phone settings
+          // Guide when notifications were previously blocked or restricted in phone settings
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400">
                 <ShieldAlert className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-white tracking-tight">
-                  Notifications Blocked in Settings
+                <h4 className="text-sm font-extrabold text-white tracking-tight">
+                  Enable Notifications in App Info
                 </h4>
                 <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                  Your device has alerts blocked for ZebAlpha. To turn them on:
+                  If the notification toggle is greyed out or inactive in App Info:
                 </p>
-                <ol className="text-[11px] text-zinc-400 mt-2 list-decimal list-inside space-y-1">
-                  <li>Open phone <b>Settings ➔ Apps ➔ ZebAlpha</b></li>
-                  <li>Tap <b>Permissions ➔ Notifications</b></li>
-                  <li>Select <b>Allow</b></li>
+                <ol className="text-[11px] text-zinc-400 mt-1.5 list-decimal list-inside space-y-1.5 leading-relaxed">
+                  <li>In App Info, tap the <b>3 dots (⋮)</b> in top right</li>
+                  <li>Tap <b>"Allow restricted settings"</b> (ফোন PIN দিন)</li>
+                  <li>Then tap <b>Notifications</b> ➔ Turn <b>ON</b></li>
                 </ol>
               </div>
               <button
+                type="button"
                 onClick={handleDismiss}
                 className="text-zinc-500 hover:text-zinc-300 p-1 cursor-pointer transition-colors"
                 aria-label="Close"
@@ -278,12 +310,29 @@ export function NotificationPermissionPrompt() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <button
-              onClick={handleDismiss}
-              className="w-full py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-xs font-bold text-white transition-all cursor-pointer"
-            >
-              Got it
-            </button>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const win = window as any;
+                  if (win.ZebAlphaNative?.openNotificationSettings) {
+                    win.ZebAlphaNative.openNotificationSettings();
+                  } else {
+                    handleDismiss();
+                  }
+                }}
+                className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-xs font-black uppercase tracking-wider text-black transition-all cursor-pointer shadow-md"
+              >
+                Open Settings ⚙️
+              </button>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="py-2 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-xs font-bold text-white transition-all cursor-pointer"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         ) : (
           // Official ZebAlpha Notification Prompt (Clean, Professional eCommerce Styling)
