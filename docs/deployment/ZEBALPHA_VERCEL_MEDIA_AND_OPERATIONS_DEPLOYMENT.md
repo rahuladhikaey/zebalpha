@@ -74,3 +74,4 @@ Once deployed:
 1. Team members log in at the `/login` route using their Supabase email and password.
 2. The hardened Row Level Security (RLS) on `public.user_app_memberships` immediately verifies app-scoped permissions.
 3. Users with `role = 'OWNER'` or valid department memberships will be granted instant access to the respective dashboards.
+

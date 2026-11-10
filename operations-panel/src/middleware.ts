@@ -51,25 +51,39 @@ export async function middleware(request: NextRequest) {
   }
 
   // Verify Application Scope in user_app_memberships server-side under RLS
-  const { data: memberships } = await supabase
+  const { data: memberships, error: membershipError } = await supabase
     .from("user_app_memberships")
     .select("app_name, role, is_active")
     .eq("user_id", user.id)
     .eq("is_active", true);
+
+  // Distinguish database communication errors from missing memberships
+  if (membershipError) {
+    console.error(
+      `[OperationsMiddleware] Database query error for membership lookup: code=${membershipError.code || 'UNKNOWN'}`
+    );
+    const errUrl = new URL("/unauthorized", request.url);
+    errUrl.searchParams.set("reason", "query_error");
+    return NextResponse.redirect(errUrl);
+  }
 
   const opsMembership = (memberships || []).find(
     (m) => m.app_name === "operations" || (m.app_name === "all" && m.role === "OWNER")
   );
 
   if (!opsMembership) {
-    return NextResponse.redirect(new URL("/unauthorized", request.url));
+    const unauthUrl = new URL("/unauthorized", request.url);
+    unauthUrl.searchParams.set("reason", "no_membership");
+    return NextResponse.redirect(unauthUrl);
   }
 
   // Strict HR-only route protection for /team
   if (pathname.startsWith("/team")) {
     const isHrOrOwner = opsMembership.role === "OWNER" || opsMembership.role === "HR Manager";
     if (!isHrOrOwner) {
-      return NextResponse.redirect(new URL("/unauthorized", request.url));
+      const restrictedUrl = new URL("/unauthorized", request.url);
+      restrictedUrl.searchParams.set("reason", "role_restricted");
+      return NextResponse.redirect(restrictedUrl);
     }
   }
 

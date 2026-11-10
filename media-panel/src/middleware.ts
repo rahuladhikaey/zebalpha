@@ -51,18 +51,29 @@ export async function middleware(request: NextRequest) {
   }
 
   // Verify Application Scope in user_app_memberships server-side under RLS
-  const { data: memberships } = await supabase
+  const { data: memberships, error: membershipError } = await supabase
     .from("user_app_memberships")
     .select("app_name, role, is_active")
     .eq("user_id", user.id)
     .eq("is_active", true);
+
+  if (membershipError) {
+    console.error(
+      `[MediaMiddleware] Database query error for membership lookup: code=${membershipError.code || 'UNKNOWN'}`
+    );
+    const errUrl = new URL("/unauthorized", request.url);
+    errUrl.searchParams.set("reason", "query_error");
+    return NextResponse.redirect(errUrl);
+  }
 
   const hasMediaAccess = (memberships || []).some(
     (m) => m.app_name === "media" || (m.app_name === "all" && m.role === "OWNER")
   );
 
   if (!hasMediaAccess) {
-    return NextResponse.redirect(new URL("/unauthorized", request.url));
+    const unauthUrl = new URL("/unauthorized", request.url);
+    unauthUrl.searchParams.set("reason", "no_membership");
+    return NextResponse.redirect(unauthUrl);
   }
 
   return response;

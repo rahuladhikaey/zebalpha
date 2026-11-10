@@ -58,6 +58,8 @@ gradle-home/
 # Scratch & temporary scripts
 scratch/
 **/scratch/
+data/
+**/data/
 test_sr.ps1
 implementation_plan*
 image_backups_pre_optimization/
