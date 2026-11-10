@@ -28,6 +28,9 @@ BEGIN
 END $$;
 
 -- 2. HARDEN ATOMIC STORED PROCEDURE
+-- Ensure any legacy 3-argument overload is cleanly dropped
+DROP FUNCTION IF EXISTS public.consume_founder_bootstrap_token(VARCHAR, VARCHAR, VARCHAR);
+
 -- Signature: consume_founder_bootstrap_token(VARCHAR, VARCHAR, VARCHAR, UUID)
 -- Matches exact call in zebalpha-backend/src/controllers/founderBootstrapController.js
 CREATE OR REPLACE FUNCTION public.consume_founder_bootstrap_token(
@@ -79,7 +82,9 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
-    -- 4. Verify cryptographic token hash match (Constant-time string comparison)
+    -- 4. Verify cryptographic token hash match
+    -- Note: Evaluates 64-char hex SHA-256 digests via standard SQL inequality.
+    -- Pre-image resistance of SHA-256 and network jitter eliminate practical timing oracle risks.
     IF v_record.token_hash != p_token_hash THEN
         RAISE EXCEPTION 'Security Violation: Invalid or unverified bootstrap token.'
             USING ERRCODE = 'P0001';
@@ -168,6 +173,14 @@ REVOKE ALL ON FUNCTION public.consume_founder_bootstrap_token(VARCHAR, VARCHAR, 
 
 GRANT EXECUTE ON FUNCTION public.consume_founder_bootstrap_token(VARCHAR, VARCHAR, VARCHAR, UUID) 
     TO service_role;
+
+-- 4. REGISTER MIGRATION IN AUDIT REGISTRY
+INSERT INTO public.schema_migrations (version, description)
+VALUES (
+    '20261110_founder_bootstrap_hardening',
+    'Hardens founder bootstrap vault expires_at NOT NULL constraint and remediates consume_founder_bootstrap_token stored procedure'
+)
+ON CONFLICT (version) DO NOTHING;
 
 COMMIT;
 

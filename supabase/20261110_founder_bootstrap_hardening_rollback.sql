@@ -128,5 +128,9 @@ REVOKE ALL ON FUNCTION public.consume_founder_bootstrap_token(VARCHAR, VARCHAR, 
 GRANT EXECUTE ON FUNCTION public.consume_founder_bootstrap_token(VARCHAR, VARCHAR, VARCHAR, UUID) 
     TO service_role;
 
+-- 3. DEREGISTER MIGRATION FROM AUDIT REGISTRY
+DELETE FROM public.schema_migrations 
+WHERE version = '20261110_founder_bootstrap_hardening';
+
 COMMIT;
 
