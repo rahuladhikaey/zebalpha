@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { isNativeApp } from "@/lib/platform";
 import { initPushNotifications } from "@/lib/pushNotifications";
 import { Bell, Sparkles, X, ShieldAlert, CheckCircle2, Truck, Zap } from "lucide-react";
@@ -10,6 +11,7 @@ const DISMISS_COUNT_KEY = "zebalpha_notif_prompt_dismiss_count";
 const GRANTED_KEY = "zebalpha_notif_granted";
 
 export function NotificationPermissionPrompt() {
+  const pathname = usePathname();
   const [showPrompt, setShowPrompt] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDeniedGuide, setShowDeniedGuide] = useState(false);
@@ -18,6 +20,23 @@ export function NotificationPermissionPrompt() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // Do NOT show prompt on Auth screens, Checkout, or during Onboarding
+    const isExcluded =
+      pathname === "/login" ||
+      pathname === "/signup" ||
+      pathname === "/checkout" ||
+      pathname === "/auth/callback";
+    if (isExcluded) return;
+
+    if (isNativeApp()) {
+      const langDone = localStorage.getItem("zebalpha_onboarding_language_completed") === "true";
+      const guest = localStorage.getItem("zebalpha_onboarding_guest_mode") === "true";
+      const fullDone = localStorage.getItem("zebalpha_onboarding_completed") === "true";
+      if (!langDone || (!fullDone && !guest)) {
+        return; // In onboarding flow, do NOT show
+      }
+    }
 
     // 1. If previously granted, never show the prompt again
     const isGranted = localStorage.getItem(GRANTED_KEY) === "true";
@@ -201,7 +220,13 @@ export function NotificationPermissionPrompt() {
     localStorage.setItem(DISMISSED_KEY, String(Date.now() + cooldownMs));
   };
 
-  if (!showPrompt && !showDeniedGuide && !showSuccess) {
+  if (
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/checkout" ||
+    pathname === "/auth/callback" ||
+    (!showPrompt && !showDeniedGuide && !showSuccess)
+  ) {
     return null;
   }
 

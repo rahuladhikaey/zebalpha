@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useLanguage } from "@/context/LanguageContext";
 import { Send, X, ArrowUpRight, ShoppingBag, Package, RefreshCw, DollarSign, Truck, Ruler, CreditCard, Headset } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 
@@ -48,6 +50,65 @@ export default function FloatingAssistant() {
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const isNativeApp = useIsNativeApp();
+  const pathname = usePathname();
+  const {
+    onboardingLanguageCompleted,
+    onboardingCompleted,
+    isGuestMode,
+    isLanguageModalOpen,
+  } = useLanguage();
+
+  const [isOnboardingDomActive, setIsOnboardingDomActive] = useState(() => {
+    if (typeof document !== "undefined") {
+      return (
+        document.documentElement.classList.contains("zebalpha-onboarding-pending") ||
+        document.body.classList.contains("zebalpha-onboarding-active")
+      );
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const checkDom = () => {
+      const isPending =
+        document.documentElement.classList.contains("zebalpha-onboarding-pending") ||
+        document.body.classList.contains("zebalpha-onboarding-active");
+      setIsOnboardingDomActive(isPending);
+    };
+
+    checkDom();
+
+    const observer = new MutationObserver(checkDom);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+
+    const handleCustom = (e: any) => {
+      if (e.detail && typeof e.detail.isOpen === "boolean") {
+        setIsOnboardingDomActive(e.detail.isOpen);
+      }
+    };
+    window.addEventListener("zebalpha:onboarding-state", handleCustom);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("zebalpha:onboarding-state", handleCustom);
+    };
+  }, []);
+
+  // Excluded routes: do NOT show chatbot on Auth screens, Checkout, or dedicated Assistant page
+  const isExcludedRoute =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/checkout" ||
+    pathname === "/auth/callback" ||
+    pathname === "/assistant";
+
+  // Native app onboarding pending check from LanguageContext
+  const isOnboardingContextPending =
+    isNativeApp &&
+    (!onboardingLanguageCompleted || (!onboardingCompleted && !isGuestMode));
 
   // Position state (translation offsets from initial bottom-right position)
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -132,17 +193,23 @@ export default function FloatingAssistant() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  // Do NOT render on Auth screens, Checkout, dedicated Assistant page, or during Onboarding
+  if (isExcludedRoute || isOnboardingContextPending || isLanguageModalOpen || isOnboardingDomActive) {
+    return null;
+  }
+
   return (
     <div
+      data-floating-assistant="true"
       style={{
         transform: `translate3d(${position.x}px, ${position.y}px, 0px)`,
         touchAction: "none",
       }}
-      className={`fixed ${isNativeApp ? "bottom-20 right-3.5" : "bottom-6 right-6"} z-[9999] flex flex-col items-end transition-all`}
+      className={`fixed ${isNativeApp ? "bottom-20 right-3.5" : "bottom-6 right-6"} z-40 flex flex-col items-end transition-all`}
     >
       {/* Expanded Chat Box */}
       {isOpen && (
-        <div className="mb-3 w-[92vw] sm:w-[400px] h-[550px] rounded-[2rem] bg-neutral-950 border border-neutral-800 shadow-[0_20px_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-white">
+        <div className="mb-3 w-[92vw] sm:w-[400px] h-[550px] rounded-[2rem] bg-neutral-950 border border-neutral-800 shadow-[0_20px_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-white z-[90]">
           {/* Header */}
           <div className="bg-black border-b border-neutral-800 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">

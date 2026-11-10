@@ -199,7 +199,10 @@ html.zebalpha-onboarding-pending main,
 html.zebalpha-onboarding-pending header,
 html.zebalpha-onboarding-pending nav,
 html.zebalpha-onboarding-pending footer,
-html.zebalpha-onboarding-pending [data-android-bottom-nav] {
+html.zebalpha-onboarding-pending [data-android-bottom-nav],
+html.zebalpha-onboarding-pending [data-floating-assistant],
+body.zebalpha-onboarding-active [data-floating-assistant] {
+  display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;

@@ -83,6 +83,11 @@ export function AndroidOnboardingManager() {
     if (typeof document !== "undefined") {
       if (!isOpen || !isNativeApp) {
         document.documentElement.classList.remove("zebalpha-onboarding-pending");
+        document.body.classList.remove("zebalpha-onboarding-active");
+        window.dispatchEvent(new CustomEvent("zebalpha:onboarding-state", { detail: { isOpen: false } }));
+      } else {
+        document.body.classList.add("zebalpha-onboarding-active");
+        window.dispatchEvent(new CustomEvent("zebalpha:onboarding-state", { detail: { isOpen: true } }));
       }
     }
   }, [isOpen, isNativeApp]);
