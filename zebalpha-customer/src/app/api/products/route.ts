@@ -68,30 +68,23 @@ export async function GET(request: NextRequest) {
           synSet.add("crocs");
           synSet.add("clog");
           synSet.add("clogs");
-          synSet.add("footwear");
-          synSet.add("shoe");
-          synSet.add("shoes");
-          synSet.add("sandal");
-          synSet.add("sandals");
-          synSet.add("slides");
         } else if (/\b(shoes?|sneakers?|footwear|sandals?|slippers?|slides?|loafers?|boots?)\b/i.test(clean)) {
           synSet.add("shoe");
           synSet.add("shoes");
           synSet.add("sneaker");
           synSet.add("sneakers");
           synSet.add("footwear");
-          synSet.add("croc");
-          synSet.add("clog");
           synSet.add("sandal");
+          synSet.add("sandals");
+          synSet.add("slipper");
+          synSet.add("slippers");
         }
 
-        if (/\b(kurtis?|kurtas?|suits?|anarkali)\b/i.test(clean)) {
+        if (/\b(kurtis?|kurtas?|anarkali)\b/i.test(clean)) {
           synSet.add("kurti");
           synSet.add("kurtis");
           synSet.add("kurta");
-          synSet.add("suit");
-          synSet.add("suits");
-          synSet.add("ethnic");
+          synSet.add("kurtas");
           synSet.add("anarkali");
         }
 
@@ -100,30 +93,31 @@ export async function GET(request: NextRequest) {
           synSet.add("sarees");
           synSet.add("sari");
           synSet.add("saris");
-          synSet.add("silk");
-          synSet.add("ethnic");
         }
 
         if (/\b(bags?|totes?|handbags?|backpacks?|clutches?)\b/i.test(clean)) {
-          synSet.add("bag");
-          synSet.add("bags");
+          synSet.add("tote bag");
+          synSet.add("tote bags");
           synSet.add("tote");
           synSet.add("totes");
           synSet.add("handbag");
           synSet.add("handbags");
           synSet.add("backpack");
+          synSet.add("bag");
+          synSet.add("bags");
         }
 
-        if (/\b(t[- ]?shirts?|tees?|polos?|tops?)\b/i.test(clean)) {
+        if (/\b(t[- ]?shirts?|tees?|polos?)\b/i.test(clean)) {
           synSet.add("t-shirt");
           synSet.add("tshirt");
           synSet.add("t-shirts");
           synSet.add("tshirts");
           synSet.add("tee");
           synSet.add("tees");
+          synSet.add("graphic tee");
+          synSet.add("oversized tee");
           synSet.add("polo");
           synSet.add("polos");
-          synSet.add("topwear");
         }
 
         if (/\b(jeans?|denims?|pants?|trousers?|cargos?|shorts?|joggers?)\b/i.test(clean)) {
@@ -134,7 +128,6 @@ export async function GET(request: NextRequest) {
           synSet.add("pants");
           synSet.add("trouser");
           synSet.add("trousers");
-          synSet.add("bottomwear");
         }
 
         if (/\b(hoodies?|sweatshirts?|jackets?)\b/i.test(clean)) {
@@ -184,15 +177,22 @@ export async function GET(request: NextRequest) {
           orConditions.push(`subcategory_id.in.(${matchedCatIds.join(",")})`);
         }
 
+        // Match product textual attributes (WITHOUT non-existent category column)
         orConditions.push(`name.ilike.%${clean}%`);
         orConditions.push(`collection.ilike.%${clean}%`);
-        orConditions.push(`category.ilike.%${clean}%`);
         orConditions.push(`description.ilike.%${clean}%`);
+
+        // Deconstruct multi-word clean terms (e.g. "women saree" -> matches "saree")
+        const significantWords = clean
+          .split(/\s+/)
+          .filter((w) => w.length > 2 && w !== "women" && w !== "mens" && w !== "men");
+        significantWords.forEach((word) => {
+          orConditions.push(`name.ilike.%${word}%`);
+        });
 
         synonyms.forEach((syn) => {
           orConditions.push(`name.ilike.%${syn}%`);
           orConditions.push(`collection.ilike.%${syn}%`);
-          orConditions.push(`category.ilike.%${syn}%`);
         });
 
         if (orConditions.length > 0) {

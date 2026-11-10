@@ -972,24 +972,59 @@ function ProductsContent() {
                 <ProductCardSkeleton count={8} />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-12 text-center text-zinc-400 my-8">
-                <ShoppingBag size={48} className="mx-auto mb-4 opacity-40 text-white" />
-                <h3 className="text-lg font-black text-white uppercase tracking-wider">
-                  No matching products found
+              <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-8 sm:p-12 text-center text-zinc-400 my-8">
+                <ShoppingBag size={48} className="mx-auto mb-4 opacity-40 text-emerald-400" />
+                <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-wider">
+                  {selectedCategory
+                    ? `No products found in "${selectedCategory}"`
+                    : "No matching products found"}
                 </h3>
                 <p className="text-xs font-semibold mt-1 text-zinc-400 max-w-sm mx-auto">
-                  Try adjusting or clearing your filters (Seller, Price, Fabric, etc.) to view more products.
+                  {selectedCategory
+                    ? "Fresh items are arriving soon. In the meantime, discover our other trending collections:"
+                    : "Try adjusting or clearing your filters (Seller, Price, Fabric, etc.) to view more products."}
                 </p>
-                <button
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    setSearch("");
-                    setFilters(INITIAL_FILTER_STATE);
-                  }}
-                  className="mt-6 rounded-full border border-white/20 bg-white text-black px-6 py-2.5 text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition-all cursor-pointer"
-                >
-                  Clear All Filters & Reset
-                </button>
+
+                {/* Popular / Trending Curated Collection Shortcuts */}
+                {selectedCategory && (
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2 max-w-md mx-auto">
+                    {[
+                      { label: "Crocs & Clogs", slug: "crocs" },
+                      { label: "Kurtis", slug: "Kurtis" },
+                      { label: "Women Sarees", slug: "women saree" },
+                      { label: "Graphic T-Shirts", slug: "T-shirt" },
+                    ].map((col) => (
+                      <button
+                        key={col.slug}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(col.slug);
+                          setFilters(INITIAL_FILTER_STATE);
+                          router.replace(`/products?category=${encodeURIComponent(col.slug)}`, {
+                            scroll: false,
+                          });
+                        }}
+                        className="rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer"
+                      >
+                        {col.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-6 flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setSearch("");
+                      setFilters(INITIAL_FILTER_STATE);
+                      router.replace("/products", { scroll: false });
+                    }}
+                    className="rounded-full border border-white/20 bg-white text-black px-6 py-2.5 text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition-all cursor-pointer"
+                  >
+                    View All Products
+                  </button>
+                </div>
               </div>
             ) : (
               <>

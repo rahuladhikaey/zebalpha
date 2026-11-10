@@ -76,7 +76,11 @@ export function CuratedCollectionsSection({
       rawLink === "/categories/" ||
       rawLink === "/" ||
       rawLink === "/products" ||
-      rawLink === "/products/";
+      rawLink === "/products/" ||
+      rawLink === "/new-drops" ||
+      rawLink === "/new-drops/" ||
+      rawLink.startsWith("/new-drops") ||
+      rawLink.startsWith("/new-arrivals");
 
     const term = (c.slug || c.title || "").trim();
     const finalHref = isGenericLink
