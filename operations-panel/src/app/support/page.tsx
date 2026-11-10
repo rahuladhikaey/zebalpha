@@ -16,6 +16,7 @@ export default function SupportDeskPage() {
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [ticketStatus, setTicketStatus] = useState("in_progress");
   const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -40,6 +41,7 @@ export default function SupportDeskPage() {
   const handleUpdateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTicket) return;
+    setUpdateError(null);
     setUpdating(true);
 
     try {
@@ -56,7 +58,7 @@ export default function SupportDeskPage() {
         setTickets(tickets.map((t) => (t.id === selectedTicket.id ? { ...t, status: ticketStatus, resolution_notes: resolutionNotes } : t)));
         setSelectedTicket(null);
       } else {
-        alert(error.message);
+        setUpdateError(error.message);
       }
     } finally {
       setUpdating(false);
@@ -82,6 +84,13 @@ export default function SupportDeskPage() {
             <div className="bg-dark-900 border border-dark-800 rounded-xl max-w-lg w-full p-6 shadow-2xl">
               <h3 className="text-sm font-bold text-white mb-1">Update Ticket: {selectedTicket.ticket_number}</h3>
               <p className="text-xs text-zinc-400 mb-4">{selectedTicket.subject}</p>
+
+              {updateError && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{updateError}</span>
+                </div>
+              )}
 
               <div className="p-3 bg-dark-950 rounded-lg text-xs text-zinc-300 mb-4 border border-dark-800">
                 <div className="text-[10px] text-zinc-400 uppercase font-semibold mb-1">Customer Description</div>
