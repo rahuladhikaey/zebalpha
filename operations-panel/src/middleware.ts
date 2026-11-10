@@ -60,10 +60,11 @@ export async function middleware(request: NextRequest) {
   // Distinguish database communication errors from missing memberships
   if (membershipError) {
     console.error(
-      `[OperationsMiddleware] Database query error for membership lookup: code=${membershipError.code || 'UNKNOWN'}`
+      `[OperationsMiddleware] Database query error for membership lookup: code=${membershipError.code || 'UNKNOWN'} msg=${membershipError.message || ''}`
     );
     const errUrl = new URL("/unauthorized", request.url);
     errUrl.searchParams.set("reason", "query_error");
+    if (membershipError.code) errUrl.searchParams.set("err_code", membershipError.code);
     return NextResponse.redirect(errUrl);
   }
 
