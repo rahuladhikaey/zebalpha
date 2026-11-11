@@ -8,7 +8,7 @@ import { Product } from "@/lib/types";
 import { Header } from "@/components/Header";
 import ProductDetailTemplate from "./ProductDetailTemplate";
 import SimilarProductsCarousel from "@/components/catalog/SimilarProductsCarousel";
-import { getSimilarProducts } from "@/lib/similarProducts";
+import { getSimilarProducts, detectProductFamily } from "@/lib/similarProducts";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "dummy-anon-key-for-build").trim();
@@ -157,8 +157,7 @@ async function SimilarProductsSection({ product }: { product: Product }) {
   const similarProducts = await getSimilarProducts(product, 20);
   if (!similarProducts || similarProducts.length === 0) return null;
 
-  const rawCat = product.category_name || (product.specifications as any)?.category || (product.specifications as any)?.product_type || "";
-  const title = rawCat ? `Similar Products in ${rawCat}` : "Similar Products";
+  const { title } = detectProductFamily(product);
 
   return (
     <SimilarProductsCarousel 
@@ -288,18 +287,17 @@ export default async function ProductDetailPage({ params }: PageProps) {
         {/* Visible Breadcrumbs */}
         <BreadcrumbsNav items={breadcrumbs} className="pt-3 pb-2" />
 
-        {/* Existing Product Interactive Template (Photos, Variants, Cart, Buy Now) */}
+        {/* Existing Product Interactive Template (Photos, Variants, Cart, Buy Now, Reviews + Similar Products Slot) */}
         <ProductDetailTemplate
           product={product}
-          relatedProductsSlot={null}
+          relatedProductsSlot={
+            <div className="mt-8 pt-6 border-t border-zinc-800/80">
+              <Suspense fallback={<SimilarProductsSkeleton />}>
+                <SimilarProductsSection product={product} />
+              </Suspense>
+            </div>
+          }
         />
-
-        {/* Flipkart / Amazon-Style Same-Category Product Recommendations (Prime Position) */}
-        <div className="mt-8 pt-6 border-t border-zinc-800/80">
-          <Suspense fallback={<SimilarProductsSkeleton />}>
-            <SimilarProductsSection product={product} />
-          </Suspense>
-        </div>
 
         {/* Customer Help & Dynamic FAQs (Clean E-Commerce Standard) */}
         <div className="mt-12 space-y-8 pb-16">

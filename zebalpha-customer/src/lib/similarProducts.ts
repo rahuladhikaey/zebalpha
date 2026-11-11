@@ -1,9 +1,11 @@
 import { Product } from "@/lib/types";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { getCachedOrFetch } from "@/lib/cacheHelper";
 
+// Columns verified to exist on products table (NO nonexistent 'rating' or 'review_count' columns)
 const SIMILAR_PRODUCT_FIELDS =
-  "id, name, brand, price, mrp, stock, status, is_active, is_approved, image_url, images, category_id, seller_id, description, packages, specifications, rating, review_count, created_at";
+  "id, name, brand, price, mrp, stock, status, is_active, is_approved, approval_status, image_url, images, category_id, seller_id, description, packages, specifications, created_at";
 
 export interface SimilarProductItem extends Product {
   rating?: number;
@@ -13,15 +15,87 @@ export interface SimilarProductItem extends Product {
   thumbnail_url?: string;
 }
 
+export interface ProductTaxonomy {
+  family: "kurtis" | "footwear" | "sarees" | "tshirts" | "bags" | "general";
+  title: string;
+}
+
 /**
- * Intelligent Similar Products Recommendation Engine
+ * Detect product taxonomy family and dynamic Flipkart/Amazon-style recommendation title
+ */
+export function detectProductFamily(product: Product): ProductTaxonomy {
+  const name = (product.name || "").toLowerCase();
+  const catName = ((product as any).category_name || "").toLowerCase();
+  const rawCat = (product.specifications as any)?.category || (product.specifications as any)?.product_type || "";
+  const combined = `${name} ${catName} ${rawCat}`;
+
+  // 1. Sarees (Distinctive traditional apparel)
+  if (/\b(saree|sari|blouse\s*piece|tissue\s*saree|pallu)\b/i.test(combined)) {
+    return { family: "sarees", title: "Similar Sarees & Festive Wear" };
+  }
+
+  // 2. Kurtis & Kurtas
+  if (/\b(kurti|kurtis|kurta|kurtas|anarkali|tunic|ethnic\s*top)\b/i.test(combined)) {
+    return { family: "kurtis", title: "Similar Kurtis & Ethnic Tops" };
+  }
+
+  // 3. Footwear & Clogs
+  if (/\b(clog|clogs|croc|crocs|slip-on|slides?|sneakers?|footwear|loafers?)\b/i.test(combined)) {
+    return { family: "footwear", title: "Similar Clogs & Footwear" };
+  }
+
+  // 4. T-Shirts & Tops
+  if (/\b(t-shirt|tshirt|tee|tees|polo|hoodie|sweatshirt|oversized\s*tee)\b/i.test(combined)) {
+    return { family: "tshirts", title: "Similar T-Shirts & Tops" };
+  }
+
+  // 5. Bags & Accessories
+  if (/\b(bag|bags|tote|handbag|backpack|purse)\b/i.test(combined)) {
+    return { family: "bags", title: "Similar Bags & Accessories" };
+  }
+
+  return {
+    family: "general",
+    title: catName || rawCat ? `Similar Products in ${catName || rawCat}` : "Similar Products You Might Like",
+  };
+}
+
+/**
+ * Resilient Supabase client provider with public anon fallback
+ */
+function getResilientSupabaseClient(): SupabaseClient {
+  try {
+    if (supabaseServer) return supabaseServer;
+  } catch (e) {
+    // Fall through to anon client
+  }
+
+  const supabaseUrl = (
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_A_URL ||
+    "https://qjpahzstldiatfbutvfc.supabase.co"
+  ).trim();
+
+  const supabaseAnonKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY ||
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqcGFoenN0bGRpYXRmYnV0dmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTM0MDYsImV4cCI6MjEwNDEyOTQwNn0.ixVg7bopkA0BAKpOVhuQSVUlWNWB-o_YIPuowta53lI"
+  ).trim();
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+/**
+ * Intelligent Similar Products Recommendation Engine (Flipkart / Amazon E-Commerce Grade)
  *
  * Matching Priority:
- * Priority 1 — Same Product Type / Subcategory / Style (e.g. Oversized T-Shirt vs Oversized T-Shirt)
- * Priority 2 — Same Category and Subcategory
- * Priority 3 — Similar Price Range (approx ±30% range preferred)
- * Priority 4 — Similar Attributes (Gender, Fabric, Fit, Color, Brand)
- * Priority 5 — Popularity, Freshness, and High Inventory Quality
+ * Priority 1 — Same Product Taxonomy Family (e.g. Kurti to Kurti, Clogs to Clogs, Saree to Saree)
+ * Priority 2 — Same Category ID
+ * Priority 3 — Title Keyword Match
+ * Priority 4 — Similar Price Range (±30% gets +30, ±60% gets +15)
+ * Priority 5 — Real Review Ratings & Freshness
  */
 export async function getSimilarProducts(
   currentProduct: Product,
@@ -30,125 +104,85 @@ export async function getSimilarProducts(
   const productId = currentProduct.id;
   if (!productId) return [];
 
-  const cacheKey = `products:similar:${productId}:limit:${limit}`;
+  const cacheKey = `products:similar:v2:${productId}:limit:${limit}`;
 
   return getCachedOrFetch<SimilarProductItem[]>(
     cacheKey,
     async () => {
       try {
+        const client = getResilientSupabaseClient();
+        const currentTax = detectProductFamily(currentProduct);
+        const currentCatId = currentProduct.category_id;
+        const currentPrice = Number(currentProduct.price) || 0;
+        const currentName = (currentProduct.name || "").toLowerCase().trim();
+
         const specs = (currentProduct.specifications && typeof currentProduct.specifications === "object")
           ? currentProduct.specifications
           : {};
-
-        const currentName = (currentProduct.name || "").toLowerCase().trim();
-        const currentBrand = (currentProduct.brand || specs.brand || "").toLowerCase().trim();
-        const currentCatId = currentProduct.category_id;
-        const currentPrice = Number(currentProduct.price) || 0;
-        const currentProductType = (specs.product_type || specs.productTypeId || specs.type || "").toLowerCase().trim();
-        const currentSubcategory = (specs.subcategory || specs.subcategory_name || "").toLowerCase().trim();
         const currentGender = (specs.target_gender || specs.gender || "").toLowerCase().trim();
-        const currentFit = (specs.fit_type || specs.fit || "").toLowerCase().trim();
-        const currentFabric = (specs.fabric || specs.material || "").toLowerCase().trim();
-        const currentColor = (
-          (currentProduct as any).default_color ||
-          (currentProduct as any).main_color ||
-          specs.default_color ||
-          specs.main_color ||
-          specs.color ||
-          ""
-        ).toLowerCase().trim();
 
-        // Infer search keywords from product title if type/subcategory missing
-        // e.g., "oversized t-shirt", "polo", "hoodie", "cargo", "shirt", "jacket", "kurti", "saree", "sneakers"
-        const inferKeywords = (title: string): string[] => {
-          const keywords: string[] = [];
-          const patterns = [
-            "oversized t-shirt",
-            "oversized tee",
-            "t-shirt",
-            "tshirt",
-            "tee",
-            "polo",
-            "hoodie",
-            "sweatshirt",
-            "cargo",
-            "shirt",
-            "kurti",
-            "kurta",
-            "saree",
-            "dress",
-            "jacket",
-            "shoes",
-            "sneakers",
-            "jeans",
-            "trouser",
-            "shorts",
-            "blazer",
-            "cap",
-            "watch",
-          ];
-          for (const pat of patterns) {
-            if (title.includes(pat)) {
-              keywords.push(pat);
-            }
-          }
-          return keywords;
-        };
-
-        const currentTitleKeywords = inferKeywords(currentName);
-
-        // 1. Fetch Candidate Pool
-        // Prefer products in the same category first, or broader pool if category has few items
+        // 1. Gather Candidate Pool
         let candidatePool: any[] = [];
+        const seenIds = new Set<string>([String(productId)]);
 
+        // 1a. If product has category_id, fetch items in that category
         if (currentCatId) {
-          const { data: catProducts } = await supabaseServer
+          try {
+            const { data: catProducts, error: catErr } = await client
+              .from("products")
+              .select(SIMILAR_PRODUCT_FIELDS)
+              .eq("category_id", currentCatId)
+              .neq("id", productId)
+              .or("is_active.is.null,is_active.eq.true")
+              .order("created_at", { ascending: false })
+              .limit(50);
+
+            if (catProducts && !catErr) {
+              for (const p of catProducts) {
+                if (!seenIds.has(String(p.id))) {
+                  seenIds.add(String(p.id));
+                  candidatePool.push(p);
+                }
+              }
+            }
+          } catch (cErr) {
+            console.warn("[Similar Products] Notice fetching category candidates:", cErr);
+          }
+        }
+
+        // 1b. Always fetch broader active catalog items to ensure pool is rich and never empty
+        try {
+          const { data: broaderProducts, error: broadErr } = await client
             .from("products")
             .select(SIMILAR_PRODUCT_FIELDS)
-            .eq("category_id", currentCatId)
             .neq("id", productId)
             .or("is_active.is.null,is_active.eq.true")
             .order("created_at", { ascending: false })
             .limit(100);
 
-          if (catProducts && catProducts.length > 0) {
-            candidatePool = catProducts;
-          }
-        }
-
-        // If candidate pool is too small (< 8 items), fetch broader active catalog products
-        if (candidatePool.length < 8) {
-          const { data: broaderProducts } = await supabaseServer
-            .from("products")
-            .select(SIMILAR_PRODUCT_FIELDS)
-            .neq("id", productId)
-            .or("is_active.is.null,is_active.eq.true")
-            .order("created_at", { ascending: false })
-            .limit(120);
-
-          if (broaderProducts && broaderProducts.length > 0) {
-            const existingIds = new Set(candidatePool.map((p) => String(p.id)));
-            for (const bp of broaderProducts) {
-              if (!existingIds.has(String(bp.id))) {
-                candidatePool.push(bp);
-                existingIds.add(String(bp.id));
+          if (broaderProducts && !broadErr) {
+            for (const p of broaderProducts) {
+              if (!seenIds.has(String(p.id))) {
+                seenIds.add(String(p.id));
+                candidatePool.push(p);
               }
             }
           }
+        } catch (bErr) {
+          console.warn("[Similar Products] Notice fetching broader candidates:", bErr);
         }
 
         if (candidatePool.length === 0) {
           return [];
         }
 
-        // Filter out items with no stock, blocked, or inactive
+        // 2. Filter Valid Products (active, approved, in-stock or coming soon)
         const validCandidates = candidatePool.filter((p: any) => {
           if (String(p.id) === String(productId)) return false;
           if (p.is_active === false) return false;
           if (p.status === "BLOCKED" || p.status === "DELETED" || p.status === "ARCHIVED") return false;
           if (p.approval_status && p.approval_status !== "approved") return false;
 
-          // Check inventory / stock
           const mainStock = Number(p.stock) || 0;
           let packagesStock = 0;
           if (Array.isArray(p.packages) && p.packages.length > 0) {
@@ -165,12 +199,12 @@ export async function getSimilarProducts(
           return [];
         }
 
-        // Fetch verified ratings for the candidate IDs from 'reviews' table
+        // 3. Fetch real verified review ratings for candidates
         const candidateIds = validCandidates.map((c) => c.id);
         const ratingMap = new Map<string, { avg: number; count: number }>();
 
         try {
-          const { data: reviewsData } = await supabaseServer
+          const { data: reviewsData } = await client
             .from("reviews")
             .select("product_id, rating")
             .in("product_id", candidateIds)
@@ -193,10 +227,20 @@ export async function getSimilarProducts(
             });
           }
         } catch (revErr) {
-          console.warn("[Similar Products] Notice fetching candidate reviews:", revErr);
+          console.warn("[Similar Products] Notice fetching reviews:", revErr);
         }
 
-        // 2. Score each candidate according to matching priorities
+        // Title keyword extractor
+        const extractKeywords = (title: string): string[] => {
+          return title
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, "")
+            .split(/\s+/)
+            .filter((w) => w.length > 3 && !["with", "this", "best", "women", "mens", "neck", "pure"].includes(w));
+        };
+        const currentKeywords = extractKeywords(currentName);
+
+        // 4. Score each candidate according to recommendation priorities
         interface ScoredProduct {
           product: any;
           score: number;
@@ -204,114 +248,79 @@ export async function getSimilarProducts(
 
         const scoredProducts: ScoredProduct[] = validCandidates.map((candidate: any) => {
           let score = 0;
+          const cTax = detectProductFamily(candidate);
+          const cName = (candidate.name || "").toLowerCase().trim();
+          const cPrice = Number(candidate.price) || 0;
           const cSpecs = (candidate.specifications && typeof candidate.specifications === "object")
             ? candidate.specifications
             : {};
-
-          const cName = (candidate.name || "").toLowerCase().trim();
-          const cBrand = (candidate.brand || cSpecs.brand || "").toLowerCase().trim();
-          const cProductType = (cSpecs.product_type || cSpecs.productTypeId || cSpecs.type || "").toLowerCase().trim();
-          const cSubcategory = (cSpecs.subcategory || cSpecs.subcategory_name || "").toLowerCase().trim();
           const cGender = (cSpecs.target_gender || cSpecs.gender || "").toLowerCase().trim();
-          const cFit = (cSpecs.fit_type || cSpecs.fit || "").toLowerCase().trim();
-          const cFabric = (cSpecs.fabric || cSpecs.material || "").toLowerCase().trim();
-          const cColor = (
-            (candidate as any).default_color ||
-            (candidate as any).main_color ||
-            cSpecs.default_color ||
-            cSpecs.main_color ||
-            cSpecs.color ||
-            ""
-          ).toLowerCase().trim();
-          const cPrice = Number(candidate.price) || 0;
 
-          // Priority 1 — Same Product Type / Explicit Keyword (Weight: 100)
-          if (currentProductType && cProductType && currentProductType === cProductType) {
-            score += 100;
-          } else {
-            // Check title keyword intersection
-            const cKeywords = inferKeywords(cName);
-            const commonKeywords = currentTitleKeywords.filter((k) => cKeywords.includes(k) || cName.includes(k));
-            if (commonKeywords.length > 0) {
-              score += commonKeywords.length * 40;
+          // Priority 1 — Same Taxonomy Family (e.g. Kurti to Kurti, Clog to Clog)
+          if (currentTax.family !== "general" && cTax.family === currentTax.family) {
+            score += 200;
+          }
+
+          // Priority 2 — Same Category ID
+          if (currentCatId && candidate.category_id && String(currentCatId) === String(candidate.category_id)) {
+            score += 80;
+          }
+
+          // Priority 3 — Title Keyword Match
+          if (currentKeywords.length > 0) {
+            for (const kw of currentKeywords) {
+              if (cName.includes(kw)) {
+                score += 25;
+              }
             }
           }
 
-          // Priority 2 — Same Category & Subcategory (Weight: 50)
-          if (currentCatId && candidate.category_id && String(currentCatId) === String(candidate.category_id)) {
-            score += 50;
-          }
-          if (currentSubcategory && cSubcategory && currentSubcategory === cSubcategory) {
-            score += 40;
-          }
-
-          // Priority 3 — Similar Price Range (±30% gets +30, ±50% gets +15)
+          // Priority 4 — Price Range Proximity (±30% gets +30, ±60% gets +15)
           if (currentPrice > 0 && cPrice > 0) {
             const priceRatio = Math.abs(cPrice - currentPrice) / currentPrice;
             if (priceRatio <= 0.3) {
               score += 30;
-            } else if (priceRatio <= 0.5) {
+            } else if (priceRatio <= 0.6) {
               score += 15;
             }
           }
 
-          // Priority 4 — Similar Attributes (Gender, Fabric, Fit, Color, Brand)
+          // Priority 5 — Target Gender
           if (currentGender && cGender && (currentGender === cGender || cGender === "unisex" || currentGender === "unisex")) {
             score += 20;
           }
-          if (currentBrand && cBrand && currentBrand === cBrand) {
+
+          // Priority 6 — Verified Ratings
+          const rInfo = ratingMap.get(String(candidate.id));
+          if (rInfo && rInfo.avg >= 4.0) {
             score += 15;
-          }
-          if (currentFit && cFit && currentFit === cFit) {
-            score += 12;
-          }
-          if (currentFabric && cFabric && currentFabric === cFabric) {
-            score += 10;
-          }
-          if (currentColor && cColor && currentColor === cColor) {
-            score += 8;
-          }
-
-          // Priority 5 — Ratings, Freshness & Popularity
-          const rInfo = ratingMap.get(String(candidate.id)) || {
-            avg: Number(candidate.rating) || 0,
-            count: Number(candidate.review_count) || 0,
-          };
-
-          if (rInfo.avg >= 4.0) {
-            score += 10;
-          }
-          if (rInfo.count > 5) {
-            score += 5;
           }
 
           return { product: candidate, score };
         });
 
-        // 3. Sort by highest score descending
+        // 5. Sort by highest recommendation score
         scoredProducts.sort((a, b) => b.score - a.score);
 
-        // 4. Map into SimilarProductItem with calculated discount and verified rating
+        // 6. Map into SimilarProductItem with discount & verified ratings
         const results: SimilarProductItem[] = scoredProducts.slice(0, limit).map(({ product: p }) => {
           const price = Number(p.price) || 0;
           const mrp = p.mrp != null && !isNaN(Number(p.mrp)) ? Number(p.mrp) : 0;
           const discountPct = mrp > price && mrp > 0 ? Math.round(((mrp - price) / mrp) * 100) : 0;
 
-          // Rating: only use real rating from reviews or real database column
           const rData = ratingMap.get(String(p.id));
-          const rating = rData?.avg || (Number(p.rating) > 0 ? Number(p.rating) : undefined);
-          const reviewCount = rData?.count || (Number(p.review_count) > 0 ? Number(p.review_count) : undefined);
+          const rating = rData?.avg;
+          const reviewCount = rData?.count;
 
           // Real Highlight Label
           let highlightLabel: string | undefined = undefined;
-          const pSpecs = (p.specifications && typeof p.specifications === "object") ? p.specifications : {};
           if (discountPct >= 50) {
             highlightLabel = "Special Offer";
-          } else if (p.tier === "PREMIUM" || pSpecs.is_premium === true) {
+          } else if (p.tier === "PREMIUM" || (p.specifications as any)?.is_premium === true) {
             highlightLabel = "Premium";
-          } else if (p.status === "COMING_SOON" || pSpecs.is_new_drop === true) {
+          } else if (p.status === "COMING_SOON" || (p.specifications as any)?.is_new_drop === true) {
             highlightLabel = "New Arrival";
-          } else if (reviewCount && reviewCount >= 10 && rating && rating >= 4.2) {
+          } else if (reviewCount && reviewCount >= 5 && rating && rating >= 4.2) {
             highlightLabel = "Bestseller";
           }
 

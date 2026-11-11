@@ -1253,7 +1253,7 @@ export default function ProductDetailTemplate({
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1440px] px-4 md:px-8">
+      <div className="mx-auto max-w-[1440px] px-2 sm:px-4 md:px-8">
         {relatedProductsSlot ? (
           relatedProductsSlot
         ) : relatedProducts.length > 0 ? (
