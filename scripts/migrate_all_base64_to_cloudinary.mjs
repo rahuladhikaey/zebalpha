@@ -104,7 +104,7 @@ async function runMigration() {
   console.log('\n--- Step 2: Generating SQL Migration File ---');
   let sqlContent = `-- Migration: Replace raw Base64 image strings with Cloudinary CDN URLs
 -- Generated on: ${new Date().toISOString()}
--- Target: public.products table
+-- Target: public.products table (JSONB column compatible)
 
 BEGIN;
 
@@ -112,13 +112,13 @@ BEGIN;
 
   for (const item of updates) {
     const escapedImageUrl = item.new_image_url.replace(/'/g, "''");
-    const escapedImagesArray = item.new_images.map((url) => `'${url.replace(/'/g, "''")}'`).join(', ');
+    const jsonImages = JSON.stringify(item.new_images).replace(/'/g, "''");
 
     sqlContent += `-- Product: ${item.name.replace(/\n/g, ' ')}
 UPDATE public.products
 SET 
   image_url = '${escapedImageUrl}',
-  images = ARRAY[${escapedImagesArray}]::text[],
+  images = '${jsonImages}'::jsonb,
   updated_at = NOW()
 WHERE id = '${item.id}';
 
@@ -144,3 +144,4 @@ runMigration().catch((e) => {
   console.error('Fatal error in migration:', e);
   process.exit(1);
 });
+
