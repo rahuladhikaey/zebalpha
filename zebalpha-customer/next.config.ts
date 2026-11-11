@@ -10,8 +10,9 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ["razorpay"],
   images: {
-    unoptimized: isCapacitorBuild,
-    formats: ['image/avif', 'image/webp'],
+    // Unoptimized directly serves images from Cloudinary & Supabase global edge CDNs,
+    // completely eliminating Vercel Fast Origin Transfer bandwidth consumption.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
