@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { HomeHero } from "@/components/HomeHero";
 import { CuratedCollectionsSection } from "@/components/CuratedCollectionsSection";
 import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
+import { OurProductsBanner } from "@/components/home/OurProductsBanner";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
 import { SuggestedForYouSection } from "@/components/recommendations/SuggestedForYouSection";
@@ -138,34 +139,7 @@ export default async function HomePage(props: {
 
           {/* Featured Marketplace Products Grid */}
           <section className="mt-14 mb-16">
-            <div className="flex items-center justify-between mb-8 gap-4">
-              <div className="flex items-center gap-3">
-                <span className="h-6 w-1 bg-white rounded-full" />
-                <div>
-                  <h2 className="text-xl font-black text-white uppercase tracking-tight md:text-2xl">
-                    Our Products
-                  </h2>
-                  <p className="text-xs text-neutral-400 font-medium">
-                    Explore our complete streetwear, polos, hoodies & apparel collection
-                  </p>
-                </div>
-              </div>
-
-              {/* Right-side '+' Customize Button */}
-              <Link
-                href="/customize"
-                aria-label="Create Custom Apparel Design"
-                className="group relative flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent border border-emerald-500/50 hover:border-emerald-400 px-3.5 sm:px-4 py-2 text-xs font-black uppercase tracking-wider text-emerald-400 hover:text-white transition-all duration-300 shadow-lg hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] active:scale-95 shrink-0"
-              >
-                <div className="flex items-center justify-center h-5 w-5 rounded-full bg-emerald-500 text-black font-black text-sm group-hover:rotate-90 transition-transform duration-300">
-                  +
-                </div>
-                <span className="hidden sm:inline">Customize</span>
-                <span className="text-[10px] hidden md:inline px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                  PRINT
-                </span>
-              </Link>
-            </div>
+            <OurProductsBanner />
 
             <Suspense
               fallback={
