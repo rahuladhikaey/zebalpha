@@ -58,16 +58,16 @@ public class MainActivity extends BridgeActivity {
 
     public enum ErrorType {
         NETWORK(
-            "Something went wrong!",
-            "Please try again later."
+            "No connection",
+            "Please check your internet connectivity\nand try again"
         ),
         SERVER(
-            "Something went wrong!",
-            "Please try again later."
+            "No connection",
+            "Please check your internet connectivity\nand try again"
         ),
         TIMEOUT(
-            "Something went wrong!",
-            "Please try again later."
+            "No connection",
+            "Please check your internet connectivity\nand try again"
         );
 
         public final String title;
@@ -322,6 +322,26 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void load() {
+        try {
+            bridgeBuilder.addWebViewListener(new com.getcapacitor.WebViewListener() {
+                @Override
+                public void onReceivedError(WebView webView) {
+                    runOnUiThread(() -> {
+                        hasError = true;
+                        currentState = AppState.ERROR;
+                        if (webView != null) {
+                            webView.stopLoading();
+                            webView.loadUrl("about:blank");
+                            webView.setVisibility(View.GONE);
+                        }
+                        showOfflineOverlay(ErrorType.NETWORK);
+                    });
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error registering pre-load WebViewListener", e);
+        }
+
         super.load();
         try {
             Bridge bridge = getBridge();
@@ -335,7 +355,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStart() {
+    public void onStart() {
         super.onStart();
         try {
             Bridge bridge = getBridge();
@@ -549,53 +569,18 @@ public class MainActivity extends BridgeActivity {
                 )
             );
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                offlineOverlayView.setElevation(999f);
-                offlineOverlayView.setTranslationZ(999f);
+                offlineOverlayView.setElevation(9999f);
+                offlineOverlayView.setTranslationZ(9999f);
             }
             offlineOverlayView.setVisibility(View.GONE);
 
-            ImageButton btnBack = offlineOverlayView.findViewById(R.id.btn_error_back);
-            ImageButton btnSearch = offlineOverlayView.findViewById(R.id.btn_error_search);
-            ImageButton btnWishlist = offlineOverlayView.findViewById(R.id.btn_error_wishlist);
-            View cartContainer = offlineOverlayView.findViewById(R.id.btn_error_cart_container);
             btnRetry = offlineOverlayView.findViewById(R.id.btn_error_retry);
             pbRetry = offlineOverlayView.findViewById(R.id.pb_error_retry);
             tvErrorTitle = offlineOverlayView.findViewById(R.id.tv_error_title);
             tvErrorSubtitle = offlineOverlayView.findViewById(R.id.tv_error_subtitle);
 
-            // Back button
-            btnBack.setOnClickListener(v -> handleBackNavigation());
-
             // Retry button with debounce
-            btnRetry.setOnClickListener(v -> retryConnection());
-
-            // Header actions: Search, Wishlist, Cart
-            btnSearch.setOnClickListener(v -> {
-                if (isNetworkConnected()) {
-                    hideOfflineOverlay();
-                    navigateToUrl("https://zebalpha.shop/categories");
-                } else {
-                    Toast.makeText(MainActivity.this, "Please check your internet connection.", Toast.LENGTH_SHORT).show();
-                }
-            });
-
-            btnWishlist.setOnClickListener(v -> {
-                if (isNetworkConnected()) {
-                    hideOfflineOverlay();
-                    navigateToUrl("https://zebalpha.shop/wishlist");
-                } else {
-                    Toast.makeText(MainActivity.this, "Please check your internet connection.", Toast.LENGTH_SHORT).show();
-                }
-            });
-
-            cartContainer.setOnClickListener(v -> {
-                if (isNetworkConnected()) {
-                    hideOfflineOverlay();
-                    navigateToUrl("https://zebalpha.shop/cart");
-                } else {
-                    Toast.makeText(MainActivity.this, "Please check your internet connection.", Toast.LENGTH_SHORT).show();
-                }
-            });
+            if (btnRetry != null) btnRetry.setOnClickListener(v -> retryConnection());
 
         } catch (Exception e) {
             Log.e(TAG, "Error setting up offline overlay", e);
@@ -662,8 +647,8 @@ public class MainActivity extends BridgeActivity {
                 offlineOverlayView.setVisibility(View.VISIBLE);
                 offlineOverlayView.bringToFront();
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    offlineOverlayView.setElevation(999f);
-                    offlineOverlayView.setTranslationZ(999f);
+                    offlineOverlayView.setElevation(9999f);
+                    offlineOverlayView.setTranslationZ(9999f);
                 }
                 if (pbRetry != null) pbRetry.setVisibility(View.GONE);
                 if (btnRetry != null) {
@@ -707,15 +692,15 @@ public class MainActivity extends BridgeActivity {
         if (!isNetworkConnected()) {
             // If there is no usable network: remain on custom error screen!
             Log.d(TAG, "Retry tapped while offline. Remaining on custom error screen.");
-            if (tvErrorTitle != null) tvErrorTitle.setText("Something went wrong!");
-            if (tvErrorSubtitle != null) tvErrorSubtitle.setText("Please try again later.");
+            if (tvErrorTitle != null) tvErrorTitle.setText("No connection");
+            if (tvErrorSubtitle != null) tvErrorSubtitle.setText("Please check your internet connectivity\nand try again");
             if (pbRetry != null) pbRetry.setVisibility(View.GONE);
             if (btnRetry != null) {
                 btnRetry.setVisibility(View.VISIBLE);
                 btnRetry.setEnabled(true);
                 btnRetry.setText("Retry");
             }
-            Toast.makeText(MainActivity.this, "No internet connection. Please check your network and try again.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, "No connection. Please check your internet connectivity and try again.", Toast.LENGTH_SHORT).show();
             return;
         }
 
