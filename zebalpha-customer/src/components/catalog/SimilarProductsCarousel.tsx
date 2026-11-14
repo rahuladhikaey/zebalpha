@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { SimilarProductItem } from "@/lib/similarProducts";
+import {
+  trackRecommendationClick,
+  trackRecommendationImpressions,
+} from "@/lib/recommendationClient";
 
 interface SimilarProductsCarouselProps {
   products: SimilarProductItem[];
@@ -21,6 +25,19 @@ export default function SimilarProductsCarousel({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+
+  useEffect(() => {
+    if (!products || products.length === 0) return;
+    trackRecommendationImpressions(
+      "similar_products",
+      products.slice(0, 12).map((item, idx) => ({
+        productId: String(item.id),
+        categoryId: item.category_id ? String(item.category_id) : null,
+        strategy: "product_similarity",
+        positionIndex: idx,
+      }))
+    ).catch(() => {});
+  }, [products]);
 
   if (!products || products.length === 0) {
     return null;
@@ -106,7 +123,7 @@ export default function SimilarProductsCarousel({
           msOverflowStyle: "none",
         }}
       >
-        {products.map((p) => {
+        {products.map((p, idx) => {
           const sellingPrice = Number(p.price) || 0;
           const mrp = p.mrp != null && !isNaN(Number(p.mrp)) ? Number(p.mrp) : 0;
           const discountPct =
@@ -127,6 +144,15 @@ export default function SimilarProductsCarousel({
             <Link
               key={p.id}
               href={`/products/${p.id}`}
+              onClick={() => {
+                trackRecommendationClick({
+                  productId: p.id,
+                  categoryId: p.category_id,
+                  surface: "similar_products",
+                  strategy: "product_similarity",
+                  positionIndex: idx,
+                }).catch(() => {});
+              }}
               className="group shrink-0 w-[150px] sm:w-[175px] md:w-[190px] snap-start flex flex-col rounded-2xl bg-zinc-950/90 border border-zinc-850 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(34,197,94,0.18)] transition-all duration-200 overflow-hidden select-none active:scale-[0.98]"
             >
               {/* Product Image Container */}

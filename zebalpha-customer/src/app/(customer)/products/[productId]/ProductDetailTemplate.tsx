@@ -17,6 +17,8 @@ import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUt
 import { supabase } from "@/lib/supabaseClient";
 import { evaluateProductTryOnEligibility } from "@/shared/constants/tryOnEligibility";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
+import { trackRecommendationEvent } from "@/lib/recommendationClient";
+import { getProductDisplayPricing } from "@/lib/productPricing";
 export default function ProductDetailTemplate({
   product,
   relatedProducts = [],
@@ -751,6 +753,17 @@ export default function ProductDetailTemplate({
     fetchReviews();
   }, [product.id]);
 
+  // Record product view behavioral signal for cross-platform personalization & recently viewed
+  useEffect(() => {
+    if (product?.id) {
+      trackRecommendationEvent({
+        eventType: "product_viewed",
+        productId: product.id,
+        categoryId: product.category_id,
+      }).catch(() => {});
+    }
+  }, [product?.id, product?.category_id]);
+
   const averageRating = useMemo(() => {
     if (reviews.length === 0) return product.rating || 0;
     const sum = reviews.reduce((acc, curr) => acc + curr.rating, 0);
@@ -1267,7 +1280,9 @@ export default function ProductDetailTemplate({
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-              {relatedProducts.map((p) => (
+              {relatedProducts.map((p) => {
+                const pPricing = getProductDisplayPricing(p);
+                return (
                 <Link
                   key={p.id}
                   href={`/products/${p.id}`}
@@ -1282,27 +1297,34 @@ export default function ProductDetailTemplate({
                   </div>
                   <div className="flex-1 space-y-2">
                     <h3 className="text-sm font-bold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">{p.name}</h3>
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex h-5 items-center gap-0.5 rounded-md bg-white text-black px-1.5 text-[10px] font-bold">
-                        <span>4.4</span>
-                        <Star size={8} fill="currentColor" aria-hidden="true" />
+                    {typeof p.rating === "number" && p.rating > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex h-5 items-center gap-0.5 rounded-md bg-white text-black px-1.5 text-[10px] font-bold">
+                          <span>{p.rating}</span>
+                          <Star size={8} fill="currentColor" aria-hidden="true" />
+                        </div>
+                        {typeof p.review_count === "number" && p.review_count > 0 && (
+                          <span className="text-[10px] font-bold text-zinc-400">({p.review_count})</span>
+                        )}
                       </div>
-                      <span className="text-[10px] font-bold text-zinc-400">(234)</span>
-                    </div>
+                    )}
                     <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-bold text-zinc-500 line-through">
-                          ₹{p.mrp || Math.round(p.price * 1.2)}
-                        </span>
-                        <span className="text-[9px] font-extrabold text-white bg-zinc-900 border border-zinc-800 px-1 py-0.5 rounded">
-                          {Math.round((((p.mrp || Math.round(p.price * 1.2)) - p.price) / (p.mrp || Math.round(p.price * 1.2))) * 100)}% OFF
-                        </span>
-                      </div>
-                      <span className="text-sm font-black text-white">₹{p.price}</span>
+                      {pPricing.hasDiscount && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold text-zinc-500 line-through">
+                            ₹{pPricing.mrp}
+                          </span>
+                          <span className="text-[9px] font-extrabold text-white bg-zinc-900 border border-zinc-800 px-1 py-0.5 rounded">
+                            {pPricing.discountPercent}% OFF
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-sm font-black text-white">₹{pPricing.price}</span>
                     </div>
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : null}

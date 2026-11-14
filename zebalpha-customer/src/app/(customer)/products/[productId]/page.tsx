@@ -8,6 +8,7 @@ import { Product } from "@/lib/types";
 import { Header } from "@/components/Header";
 import ProductDetailTemplate from "./ProductDetailTemplate";
 import SimilarProductsCarousel from "@/components/catalog/SimilarProductsCarousel";
+import { RecentlyViewedSection } from "@/components/recommendations/RecentlyViewedSection";
 import { getSimilarProducts, detectProductFamily } from "@/lib/similarProducts";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
@@ -291,13 +292,18 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <ProductDetailTemplate
           product={product}
           relatedProductsSlot={
-            <div className="mt-8 pt-6 border-t border-zinc-800/80">
+            <div className="mt-8 pt-6 border-t border-zinc-800/80 space-y-6">
               <Suspense fallback={<SimilarProductsSkeleton />}>
                 <SimilarProductsSection product={product} />
               </Suspense>
             </div>
           }
         />
+
+        {/* Separate Recently Viewed Module (never combined with Similar Products) */}
+        <div className="mt-8">
+          <RecentlyViewedSection excludeProductId={String(product.id)} />
+        </div>
 
         {/* Customer Help & Dynamic FAQs (Clean E-Commerce Standard) */}
         <div className="mt-12 space-y-8 pb-16">

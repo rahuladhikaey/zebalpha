@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { sendWhatsAppOrderConfirmation } from "@/lib/whatsapp";
 import { createMasterOrder } from "@/lib/orderRouter";
+import { recordOrderPurchaseEvents } from "@/lib/recommendationEngine";
 
 
 // In-memory concurrency lock to prevent millisecond-level duplicate submissions
@@ -25,6 +26,8 @@ export async function POST(req: Request) {
       handling_fee,
       tax: clientTax,
       subtotal,
+      sessionId: bodySessionId,
+      platform: bodyPlatform,
     } = await req.json();
 
     // Verify product prices against database before creating order
@@ -224,6 +227,22 @@ export async function POST(req: Request) {
         items: items || [],
       }).catch((waError) => console.error("WhatsApp notification error:", waError));
     }
+
+    const visitorMatch = (req.headers.get("cookie") || "").match(/zba_visitor_id=([^;]+)/);
+    const resolvedSessionId =
+      bodySessionId ||
+      req.headers.get("x-zebalpha-session-id") ||
+      (visitorMatch ? decodeURIComponent(visitorMatch[1]) : null);
+
+    recordOrderPurchaseEvents({
+      userId: user_id,
+      sessionId: resolvedSessionId,
+      orderId: parentOrder.id,
+      items,
+      platform:
+        bodyPlatform ||
+        (req.headers.get("user-agent")?.includes("ZEBALPHA_ANDROID_APP") ? "android" : "website"),
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, orderId: parentOrder.id, orderNumber: parentOrder.order_number });
   } catch (error: unknown) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { sendWhatsAppOrderConfirmation } from "@/lib/whatsapp";
 import { createMasterOrder } from "@/lib/orderRouter";
+import { recordOrderPurchaseEvents } from "@/lib/recommendationEngine";
 import crypto from "crypto";
 
 function verifySignature(orderId: string, paymentId: string, signature: string, secret: string): boolean {
@@ -316,6 +317,22 @@ export async function POST(req: Request) {
         items: items || [],
       }).catch((waError) => console.error("WhatsApp notification error:", waError));
     }
+
+    const visitorMatch = (req.headers.get("cookie") || "").match(/zba_visitor_id=([^;]+)/);
+    const resolvedSessionId =
+      body?.sessionId ||
+      req.headers.get("x-zebalpha-session-id") ||
+      (visitorMatch ? decodeURIComponent(visitorMatch[1]) : null);
+
+    recordOrderPurchaseEvents({
+      userId: user_id,
+      sessionId: resolvedSessionId,
+      orderId: orderIdToReturn,
+      items: items || [],
+      platform:
+        body?.platform ||
+        (req.headers.get("user-agent")?.includes("ZEBALPHA_ANDROID_APP") ? "android" : "website"),
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

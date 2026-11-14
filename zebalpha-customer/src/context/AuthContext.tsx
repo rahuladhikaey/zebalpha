@@ -3,6 +3,10 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  getOrCreateRecommendationSessionId,
+  mergeAnonymousRecommendationSession,
+} from "@/lib/recommendationClient";
 
 export interface UserProfile {
   id: string;
@@ -111,6 +115,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
+    getOrCreateRecommendationSessionId();
 
     // Check existing active session and restore session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -159,6 +164,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   status: "SUCCESS"
                 })
               }).catch(() => {});
+              mergeAnonymousRecommendationSession(currentSession?.access_token).catch(() => {});
             } catch (_) {}
           }
         }

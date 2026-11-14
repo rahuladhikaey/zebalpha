@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { Product } from "@/lib/types";
+import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -166,6 +167,12 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       const nextList = wishlist.find((p) => p.id === product.id) ? wishlist : [...wishlist, product];
       saveGuestWishlist(nextList);
     }
+
+    trackRecommendationEvent({
+      eventType: "wishlist_added",
+      productId: product.id,
+      categoryId: product.category_id,
+    }).catch(() => {});
   };
 
   const removeFromWishlist = async (productId: number | string) => {

@@ -12,6 +12,10 @@ import { Header } from "@/components/Header";
 import { Tag, Check, X, Sparkles, Truck } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useIsNativeApp } from "@/lib/platform";
+import {
+  getOrCreateRecommendationSessionId,
+  getRecommendationPlatform,
+} from "@/lib/recommendationClient";
 
 const normalizeAddressFromRecord = (record: any) => {
   const addressLine = record?.address_line || record?.address_line1 || record?.address_line2 || "";
@@ -664,6 +668,8 @@ function CheckoutContent() {
           applyAsCard: cardValidated,
           couponCode: appliedCoupon ? appliedCoupon.code : "",
           discount: totalDiscount,
+          sessionId: getOrCreateRecommendationSessionId(),
+          platform: getRecommendationPlatform(),
         };
 
         let responseData: any = null;
@@ -831,6 +837,8 @@ function CheckoutContent() {
                 applyAsCard: cardValidated,
                 couponCode: appliedCoupon ? appliedCoupon.code : "",
                 discount: totalDiscount,
+                sessionId: getOrCreateRecommendationSessionId(),
+                platform: getRecommendationPlatform(),
               };
 
               let verifyData: any = null;

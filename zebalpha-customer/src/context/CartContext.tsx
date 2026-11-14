@@ -12,6 +12,7 @@ import { CartItem, Product } from "@/lib/types";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
+import { trackRecommendationEvent } from "@/lib/recommendationClient";
 
 type CartContextValue = {
   cart: CartItem[];
@@ -373,6 +374,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       })();
       saveGuestCart(nextCart);
     }
+
+    trackRecommendationEvent({
+      eventType: "cart_added",
+      productId: product.id,
+      categoryId: product.category_id,
+      metadata: {
+        quantity: Math.min(quantity, maxStock),
+        package_name: targetPkg,
+      },
+    }).catch(() => {});
   };
 
   // Update Quantity Handler
@@ -452,6 +463,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           String(item.id) !== String(keyOrId)
       );
       saveGuestCart(nextCart);
+    }
+
+    if (targetItem) {
+      trackRecommendationEvent({
+        eventType: "cart_removed",
+        productId: targetItem.id,
+        categoryId: targetItem.category_id,
+      }).catch(() => {});
     }
   };
 

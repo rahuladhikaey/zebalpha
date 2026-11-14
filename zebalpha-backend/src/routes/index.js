@@ -20,6 +20,7 @@ import financeConfigRoutes from './financeConfigRoutes.js';
 import cacheRoutes from './cacheRoutes.js';
 import payoutAccountRoutes from './payoutAccountRoutes.js';
 import founderRoutes from './founderRoutes.js';
+import recommendationRoutes from './recommendationRoutes.js';
 
 const router = Router();
 
@@ -45,5 +46,6 @@ router.use('/virtual-try-on', virtualTryOnRoutes);
 router.use('/cache', cacheRoutes);
 router.use('/seller/payout-account', payoutAccountRoutes);
 router.use('/sellers/payout-account', payoutAccountRoutes);
+router.use('/recommendations', recommendationRoutes);
 
 export default router;

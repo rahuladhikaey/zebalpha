@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { CategoryIconRenderer, getLocalizedCategoryName } from "@/lib/categoryIcons";
 import { ShoppingBag, Flame } from "lucide-react";
+import { trackRecommendationEvent } from "@/lib/recommendationClient";
 
 const ACTIVE_GOLD_BOX_CLASS =
   "bg-black text-white border-[2px] border-amber-300 shadow-[0_0_22px_rgba(251,191,36,0.7),inset_0_0_12px_rgba(251,191,36,0.25)]";
@@ -420,6 +421,12 @@ export function CategoryNavigationBar({
               <Link
                 key={cat.id}
                 href={`/products?category=${encodeURIComponent(cat.id)}`}
+                onClick={() => {
+                  trackRecommendationEvent({
+                    eventType: "category_viewed",
+                    categoryId: cat.id,
+                  }).catch(() => {});
+                }}
                 role="tab"
                 aria-selected={isSelected}
                 data-active={isSelected}

@@ -6,6 +6,7 @@ import { Search, ArrowRight, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchProducts } from "@/hooks/useCatalogQueries";
+import { trackRecommendationEvent } from "@/lib/recommendationClient";
 
 const searchItems = ["Oversized Tees", "Mobiles", "Fashion", "Hoodies", "Smart Casuals", "Streetwear", "Joggers"];
 
@@ -41,6 +42,12 @@ export function MobileSearch({ className }: { className?: string } = {}) {
     if (e && e.key !== "Enter") return;
     setIsOpen(false);
     if (inputValue.trim() !== "") {
+      if (inputValue.trim().length >= 2) {
+        trackRecommendationEvent({
+          eventType: "product_searched",
+          searchQuery: inputValue.trim(),
+        }).catch(() => {});
+      }
       router.push(`/products?search=${encodeURIComponent(inputValue.trim())}`);
     } else {
       router.push(`/products`);

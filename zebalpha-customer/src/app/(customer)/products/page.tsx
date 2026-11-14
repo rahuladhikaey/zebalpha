@@ -23,6 +23,7 @@ import {
   getProductDisplayPricing,
 } from "@/hooks/useCatalogQueries";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
+import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ProductFilters,
@@ -95,6 +96,37 @@ function ProductsContent() {
   useEffect(() => {
     setPage(1);
   }, [selectedCategory, debouncedSearch, filters]);
+
+  // Track real customer search & category browsing events across Web and Android
+  useEffect(() => {
+    const trimmed = debouncedSearch.trim();
+    if (trimmed.length >= 2) {
+      trackRecommendationEvent({
+        eventType: "product_searched",
+        searchQuery: trimmed,
+      }).catch(() => {});
+    }
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+    const catStr = String(selectedCategory).trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catStr);
+    const matchedCat = isUuid
+      ? categories.find((c) => String(c.id) === catStr)
+      : categories.find(
+          (c) =>
+            c.name?.toLowerCase() === catStr.toLowerCase() ||
+            c.slug?.toLowerCase() === catStr.toLowerCase()
+        );
+    const resolvedCategoryId = matchedCat?.id ? String(matchedCat.id) : isUuid ? catStr : null;
+    if (resolvedCategoryId) {
+      trackRecommendationEvent({
+        eventType: "category_viewed",
+        categoryId: resolvedCategoryId,
+      }).catch(() => {});
+    }
+  }, [selectedCategory, categories]);
 
   // Server-side paginated query
   const {

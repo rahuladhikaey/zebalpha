@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { getOrCreateRecommendationSessionId } from "@/lib/recommendationClient";
 import { useIsNativeApp } from "@/lib/platform";
 
 const SESSION_STORAGE_KEY = "zebalpha_client_session_id";
@@ -19,14 +20,13 @@ export function ActiveSessionTracker() {
   }, [user]);
 
   useEffect(() => {
-    // 1. Initialize or restore session ID from sessionStorage
+    // 1. Initialize or restore unified cross-session visitor ID
     try {
-      let storedId = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (!storedId) {
-        storedId = `zba_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
+      const storedId = getOrCreateRecommendationSessionId();
+      if (storedId) {
         window.sessionStorage.setItem(SESSION_STORAGE_KEY, storedId);
+        sessionIdRef.current = storedId;
       }
-      sessionIdRef.current = storedId;
     } catch {
       sessionIdRef.current = `zba_mem_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
     }

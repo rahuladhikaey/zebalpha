@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchProducts } from "@/hooks/useCatalogQueries";
+import { trackRecommendationEvent } from "@/lib/recommendationClient";
 
 const searchItems = [
   "Premium Polos",
@@ -77,6 +78,12 @@ function AnimatedSearchBarContent() {
   const handleSearch = () => {
     const query = inputValue.trim() || searchItems[itemIndex];
     setIsOpen(false);
+    if (query.trim().length >= 2) {
+      trackRecommendationEvent({
+        eventType: "product_searched",
+        searchQuery: query.trim(),
+      }).catch(() => {});
+    }
     router.push(`/products?search=${encodeURIComponent(query)}`);
   };
 
