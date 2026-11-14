@@ -105,14 +105,14 @@ export default function NotificationBell({ className, iconClassName }: Notificat
     <Link 
       href="/notifications" 
       onClick={handleClick}
-      className={className || "relative flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-all shrink-0 active:scale-95"} 
+      className={className || "relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-[#1a140b] to-[#0b0905] border border-amber-500/35 text-amber-400 hover:text-amber-300 hover:border-amber-400/60 shadow-[0_4px_14px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(253,230,138,0.18)] transition-all shrink-0 active:scale-95"} 
       aria-label="Notifications"
     >
-      <Bell strokeWidth={2.2} className={iconClassName || "h-4 w-4"} />
+      <Bell strokeWidth={2.2} className={iconClassName || "h-4 w-4 text-amber-400"} />
       {hasNew && (
-        <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+        <span className="absolute right-2 top-2 flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gradient-to-tr from-amber-400 to-yellow-300 ring-1 ring-black shadow-[0_0_8px_#fbbf24]"></span>
         </span>
       )}
     </Link>

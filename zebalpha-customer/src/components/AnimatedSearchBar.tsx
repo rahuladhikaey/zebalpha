@@ -84,15 +84,15 @@ function AnimatedSearchBarContent() {
 
   return (
     <div ref={containerRef} className="relative w-full max-w-md">
-      <div className="flex items-center w-full bg-neutral-900/90 rounded-2xl border border-neutral-800 p-1.5 focus-within:border-white focus-within:bg-black transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+      <div className="relative flex items-center w-full bg-gradient-to-b from-[#141009]/95 via-[#0b0905]/95 to-[#120d06]/95 rounded-full border border-amber-500/50 p-1.5 focus-within:border-amber-400 focus-within:shadow-[0_0_20px_rgba(251,191,36,0.35)] transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.6),inset_0_0_10px_rgba(245,158,11,0.08)]">
         <div className="pl-3 pr-2 flex items-center justify-center">
-          <Search strokeWidth={2.2} className="w-5 h-5 text-neutral-400" />
+          <Search strokeWidth={2.2} className="w-4 h-4 text-amber-400" />
         </div>
         
-        <div className="flex-1 relative h-9 flex items-center">
+        <div className="flex-1 relative h-8 flex items-center">
           {!inputValue && (
-            <div className="absolute inset-0 flex items-center pointer-events-none text-neutral-500 text-sm font-medium tracking-wide">
-              Search "{displayText}"<span className="animate-pulse text-white font-bold">|</span>
+            <div className="absolute inset-0 flex items-center pointer-events-none text-zinc-400 text-sm font-medium tracking-wide">
+              Search &quot;{displayText}&quot;<span className="animate-pulse text-amber-400 font-bold">|</span>
             </div>
           )}
           <input 
@@ -115,11 +115,12 @@ function AnimatedSearchBarContent() {
         </div>
 
         <button 
+          type="button"
           onClick={handleSearch}
           aria-label="Submit Search"
-          className="flex items-center justify-center px-3 py-1.5 rounded-xl bg-white text-black text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition-all active:scale-95 shrink-0"
+          className="flex items-center justify-center px-4 py-1.5 rounded-full bg-gradient-to-b from-[#fde68a] via-[#eab308] to-[#ca8a04] border border-amber-200/70 text-black text-xs font-black uppercase tracking-wider hover:brightness-110 transition-all active:scale-95 shadow-[0_0_12px_rgba(234,179,8,0.45)] shrink-0 cursor-pointer"
         >
-          Find
+          GO
         </button>
       </div>
 

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useState, Suspense, useEffect } from "react";
+import { useState, useId } from "react";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import AnimatedSearchBar from "./AnimatedSearchBar";
@@ -20,16 +20,166 @@ type HeaderProps = {
   subtitle?: string;
 };
 
+const GOLD_ICON_BTN_CLASS =
+  "flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-b from-[#1c160d] to-[#0c0905] border border-amber-500/40 text-amber-400 hover:text-amber-300 hover:border-amber-400/70 active:scale-95 transition-all shadow-[0_4px_14px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(253,230,138,0.22)] cursor-pointer";
+
+const GOLD_WEB_BTN_CLASS =
+  "relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-[#1c160d] to-[#0c0905] border border-amber-500/40 text-amber-400 hover:text-amber-300 hover:border-amber-400/70 transition-all active:scale-95 cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(253,230,138,0.2)]";
+
+function WatermarkHangerTee({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 80 80"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* Hanger hook & shoulders */}
+      <path d="M40 7a5 5 0 0 0-5 5h3a2 2 0 1 1 2 2c-1.1 0-2 .9-2 2v3.2L22.5 27.5a2 2 0 0 0-.5 1.3V30h36v-1.2a2 2 0 0 0-.5-1.3L42 19.2V16a4 4 0 0 0 3-3.9A5 5 0 0 0 40 7z" opacity="0.7" />
+      {/* T-shirt silhouette */}
+      <path d="M23 28l-11 7 5 11 7-3v28h32V43l7 3 5-11-11-7h-7.5a8.5 8.5 0 0 1-17 0H23z" />
+    </svg>
+  );
+}
+
+function LuxuryGoldHeaderBackdrop() {
+  const uid = useId().replace(/:/g, "");
+  const ribbonLeftId = `hdrGoldLeft-${uid}`;
+  const ribbonRightId = `hdrGoldRight-${uid}`;
+  const dustId = `hdrGoldDust-${uid}`;
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden z-0" aria-hidden="true">
+      {/* Subtle warm obsidian-gold radial corner aura */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 42% 95% at 0% 50%, rgba(217,119,6,0.18), transparent 70%), radial-gradient(ellipse 42% 95% at 100% 50%, rgba(217,119,6,0.18), transparent 70%)",
+        }}
+      />
+
+      {/* Top horizontal golden hairline glow */}
+      <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
+
+      {/* Subtle dark watermark T-shirt silhouettes */}
+      <WatermarkHangerTee className="absolute -top-2 left-[15%] h-16 w-16 -rotate-6 text-amber-100 opacity-[0.055]" />
+      <WatermarkHangerTee className="hidden sm:block absolute top-1 left-[34%] h-14 w-14 rotate-6 text-amber-100 opacity-[0.045]" />
+      <WatermarkHangerTee className="absolute -top-1 right-[20%] h-16 w-16 rotate-6 text-amber-100 opacity-[0.055]" />
+      <WatermarkHangerTee className="hidden sm:block absolute top-2 right-[6%] h-14 w-14 -rotate-12 text-amber-100 opacity-[0.045]" />
+
+      {/* Left & Right sweeping 3D metallic gold ribbons + stardust */}
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 1000 120"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient id={ribbonLeftId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#fde68a" stopOpacity="0.95" />
+            <stop offset="35%" stopColor="#eab308" stopOpacity="0.85" />
+            <stop offset="70%" stopColor="#b45309" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#451a03" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={ribbonRightId} x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#fde68a" stopOpacity="0.95" />
+            <stop offset="35%" stopColor="#eab308" stopOpacity="0.85" />
+            <stop offset="70%" stopColor="#b45309" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#451a03" stopOpacity="0" />
+          </linearGradient>
+          <radialGradient id={dustId} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#fde68a" stopOpacity="1" />
+            <stop offset="60%" stopColor="#f59e0b" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {/* Left sweeping 3D gold ribbon */}
+        <path
+          d="M -10,0 C 55,48 115,96 245,118 L 200,120 C 90,100 35,58 -10,22 Z"
+          fill={`url(#${ribbonLeftId})`}
+          opacity="0.72"
+        />
+        <path
+          d="M 18,0 C 92,55 165,98 285,116"
+          fill="none"
+          stroke="#fde68a"
+          strokeOpacity="0.55"
+          strokeWidth="1.4"
+        />
+
+        {/* Right sweeping 3D gold ribbon */}
+        <path
+          d="M 1010,0 C 945,48 885,96 755,118 L 800,120 C 910,100 965,58 1010,22 Z"
+          fill={`url(#${ribbonRightId})`}
+          opacity="0.72"
+        />
+        <path
+          d="M 982,0 C 908,55 835,98 715,116"
+          fill="none"
+          stroke="#fde68a"
+          strokeOpacity="0.55"
+          strokeWidth="1.4"
+        />
+
+        {/* Subtle golden stardust sparkles at outer edges */}
+        <circle cx="38" cy="88" r="1.6" fill={`url(#${dustId})`} opacity="0.85" />
+        <circle cx="62" cy="96" r="1.1" fill={`url(#${dustId})`} opacity="0.7" />
+        <circle cx="88" cy="102" r="1.4" fill={`url(#${dustId})`} opacity="0.6" />
+        <circle cx="24" cy="64" r="1.2" fill={`url(#${dustId})`} opacity="0.65" />
+        <circle cx="962" cy="88" r="1.6" fill={`url(#${dustId})`} opacity="0.85" />
+        <circle cx="938" cy="96" r="1.1" fill={`url(#${dustId})`} opacity="0.7" />
+        <circle cx="912" cy="102" r="1.4" fill={`url(#${dustId})`} opacity="0.6" />
+        <circle cx="976" cy="64" r="1.2" fill={`url(#${dustId})`} opacity="0.65" />
+      </svg>
+    </div>
+  );
+}
+
+function HeaderBrandLogo({ compact = false }: { compact?: boolean }) {
+  return (
+    <Link href="/" className="flex items-center gap-2.5 sm:gap-3 active:scale-95 transition-transform group">
+      {/* Double metallic gold glowing circular logo frame */}
+      <div
+        className={`relative rounded-full p-[2px] bg-gradient-to-b from-amber-200 via-amber-400 to-amber-700 shadow-[0_0_18px_rgba(245,158,11,0.45)] group-hover:shadow-[0_0_24px_rgba(251,191,36,0.65)] transition-all shrink-0 ${
+          compact ? "h-10 w-10" : "h-10 w-10 md:h-11 md:w-11"
+        }`}
+      >
+        <div className="h-full w-full rounded-full overflow-hidden bg-black p-[1.5px] ring-1 ring-amber-300/60">
+          <Image
+            src="/official-logo-sm.png"
+            alt="ZebAlpha Official Logo"
+            width={44}
+            height={44}
+            className="h-full w-full object-cover rounded-full"
+            priority
+          />
+        </div>
+      </div>
+
+      {/* Brand Wordmark + Gold Subtitle + Glowing Tapered Underline */}
+      <div className="flex flex-col items-start">
+        <span className="text-sm md:text-base font-black tracking-[0.22em] text-white uppercase group-hover:text-amber-100 transition-colors leading-tight">
+          ZEBALPHA
+        </span>
+        <span className="text-[8.5px] sm:text-[9.5px] font-bold text-amber-400 tracking-[0.14em] uppercase mt-0.5 leading-none">
+          CLOTHING FOR THE CULTURE
+        </span>
+        <span className="mt-1 h-[1.5px] w-full bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_8px_#fbbf24]" />
+      </div>
+    </Link>
+  );
+}
+
 export function Header({ 
-  title = "ZebAlpha", 
-  subtitle = "Indian E-Commerce Marketplace ✦" 
+  title: _title = "ZebAlpha", 
+  subtitle: _subtitle = "CLOTHING FOR THE CULTURE" 
 }: HeaderProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { totalItems } = useCart();
   const isNativeApp = useIsNativeApp();
-  const isAdmin = pathname.startsWith("/admin");
   const isHome = pathname === "/";
 
   // Native Android App
@@ -39,55 +189,37 @@ export function Header({
         <>
           {/* Status bar background filler to ensure no scrolling content shows behind system icons */}
           <div
-            className="fixed top-0 left-0 right-0 z-50 bg-black pointer-events-none"
+            className="fixed top-0 left-0 right-0 z-50 bg-[#050402] pointer-events-none"
             style={{ height: "env(safe-area-inset-top, 0px)" }}
             aria-hidden="true"
           />
 
           {/* =================================================================== */}
           {/* ANDROID ZEBALPHA HEADER (NORMAL SCROLL - NOT STICKY)                */}
-          {/* Scrolls away naturally when scrolling down; returns at top         */}
-          {/* Contains: Hamburger Menu, Logo, Brand Name, Notification Icon       */}
+          {/* Luxury Obsidian Black & Metallic Gold Theme                         */}
           {/* =================================================================== */}
-          <header className="relative z-20 w-full border-b border-zinc-900 bg-black px-3.5 py-2.5 text-white select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
-            <div className="flex w-full items-center justify-between">
+          <header className="relative z-20 w-full overflow-hidden border-b border-amber-500/20 bg-[#050402] px-3.5 py-2.5 text-white select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+            <LuxuryGoldHeaderBackdrop />
+
+            <div className="relative z-10 flex w-full items-center justify-between">
               {/* Left: Hamburger Menu Icon */}
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(true)}
-                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/90 border border-zinc-800 text-emerald-400 hover:text-emerald-300 active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
+                className={GOLD_ICON_BTN_CLASS}
                 aria-label="Open Navigation Menu"
               >
-                <Menu className="h-6 w-6 stroke-[2.3] text-emerald-400" />
+                <Menu className="h-6 w-6 stroke-[2.3] text-amber-400" />
               </button>
 
-              {/* Center / Left: Existing Zebalpha Logo & Brand Name (CLEAN - NO green glow ring) */}
-              <Link href="/" className="flex items-center gap-2.5 active:scale-95 transition-transform group">
-                <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 transition-all">
-                  <Image
-                    src="/official-logo-sm.png"
-                    alt="ZebAlpha Official Logo"
-                    width={36}
-                    height={36}
-                    className="h-full w-full object-cover rounded-full"
-                    priority
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white uppercase group-hover:text-neutral-200 transition-colors">
-                    ZEBALPHA
-                  </span>
-                  <span className="text-[8px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5">
-                    CLOTHING FOR THE CULTURE
-                  </span>
-                </div>
-              </Link>
+              {/* Center: ZebAlpha Logo, Brand Name & Gold Underline */}
+              <HeaderBrandLogo compact />
 
               {/* Right: Notification Bell */}
               <div className="flex items-center justify-end">
                 <NotificationBell 
-                  className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/90 border border-zinc-800 text-emerald-400 hover:text-emerald-300 active:scale-95 transition-all shadow-sm"
-                  iconClassName="h-5 w-5 stroke-[2.2] text-emerald-400"
+                  className={`relative ${GOLD_ICON_BTN_CLASS}`}
+                  iconClassName="h-5 w-5 stroke-[2.2] text-amber-400"
                 />
               </div>
             </div>
@@ -105,47 +237,30 @@ export function Header({
     // On other Android pages (non-home, e.g. /products, /categories, /profile)
     return (
       <>
-        <header className="sticky top-0 z-40 border-b border-zinc-900 bg-black/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
-          <div className="flex w-full items-center justify-between">
-            {/* Left: Back button if not home, or Hamburger */}
+        <header className="sticky top-0 z-40 overflow-hidden border-b border-amber-500/25 bg-[#050402]/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+          <LuxuryGoldHeaderBackdrop />
+
+          <div className="relative z-10 flex w-full items-center justify-between">
+            {/* Left: Back button */}
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/90 border border-zinc-800 text-emerald-400 hover:text-emerald-300 active:bg-zinc-800 active:scale-95 transition-all shadow-sm cursor-pointer"
+              className={GOLD_ICON_BTN_CLASS}
               aria-label="Go Back"
             >
-              <svg className="h-5 w-5 stroke-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 stroke-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
 
-            {/* Center / Left: Existing Zebalpha Logo & Brand Name (CLEAN - NO green glow ring) */}
-            <Link href="/" className="flex items-center gap-2.5 active:scale-95 transition-transform group">
-              <div className="relative h-9 w-9 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-700/80 transition-all">
-                <Image
-                  src="/official-logo-sm.png"
-                  alt="ZebAlpha Official Logo"
-                  width={36}
-                  height={36}
-                  className="h-full w-full object-cover rounded-full"
-                  priority
-                />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white uppercase group-hover:text-neutral-200 transition-colors">
-                  ZEBALPHA
-                </span>
-                <span className="text-[8px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5">
-                  CLOTHING FOR THE CULTURE
-                </span>
-              </div>
-            </Link>
+            {/* Center: ZebAlpha Logo & Brand Name */}
+            <HeaderBrandLogo compact />
 
             {/* Right: Notification Bell */}
             <div className="flex items-center justify-end">
               <NotificationBell 
-                className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/90 border border-zinc-800 text-emerald-400 hover:text-emerald-300 active:scale-95 transition-all shadow-sm"
-                iconClassName="h-5 w-5 stroke-[2.2] text-emerald-400"
+                className={`relative ${GOLD_ICON_BTN_CLASS}`}
+                iconClassName="h-5 w-5 stroke-[2.2] text-amber-400"
               />
             </div>
           </div>
@@ -162,42 +277,25 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-neutral-800/80 bg-black/85 px-4 py-3 backdrop-blur-xl md:px-8 text-white transition-all">
-        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between">
+      <header className="sticky top-0 z-50 overflow-hidden border-b border-amber-500/25 bg-[#050402]/92 px-4 py-3 backdrop-blur-xl md:px-8 text-white transition-all">
+        <LuxuryGoldHeaderBackdrop />
+
+        <div className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between">
           {/* Left Side: Back Button, Logo & Brand Name */}
           <div className="flex items-center gap-3 md:gap-4">
             {!isHome && (
               <button
                 onClick={() => router.back()}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white border border-neutral-800 transition-all active:scale-90"
+                className={GOLD_WEB_BTN_CLASS}
                 aria-label="Go Back"
               >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5 stroke-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
             )}
             
-            <Link href="/" className="flex items-center gap-3 transition-transform hover:scale-105 group">
-              <div className="relative h-10 w-10 md:h-11 md:w-11 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 border border-zinc-800 shadow-[0_0_15px_rgba(255,255,255,0.15)] group-hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all">
-                <Image
-                  src="/official-logo-sm.png"
-                  alt="ZebAlpha Official Logo"
-                  width={44}
-                  height={44}
-                  className="h-full w-full object-cover rounded-full"
-                  priority
-                />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs md:text-sm font-black tracking-[0.25em] text-white group-hover:text-neutral-200 transition-colors">
-                  ZebAlpha
-                </span>
-                <span className="text-[9px] font-bold text-neutral-400 tracking-wider uppercase -mt-0.5 hidden sm:inline-block">
-                  Indian Marketplace
-                </span>
-              </div>
-            </Link>
+            <HeaderBrandLogo />
           </div>
 
           {/* Desktop Navigation Links */}
@@ -212,10 +310,10 @@ export function Header({
               <Link 
                 key={link.name} 
                 href={link.href}
-                className="relative text-[11px] font-black uppercase tracking-[0.22em] text-neutral-300 hover:text-white transition-all hover:-translate-y-0.5 active:scale-95 group"
+                className="relative text-[11px] font-black uppercase tracking-[0.22em] text-zinc-200 hover:text-amber-300 transition-all hover:-translate-y-0.5 active:scale-95 group"
               >
                 {link.name}
-                <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-white transition-all duration-300 group-hover:w-full" />
+                <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 shadow-[0_0_8px_rgba(251,191,36,0.6)] transition-all duration-300 group-hover:w-full" />
               </Link>
             ))}
           </nav>
@@ -230,12 +328,12 @@ export function Header({
             {/* Shopping Cart Button */}
             <Link
               href="/cart"
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800 text-white hover:bg-neutral-800 transition-all active:scale-95 cursor-pointer shadow-md"
+              className={GOLD_WEB_BTN_CLASS}
               aria-label="View Shopping Cart"
             >
-              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
+              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400" />
               {totalItems > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-[18px] px-1 items-center justify-center rounded-full bg-white text-black text-[9px] font-black shadow-md">
+                <span className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-[18px] px-1 items-center justify-center rounded-full bg-gradient-to-b from-[#fde68a] via-[#eab308] to-[#ca8a04] text-black text-[9px] font-black shadow-[0_0_10px_rgba(234,179,8,0.6)]">
                   {totalItems}
                 </span>
               )}
@@ -244,16 +342,17 @@ export function Header({
             {/* Mobile / Tablet Menu Trigger */}
             <button
               onClick={() => setIsDrawerOpen(true)}
-              className="flex lg:hidden h-10 w-10 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800 text-white active:bg-neutral-800 transition-all"
+              className={`${GOLD_WEB_BTN_CLASS} lg:hidden`}
               aria-label="Toggle Menu"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <Menu className="h-5 w-5 text-amber-400" />
             </button>
 
             <UserMenu />
-            <NotificationBell />
+            <NotificationBell
+              className={GOLD_WEB_BTN_CLASS}
+              iconClassName="h-4 w-4 sm:h-[18px] sm:w-[18px] text-amber-400"
+            />
           </div>
         </div>
       </header>

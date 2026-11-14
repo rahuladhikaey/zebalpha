@@ -1,11 +1,20 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useId } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { CategoryIconRenderer, getLocalizedCategoryName } from "@/lib/categoryIcons";
-import { Compass, ShoppingBag, Flame } from "lucide-react";
+import { ShoppingBag, Flame } from "lucide-react";
+
+const ACTIVE_GOLD_BOX_CLASS =
+  "bg-black text-white border-[2px] border-amber-300 shadow-[0_0_22px_rgba(251,191,36,0.7),inset_0_0_12px_rgba(251,191,36,0.25)]";
+
+const INACTIVE_GOLD_BOX_CLASS =
+  "bg-zinc-950/90 text-white border border-amber-500/40 group-hover:border-amber-400/80 shadow-[0_4px_12px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(253,230,138,0.15)] group-active:scale-95";
+
+const GOLD_ACTIVE_UNDERLINE_CLASS =
+  "absolute bottom-0 w-8 h-[3px] rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 shadow-[0_0_14px_#fbbf24]";
 
 export interface NavigationCategory {
   id: string;
@@ -21,6 +30,93 @@ interface CategoryNavigationBarProps {
   initialCategories?: NavigationCategory[];
   isNativeApp?: boolean;
   className?: string;
+}
+
+function LuxuryGoldWaveBackdrop() {
+  const uid = useId().replace(/:/g, "");
+  const primaryId = `goldWavePrimary-${uid}`;
+  const secondaryId = `goldWaveSecondary-${uid}`;
+  const ribbonFillId = `goldRibbonFill-${uid}`;
+  const glowId = `goldWaveGlow-${uid}`;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-85 z-0" aria-hidden="true">
+      {/* Subtle side warm-gold radial glow */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 35% 90% at 0% 70%, rgba(245,158,11,0.18), transparent 72%), radial-gradient(ellipse 35% 90% at 100% 60%, rgba(245,158,11,0.16), transparent 72%)",
+        }}
+      />
+
+      <svg className="w-full h-full object-cover" viewBox="0 0 1000 120" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={primaryId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#b45309" stopOpacity="0.25" />
+            <stop offset="22%" stopColor="#fde68a" stopOpacity="0.95" />
+            <stop offset="55%" stopColor="#fbbf24" stopOpacity="0.9" />
+            <stop offset="82%" stopColor="#f59e0b" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#b45309" stopOpacity="0.2" />
+          </linearGradient>
+          <linearGradient id={secondaryId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0" />
+            <stop offset="35%" stopColor="#fde68a" stopOpacity="0.55" />
+            <stop offset="70%" stopColor="#fbbf24" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#b45309" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={ribbonFillId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#b45309" stopOpacity="0.08" />
+            <stop offset="30%" stopColor="#f59e0b" stopOpacity="0.28" />
+            <stop offset="65%" stopColor="#fbbf24" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#b45309" stopOpacity="0.06" />
+          </linearGradient>
+          <filter id={glowId} x="-20%" y="-30%" width="140%" height="160%">
+            <feGaussianBlur stdDeviation="3.2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* Soft glowing gold silk ribbon body */}
+        <path
+          d="M 0,48 C 210,105 460,55 720,96 C 845,114 935,98 1000,72 L 1000,96 C 925,116 825,122 700,108 C 445,74 205,118 0,72 Z"
+          fill={`url(#${ribbonFillId})`}
+        />
+
+        {/* Primary glowing gold wave line */}
+        <path
+          d="M 0,50 C 210,104 460,56 720,96 C 845,114 935,98 1000,72"
+          fill="none"
+          stroke={`url(#${primaryId})`}
+          strokeWidth="2.4"
+          filter={`url(#${glowId})`}
+        />
+
+        {/* Secondary delicate gold shimmer curve */}
+        <path
+          d="M 0,78 C 240,118 520,66 780,104 C 890,116 955,104 1000,86"
+          fill="none"
+          stroke={`url(#${secondaryId})`}
+          strokeWidth="1.2"
+        />
+
+        {/* Subtle golden stardust sparkles */}
+        <circle cx="28" cy="28" r="1.4" fill="#fde68a" opacity="0.85" />
+        <circle cx="52" cy="42" r="1.0" fill="#fbbf24" opacity="0.65" />
+        <circle cx="76" cy="22" r="1.1" fill="#f59e0b" opacity="0.55" />
+        <circle cx="110" cy="98" r="1.3" fill="#fde68a" opacity="0.7" />
+        <circle cx="315" cy="96" r="1.0" fill="#fbbf24" opacity="0.55" />
+        <circle cx="560" cy="84" r="1.2" fill="#fde68a" opacity="0.6" />
+        <circle cx="890" cy="94" r="1.1" fill="#fbbf24" opacity="0.65" />
+        <circle cx="935" cy="34" r="1.3" fill="#fde68a" opacity="0.75" />
+        <circle cx="968" cy="52" r="1.5" fill="#f59e0b" opacity="0.8" />
+        <circle cx="982" cy="24" r="1.0" fill="#fde68a" opacity="0.6" />
+      </svg>
+    </div>
+  );
 }
 
 export function CategoryNavigationBar({
@@ -140,8 +236,8 @@ export function CategoryNavigationBar({
   if (loading && categories.length === 0) {
     return (
       <div
-        className={`w-full py-2 px-3 md:px-6 ${
-          isNativeApp ? "bg-black" : "bg-black/90 border-b border-zinc-900"
+        className={`w-full py-2.5 px-3 md:px-6 ${
+          isNativeApp ? "bg-[#050402]" : "bg-[#050402]/95 border-b border-amber-500/20"
         } ${className}`}
       >
         <div className="flex items-center gap-3 overflow-hidden no-scrollbar animate-pulse">
@@ -150,8 +246,8 @@ export function CategoryNavigationBar({
               key={i}
               className="flex flex-col items-center gap-1.5 shrink-0 w-[64px] sm:w-[72px]"
             >
-              <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-850" />
-              <div className="w-12 h-2.5 bg-zinc-900 rounded" />
+              <div className="w-11 h-11 rounded-2xl bg-[#120e07] border border-amber-500/20" />
+              <div className="w-12 h-2.5 bg-[#1a140a] rounded" />
             </div>
           ))}
         </div>
@@ -160,7 +256,7 @@ export function CategoryNavigationBar({
   }
 
   // Calculate dynamic dimensions driven by collapse progress
-  const baseIconSize = isNativeApp ? 40 : 42;
+  const baseIconSize = isNativeApp ? 44 : 46;
   const currentIconHeight = isCollapsed
     ? 0
     : Math.max(0, Math.round((1 - collapseProgress) * baseIconSize));
@@ -171,64 +267,41 @@ export function CategoryNavigationBar({
     ? 0
     : Math.max(0, 1 - collapseProgress * 0.35);
 
+  const iconBoxStyle: React.CSSProperties = {
+    height: isCollapsed ? 0 : `${currentIconHeight}px`,
+    width: isCollapsed ? 0 : `${currentIconHeight}px`,
+    opacity: currentIconOpacity,
+    transform: `scale(${currentIconScale})`,
+    marginBottom: isCollapsed ? 0 : `${Math.round((1 - collapseProgress) * 6)}px`,
+    display: isCollapsed ? "none" : "flex",
+    visibility: isCollapsed ? "hidden" : "visible",
+    pointerEvents: isCollapsed ? "none" : "auto",
+    overflow: "hidden",
+    transition: "height 0.15s ease-out, opacity 0.15s ease-out, transform 0.15s ease-out, margin 0.15s ease-out",
+  };
+
   return (
     <nav
       aria-label="Category Navigation"
       className={`relative w-full transition-all duration-200 select-none overflow-hidden ${
         isNativeApp
-          ? "bg-black"
-          : "bg-black/95 backdrop-blur-xl border-b border-zinc-900/80"
+          ? "bg-[#050402]"
+          : "bg-[#050402]/95 backdrop-blur-xl border-b border-amber-500/20"
       } ${
         isCollapsed
-          ? "py-1.5 border-b border-zinc-850 shadow-md"
-          : "py-2.5"
+          ? "py-1.5 border-b border-amber-500/25 shadow-md"
+          : "py-1.5"
       } ${className}`}
     >
-      {/* Ambient Cyber Green Aurora Wave Background */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-60 z-0">
-        <svg className="w-full h-full object-cover" viewBox="0 0 1000 120" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="cyberGreenWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#10b981" stopOpacity="0.05" />
-              <stop offset="25%" stopColor="#22c55e" stopOpacity="0.8" />
-              <stop offset="65%" stopColor="#4ade80" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#10b981" stopOpacity="0.1" />
-            </linearGradient>
-            <linearGradient id="cyberGreenGlowLine" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#22c55e" stopOpacity="0" />
-              <stop offset="50%" stopColor="#4ade80" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
-            </linearGradient>
-            <filter id="waveGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3.5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <path
-            d="M 0,95 Q 260,25 520,70 T 1000,45"
-            fill="none"
-            stroke="url(#cyberGreenWaveGrad)"
-            strokeWidth="2.5"
-            filter="url(#waveGlow)"
-          />
-          <path
-            d="M 0,115 Q 320,40 640,80 T 1000,55"
-            fill="none"
-            stroke="url(#cyberGreenGlowLine)"
-            strokeWidth="1.2"
-          />
-        </svg>
-      </div>
+      {/* Ambient Metallic Gold Silk Wave & Stardust Background */}
+      <LuxuryGoldWaveBackdrop />
 
       <div className="relative z-10 mx-auto w-full max-w-[1400px]">
         <div
           ref={scrollContainerRef}
           role="tablist"
           className={`flex items-end gap-2.5 sm:gap-4 md:gap-6 overflow-x-auto px-3.5 md:px-8 no-scrollbar scroll-smooth transition-all ${
-            isCollapsed ? "py-0.5" : "py-1"
+            isCollapsed ? "py-0.5" : "pt-2.5 pb-1.5"
           }`}
           style={{
             touchAction: "pan-x",
@@ -247,55 +320,42 @@ export function CategoryNavigationBar({
             className={`group relative flex flex-col items-center justify-end shrink-0 transition-all cursor-pointer focus:outline-none ${
               isCollapsed
                 ? "min-w-[56px] sm:min-w-[64px] px-2 py-1.5"
-                : "w-[62px] sm:w-[70px] md:w-[80px] py-1"
+                : "w-[62px] sm:w-[70px] md:w-[80px] pt-1 pb-2"
             } ${
-              isForYouActive ? "text-emerald-400" : "text-zinc-300 hover:text-white"
+              isForYouActive ? "text-white" : "text-zinc-100 hover:text-amber-200"
             }`}
           >
             {/* Collapsible Icon Box */}
             <div
               aria-hidden={isCollapsed}
-              style={{
-                height: isCollapsed ? 0 : `${currentIconHeight}px`,
-                width: isCollapsed ? 0 : `${currentIconHeight}px`,
-                opacity: currentIconOpacity,
-                transform: `scale(${currentIconScale})`,
-                marginBottom: isCollapsed ? 0 : `${Math.round((1 - collapseProgress) * 6)}px`,
-                display: isCollapsed ? "none" : "flex",
-                visibility: isCollapsed ? "hidden" : "visible",
-                pointerEvents: isCollapsed ? "none" : "auto",
-                overflow: "hidden",
-                transition: "height 0.15s ease-out, opacity 0.15s ease-out, transform 0.15s ease-out, margin 0.15s ease-out",
-              }}
+              style={iconBoxStyle}
               className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
-                isForYouActive
-                  ? "bg-emerald-950/40 text-emerald-400 border-[1.5px] border-emerald-400 shadow-[0_0_15px_rgba(34,197,94,0.4)]"
-                  : "bg-zinc-900/60 text-white border border-zinc-800/80 group-hover:border-zinc-700 group-active:scale-95"
+                isForYouActive ? ACTIVE_GOLD_BOX_CLASS : INACTIVE_GOLD_BOX_CLASS
               }`}
             >
               <ShoppingBag
-                size={isNativeApp ? 19 : 20}
+                size={isNativeApp ? 20 : 21}
                 className={`transition-transform stroke-[2.3] ${
-                  isForYouActive ? "text-emerald-400 scale-105" : "text-white group-hover:text-zinc-200"
+                  isForYouActive
+                    ? "text-white scale-105 drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
+                    : "text-white group-hover:text-amber-100"
                 }`}
               />
             </div>
 
             {/* Category Name - ALWAYS VISIBLE in both Expanded and Collapsed states */}
             <span
-              className={`text-[10px] sm:text-[11px] font-bold text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
+              className={`text-[10px] sm:text-[11px] text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
                 isForYouActive
-                  ? "text-emerald-400 font-extrabold"
-                  : "text-zinc-300 group-hover:text-white"
+                  ? "text-white font-extrabold"
+                  : "text-zinc-100 font-semibold group-hover:text-amber-200"
               }`}
             >
               {forYouLabel}
             </span>
 
             {/* Active Indicator Underline - ALWAYS VISIBLE */}
-            {isForYouActive && (
-              <span className="absolute bottom-0 w-7 sm:w-8 h-[2.5px] rounded-full bg-emerald-400 shadow-[0_0_10px_#22c55e]" />
-            )}
+            {isForYouActive && <span className={GOLD_ACTIVE_UNDERLINE_CLASS} />}
           </Link>
 
           {/* =================================================================== */}
@@ -309,55 +369,44 @@ export function CategoryNavigationBar({
             className={`group relative flex flex-col items-center justify-end shrink-0 transition-all cursor-pointer focus:outline-none ${
               isCollapsed
                 ? "min-w-[56px] sm:min-w-[64px] px-2 py-1.5"
-                : "w-[62px] sm:w-[70px] md:w-[80px] py-1"
+                : "w-[62px] sm:w-[70px] md:w-[80px] pt-1 pb-2"
             } ${
-              pathname === "/new-drops" ? "text-amber-400" : "text-zinc-300 hover:text-white"
+              pathname === "/new-drops" ? "text-amber-300" : "text-amber-400 hover:text-amber-300"
             }`}
           >
             {/* Collapsible Icon Box */}
             <div
               aria-hidden={isCollapsed}
-              style={{
-                height: isCollapsed ? 0 : `${currentIconHeight}px`,
-                width: isCollapsed ? 0 : `${currentIconHeight}px`,
-                opacity: currentIconOpacity,
-                transform: `scale(${currentIconScale})`,
-                marginBottom: isCollapsed ? 0 : `${Math.round((1 - collapseProgress) * 6)}px`,
-                display: isCollapsed ? "none" : "flex",
-                visibility: isCollapsed ? "hidden" : "visible",
-                pointerEvents: isCollapsed ? "none" : "auto",
-                overflow: "hidden",
-                transition: "height 0.15s ease-out, opacity 0.15s ease-out, transform 0.15s ease-out, margin 0.15s ease-out",
-              }}
+              style={iconBoxStyle}
               className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
                 pathname === "/new-drops"
-                  ? "bg-amber-950/40 text-amber-400 border-[1.5px] border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
-                  : "bg-zinc-900/60 text-amber-400 border border-amber-500/30 group-hover:border-amber-400 group-active:scale-95"
+                  ? ACTIVE_GOLD_BOX_CLASS
+                  : `${INACTIVE_GOLD_BOX_CLASS} border-amber-500/40`
               }`}
             >
               <Flame
-                size={isNativeApp ? 19 : 20}
+                size={isNativeApp ? 20 : 21}
                 className={`transition-transform stroke-[2.3] ${
-                  pathname === "/new-drops" ? "text-amber-400 scale-105" : "text-amber-400 group-hover:scale-110"
+                  pathname === "/new-drops"
+                    ? "text-amber-300 scale-105 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)]"
+                    : "text-amber-400 group-hover:scale-110"
                 }`}
               />
             </div>
 
             {/* Label */}
             <span
-              className={`text-[10px] sm:text-[11px] font-bold text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
+              className={`text-[10px] sm:text-[11px] text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
                 pathname === "/new-drops"
-                  ? "text-amber-400 font-extrabold"
-                  : "text-amber-400/90 group-hover:text-amber-300"
+                  ? "text-amber-300 font-extrabold"
+                  : "text-amber-400 font-bold group-hover:text-amber-300"
               }`}
             >
               ⚡ Drops
             </span>
 
             {/* Active Indicator Underline */}
-            {pathname === "/new-drops" && (
-              <span className="absolute bottom-0 w-7 sm:w-8 h-[2.5px] rounded-full bg-amber-400 shadow-[0_0_10px_#f59e0b]" />
-            )}
+            {pathname === "/new-drops" && <span className={GOLD_ACTIVE_UNDERLINE_CLASS} />}
           </Link>
 
           {/* =================================================================== */}
@@ -377,30 +426,17 @@ export function CategoryNavigationBar({
                 className={`group relative flex flex-col items-center justify-end shrink-0 transition-all cursor-pointer focus:outline-none ${
                   isCollapsed
                     ? "min-w-[56px] sm:min-w-[64px] px-2 py-1.5"
-                    : "w-[62px] sm:w-[70px] md:w-[80px] py-1"
+                    : "w-[62px] sm:w-[70px] md:w-[80px] pt-1 pb-2"
                 } ${
-                  isSelected ? "text-emerald-400" : "text-zinc-300 hover:text-white"
+                  isSelected ? "text-white" : "text-zinc-100 hover:text-amber-200"
                 }`}
               >
                 {/* Collapsible Icon Box */}
                 <div
                   aria-hidden={isCollapsed}
-                  style={{
-                    height: isCollapsed ? 0 : `${currentIconHeight}px`,
-                    width: isCollapsed ? 0 : `${currentIconHeight}px`,
-                    opacity: currentIconOpacity,
-                    transform: `scale(${currentIconScale})`,
-                    marginBottom: isCollapsed ? 0 : `${Math.round((1 - collapseProgress) * 6)}px`,
-                    display: isCollapsed ? "none" : "flex",
-                    visibility: isCollapsed ? "hidden" : "visible",
-                    pointerEvents: isCollapsed ? "none" : "auto",
-                    overflow: "hidden",
-                    transition: "height 0.15s ease-out, opacity 0.15s ease-out, transform 0.15s ease-out, margin 0.15s ease-out",
-                  }}
+                  style={iconBoxStyle}
                   className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
-                    isSelected
-                      ? "bg-emerald-950/40 text-emerald-400 border-[1.5px] border-emerald-400 shadow-[0_0_15px_rgba(34,197,94,0.4)]"
-                      : "bg-zinc-900/60 text-white border border-zinc-800/80 group-hover:border-zinc-700 group-active:scale-95"
+                    isSelected ? ACTIVE_GOLD_BOX_CLASS : INACTIVE_GOLD_BOX_CLASS
                   }`}
                 >
                   {cat.image_url ? (
@@ -414,11 +450,11 @@ export function CategoryNavigationBar({
                     <CategoryIconRenderer
                       iconKey={cat.icon_key}
                       iconUrl={cat.icon_url}
-                      size={isNativeApp ? 18 : 20}
+                      size={isNativeApp ? 19 : 20}
                       className={
                         isSelected
-                          ? "text-emerald-400 stroke-[2.3]"
-                          : "text-white stroke-[2.1] group-hover:text-zinc-200"
+                          ? "text-white stroke-[2.3] drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
+                          : "text-white stroke-[2.1] group-hover:text-amber-100"
                       }
                     />
                   )}
@@ -427,19 +463,17 @@ export function CategoryNavigationBar({
                 {/* Category Name - ALWAYS VISIBLE in both Expanded and Collapsed states */}
                 <span
                   title={localizedName}
-                  className={`text-[10px] sm:text-[11px] font-bold text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
+                  className={`text-[10px] sm:text-[11px] text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
                     isSelected
-                      ? "text-emerald-400 font-extrabold"
-                      : "text-zinc-300 group-hover:text-white"
+                      ? "text-white font-extrabold"
+                      : "text-zinc-100 font-semibold group-hover:text-amber-200"
                   }`}
                 >
                   {localizedName}
                 </span>
 
                 {/* Active Indicator Underline - ALWAYS VISIBLE */}
-                {isSelected && (
-                  <span className="absolute bottom-0 w-7 sm:w-8 h-[2.5px] rounded-full bg-emerald-400 shadow-[0_0_10px_#22c55e]" />
-                )}
+                {isSelected && <span className={GOLD_ACTIVE_UNDERLINE_CLASS} />}
               </Link>
             );
           })}
