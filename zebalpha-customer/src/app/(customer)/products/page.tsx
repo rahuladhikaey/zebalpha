@@ -23,6 +23,7 @@ import {
   getProductDisplayPricing,
 } from "@/hooks/useCatalogQueries";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
+import { useIsNativeApp } from "@/lib/platform";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,6 +35,7 @@ import {
 
 function ProductsContent() {
   useScrollRestoration("products_catalog");
+  const isNativeApp = useIsNativeApp();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -556,27 +558,78 @@ function ProductsContent() {
     (filters.priceRange || filters.customMinPrice || filters.customMaxPrice ? 1 : 0) +
     filters.sellers.length;
 
+  // Resolve UUID/slug category param into human-readable category name for headings & filter pills
+  const selectedCategoryLabel = useMemo(() => {
+    if (!selectedCategory) return null;
+    const catStr = String(selectedCategory).trim();
+    const matchedCat = categories.find(
+      (c) =>
+        String(c.id) === catStr ||
+        c.name?.toLowerCase() === catStr.toLowerCase() ||
+        c.slug?.toLowerCase() === catStr.toLowerCase()
+    );
+    if (matchedCat?.name) return matchedCat.name;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catStr)) {
+      return "Selected Category";
+    }
+    return catStr.replace(/[-_]/g, " ");
+  }, [selectedCategory, categories]);
+
+  const tabActiveTextClass = isNativeApp
+    ? "text-[#111111] font-extrabold"
+    : "text-emerald-400 font-extrabold";
+  const tabInactiveTextClass = isNativeApp
+    ? "text-[#5C4D33] group-hover:text-[#111111]"
+    : "text-zinc-400 group-hover:text-white";
+  const tabActiveBarClass = isNativeApp
+    ? "absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#F5B922] to-[#D49014] rounded-full shadow-[0_1px_6px_rgba(217,155,22,0.5)]"
+    : "absolute bottom-0 left-0 right-0 h-[3px] bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.9)]";
+  const filterPillClass = isNativeApp
+    ? "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFF6D6] border border-[#D4A017]/50 text-xs font-bold text-[#111111]"
+    : "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400";
+  const filterPillCloseClass = isNativeApp
+    ? "cursor-pointer text-[#6B5B3E] hover:text-[#111111]"
+    : "cursor-pointer hover:text-white";
+
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className={isNativeApp ? "min-h-screen bg-[#FFFDF7] text-[#111111]" : "min-h-screen bg-black text-white"}>
       <Header title="Browse Catalog" subtitle="Quality Selection" />
 
       {/* ========================================================================= */}
-      {/* TOP SECTION: IMAGE 2 SEARCH BAR + HORIZONTAL CATEGORY TABS               */}
+      {/* TOP SECTION: SEARCH BAR + HORIZONTAL CATEGORY TABS                        */}
       {/* ========================================================================= */}
-      <section className="sticky top-[60px] md:top-[68px] z-40 bg-black/95 backdrop-blur-2xl border-b border-zinc-800/80 shadow-2xl pt-2.5 pb-1 px-3 sm:px-6 md:px-8">
+      <section
+        className={
+          isNativeApp
+            ? "sticky top-[60px] md:top-[68px] z-40 bg-[#FFFDF8]/95 backdrop-blur-2xl border-b border-[#E4C988]/70 shadow-sm pt-2.5 pb-1 px-3 sm:px-6 md:px-8"
+            : "sticky top-[60px] md:top-[68px] z-40 bg-black/95 backdrop-blur-2xl border-b border-zinc-800/80 shadow-2xl pt-2.5 pb-1 px-3 sm:px-6 md:px-8"
+        }
+      >
         <div className="mx-auto w-full max-w-[1400px]">
-          {/* 1. Neon Green Pill Search Bar (Matching Image 2) */}
+          {/* 1. Pill Search Bar */}
           <form
             onSubmit={handleSearchSubmit}
-            className="relative flex items-center rounded-full border border-emerald-500/80 bg-zinc-950/90 shadow-[0_0_15px_rgba(16,185,129,0.18)] focus-within:border-emerald-400 focus-within:shadow-[0_0_22px_rgba(16,185,129,0.35)] transition-all px-1.5 py-1"
+            className={
+              isNativeApp
+                ? "relative flex items-center rounded-full border border-[#D4A017]/80 bg-white shadow-[0_6px_18px_-8px_rgba(180,120,12,0.28)] focus-within:border-[#B4780C] focus-within:shadow-[0_0_0_2px_rgba(245,185,34,0.25)] transition-all px-1.5 py-1"
+                : "relative flex items-center rounded-full border border-emerald-500/80 bg-zinc-950/90 shadow-[0_0_15px_rgba(16,185,129,0.18)] focus-within:border-emerald-400 focus-within:shadow-[0_0_22px_rgba(16,185,129,0.35)] transition-all px-1.5 py-1"
+            }
           >
-            <Search className="ml-3 sm:ml-4 h-5 w-5 text-emerald-400 shrink-0" />
+            <Search
+              className={`ml-3 sm:ml-4 h-5 w-5 shrink-0 ${
+                isNativeApp ? "text-[#9A6503]" : "text-emerald-400"
+              }`}
+            />
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder='Search "Fashion"'
-              className="w-full bg-transparent px-3 py-1.5 sm:py-2 text-xs sm:text-sm md:text-base font-semibold text-white placeholder:text-zinc-500 outline-none"
+              className={
+                isNativeApp
+                  ? "w-full bg-transparent px-3 py-1.5 sm:py-2 text-xs sm:text-sm md:text-base font-semibold text-[#111111] placeholder:text-[#6B5B3E] outline-none"
+                  : "w-full bg-transparent px-3 py-1.5 sm:py-2 text-xs sm:text-sm md:text-base font-semibold text-white placeholder:text-zinc-500 outline-none"
+              }
             />
             {search && (
               <button
@@ -588,7 +641,11 @@ function ProductsContent() {
                     { scroll: false }
                   );
                 }}
-                className="mr-2 p-1 text-zinc-400 hover:text-white transition-colors"
+                className={
+                  isNativeApp
+                    ? "mr-2 p-1 text-[#6B5B3E] hover:text-[#111111] transition-colors"
+                    : "mr-2 p-1 text-zinc-400 hover:text-white transition-colors"
+                }
                 aria-label="Clear Search"
               >
                 <X size={16} />
@@ -596,13 +653,17 @@ function ProductsContent() {
             )}
             <button
               type="submit"
-              className="rounded-full bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-black font-black px-5 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm tracking-wider shadow-md transition-all cursor-pointer shrink-0"
+              className={
+                isNativeApp
+                  ? "rounded-full bg-gradient-to-r from-[#FCE38A] via-[#F5B922] to-[#D49014] hover:brightness-105 active:scale-95 text-[#111111] border border-[#B4780C]/45 font-black px-5 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm tracking-wider shadow-[0_4px_12px_rgba(217,155,22,0.3)] transition-all cursor-pointer shrink-0"
+                  : "rounded-full bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-black font-black px-5 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm tracking-wider shadow-md transition-all cursor-pointer shrink-0"
+              }
             >
               GO
             </button>
           </form>
 
-          {/* 2. Horizontal Category Scroll Bar (Immediately below Search Bar, like Image 2) */}
+          {/* 2. Horizontal Category Scroll Bar */}
           <div className="relative mt-2.5 pb-1">
             <div
               ref={categoryScrollRef}
@@ -617,14 +678,14 @@ function ProductsContent() {
                 <span
                   className={
                     selectedCategory === null
-                      ? "text-emerald-400 font-extrabold"
-                      : "text-zinc-400 group-hover:text-white"
+                      ? tabActiveTextClass
+                      : tabInactiveTextClass
                   }
                 >
                   For You
                 </span>
                 {selectedCategory === null && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
+                  <span className={tabActiveBarClass} />
                 )}
               </button>
 
@@ -649,18 +710,10 @@ function ProductsContent() {
                       onClick={() => handleCategorySelect(category.id)}
                       className="relative shrink-0 pb-2 text-xs sm:text-sm font-semibold transition-all group cursor-pointer focus:outline-none whitespace-nowrap"
                     >
-                      <span
-                        className={
-                          isActive
-                            ? "text-emerald-400 font-extrabold"
-                            : "text-zinc-400 group-hover:text-white"
-                        }
-                      >
+                      <span className={isActive ? tabActiveTextClass : tabInactiveTextClass}>
                         {category.name}
                       </span>
-                      {isActive && (
-                        <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
-                      )}
+                      {isActive && <span className={tabActiveBarClass} />}
                     </button>
                   );
                 })}
@@ -675,22 +728,45 @@ function ProductsContent() {
       <div className="w-full max-w-[1400px] mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4">
         
         {/* Mobile Sticky Filter Trigger Bar (< md) */}
-        <div className="md:hidden flex items-center justify-between gap-2 mb-3 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl px-3.5 py-2.5 backdrop-blur-md">
+        <div
+          className={
+            isNativeApp
+              ? "md:hidden flex items-center justify-between gap-2 mb-3 bg-[#FFFDF8] border border-[#E4C988] rounded-2xl px-3.5 py-2.5 shadow-sm"
+              : "md:hidden flex items-center justify-between gap-2 mb-3 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl px-3.5 py-2.5 backdrop-blur-md"
+          }
+        >
           <button
             type="button"
             onClick={() => setIsMobileFilterOpen(true)}
-            className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer shadow-sm"
+            className={
+              isNativeApp
+                ? "flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#111111] bg-[#FFF6D6] border border-[#D4A017]/60 px-3 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer shadow-sm"
+                : "flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer shadow-sm"
+            }
           >
-            <SlidersHorizontal size={14} className="text-emerald-400" />
+            <SlidersHorizontal
+              size={14}
+              className={isNativeApp ? "text-[#9A6503]" : "text-emerald-400"}
+            />
             <span>Filters</span>
             {activeFilterCount > 0 && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400 text-[9px] font-black text-black">
+              <span
+                className={`flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black ${
+                  isNativeApp
+                    ? "bg-[#F5B922] text-[#111111]"
+                    : "bg-emerald-400 text-black"
+                }`}
+              >
                 {activeFilterCount}
               </span>
             )}
           </button>
 
-          <div className="text-[11px] font-bold text-zinc-400 truncate">
+          <div
+            className={`text-[11px] font-bold truncate ${
+              isNativeApp ? "text-[#4A3F2B]" : "text-zinc-400"
+            }`}
+          >
             {filtered.length} products found
           </div>
 
@@ -698,7 +774,11 @@ function ProductsContent() {
             <button
               type="button"
               onClick={() => setFilters(INITIAL_FILTER_STATE)}
-              className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300"
+              className={
+                isNativeApp
+                  ? "text-[11px] font-bold text-[#9A6503] hover:text-[#111111]"
+                  : "text-[11px] font-bold text-emerald-400 hover:text-emerald-300"
+              }
             >
               Clear
             </button>
@@ -709,7 +789,7 @@ function ProductsContent() {
         {/* MOBILE SLIDE-OVER DRAWER MODAL: FIXED FOOTER BUTTON (NEVER CUT OFF)        */}
         {/* ========================================================================= */}
         {isMobileFilterOpen && (
-          <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-black/85 backdrop-blur-md md:hidden animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-black/75 backdrop-blur-md md:hidden animate-in fade-in duration-200">
             {/* Backdrop Dismiss Area */}
             <div
               className="absolute inset-0"
@@ -718,17 +798,42 @@ function ProductsContent() {
             />
 
             {/* Bottom Sheet Modal Container */}
-            <div className="relative z-10 w-full h-[88vh] max-h-[88vh] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div
+              className={
+                isNativeApp
+                  ? "relative z-10 w-full h-[88vh] max-h-[88vh] bg-[#FFFDF8] border-t border-[#E4C988] rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
+                  : "relative z-10 w-full h-[88vh] max-h-[88vh] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
+              }
+            >
               
               {/* 1. Fixed Modal Header */}
-              <div className="flex items-center justify-between border-b border-zinc-800/90 px-5 py-4 shrink-0 bg-zinc-950">
+              <div
+                className={
+                  isNativeApp
+                    ? "flex items-center justify-between border-b border-[#E4C988]/80 px-5 py-4 shrink-0 bg-[#FFFDF8]"
+                    : "flex items-center justify-between border-b border-zinc-800/90 px-5 py-4 shrink-0 bg-zinc-950"
+                }
+              >
                 <div className="flex items-center gap-2">
-                  <SlidersHorizontal size={18} className="text-emerald-400" />
-                  <span className="text-base font-black text-white uppercase tracking-wider">
+                  <SlidersHorizontal
+                    size={18}
+                    className={isNativeApp ? "text-[#9A6503]" : "text-emerald-400"}
+                  />
+                  <span
+                    className={`text-base font-black uppercase tracking-wider ${
+                      isNativeApp ? "text-[#111111]" : "text-white"
+                    }`}
+                  >
                     Filters & Options
                   </span>
                   {activeFilterCount > 0 && (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-[10px] font-black text-black">
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${
+                        isNativeApp
+                          ? "bg-[#F5B922] text-[#111111]"
+                          : "bg-emerald-400 text-black"
+                      }`}
+                    >
                       {activeFilterCount}
                     </span>
                   )}
@@ -739,7 +844,11 @@ function ProductsContent() {
                     <button
                       type="button"
                       onClick={() => setFilters(INITIAL_FILTER_STATE)}
-                      className="text-xs font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                      className={
+                        isNativeApp
+                          ? "text-xs font-bold text-[#9A6503] hover:text-[#111111] cursor-pointer"
+                          : "text-xs font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                      }
                     >
                       Clear All
                     </button>
@@ -747,7 +856,11 @@ function ProductsContent() {
                   <button
                     type="button"
                     onClick={() => setIsMobileFilterOpen(false)}
-                    className="rounded-full bg-zinc-900 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                    className={
+                      isNativeApp
+                        ? "rounded-full bg-[#FFF6D6] border border-[#E4C988] p-2 text-[#111111] hover:bg-[#FCE38A] transition-colors cursor-pointer"
+                        : "rounded-full bg-zinc-900 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                    }
                     aria-label="Close Filters"
                   >
                     <X size={18} />
@@ -776,11 +889,21 @@ function ProductsContent() {
               </div>
 
               {/* 3. Fixed High-Elevation Footer Action Button (Completely above any bottom navigation) */}
-              <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-5 py-3.5 pb-[max(env(safe-area-inset-bottom,16px),24px)] shadow-[0_-12px_30px_rgba(0,0,0,0.9)]">
+              <div
+                className={
+                  isNativeApp
+                    ? "shrink-0 border-t border-[#E4C988]/80 bg-[#FFFDF8] px-5 py-3.5 pb-[max(env(safe-area-inset-bottom,16px),24px)] shadow-[0_-10px_24px_rgba(160,115,20,0.14)]"
+                    : "shrink-0 border-t border-zinc-800 bg-zinc-950 px-5 py-3.5 pb-[max(env(safe-area-inset-bottom,16px),24px)] shadow-[0_-12px_30px_rgba(0,0,0,0.9)]"
+                }
+              >
                 <button
                   type="button"
                   onClick={() => setIsMobileFilterOpen(false)}
-                  className="w-full flex items-center justify-center rounded-2xl bg-emerald-400 hover:bg-emerald-300 active:scale-[0.98] py-3.5 text-center text-sm font-black uppercase tracking-wider text-black shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all cursor-pointer"
+                  className={
+                    isNativeApp
+                      ? "w-full flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#FCE38A] via-[#F5B922] to-[#D49014] border border-[#B4780C]/45 active:scale-[0.98] py-3.5 text-center text-sm font-black uppercase tracking-wider text-[#111111] shadow-[0_6px_18px_rgba(217,155,22,0.35)] transition-all cursor-pointer"
+                      : "w-full flex items-center justify-center rounded-2xl bg-emerald-400 hover:bg-emerald-300 active:scale-[0.98] py-3.5 text-center text-sm font-black uppercase tracking-wider text-black shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all cursor-pointer"
+                  }
                 >
                   Show {filtered.length} {filtered.length === 1 ? "Product" : "Products"}
                 </button>
@@ -794,7 +917,11 @@ function ProductsContent() {
           {/* ========================================================================= */}
           {/* LEFT SIDEBAR: REAL FILTER FACETS (Visible on md & lg screens)             */}
           {/* ========================================================================= */}
-          <aside className="hidden md:block w-60 lg:w-72 shrink-0 sticky top-[150px] max-h-[calc(100vh-150px)] overflow-y-auto no-scrollbar border-r border-zinc-800/80 pr-4">
+          <aside
+            className={`hidden md:block w-60 lg:w-72 shrink-0 sticky top-[150px] max-h-[calc(100vh-150px)] overflow-y-auto no-scrollbar border-r pr-4 ${
+              isNativeApp ? "border-[#E4C988]/80" : "border-zinc-800/80"
+            }`}
+          >
             <ProductFilters
               filters={filters}
               setFilters={setFilters}
@@ -819,14 +946,32 @@ function ProductsContent() {
           <div className="flex-1 min-w-0 pb-16">
             {/* Active Filters Summary Bar */}
             {(activeFilterCount > 0 || selectedCategory) && (
-              <div className="hidden md:flex flex-wrap items-center gap-2 mb-4 p-2.5 rounded-xl bg-zinc-950 border border-zinc-800">
-                <span className="text-xs font-bold text-zinc-400">Active Filters:</span>
+              <div
+                className={
+                  isNativeApp
+                    ? "hidden md:flex flex-wrap items-center gap-2 mb-4 p-2.5 rounded-xl bg-[#FFFDF8] border border-[#E4C988]"
+                    : "hidden md:flex flex-wrap items-center gap-2 mb-4 p-2.5 rounded-xl bg-zinc-950 border border-zinc-800"
+                }
+              >
+                <span
+                  className={`text-xs font-bold ${
+                    isNativeApp ? "text-[#4A3F2B]" : "text-zinc-400"
+                  }`}
+                >
+                  Active Filters:
+                </span>
                 {selectedCategory && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold text-emerald-400 capitalize">
-                    <span>Category: {String(selectedCategory).replace(/[-_]/g, " ")}</span>
+                  <span
+                    className={
+                      isNativeApp
+                        ? "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FCE38A]/55 border border-[#D4A017]/55 text-xs font-bold text-[#111111] capitalize"
+                        : "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold text-emerald-400 capitalize"
+                    }
+                  >
+                    <span>Category: {selectedCategoryLabel}</span>
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() => {
                         setSelectedCategory(null);
                         router.replace("/products", { scroll: false });
@@ -835,14 +980,11 @@ function ProductsContent() {
                   </span>
                 )}
                 {filters.sellers.map((s) => (
-                  <span
-                    key={s}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
-                  >
+                  <span key={s} className={filterPillClass}>
                     Seller: {s}
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() =>
                         setFilters((p) => ({
                           ...p,
@@ -853,14 +995,11 @@ function ProductsContent() {
                   </span>
                 ))}
                 {filters.genders.map((g) => (
-                  <span
-                    key={g}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
-                  >
+                  <span key={g} className={filterPillClass}>
                     {g}
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() =>
                         setFilters((p) => ({
                           ...p,
@@ -871,14 +1010,11 @@ function ProductsContent() {
                   </span>
                 ))}
                 {filters.brands.map((b) => (
-                  <span
-                    key={b}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
-                  >
+                  <span key={b} className={filterPillClass}>
                     Brand: {b}
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() =>
                         setFilters((p) => ({
                           ...p,
@@ -889,14 +1025,11 @@ function ProductsContent() {
                   </span>
                 ))}
                 {filters.sizes.map((s) => (
-                  <span
-                    key={s}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
-                  >
+                  <span key={s} className={filterPillClass}>
                     Size: {s}
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() =>
                         setFilters((p) => ({
                           ...p,
@@ -907,14 +1040,11 @@ function ProductsContent() {
                   </span>
                 ))}
                 {filters.colors.map((c) => (
-                  <span
-                    key={c}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
-                  >
+                  <span key={c} className={filterPillClass}>
                     Color: {c}
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() =>
                         setFilters((p) => ({
                           ...p,
@@ -925,14 +1055,11 @@ function ProductsContent() {
                   </span>
                 ))}
                 {filters.materials.map((m) => (
-                  <span
-                    key={m}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
-                  >
+                  <span key={m} className={filterPillClass}>
                     Fabric: {m}
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() =>
                         setFilters((p) => ({
                           ...p,
@@ -943,14 +1070,11 @@ function ProductsContent() {
                   </span>
                 ))}
                 {filters.sleeves.map((sl) => (
-                  <span
-                    key={sl}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400"
-                  >
+                  <span key={sl} className={filterPillClass}>
                     Sleeve: {sl}
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() =>
                         setFilters((p) => ({
                           ...p,
@@ -961,21 +1085,21 @@ function ProductsContent() {
                   </span>
                 ))}
                 {filters.minRating > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-amber-400">
+                  <span className={filterPillClass}>
                     4★ & Above
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() => setFilters((p) => ({ ...p, minRating: 0 }))}
                     />
                   </span>
                 )}
                 {filters.minDiscount > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-emerald-400">
+                  <span className={filterPillClass}>
                     {filters.minDiscount}%+ Off
                     <X
                       size={12}
-                      className="cursor-pointer hover:text-white"
+                      className={filterPillCloseClass}
                       onClick={() => setFilters((p) => ({ ...p, minDiscount: 0 }))}
                     />
                   </span>
@@ -983,7 +1107,11 @@ function ProductsContent() {
                 <button
                   type="button"
                   onClick={() => setFilters(INITIAL_FILTER_STATE)}
-                  className="text-xs font-black uppercase text-emerald-400 hover:text-emerald-300 ml-auto cursor-pointer"
+                  className={
+                    isNativeApp
+                      ? "text-xs font-black uppercase text-[#9A6503] hover:text-[#111111] ml-auto cursor-pointer"
+                      : "text-xs font-black uppercase text-emerald-400 hover:text-emerald-300 ml-auto cursor-pointer"
+                  }
                 >
                   Clear All
                 </button>
@@ -991,9 +1119,16 @@ function ProductsContent() {
             )}
 
             {/* Products Counter */}
-            <div className="flex items-center justify-between mb-3 text-xs font-bold text-zinc-400">
+            <div
+              className={`flex items-center justify-between mb-3 text-xs font-bold ${
+                isNativeApp ? "text-[#4A3F2B]" : "text-zinc-400"
+              }`}
+            >
               <div>
-                Showing <span className="text-white font-black">{filtered.length}</span>{" "}
+                Showing{" "}
+                <span className={`font-black ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                  {filtered.length}
+                </span>{" "}
                 {filtered.length === 1 ? "product" : "products"}
               </div>
             </div>
@@ -1004,14 +1139,35 @@ function ProductsContent() {
                 <ProductCardSkeleton count={8} />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-8 sm:p-12 text-center text-zinc-400 my-8">
-                <ShoppingBag size={48} className="mx-auto mb-4 opacity-40 text-emerald-400" />
-                <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-wider">
+              <div
+                className={
+                  isNativeApp
+                    ? "rounded-3xl border border-[#E4C988] bg-gradient-to-b from-[#FFFFFF] to-[#FFF7DA] p-8 sm:p-12 text-center text-[#4A3F2B] shadow-[0_12px_28px_-14px_rgba(160,115,20,0.2)] my-8"
+                    : "rounded-3xl border border-zinc-800 bg-zinc-950/60 p-8 sm:p-12 text-center text-zinc-400 my-8"
+                }
+              >
+                <ShoppingBag
+                  size={48}
+                  className={
+                    isNativeApp
+                      ? "mx-auto mb-4 text-[#B4780C] opacity-90"
+                      : "mx-auto mb-4 opacity-40 text-emerald-400"
+                  }
+                />
+                <h3
+                  className={`text-base sm:text-lg font-black uppercase tracking-wider ${
+                    isNativeApp ? "text-[#111111]" : "text-white"
+                  }`}
+                >
                   {selectedCategory
-                    ? `No products found in "${selectedCategory}"`
+                    ? `No products found in "${selectedCategoryLabel}"`
                     : "No matching products found"}
                 </h3>
-                <p className="text-xs font-semibold mt-1 text-zinc-400 max-w-sm mx-auto">
+                <p
+                  className={`text-xs font-semibold mt-1 max-w-sm mx-auto ${
+                    isNativeApp ? "text-[#4A3F2B]" : "text-zinc-400"
+                  }`}
+                >
                   {selectedCategory
                     ? "Fresh items are arriving soon. In the meantime, discover our other trending collections:"
                     : "Try adjusting or clearing your filters (Seller, Price, Fabric, etc.) to view more products."}
@@ -1036,7 +1192,11 @@ function ProductsContent() {
                             scroll: false,
                           });
                         }}
-                        className="rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer"
+                        className={
+                          isNativeApp
+                            ? "rounded-full border border-[#D4A017]/60 bg-[#FFFDF8] hover:bg-[#FCE38A] text-[#111111] px-3.5 py-1.5 text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+                            : "rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer"
+                        }
                       >
                         {col.label}
                       </button>
@@ -1052,7 +1212,11 @@ function ProductsContent() {
                       setFilters(INITIAL_FILTER_STATE);
                       router.replace("/products", { scroll: false });
                     }}
-                    className="rounded-full border border-white/20 bg-white text-black px-6 py-2.5 text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition-all cursor-pointer"
+                    className={
+                      isNativeApp
+                        ? "rounded-full border border-[#B4780C]/45 bg-gradient-to-r from-[#FCE38A] via-[#F5B922] to-[#D49014] text-[#111111] px-6 py-2.5 text-xs font-black uppercase tracking-wider shadow-[0_6px_18px_rgba(217,155,22,0.28)] active:scale-95 transition-all cursor-pointer"
+                        : "rounded-full border border-white/20 bg-white text-black px-6 py-2.5 text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition-all cursor-pointer"
+                    }
                   >
                     View All Products
                   </button>
@@ -1080,7 +1244,11 @@ function ProductsContent() {
                     return (
                       <article
                         key={product.id}
-                        className="group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800 isolate"
+                        className={
+                          isNativeApp
+                            ? "group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-white shadow-[0_8px_22px_-12px_rgba(160,115,20,0.22)] transition-all hover:-translate-y-1 border border-[#E4C988] isolate"
+                            : "group relative flex flex-col overflow-hidden rounded-xl sm:rounded-[2rem] bg-zinc-950 shadow-2xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 border border-zinc-800 isolate"
+                        }
                       >
                         {/* Auto-sliding Image Holder */}
                         <div className="relative">
@@ -1109,10 +1277,20 @@ function ProductsContent() {
                         {/* Content */}
                         <div className="flex flex-1 flex-col p-2.5 sm:p-4 sm:pt-5">
                           <Link href={`/products/${product.id}`} className="mb-auto">
-                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-400 truncate">
+                            <p
+                              className={`text-[9px] font-black uppercase tracking-[0.18em] truncate ${
+                                isNativeApp ? "text-[#9A6503]" : "text-emerald-400"
+                              }`}
+                            >
                               {shopDisplayName}
                             </p>
-                            <h3 className="line-clamp-2 text-xs sm:text-sm font-bold leading-tight text-white group-hover:text-zinc-300 transition-colors mt-0.5">
+                            <h3
+                              className={`line-clamp-2 text-xs sm:text-sm font-bold leading-tight transition-colors mt-0.5 ${
+                                isNativeApp
+                                  ? "text-[#111111]"
+                                  : "text-white group-hover:text-zinc-300"
+                              }`}
+                            >
                               {product.name}
                             </h3>
                           </Link>
@@ -1120,18 +1298,32 @@ function ProductsContent() {
                           <div className="mt-3.5 space-y-2.5">
                             <div className="flex flex-col">
                               <div className="flex items-baseline gap-1.5 flex-wrap">
-                                <span className="text-sm sm:text-base font-black text-white">
+                                <span
+                                  className={`text-sm sm:text-base font-black ${
+                                    isNativeApp ? "text-[#111111]" : "text-white"
+                                  }`}
+                                >
                                   ₹{displayPrice}
                                 </span>
                                 {hasDiscount && (
-                                  <span className="text-[10px] font-bold text-zinc-400 line-through">
+                                  <span
+                                    className={`text-[10px] font-bold line-through ${
+                                      isNativeApp ? "text-[#6B5B3E]" : "text-zinc-400"
+                                    }`}
+                                  >
                                     ₹{displayMrp}
                                   </span>
                                 )}
                               </div>
 
                               {hasDiscount && (
-                                <span className="text-[9px] font-black uppercase text-zinc-300 bg-white/10 border border-white/10 px-2 py-0.5 rounded-full inline-block w-fit mt-1">
+                                <span
+                                  className={
+                                    isNativeApp
+                                      ? "text-[9px] font-black uppercase text-[#111111] bg-[#FFF6D6] border border-[#D4A017]/50 px-2 py-0.5 rounded-full inline-block w-fit mt-1"
+                                      : "text-[9px] font-black uppercase text-zinc-300 bg-white/10 border border-white/10 px-2 py-0.5 rounded-full inline-block w-fit mt-1"
+                                  }
+                                >
                                   Save ₹{discountAmount}
                                 </span>
                               )}
@@ -1141,7 +1333,11 @@ function ProductsContent() {
                               {isProductNewDrop(product) && !isDropLive(product) ? (
                                 <Link
                                   href={`/products/${product.id}`}
-                                  className="w-full flex h-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider hover:bg-amber-500/20 transition-all"
+                                  className={
+                                    isNativeApp
+                                      ? "w-full flex h-10 items-center justify-center rounded-xl border border-[#D4A017]/60 bg-[#FFF6D6] text-[#9A6503] text-[10px] font-black uppercase tracking-wider hover:bg-[#FCE38A] transition-all"
+                                      : "w-full flex h-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider hover:bg-amber-500/20 transition-all"
+                                  }
                                 >
                                   ⚡ Dropping Soon
                                 </Link>
@@ -1158,13 +1354,25 @@ function ProductsContent() {
 
                 {/* Server-Side Pagination Bar */}
                 {totalPages > 1 && (
-                  <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-800/80 pt-6 px-2">
-                    <div className="text-xs font-bold text-zinc-400">
+                  <div
+                    className={`mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t pt-6 px-2 ${
+                      isNativeApp ? "border-[#E4C988]/80" : "border-zinc-800/80"
+                    }`}
+                  >
+                    <div
+                      className={`text-xs font-bold ${
+                        isNativeApp ? "text-[#4A3F2B]" : "text-zinc-400"
+                      }`}
+                    >
                       Showing{" "}
-                      <span className="text-white font-black">
+                      <span className={`font-black ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
                         {(page - 1) * 36 + 1} - {Math.min(page * 36, totalCount)}
                       </span>{" "}
-                      of <span className="text-white font-black">{totalCount}</span> products
+                      of{" "}
+                      <span className={`font-black ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                        {totalCount}
+                      </span>{" "}
+                      products
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1179,14 +1387,24 @@ function ProductsContent() {
                         disabled={page <= 1}
                         className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
                           page <= 1
-                            ? "bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed opacity-40"
-                            : "bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800 hover:border-white shadow-md active:scale-95 cursor-pointer"
+                            ? isNativeApp
+                              ? "bg-[#FFFDF8] border-[#E4C988]/60 text-[#9B8968] cursor-not-allowed opacity-50"
+                              : "bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed opacity-40"
+                            : isNativeApp
+                              ? "bg-[#FFF6D6] border-[#D4A017]/60 text-[#111111] hover:bg-[#FCE38A] shadow-sm active:scale-95 cursor-pointer"
+                              : "bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800 hover:border-white shadow-md active:scale-95 cursor-pointer"
                         }`}
                       >
                         ← Prev
                       </button>
 
-                      <span className="px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-black text-white">
+                      <span
+                        className={
+                          isNativeApp
+                            ? "px-3.5 py-2 rounded-xl bg-white border border-[#E4C988] text-xs font-black text-[#111111]"
+                            : "px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-black text-white"
+                        }
+                      >
                         Page {page} of {totalPages}
                       </span>
 
@@ -1201,8 +1419,12 @@ function ProductsContent() {
                         disabled={page >= totalPages}
                         className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
                           page >= totalPages
-                            ? "bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed opacity-40"
-                            : "bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800 hover:border-white shadow-md active:scale-95 cursor-pointer"
+                            ? isNativeApp
+                              ? "bg-[#FFFDF8] border-[#E4C988]/60 text-[#9B8968] cursor-not-allowed opacity-50"
+                              : "bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed opacity-40"
+                            : isNativeApp
+                              ? "bg-[#FFF6D6] border-[#D4A017]/60 text-[#111111] hover:bg-[#FCE38A] shadow-sm active:scale-95 cursor-pointer"
+                              : "bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800 hover:border-white shadow-md active:scale-95 cursor-pointer"
                         }`}
                       >
                         Next →

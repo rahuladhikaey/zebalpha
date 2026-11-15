@@ -204,47 +204,78 @@ html.is-android-app .min-h-screen:not([data-keep-dark]):not([data-photo-overlay]
 }
 
 /* Dark page containers, cards & sections converted to clean White + Champagne Yellow surfaces */
-html.is-android-app .bg-black:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-black\/95:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-black\/90:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-black\/80:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-950:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-950\/95:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-950\/90:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-950\/80:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-950:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-950\/95:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-950\/90:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#050402\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#050505\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#070708\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#070b09\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#0a0a0c\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#0d0d10\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#0e0e11\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#0f0f12\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#120e07\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-\[\#141418\]:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+html.is-android-app :is(
+  .bg-black,
+  .bg-black\/95,
+  .bg-black\/90,
+  .bg-black\/80,
+  .bg-zinc-950,
+  .bg-zinc-950\/95,
+  .bg-zinc-950\/90,
+  .bg-zinc-950\/80,
+  .bg-zinc-950\/60,
+  .bg-zinc-950\/40,
+  .bg-neutral-950,
+  .bg-neutral-950\/95,
+  .bg-neutral-950\/90,
+  .bg-neutral-950\/80,
+  .bg-neutral-950\/70,
+  .bg-slate-900,
+  .bg-\[\#050402\],
+  .bg-\[\#050505\],
+  .bg-\[\#070708\],
+  .bg-\[\#070b09\],
+  .bg-\[\#0a0a0c\],
+  .bg-\[\#0d0d10\],
+  .bg-\[\#0e0e11\],
+  .bg-\[\#0f0f12\],
+  .bg-\[\#120e07\],
+  .bg-\[\#141418\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([class*="inset-0"]):not([class*="pointer-events-none"]):not(.absolute) {
   background-color: #FFFFFF;
   color: #111111;
 }
 
 /* Inner panels, pills, chips & subtle glass containers -> soft Champagne Yellow-White mix */
-html.is-android-app .bg-zinc-900:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-900\/95:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-900\/90:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-900\/80:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-900:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-900\/95:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-900\/90:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-900\/80:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-900\/60:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-850:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-850:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-zinc-800:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-neutral-800:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-white\/5:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *),
-html.is-android-app .bg-white\/10:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+html.is-android-app :is(
+  .bg-zinc-900,
+  .bg-zinc-900\/95,
+  .bg-zinc-900\/90,
+  .bg-zinc-900\/80,
+  .bg-zinc-900\/60,
+  .bg-zinc-900\/50,
+  .bg-zinc-900\/40,
+  .bg-zinc-900\/30,
+  .bg-neutral-900,
+  .bg-neutral-900\/95,
+  .bg-neutral-900\/90,
+  .bg-neutral-900\/80,
+  .bg-neutral-900\/60,
+  .bg-neutral-900\/50,
+  .bg-neutral-900\/40,
+  .bg-neutral-850,
+  .bg-neutral-850\/50,
+  .bg-zinc-850,
+  .bg-zinc-800,
+  .bg-zinc-800\/90,
+  .bg-zinc-800\/80,
+  .bg-zinc-800\/60,
+  .bg-zinc-800\/50,
+  .bg-neutral-800,
+  .bg-neutral-800\/80,
+  .bg-neutral-800\/70,
+  .bg-neutral-800\/60,
+  .bg-neutral-800\/50,
+  .bg-zinc-700,
+  .bg-zinc-700\/10,
+  .bg-neutral-700,
+  .bg-neutral-700\/80,
+  .bg-neutral-700\/60,
+  .bg-slate-800,
+  .bg-slate-700,
+  .bg-white\/5,
+  .bg-white\/10
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([class*="inset-0"]):not([class*="pointer-events-none"]) {
   background-color: #FFF7DA;
   color: #111111;
 }
@@ -264,7 +295,7 @@ html.is-android-app :is(input, textarea, select):not([data-keep-dark]):not([data
   color: #111111;
 }
 
-html.is-android-app :is(input, textarea, select):is(.bg-black, .bg-zinc-950, .bg-neutral-950, .bg-zinc-900, .bg-neutral-900, .bg-zinc-800) {
+html.is-android-app :is(input, textarea, select):is(.bg-black, [class*="bg-zinc-9"], [class*="bg-neutral-9"], [class*="bg-zinc-8"], [class*="bg-neutral-8"]) {
   background-color: #FFFFFF;
   background-image: none;
   border-color: var(--za-border-gold);
@@ -290,8 +321,92 @@ html.is-android-app .royal-glass {
   color: #111111;
 }
 
-html.is-android-app :is(.border-zinc-900, .border-neutral-900, .border-zinc-800, .border-neutral-800, .border-zinc-800\/80, .border-zinc-800\/90, .border-neutral-800\/80, .border-zinc-700, .border-white\/10, .border-white\/20, .divide-zinc-800, .divide-neutral-800):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+html.is-android-app :is(
+  .border-zinc-950,
+  .border-zinc-900,
+  .border-zinc-850,
+  .border-zinc-850\/80,
+  .border-zinc-800,
+  .border-zinc-800\/90,
+  .border-zinc-800\/80,
+  .border-zinc-800\/60,
+  .border-zinc-800\/40,
+  .border-zinc-750,
+  .border-zinc-700,
+  .border-zinc-700\/80,
+  .border-zinc-700\/50,
+  .border-zinc-600,
+  .border-zinc-600\/80,
+  .border-neutral-900,
+  .border-neutral-900\/80,
+  .border-neutral-850,
+  .border-neutral-800,
+  .border-neutral-800\/80,
+  .border-neutral-800\/70,
+  .border-neutral-800\/60,
+  .border-neutral-700,
+  .border-white\/10,
+  .border-white\/15,
+  .border-white\/20,
+  .border-white\/25,
+  .border-white\/30,
+  .divide-zinc-800,
+  .divide-neutral-800
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
   border-color: rgba(212, 160, 23, 0.36);
+}
+
+/* Legacy emerald surfaces on light Android subpages -> warm Champagne Yellow + Black pill harmony */
+html.is-android-app :is(
+  .bg-emerald-950,
+  .bg-emerald-950\/90,
+  .bg-emerald-950\/80,
+  .bg-emerald-950\/70,
+  .bg-emerald-950\/60,
+  .bg-emerald-950\/40,
+  .bg-emerald-950\/30,
+  .bg-emerald-950\/20,
+  .bg-emerald-900\/60,
+  .bg-emerald-500\/30,
+  .bg-emerald-500\/20,
+  .bg-emerald-500\/15,
+  .bg-emerald-500\/10
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([class*="inset-0"]):not([class*="pointer-events-none"]) {
+  background-color: #FFF6D6;
+  color: #111111;
+  border-color: rgba(212, 160, 23, 0.52);
+}
+
+html.is-android-app :is(.bg-emerald-400, .bg-emerald-500):not(.animate-pulse):not(.animate-ping):not(.h-1\.5):not(.h-2):not(.h-2\.5):not(.h-3):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  background: linear-gradient(135deg, #FCE38A 0%, #F5B922 52%, #D49014 100%);
+  color: #111111;
+  border-color: rgba(180, 120, 12, 0.45);
+}
+
+html.is-android-app :is(
+  .border-emerald-300,
+  .border-emerald-400,
+  .border-emerald-400\/35,
+  .border-emerald-400\/40,
+  .border-emerald-400\/50,
+  .border-emerald-400\/80,
+  .border-emerald-500,
+  .border-emerald-500\/20,
+  .border-emerald-500\/25,
+  .border-emerald-500\/30,
+  .border-emerald-500\/35,
+  .border-emerald-500\/40,
+  .border-emerald-500\/50,
+  .border-emerald-500\/60,
+  .border-emerald-500\/80,
+  .border-emerald-700,
+  .border-emerald-700\/60,
+  .border-emerald-800,
+  .border-emerald-800\/40,
+  .border-emerald-800\/60,
+  .border-emerald-800\/80
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  border-color: rgba(212, 160, 23, 0.55);
 }
 
 /* Crisp BLACK primary ink on White/Yellow pages — protects photo overlays, dark badges & bright colored pills */
@@ -300,7 +415,7 @@ html.is-android-app :is(.text-white, .text-zinc-50, .text-zinc-100, .text-zinc-2
 }
 
 /* Clear dark charcoal secondary ink on White/Yellow pages so muted writing never washes out */
-html.is-android-app :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-neutral-300, .text-neutral-400, .text-neutral-500, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+html.is-android-app :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600, .text-neutral-300, .text-neutral-400, .text-neutral-500, .text-neutral-600, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
   color: #3F3626;
 }
 
@@ -309,7 +424,11 @@ html.is-android-app :is(.text-amber-300, .text-amber-400, .text-yellow-300, .tex
   color: #9A6503;
 }
 
-html.is-android-app :is(.text-emerald-300, .text-emerald-400, .text-green-300, .text-green-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+html.is-android-app :is(.text-emerald-200, .text-emerald-300, .text-emerald-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  color: #8A5800;
+}
+
+html.is-android-app :is(.text-green-300, .text-green-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
   color: #047857;
 }
 
