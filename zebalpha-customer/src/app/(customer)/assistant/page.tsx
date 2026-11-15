@@ -126,13 +126,12 @@ export default function AlphaAssistantPage() {
     setError("");
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
       const apiMessages = updatedMessages
         .filter((m) => m.id !== "welcome-alpha-ai")
         .slice(-6)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const res = await fetch(`${baseUrl}/api/assistant`, {
+      const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -141,9 +140,22 @@ export default function AlphaAssistantPage() {
         }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: Record<string, unknown> | null = null;
+      if (rawText) {
+        try {
+          data = JSON.parse(rawText) as Record<string, unknown>;
+        } catch {
+          data = null;
+        }
+      }
+
       if (!res.ok) {
-        throw new Error(data?.error || "Failed to connect to Alpha AI.");
+        const errMsg =
+          typeof data?.error === "string" && data.error.trim().length > 0
+            ? data.error
+            : "Alpha AI could not respond right now. Please try again.";
+        throw new Error(errMsg);
       }
 
       const replyText =
@@ -152,10 +164,10 @@ export default function AlphaAssistantPage() {
           : "I can help with products, sizes, orders, returns, and customer support. Tell me what you need!";
 
       const products: Product[] = Array.isArray(data?.recommendedProducts)
-        ? data.recommendedProducts
+        ? (data.recommendedProducts as Product[])
         : [];
       const quickLinks: AssistantQuickLink[] = Array.isArray(data?.quickLinks)
-        ? data.quickLinks
+        ? (data.quickLinks as AssistantQuickLink[])
         : [];
 
       msgSeqRef.current += 1;
@@ -171,9 +183,9 @@ export default function AlphaAssistantPage() {
       ]);
     } catch (err: unknown) {
       const message =
-        err instanceof Error && err.message
+        err instanceof Error && err.message && !err.message.includes("<!DOCTYPE")
           ? err.message
-          : "Something went wrong. Please try again.";
+          : "Alpha AI is momentarily unreachable. Please try again.";
       setError(message);
     } finally {
       setLoading(false);
