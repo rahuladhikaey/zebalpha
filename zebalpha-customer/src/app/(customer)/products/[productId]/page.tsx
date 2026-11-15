@@ -10,6 +10,7 @@ import ProductDetailTemplate from "./ProductDetailTemplate";
 import SimilarProductsCarousel from "@/components/catalog/SimilarProductsCarousel";
 import { RecentlyViewedSection } from "@/components/recommendations/RecentlyViewedSection";
 import { getSimilarProducts, detectProductFamily } from "@/lib/similarProducts";
+import { computeRatingBreakdown, type PublicReview } from "@/lib/productRatings";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "dummy-anon-key-for-build").trim();
@@ -131,6 +132,34 @@ const getProduct = cache(async (productId: string) => {
   return productData as Product;
 });
 
+const getProductReviews = cache(async (productId: string): Promise<PublicReview[]> => {
+  if (!productId) return [];
+  try {
+    const client = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseServer : supabase;
+    const { data, error } = await client
+      .from("reviews")
+      .select("id, product_id, user_id, user_name, rating, comment, is_approved, created_at, updated_at")
+      .eq("product_id", productId)
+      .eq("is_approved", true)
+      .order("created_at", { ascending: false });
+
+    if (error || !Array.isArray(data)) return [];
+    return data.map((r: any) => ({
+      id: r.id,
+      product_id: String(r.product_id),
+      user_id: r.user_id ?? null,
+      user_name: r.user_name || "Customer",
+      rating: Number(r.rating),
+      comment: typeof r.comment === "string" ? r.comment : "",
+      is_approved: r.is_approved !== false,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    }));
+  } catch {
+    return [];
+  }
+});
+
 function SimilarProductsSkeleton() {
   return (
     <div className="w-full py-4 space-y-3">
@@ -233,7 +262,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const { productId } = await params;
-  const product = await getProduct(productId);
+  const [product, initialReviews] = await Promise.all([
+    getProduct(productId),
+    getProductReviews(productId),
+  ]);
 
   if (!product) {
     return (
@@ -250,7 +282,14 @@ export default async function ProductDetailPage({ params }: PageProps) {
     );
   }
 
-  const aeo = extractProductAeoData(product);
+  const ratingSummary = computeRatingBreakdown(initialReviews);
+  const productWithRating: Product = {
+    ...product,
+    rating: ratingSummary.count > 0 ? ratingSummary.average : 0,
+    review_count: ratingSummary.count,
+  };
+
+  const aeo = extractProductAeoData(productWithRating);
   const images = Array.isArray(product.images) && product.images.length > 0
     ? product.images
     : [product.image_url].filter(Boolean);
@@ -264,7 +303,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const categoryData = resolveCategoryAeo(aeo.categorySlug);
 
   const breadcrumbSchema = buildBreadcrumbSchema(breadcrumbs);
-  const productSchema = buildProductSchema(aeo, images);
+  const productSchema = buildProductSchema(
+    aeo,
+    images,
+    ratingSummary.count > 0
+      ? { average: ratingSummary.average, count: ratingSummary.count }
+      : undefined
+  );
   const faqSchema = buildFaqSchema(aeo.faqs);
 
   const jsonLdGraph = {
@@ -290,11 +335,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
         {/* Existing Product Interactive Template (Photos, Variants, Cart, Buy Now, Reviews + Similar Products Slot) */}
         <ProductDetailTemplate
-          product={product}
+          product={productWithRating}
+          initialReviews={initialReviews}
           relatedProductsSlot={
             <div className="mt-8 pt-6 border-t border-zinc-800/80 space-y-6">
               <Suspense fallback={<SimilarProductsSkeleton />}>
-                <SimilarProductsSection product={product} />
+                <SimilarProductsSection product={productWithRating} />
               </Suspense>
             </div>
           }

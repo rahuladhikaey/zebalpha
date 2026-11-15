@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { supabase } from "@/lib/supabaseClient";
 import { Product } from "@/lib/types";
+import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
 import { 
   Sparkles, 
   Crown, 
@@ -52,7 +53,12 @@ export default function PremiumStorePage() {
               (p.name || "").toLowerCase().includes("supima")
             );
           });
-          setProducts((premiumList.length > 0 ? premiumList : data) as Product[]);
+          const selectedList = (premiumList.length > 0 ? premiumList : data) as Product[];
+          const ratingsMap = await fetchProductRatingSummaries(
+            supabase,
+            selectedList.map((p) => p.id)
+          );
+          setProducts(attachRatingsToProducts(selectedList, ratingsMap));
         } else {
           setProducts([]);
         }
@@ -66,7 +72,7 @@ export default function PremiumStorePage() {
 
     loadPremiumProducts();
 
-    // Listen to real-time additions/updates by sellers
+    // Listen to real-time additions/updates by sellers & reviews
     const channel = supabase
       .channel("premium-store-realtime")
       .on(
@@ -74,9 +80,18 @@ export default function PremiumStorePage() {
         { event: "*", schema: "public", table: "products" },
         () => loadPremiumProducts()
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reviews" },
+        () => loadPremiumProducts()
+      )
       .subscribe();
 
+    const handleReviewUpdated = () => loadPremiumProducts();
+    window.addEventListener("zebalpha:review-updated", handleReviewUpdated);
+
     return () => {
+      window.removeEventListener("zebalpha:review-updated", handleReviewUpdated);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -119,7 +134,7 @@ export default function PremiumStorePage() {
     }).sort((a, b) => {
       if (sortBy === "price_asc") return a.price - b.price;
       if (sortBy === "price_desc") return b.price - a.price;
-      if (sortBy === "rating") return (b.rating || 5) - (a.rating || 5);
+      if (sortBy === "rating") return (Number(b.rating) || 0) - (Number(a.rating) || 0);
       return 0; // featured default
     });
   }, [products, activeCategory, searchQuery, sortBy]);
@@ -323,11 +338,11 @@ export default function PremiumStorePage() {
                     <div>
                       {/* Rating & Stock */}
                       <div className="flex items-center justify-between text-xs mb-2.5">
-                        {product.rating && Number(product.rating) > 0 ? (
+                        {Number(product.rating) > 0 ? (
                           <div className="flex items-center gap-1 text-amber-400 font-black">
                             <Star size={13} className="fill-amber-400 text-amber-400" />
-                            <span>{product.rating}</span>
-                            {product.review_count && (
+                            <span>{Number(product.rating).toFixed(1)}</span>
+                            {Number(product.review_count) > 0 && (
                               <span className="text-[10px] text-zinc-500 font-bold">({product.review_count})</span>
                             )}
                           </div>

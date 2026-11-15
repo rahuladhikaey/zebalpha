@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { supabaseServer } from "@/shared/utils/supabaseServer";
+import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
 
 export const dynamic = "force-dynamic";
 
@@ -262,7 +264,12 @@ export async function GET(request: NextRequest) {
 
     const items = rows || [];
     const hasMore = items.length > limit;
-    const returnItems = hasMore ? items.slice(0, limit) : items;
+    const rawReturnItems = hasMore ? items.slice(0, limit) : items;
+    const ratingsMap = await fetchProductRatingSummaries(
+      supabaseServer,
+      rawReturnItems.map((p: any) => p.id)
+    );
+    const returnItems = attachRatingsToProducts(rawReturnItems, ratingsMap);
 
     let nextCursor: string | null = null;
     if (hasMore && returnItems.length > 0) {

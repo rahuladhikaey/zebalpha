@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Product, Category } from '@/lib/types';
 import { resolveCategoryIcon } from '@/lib/categoryIcons';
 import { isProductNewDrop } from '@/lib/dropUtils';
+import { attachRatingsToProducts, fetchProductRatingSummaries } from '@/lib/productRatings';
 
 export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [];
 
@@ -1010,7 +1011,7 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
     }
 
     const rawList = data || [];
-    const products: Product[] = rawList
+    const normalizedProducts: Product[] = rawList
       .filter((p: any) => !isProductNewDrop(p))
       .map((p: any) => {
         const specs = p.specifications || {};
@@ -1026,6 +1027,11 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
           category: p.category || specs.category || "Apparel",
         };
       });
+    const ratingsMap = await fetchProductRatingSummaries(
+      supabase,
+      normalizedProducts.map((p) => p.id)
+    );
+    const products = attachRatingsToProducts(normalizedProducts, ratingsMap);
     const totalCount = count !== null ? count : products.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 

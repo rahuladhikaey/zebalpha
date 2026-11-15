@@ -20,14 +20,18 @@ import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { getProductDisplayPricing } from "@/lib/productPricing";
 import { useIsNativeApp } from "@/lib/platform";
+import { ProductRatingWidget } from "@/components/ProductRatingWidget";
+import { computeRatingBreakdown, type PublicReview } from "@/lib/productRatings";
 export default function ProductDetailTemplate({
   product,
   relatedProducts = [],
-  relatedProductsSlot
+  relatedProductsSlot,
+  initialReviews = [],
 }: {
   product: Product;
   relatedProducts?: Product[];
   relatedProductsSlot?: React.ReactNode;
+  initialReviews?: PublicReview[];
 }) {
   const isNativeApp = useIsNativeApp();
   // 1. Normalize packages from product
@@ -732,27 +736,36 @@ export default function ProductDetailTemplate({
     return true;
   };
 
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<PublicReview[]>(initialReviews);
+  const [userReview, setUserReview] = useState<PublicReview | null | undefined>(undefined);
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchReviews() {
       try {
-        const { data, error } = await supabase
-          .from("reviews")
-          .select("*")
-          .eq("product_id", product.id)
-          .eq("is_approved", true)
-          .order("created_at", { ascending: false });
-        if (!error && Array.isArray(data)) {
-          setReviews(data);
-        } else {
-          setReviews([]);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        const headers: Record<string, string> = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const res = await fetch(
+          `/api/reviews?productId=${encodeURIComponent(String(product.id))}`,
+          { headers, cache: "no-store" }
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled && json?.success) {
+          if (Array.isArray(json.reviews)) setReviews(json.reviews);
+          setUserReview(json.userReview ?? null);
         }
-      } catch (_) {
-        setReviews([]);
+      } catch {
+        // Retain initialReviews SSR state if network hiccups
       }
     }
     fetchReviews();
+    return () => {
+      cancelled = true;
+    };
   }, [product.id]);
 
   // Record product view behavioral signal for cross-platform personalization & recently viewed
@@ -766,30 +779,32 @@ export default function ProductDetailTemplate({
     }
   }, [product?.id, product?.category_id]);
 
-  const averageRating = useMemo(() => {
-    if (reviews.length === 0) return product.rating || 0;
-    const sum = reviews.reduce((acc, curr) => acc + curr.rating, 0);
-    return Number((sum / reviews.length).toFixed(1));
-  }, [reviews, product.rating]);
+  const ratingBreakdown = useMemo(() => computeRatingBreakdown(reviews), [reviews]);
 
-  const starCounts = useMemo(() => {
-    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    if (reviews.length === 0) {
-      return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    }
-    reviews.forEach((r) => {
-      const rVal = Math.min(5, Math.max(1, Math.round(r.rating))) as 5 | 4 | 3 | 2 | 1;
-      counts[rVal] = (counts[rVal] || 0) + 1;
+  const averageRating = useMemo(() => {
+    if (ratingBreakdown.count > 0) return ratingBreakdown.average;
+    return Number(product.rating || 0);
+  }, [ratingBreakdown, product.rating]);
+
+  const totalReviewCount = ratingBreakdown.count > 0 ? ratingBreakdown.count : Number(product.review_count || 0);
+  const starCounts = ratingBreakdown.breakdown;
+
+  const handleReviewSubmitted = (saved: PublicReview) => {
+    setUserReview(saved);
+    setReviews((prev) => {
+      const idx = prev.findIndex(
+        (item) =>
+          (item.id && saved.id && String(item.id) === String(saved.id)) ||
+          (item.user_id && saved.user_id && String(item.user_id) === String(saved.user_id))
+      );
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = saved;
+        return next;
+      }
+      return [saved, ...prev];
     });
-    const total = reviews.length;
-    return {
-      5: Math.round((counts[5] / total) * 100),
-      4: Math.round((counts[4] / total) * 100),
-      3: Math.round((counts[3] / total) * 100),
-      2: Math.round((counts[2] / total) * 100),
-      1: Math.round((counts[1] / total) * 100),
-    };
-  }, [reviews]);
+  };
 
   const [isDropNotified, setIsDropNotified] = useState(false);
   const [dropToast, setDropToast] = useState("");
@@ -860,6 +875,26 @@ export default function ProductDetailTemplate({
               <h1 className="text-xl sm:text-2xl font-bold text-white md:text-3xl leading-snug">
                 {product.name}
               </h1>
+              <a
+                href="#reviews"
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black transition cursor-pointer ${
+                  isNativeApp
+                    ? "border-[#DFC78E] bg-[#FFFDF7] text-[#111111] hover:bg-[#FAF0D1]"
+                    : "border-zinc-800 bg-zinc-950 text-white hover:border-zinc-600"
+                }`}
+              >
+                <span className="inline-flex items-center gap-1 text-amber-400">
+                  <Star size={13} className="fill-amber-400 text-amber-400" aria-hidden="true" />
+                  <span className={isNativeApp ? "text-[#111111]" : "text-white"}>
+                    {totalReviewCount > 0 ? averageRating.toFixed(1) : "Be first"}
+                  </span>
+                </span>
+                <span className={isNativeApp ? "text-[#7A6C52] font-bold" : "text-zinc-400 font-bold"}>
+                  {totalReviewCount > 0
+                    ? `• ${totalReviewCount} review${totalReviewCount === 1 ? "" : "s"}`
+                    : "• Rate this product"}
+                </span>
+              </a>
             </div>
 
             {isUpcomingDrop && (
@@ -1181,83 +1216,177 @@ export default function ProductDetailTemplate({
             </div>
 
             {/* Premium Ratings & Reviews Section */}
-            <div className="mt-8 border-t border-zinc-800 pt-8 space-y-6">
+            <div id="reviews" className="mt-8 border-t border-zinc-800 pt-8 space-y-6 scroll-mt-24">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Feedback</span>
-                  <h3 className="text-xl font-black text-white mt-0.5">Ratings & Reviews</h3>
+                  <h3 className={`text-xl font-black mt-0.5 ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                    Ratings &amp; Reviews
+                  </h3>
                 </div>
-                <span className="text-xs font-black uppercase tracking-wider text-black bg-white px-3.5 py-1.5 rounded-full flex items-center gap-1 shadow-xl shadow-white/10">
-                  ★ {averageRating} / 5
+                <span
+                  className={`text-xs font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full flex items-center gap-1 ${
+                    isNativeApp
+                      ? "bg-[#FAF0D1] text-[#111111] border border-[#DFC78E]"
+                      : "text-black bg-white shadow-xl shadow-white/10"
+                  }`}
+                >
+                  ★ {totalReviewCount > 0 ? `${averageRating.toFixed(1)} / 5` : "0 / 5"}
                 </span>
               </div>
 
               {/* Rating Card & Breakdown Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center p-6 rounded-[2rem] bg-zinc-950 border border-zinc-800 shadow-xl">
-                <div className="md:col-span-4 text-center md:border-r border-zinc-800 md:pr-6 space-y-2">
-                  <p className="text-5xl font-black text-white leading-none">{averageRating}</p>
-                  <div className="flex items-center justify-center gap-0.5 text-white">
+              <div
+                className={`grid grid-cols-1 md:grid-cols-12 gap-6 items-center p-6 rounded-[2rem] border shadow-xl ${
+                  isNativeApp
+                    ? "bg-[#FFFDF7] border-[#E8D5A8]"
+                    : "bg-zinc-950 border-zinc-800"
+                }`}
+              >
+                <div
+                  className={`md:col-span-4 text-center md:border-r md:pr-6 space-y-2 ${
+                    isNativeApp ? "border-[#E8D5A8]" : "border-zinc-800"
+                  }`}
+                >
+                  <p className={`text-5xl font-black leading-none ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                    {averageRating > 0 ? averageRating.toFixed(1) : "0.0"}
+                  </p>
+                  <div className="flex items-center justify-center gap-0.5 text-amber-400">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={18} className="fill-current" fill={i < Math.round(averageRating) ? "currentColor" : "none"} />
+                      <Star
+                        key={i}
+                        size={18}
+                        className={i < Math.round(averageRating) ? "fill-amber-400 text-amber-400" : isNativeApp ? "text-[#DFD5C0]" : "text-zinc-700"}
+                      />
                     ))}
                   </div>
-                  <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Based on {reviews.length} verified review{reviews.length === 1 ? "" : "s"}</p>
+                  <p
+                    className={`text-[10px] font-extrabold uppercase tracking-wider ${
+                      isNativeApp ? "text-[#7A6C52]" : "text-zinc-400"
+                    }`}
+                  >
+                    Based on {totalReviewCount} review{totalReviewCount === 1 ? "" : "s"}
+                  </p>
                 </div>
- 
+
                 <div className="md:col-span-8 space-y-2 text-xs">
                   {([5, 4, 3, 2, 1] as const).map((star) => (
                     <div key={star} className="flex items-center gap-3">
-                      <span className="w-3 font-extrabold text-zinc-300 text-right">{star}</span>
-                      <Star size={10} className="text-white shrink-0 fill-current" aria-hidden="true" />
-                      <div className="flex-1 h-2.5 rounded-full bg-zinc-900 overflow-hidden border border-zinc-800">
-                        <div 
-                          className="h-full bg-white rounded-full transition-all duration-500" 
+                      <span className={`w-3 font-extrabold text-right ${isNativeApp ? "text-[#5C503B]" : "text-zinc-300"}`}>
+                        {star}
+                      </span>
+                      <Star size={10} className="text-amber-400 shrink-0 fill-amber-400" aria-hidden="true" />
+                      <div
+                        className={`flex-1 h-2.5 rounded-full overflow-hidden border ${
+                          isNativeApp ? "bg-[#F3E9D2] border-[#E8D5A8]" : "bg-zinc-900 border-zinc-800"
+                        }`}
+                      >
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isNativeApp ? "bg-amber-400" : "bg-white"
+                          }`}
                           style={{ width: `${starCounts[star]}%` }}
                         />
                       </div>
-                      <span className="w-8 text-zinc-400 text-right font-extrabold">{starCounts[star]}%</span>
+                      <span className={`w-8 text-right font-extrabold ${isNativeApp ? "text-[#7A6C52]" : "text-zinc-400"}`}>
+                        {starCounts[star]}%
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* Interactive Customer Rating & Review Form */}
+              <ProductRatingWidget
+                key={userReview === undefined ? "loading" : (userReview?.id ?? "guest")}
+                productId={product.id}
+                productName={product.name}
+                variant="card"
+                initialReview={userReview}
+                onSubmitted={(saved) => handleReviewSubmitted(saved)}
+              />
+
               {/* Reviews List */}
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+              <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2 no-scrollbar">
                 {reviews.length > 0 ? (
                   reviews.map((r, i) => (
-                    <div key={r.id || i} className="p-5 rounded-[1.75rem] bg-zinc-950 border border-zinc-800 shadow-xl space-y-2.5 transition hover:border-zinc-700">
-                      <div className="flex justify-between items-start">
+                    <div
+                      key={r.id || i}
+                      className={`p-5 rounded-[1.75rem] border shadow-xl space-y-2.5 transition ${
+                        isNativeApp
+                          ? "bg-[#FFFDF7] border-[#E8D5A8] hover:border-[#D6BC82]"
+                          : "bg-zinc-950 border-zinc-800 hover:border-zinc-700"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start gap-2">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-zinc-900 text-white flex items-center justify-center font-black text-sm border border-zinc-800">
+                          <div
+                            className={`h-9 w-9 rounded-full flex items-center justify-center font-black text-sm border ${
+                              isNativeApp
+                                ? "bg-[#FAF0D1] text-[#111111] border-[#DFC78E]"
+                                : "bg-zinc-900 text-white border-zinc-800"
+                            }`}
+                          >
                             {r.user_name?.[0]?.toUpperCase() || "C"}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-black text-white">{r.user_name}</h4>
-                              <span className="text-[9px] font-extrabold text-white bg-zinc-900 px-2 py-0.5 rounded-md border border-zinc-700 flex items-center gap-0.5">
-                                Verified Buyer ✓
-                              </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className={`text-xs font-black ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                                {r.user_name || "Customer"}
+                              </h4>
+                              {r.is_verified_buyer && (
+                                <span
+                                  className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-0.5 ${
+                                    isNativeApp
+                                      ? "text-emerald-800 bg-emerald-50 border-emerald-200"
+                                      : "text-emerald-300 bg-emerald-950/60 border-emerald-700/50"
+                                  }`}
+                                >
+                                  Verified Buyer ✓
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-0.5 text-white mt-1">
+                            <div className="flex items-center gap-0.5 text-amber-400 mt-1">
                               {Array.from({ length: 5 }).map((_, si) => (
-                                <Star key={si} size={11} className="fill-current" fill={si < r.rating ? "currentColor" : "none"} aria-hidden="true" />
+                                <Star
+                                  key={si}
+                                  size={11}
+                                  className={
+                                    si < r.rating
+                                      ? "fill-amber-400 text-amber-400"
+                                      : isNativeApp
+                                        ? "text-[#DFD5C0]"
+                                        : "text-zinc-700"
+                                  }
+                                  aria-hidden="true"
+                                />
                               ))}
                             </div>
                           </div>
                         </div>
-                        <span className="text-[9px] font-extrabold uppercase tracking-wider text-zinc-500">
+                        <span className={`text-[9px] font-extrabold uppercase tracking-wider ${isNativeApp ? "text-[#7A6C52]" : "text-zinc-500"}`}>
                           {new Date(r.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-xs font-bold text-zinc-300 leading-relaxed pl-12">
-                        {r.comment}
-                      </p>
+                      {r.comment && (
+                        <p className={`text-xs font-bold leading-relaxed pl-12 ${isNativeApp ? "text-[#3D3527]" : "text-zinc-300"}`}>
+                          {r.comment}
+                        </p>
+                      )}
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 border-2 border-dashed border-zinc-800 rounded-[2rem] bg-zinc-950 space-y-2">
-                    <p className="text-sm font-black text-zinc-400">No custom reviews yet</p>
-                    <p className="text-xs font-bold text-zinc-500">Rate this product inside your Purchase History to be the first!</p>
+                  <div
+                    className={`text-center py-8 border-2 border-dashed rounded-[2rem] space-y-2 ${
+                      isNativeApp ? "border-[#E4C988] bg-[#FFFDF7]" : "border-zinc-800 bg-zinc-950"
+                    }`}
+                  >
+                    <p className={`text-sm font-black ${isNativeApp ? "text-[#111111]" : "text-zinc-400"}`}>
+                      No reviews yet
+                    </p>
+                    <p className={`text-xs font-bold ${isNativeApp ? "text-[#7A6C52]" : "text-zinc-500"}`}>
+                      Tap the stars above to submit the first global rating for this product!
+                    </p>
                   </div>
                 )}
               </div>

@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { OrderSkeleton } from "@/components/skeletons";
+import { ProductRatingWidget } from "@/components/ProductRatingWidget";
 
 interface Order {
   id: string;
@@ -503,7 +504,7 @@ export default function MyOrdersPage() {
 
               const statusLower = String(order.order_status || "").toLowerCase();
               const isCancelled = statusLower === "cancelled";
-              const isDelivered = statusLower === "delivered";
+              const isDelivered = statusLower === "delivered" || statusLower === "completed";
               const hasReturn = hasActiveReturn(order);
 
               return (
@@ -613,12 +614,13 @@ export default function MyOrdersPage() {
                                 </div>
 
                                 {/* Star Rating Widget for Delivered Products */}
-                                {isDelivered && item.id && (
+                                {isDelivered && (item.product_id || item.id) && (
                                   <div className="pt-2 border-t border-zinc-800/60">
                                     <ProductRatingWidget
-                                      productId={item.id}
+                                      productId={item.product_id || item.id}
                                       productName={item.name}
                                       user={user}
+                                      variant="compact"
                                     />
                                   </div>
                                 )}
@@ -1493,135 +1495,5 @@ export default function MyOrdersPage() {
         </div>
       )}
     </main>
-  );
-}
-
-function ProductRatingWidget({ productId, productName, user }: { productId: number; productName: string; user: any }) {
-  const [rating, setRating] = useState<number>(0);
-  const [comment, setComment] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [savedReview, setSavedReview] = useState<any>(null);
-
-  // Load existing rating if any from Supabase
-  useEffect(() => {
-    async function loadReview() {
-      if (!productId || !user?.email) return;
-      try {
-        const { data, error } = await supabase
-          .from("reviews")
-          .select("*")
-          .eq("product_id", productId)
-          .eq("user_email", user.email)
-          .maybeSingle();
-
-        if (!error && data) {
-          setSavedReview(data);
-          setRating(data.rating);
-          setComment(data.comment || "");
-          setSubmitted(true);
-        }
-      } catch (e) {
-        console.error("Error fetching review:", e);
-      }
-    }
-    loadReview();
-  }, [productId, user?.email]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (rating === 0) return;
-
-    const newReview = {
-      product_id: productId,
-      user_id: user?.id || null,
-      user_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Customer",
-      user_email: user.email,
-      rating,
-      comment: comment || "Excellent product!",
-      is_approved: true
-    };
-
-    try {
-      const { data, error } = await supabase
-        .from("reviews")
-        .insert([newReview])
-        .select()
-        .single();
-
-      if (!error && data) {
-        setSavedReview(data);
-        setSubmitted(true);
-      } else {
-        setSavedReview(newReview);
-        setSubmitted(true);
-      }
-    } catch (err) {
-      console.error("Error submitting review to Supabase:", err);
-      setSavedReview(newReview);
-      setSubmitted(true);
-    }
-  };
-
-  if (submitted && savedReview) {
-    return (
-      <div className="mt-2 text-xs bg-zinc-900 border border-zinc-800 rounded-xl p-3 space-y-1">
-        <div className="flex items-center gap-1.5 font-bold text-white">
-          <span>You rated:</span>
-          <div className="flex items-center gap-0.5 text-white">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <span key={i} className="text-sm">{i < savedReview.rating ? "★" : "☆"}</span>
-            ))}
-          </div>
-        </div>
-        {savedReview.comment && (
-          <p className="text-zinc-300 italic">"{savedReview.comment}"</p>
-        )}
-        <button
-          onClick={() => setSubmitted(false)}
-          className="text-[9px] font-black uppercase tracking-wider text-white underline pt-1 cursor-pointer"
-        >
-          Edit Review
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="mt-2 space-y-2 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Rate Product:</span>
-        <div className="flex items-center gap-1 text-base text-white">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              type="button"
-              key={star}
-              onClick={() => setRating(star)}
-              className="hover:scale-125 transition-transform text-lg cursor-pointer"
-            >
-              {star <= rating ? "★" : "☆"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {rating > 0 && (
-        <div className="space-y-2">
-          <input
-            type="text"
-            required
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Write a quick review..."
-            className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-1.5 text-xs font-semibold placeholder:text-zinc-500 outline-none focus:border-white"
-          />
-          <button
-            type="submit"
-            className="w-full bg-white hover:bg-zinc-200 text-black font-black uppercase tracking-widest text-[9px] py-1.5 rounded-lg transition-colors cursor-pointer"
-          >
-            Submit Review
-          </button>
-        </div>
-      )}
-    </form>
   );
 }

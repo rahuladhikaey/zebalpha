@@ -14,6 +14,8 @@ import { DeliveryEstimateWidget } from "./DeliveryEstimateWidget";
 import { supabase } from "@/lib/supabaseClient";
 import { SLIM_PRODUCT_CARD_FIELDS, getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 import { useIsNativeApp } from "@/lib/platform";
+import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
+import { Star } from "lucide-react";
 
 import { isProductNewDrop } from "@/lib/dropUtils";
 
@@ -151,7 +153,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
 
       if (!error && data && data.length > 0) {
         const nonDrops = data.filter((p: any) => !isProductNewDrop(p));
-        const newBatch: Product[] = nonDrops.map((p: any) => {
+        const normalizedBatch: Product[] = nonDrops.map((p: any) => {
           const specs = p.specifications || {};
           const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM";
           return {
@@ -163,6 +165,11 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
             category: p.category || specs.category || "Apparel",
           };
         });
+        const ratingsMap = await fetchProductRatingSummaries(
+          supabase,
+          normalizedBatch.map((p) => p.id)
+        );
+        const newBatch = attachRatingsToProducts(normalizedBatch, ratingsMap);
 
         setProducts((prev) => {
           const existingIds = new Set(prev.map((p) => p.id));
@@ -201,6 +208,27 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [loadMoreProducts, hasMore, isLoadingMore, prefetchMargin, isOnline]);
+
+  useEffect(() => {
+    const handleReviewUpdated = (event: Event) => {
+      const detail = (event as CustomEvent)?.detail;
+      if (!detail?.productId || !detail?.summary) return;
+      const targetId = String(detail.productId);
+      setProducts((prev) =>
+        prev.map((p) =>
+          String(p.id) === targetId
+            ? {
+                ...p,
+                rating: Number(detail.summary.rating ?? detail.summary.average ?? 0),
+                review_count: Number(detail.summary.review_count ?? detail.summary.count ?? 0),
+              }
+            : p
+        )
+      );
+    };
+    window.addEventListener("zebalpha:review-updated", handleReviewUpdated);
+    return () => window.removeEventListener("zebalpha:review-updated", handleReviewUpdated);
+  }, []);
 
   return (
     <div className="w-full">
@@ -253,6 +281,26 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                     {product.name}
                   </h3>
                 </Link>
+
+                {typeof product.rating === "number" && product.rating > 0 && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-black border ${
+                        isNativeApp
+                          ? "bg-[#FAF0D1] border-[#E4C988] text-[#111111]"
+                          : "bg-white text-black border-white/10"
+                      }`}
+                    >
+                      <span>{product.rating.toFixed(1)}</span>
+                      <Star size={9} className="fill-current" aria-hidden="true" />
+                    </span>
+                    {typeof product.review_count === "number" && product.review_count > 0 && (
+                      <span className={`text-[10px] font-bold ${isNativeApp ? "text-[#7A6C52]" : "text-neutral-400"}`}>
+                        ({product.review_count})
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-3.5 space-y-2.5">
                   <div className="flex flex-col">

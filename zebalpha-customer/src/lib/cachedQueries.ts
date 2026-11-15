@@ -2,6 +2,7 @@ import { getCachedOrFetch, invalidateCacheKey, invalidateCachePattern } from './
 import { supabaseServer } from './supabaseServer';
 export { supabaseServer } from './supabaseServer';
 import { Product, Category, CuratedCollection, EditorialCard, PromotionalCampaign, PromotionalSlot } from './types';
+import { fetchProductRatingSummaries, attachRatingsToProducts } from './productRatings';
 
 /**
  * Slim query fields for Curated Collections & Editorial Cards
@@ -250,7 +251,7 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
       }
 
       const rawList = data || [];
-      return rawList
+      const normalized = rawList
         .filter((p: any) => {
           const specs = p.specifications || {};
           const isDrop =
@@ -277,6 +278,12 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
             category: p.category || specs.category || 'Apparel',
           };
         }) as unknown as Product[];
+
+      const ratingsMap = await fetchProductRatingSummaries(
+        supabaseServer,
+        normalized.map((p) => p.id)
+      );
+      return attachRatingsToProducts(normalized, ratingsMap);
     },
     120 // 2 min TTL
   );

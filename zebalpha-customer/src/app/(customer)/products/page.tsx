@@ -12,7 +12,7 @@ import { Header } from "@/components/Header";
 import { WishlistButton } from "@/components/WishlistButton";
 import { QuickCartButton } from "@/components/QuickCartButton";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
-import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw } from "lucide-react";
+import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star } from "lucide-react";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import {
   useCategories,
@@ -158,6 +158,13 @@ function ProductsContent() {
       )
       .on(
         "postgres_changes",
+        { event: "*", schema: "public", table: "reviews" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["products"] });
+        }
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "curated_collections" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["categories"] });
@@ -166,7 +173,13 @@ function ProductsContent() {
       )
       .subscribe();
 
+    const handleReviewUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    };
+    window.addEventListener("zebalpha:review-updated", handleReviewUpdated);
+
     return () => {
+      window.removeEventListener("zebalpha:review-updated", handleReviewUpdated);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
@@ -465,7 +478,7 @@ function ProductsContent() {
 
       // 7. Customer Reviews
       if (filters.minRating > 0) {
-        const rating = product.rating || 4.2;
+        const rating = Number(product.rating) || 0;
         if (rating < filters.minRating) return false;
       }
 
@@ -1294,6 +1307,30 @@ function ProductsContent() {
                               {product.name}
                             </h3>
                           </Link>
+
+                          {typeof product.rating === "number" && product.rating > 0 && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span
+                                className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-black border ${
+                                  isNativeApp
+                                    ? "bg-[#FAF0D1] border-[#E4C988] text-[#111111]"
+                                    : "bg-white text-black border-white/10"
+                                }`}
+                              >
+                                <span>{product.rating.toFixed(1)}</span>
+                                <Star size={9} className="fill-current" aria-hidden="true" />
+                              </span>
+                              {typeof product.review_count === "number" && product.review_count > 0 && (
+                                <span
+                                  className={`text-[10px] font-bold ${
+                                    isNativeApp ? "text-[#7A6C52]" : "text-zinc-400"
+                                  }`}
+                                >
+                                  ({product.review_count})
+                                </span>
+                              )}
+                            </div>
+                          )}
 
                           <div className="mt-3.5 space-y-2.5">
                             <div className="flex flex-col">

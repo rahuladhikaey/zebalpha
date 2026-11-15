@@ -2,10 +2,37 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Star, Trash2, ShieldAlert, CheckCircle2, Search, MessageSquare } from "lucide-react";
+import { Star, Trash2, Search, MessageSquare } from "lucide-react";
+
+interface AdminReviewItem {
+  id: number | string;
+  product_id: string | number;
+  user_id?: string | null;
+  user_name?: string | null;
+  user_email?: string | null;
+  rating: number;
+  comment?: string | null;
+  is_approved?: boolean | null;
+  created_at: string;
+  updated_at?: string;
+  resolved_product_name: string;
+}
+
+interface RawReviewRow {
+  id: number | string;
+  product_id: string | number;
+  user_id?: string | null;
+  user_name?: string | null;
+  user_email?: string | null;
+  rating: number;
+  comment?: string | null;
+  is_approved?: boolean | null;
+  created_at: string;
+  updated_at?: string;
+}
 
 export default function ReviewsModerationView() {
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<AdminReviewItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -13,41 +40,87 @@ export default function ReviewsModerationView() {
       try {
         const { data, error } = await supabase
           .from("reviews")
-          .select("*")
+          .select("id, product_id, user_id, user_name, user_email, rating, comment, is_approved, created_at, updated_at")
           .order("created_at", { ascending: false });
-        if (!error && Array.isArray(data)) {
-          setReviews(data);
-        } else {
+        if (error || !Array.isArray(data)) {
           setReviews([]);
+          return;
         }
-      } catch (_) {
+
+        const typedRows = data as RawReviewRow[];
+        const productIds = Array.from(
+          new Set(typedRows.map((r) => r.product_id).filter(Boolean).map(String))
+        );
+        const productNameMap = new Map<string, string>();
+        if (productIds.length > 0) {
+          const { data: prodRows } = await supabase
+            .from("products")
+            .select("id, name")
+            .in("id", productIds);
+          if (Array.isArray(prodRows)) {
+            (prodRows as Array<{ id?: string | number; name?: string }>).forEach((p) => {
+              if (p?.id && p?.name) productNameMap.set(String(p.id), p.name);
+            });
+          }
+        }
+
+        setReviews(
+          typedRows.map((r) => ({
+            ...r,
+            resolved_product_name:
+              (r.product_id && productNameMap.get(String(r.product_id))) ||
+              `Product #${String(r.product_id || "").slice(0, 8)}`,
+          }))
+        );
+      } catch {
         setReviews([]);
       }
     }
     fetchReviews();
   }, []);
 
+  const handleToggleApproval = async (id: number | string, currentApproved: boolean) => {
+    try {
+      const nextApproved = !currentApproved;
+      const { error } = await supabase
+        .from("reviews")
+        .update({ is_approved: nextApproved, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (!error) {
+        setReviews((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, is_approved: nextApproved } : r))
+        );
+      }
+    } catch (e) {
+      console.error("Error updating review visibility:", e);
+    }
+  };
+
   const handleRemoveReview = async (id: number | string) => {
     if (!confirm("Are you sure you want to remove this customer review?")) return;
     try {
       await supabase.from("reviews").delete().eq("id", id);
-      setReviews(prev => prev.filter(r => r.id !== id));
+      setReviews((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
       console.error("Error removing review:", e);
     }
   };
 
-  const filteredReviews = reviews.filter(r => 
-    (r.product_name || r.product || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (r.comment || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredReviews = reviews.filter((r) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      (r.resolved_product_name || "").toLowerCase().includes(q) ||
+      (r.user_name || "").toLowerCase().includes(q) ||
+      (r.comment || "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">Quality Moderation</span>
-          <h1 className="text-2xl font-black tracking-tight text-white">Customer Reviews & Ratings Control</h1>
+          <h1 className="text-2xl font-black tracking-tight text-white">Customer Reviews &amp; Ratings Control</h1>
           <p className="text-xs font-bold text-zinc-400 mt-0.5">
             Monitor customer feedback, remove spam or abusive reviews, and safeguard marketplace trust.
           </p>
@@ -69,28 +142,46 @@ export default function ReviewsModerationView() {
 
       <div className="space-y-3">
         {filteredReviews.length > 0 ? (
-          filteredReviews.map(rev => (
+          filteredReviews.map((rev) => (
             <div key={rev.id} className="p-5 rounded-3xl border border-zinc-800 bg-zinc-950 shadow-xl flex items-start justify-between gap-4">
               <div className="space-y-1.5 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-white text-xs">{rev.product_name || rev.product || "Organic Product"}</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-white text-xs">{rev.resolved_product_name || "Product"}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                      rev.is_approved !== false
+                        ? "bg-emerald-950/60 border-emerald-700/50 text-emerald-300"
+                        : "bg-amber-950/60 border-amber-700/50 text-amber-300"
+                    }`}
+                  >
+                    {rev.is_approved !== false ? "Published Globally" : "Hidden"}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className={`w-3.5 h-3.5 ${i < rev.rating ? "text-white fill-current" : "text-zinc-700"}`} />
+                    <Star key={i} className={`w-3.5 h-3.5 ${i < rev.rating ? "text-amber-400 fill-amber-400" : "text-zinc-700"}`} />
                   ))}
-                  <span className="text-[11px] text-zinc-400 ml-2 font-bold">— {rev.user_name || rev.reviewer || "Customer"}</span>
+                  <span className="text-[11px] text-zinc-400 ml-2 font-bold">— {rev.user_name || "Customer"}</span>
                 </div>
-                <p className="text-xs text-zinc-300 font-medium">{rev.comment}</p>
+                {rev.comment && <p className="text-xs text-zinc-300 font-medium">{rev.comment}</p>}
               </div>
 
-              <button
-                onClick={() => handleRemoveReview(rev.id)}
-                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-400 transition-colors shrink-0 cursor-pointer"
-                title="Remove Review"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleToggleApproval(rev.id, rev.is_approved !== false)}
+                  className="px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+                  title={rev.is_approved !== false ? "Hide Review" : "Publish Review"}
+                >
+                  {rev.is_approved !== false ? "Hide" : "Publish"}
+                </button>
+                <button
+                  onClick={() => handleRemoveReview(rev.id)}
+                  className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-400 transition-colors cursor-pointer"
+                  title="Remove Review"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))
         ) : (

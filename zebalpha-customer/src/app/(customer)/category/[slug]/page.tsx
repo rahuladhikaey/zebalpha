@@ -9,7 +9,9 @@ import { DynamicFaqSection } from "@/components/aeo/DynamicFaqSection";
 import { resolveCategoryAeo, CATEGORY_AEO_CATALOG } from "@/lib/aeo-geo/categoryAeo";
 import { buildBreadcrumbSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGenerator";
 import { createClient } from "@supabase/supabase-js";
-import { Sparkles, ArrowRight, ShieldCheck, Tag, Ruler } from "lucide-react";
+import { supabaseServer } from "@/lib/supabaseServer";
+import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
+import { Sparkles, ArrowRight, ShieldCheck, Tag, Ruler, Star } from "lucide-react";
 import { getProductDisplayPricing } from "@/lib/productPricing";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
@@ -95,10 +97,17 @@ async function getCategoryProducts(slug: string) {
         .or(`category_id.in.(${allIds.join(",")}),subcategory_id.in.(${allIds.join(",")})`)
         .limit(24);
 
-      return (prods || []).filter((p: any) => {
+      const filteredProds = (prods || []).filter((p: any) => {
         const specs = p.specifications || {};
         return !(p.is_new_drop === true || specs.is_new_drop === true || specs.is_new_drop === "true" || specs.tier === "DROP");
       });
+
+      const ratingClient = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseServer : supabase;
+      const ratingsMap = await fetchProductRatingSummaries(
+        ratingClient,
+        filteredProds.map((p: any) => p.id)
+      );
+      return attachRatingsToProducts(filteredProds, ratingsMap);
     }
 
     return [];
@@ -286,6 +295,19 @@ export default async function CategoryPage({ params }: PageProps) {
                               {p.name}
                             </h3>
                           </Link>
+                          {typeof p.rating === "number" && p.rating > 0 && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-0.5 rounded-md bg-white text-black px-1.5 py-0.5 text-[10px] font-black">
+                                <span>{p.rating.toFixed(1)}</span>
+                                <Star size={9} className="fill-current" aria-hidden="true" />
+                              </span>
+                              {typeof p.review_count === "number" && p.review_count > 0 && (
+                                <span className="text-[10px] font-bold text-neutral-400">
+                                  ({p.review_count})
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-baseline gap-2 pt-1 border-t border-neutral-800/80">
                           <span className="text-sm sm:text-base font-black text-white">

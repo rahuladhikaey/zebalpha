@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Header } from "@/components/Header";
+import { ProductRatingWidget } from "@/components/ProductRatingWidget";
 import {
   Package,
   Truck,
@@ -991,53 +992,69 @@ interface TimelineStep {
                       const discountPct = pMrp > pPrice ? Math.round(((pMrp - pPrice) / pMrp) * 100) : 0;
                       const pImage = item.image_url || item.image || (item.images && item.images[0]) || "/placeholder.jpg";
                       const pId = item.product_id || item.id;
+                      const orderStatusLower = String(order.order_status || "").toLowerCase();
+                      const canRateItem =
+                        Boolean(pId) && (orderStatusLower === "delivered" || orderStatusLower === "completed");
 
                       return (
-                        <div key={iIdx} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:bg-zinc-900/30 transition">
-                          <div className="flex items-center gap-4">
-                            <div className="h-20 w-20 shrink-0 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden relative">
-                              <img
-                                src={pImage}
-                                alt={pName}
-                                className="h-full w-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLElement).setAttribute("src", "/official-logo.png");
-                                }}
-                              />
+                        <div key={iIdx} className="p-6 flex flex-col gap-4 hover:bg-zinc-900/30 transition">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                              <div className="h-20 w-20 shrink-0 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden relative">
+                                <img
+                                  src={pImage}
+                                  alt={pName}
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).setAttribute("src", "/official-logo.png");
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <h4 className="text-sm font-black text-white line-clamp-1">{pName}</h4>
+                                <p className="text-xs text-zinc-400 font-medium">
+                                  Package/Size: <span className="text-zinc-200 font-bold">{item.package_name || "Standard"}</span> • Qty: <span className="text-white font-bold">{qty}</span>
+                                </p>
+                                <div className="flex items-center gap-2 pt-1">
+                                  <span className="text-base font-black text-white">₹{pPrice.toLocaleString("en-IN")}</span>
+                                  {pMrp > pPrice && (
+                                    <>
+                                      <span className="text-xs text-zinc-500 line-through">MRP ₹{pMrp.toLocaleString("en-IN")}</span>
+                                      <span className="text-xs font-black text-emerald-400">{discountPct}% OFF</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="space-y-1">
-                              <h4 className="text-sm font-black text-white line-clamp-1">{pName}</h4>
-                              <p className="text-xs text-zinc-400 font-medium">
-                                Package/Size: <span className="text-zinc-200 font-bold">{item.package_name || "Standard"}</span> • Qty: <span className="text-white font-bold">{qty}</span>
-                              </p>
-                              <div className="flex items-center gap-2 pt-1">
-                                <span className="text-base font-black text-white">₹{pPrice.toLocaleString("en-IN")}</span>
-                                {pMrp > pPrice && (
-                                  <>
-                                    <span className="text-xs text-zinc-500 line-through">MRP ₹{pMrp.toLocaleString("en-IN")}</span>
-                                    <span className="text-xs font-black text-emerald-400">{discountPct}% OFF</span>
-                                  </>
+
+                            <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-3">
+                              <div className="text-left sm:text-right">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Total</span>
+                                <p className="text-base font-black text-white">₹{(pPrice * qty).toLocaleString("en-IN")}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {pId && (
+                                  <Link
+                                    href={`/products/${pId}`}
+                                    className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] font-black uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-white transition"
+                                  >
+                                    View Product
+                                  </Link>
                                 )}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-3">
-                            <div className="text-left sm:text-right">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Total</span>
-                              <p className="text-base font-black text-white">₹{(pPrice * qty).toLocaleString("en-IN")}</p>
+                          {canRateItem && pId && (
+                            <div className="pt-3 border-t border-zinc-800/70">
+                              <ProductRatingWidget
+                                productId={pId}
+                                productName={pName}
+                                user={user}
+                                variant="compact"
+                              />
                             </div>
-                            <div className="flex items-center gap-2">
-                              {pId && (
-                                <Link
-                                  href={`/products/${pId}`}
-                                  className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] font-black uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-white transition"
-                                >
-                                  View Product
-                                </Link>
-                              )}
-                            </div>
-                          </div>
+                          )}
                         </div>
                       );
                     })}

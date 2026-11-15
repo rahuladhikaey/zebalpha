@@ -106,7 +106,11 @@ export function buildBreadcrumbSchema(items: Array<{ name: string; url: string }
 /**
  * Builds accurate Product structured data reflecting actual color/size variants & stock
  */
-export function buildProductSchema(productAeo: ProductAeoData, images: string[] = []) {
+export function buildProductSchema(
+  productAeo: ProductAeoData,
+  images: string[] = [],
+  ratingSummary?: { average: number; count: number }
+) {
   const primaryImage = images.length > 0 ? images[0] : `${ZEBALPHA_BRAND_ENTITY.url}/official-logo.png`;
   const nextYear = new Date();
   nextYear.setFullYear(nextYear.getFullYear() + 1);
@@ -200,7 +204,18 @@ export function buildProductSchema(productAeo: ProductAeoData, images: string[] 
         "name": productAeo.sellerName
       }
     },
-    "additionalProperty": additionalProperties
+    "additionalProperty": additionalProperties,
+    ...(ratingSummary && ratingSummary.count > 0
+      ? {
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": ratingSummary.average,
+            "reviewCount": ratingSummary.count,
+            "bestRating": 5,
+            "worstRating": 1
+          }
+        }
+      : {})
   };
 }
 

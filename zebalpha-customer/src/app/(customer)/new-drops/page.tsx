@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { supabase } from "@/lib/supabaseClient";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 import { subscribeToDropAlert } from "@/lib/pushNotifications";
+import { broadcastReviewUpdated, fetchProductRatingSummaries } from "@/lib/productRatings";
 import { Star, Flame, Bell, CheckCircle2, Clock, Sparkles, ShoppingBag, ArrowRight } from "lucide-react";
 
 interface ComingSoonDesign {
@@ -50,6 +51,31 @@ export default function NewDropsPage() {
       const dropProducts = (data || []).filter((item: any) => isProductNewDrop(item));
 
       if (dropProducts.length > 0) {
+        const dropIds = dropProducts.map((item: any) => item.id).filter(Boolean);
+        const ratingsMap = await fetchProductRatingSummaries(supabase, dropIds);
+
+        // Also hydrate current signed-in user's own saved ratings
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const currentUserId = sessionData?.session?.user?.id;
+          if (currentUserId && dropIds.length > 0) {
+            const { data: myReviews } = await supabase
+              .from("reviews")
+              .select("product_id, rating")
+              .eq("user_id", currentUserId)
+              .in("product_id", dropIds.map(String));
+            if (Array.isArray(myReviews)) {
+              const myMap: Record<string, number> = {};
+              myReviews.forEach((r: any) => {
+                if (r.product_id) myMap[String(r.product_id)] = Number(r.rating) || 0;
+              });
+              setUserRatings(myMap);
+            }
+          }
+        } catch {
+          // Non-fatal
+        }
+
         const mappedFromDb: ComingSoonDesign[] = dropProducts.map((item: any, idx: number) => {
           const dropStatus = getDropDisplayStatus(item);
           const live = isDropLive(item);
@@ -58,9 +84,11 @@ export default function NewDropsPage() {
             ? item.images.filter((img: any) => typeof img === "string" && img.trim().length > 0)
             : (item.image_url ? [item.image_url] : []);
           const finalImages = rawImages.length > 0 ? rawImages : ["/banner-animated.png"];
+          const idStr = item.id?.toString() || `db-${idx}`;
+          const summary = ratingsMap[idStr];
 
           return {
-            id: item.id?.toString() || `db-${idx}`,
+            id: idStr,
             name: item.name,
             tagline: item.description ? item.description.slice(0, 50) + "..." : "Exclusive Designer Drop",
             description: item.description || "Upcoming exclusive design from seller store.",
@@ -70,8 +98,8 @@ export default function NewDropsPage() {
             category: item.collection || (item.specifications as any)?.collection || item.category_name || item.category || "Streetwear Drop",
             price: Number(item.price || 0),
             isLive: live,
-            initialRating: Number(item.rating || 0),
-            initialVotes: Number(item.review_count || 0),
+            initialRating: summary?.rating ?? 0,
+            initialVotes: summary?.review_count ?? 0,
             demandPercentage: 100,
           };
         });
@@ -91,12 +119,17 @@ export default function NewDropsPage() {
   useEffect(() => {
     loadSellerComingSoonProducts();
 
-    // Listen for realtime coming soon updates from sellers
+    // Listen for realtime coming soon updates and review updates
     const channel = supabase
       .channel("new-drops-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "products" },
+        () => loadSellerComingSoonProducts()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reviews" },
         () => loadSellerComingSoonProducts()
       )
       .subscribe();
@@ -106,25 +139,59 @@ export default function NewDropsPage() {
     };
   }, []);
 
-  const handleRate = (designId: string, ratingValue: number) => {
-    setUserRatings((prev) => ({ ...prev, [designId]: ratingValue }));
-    setDesigns((prev) =>
-      prev.map((item) => {
-        if (item.id === designId) {
-          const currentTotal = item.initialRating * item.initialVotes;
-          const newVotes = item.initialVotes + 1;
-          const newAvg = (currentTotal + ratingValue) / newVotes;
-          return {
-            ...item,
-            initialRating: Number(newAvg.toFixed(1)),
-            initialVotes: newVotes,
-          };
-        }
-        return item;
-      })
-    );
-    setNotificationMsg(`⭐ Thank you for rating! Your vote has been added to customer hype scores.`);
-    setTimeout(() => setNotificationMsg(""), 3500);
+  const handleRate = async (designId: string, ratingValue: number) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        setNotificationMsg("🔒 Please sign in to save your drop rating.");
+        setTimeout(() => setNotificationMsg(""), 4000);
+        return;
+      }
+
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          productId: designId,
+          rating: ratingValue,
+          comment: "",
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setNotificationMsg(`⚠️ ${data?.error || "Could not save rating. Please try again."}`);
+        setTimeout(() => setNotificationMsg(""), 4000);
+        return;
+      }
+
+      setUserRatings((prev) => ({ ...prev, [designId]: ratingValue }));
+      const nextRating = Number(data.summary?.average ?? data.summary?.rating ?? ratingValue);
+      const nextVotes = Number(data.summary?.count ?? data.summary?.review_count ?? 1);
+
+      setDesigns((prev) =>
+        prev.map((item) =>
+          item.id === designId
+            ? {
+                ...item,
+                initialRating: nextRating,
+                initialVotes: nextVotes,
+              }
+            : item
+        )
+      );
+
+      broadcastReviewUpdated(designId, { rating: nextRating, review_count: nextVotes });
+      setNotificationMsg("⭐ Thank you! Your rating has been saved globally.");
+      setTimeout(() => setNotificationMsg(""), 3500);
+    } catch (err: any) {
+      setNotificationMsg(`⚠️ ${err?.message || "Network error saving rating."}`);
+      setTimeout(() => setNotificationMsg(""), 4000);
+    }
   };
 
   const handleNotifyMe = async (designId: string, designName: string) => {
@@ -361,7 +428,7 @@ export default function NewDropsPage() {
                     </div>
 
                     <p className="text-[10px] text-zinc-400 font-medium italic">
-                      {userRating > 0 ? `⭐ Your Rating: ${userRating} Stars (Recorded!)` : "Click stars above to vote your customer hype rating!"}
+                      {userRating > 0 ? `⭐ Your Rating: ${userRating} Stars (Saved globally!)` : "Click stars above to rate & save globally!"}
                     </p>
                   </div>
 
