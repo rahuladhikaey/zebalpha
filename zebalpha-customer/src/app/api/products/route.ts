@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { supabaseServer } from "@/shared/utils/supabaseServer";
 import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
+import {
+  applyMultilingualSearchConstraints,
+  parseMultilingualSearchQuery,
+  rankProductsByQueryConcepts,
+} from "@/lib/multilingualSearch";
 
 export const dynamic = "force-dynamic";
 
@@ -40,29 +45,30 @@ export async function GET(request: NextRequest) {
     const categoryParam = searchParams.get("category");
     const subcategoryParam = searchParams.get("subcategory");
     const searchParam = searchParams.get("search") || searchParams.get("q");
+    const voiceHintParam = searchParams.get("vq");
     const brandParam = searchParams.get("brand");
     const sortParam = searchParams.get("sort") || "newest";
     const minPrice = searchParams.get("minPrice") ? Number(searchParams.get("minPrice")) : null;
     const maxPrice = searchParams.get("maxPrice") ? Number(searchParams.get("maxPrice")) : null;
 
-    let query = supabase
-      .from("products")
-      .select(SLIM_FIELDS, { count: "exact" })
-      .or("is_active.is.null,is_active.eq.true")
-      .neq("approval_status", "rejected")
-      .neq("status", "COMING_SOON")
-      .neq("tier", "DROP");
+    let matchedCatIds: string[] = [];
+    let categoryFilterMeta: { clean: string; significantWords: string[]; synonyms: string[] } | null = null;
+    let isUuidCategory = false;
+    const validCategory =
+      categoryParam &&
+      categoryParam !== "all" &&
+      categoryParam !== "undefined" &&
+      categoryParam !== "null" &&
+      categoryParam.trim()
+        ? categoryParam.trim()
+        : null;
 
-    // Category / Collection Filter
-    if (categoryParam && categoryParam !== "all" && categoryParam.trim()) {
-      const cat = categoryParam.trim();
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cat);
-
-      if (isUuid) {
-        query = query.or(`category_id.eq.${cat},subcategory_id.eq.${cat}`);
-      } else {
-        const clean = cat.toLowerCase().replace(/[-_]/g, " ").trim();
-        const slug = cat.toLowerCase().replace(/\s+/g, "-").trim();
+    // Pre-resolve Category IDs once so both strict AND broadened search passes share them
+    if (validCategory) {
+      isUuidCategory = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(validCategory);
+      if (!isUuidCategory) {
+        const clean = validCategory.toLowerCase().replace(/[-_]/g, " ").trim();
+        const slug = validCategory.toLowerCase().replace(/\s+/g, "-").trim();
         const synSet = new Set<string>();
 
         if (/\b(crocs?|clogs?)\b/i.test(clean)) {
@@ -141,7 +147,10 @@ export async function GET(request: NextRequest) {
         }
 
         const synonyms = Array.from(synSet);
-        let matchedCatIds: string[] = [];
+        const significantWords = clean
+          .split(/\s+/)
+          .filter((w) => w.length > 2 && w !== "women" && w !== "mens" && w !== "men");
+        categoryFilterMeta = { clean, significantWords, synonyms };
 
         try {
           const catFilters: string[] = [
@@ -172,90 +181,109 @@ export async function GET(request: NextRequest) {
             );
           }
         } catch (_) {}
-
-        const orConditions: string[] = [];
-        if (matchedCatIds.length > 0) {
-          orConditions.push(`category_id.in.(${matchedCatIds.join(",")})`);
-          orConditions.push(`subcategory_id.in.(${matchedCatIds.join(",")})`);
-        }
-
-        // Match product textual attributes (WITHOUT non-existent category column)
-        orConditions.push(`name.ilike.%${clean}%`);
-        orConditions.push(`collection.ilike.%${clean}%`);
-        orConditions.push(`description.ilike.%${clean}%`);
-
-        // Deconstruct multi-word clean terms (e.g. "women saree" -> matches "saree")
-        const significantWords = clean
-          .split(/\s+/)
-          .filter((w) => w.length > 2 && w !== "women" && w !== "mens" && w !== "men");
-        significantWords.forEach((word) => {
-          orConditions.push(`name.ilike.%${word}%`);
-        });
-
-        synonyms.forEach((syn) => {
-          orConditions.push(`name.ilike.%${syn}%`);
-          orConditions.push(`collection.ilike.%${syn}%`);
-        });
-
-        if (orConditions.length > 0) {
-          query = query.or(orConditions.join(","));
-        }
       }
     }
 
-    // Subcategory Filter
-    if (subcategoryParam && subcategoryParam.trim()) {
-      query = query.eq("subcategory_id", subcategoryParam.trim());
-    }
-
-    // Search Query Filter
-    if (searchParam && searchParam.trim()) {
-      const q = searchParam.trim();
-      query = query.or(
-        `name.ilike.%${q}%,description.ilike.%${q}%,brand.ilike.%${q}%,collection.ilike.%${q}%`
-      );
-    }
-
-    // Brand Filter
-    if (brandParam && brandParam.trim()) {
-      query = query.ilike("brand", `%${brandParam.trim()}%`);
-    }
-
-    // Price Range Filter
-    if (minPrice !== null && !isNaN(minPrice)) {
-      query = query.gte("price", minPrice);
-    }
-    if (maxPrice !== null && !isNaN(maxPrice)) {
-      query = query.lte("price", maxPrice);
-    }
-
-    // Sorting & Cursor Logic
+    const parsedSearch =
+      searchParam && searchParam.trim()
+        ? parseMultilingualSearchQuery(searchParam.trim(), voiceHintParam)
+        : null;
     const decodedCursor = cursorParam ? decodeCursor(cursorParam) : null;
 
-    if (sortParam === "price_asc") {
-      query = query.order("price", { ascending: true }).order("id", { ascending: true });
-      if (decodedCursor) {
-        query = query.gt("id", decodedCursor.id);
+    const executeProductsQuery = async (searchMode: "and" | "or") => {
+      let query = supabase
+        .from("products")
+        .select(SLIM_FIELDS, { count: "exact" })
+        .or("is_active.is.null,is_active.eq.true")
+        .neq("approval_status", "rejected")
+        .neq("status", "COMING_SOON")
+        .neq("tier", "DROP");
+
+      if (validCategory) {
+        if (isUuidCategory) {
+          query = query.or(`category_id.eq.${validCategory},subcategory_id.eq.${validCategory}`);
+        } else if (categoryFilterMeta) {
+          const orConditions: string[] = [];
+          if (matchedCatIds.length > 0) {
+            orConditions.push(`category_id.in.(${matchedCatIds.join(",")})`);
+            orConditions.push(`subcategory_id.in.(${matchedCatIds.join(",")})`);
+          }
+          orConditions.push(`name.ilike.%${categoryFilterMeta.clean}%`);
+          orConditions.push(`collection.ilike.%${categoryFilterMeta.clean}%`);
+          orConditions.push(`description.ilike.%${categoryFilterMeta.clean}%`);
+          categoryFilterMeta.significantWords.forEach((word) => {
+            orConditions.push(`name.ilike.%${word}%`);
+          });
+          categoryFilterMeta.synonyms.forEach((syn) => {
+            orConditions.push(`name.ilike.%${syn}%`);
+            orConditions.push(`collection.ilike.%${syn}%`);
+          });
+          if (orConditions.length > 0) {
+            query = query.or(orConditions.join(","));
+          }
+        }
       }
-    } else if (sortParam === "price_desc") {
-      query = query.order("price", { ascending: false }).order("id", { ascending: true });
-      if (decodedCursor) {
-        query = query.gt("id", decodedCursor.id);
+
+      if (subcategoryParam && subcategoryParam.trim()) {
+        query = query.eq("subcategory_id", subcategoryParam.trim());
       }
-    } else {
-      // Default: newest first (created_at desc)
-      query = query.order("created_at", { ascending: false }).order("id", { ascending: false });
-      if (decodedCursor) {
-        query = query.or(
-          `created_at.lt.${decodedCursor.createdAt},and(created_at.eq.${decodedCursor.createdAt},id.lt.${decodedCursor.id})`
-        );
+
+      if (parsedSearch) {
+        query = applyMultilingualSearchConstraints(query, parsedSearch, searchMode, maxPrice);
+      }
+
+      if (brandParam && brandParam.trim()) {
+        query = query.ilike("brand", `%${brandParam.trim()}%`);
+      }
+
+      if (minPrice !== null && !isNaN(minPrice)) {
+        query = query.gte("price", minPrice);
+      }
+      if (maxPrice !== null && !isNaN(maxPrice)) {
+        query = query.lte("price", maxPrice);
+      }
+
+      if (sortParam === "price_asc") {
+        query = query.order("price", { ascending: true }).order("id", { ascending: true });
+        if (decodedCursor) {
+          query = query.gt("id", decodedCursor.id);
+        }
+      } else if (sortParam === "price_desc") {
+        query = query.order("price", { ascending: false }).order("id", { ascending: true });
+        if (decodedCursor) {
+          query = query.gt("id", decodedCursor.id);
+        }
+      } else {
+        query = query.order("created_at", { ascending: false }).order("id", { ascending: false });
+        if (decodedCursor) {
+          query = query.or(
+            `created_at.lt.${decodedCursor.createdAt},and(created_at.eq.${decodedCursor.createdAt},id.lt.${decodedCursor.id})`
+          );
+        }
+      }
+
+      query = query.limit(limit + 1);
+      return query;
+    };
+
+    const primaryResult = await executeProductsQuery("and");
+    let rows = primaryResult.data;
+    let count = primaryResult.count;
+    const error = primaryResult.error;
+
+    if (
+      !error &&
+      parsedSearch &&
+      parsedSearch.concepts.length > 1 &&
+      (!rows || rows.length === 0) &&
+      !decodedCursor
+    ) {
+      const broadened = await executeProductsQuery("or");
+      if (!broadened.error && broadened.data && broadened.data.length > 0) {
+        rows = broadened.data;
+        count = broadened.count;
       }
     }
-
-    // Fetch limit + 1 to reliably know if hasMore is true
-    query = query.limit(limit + 1);
-
-    const { data: rows, count, error } = await query;
 
     if (error) {
       console.error("API /api/products error:", error);
@@ -269,7 +297,10 @@ export async function GET(request: NextRequest) {
       supabaseServer,
       rawReturnItems.map((p: any) => p.id)
     );
-    const returnItems = attachRatingsToProducts(rawReturnItems, ratingsMap);
+    const ratedItems = attachRatingsToProducts(rawReturnItems, ratingsMap);
+    const returnItems = parsedSearch
+      ? rankProductsByQueryConcepts(ratedItems, parsedSearch)
+      : ratedItems;
 
     let nextCursor: string | null = null;
     if (hasMore && returnItems.length > 0) {

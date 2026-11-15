@@ -1,7 +1,13 @@
 package com.zebalpha.customer;
 
+import android.Manifest;
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -52,7 +58,9 @@ import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 import com.google.firebase.messaging.FirebaseMessaging;
+import java.util.ArrayList;
 import java.util.Locale;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
@@ -104,6 +112,14 @@ public class MainActivity extends BridgeActivity {
     private int autoRetryCount = 0;
     private ConnectivityManager.NetworkCallback networkCallback;
     private ActivityResultLauncher<String> notificationPermissionLauncher;
+    private ActivityResultLauncher<String> micPermissionLauncher;
+    private ActivityResultLauncher<Intent> voiceRecognizerIntentLauncher;
+    private SpeechRecognizer voiceSpeechRecognizer;
+    private String pendingVoiceLangTag = "en-IN";
+    private boolean isVoiceInlineActive = false;
+    private boolean receivedVoiceAudioOrCallback = false;
+    private long lastVoiceRmsDispatchMs = 0L;
+    private Runnable voiceBindWatchdog;
     private long permissionPromptRequestedAtMs = 0L;
     private boolean permissionRationaleBeforePrompt = false;
     private String pendingDeepLinkUrl = null;
@@ -401,6 +417,27 @@ public class MainActivity extends BridgeActivity {
         notificationPermissionLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(),
             this::handlePermissionLauncherResult
+        );
+
+        micPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(),
+            this::handleMicPermissionResult
+        );
+
+        voiceRecognizerIntentLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result == null || result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
+                    dispatchVoiceState("idle", "intent", pendingVoiceLangTag, null);
+                    return;
+                }
+                ArrayList<String> matches = result.getData().getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                if (matches != null && !matches.isEmpty() && matches.get(0) != null && !matches.get(0).trim().isEmpty()) {
+                    dispatchVoiceResult(matches.get(0).trim(), matches, pendingVoiceLangTag);
+                } else {
+                    dispatchVoiceError("no_speech", "Didn't catch that. Tap mic and try speaking clearly.", true);
+                }
+            }
         );
 
         // Listen for FCM token refreshes while app is alive
@@ -774,6 +811,318 @@ public class MainActivity extends BridgeActivity {
                 }
             });
         }
+
+        @JavascriptInterface
+        public boolean hasVoiceSearchSupport() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public void startVoiceSearch(String langTag) {
+            runOnUiThread(() -> initiateVoiceSearch(langTag));
+        }
+
+        @JavascriptInterface
+        public void stopVoiceSearch() {
+            runOnUiThread(MainActivity.this::stopInlineVoiceListening);
+        }
+
+        @JavascriptInterface
+        public void cancelVoiceSearch() {
+            runOnUiThread(() -> destroyVoiceRecognizer(true));
+        }
+    }
+
+    private String normalizeVoiceLangTag(String rawLangTag) {
+        if (rawLangTag != null && !rawLangTag.trim().isEmpty()) {
+            return rawLangTag.trim();
+        }
+        String fallback = Locale.getDefault().toLanguageTag();
+        return (fallback != null && !fallback.trim().isEmpty()) ? fallback : "en-IN";
+    }
+
+    private void cancelVoiceWatchdog() {
+        if (voiceBindWatchdog != null) {
+            timeoutHandler.removeCallbacks(voiceBindWatchdog);
+            voiceBindWatchdog = null;
+        }
+    }
+
+    private void dispatchVoiceState(String state, String mode, String lang, String message) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("state", state);
+            obj.put("mode", mode);
+            obj.put("lang", lang);
+            if (message != null) {
+                obj.put("message", message);
+            }
+            dispatchJsEvent("zebalpha:voice-state", obj.toString());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed dispatching voice state", e);
+        }
+    }
+
+    private void dispatchVoicePartial(String transcript, String lang) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("transcript", transcript);
+            obj.put("lang", lang);
+            dispatchJsEvent("zebalpha:voice-partial", obj.toString());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed dispatching voice partial", e);
+        }
+    }
+
+    private void dispatchVoiceResult(String transcript, ArrayList<String> matches, String lang) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("transcript", transcript);
+            obj.put("lang", lang);
+            JSONArray altArr = new JSONArray();
+            if (matches != null) {
+                int cap = Math.min(matches.size(), 5);
+                for (int i = 0; i < cap; i++) {
+                    String m = matches.get(i);
+                    if (m != null && !m.trim().isEmpty()) {
+                        altArr.put(m.trim());
+                    }
+                }
+            }
+            obj.put("alternatives", altArr);
+            dispatchJsEvent("zebalpha:voice-result", obj.toString());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed dispatching voice result", e);
+        }
+    }
+
+    private void dispatchVoiceError(String code, String message, boolean retryable) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("code", code);
+            obj.put("message", message);
+            obj.put("retryable", retryable);
+            dispatchJsEvent("zebalpha:voice-error", obj.toString());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed dispatching voice error", e);
+        }
+    }
+
+    private Intent createVoiceRecognizerIntent(String langTag, boolean isDialogMode) {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, langTag);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langTag);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
+        if (isDialogMode) {
+            intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak in English, বাংলা, हिन्दी or your language");
+        } else {
+            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        }
+        return intent;
+    }
+
+    private void initiateVoiceSearch(String rawLangTag) {
+        pendingVoiceLangTag = normalizeVoiceLangTag(rawLangTag);
+        destroyVoiceRecognizer(true);
+        dispatchVoiceState("starting", "inline", pendingVoiceLangTag, null);
+
+        boolean hasRecordAudio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED;
+
+        if (hasRecordAudio) {
+            startInlineSpeechOrFallback(pendingVoiceLangTag);
+            return;
+        }
+
+        if (SpeechRecognizer.isRecognitionAvailable(this) && micPermissionLauncher != null) {
+            try {
+                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO);
+                return;
+            } catch (Exception e) {
+                Log.w(TAG, "Failed launching RECORD_AUDIO permission request", e);
+            }
+        }
+
+        launchSpeechRecognizerIntent(pendingVoiceLangTag);
+    }
+
+    private void handleMicPermissionResult(Boolean isGranted) {
+        if (Boolean.TRUE.equals(isGranted)) {
+            startInlineSpeechOrFallback(pendingVoiceLangTag);
+        } else {
+            // Fall back to system Google Voice Search dialog when available
+            launchSpeechRecognizerIntent(pendingVoiceLangTag);
+        }
+    }
+
+    private void startInlineSpeechOrFallback(String langTag) {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            launchSpeechRecognizerIntent(langTag);
+            return;
+        }
+
+        try {
+            receivedVoiceAudioOrCallback = false;
+            isVoiceInlineActive = true;
+            lastVoiceRmsDispatchMs = 0L;
+
+            voiceSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            voiceSpeechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override
+                public void onReadyForSpeech(Bundle params) {
+                    cancelVoiceWatchdog();
+                    dispatchVoiceState("listening", "inline", langTag, null);
+                }
+
+                @Override
+                public void onBeginningOfSpeech() {
+                    receivedVoiceAudioOrCallback = true;
+                }
+
+                @Override
+                public void onRmsChanged(float rmsdB) {
+                    long now = SystemClock.elapsedRealtime();
+                    if (now - lastVoiceRmsDispatchMs < 80L) return;
+                    lastVoiceRmsDispatchMs = now;
+                    double normalized = Math.max(0.0, Math.min(1.0, (rmsdB + 2.0) / 10.0));
+                    try {
+                        JSONObject obj = new JSONObject();
+                        obj.put("rms", normalized);
+                        dispatchJsEvent("zebalpha:voice-rms", obj.toString());
+                    } catch (Exception ignored) {}
+                }
+
+                @Override
+                public void onBufferReceived(byte[] buffer) {}
+
+                @Override
+                public void onEndOfSpeech() {
+                    dispatchVoiceState("processing", "inline", langTag, null);
+                }
+
+                @Override
+                public void onError(int error) {
+                    if (!isVoiceInlineActive && voiceSpeechRecognizer == null) return;
+                    isVoiceInlineActive = false;
+                    boolean hadSpeechCallback = receivedVoiceAudioOrCallback;
+                    cancelVoiceWatchdog();
+                    destroyVoiceRecognizer(false);
+
+                    boolean shouldFallbackToIntent = !hadSpeechCallback && (
+                        error == SpeechRecognizer.ERROR_CLIENT ||
+                        error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ||
+                        error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ||
+                        error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ||
+                        error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ||
+                        error == SpeechRecognizer.ERROR_SERVER
+                    );
+
+                    if (shouldFallbackToIntent) {
+                        launchSpeechRecognizerIntent(langTag);
+                        return;
+                    }
+
+                    if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) {
+                        dispatchVoiceError("network", "Network unavailable for voice search. Please check connection.", true);
+                    } else if (error == SpeechRecognizer.ERROR_AUDIO) {
+                        dispatchVoiceError("audio", "Microphone unavailable right now. Please try again.", true);
+                    } else {
+                        dispatchVoiceError("no_speech", "Didn't catch that. Tap mic and try speaking clearly.", true);
+                    }
+                }
+
+                @Override
+                public void onResults(Bundle results) {
+                    isVoiceInlineActive = false;
+                    cancelVoiceWatchdog();
+                    ArrayList<String> matches = results != null
+                        ? results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        : null;
+                    destroyVoiceRecognizer(false);
+                    if (matches != null && !matches.isEmpty() && matches.get(0) != null && !matches.get(0).trim().isEmpty()) {
+                        dispatchVoiceResult(matches.get(0).trim(), matches, langTag);
+                    } else {
+                        dispatchVoiceError("no_speech", "Didn't catch that. Tap mic and try speaking clearly.", true);
+                    }
+                }
+
+                @Override
+                public void onPartialResults(Bundle partialResults) {
+                    ArrayList<String> partials = partialResults != null
+                        ? partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        : null;
+                    if (partials != null && !partials.isEmpty() && partials.get(0) != null && !partials.get(0).trim().isEmpty()) {
+                        receivedVoiceAudioOrCallback = true;
+                        dispatchVoicePartial(partials.get(0).trim(), langTag);
+                    }
+                }
+
+                @Override
+                public void onEvent(int eventType, Bundle params) {}
+            });
+
+            voiceSpeechRecognizer.startListening(createVoiceRecognizerIntent(langTag, false));
+
+            cancelVoiceWatchdog();
+            voiceBindWatchdog = () -> {
+                if (isVoiceInlineActive && !receivedVoiceAudioOrCallback) {
+                    Log.w(TAG, "Inline SpeechRecognizer bind watchdog triggered; falling back to system dialog.");
+                    destroyVoiceRecognizer(true);
+                    launchSpeechRecognizerIntent(langTag);
+                }
+            };
+            timeoutHandler.postDelayed(voiceBindWatchdog, 2500L);
+        } catch (Exception e) {
+            Log.w(TAG, "Inline SpeechRecognizer failed to start; falling back to RecognizerIntent", e);
+            destroyVoiceRecognizer(true);
+            launchSpeechRecognizerIntent(langTag);
+        }
+    }
+
+    private void launchSpeechRecognizerIntent(String langTag) {
+        try {
+            if (voiceRecognizerIntentLauncher == null) {
+                dispatchVoiceError("unavailable", "Voice search is not supported on this device.", false);
+                return;
+            }
+            dispatchVoiceState("listening", "intent", langTag, null);
+            voiceRecognizerIntentLauncher.launch(createVoiceRecognizerIntent(langTag, true));
+        } catch (ActivityNotFoundException e) {
+            Log.w(TAG, "No voice recognizer activity found", e);
+            dispatchVoiceError("unavailable", "No voice recognition service installed on this device.", false);
+        } catch (Exception e) {
+            Log.w(TAG, "Error launching system speech recognizer", e);
+            dispatchVoiceError("error", "Could not start voice search. Please try typing instead.", true);
+        }
+    }
+
+    private void stopInlineVoiceListening() {
+        try {
+            if (voiceSpeechRecognizer != null && isVoiceInlineActive) {
+                voiceSpeechRecognizer.stopListening();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error stopping SpeechRecognizer", e);
+        }
+    }
+
+    private void destroyVoiceRecognizer(boolean cancelActive) {
+        cancelVoiceWatchdog();
+        isVoiceInlineActive = false;
+        if (voiceSpeechRecognizer != null) {
+            try {
+                if (cancelActive) {
+                    voiceSpeechRecognizer.cancel();
+                }
+                voiceSpeechRecognizer.destroy();
+            } catch (Exception e) {
+                Log.w(TAG, "Error destroying SpeechRecognizer", e);
+            } finally {
+                voiceSpeechRecognizer = null;
+            }
+        }
     }
 
     private void setupOfflineOverlay() {
@@ -1097,6 +1446,7 @@ public class MainActivity extends BridgeActivity {
     public void onDestroy() {
         super.onDestroy();
         cancelTimeoutWatchdog();
+        destroyVoiceRecognizer(true);
         try {
             if (fcmTokenReceiver != null) {
                 unregisterReceiver(fcmTokenReceiver);

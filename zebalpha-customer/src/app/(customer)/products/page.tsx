@@ -13,7 +13,8 @@ import { WishlistButton } from "@/components/WishlistButton";
 import { QuickCartButton } from "@/components/QuickCartButton";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
-import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star } from "lucide-react";
+import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star, Mic } from "lucide-react";
+import { VoiceSearchSheet, useVoiceSearch } from "@/components/VoiceSearchSheet";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import {
   useCategories,
@@ -58,6 +59,22 @@ function ProductsContent() {
 
   const categoryParam = searchParams.get("category");
   const searchParam = searchParams.get("search");
+  const voiceHintParam = searchParams.get("vq");
+
+  const voiceSearch = useVoiceSearch({
+    onResult: (spokenQuery, translatedHint) => {
+      const clean = spokenQuery.trim();
+      if (!clean) return;
+      setSearch(clean);
+      const qs = new URLSearchParams();
+      if (selectedCategory) qs.set("category", String(selectedCategory));
+      qs.set("search", clean);
+      if (translatedHint && translatedHint.toLowerCase() !== clean.toLowerCase()) {
+        qs.set("vq", translatedHint);
+      }
+      router.replace(`/products?${qs.toString()}`, { scroll: false });
+    },
+  });
 
   // Sync category param from URL
   useEffect(() => {
@@ -138,6 +155,7 @@ function ProductsContent() {
   } = usePaginatedProducts({
     category: selectedCategory,
     search: debouncedSearch,
+    voiceHint: debouncedSearch.trim() === (searchParam || "").trim() ? voiceHintParam || undefined : undefined,
     page,
     pageSize: 36,
   });
@@ -657,14 +675,30 @@ function ProductsContent() {
                 }}
                 className={
                   isNativeApp
-                    ? "mr-2 p-1 text-[#6B5B3E] hover:text-[#111111] transition-colors"
-                    : "mr-2 p-1 text-zinc-400 hover:text-white transition-colors"
+                    ? "mr-1 p-1 text-[#6B5B3E] hover:text-[#111111] transition-colors"
+                    : "mr-1 p-1 text-zinc-400 hover:text-white transition-colors"
                 }
                 aria-label="Clear Search"
               >
                 <X size={16} />
               </button>
             )}
+            <button
+              type="button"
+              onClick={voiceSearch.openVoiceSearch}
+              aria-label="Voice Search"
+              className={`mr-1.5 flex h-8 w-8 items-center justify-center rounded-full transition-colors cursor-pointer shrink-0 ${
+                voiceSearch.status === "listening" || voiceSearch.status === "starting"
+                  ? isNativeApp
+                    ? "bg-[#F5B922] text-[#111111] animate-pulse"
+                    : "bg-emerald-400 text-black animate-pulse"
+                  : isNativeApp
+                    ? "text-[#14120F] hover:bg-[#FAF0D1]"
+                    : "text-emerald-400 hover:bg-zinc-900"
+              }`}
+            >
+              <Mic size={17} />
+            </button>
             <button
               type="submit"
               className={
@@ -1484,6 +1518,7 @@ function ProductsContent() {
           </div>
         </div>
       </div>
+      <VoiceSearchSheet controller={voiceSearch} isNativeApp={isNativeApp} />
     </main>
   );
 }

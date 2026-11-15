@@ -7,8 +7,16 @@ export const apiService = {
   getProfile: () => apiFetch('/api/auth/me'),
 
   // Product & Category APIs
-  getProducts: (params?: { category?: string; activeOnly?: boolean; limit?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
+  getProducts: (params?: { category?: string; q?: string; search?: string; vq?: string; brand?: string; sort?: string; cursor?: string; activeOnly?: boolean; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && value !== "") {
+          searchParams.set(key, String(value));
+        }
+      }
+    }
+    const query = searchParams.toString();
     return apiFetch(`/api/products${query ? `?${query}` : ''}`);
   },
   getProductById: (id: string | number) => apiFetch(`/api/products/${id}`),

@@ -86,6 +86,16 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     public_store: "Store Home",
     close: "Close",
     done: "Done",
+
+    // Voice Search
+    voice_search_title: "Voice Search",
+    voice_listening_in: "Listening in",
+    voice_speak_now: "Speak the product you are looking for...",
+    voice_try_again: "Tap mic to speak again",
+    voice_choose_lang: "Choose voice language",
+    voice_no_speech: "Didn't catch that. Tap mic and speak clearly.",
+    voice_searching_for: "Finding products for",
+    voice_mic_permission: "Please allow microphone permission to search by voice.",
   },
   bn: {
     // Progress
@@ -162,6 +172,16 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     public_store: "স্টোর হোম",
     close: "বন্ধ করুন",
     done: "সম্পন্ন",
+
+    // Voice Search
+    voice_search_title: "ভয়েস সার্চ",
+    voice_listening_in: "শোনা হচ্ছে:",
+    voice_speak_now: "আপনি কী খুঁজছেন তা বলুন...",
+    voice_try_again: "আবার বলতে মাইকে ট্যাপ করুন",
+    voice_choose_lang: "আপনার ভাষা বেছে নিন",
+    voice_no_speech: "স্পষ্ট শোনা যায়নি। আবার মাইকে ট্যাপ করে বলুন।",
+    voice_searching_for: "খোঁজা হচ্ছে:",
+    voice_mic_permission: "ভয়েস সার্চের জন্য মাইক্রোফোন অনুমতি দিন।",
   },
   hi: {
     // Progress
@@ -238,6 +258,16 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     public_store: "स्टोर होम",
     close: "बंद करें",
     done: "पूर्ण",
+
+    // Voice Search
+    voice_search_title: "वॉइस सर्च",
+    voice_listening_in: "सुन रहा है:",
+    voice_speak_now: "आप जो प्रोडक्ट ढूँढ रहे हैं वह बोलें...",
+    voice_try_again: "दोबारा बोलने के लिए माइक टैप करें",
+    voice_choose_lang: "अपनी भाषा चुनें",
+    voice_no_speech: "साफ सुनाई नहीं दिया। माइक टैप करके फिर से बोलें।",
+    voice_searching_for: "खोजा जा रहा है:",
+    voice_mic_permission: "वॉइस सर्च के लिए माइक्रोफोन अनुमति दें।",
   },
 };
 

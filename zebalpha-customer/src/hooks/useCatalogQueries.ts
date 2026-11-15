@@ -8,6 +8,11 @@ import { Product, Category } from '@/lib/types';
 import { resolveCategoryIcon } from '@/lib/categoryIcons';
 import { isProductNewDrop } from '@/lib/dropUtils';
 import { attachRatingsToProducts, fetchProductRatingSummaries } from '@/lib/productRatings';
+import {
+  applyMultilingualSearchConstraints,
+  parseMultilingualSearchQuery,
+  rankProductsByQueryConcepts,
+} from '@/lib/multilingualSearch';
 
 export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [];
 
@@ -199,6 +204,7 @@ export function useCategoryTree() {
 export interface PaginatedProductsParams {
   category?: string | number | null;
   search?: string;
+  voiceHint?: string;
   sort?: string;
   page?: number;
   pageSize?: number;
@@ -855,55 +861,52 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
   const to = from + pageSize - 1;
 
   try {
-    let query = supabase
-      .from("products")
-      .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
-      .or("is_active.is.null,is_active.eq.true")
-      .neq("approval_status", "rejected")
-      .neq("status", "COMING_SOON")
-      .neq("tier", "DROP");
+    let validCat: string | null = null;
+    let isUuidCat = false;
+    let uuidCatIds: string[] = [];
+    let uuidCatName = "";
+    let slugMatchedCatIds: string[] = [];
+    let slugCleanTerm = "";
+    let slugSignificantWords: string[] = [];
+    let slugSynonyms: string[] = [];
 
-    // Server-side category & collection filtering using stable UUIDs and descendant hierarchies
-    if (params.category && String(params.category).trim() !== "" && String(params.category) !== "all") {
-      const cat = String(params.category).trim();
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cat);
+    if (
+      params.category &&
+      String(params.category).trim() !== "" &&
+      String(params.category) !== "all" &&
+      String(params.category) !== "undefined" &&
+      String(params.category) !== "null"
+    ) {
+      validCat = String(params.category).trim();
+      isUuidCat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(validCat);
 
-      if (isUuid) {
-        let catIds = [cat];
-        let catName = "";
+      if (isUuidCat) {
+        uuidCatIds = [validCat];
         try {
           const { data: catRecord } = await supabase
             .from("categories")
             .select("id, name")
-            .eq("id", cat)
+            .eq("id", validCat)
             .maybeSingle();
-          if (catRecord?.name) catName = catRecord.name.trim();
+          if (catRecord?.name) uuidCatName = catRecord.name.trim();
 
           const { data: subcats } = await supabase
             .from("categories")
             .select("id")
-            .eq("parent_id", cat);
+            .eq("parent_id", validCat);
           if (subcats && subcats.length > 0) {
-            catIds.push(...subcats.map((s: any) => s.id));
+            uuidCatIds.push(...subcats.map((s: any) => s.id));
           }
         } catch (_) {}
-
-        if (catIds.length === 1) {
-          if (catName) {
-            query = query.or(`category_id.eq.${cat},subcategory_id.eq.${cat},name.ilike.%${catName}%`);
-          } else {
-            query = query.or(`category_id.eq.${cat},subcategory_id.eq.${cat}`);
-          }
-        } else {
-          query = query.or(`category_id.in.(${catIds.join(",")}),subcategory_id.in.(${catIds.join(",")})`);
-        }
       } else {
-        // Resolve category IDs and metadata from taxonomy keywords
-        const { cleanTerm, slugTerm, synonyms } = getCategoryTaxonomyKeywords(cat);
-        let matchedCatIds: string[] = [];
+        const { cleanTerm, slugTerm, synonyms } = getCategoryTaxonomyKeywords(validCat);
+        slugCleanTerm = cleanTerm;
+        slugSynonyms = synonyms;
+        slugSignificantWords = cleanTerm
+          .split(/\s+/)
+          .filter((w) => w.length > 2 && w !== "women" && w !== "mens" && w !== "men");
 
         try {
-          // Flexible category search with wildcards and synonyms
           const catFilters: string[] = [
             `slug.eq.${slugTerm}`,
             `slug.ilike.%${slugTerm}%`,
@@ -927,65 +930,93 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
               .select("id")
               .in("parent_id", directIds);
 
-            matchedCatIds = Array.from(
+            slugMatchedCatIds = Array.from(
               new Set([...directIds, ...(subcats || []).map((s: any) => s.id)])
             );
           }
         } catch (catErr) {
           console.warn("Category resolution notice:", catErr);
         }
-
-        // Multi-facet OR conditions ensuring products are always found systematically
-        const productOrConditions: string[] = [];
-
-        if (matchedCatIds.length > 0) {
-          productOrConditions.push(`category_id.in.(${matchedCatIds.join(",")})`);
-          productOrConditions.push(`subcategory_id.in.(${matchedCatIds.join(",")})`);
-        }
-
-        // Always match product textual attributes (WITHOUT non-existent category column)
-        productOrConditions.push(`name.ilike.%${cleanTerm}%`);
-        productOrConditions.push(`collection.ilike.%${cleanTerm}%`);
-        productOrConditions.push(`description.ilike.%${cleanTerm}%`);
-
-        // Deconstruct multi-word clean terms (e.g. "women saree" -> matches "saree")
-        const significantWords = cleanTerm
-          .split(/\s+/)
-          .filter((w) => w.length > 2 && w !== "women" && w !== "mens" && w !== "men");
-        significantWords.forEach((word) => {
-          productOrConditions.push(`name.ilike.%${word}%`);
-        });
-
-        synonyms.forEach((syn) => {
-          productOrConditions.push(`name.ilike.%${syn}%`);
-          productOrConditions.push(`collection.ilike.%${syn}%`);
-        });
-
-        if (productOrConditions.length > 0) {
-          query = query.or(productOrConditions.join(","));
-        }
       }
     }
 
-    // Server-side search filtering
-    if (params.search && params.search.trim()) {
-      const q = params.search.trim();
-      query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%,brand.ilike.%${q}%,collection.ilike.%${q}%`);
+    const parsedSearch =
+      params.search && params.search.trim()
+        ? parseMultilingualSearchQuery(params.search.trim(), params.voiceHint)
+        : null;
+
+    const executeQuery = async (searchMode: "and" | "or") => {
+      let query = supabase
+        .from("products")
+        .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
+        .or("is_active.is.null,is_active.eq.true")
+        .neq("approval_status", "rejected")
+        .neq("status", "COMING_SOON")
+        .neq("tier", "DROP");
+
+      if (validCat) {
+        if (isUuidCat) {
+          if (uuidCatIds.length === 1) {
+            if (uuidCatName) {
+              query = query.or(`category_id.eq.${validCat},subcategory_id.eq.${validCat},name.ilike.%${uuidCatName}%`);
+            } else {
+              query = query.or(`category_id.eq.${validCat},subcategory_id.eq.${validCat}`);
+            }
+          } else {
+            query = query.or(`category_id.in.(${uuidCatIds.join(",")}),subcategory_id.in.(${uuidCatIds.join(",")})`);
+          }
+        } else {
+          const productOrConditions: string[] = [];
+          if (slugMatchedCatIds.length > 0) {
+            productOrConditions.push(`category_id.in.(${slugMatchedCatIds.join(",")})`);
+            productOrConditions.push(`subcategory_id.in.(${slugMatchedCatIds.join(",")})`);
+          }
+          productOrConditions.push(`name.ilike.%${slugCleanTerm}%`);
+          productOrConditions.push(`collection.ilike.%${slugCleanTerm}%`);
+          productOrConditions.push(`description.ilike.%${slugCleanTerm}%`);
+          slugSignificantWords.forEach((word) => {
+            productOrConditions.push(`name.ilike.%${word}%`);
+          });
+          slugSynonyms.forEach((syn) => {
+            productOrConditions.push(`name.ilike.%${syn}%`);
+            productOrConditions.push(`collection.ilike.%${syn}%`);
+          });
+          if (productOrConditions.length > 0) {
+            query = query.or(productOrConditions.join(","));
+          }
+        }
+      }
+
+      if (parsedSearch) {
+        query = applyMultilingualSearchConstraints(query, parsedSearch, searchMode);
+      }
+
+      if (params.sort === "price_asc") {
+        query = query.order("price", { ascending: true });
+      } else if (params.sort === "price_desc") {
+        query = query.order("price", { ascending: false });
+      } else {
+        query = query.order("created_at", { ascending: false });
+      }
+
+      query = query.range(from, to);
+      return query;
+    };
+
+    let { data, count, error } = await executeQuery("and");
+
+    if (
+      !error &&
+      parsedSearch &&
+      parsedSearch.concepts.length > 1 &&
+      (!data || data.length === 0)
+    ) {
+      const broadened = await executeQuery("or");
+      if (!broadened.error && broadened.data && broadened.data.length > 0) {
+        data = broadened.data;
+        count = broadened.count;
+      }
     }
-
-    // Server-side sorting
-    if (params.sort === "price_asc") {
-      query = query.order("price", { ascending: true });
-    } else if (params.sort === "price_desc") {
-      query = query.order("price", { ascending: false });
-    } else {
-      query = query.order("created_at", { ascending: false });
-    }
-
-    // Range-based pagination
-    query = query.range(from, to);
-
-    const { data, count, error } = await query;
 
     if (error) {
       console.warn("Notice querying paginated products:", error.message);
@@ -1031,7 +1062,10 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       supabase,
       normalizedProducts.map((p) => p.id)
     );
-    const products = attachRatingsToProducts(normalizedProducts, ratingsMap);
+    const ratedProducts = attachRatingsToProducts(normalizedProducts, ratingsMap);
+    const products = parsedSearch
+      ? rankProductsByQueryConcepts(ratedProducts, parsedSearch)
+      : ratedProducts;
     const totalCount = count !== null ? count : products.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -1063,6 +1097,7 @@ export function usePaginatedProducts(params: PaginatedProductsParams) {
   const normalizedParams = {
     category: params.category ? String(params.category).trim() : "all",
     search: normalizeQueryString(params.search),
+    voiceHint: params.voiceHint ? params.voiceHint.trim() : "",
     sort: params.sort || "newest",
     page: Math.max(1, params.page || 1),
     pageSize: Math.min(Math.max(1, params.pageSize || 24), 48),
@@ -1192,12 +1227,12 @@ export function useSearchProducts(rawQuery: string, category?: string) {
     queryFn: async () => {
       if (!debouncedQuery) return [];
       const res = await apiService.getProducts({
-        category,
+        ...(category && category !== 'all' ? { category } : {}),
         q: debouncedQuery,
         limit: 20,
-      } as any);
+      });
       if (res.error) throw new Error(res.error);
-      return res.data?.products || res.data || [];
+      return res.data?.items || res.data?.products || (Array.isArray(res.data) ? res.data : []);
     },
     enabled: debouncedQuery.length > 0,
     staleTime: 5 * 60 * 1000,

@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-import { Search, ArrowRight, Sparkles, Camera, Mic } from "lucide-react";
+import { Search, ArrowRight, Sparkles, Mic } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchProducts } from "@/hooks/useCatalogQueries";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { useIsNativeApp } from "@/lib/platform";
+import { useVoiceSearch, VoiceSearchSheet } from "@/components/VoiceSearchSheet";
 
 const searchItems = ["T-Shirts, Hoodies, Shoes", "Oversized Tees", "Polos", "Streetwear", "Joggers"];
 
@@ -17,10 +18,36 @@ export function MobileSearch({ className }: { className?: string } = {}) {
   const [index, setIndex] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [voiceNote, setVoiceNote] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const navigateWithQuery = (query: string, translatedHint?: string) => {
+    const clean = query.trim();
+    setIsOpen(false);
+    if (!clean) {
+      router.push(`/products`);
+      return;
+    }
+    setInputValue(clean);
+    if (clean.length >= 2) {
+      trackRecommendationEvent({
+        eventType: "product_searched",
+        searchQuery: translatedHint || clean,
+      }).catch(() => {});
+    }
+    const qs = new URLSearchParams({ search: clean });
+    if (translatedHint && translatedHint.toLowerCase() !== clean.toLowerCase()) {
+      qs.set("vq", translatedHint);
+    }
+    router.push(`/products?${qs.toString()}`);
+  };
+
+  const voiceSearch = useVoiceSearch({
+    onResult: (spokenQuery, translatedHint) => {
+      navigateWithQuery(spokenQuery, translatedHint);
+    },
+  });
+  const isListening = voiceSearch.status === "listening" || voiceSearch.status === "starting";
 
   // TanStack Query L1 + Redis L2 debounced live search hook (300ms debounce)
   const { data: searchResults = [], isLoading } = useSearchProducts(inputValue);
@@ -39,90 +66,16 @@ export function MobileSearch({ className }: { className?: string } = {}) {
   useEffect(() => {
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % searchItems.length);
-    }, 1500); 
+    }, 1500);
     return () => clearInterval(interval);
   }, []);
 
   const handleSearch = (e?: React.KeyboardEvent<HTMLInputElement>) => {
     if (e && e.key !== "Enter") return;
-    setIsOpen(false);
-    if (inputValue.trim() !== "") {
-      if (inputValue.trim().length >= 2) {
-        trackRecommendationEvent({
-          eventType: "product_searched",
-          searchQuery: inputValue.trim(),
-        }).catch(() => {});
-      }
-      router.push(`/products?search=${encodeURIComponent(inputValue.trim())}`);
-    } else {
-      router.push(`/products`);
-    }
+    navigateWithQuery(inputValue);
   };
 
   const hasResults = Array.isArray(searchResults) && searchResults.length > 0;
-
-  const handleVoiceSearch = () => {
-    setVoiceNote(null);
-    if (typeof window === "undefined") return;
-    const w = window as unknown as {
-      SpeechRecognition?: new () => {
-        lang: string;
-        interimResults: boolean;
-        maxAlternatives: number;
-        onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-        onerror: (() => void) | null;
-        onend: (() => void) | null;
-        start: () => void;
-      };
-      webkitSpeechRecognition?: new () => {
-        lang: string;
-        interimResults: boolean;
-        maxAlternatives: number;
-        onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-        onerror: (() => void) | null;
-        onend: (() => void) | null;
-        start: () => void;
-      };
-    };
-    const SpeechRec = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SpeechRec) {
-      setVoiceNote("Type to search or tap camera for Try-On");
-      inputRef.current?.focus();
-      setTimeout(() => setVoiceNote(null), 2600);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRec();
-      recognition.lang = "en-IN";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      setIsListening(true);
-      recognition.onresult = (event) => {
-        const transcript = event.results?.[0]?.[0]?.transcript?.trim();
-        setIsListening(false);
-        if (transcript) {
-          setInputValue(transcript);
-          setIsOpen(false);
-          trackRecommendationEvent({
-            eventType: "product_searched",
-            searchQuery: transcript,
-          }).catch(() => {});
-          router.push(`/products?search=${encodeURIComponent(transcript)}`);
-        }
-      };
-      recognition.onerror = () => {
-        setIsListening(false);
-      };
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-      recognition.start();
-    } catch {
-      setIsListening(false);
-      inputRef.current?.focus();
-    }
-  };
 
   if (isNativeApp) {
     return (
@@ -170,43 +123,33 @@ export function MobileSearch({ className }: { className?: string } = {}) {
             />
           </div>
 
-          {/* Right Quick Utilities: Virtual Try-On Camera | Voice Mic */}
+          {/* Right Action: Go + Voice Search Mic */}
           <div className="flex items-center gap-1 shrink-0 pl-1">
             {inputValue.trim().length > 0 && (
               <button
                 type="button"
                 onClick={() => handleSearch()}
-                className="mr-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#FBE28A] to-[#D99B16] text-[11px] font-black text-[#111111] shadow-sm active:scale-95"
+                className="mr-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#FBE28A] to-[#D99B16] text-[11px] font-black text-[#111111] shadow-sm active:scale-95 cursor-pointer"
               >
                 Go
               </button>
             )}
-            <Link
-              href="/virtual-try-on"
-              aria-label="Virtual Try-On Camera"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#14120F] hover:bg-[#FAF0D1] transition-colors active:scale-90"
-            >
-              <Camera className="h-[18px] w-[18px] stroke-[2]" />
-            </Link>
-            <span className="h-4 w-[1px] bg-[#E5CE8E]" aria-hidden="true" />
             <button
               type="button"
-              onClick={handleVoiceSearch}
+              onClick={voiceSearch.openVoiceSearch}
               aria-label={isListening ? "Listening for voice search" : "Voice Search"}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition-all active:scale-90 ${
+              className={`flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90 cursor-pointer ${
                 isListening
                   ? "bg-gradient-to-br from-[#FDE047] to-[#D97706] text-[#111111] animate-pulse shadow-sm"
                   : "text-[#14120F] hover:bg-[#FAF0D1]"
               }`}
             >
-              <Mic className="h-[18px] w-[18px] stroke-[2]" />
+              <Mic className="h-[19px] w-[19px] stroke-[2.1]" />
             </button>
           </div>
         </div>
 
-        {voiceNote && (
-          <p className="mt-1 px-3 text-[10px] font-semibold text-[#8E6208]">{voiceNote}</p>
-        )}
+        <VoiceSearchSheet controller={voiceSearch} isNativeApp={true} />
 
         {isOpen && inputValue.trim().length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-[#FFFDF8] border border-[#DFBE6F] rounded-2xl shadow-[0_18px_40px_rgba(140,95,12,0.18)] overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -308,12 +251,27 @@ export function MobileSearch({ className }: { className?: string } = {}) {
 
         <button
           type="button"
+          onClick={voiceSearch.openVoiceSearch}
+          aria-label={isListening ? "Listening for voice search" : "Voice Search"}
+          className={`flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90 cursor-pointer shrink-0 ${
+            isListening
+              ? "bg-amber-400 text-black animate-pulse shadow-[0_0_12px_rgba(251,191,36,0.65)]"
+              : "text-amber-300 hover:bg-amber-500/15"
+          }`}
+        >
+          <Mic className="h-[18px] w-[18px] stroke-[2.1]" />
+        </button>
+
+        <button
+          type="button"
           onClick={() => handleSearch()}
-          className="ml-2 px-6 sm:px-7 py-2 sm:py-2.5 rounded-full bg-gradient-to-r from-[#fae59a] via-[#f3bc4c] to-[#d69022] border border-amber-200/90 text-black text-sm sm:text-base font-black uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_18px_rgba(243,188,76,0.65),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center shrink-0 cursor-pointer"
+          className="ml-1.5 px-6 sm:px-7 py-2 sm:py-2.5 rounded-full bg-gradient-to-r from-[#fae59a] via-[#f3bc4c] to-[#d69022] border border-amber-200/90 text-black text-sm sm:text-base font-black uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_18px_rgba(243,188,76,0.65),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center shrink-0 cursor-pointer"
         >
           GO
         </button>
       </div>
+
+      <VoiceSearchSheet controller={voiceSearch} isNativeApp={false} />
 
       {/* Live Debounced Search Autocomplete & Preview (Section 11) */}
       {isOpen && inputValue.trim().length > 0 && (
