@@ -14,6 +14,8 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -43,6 +45,8 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -391,6 +395,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        applyCreamGoldSystemBars();
 
         // Register ActivityResultLauncher unconditionally before STARTED state
         notificationPermissionLauncher = registerForActivityResult(
@@ -1045,9 +1050,31 @@ public class MainActivity extends BridgeActivity {
         timeoutHandler.removeCallbacks(timeoutWatchdog);
     }
 
+    private void applyCreamGoldSystemBars() {
+        try {
+            Window window = getWindow();
+            if (window == null) return;
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            int statusColor = ContextCompat.getColor(this, R.color.zebalpha_cream_bg);
+            int navColor = ContextCompat.getColor(this, R.color.zebalpha_bottom_cream);
+            window.setStatusBarColor(statusColor);
+            window.setNavigationBarColor(navColor);
+            window.getDecorView().setBackgroundColor(statusColor);
+
+            WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, window.getDecorView());
+            if (controller != null) {
+                controller.setAppearanceLightStatusBars(true);
+                controller.setAppearanceLightNavigationBars(true);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Unable to apply cream-gold system bars", e);
+        }
+    }
+
     @Override
     public void onResume() {
         super.onResume();
+        applyCreamGoldSystemBars();
         ZebAlphaFirebaseMessagingService.ensureNotificationChannel(this);
         if (isNotificationEnabledInternal()) {
             sendActivationNotificationIfFirstTime();

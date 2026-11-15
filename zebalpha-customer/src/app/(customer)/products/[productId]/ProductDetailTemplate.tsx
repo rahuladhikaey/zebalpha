@@ -1367,6 +1367,7 @@ export default function ProductDetailTemplate({
             <div className="grid grid-cols-2 h-full flex-1 gap-2">
               <AddToCartButton
                 product={computedProduct}
+                variant="outline"
                 onBeforeAdd={handleValidateAndProceed}
                 className="flex h-full items-center justify-center rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors border border-zinc-800 cursor-pointer"
               />

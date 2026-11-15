@@ -143,24 +143,36 @@ export function RecommendationCarouselShell({
       ref={sectionRef}
       id={sectionId}
       aria-label={title}
-      className="relative my-10 rounded-3xl bg-gradient-to-b from-[#070b09] via-[#050505] to-black border border-emerald-500/25 p-4 sm:p-6 shadow-[0_12px_45px_rgba(0,0,0,0.8),0_0_36px_rgba(16,185,129,0.09)] overflow-hidden"
+      className={`relative my-8 sm:my-10 rounded-3xl p-4 sm:p-6 overflow-hidden border ${
+        isNativeApp
+          ? "bg-gradient-to-b from-[#FFFDF8] to-[#FAF2DE] border-[#E3C167]/75 shadow-[0_8px_28px_rgba(166,124,28,0.10)]"
+          : "bg-gradient-to-b from-[#070b09] via-[#050505] to-black border-emerald-500/25 shadow-[0_12px_45px_rgba(0,0,0,0.8),0_0_36px_rgba(16,185,129,0.09)]"
+      }`}
     >
-      {/* Subtle emerald aura */}
+      {/* Subtle aura */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-24 left-10 h-44 w-72 rounded-full bg-emerald-500/10 blur-3xl"
+        className={`pointer-events-none absolute -top-24 left-10 h-44 w-72 rounded-full blur-3xl ${
+          isNativeApp ? "bg-[#FDE047]/15" : "bg-emerald-500/10"
+        }`}
       />
 
       {/* Section Heading Row */}
       <div className="relative z-10 flex items-center justify-between gap-3 mb-5">
         <div className="flex items-start gap-3 min-w-0">
-          <span className="mt-1 h-6 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-emerald-300 to-emerald-500 shadow-[0_0_12px_#10b981]" />
+          <span
+            className={`mt-1 h-6 w-1.5 shrink-0 rounded-full ${
+              isNativeApp
+                ? "bg-gradient-to-b from-[#FCE38A] to-[#C68A12] shadow-sm"
+                : "bg-gradient-to-b from-emerald-300 to-emerald-500 shadow-[0_0_12px_#10b981]"
+            }`}
+          />
           <div className="min-w-0">
-            <h2 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight text-white truncate">
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-black tracking-tight truncate ${isNativeApp ? "text-[#14120F]" : "text-white"}`}>
               {title}
             </h2>
             {subtitle && (
-              <p className="text-xs sm:text-[13px] font-medium text-zinc-400 mt-0.5 line-clamp-1">
+              <p className={`text-xs sm:text-[13px] font-medium mt-0.5 line-clamp-1 ${isNativeApp ? "text-[#5C4E35]" : "text-zinc-400"}`}>
                 {subtitle}
               </p>
             )}
@@ -203,7 +215,11 @@ export function RecommendationCarouselShell({
           {seeAllHref && (
             <Link
               href={seeAllHref}
-              className="group inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-extrabold text-emerald-300 hover:bg-emerald-500 hover:text-black hover:border-emerald-400 transition-all shadow-[0_0_16px_rgba(16,185,129,0.14)]"
+              className={`group inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-extrabold transition-all ${
+                isNativeApp
+                  ? "border-[#DFBE6F] bg-[#FFFDF8] text-[#8E6208] hover:bg-[#F7E8BD] shadow-sm"
+                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500 hover:text-black hover:border-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.14)]"
+              }`}
             >
               <span>{seeAllLabel}</span>
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

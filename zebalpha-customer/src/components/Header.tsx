@@ -8,7 +8,8 @@ import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import AnimatedSearchBar from "./AnimatedSearchBar";
 import { useCart } from "@/context/CartContext";
-import { ShoppingBag, Menu } from "lucide-react";
+import { useWishlist } from "@/context/WishlistContext";
+import { ShoppingBag, Menu, Heart } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 import dynamicImport from "next/dynamic";
 const MobileDrawer = dynamicImport(() => import("./MobileDrawer").then((mod) => mod.MobileDrawer), {
@@ -25,6 +26,40 @@ const GOLD_ICON_BTN_CLASS =
 
 const GOLD_WEB_BTN_CLASS =
   "relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-[#1c160d] to-[#0c0905] border border-amber-500/40 text-amber-400 hover:text-amber-300 hover:border-amber-400/70 transition-all active:scale-95 cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(253,230,138,0.2)]";
+
+const CREAM_GOLD_ICON_BTN_CLASS =
+  "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E4B7] border border-[#DFBC5E]/75 text-[#14120F] hover:border-[#C28D12] active:scale-95 transition-all shadow-[0_3px_10px_rgba(160,115,20,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] cursor-pointer";
+
+function AndroidCreamGoldHeaderBackdrop() {
+  const gradId = useId();
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden select-none">
+      <div className="absolute inset-0 bg-gradient-to-b from-[#FCF9F2] via-[#FDFBF6] to-[#FAF3E1]" />
+      <svg
+        viewBox="0 0 1000 120"
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+      >
+        <defs>
+          <linearGradient id={`${gradId}-l`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#F5D57A" stopOpacity="0.48" />
+            <stop offset="60%" stopColor="#E6BA46" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#FCF9F2" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={`${gradId}-r`} x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#F5D57A" stopOpacity="0.46" />
+            <stop offset="60%" stopColor="#E6BA46" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="#FCF9F2" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M 0,0 L 290,0 C 210,55 125,88 0,108 Z" fill={`url(#${gradId}-l)`} />
+        <path d="M 1000,0 L 710,0 C 790,55 875,88 1000,108 Z" fill={`url(#${gradId}-r)`} />
+        <path d="M 0,92 C 110,74 195,44 268,0" fill="none" stroke="#E2B94F" strokeOpacity="0.45" strokeWidth="1.3" />
+        <path d="M 1000,92 C 890,74 805,44 732,0" fill="none" stroke="#E2B94F" strokeOpacity="0.45" strokeWidth="1.3" />
+      </svg>
+    </div>
+  );
+}
 
 function WatermarkHangerTee({ className = "" }: { className?: string }) {
   return (
@@ -136,16 +171,22 @@ function LuxuryGoldHeaderBackdrop() {
   );
 }
 
-function HeaderBrandLogo({ compact = false }: { compact?: boolean }) {
+function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: boolean; lightTheme?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5 sm:gap-3 active:scale-95 transition-transform group">
+    <Link href="/" className="flex items-center gap-2 sm:gap-3 active:scale-95 transition-transform group">
       {/* Double metallic gold glowing circular logo frame */}
       <div
-        className={`relative rounded-full p-[2px] bg-gradient-to-b from-amber-200 via-amber-400 to-amber-700 shadow-[0_0_18px_rgba(245,158,11,0.45)] group-hover:shadow-[0_0_24px_rgba(251,191,36,0.65)] transition-all shrink-0 ${
-          compact ? "h-10 w-10" : "h-10 w-10 md:h-11 md:w-11"
-        }`}
+        className={`relative rounded-full p-[2px] transition-all shrink-0 ${
+          lightTheme
+            ? "bg-gradient-to-b from-[#FFF3C4] via-[#D4AF37] to-[#9A6B06] shadow-[0_3px_12px_rgba(180,130,20,0.28)]"
+            : "bg-gradient-to-b from-amber-200 via-amber-400 to-amber-700 shadow-[0_0_18px_rgba(245,158,11,0.45)] group-hover:shadow-[0_0_24px_rgba(251,191,36,0.65)]"
+        } ${compact ? "h-9 w-9 sm:h-10 sm:w-10" : "h-10 w-10 md:h-11 md:w-11"}`}
       >
-        <div className="h-full w-full rounded-full overflow-hidden bg-black p-[1.5px] ring-1 ring-amber-300/60">
+        <div
+          className={`h-full w-full rounded-full overflow-hidden p-[1.5px] ${
+            lightTheme ? "bg-[#111111] ring-1 ring-[#FFE89C]" : "bg-black ring-1 ring-amber-300/60"
+          }`}
+        >
           <Image
             src="/official-logo-sm.png"
             alt="ZebAlpha Official Logo"
@@ -157,15 +198,35 @@ function HeaderBrandLogo({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
 
-      {/* Brand Wordmark + Gold Subtitle + Glowing Tapered Underline */}
+      {/* Brand Wordmark + Gold Subtitle */}
       <div className="flex flex-col items-start">
-        <span className="text-sm md:text-base font-black tracking-[0.22em] text-white uppercase group-hover:text-amber-100 transition-colors leading-tight">
-          ZEBALPHA
-        </span>
-        <span className="text-[8.5px] sm:text-[9.5px] font-bold text-amber-400 tracking-[0.14em] uppercase mt-0.5 leading-none">
-          CLOTHING FOR THE CULTURE
-        </span>
-        <span className="mt-1 h-[1.5px] w-full bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_8px_#fbbf24]" />
+        {lightTheme ? (
+          <>
+            <span className="text-[15px] sm:text-base font-black tracking-[0.18em] uppercase leading-tight">
+              <span className="text-[#111111]">ZEB</span>
+              <span className="bg-gradient-to-r from-[#D4A017] via-[#C68A12] to-[#9A6503] bg-clip-text text-transparent">
+                ALPHA
+              </span>
+            </span>
+            <span className="mt-0.5 flex items-center gap-1.5 leading-none">
+              <span className="h-[1px] w-3 bg-[#C8941B]/80" />
+              <span className="text-[7.5px] sm:text-[8.5px] font-extrabold text-[#2B2419] tracking-[0.12em] uppercase">
+                CLOTHING FOR THE CULTURE
+              </span>
+              <span className="h-[1px] w-3 bg-[#C8941B]/80" />
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-sm md:text-base font-black tracking-[0.22em] text-white uppercase group-hover:text-amber-100 transition-colors leading-tight">
+              ZEBALPHA
+            </span>
+            <span className="text-[8.5px] sm:text-[9.5px] font-bold text-amber-400 tracking-[0.14em] uppercase mt-0.5 leading-none">
+              CLOTHING FOR THE CULTURE
+            </span>
+            <span className="mt-1 h-[1.5px] w-full bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_8px_#fbbf24]" />
+          </>
+        )}
       </div>
     </Link>
   );
@@ -179,49 +240,68 @@ export function Header({
   const router = useRouter();
   const pathname = usePathname();
   const { totalItems } = useCart();
+  const { wishlist } = useWishlist();
   const isNativeApp = useIsNativeApp();
   const isHome = pathname === "/";
 
   // Native Android App
   if (isNativeApp) {
+    const wishlistCount = wishlist.length;
+
+    const RightActionsCreamGold = (
+      <div className="flex items-center justify-end gap-1.5">
+        <Link
+          href="/wishlist"
+          aria-label={`Wishlist (${wishlistCount})`}
+          className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
+        >
+          <Heart className="h-[19px] w-[19px] stroke-[2.15] text-[#14120F]" />
+          {wishlistCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm">
+              {wishlistCount > 99 ? "99+" : wishlistCount}
+            </span>
+          )}
+        </Link>
+        <NotificationBell
+          className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
+          iconClassName="h-[19px] w-[19px] stroke-[2.15] text-[#14120F]"
+        />
+      </div>
+    );
+
     if (isHome) {
       return (
         <>
           {/* Status bar background filler to ensure no scrolling content shows behind system icons */}
           <div
-            className="fixed top-0 left-0 right-0 z-50 bg-[#050402] pointer-events-none"
+            className="fixed top-0 left-0 right-0 z-50 bg-[#FCF9F2] pointer-events-none"
             style={{ height: "env(safe-area-inset-top, 0px)" }}
             aria-hidden="true"
           />
 
           {/* =================================================================== */}
           {/* ANDROID ZEBALPHA HEADER (NORMAL SCROLL - NOT STICKY)                */}
-          {/* Luxury Obsidian Black & Metallic Gold Theme                         */}
+          {/* Luxury Warm Ivory Cream & Champagne Gold Theme                      */}
           {/* =================================================================== */}
-          <header className="relative z-20 w-full overflow-hidden border-b border-amber-500/20 bg-[#050402] px-3.5 py-2.5 text-white select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
-            <LuxuryGoldHeaderBackdrop />
+          <header className="relative z-20 w-full overflow-hidden border-b border-[#EAD9AE]/75 bg-[#FCF9F2] px-3.5 py-2.5 text-[#14120F] select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+            <AndroidCreamGoldHeaderBackdrop />
 
-            <div className="relative z-10 flex w-full items-center justify-between">
+            <div className="relative z-10 flex w-full items-center justify-between gap-2">
               {/* Left: Hamburger Menu Icon */}
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(true)}
-                className={GOLD_ICON_BTN_CLASS}
+                className={CREAM_GOLD_ICON_BTN_CLASS}
                 aria-label="Open Navigation Menu"
               >
-                <Menu className="h-6 w-6 stroke-[2.3] text-amber-400" />
+                <Menu className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
               </button>
 
-              {/* Center: ZebAlpha Logo, Brand Name & Gold Underline */}
-              <HeaderBrandLogo compact />
+              {/* Center: ZebAlpha Logo & Brand Name */}
+              <HeaderBrandLogo compact lightTheme />
 
-              {/* Right: Notification Bell */}
-              <div className="flex items-center justify-end">
-                <NotificationBell 
-                  className={`relative ${GOLD_ICON_BTN_CLASS}`}
-                  iconClassName="h-5 w-5 stroke-[2.2] text-amber-400"
-                />
-              </div>
+              {/* Right: Wishlist Heart + Notification Bell */}
+              {RightActionsCreamGold}
             </div>
           </header>
 
@@ -237,32 +317,27 @@ export function Header({
     // On other Android pages (non-home, e.g. /products, /categories, /profile)
     return (
       <>
-        <header className="sticky top-0 z-40 overflow-hidden border-b border-amber-500/25 bg-[#050402]/95 px-3.5 py-2.5 backdrop-blur-xl text-white transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
-          <LuxuryGoldHeaderBackdrop />
+        <header className="sticky top-0 z-40 overflow-hidden border-b border-[#EAD9AE]/80 bg-[#FCF9F2]/96 px-3.5 py-2.5 backdrop-blur-xl text-[#14120F] transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+          <AndroidCreamGoldHeaderBackdrop />
 
-          <div className="relative z-10 flex w-full items-center justify-between">
+          <div className="relative z-10 flex w-full items-center justify-between gap-2">
             {/* Left: Back button */}
             <button
               type="button"
               onClick={() => router.back()}
-              className={GOLD_ICON_BTN_CLASS}
+              className={CREAM_GOLD_ICON_BTN_CLASS}
               aria-label="Go Back"
             >
-              <svg className="h-5 w-5 stroke-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+              <svg className="h-5 w-5 text-[#14120F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
 
             {/* Center: ZebAlpha Logo & Brand Name */}
-            <HeaderBrandLogo compact />
+            <HeaderBrandLogo compact lightTheme />
 
-            {/* Right: Notification Bell */}
-            <div className="flex items-center justify-end">
-              <NotificationBell 
-                className={`relative ${GOLD_ICON_BTN_CLASS}`}
-                iconClassName="h-5 w-5 stroke-[2.2] text-amber-400"
-              />
-            </div>
+            {/* Right: Wishlist Heart + Notification Bell */}
+            {RightActionsCreamGold}
           </div>
         </header>
 

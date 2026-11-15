@@ -163,36 +163,160 @@ img {
   scrollbar-width: none;
 }
 
-/* ── ANDROID APP ONLY: Emerald Green CTA + White Text (Zero effect on website) ── */
-.is-android-app .royal-button-primary {
-  background: #059669 !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 18px rgba(5, 150, 105, 0.35) !important;
+/* ── ANDROID APP ONLY: Warm Ivory Cream & Champagne Metallic Gold Design System (Zero effect on website) ── */
+html.is-android-app {
+  color-scheme: light;
+  --za-bg: #FCF9F2;
+  --za-surface: #FFFDF9;
+  --za-surface-soft: #F7F1E3;
+  --za-surface-muted: #EFE5CE;
+  --za-ink: #14120F;
+  --za-ink-muted: #575046;
+  --za-gold-light: #FCE588;
+  --za-gold: #EAB308;
+  --za-gold-deep: #B45309;
+  --za-border-gold: rgba(202, 138, 4, 0.28);
+  background-color: var(--za-bg);
 }
 
-.is-android-app .royal-button-primary:hover {
-  background: #10b981 !important;
-  color: #ffffff !important;
-  box-shadow: 0 8px 25px rgba(5, 150, 105, 0.45) !important;
+html.is-android-app body {
+  background-color: var(--za-bg);
+  background-image:
+    radial-gradient(ellipse 90% 40% at 50% 0%, rgba(234, 179, 8, 0.12), transparent 70%),
+    radial-gradient(circle at 0% 25%, rgba(250, 204, 21, 0.08), transparent 45%),
+    radial-gradient(circle at 100% 30%, rgba(217, 119, 6, 0.08), transparent 45%);
+  color: var(--za-ink);
 }
 
-.is-android-app .android-cta-emerald {
-  background-color: #059669 !important;
-  color: #ffffff !important;
-  border-color: rgba(16, 185, 129, 0.4) !important;
-  box-shadow: 0 4px 18px rgba(5, 150, 105, 0.35) !important;
+html.is-android-app :is(.bg-page) {
+  background-color: var(--za-bg);
+  background-image: radial-gradient(circle at 50% 0%, rgba(234, 179, 8, 0.10) 0%, transparent 65%);
 }
 
+/* Primary page wrappers & dark-mode card containers across all Android sub-pages */
+:where(html.is-android-app main),
+:where(html.is-android-app .min-h-screen.bg-black),
+:where(html.is-android-app .min-h-screen.bg-zinc-950),
+:where(html.is-android-app .min-h-screen.bg-neutral-950),
+:where(html.is-android-app .min-h-screen.bg-\[\#050505\]) {
+  background-color: var(--za-bg);
+  color: var(--za-ink);
+}
+
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-zinc-950,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-neutral-950,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-zinc-900,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-neutral-900,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-\[\#0d0d10\],
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-\[\#050402\],
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-\[\#0e0e11\],
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-zinc-950\/95,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-zinc-950\/90,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-neutral-950\/90,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-black\/95,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-black\/90,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-neutral-900\/90,
+:where(html.is-android-app) :where(section, div, article, aside, form, header).bg-zinc-900\/95 {
+  background-color: var(--za-surface);
+  color: var(--za-ink);
+}
+
+:where(html.is-android-app) :where(input, textarea, select) {
+  color: var(--za-ink);
+}
+
+:where(html.is-android-app) :where(input, textarea, select):where(.bg-zinc-900, .bg-neutral-900, .bg-zinc-950, .bg-black) {
+  background-color: #FFFFFF;
+  border-color: var(--za-border-gold);
+}
+
+:where(html.is-android-app) :where(.royal-card) {
+  background: var(--za-surface);
+  border-color: var(--za-border-gold);
+  color: var(--za-ink);
+  box-shadow: 0 10px 30px -12px rgba(146, 100, 12, 0.14);
+}
+
+:where(html.is-android-app) :where(.royal-glass) {
+  background: rgba(255, 253, 248, 0.9);
+  border-color: var(--za-border-gold);
+  color: var(--za-ink);
+}
+
+:where(html.is-android-app) :where(.border-zinc-800, .border-neutral-800, .border-zinc-900, .border-neutral-900, .border-zinc-800\/80, .border-neutral-800\/80) {
+  border-color: var(--za-border-gold);
+}
+
+/* Readable ink hierarchy across legacy sub-pages, strictly preserving dark surfaces, photo scrims & buttons */
+:where(html.is-android-app) :where(
+  h1, h2, h3, h4, h5, p, span, label, li, td, th, dt, dd
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not(footer *):not(button *):not([class*="bg-black"] *):not([class*="from-[#1"]):where(.text-white, .text-zinc-100, .text-neutral-100, .text-zinc-200, .text-neutral-200) {
+  color: var(--za-ink);
+}
+
+:where(html.is-android-app) :where(
+  h1, h2, h3, h4, p, span, label, li
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not(footer *):not(button *):where(.text-zinc-300, .text-neutral-300, .text-zinc-400, .text-neutral-400, .text-zinc-500, .text-neutral-500) {
+  color: var(--za-ink-muted);
+}
+
+:where(html.is-android-app) :where(div, section, article, aside, form):where(.bg-black, .bg-zinc-950, .bg-neutral-950, .bg-zinc-900, .bg-neutral-900) > :where(svg.text-white),
+:where(html.is-android-app) :where(a, div, span):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not(footer *):not(button *):where(.text-white):has(> svg),
+:where(html.is-android-app) main :where(a):not([class*="bg-black"]):not([class*="bg-zinc-9"]):not([class*="bg-neutral-9"]):not([data-photo-overlay]):not([data-photo-overlay] *):not(footer *):where(.text-white) {
+  color: var(--za-ink);
+}
+
+/* White primary pill CTAs on cream surfaces get subtle gold frame & warm shadow on Android */
+:where(html.is-android-app) main :where(a, button).bg-white.text-black {
+  background: linear-gradient(135deg, #FCE38A 0%, #F5B922 52%, #D49014 100%);
+  color: #14120F;
+  border: 1px solid rgba(180, 120, 12, 0.45);
+  box-shadow: 0 6px 20px rgba(217, 155, 22, 0.25);
+}
+
+/* Android luxury primary & champagne-gold CTAs */
+.is-android-app .royal-button-primary,
+.is-android-app .android-cta-emerald,
+.is-android-app .android-cta-gold {
+  background: linear-gradient(135deg, #FCE38A 0%, #F5B922 52%, #D49014 100%) !important;
+  color: #14120F !important;
+  border: 1px solid rgba(180, 120, 12, 0.45) !important;
+  box-shadow: 0 6px 20px rgba(217, 155, 22, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+}
+
+.is-android-app .royal-button-primary:hover,
 .is-android-app .android-cta-emerald:hover,
-.is-android-app .android-cta-emerald:active {
-  background-color: #10b981 !important;
-  color: #ffffff !important;
+.is-android-app .android-cta-gold:hover,
+.is-android-app .android-cta-gold:active {
+  background: linear-gradient(135deg, #FEF08A 0%, #FACC15 50%, #CA8A04 100%) !important;
+  color: #111111 !important;
+  box-shadow: 0 10px 26px rgba(217, 155, 22, 0.36) !important;
+}
+
+.is-android-app .royal-button-secondary {
+  background: #FFFDF8 !important;
+  color: #14120F !important;
+  border: 1px solid rgba(202, 138, 4, 0.35) !important;
+}
+
+/* Android Instant Splash Screen in Ivory Cream & Metallic Gold */
+html.is-android-app #zebalpha-instant-splash {
+  background-color: #FCF9F2 !important;
+  background-image: radial-gradient(circle at 50% 40%, rgba(234, 179, 8, 0.16), transparent 65%);
+}
+
+html.is-android-app #zebalpha-instant-splash span {
+  color: #14120F !important;
 }
 
 /* ── ANDROID SPLASH & ONBOARDING ZERO-FLASH GUARD ── */
 html.zebalpha-onboarding-pending body {
   background-color: #050505 !important;
   overflow: hidden !important;
+}
+
+html.is-android-app.zebalpha-onboarding-pending body {
+  background-color: #FCF9F2 !important;
 }
 
 html.zebalpha-onboarding-pending main,

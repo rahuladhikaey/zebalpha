@@ -278,15 +278,15 @@ export default function ProfileDashboard() {
                   className="w-full flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800/80 hover:border-zinc-600 transition-all group active:scale-[0.98] text-left cursor-pointer"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="flex h-10 w-10 items-center justify-center bg-zinc-900 rounded-xl text-teal-400 border border-zinc-800 group-hover:bg-zinc-800 transition-colors">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${isNativeApp ? "bg-[#FAF0D1] text-[#9A6503] border-[#E4C988]" : "bg-zinc-900 text-teal-400 border-zinc-800 group-hover:bg-zinc-800"}`}>
                       <Globe size={18} />
                     </div>
                     <div>
                       <span className="font-bold text-white text-sm block">
-                        {language === "hi" ? "भाषा सेटिंग" : "Language Settings"}
+                        {language === "hi" ? "भाषा सेटिंग" : language === "bn" ? "ভাষার সেটিংস" : "Language Settings"}
                       </span>
                       <span className="text-[10px] text-zinc-400 font-medium">
-                        {language === "hi" ? "🇮🇳 हिंदी (Hindi)" : "🇬🇧 English"}
+                        {language === "hi" ? "🇮🇳 हिंदी (Hindi)" : language === "bn" ? "🇧🇩 বাংলা (Bengali)" : "🇬🇧 English"}
                       </span>
                     </div>
                   </div>

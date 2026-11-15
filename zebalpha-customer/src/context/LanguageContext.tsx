@@ -72,6 +72,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     // Navigation & Bottom Nav
     nav_home: "Home",
     nav_categories: "Categories",
+    nav_alpha_ai: "Alpha AI",
     nav_account: "Account",
     nav_cart: "Cart",
     nav_wishlist: "Wishlist",
@@ -147,6 +148,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     // Navigation & Bottom Nav
     nav_home: "হোম",
     nav_categories: "ক্যাটাগরি",
+    nav_alpha_ai: "আলফা AI",
     nav_account: "অ্যাকাউন্ট",
     nav_cart: "কার্ট",
     nav_wishlist: "পছন্দের তালিকা",
@@ -222,6 +224,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     // Navigation & Bottom Nav
     nav_home: "होम",
     nav_categories: "श्रेणियाँ",
+    nav_alpha_ai: "अल्फ़ा AI",
     nav_account: "खाता",
     nav_cart: "कार्ट",
     nav_wishlist: "इच्छा सूची",

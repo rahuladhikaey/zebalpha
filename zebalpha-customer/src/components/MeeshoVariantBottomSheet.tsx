@@ -733,21 +733,21 @@ export function MeeshoVariantBottomSheet() {
           ) : null}
         </div>
 
-        {/* Bottom Sticky Action: Prominent Add To Cart Button (Emerald Green on Android App, Yellow on Web) */}
-        <div className="p-4 pt-3 pb-6 sm:pb-4 border-t border-neutral-100 bg-white">
+        {/* Bottom Sticky Action: Prominent Add To Cart Button (Champagne Gold on Android App, Yellow on Web) */}
+        <div className={`p-4 pt-3 pb-6 sm:pb-4 border-t ${isNativeApp ? "border-[#E5C983] bg-[#FFFDF8]" : "border-neutral-100 bg-white"}`}>
           <button
             type="button"
             disabled={isAdding || isOutOfStock || (distinctSizes.length > 0 && !selectedSize)}
             onClick={handleAddToCart}
             className={`w-full flex h-13 items-center justify-center gap-2 rounded-xl active:scale-[0.99] font-black uppercase tracking-wider text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none ${
               isNativeApp
-                ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30"
+                ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.28)]"
                 : "bg-[#FEE500] hover:bg-[#FDD800] text-black"
             }`}
           >
             {isAdding ? (
               <>
-                <Loader2 className={`w-4 h-4 animate-spin ${isNativeApp ? "text-white" : "text-black"}`} />
+                <Loader2 className="w-4 h-4 animate-spin text-black" />
                 <span>Adding to Cart...</span>
               </>
             ) : isOutOfStock ? (

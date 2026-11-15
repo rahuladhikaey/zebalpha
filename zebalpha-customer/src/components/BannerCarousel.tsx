@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
+import { useIsNativeApp } from "@/lib/platform";
 
 interface BannerItem {
   id?: number | string;
@@ -55,6 +56,7 @@ const DEFAULT_BANNERS: BannerItem[] = [
 ];
 
 export function BannerCarousel() {
+  const isNativeApp = useIsNativeApp();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [banners, setBanners] = useState<BannerItem[]>(DEFAULT_BANNERS);
   const [isCustomBanners, setIsCustomBanners] = useState(false);
@@ -141,21 +143,39 @@ export function BannerCarousel() {
 
   return (
     <div 
-      className="relative mt-2 md:mt-4 w-full overflow-hidden rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] bg-neutral-950 border border-neutral-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.85)] group transition-all duration-500 isolate"
+      className={`relative w-full overflow-hidden group transition-all duration-500 isolate ${
+        isNativeApp
+          ? "mt-1 rounded-2xl bg-[#FFFDF8] border border-[#E2BE66]/85 shadow-[0_12px_28px_rgba(166,124,28,0.14)]"
+          : "mt-2 md:mt-4 rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] bg-neutral-950 border border-neutral-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
+      }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Corner Royal Accents - only shown on default placeholder banners; hidden on custom banners so they never cover custom artwork */}
       {!isCustomBanners && (
         <>
-          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-2 bg-black/75 backdrop-blur-md px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-white/20 shadow-lg">
-            <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-400 animate-ping" />
-            <span className="text-[9px] sm:text-[10px] font-black tracking-[0.2em] uppercase text-white">
-              ZEBALPHA ORIGINAL
+          <div
+            data-photo-overlay="true"
+            className={`absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-1.5 backdrop-blur-md px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-lg ${
+              isNativeApp
+                ? "bg-gradient-to-r from-[#FCE89C] to-[#E6B32E] border border-[#FFF5C8]"
+                : "bg-black/75 border border-white/20"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full animate-ping ${isNativeApp ? "bg-[#111111]" : "bg-emerald-400"}`} />
+            <span className={`text-[9px] sm:text-[10px] font-black tracking-[0.18em] uppercase ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+              ZEBALPHA ORIGINALS
             </span>
           </div>
 
-          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-1.5 bg-white text-black font-black text-[9px] sm:text-[10px] px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-xl uppercase tracking-wider">
+          <div
+            data-photo-overlay="true"
+            className={`absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-1.5 font-black text-[9px] sm:text-[10px] px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-xl uppercase tracking-wider ${
+              isNativeApp
+                ? "bg-gradient-to-r from-[#F5C642] to-[#C68A12] text-[#111111] border border-[#FFF5C8]"
+                : "bg-white text-black"
+            }`}
+          >
             <span>DROP 2026</span>
           </div>
         </>
@@ -256,9 +276,9 @@ export function BannerCarousel() {
             className="group/dot relative py-3.5 flex-1 flex items-center justify-center transition-all cursor-pointer"
             aria-label={`Go to slide ${index + 1}`}
           >
-            <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/30 backdrop-blur-sm">
+            <div className={`relative h-1.5 w-full overflow-hidden rounded-full backdrop-blur-sm ${isNativeApp ? "bg-[#14120F]/25" : "bg-white/30"}`}>
               <div
-                className="absolute inset-0 bg-white origin-left transition-transform ease-linear will-change-transform"
+                className={`absolute inset-0 origin-left transition-transform ease-linear will-change-transform ${isNativeApp ? "bg-gradient-to-r from-[#FCE89C] via-[#EAB308] to-[#C68A12]" : "bg-white"}`}
                 style={{ 
                   transform: index === currentIndex ? 'scaleX(1)' : 'scaleX(0)',
                   transitionDuration: index === currentIndex && !isHovered ? '5000ms' : '0ms' 

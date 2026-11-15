@@ -236,7 +236,7 @@ export default function CartPage() {
         <p className="text-sm font-bold text-zinc-400 mb-6 text-center">Add some limited drops to start your collection!</p>
         <button 
           onClick={() => router.push('/')}
-          className={`${isNativeApp ? "bg-emerald-600 text-white shadow-emerald-600/30 hover:bg-emerald-500" : "bg-white text-black hover:bg-zinc-200 shadow-white/10"} px-8 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-colors shadow-lg cursor-pointer`}
+          className={`${isNativeApp ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.28)]" : "bg-white text-black hover:bg-zinc-200 shadow-white/10"} px-8 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-colors shadow-lg cursor-pointer`}
         >
           Browse Collection
         </button>
@@ -597,22 +597,26 @@ export default function CartPage() {
       </div>
 
       {/* Bottom Sticky Bar */}
-      <div className={`fixed left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 shadow-2xl transition-all ${
-        isNativeApp ? "bottom-16 pb-1" : "bottom-0"
-      }`}>
-        <div className="max-w-2xl mx-auto flex items-center justify-between px-5 py-4">
+      <div
+        className={`fixed left-0 right-0 z-40 backdrop-blur-md border-t shadow-2xl transition-all ${
+          isNativeApp
+            ? "bottom-[68px] pb-1 bg-[#FFFDF8]/96 border-[#DFBE6F]"
+            : "bottom-0 bg-zinc-950/95 border-zinc-800"
+        }`}
+      >
+        <div className="max-w-2xl mx-auto flex items-center justify-between px-5 py-3.5">
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-zinc-400">Item Total</span>
-            <span className="text-xl font-black text-white tracking-tight">₹{grandTotal}</span>
+            <span className={`text-xs font-bold ${isNativeApp ? "text-[#6B5D44]" : "text-zinc-400"}`}>Item Total</span>
+            <span className={`text-xl font-black tracking-tight ${isNativeApp ? "text-[#14120F]" : "text-white"}`}>₹{grandTotal}</span>
           </div>
           <button 
             disabled={cart.filter(item => (item.stock ?? Infinity) > 0).length === 0}
             onClick={() => router.push(appliedCoupon ? `/checkout?coupon=${appliedCoupon.code}` : '/checkout')}
-            className={`transition-all px-12 py-4 rounded-2xl font-black text-base tracking-wide shadow-xl active:scale-95 min-w-[160px] text-center cursor-pointer ${
+            className={`transition-all px-9 sm:px-12 py-3.5 sm:py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide shadow-xl active:scale-95 min-w-[160px] text-center cursor-pointer ${
               cart.filter(item => (item.stock ?? Infinity) > 0).length === 0
                 ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                 : isNativeApp
-                ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
+                ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.3)]"
                 : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
             }`}
           >

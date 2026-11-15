@@ -1,4 +1,213 @@
 import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabaseServer";
+import { Product } from "@/lib/types";
+
+export type AssistantQuickLink = {
+  label: string;
+  href: string;
+};
+
+const ASSISTANT_PRODUCT_SELECT =
+  "id, name, description, price, mrp, image_url, images, brand, category_id, stock, stock_count, is_active, status, is_approved, approval_status, is_new_drop, collection, tier, specifications, packages, created_at";
+
+const INACTIVE_STATUSES = new Set([
+  "BLOCKED",
+  "DELETED",
+  "ARCHIVED",
+  "OUT_OF_STOCK",
+  "COMING_SOON",
+  "INACTIVE",
+  "SUSPENDED",
+  "DRAFT",
+  "REJECTED",
+]);
+
+const STYLING_INTENT_REGEX =
+  /(style|styling|outfit|wear|pair|matching|look|occasion|college|office|party|date|gym|travel|weekend|summer|winter|streetwear|casual|formal|recommend|suggest|best|trending|drop|budget|under|below|gift|hoodie|polo|tee|t-shirt|shirt|jacket|jogger|cargo|shoe|sneaker|footwear|cap|accessory)/i;
+
+const PURE_SUPPORT_ONLY_REGEX =
+  /(refund|money back|cancel|cancellation|payment failed|debited|double charged|deducted|track|where is my order|return policy|replace|exchange|contact|customer care|support number|account deletion)/i;
+
+function extractBudgetLimit(prompt: string): number | null {
+  const match = prompt.match(/(?:under|below|less than|within|upto|up to|max)\s*(?:rs\.?|inr|₹)?\s*(\d{3,5})/i);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function extractKeywordTokens(prompt: string): string[] {
+  const stopWords = new Set([
+    "show", "me", "recommend", "suggest", "best", "good", "for", "the", "and",
+    "with", "what", "should", "wear", "outfit", "style", "styling", "ideas",
+    "help", "under", "below", "less", "than", "price", "rs", "inr", "please",
+    "some", "any", "zebalpha", "clothing", "clothes", "find", "looking",
+    "want", "need", "buy", "can", "you", "give", "items", "products",
+  ]);
+  return prompt
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3 && !stopWords.has(t));
+}
+
+function isProductEligible(row: Record<string, unknown>): boolean {
+  if (row.is_active === false) return false;
+  if (row.is_approved === false) return false;
+  const status = String(row.status || "").toUpperCase();
+  if (status && INACTIVE_STATUSES.has(status)) return false;
+  const approval = String(row.approval_status || "").toLowerCase();
+  if (approval === "rejected" || approval === "pending" || approval === "suspended") {
+    return false;
+  }
+  const stock = typeof row.stock === "number" ? row.stock : typeof row.stock_count === "number" ? row.stock_count : 1;
+  if (stock <= 0) return false;
+  const primaryImg = String(
+    row.image_url || (Array.isArray(row.images) ? row.images[0] : "") || ""
+  ).trim();
+  return Boolean(row.id && row.name && primaryImg);
+}
+
+async function findAssistantRecommendations(prompt: string): Promise<Product[]> {
+  const normalized = prompt.trim();
+  const isSupportOnly =
+    PURE_SUPPORT_ONLY_REGEX.test(normalized) && !STYLING_INTENT_REGEX.test(normalized);
+  if (normalized && isSupportOnly) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabaseServer
+      .from("products")
+      .select(ASSISTANT_PRODUCT_SELECT)
+      .or("is_active.is.null,is_active.eq.true")
+      .order("is_new_drop", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80);
+
+    if (error || !Array.isArray(data)) {
+      return [];
+    }
+
+    const budgetLimit = extractBudgetLimit(normalized);
+    const tokens = extractKeywordTokens(normalized);
+    const wantsStylingOrRecs = !normalized || STYLING_INTENT_REGEX.test(normalized);
+    if (!wantsStylingOrRecs && tokens.length === 0) {
+      return [];
+    }
+
+    const eligible = data.filter((row) => isProductEligible(row as Record<string, unknown>));
+    const scored = eligible
+      .map((row) => {
+        const rec = row as Record<string, unknown>;
+        const price = Number(rec.price || 0);
+        if (budgetLimit !== null && price > budgetLimit) {
+          return { row: rec, score: -1 };
+        }
+        const haystack = [
+          rec.name,
+          rec.description,
+          rec.brand,
+          rec.collection,
+          rec.tier,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        let score = rec.is_new_drop ? 2 : 0;
+        if (String(rec.tier || "").toUpperCase() === "PREMIUM") score += 1;
+
+        let tokenHits = 0;
+        for (const token of tokens) {
+          if (haystack.includes(token)) {
+            tokenHits += 1;
+            score += 5;
+          }
+          // Expand singular/plural stem matching for tee/tees, hoodie/hoodies, polo/polos
+          const stem = token.endsWith("s") ? token.slice(0, -1) : token;
+          if (stem.length >= 3 && stem !== token && haystack.includes(stem)) {
+            tokenHits += 1;
+            score += 4;
+          }
+        }
+
+        if (tokens.length > 0 && tokenHits === 0 && !STYLING_INTENT_REGEX.test(normalized)) {
+          return { row: rec, score: -1 };
+        }
+        return { row: rec, score };
+      })
+      .filter((entry) => entry.score >= 0)
+      .sort((a, b) => b.score - a.score);
+
+    const picks = (scored.length > 0 ? scored : eligible.map((row) => ({ row: row as Record<string, unknown>, score: 0 })))
+      .slice(0, 4)
+      .map(({ row }) => {
+        const images = Array.isArray(row.images) ? (row.images as string[]) : undefined;
+        return {
+          id: row.id as string | number,
+          name: String(row.name || "ZEBALPHA Piece"),
+          price: Number(row.price || 0),
+          mrp: typeof row.mrp === "number" ? row.mrp : undefined,
+          description: String(row.description || "Signature ZEBALPHA apparel crafted for everyday comfort."),
+          image_url: String(row.image_url || images?.[0] || ""),
+          images,
+          brand: row.brand ? String(row.brand) : "ZEBALPHA",
+          stock: typeof row.stock === "number" ? row.stock : typeof row.stock_count === "number" ? row.stock_count : 10,
+          status: row.status ? String(row.status) : undefined,
+          is_active: row.is_active !== false,
+          is_new_drop: Boolean(row.is_new_drop),
+          collection: row.collection ? String(row.collection) : undefined,
+          tier: row.tier ? String(row.tier) : undefined,
+          specifications:
+            row.specifications && typeof row.specifications === "object"
+              ? (row.specifications as Record<string, unknown>)
+              : undefined,
+          packages: Array.isArray(row.packages) ? (row.packages as Product["packages"]) : undefined,
+        } satisfies Product;
+      });
+
+    return picks;
+  } catch {
+    return [];
+  }
+}
+
+function getAssistantQuickLinks(prompt: string): AssistantQuickLink[] {
+  const normalized = prompt.toLowerCase();
+  if (/(order|track|delivery|shipping|return|refund|cancel|exchange|payment)/i.test(normalized)) {
+    return [
+      { label: "My Orders", href: "/profile/orders" },
+      { label: "Return Policy", href: "/return-policy" },
+      { label: "Help & Support", href: "/help" },
+      { label: "Size Guide", href: "/size-guide" },
+    ];
+  }
+  if (/(size|fit|chest|length|try on|try-on|vto|styling|outfit|polo|hoodie|tee)/i.test(normalized)) {
+    return [
+      { label: "Size Guide", href: "/size-guide" },
+      { label: "Virtual Try-On", href: "/virtual-try-on" },
+      { label: "New Drops", href: "/new-drops" },
+      { label: "All Categories", href: "/categories" },
+    ];
+  }
+  return [
+    { label: "New Drops", href: "/new-drops" },
+    { label: "Virtual Try-On", href: "/virtual-try-on" },
+    { label: "Size Guide", href: "/size-guide" },
+    { label: "My Orders", href: "/profile/orders" },
+  ];
+}
+
+function buildFallbackWithPicks(prompt: string, products: Product[]): string {
+  const base = fallbackResponse(prompt);
+  if (!products.length) return base;
+  const pickLines = products
+    .slice(0, 3)
+    .map((p) => `• **${p.name}** — ₹${Number(p.price || 0).toLocaleString("en-IN")}`)
+    .join("\n");
+  return `${base}\n\n✨ **Recommended From ZEBALPHA**:\n${pickLines}`;
+}
 
 const CLOTHING_STORE_KNOWLEDGE = `
 # ZEBALPHA Clothing Store - Alpha AI Knowledge & Guidelines
@@ -47,6 +256,18 @@ I’m **Alpha AI**, your virtual shopping assistant. I can help you with:
 👨‍💼 Customer Support
 
 How can I help you today?`;
+  }
+
+  // 1b. Styling, Recommendations & Outfit Suggestions
+  if (/(style|styling|outfit|wear|pair|matching|look|occasion|college|office|party|date|weekend|travel|winter|summer|streetwear|casual|gift|recommend|suggest|trending|bestseller|drop|under|below)/i.test(normalized)) {
+    return `✨ **Alpha AI Styling Suggestions**:
+
+• **Smart Streetwear Fit**: Pair a relaxed ZEBALPHA Heavyweight Oversized Tee with straight cargos or charcoal denims and crisp sneakers.
+• **Clean Semi-Formal / Date Look**: Go for our Champagne-trim Premium Zip Polo with tailored chinos or dark trousers — breathable combed cotton keeps it sharp all day.
+• **Layering Formula**: Combine a neutral Ivory/White base tee under an open overshirt or heavyweight hoodie for effortless evening contrast.
+• **Virtual Try-On**: Preview how any silhouette drapes on you using **Virtual Try-On** before ordering!
+
+Tell me the occasion, color vibe, or budget (for example, *under ₹999*) and I will match live ZEBALPHA pieces for you.`;
   }
 
   // 2. Product Info
@@ -290,9 +511,17 @@ export async function POST(request: Request) {
     }
 
     const openAiKey = process.env.OPENAI_API_KEY;
+    const [recommendedProducts, quickLinks] = await Promise.all([
+      findAssistantRecommendations(prompt),
+      Promise.resolve(getAssistantQuickLinks(prompt)),
+    ]);
 
     if (!openAiKey) {
-      return NextResponse.json({ reply: fallbackResponse(prompt) });
+      return NextResponse.json({
+        reply: buildFallbackWithPicks(prompt, recommendedProducts),
+        recommendedProducts,
+        quickLinks,
+      });
     }
 
     const formattedMessages = [
@@ -326,17 +555,29 @@ export async function POST(request: Request) {
     const data = await openAiResponse.json();
 
     if (!openAiResponse.ok) {
-      return NextResponse.json({ reply: fallbackResponse(prompt) });
+      return NextResponse.json({
+        reply: buildFallbackWithPicks(prompt, recommendedProducts),
+        recommendedProducts,
+        quickLinks,
+      });
     }
 
     const reply = data?.choices?.[0]?.message?.content?.trim();
 
     if (!reply) {
-      return NextResponse.json({ reply: fallbackResponse(prompt) });
+      return NextResponse.json({
+        reply: buildFallbackWithPicks(prompt, recommendedProducts),
+        recommendedProducts,
+        quickLinks,
+      });
     }
 
-    return NextResponse.json({ reply });
-  } catch (error) {
-    return NextResponse.json({ reply: fallbackResponse("") || "How can I help you today?" });
+    return NextResponse.json({ reply, recommendedProducts, quickLinks });
+  } catch {
+    return NextResponse.json({
+      reply: fallbackResponse("") || "How can I help you today?",
+      recommendedProducts: [],
+      quickLinks: getAssistantQuickLinks(""),
+    });
   }
 }

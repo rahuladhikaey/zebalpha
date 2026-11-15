@@ -108,14 +108,20 @@ export function ProductCardImageSlider({
 
       {/* Discount Badge */}
       {discountPercent !== undefined && discountPercent > 0 && (
-        <div className="absolute top-2.5 left-2.5 z-20 bg-white text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[10px] shadow-lg pointer-events-none">
+        <div
+          data-photo-overlay="true"
+          className="absolute top-2.5 left-2.5 z-20 bg-white text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[10px] shadow-lg pointer-events-none"
+        >
           {discountPercent}% OFF
         </div>
       )}
 
       {/* 💎 Premium Store Badge */}
       {isPremium && (
-        <div className="absolute top-2.5 right-2.5 z-20 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[9px] shadow-lg flex items-center gap-1 pointer-events-none">
+        <div
+          data-photo-overlay="true"
+          className="absolute top-2.5 right-2.5 z-20 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[9px] shadow-lg flex items-center gap-1 pointer-events-none"
+        >
           <span>💎</span>
           <span>PREMIUM</span>
         </div>

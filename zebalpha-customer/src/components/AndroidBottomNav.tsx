@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, User, ShoppingCart } from "lucide-react";
+import { LayoutGrid, User, ShoppingCart, Sparkles } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useIsNativeApp } from "@/lib/platform";
@@ -49,9 +49,10 @@ export function AndroidBottomNav() {
   // Active route checking
   const isHomeActive = pathname === "/";
   const isCategoriesActive = pathname.startsWith("/categories") || pathname.startsWith("/category");
+  const isAlphaAiActive = pathname.startsWith("/assistant");
+  const isCartActive = pathname === "/cart";
   const isAccountActive =
     pathname.startsWith("/profile") || pathname === "/login" || pathname === "/signup" || pathname.startsWith("/orders");
-  const isCartActive = pathname === "/cart";
 
   const navItems = [
     {
@@ -69,11 +70,12 @@ export function AndroidBottomNav() {
       isActive: isCategoriesActive,
     },
     {
-      id: "account",
-      label: t("nav_account"),
-      href: user ? "/profile" : "/profile",
-      icon: User,
-      isActive: isAccountActive,
+      id: "alpha_ai",
+      label: t("nav_alpha_ai"),
+      href: "/assistant",
+      icon: Sparkles,
+      isActive: isAlphaAiActive,
+      isCenterAi: true,
     },
     {
       id: "cart",
@@ -83,68 +85,95 @@ export function AndroidBottomNav() {
       isActive: isCartActive,
       badge: totalItems,
     },
+    {
+      id: "account",
+      label: t("nav_account"),
+      href: user ? "/profile" : "/profile",
+      icon: User,
+      isActive: isAccountActive,
+    },
   ];
 
   return (
     <>
       {/* Safe bottom spacer so page content is never hidden behind fixed navigation */}
-      <div className="h-20 w-full shrink-0 pointer-events-none" aria-hidden="true" />
+      <div className="h-[78px] w-full shrink-0 pointer-events-none" aria-hidden="true" />
 
       <nav
         aria-label="Android Bottom Navigation"
-        className="fixed bottom-0 left-0 right-0 z-50 overflow-hidden bg-[#040301]/[0.96] backdrop-blur-2xl select-none shadow-[0_-12px_36px_rgba(0,0,0,0.92)] pb-[env(safe-area-inset-bottom,0px)]"
+        className="fixed bottom-0 left-0 right-0 z-50 overflow-visible bg-[#FFFDF8]/[0.97] backdrop-blur-2xl select-none border-t border-[#E6CA7D]/55 shadow-[0_-10px_28px_rgba(166,124,28,0.12)] pb-[env(safe-area-inset-bottom,0px)]"
       >
-        {/* Top metallic gold hairline + subtle ambient glow */}
+        {/* Top metallic champagne gold hairline accent */}
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-[#eab308]/50 via-[#fde68a]/35 to-[#eab308]/50"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute left-1/2 top-0 h-3 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f59e0b]/25 blur-md"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#EAB308]/80 to-transparent"
           aria-hidden="true"
         />
 
-        <div className="relative mx-auto grid h-[66px] max-w-lg grid-cols-4 items-center gap-1 px-2">
+        <div className="relative mx-auto grid h-[68px] max-w-lg grid-cols-5 items-center gap-1 px-2">
           {navItems.map((item) => {
             const IconComponent = item.icon;
             const active = item.isActive;
+
+            if (item.isCenterAi) {
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  aria-label="Open Alpha AI Shopping Assistant"
+                  className="group relative flex h-full flex-col items-center justify-end pb-2 transition-transform duration-150 active:scale-95"
+                >
+                  <span
+                    className={`relative -mt-5 flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                      active
+                        ? "border-[#FFFDF8] bg-gradient-to-br from-[#FEF08A] via-[#EAB308] to-[#A16207] text-[#111111] shadow-[0_6px_22px_rgba(217,119,6,0.45),0_0_0_3px_rgba(234,179,8,0.3)] scale-105"
+                        : "border-[#FFFDF8] bg-gradient-to-br from-[#FDE68A] via-[#F59E0B] to-[#C68A12] text-[#111111] shadow-[0_6px_18px_rgba(180,120,16,0.34)] group-hover:scale-105"
+                    }`}
+                  >
+                    <IconComponent strokeWidth={2.25} className="h-[22px] w-[22px] text-[#111111]" />
+                  </span>
+
+                  <span
+                    className={`mt-1 text-[10.5px] leading-none tracking-tight transition-colors ${
+                      active ? "font-black text-[#9A6503]" : "font-bold text-[#292319]"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            }
 
             return (
               <Link
                 key={item.id}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className="group relative flex h-full flex-col items-center justify-center py-1 transition-transform duration-150 active:scale-95"
+                className="group relative flex h-full flex-col items-center justify-center py-1.5 transition-transform duration-150 active:scale-95"
               >
-                {/* Active rounded gold capsule backdrop + fading top-lit rim */}
+                {/* Active rounded Champagne Gold pill capsule */}
                 <span
                   aria-hidden="true"
-                  className={`pointer-events-none absolute inset-x-0.5 top-1 bottom-1.5 rounded-[18px] transition-all duration-300 ${
+                  className={`pointer-events-none absolute inset-x-0.5 top-1.5 bottom-1.5 rounded-2xl transition-all duration-300 ${
                     active
-                      ? "opacity-100 bg-[radial-gradient(ellipse_at_50%_20%,rgba(234,179,8,0.28),rgba(146,64,14,0.12)_58%,transparent_100%)] shadow-[inset_0_1px_0_rgba(254,240,138,0.45),0_0_22px_rgba(234,179,8,0.14)]"
+                      ? "opacity-100 bg-gradient-to-b from-[#FCE89C] via-[#F4C954] to-[#E2AA23] shadow-[0_4px_14px_rgba(217,155,22,0.28),inset_0_1px_0_rgba(255,255,255,0.75)]"
                       : "opacity-0 scale-95"
                   }`}
-                >
-                  <span
-                    className={`absolute inset-0 rounded-[18px] border border-[#facc15]/40 [mask-image:linear-gradient(to_bottom,black_38%,transparent_96%)] transition-opacity duration-300 ${
-                      active ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
-                </span>
+                />
 
-                {/* Icon Container with Metallic Gold Cart Badge */}
+                {/* Icon Container with Champagne Gold Cart Badge */}
                 <div className="relative z-10 flex items-center justify-center">
                   <IconComponent
-                    strokeWidth={active ? 2.15 : 1.85}
-                    className={`h-[22px] w-[22px] transition-all duration-200 ${
+                    strokeWidth={active ? 2.2 : 1.85}
+                    className={`h-[21px] w-[21px] transition-all duration-200 ${
                       active
-                        ? "text-[#fde047] drop-shadow-[0_0_10px_rgba(250,204,21,0.75)]"
-                        : "text-zinc-200 group-hover:text-white"
+                        ? "text-[#14120F]"
+                        : "text-[#292319] group-hover:text-[#000000]"
                     }`}
                   />
 
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-br from-[#fef08a] via-[#eab308] to-[#b45309] px-1 text-[9px] font-black leading-none text-black ring-1 ring-black/80 shadow-[0_0_10px_rgba(234,179,8,0.7)]">
+                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FFFDF8] shadow-sm">
                       {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   )}
@@ -152,24 +181,14 @@ export function AndroidBottomNav() {
 
                 {/* Label */}
                 <span
-                  className={`relative z-10 mt-1 text-[11px] leading-none tracking-wide transition-all duration-200 ${
+                  className={`relative z-10 mt-1 text-[10.5px] leading-none tracking-tight transition-all duration-200 ${
                     active
-                      ? "font-bold text-[#fde047] [text-shadow:0_0_10px_rgba(250,204,21,0.45)]"
-                      : "font-medium text-zinc-200 group-hover:text-white"
+                      ? "font-extrabold text-[#14120F]"
+                      : "font-semibold text-[#3B3326] group-hover:text-[#14120F]"
                   }`}
                 >
                   {item.label}
                 </span>
-
-                {/* Glowing metallic gold bottom indicator pill */}
-                <span
-                  aria-hidden="true"
-                  className={`pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-[3.5px] rounded-full transition-all duration-300 ${
-                    active
-                      ? "w-11 opacity-100 bg-gradient-to-r from-[#facc15] via-[#fef9c3] to-[#eab308] shadow-[0_0_12px_rgba(250,204,21,0.95),0_-2px_8px_rgba(254,240,138,0.75)]"
-                      : "w-4 opacity-0 bg-transparent"
-                  }`}
-                />
               </Link>
             );
           })}

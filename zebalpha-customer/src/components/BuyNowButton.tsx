@@ -78,12 +78,12 @@ export function BuyNowButton({
   };
 
   const defaultClasses = isNativeApp
-    ? "flex h-11 w-full items-center justify-center rounded-xl bg-emerald-600 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-emerald-600/30 hover:bg-emerald-500 border border-emerald-500/30 transition-all active:scale-95 cursor-pointer"
+    ? "flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-b from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[10px] font-black uppercase tracking-[0.2em] text-[#111111] shadow-[0_6px_18px_rgba(202,138,4,0.28),inset_0_1px_0_rgba(255,255,255,0.75)] hover:brightness-105 border border-[#D49A18]/55 transition-all active:scale-95 cursor-pointer"
     : "flex h-11 w-full items-center justify-center rounded-xl bg-white text-[10px] font-black uppercase tracking-[0.2em] text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer";
 
   const resolvedClass = className
     ? (isNativeApp
-        ? `${className} !bg-emerald-600 !text-white !border-emerald-500/30 hover:!bg-emerald-500 shadow-xl shadow-emerald-600/30`
+        ? `${className} !bg-gradient-to-b !from-[#FCE89C] !via-[#F2C34B] !to-[#DDA216] !text-[#111111] !border-[#D49A18]/55 shadow-[0_6px_18px_rgba(202,138,4,0.26)]`
         : className)
     : defaultClasses;
 

@@ -12,11 +12,13 @@ export function AddToCartButton({
   product, 
   className, 
   compact,
+  variant = "primary",
   onBeforeAdd,
 }: { 
   product: Product; 
   className?: string; 
   compact?: boolean;
+  variant?: "primary" | "outline";
   onBeforeAdd?: () => boolean;
 }) {
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
@@ -199,12 +201,18 @@ export function AddToCartButton({
     if (compact) {
       return (
         <div 
-          className="flex h-8 w-20 items-center justify-between rounded-full bg-white text-xs font-black text-black shadow-lg overflow-hidden transition-all active:scale-95 sm:h-10 sm:w-24 sm:rounded-xl border border-neutral-200"
+          className={`flex h-8 w-20 items-center justify-between rounded-full text-xs font-black shadow-lg overflow-hidden transition-all active:scale-95 sm:h-10 sm:w-24 sm:rounded-xl border ${
+            isNativeApp
+              ? "bg-[#FFFDF8] text-[#14120F] border-[#DFBE6F]"
+              : "bg-white text-black border-neutral-200"
+          }`}
         >
           <button
             type="button"
             onClick={handleDecrement}
-            className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors cursor-pointer select-none"
+            className={`flex h-full flex-1 items-center justify-center transition-colors cursor-pointer select-none ${
+              isNativeApp ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#14120F]" : "bg-white hover:bg-neutral-200 text-black"
+            }`}
             aria-label="Decrease quantity"
           >
             <span className="text-sm sm:text-base font-black">-</span>
@@ -212,14 +220,20 @@ export function AddToCartButton({
           <span 
             onClick={handleCenterClick}
             title="Click to view cart or change size"
-            className="flex h-full flex-1 items-center justify-center bg-black text-white text-[11px] sm:text-xs font-black cursor-pointer hover:bg-neutral-800 transition-colors select-none px-1"
+            className={`flex h-full flex-1 items-center justify-center text-[11px] sm:text-xs font-black cursor-pointer transition-colors select-none px-1 ${
+              isNativeApp
+                ? "bg-gradient-to-b from-[#FCE89C] to-[#EAB308] text-[#111111]"
+                : "bg-black text-white hover:bg-neutral-800"
+            }`}
           >
             {quantity}
           </span>
           <button
             type="button"
             onClick={handleIncrement}
-            className="flex h-full flex-1 items-center justify-center bg-white hover:bg-neutral-200 text-black transition-colors cursor-pointer select-none"
+            className={`flex h-full flex-1 items-center justify-center transition-colors cursor-pointer select-none ${
+              isNativeApp ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#14120F]" : "bg-white hover:bg-neutral-200 text-black"
+            }`}
             aria-label="Increase quantity"
           >
             <span className="text-sm sm:text-base font-black">+</span>
@@ -230,12 +244,21 @@ export function AddToCartButton({
 
     return (
       <div 
-        className={className || "flex h-10 min-w-[6.5rem] px-1 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95"}
+        className={
+          className ||
+          (isNativeApp
+            ? "flex h-10 min-w-[6.5rem] px-1 items-center justify-between rounded-xl border border-[#DFBE6F] bg-[#FFFDF8] text-sm font-black text-[#14120F] shadow-sm overflow-hidden transition-all active:scale-95"
+            : "flex h-10 min-w-[6.5rem] px-1 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95")
+        }
       >
         <button
           type="button"
           onClick={handleDecrement}
-          className="flex h-full w-7 sm:w-8 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors cursor-pointer select-none"
+          className={`flex h-full w-7 sm:w-8 items-center justify-center transition-colors cursor-pointer select-none ${
+            isNativeApp
+              ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#14120F]"
+              : "bg-neutral-900 hover:bg-neutral-800 text-white"
+          }`}
           aria-label="Decrease quantity"
         >
           <span className="text-base font-black">-</span>
@@ -245,7 +268,7 @@ export function AddToCartButton({
           title="Click to view cart or change size"
           className={`flex h-full flex-1 items-center justify-center text-xs sm:text-sm font-black px-2 py-0.5 rounded-lg mx-1 animate-in zoom-in-50 duration-200 cursor-pointer transition-colors select-none whitespace-nowrap ${
             isNativeApp
-              ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/30"
+              ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] shadow-sm"
               : "bg-white text-black hover:bg-neutral-200"
           }`}
         >
@@ -254,7 +277,11 @@ export function AddToCartButton({
         <button
           type="button"
           onClick={handleIncrement}
-          className="flex h-full w-7 sm:w-8 items-center justify-center bg-neutral-900 hover:bg-neutral-800 text-white transition-colors cursor-pointer select-none"
+          className={`flex h-full w-7 sm:w-8 items-center justify-center transition-colors cursor-pointer select-none ${
+            isNativeApp
+              ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#14120F]"
+              : "bg-neutral-900 hover:bg-neutral-800 text-white"
+          }`}
           aria-label="Increase quantity"
         >
           <span className="text-base font-black">+</span>
@@ -270,7 +297,7 @@ export function AddToCartButton({
         onClick={handleAdd}
         className={`flex h-8 w-8 sm:h-10 sm:w-24 items-center justify-center rounded-full sm:rounded-xl font-black text-sm shadow-md transition-all active:scale-95 cursor-pointer ${
           isNativeApp
-            ? "border border-emerald-500/40 bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
+            ? "border border-[#D49A18]/60 bg-gradient-to-b from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111]"
             : "border border-white/20 bg-white text-black hover:bg-neutral-200"
         }`}
         aria-label="Add to cart"
@@ -282,12 +309,14 @@ export function AddToCartButton({
   }
 
   const defaultClasses = isNativeApp
-    ? "flex h-10 w-24 items-center justify-center rounded-xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] border border-emerald-500/30 transition-all active:scale-95 cursor-pointer"
+    ? "flex h-10 w-full sm:w-28 items-center justify-center rounded-xl bg-gradient-to-b from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] font-black text-xs uppercase tracking-widest shadow-[0_4px_14px_rgba(202,138,4,0.28),inset_0_1px_0_rgba(255,255,255,0.75)] hover:brightness-105 border border-[#D49A18]/55 transition-all active:scale-95 cursor-pointer"
     : "flex h-10 w-24 items-center justify-center rounded-xl bg-white text-black font-black text-xs uppercase tracking-widest shadow-md hover:bg-neutral-200 hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all active:scale-95 cursor-pointer";
 
   const resolvedClass = className
     ? (isNativeApp
-        ? `${className} !bg-emerald-600 !text-white !border-emerald-500/30 hover:!bg-emerald-500 shadow-lg shadow-emerald-600/30`
+        ? variant === "outline"
+          ? `${className} !bg-[#FFFDF8] !text-[#14120F] !border-[#D49A18]/75 shadow-sm hover:!bg-[#FAF0D1]`
+          : `${className} !bg-gradient-to-b !from-[#FCE89C] !via-[#F2C34B] !to-[#DDA216] !text-[#111111] !border-[#D49A18]/55 shadow-[0_4px_14px_rgba(202,138,4,0.25)]`
         : className)
     : defaultClasses;
 

@@ -53,11 +53,11 @@ export function QuickCartButton({
   };
 
   const normalStyle = isNativeApp
-    ? "bg-emerald-600 text-white backdrop-blur-md border border-emerald-500/50 hover:bg-emerald-500 hover:scale-110 shadow-lg shadow-emerald-600/30"
+    ? "bg-[#FFFDF8]/95 text-[#14120F] backdrop-blur-md border border-[#DFBE6F] hover:bg-[#FAF2DE] hover:scale-110 shadow-[0_4px_12px_rgba(166,124,28,0.2)]"
     : "bg-white/90 text-neutral-900 backdrop-blur-md border border-white/60 hover:bg-white hover:scale-110 hover:shadow-xl";
 
   const inCartStyle = isNativeApp
-    ? "bg-emerald-700 text-white border border-emerald-400 shadow-lg scale-105"
+    ? "bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#C68A12] text-[#111111] border border-[#FFF3C4] shadow-lg scale-105"
     : "bg-black text-white border border-neutral-700 shadow-lg scale-105";
 
   return (

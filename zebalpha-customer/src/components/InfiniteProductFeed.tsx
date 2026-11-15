@@ -13,6 +13,7 @@ import { QuickCartButton } from "./QuickCartButton";
 import { DeliveryEstimateWidget } from "./DeliveryEstimateWidget";
 import { supabase } from "@/lib/supabaseClient";
 import { SLIM_PRODUCT_CARD_FIELDS, getProductDisplayPricing } from "@/hooks/useCatalogQueries";
+import { useIsNativeApp } from "@/lib/platform";
 
 import { isProductNewDrop } from "@/lib/dropUtils";
 
@@ -23,6 +24,7 @@ interface InfiniteProductFeedProps {
 
 export function InfiniteProductFeed({ initialProducts = [], brandFilter }: InfiniteProductFeedProps) {
   useScrollRestoration("home_feed");
+  const isNativeApp = useIsNativeApp();
   const { recommendedBatchSize, prefetchMargin, isOnline } = useNetworkAdaptive();
   const currentBatchSize = isOnline ? recommendedBatchSize : 20;
 
@@ -210,7 +212,11 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           return (
             <article
               key={product.id}
-              className="group relative flex flex-col overflow-hidden rounded-2xl md:rounded-3xl bg-neutral-900/90 border border-neutral-800 shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-white/40 hover:shadow-[0_12px_35px_rgba(255,255,255,0.08)] isolate"
+              className={`group relative flex flex-col overflow-hidden rounded-2xl md:rounded-3xl border transition-all duration-300 isolate ${
+                isNativeApp
+                  ? "bg-[#FFFDF8] border-[#E5C882]/85 shadow-[0_8px_22px_rgba(166,124,28,0.09)] hover:border-[#C28D12]"
+                  : "bg-neutral-900/90 border-neutral-800 shadow-xl hover:-translate-y-1.5 hover:border-white/40 hover:shadow-[0_12px_35px_rgba(255,255,255,0.08)]"
+              }`}
             >
               {/* Auto-sliding Image Holder */}
               <div className="relative">
@@ -240,10 +246,10 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
               {/* Content */}
               <div className="flex flex-1 flex-col p-3.5 sm:p-4">
                 <Link href={`/products/${product.id}`} className="mb-auto">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-neutral-400">
+                  <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${isNativeApp ? "text-[#8E6208]" : "text-neutral-400"}`}>
                     {product.brand || "ZEBALPHA"}
                   </p>
-                  <h3 className="line-clamp-2 text-sm font-bold leading-snug text-neutral-100 group-hover:text-white transition-colors mt-0.5">
+                  <h3 className={`line-clamp-2 text-sm font-bold leading-snug transition-colors mt-0.5 ${isNativeApp ? "text-[#14120F]" : "text-neutral-100 group-hover:text-white"}`}>
                     {product.name}
                   </h3>
                 </Link>
@@ -251,18 +257,24 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                 <div className="mt-3.5 space-y-2.5">
                   <div className="flex flex-col">
                     <div className="flex items-baseline gap-2 flex-wrap">
-                      <span className="text-base sm:text-lg font-black text-white tracking-tight">
+                      <span className={`text-base sm:text-lg font-black tracking-tight ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
                         ₹{displayPrice}
                       </span>
                       {hasDiscount && (
-                        <span className="text-xs font-semibold text-neutral-400 line-through">
+                        <span className={`text-xs font-semibold line-through ${isNativeApp ? "text-[#857860]" : "text-neutral-400"}`}>
                           ₹{displayMrp}
                         </span>
                       )}
                     </div>
 
                     {hasDiscount && (
-                      <span className="text-[9px] font-black uppercase text-neutral-300 bg-white/10 border border-white/10 px-2 py-0.5 rounded-full inline-block w-fit mt-1">
+                      <span
+                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full inline-block w-fit mt-1 border ${
+                          isNativeApp
+                            ? "text-[#8A5A03] bg-[#FAF0D1] border-[#E4C988]"
+                            : "text-neutral-300 bg-white/10 border-white/10"
+                        }`}
+                      >
                         Save ₹{discountAmount}
                       </span>
                     )}

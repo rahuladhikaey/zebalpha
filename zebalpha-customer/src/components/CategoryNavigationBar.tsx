@@ -17,6 +17,28 @@ const INACTIVE_GOLD_BOX_CLASS =
 const GOLD_ACTIVE_UNDERLINE_CLASS =
   "absolute bottom-0 w-8 h-[3px] rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 shadow-[0_0_14px_#fbbf24]";
 
+const ANDROID_ACTIVE_GOLD_BOX_CLASS =
+  "bg-gradient-to-b from-[#FFE68B] via-[#F2BF43] to-[#C88D0F] text-[#14120F] border border-[#FFF5C8] shadow-[0_6px_16px_rgba(198,138,18,0.32)]";
+
+const ANDROID_INACTIVE_GOLD_BOX_CLASS =
+  "bg-gradient-to-b from-[#FFFDF8] to-[#F7E8BD] text-[#14120F] border border-[#E3C167]/70 group-hover:border-[#C28D12] shadow-[0_3px_10px_rgba(160,115,20,0.10)] group-active:scale-95";
+
+const ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS =
+  "absolute bottom-0 w-8 h-[3px] rounded-full bg-gradient-to-r from-[#D4A017] via-[#EAB308] to-[#9A6503]";
+
+function AndroidCreamWaveBackdrop() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+      <div
+        className="absolute inset-0"
+        style={{
+          background: "linear-gradient(180deg, rgba(252,249,242,0.5) 0%, rgba(250,242,220,0.7) 100%)",
+        }}
+      />
+    </div>
+  );
+}
+
 export interface NavigationCategory {
   id: string;
   name: string;
@@ -286,16 +308,18 @@ export function CategoryNavigationBar({
       aria-label="Category Navigation"
       className={`relative w-full transition-all duration-200 select-none overflow-hidden ${
         isNativeApp
-          ? "bg-[#050402]"
+          ? "bg-[#FCF9F2]"
           : "bg-[#050402]/95 backdrop-blur-xl border-b border-amber-500/20"
       } ${
         isCollapsed
-          ? "py-1.5 border-b border-amber-500/25 shadow-md"
+          ? isNativeApp
+            ? "py-1.5 border-b border-[#E5C882] shadow-sm"
+            : "py-1.5 border-b border-amber-500/25 shadow-md"
           : "py-1.5"
       } ${className}`}
     >
       {/* Ambient Metallic Gold Silk Wave & Stardust Background */}
-      <LuxuryGoldWaveBackdrop />
+      {isNativeApp ? <AndroidCreamWaveBackdrop /> : <LuxuryGoldWaveBackdrop />}
 
       <div className="relative z-10 mx-auto w-full max-w-[1400px]">
         <div
@@ -323,7 +347,13 @@ export function CategoryNavigationBar({
                 ? "min-w-[56px] sm:min-w-[64px] px-2 py-1.5"
                 : "w-[62px] sm:w-[70px] md:w-[80px] pt-1 pb-2"
             } ${
-              isForYouActive ? "text-white" : "text-zinc-100 hover:text-amber-200"
+              isNativeApp
+                ? isForYouActive
+                  ? "text-[#14120F]"
+                  : "text-[#3B3326] hover:text-[#14120F]"
+                : isForYouActive
+                  ? "text-white"
+                  : "text-zinc-100 hover:text-amber-200"
             }`}
           >
             {/* Collapsible Icon Box */}
@@ -331,15 +361,23 @@ export function CategoryNavigationBar({
               aria-hidden={isCollapsed}
               style={iconBoxStyle}
               className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
-                isForYouActive ? ACTIVE_GOLD_BOX_CLASS : INACTIVE_GOLD_BOX_CLASS
+                isNativeApp
+                  ? isForYouActive
+                    ? ANDROID_ACTIVE_GOLD_BOX_CLASS
+                    : ANDROID_INACTIVE_GOLD_BOX_CLASS
+                  : isForYouActive
+                    ? ACTIVE_GOLD_BOX_CLASS
+                    : INACTIVE_GOLD_BOX_CLASS
               }`}
             >
               <ShoppingBag
                 size={isNativeApp ? 20 : 21}
-                className={`transition-transform stroke-[2.3] ${
-                  isForYouActive
-                    ? "text-white scale-105 drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
-                    : "text-white group-hover:text-amber-100"
+                className={`transition-transform stroke-[2.2] ${
+                  isNativeApp
+                    ? "text-[#14120F]"
+                    : isForYouActive
+                      ? "text-white scale-105 drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
+                      : "text-white group-hover:text-amber-100"
                 }`}
               />
             </div>
@@ -347,16 +385,22 @@ export function CategoryNavigationBar({
             {/* Category Name - ALWAYS VISIBLE in both Expanded and Collapsed states */}
             <span
               className={`text-[10px] sm:text-[11px] text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
-                isForYouActive
-                  ? "text-white font-extrabold"
-                  : "text-zinc-100 font-semibold group-hover:text-amber-200"
+                isNativeApp
+                  ? isForYouActive
+                    ? "text-[#14120F] font-extrabold"
+                    : "text-[#3B3326] font-semibold"
+                  : isForYouActive
+                    ? "text-white font-extrabold"
+                    : "text-zinc-100 font-semibold group-hover:text-amber-200"
               }`}
             >
               {forYouLabel}
             </span>
 
             {/* Active Indicator Underline - ALWAYS VISIBLE */}
-            {isForYouActive && <span className={GOLD_ACTIVE_UNDERLINE_CLASS} />}
+            {isForYouActive && (
+              <span className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS} />
+            )}
           </Link>
 
           {/* =================================================================== */}
@@ -372,7 +416,13 @@ export function CategoryNavigationBar({
                 ? "min-w-[56px] sm:min-w-[64px] px-2 py-1.5"
                 : "w-[62px] sm:w-[70px] md:w-[80px] pt-1 pb-2"
             } ${
-              pathname === "/new-drops" ? "text-amber-300" : "text-amber-400 hover:text-amber-300"
+              isNativeApp
+                ? pathname === "/new-drops"
+                  ? "text-[#14120F]"
+                  : "text-[#3B3326]"
+                : pathname === "/new-drops"
+                  ? "text-amber-300"
+                  : "text-amber-400 hover:text-amber-300"
             }`}
           >
             {/* Collapsible Icon Box */}
@@ -380,17 +430,31 @@ export function CategoryNavigationBar({
               aria-hidden={isCollapsed}
               style={iconBoxStyle}
               className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
-                pathname === "/new-drops"
-                  ? ACTIVE_GOLD_BOX_CLASS
-                  : `${INACTIVE_GOLD_BOX_CLASS} border-amber-500/40`
+                isNativeApp
+                  ? pathname === "/new-drops"
+                    ? ANDROID_ACTIVE_GOLD_BOX_CLASS
+                    : ANDROID_INACTIVE_GOLD_BOX_CLASS
+                  : pathname === "/new-drops"
+                    ? ACTIVE_GOLD_BOX_CLASS
+                    : `${INACTIVE_GOLD_BOX_CLASS} border-amber-500/40`
               }`}
             >
+              {isNativeApp && (
+                <span
+                  data-photo-overlay="true"
+                  className="absolute -top-1.5 -right-1.5 z-10 rounded-full bg-gradient-to-r from-[#EF4444] to-[#B91C1C] px-1.5 py-[1px] text-[7.5px] font-black uppercase tracking-wider text-white border border-[#FFFDF8] shadow-sm leading-tight"
+                >
+                  NEW
+                </span>
+              )}
               <Flame
                 size={isNativeApp ? 20 : 21}
-                className={`transition-transform stroke-[2.3] ${
-                  pathname === "/new-drops"
-                    ? "text-amber-300 scale-105 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)]"
-                    : "text-amber-400 group-hover:scale-110"
+                className={`transition-transform stroke-[2.2] ${
+                  isNativeApp
+                    ? "text-[#B45309]"
+                    : pathname === "/new-drops"
+                      ? "text-amber-300 scale-105 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)]"
+                      : "text-amber-400 group-hover:scale-110"
                 }`}
               />
             </div>
@@ -398,16 +462,22 @@ export function CategoryNavigationBar({
             {/* Label */}
             <span
               className={`text-[10px] sm:text-[11px] text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
-                pathname === "/new-drops"
-                  ? "text-amber-300 font-extrabold"
-                  : "text-amber-400 font-bold group-hover:text-amber-300"
+                isNativeApp
+                  ? pathname === "/new-drops"
+                    ? "text-[#14120F] font-extrabold"
+                    : "text-[#3B3326] font-bold"
+                  : pathname === "/new-drops"
+                    ? "text-amber-300 font-extrabold"
+                    : "text-amber-400 font-bold group-hover:text-amber-300"
               }`}
             >
-              ⚡ Drops
+              {isNativeApp ? "Drops" : "⚡ Drops"}
             </span>
 
             {/* Active Indicator Underline */}
-            {pathname === "/new-drops" && <span className={GOLD_ACTIVE_UNDERLINE_CLASS} />}
+            {pathname === "/new-drops" && (
+              <span className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS} />
+            )}
           </Link>
 
           {/* =================================================================== */}
@@ -435,15 +505,27 @@ export function CategoryNavigationBar({
                     ? "min-w-[56px] sm:min-w-[64px] px-2 py-1.5"
                     : "w-[62px] sm:w-[70px] md:w-[80px] pt-1 pb-2"
                 } ${
-                  isSelected ? "text-white" : "text-zinc-100 hover:text-amber-200"
+                  isNativeApp
+                    ? isSelected
+                      ? "text-[#14120F]"
+                      : "text-[#3B3326] hover:text-[#14120F]"
+                    : isSelected
+                      ? "text-white"
+                      : "text-zinc-100 hover:text-amber-200"
                 }`}
               >
                 {/* Collapsible Icon Box */}
                 <div
                   aria-hidden={isCollapsed}
                   style={iconBoxStyle}
-                  className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
-                    isSelected ? ACTIVE_GOLD_BOX_CLASS : INACTIVE_GOLD_BOX_CLASS
+                  className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 overflow-hidden ${
+                    isNativeApp
+                      ? isSelected
+                        ? ANDROID_ACTIVE_GOLD_BOX_CLASS
+                        : ANDROID_INACTIVE_GOLD_BOX_CLASS
+                      : isSelected
+                        ? ACTIVE_GOLD_BOX_CLASS
+                        : INACTIVE_GOLD_BOX_CLASS
                   }`}
                 >
                   {cat.image_url ? (
@@ -459,9 +541,11 @@ export function CategoryNavigationBar({
                       iconUrl={cat.icon_url}
                       size={isNativeApp ? 19 : 20}
                       className={
-                        isSelected
-                          ? "text-white stroke-[2.3] drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
-                          : "text-white stroke-[2.1] group-hover:text-amber-100"
+                        isNativeApp
+                          ? "text-[#14120F] stroke-[2.15]"
+                          : isSelected
+                            ? "text-white stroke-[2.3] drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
+                            : "text-white stroke-[2.1] group-hover:text-amber-100"
                       }
                     />
                   )}
@@ -471,16 +555,22 @@ export function CategoryNavigationBar({
                 <span
                   title={localizedName}
                   className={`text-[10px] sm:text-[11px] text-center tracking-tight truncate w-full px-0.5 leading-tight transition-colors ${
-                    isSelected
-                      ? "text-white font-extrabold"
-                      : "text-zinc-100 font-semibold group-hover:text-amber-200"
+                    isNativeApp
+                      ? isSelected
+                        ? "text-[#14120F] font-extrabold"
+                        : "text-[#3B3326] font-semibold"
+                      : isSelected
+                        ? "text-white font-extrabold"
+                        : "text-zinc-100 font-semibold group-hover:text-amber-200"
                   }`}
                 >
                   {localizedName}
                 </span>
 
                 {/* Active Indicator Underline - ALWAYS VISIBLE */}
-                {isSelected && <span className={GOLD_ACTIVE_UNDERLINE_CLASS} />}
+                {isSelected && (
+                  <span className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS} />
+                )}
               </Link>
             );
           })}

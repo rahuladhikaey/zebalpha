@@ -63,7 +63,11 @@ export function Footer() {
   const currentMeta = FOOTER_VIDEOS[currentVideoIndex];
 
   return (
-    <footer ref={footerRef} className="relative overflow-hidden border-t border-neutral-800/80 bg-black text-white selection:bg-white selection:text-black min-h-[480px]">
+    <footer
+      ref={footerRef}
+      data-keep-dark="true"
+      className="relative overflow-hidden border-t border-neutral-800/80 bg-black text-white selection:bg-white selection:text-black min-h-[480px]"
+    >
       
       {/* 1st Layer: Vivid Visible Background Video Player (Lazy-loaded) */}
       <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden z-0 bg-neutral-950">
@@ -87,7 +91,7 @@ export function Footer() {
       </div>
 
       {/* 2nd Layer: Main Footer Writing & Content Over Video */}
-      <div className="relative z-10 mx-auto w-full max-w-[1400px] px-4 pt-12 pb-24 sm:pb-6 sm:px-6 lg:px-8 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+      <div className="relative z-10 mx-auto w-full max-w-[1400px] px-4 pt-12 pb-28 sm:pb-6 sm:px-6 lg:px-8 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
         
         {/* Top Campaign & Audio Badge Bar */}
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/20 flex-wrap gap-3">

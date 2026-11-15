@@ -1,12 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import { useId } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { useIsNativeApp } from "@/lib/platform";
 
 /**
- * Luxury Metallic Gold & Obsidian "OUR PRODUCTS" section banner.
- * Rendered directly above the main catalog grid and below "Suggested for You".
+ * Luxury Metallic Gold & Obsidian "OUR PRODUCTS" section banner (Web)
+ * and Warm Ivory Cream & Champagne Gold banner (Android App).
  */
 export function OurProductsBanner() {
+  const isNativeApp = useIsNativeApp();
   const uid = useId().replace(/:/g, "");
   const ribbonGoldId = `opRibbonGold-${uid}`;
   const ribbonDeepId = `opRibbonDeep-${uid}`;
@@ -16,6 +20,37 @@ export function OurProductsBanner() {
   const teeShadowId = `opTeeShadow-${uid}`;
   const orbitGradId = `opOrbit-${uid}`;
   const orbitGlowId = `opOrbitGlow-${uid}`;
+
+  if (isNativeApp) {
+    return (
+      <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFFDF8] via-[#FAF0D1] to-[#FFFDF8] border border-[#E2BE66]/85 shadow-[0_8px_22px_rgba(166,124,28,0.10)] px-4 py-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#FFE68B] via-[#F2BF43] to-[#C88D0F] text-[#111111] shadow-sm">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-base font-black uppercase tracking-tight leading-none text-[#14120F]">
+                Our <span className="text-[#9A6503]">Products</span>
+              </h2>
+              <p className="mt-1 text-[11px] font-medium text-[#5C4E35] truncate">
+                Streetwear, polos, hoodies &amp; curated culture drops
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/customize"
+            aria-label="Create Custom Apparel Design"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-b from-[#FCE89C] via-[#EAB308] to-[#C68A12] border border-[#FFF5C8] px-3.5 py-2 text-[11px] font-black text-[#111111] shadow-sm active:scale-95 transition-transform"
+          >
+            <span>Create</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative mb-8 overflow-hidden rounded-2xl sm:rounded-3xl bg-[#050402] border border-amber-500/40 shadow-[0_14px_45px_rgba(0,0,0,0.9),0_0_28px_rgba(234,179,8,0.14)] px-4 py-4 sm:px-7 sm:py-5">

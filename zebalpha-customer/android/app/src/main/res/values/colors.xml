@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="zebalpha_notification_gold">#EAB308</color>
+    <color name="zebalpha_cream_bg">#FCF9F2</color>
+    <color name="zebalpha_bottom_cream">#FFFDF8</color>
 </resources>

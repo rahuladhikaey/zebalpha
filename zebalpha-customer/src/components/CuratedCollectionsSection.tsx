@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { CuratedCollection } from "@/lib/types";
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
+import { AndroidNewSeasonDropBanner } from "@/components/home/AndroidHomeTrustAndDrop";
 
 interface CuratedCollectionsSectionProps {
   initialCollections?: CuratedCollection[];
@@ -107,15 +108,32 @@ export function CuratedCollectionsSection({
   }
 
   return (
-    <section className="mt-10 sm:mt-14 relative select-none" id="curated-collections-section">
+    <section className={isNativeApp ? "mt-6 relative select-none" : "mt-10 sm:mt-14 relative select-none"} id="curated-collections-section">
       {/* 1. Header with Verified Badge */}
       <div className="flex items-center justify-between gap-4 mb-4 sm:mb-5">
-        <div className="flex items-center gap-2.5">
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
-            <span>Curated Collections</span>
-            <CheckCircle2 className={`w-5 h-5 ${isNativeApp ? "text-emerald-400 fill-emerald-500/20" : "text-violet-400 fill-violet-500/20"}`} />
-          </h2>
+        <div className="flex items-center gap-2">
+          {isNativeApp ? (
+            <h2 className="text-base sm:text-lg font-black text-[#14120F] tracking-tight uppercase flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#C68A12] fill-[#FDE047]" />
+              <span>Curated Collections</span>
+            </h2>
+          ) : (
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
+              <span>Curated Collections</span>
+              <CheckCircle2 className="w-5 h-5 text-violet-400 fill-violet-500/20" />
+            </h2>
+          )}
         </div>
+
+        {isNativeApp && (
+          <Link
+            href="/products"
+            className="inline-flex items-center gap-1 rounded-full bg-[#FFFDF8] border border-[#DFBE6F] px-3 py-1 text-[11px] font-bold text-[#14120F] shadow-sm active:scale-95"
+          >
+            <span>View All</span>
+            <ArrowRight className="w-3 h-3 text-[#8E6208]" />
+          </Link>
+        )}
       </div>
 
       {/* 2. 6-Item Row Structure: Row-level horizontal scroll on Phone & Tablet, standard grid on Desktop */}
@@ -125,29 +143,67 @@ export function CuratedCollectionsSection({
             key={`row-${rowIndex}`}
             className="w-full overflow-x-auto pb-2 pt-1 no-scrollbar scroll-smooth"
           >
-            <div className="flex lg:grid lg:grid-cols-6 gap-3 sm:gap-4 w-max lg:w-full">
+            <div className="flex lg:grid lg:grid-cols-6 gap-2.5 sm:gap-4 w-max lg:w-full">
               {group.map((item, idx) => {
                 const keyId = String(item.id || `${rowIndex}-${idx}`);
+
+                if (isNativeApp) {
+                  return (
+                    <Link
+                      key={keyId}
+                      href={item.href}
+                      aria-label={`Explore ${item.title} collection`}
+                      className="group relative flex flex-col items-center rounded-2xl bg-[#FFFDF8] border border-[#E5C882]/85 transition-all duration-300 active:scale-95 text-center overflow-hidden cursor-pointer p-1.5 w-[108px] sm:w-[126px] shrink-0 shadow-[0_6px_16px_rgba(166,124,28,0.09)] hover:border-[#C28D12]"
+                    >
+                      <div className="relative w-full aspect-square rounded-xl bg-gradient-to-b from-[#FAF3E1] to-[#F4E3B7] overflow-hidden flex items-center justify-center">
+                        {failedImages[keyId] ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center p-1">
+                            <Sparkles className="w-5 h-5 text-[#B8800C] mb-1" />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#3D3528] text-center truncate max-w-full">
+                              {item.title}
+                            </span>
+                          </div>
+                        ) : (
+                          <img
+                            src={item.image_url}
+                            alt={item.title}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={() => {
+                              setFailedImages((prev) => ({ ...prev, [keyId]: true }));
+                            }}
+                          />
+                        )}
+                        {/* Dark translucent frosted pill overlay inside image bottom */}
+                        <div
+                          data-photo-overlay="true"
+                          className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#1A1308]/90 via-[#2B200D]/75 to-transparent px-1.5 py-1.5"
+                        >
+                          <span className="block text-[10.5px] font-bold tracking-tight text-white truncate drop-shadow-sm">
+                            {item.title}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                }
 
                 return (
                   <Link
                     key={keyId}
                     href={item.href}
                     aria-label={`Explore ${item.title} collection`}
-                    className={`group relative flex flex-col items-center rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-2.5 sm:p-3 w-[126px] sm:w-[136px] lg:w-auto shrink-0 lg:shrink ${
-                      isNativeApp
-                        ? "hover:border-emerald-500/50 hover:bg-neutral-850 hover:shadow-[0_12px_30px_rgba(16,185,129,0.2)] shadow-lg"
-                        : "hover:border-violet-500/50 hover:bg-neutral-850 hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] shadow-lg"
-                    }`}
+                    className="group relative flex flex-col items-center rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 transition-all duration-300 transform hover:-translate-y-1.5 active:scale-95 text-center overflow-hidden cursor-pointer p-2.5 sm:p-3 w-[126px] sm:w-[136px] lg:w-auto shrink-0 lg:shrink hover:border-violet-500/50 hover:bg-neutral-850 hover:shadow-[0_12px_30px_rgba(139,92,246,0.18)] shadow-lg"
                   >
                     {/* Clean Highlight Shimmer */}
-                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b ${isNativeApp ? "from-emerald-500/10" : "from-violet-500/10"} to-transparent transition-opacity duration-300 pointer-events-none rounded-2xl sm:rounded-3xl`} />
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-b from-violet-500/10 to-transparent transition-opacity duration-300 pointer-events-none rounded-2xl sm:rounded-3xl" />
 
                     {/* 1:1 Aspect Ratio Curved Cover Image Box */}
-                    <div className={`relative w-full aspect-square rounded-xl sm:rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden ${isNativeApp ? "group-hover:border-emerald-500/40" : "group-hover:border-violet-500/40"} transition-all duration-300 shadow-inner p-1.5 sm:p-2`}>
+                    <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner p-1.5 sm:p-2">
                       {failedImages[keyId] ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900 rounded-lg sm:rounded-xl text-neutral-500 p-1">
-                          <Sparkles className={`w-5 h-5 ${isNativeApp ? "text-emerald-400" : "text-violet-400"} mb-1`} />
+                          <Sparkles className="w-5 h-5 text-violet-400 mb-1" />
                           <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-neutral-400 text-center truncate max-w-full">
                             {item.title}
                           </span>
@@ -177,6 +233,9 @@ export function CuratedCollectionsSection({
           </div>
         ))}
       </div>
+
+      {/* Android Secondary Promo Banner ("NEW SEASON DROP") below Curated Collections */}
+      {isNativeApp && <AndroidNewSeasonDropBanner />}
     </section>
   );
 }

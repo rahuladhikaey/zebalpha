@@ -30,8 +30,10 @@ import {
   X,
 } from "lucide-react";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
+import { useIsNativeApp } from "@/lib/platform";
 
 function CategoriesContent() {
+  const isNativeApp = useIsNativeApp();
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
@@ -187,7 +189,7 @@ function CategoriesContent() {
           {/* Header Title & Directory Badge */}
           <div className="mb-5 sm:mb-6">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-300 mb-2.5">
-              <Sparkles size={12} className="text-white" />
+              <Sparkles size={12} className={isNativeApp ? "text-[#C68A12]" : "text-white"} />
               <span>Shop by Category</span>
             </div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tight text-white">
@@ -199,7 +201,7 @@ function CategoriesContent() {
           </div>
 
           {/* Sticky Category Search Bar */}
-          <div className="sticky top-[60px] md:top-[68px] z-30 bg-black/95 backdrop-blur-xl py-2 mb-6">
+          <div className={`sticky z-30 backdrop-blur-xl py-2 mb-6 ${isNativeApp ? "top-[62px] bg-[#FCF9F2]/95" : "top-[60px] md:top-[68px] bg-black/95"}`}>
             <div className="relative w-full">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
@@ -253,6 +255,7 @@ function CategoriesContent() {
                           <CategoryCard
                             key={cat.id}
                             category={cat}
+                            isNativeApp={isNativeApp}
                             onSelect={() => handleSelectCategory(cat.id)}
                           />
                         ))}
@@ -357,6 +360,7 @@ function CategoriesContent() {
                         key={category.id}
                         category={category}
                         subCount={subCount}
+                        isNativeApp={isNativeApp}
                         onSelect={() => handleSelectCategory(category.id)}
                       />
                     );
@@ -376,7 +380,11 @@ function CategoriesContent() {
             <button
               type="button"
               onClick={handleBackToDirectory}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer shadow-sm group"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all cursor-pointer shadow-sm group ${
+                isNativeApp
+                  ? "bg-[#FFFDF8] hover:bg-[#FAF2DE] border-[#DFBE6F] text-[#14120F]"
+                  : "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300 hover:text-white"
+              }`}
             >
               <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
               <span>All Categories</span>
@@ -618,10 +626,12 @@ function CategoriesContent() {
 function CategoryCard({
   category,
   subCount,
+  isNativeApp = false,
   onSelect,
 }: {
   category: any;
   subCount?: number;
+  isNativeApp?: boolean;
   onSelect: () => void;
 }) {
   const hasValidAdminImage =
@@ -633,10 +643,20 @@ function CategoryCard({
     <button
       type="button"
       onClick={onSelect}
-      className="group relative flex flex-col overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800/80 p-3.5 sm:p-4 text-left transition-all hover:border-zinc-500 hover:bg-zinc-900/60 hover:shadow-2xl hover:scale-[1.02] cursor-pointer"
+      className={`group relative flex flex-col overflow-hidden rounded-2xl border p-3.5 sm:p-4 text-left transition-all hover:scale-[1.02] cursor-pointer ${
+        isNativeApp
+          ? "bg-[#FFFDF8] border-[#E5C882]/85 hover:border-[#C28D12] shadow-[0_8px_20px_rgba(166,124,28,0.09)]"
+          : "bg-zinc-950 border-zinc-800/80 hover:border-zinc-500 hover:bg-zinc-900/60 hover:shadow-2xl"
+      }`}
     >
       {/* Top Icon / Image Container */}
-      <div className="relative h-24 sm:h-28 w-full rounded-xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center overflow-hidden mb-3 group-hover:border-zinc-700 transition-colors">
+      <div
+        className={`relative h-24 sm:h-28 w-full rounded-xl border flex items-center justify-center overflow-hidden mb-3 transition-colors ${
+          isNativeApp
+            ? "bg-[#FAF3E1] border-[#EFE1BE] group-hover:border-[#C28D12]"
+            : "bg-zinc-900 border-zinc-800/80 group-hover:border-zinc-700"
+        }`}
+      >
         {hasValidAdminImage ? (
           <Image
             src={category.image_url}
@@ -651,7 +671,9 @@ function CategoryCard({
               iconKey={category.icon_key || category.icon}
               iconUrl={category.icon_url}
               size={32}
-              className="text-zinc-200 group-hover:text-white group-hover:scale-110 transition-all duration-200"
+              className={`group-hover:scale-110 transition-all duration-200 ${
+                isNativeApp ? "text-[#14120F]" : "text-zinc-200 group-hover:text-white"
+              }`}
             />
           </div>
         )}
@@ -660,25 +682,31 @@ function CategoryCard({
       {/* Category Info */}
       <div className="flex-1 flex flex-col justify-between">
         <div>
-          <h2 className="text-xs sm:text-sm font-black text-white uppercase tracking-tight group-hover:text-zinc-100 line-clamp-1">
+          <h2
+            className={`text-xs sm:text-sm font-black uppercase tracking-tight line-clamp-1 ${
+              isNativeApp ? "text-[#14120F]" : "text-white group-hover:text-zinc-100"
+            }`}
+          >
             {category.name}
           </h2>
           {category.description && (
-            <p className="text-[10px] sm:text-[11px] text-zinc-400 line-clamp-1 mt-0.5">
+            <p className={`text-[10px] sm:text-[11px] line-clamp-1 mt-0.5 ${isNativeApp ? "text-[#6B5D44]" : "text-zinc-400"}`}>
               {category.description}
             </p>
           )}
         </div>
 
-        <div className="mt-3 pt-2 border-t border-zinc-900 flex items-center justify-between">
-          <span className="text-[10px] font-bold text-zinc-400">
+        <div className={`mt-3 pt-2 border-t flex items-center justify-between ${isNativeApp ? "border-[#EFE1BE]" : "border-zinc-900"}`}>
+          <span className={`text-[10px] font-bold ${isNativeApp ? "text-[#8E6208]" : "text-zinc-400"}`}>
             {typeof subCount === "number" && subCount > 0
               ? `${subCount} Subcategories`
               : "Explore"}
           </span>
           <ChevronRight
             size={14}
-            className="text-zinc-400 group-hover:text-white group-hover:translate-x-0.5 transition-all"
+            className={`group-hover:translate-x-0.5 transition-all ${
+              isNativeApp ? "text-[#8E6208]" : "text-zinc-400 group-hover:text-white"
+            }`}
           />
         </div>
       </div>
