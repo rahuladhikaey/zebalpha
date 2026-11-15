@@ -194,8 +194,8 @@ export default function FloatingAssistant() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Do NOT render on Auth screens, Checkout, dedicated Assistant page, or during Onboarding
-  if (isExcludedRoute || isOnboardingContextPending || isLanguageModalOpen || isOnboardingDomActive) {
+  // Do NOT render on Android app (unified in center bottom nav), Auth screens, Checkout, Assistant page, or during Onboarding
+  if (isNativeApp || isExcludedRoute || isOnboardingContextPending || isLanguageModalOpen || isOnboardingDomActive) {
     return null;
   }
 

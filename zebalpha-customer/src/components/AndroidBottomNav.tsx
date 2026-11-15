@@ -121,21 +121,35 @@ export function AndroidBottomNav() {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   aria-label="Open Alpha AI Shopping Assistant"
-                  className="group relative flex h-full flex-col items-center justify-end pb-2 transition-transform duration-150 active:scale-95"
+                  className="group relative flex h-full flex-col items-center justify-end pb-1.5 transition-transform duration-150 active:scale-95"
                 >
                   <span
-                    className={`relative -mt-5 flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                    className={`relative -mt-5 flex h-[50px] w-[50px] items-center justify-center rounded-full border-2 p-[2.5px] transition-all duration-300 ${
                       active
-                        ? "border-[#FFFDF8] bg-gradient-to-br from-[#FEF08A] via-[#EAB308] to-[#A16207] text-[#111111] shadow-[0_6px_22px_rgba(217,119,6,0.45),0_0_0_3px_rgba(234,179,8,0.3)] scale-105"
-                        : "border-[#FFFDF8] bg-gradient-to-br from-[#FDE68A] via-[#F59E0B] to-[#C68A12] text-[#111111] shadow-[0_6px_18px_rgba(180,120,16,0.34)] group-hover:scale-105"
+                        ? "border-[#D97706] bg-gradient-to-br from-[#FEF08A] via-[#F5C542] to-[#C68A12] shadow-[0_6px_22px_rgba(217,119,6,0.45),0_0_0_3px_rgba(250,204,21,0.35)] scale-105"
+                        : "border-[#EAB308] bg-gradient-to-br from-[#FFFDF8] via-[#FCE694] to-[#EAB308] shadow-[0_6px_18px_rgba(180,120,16,0.30)] group-hover:scale-105"
                     }`}
                   >
-                    <IconComponent strokeWidth={2.25} className="h-[22px] w-[22px] text-[#111111]" />
+                    <span
+                      className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white border border-[#111111]/15 p-0.5"
+                    >
+                      <img
+                        src="/official-logo-sm.png"
+                        alt="Alpha AI"
+                        className="h-full w-full object-cover rounded-full"
+                      />
+                    </span>
+
+                    {/* Live green AI status dot */}
+                    <span className="pointer-events-none absolute -top-0.5 -right-0.5 z-10 flex h-3.5 w-3.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-[#FFFDF8] bg-emerald-500" />
+                    </span>
                   </span>
 
                   <span
                     className={`mt-1 text-[10.5px] leading-none tracking-tight transition-colors ${
-                      active ? "font-black text-[#9A6503]" : "font-bold text-[#292319]"
+                      active ? "font-black text-[#9A6503]" : "font-extrabold text-[#111111]"
                     }`}
                   >
                     {item.label}

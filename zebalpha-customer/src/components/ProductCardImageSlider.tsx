@@ -131,6 +131,7 @@ export function ProductCardImageSlider({
       {slideImages.length > 1 && (
         <>
           <button
+            data-photo-overlay="true"
             onClick={handlePrev}
             className="absolute left-2 top-1/2 -translate-y-1/2 z-30 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md opacity-0 group-hover/slider:opacity-100 transition-opacity hover:bg-white hover:text-black cursor-pointer shadow-md"
             aria-label="Previous image"
@@ -138,6 +139,7 @@ export function ProductCardImageSlider({
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
+            data-photo-overlay="true"
             onClick={handleNext}
             className="absolute right-2 top-1/2 -translate-y-1/2 z-30 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md opacity-0 group-hover/slider:opacity-100 transition-opacity hover:bg-white hover:text-black cursor-pointer shadow-md"
             aria-label="Next image"
@@ -149,7 +151,10 @@ export function ProductCardImageSlider({
 
       {/* Bottom E-commerce Slide Indicator Bars */}
       {slideImages.length > 1 && (
-        <div className="absolute bottom-2 inset-x-3 z-20 flex items-center justify-center gap-1.5 pointer-events-none">
+        <div
+          data-photo-overlay="true"
+          className="absolute bottom-2 inset-x-3 z-20 flex items-center justify-center gap-1.5 pointer-events-none"
+        >
           {slideImages.map((_, idx) => (
             <div
               key={idx}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useIsNativeApp } from "@/lib/platform";
 
 export interface EditorialItemData {
   id: string | number;
@@ -27,6 +28,7 @@ export function EditorialCard({
   rotateDeg = 0,
   scale = 1,
 }: EditorialCardProps) {
+  const isNativeApp = useIsNativeApp();
   const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
@@ -39,12 +41,24 @@ export function EditorialCard({
     >
       <Link
         href={item.href}
-        className="group relative block w-[170px] sm:w-[220px] md:w-[260px] lg:w-[280px] aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-900 border border-white/10 shadow-2xl transition-all duration-300 hover:border-amber-400/40"
+        className={`group relative block w-[170px] sm:w-[220px] md:w-[260px] lg:w-[280px] aspect-[3/4] rounded-2xl overflow-hidden transition-all duration-300 ${
+          isNativeApp
+            ? "bg-[#FAF2DE] border border-[#E4C988] shadow-[0_8px_22px_rgba(160,115,20,0.14)] hover:border-[#C28D12]"
+            : "bg-neutral-900 border border-white/10 shadow-2xl hover:border-amber-400/40"
+        }`}
       >
         {/* Loading Skeleton */}
         {!imageLoaded && (
-          <div className="absolute inset-0 bg-neutral-900 animate-pulse flex items-center justify-center">
-            <span className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase">
+          <div
+            className={`absolute inset-0 animate-pulse flex items-center justify-center ${
+              isNativeApp ? "bg-[#FAF2DE]" : "bg-neutral-900"
+            }`}
+          >
+            <span
+              className={`text-[9px] font-mono tracking-widest uppercase ${
+                isNativeApp ? "text-[#9A6503]" : "text-neutral-600"
+              }`}
+            >
               ZEBALPHA EDIT
             </span>
           </div>
@@ -64,10 +78,16 @@ export function EditorialCard({
         />
 
         {/* Minimal Bottom Dark Shadow Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity" />
+        <div
+          data-photo-overlay="true"
+          className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity"
+        />
 
         {/* Minimal Bottom Left Text Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 z-10 flex flex-col text-left space-y-0.5">
+        <div
+          data-photo-overlay="true"
+          className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 z-10 flex flex-col text-left space-y-0.5"
+        >
           {(() => {
             const isDuplicate = item.category?.trim().toUpperCase() === item.title?.trim().toUpperCase();
             const displayCategory = isDuplicate

@@ -122,24 +122,52 @@ export default function ProfileDashboard() {
 
       <section className="mx-auto max-w-2xl px-4 py-6 md:py-8 md:px-8">
         {/* Profile Card */}
-        <div className="rounded-[2.5rem] bg-zinc-950 shadow-2xl border border-zinc-800/90 animate-in fade-in zoom-in-95 duration-300 overflow-hidden mb-6">
-          <div className="h-32 sm:h-36 bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 border-b border-zinc-800/80 relative">
+        <div
+          className={`rounded-[2.5rem] border animate-in fade-in zoom-in-95 duration-300 overflow-hidden mb-6 ${
+            isNativeApp
+              ? "bg-[#FFFDF8] border-[#E4C988] shadow-[0_12px_32px_rgba(166,124,28,0.12)]"
+              : "bg-zinc-950 shadow-2xl border-zinc-800/90"
+          }`}
+        >
+          <div
+            className={`h-32 sm:h-36 border-b relative ${
+              isNativeApp
+                ? "bg-gradient-to-r from-[#FFFFFF] via-[#FCF3D4] to-[#F7E1A0] border-[#E4C988]"
+                : "bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 border-zinc-800/80"
+            }`}
+          >
             <div
-              className="absolute inset-0 bg-white/5 opacity-20"
+              className={`absolute inset-0 ${isNativeApp ? "opacity-35" : "bg-white/5 opacity-20"}`}
               style={{
-                backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+                backgroundImage: isNativeApp
+                  ? "radial-gradient(circle at 2px 2px, rgba(154,101,3,0.18) 1px, transparent 0)"
+                  : "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
                 backgroundSize: "20px 20px",
               }}
             />
 
             {/* Gold Coins Badge */}
-            <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-2xl bg-zinc-950/90 backdrop-blur-md px-3.5 py-1.5 border border-zinc-700 shadow-lg select-none">
-              <Coins className="h-4 w-4 text-amber-400" />
+            <div
+              className={`absolute top-4 right-4 z-10 flex items-center gap-2 rounded-2xl backdrop-blur-md px-3.5 py-1.5 border shadow-lg select-none ${
+                isNativeApp
+                  ? "bg-[#FFFDF8]/95 border-[#DFBE6F]"
+                  : "bg-zinc-950/90 border-zinc-700"
+              }`}
+            >
+              <Coins className={`h-4 w-4 ${isNativeApp ? "text-[#9A6503]" : "text-amber-400"}`} />
               <div className="text-left leading-none">
-                <span className="text-[7px] font-black uppercase tracking-widest text-zinc-400 block">
+                <span
+                  className={`text-[7px] font-black uppercase tracking-widest block ${
+                    isNativeApp ? "text-[#9A6503]" : "text-zinc-400"
+                  }`}
+                >
                   Reward Coins
                 </span>
-                <span className="text-[11px] font-black text-white whitespace-nowrap">
+                <span
+                  className={`text-[11px] font-black whitespace-nowrap ${
+                    isNativeApp ? "text-[#111111]" : "text-white"
+                  }`}
+                >
                   {hasApprovedCard ? "100 Coins" : "0 Coins"}
                 </span>
               </div>
@@ -148,7 +176,13 @@ export default function ProfileDashboard() {
 
           <div className="px-6 pb-6 md:px-8">
             <div className="relative -mt-14 flex flex-col items-center sm:flex-row sm:items-end gap-4">
-              <div className="flex h-24 w-24 sm:h-28 sm:w-28 shrink-0 items-center justify-center rounded-full border-4 border-black bg-zinc-900 text-4xl font-black text-white shadow-2xl z-10 overflow-hidden">
+              <div
+                className={`flex h-24 w-24 sm:h-28 sm:w-28 shrink-0 items-center justify-center rounded-full border-4 text-4xl font-black shadow-2xl z-10 overflow-hidden ${
+                  isNativeApp
+                    ? "border-[#FFFDF8] bg-[#FAF0D1] text-[#111111]"
+                    : "border-black bg-zinc-900 text-white"
+                }`}
+              >
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
                 ) : (
@@ -156,13 +190,25 @@ export default function ProfileDashboard() {
                 )}
               </div>
               <div className="text-center sm:text-left min-w-0 flex-1">
-                <span className="inline-flex rounded-full bg-white/10 border border-white/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-white mb-1.5">
+                <span
+                  className={`inline-flex rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest mb-1.5 ${
+                    isNativeApp
+                      ? "bg-[#FAF0D1] border-[#DFBE6F] text-[#111111]"
+                      : "bg-white/10 border-white/20 text-white"
+                  }`}
+                >
                   Verified Member ✦
                 </span>
-                <h1 className="text-xl sm:text-2xl font-black text-white leading-tight break-words">
+                <h1
+                  className={`text-xl sm:text-2xl font-black leading-tight break-words ${
+                    isNativeApp ? "text-[#111111]" : "text-white"
+                  }`}
+                >
                   {displayName}
                 </h1>
-                <p className="text-xs font-semibold text-zinc-400 truncate">{user.email}</p>
+                <p className={`text-xs font-semibold truncate ${isNativeApp ? "text-[#4A3F2B]" : "text-zinc-400"}`}>
+                  {user.email}
+                </p>
               </div>
             </div>
           </div>

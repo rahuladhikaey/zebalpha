@@ -158,7 +158,7 @@ export function AndroidNewSeasonDropBanner() {
               </div>
             ))
           ) : (
-            <div className="h-24 w-24 rounded-2xl border-2 border-[#DFBE6F] bg-[#14120F] p-2 shadow-lg flex items-center justify-center">
+            <div className="h-24 w-24 rounded-2xl border-2 border-[#DFBE6F] bg-[#FFFDF8] p-2 shadow-lg flex items-center justify-center">
               <img src="/official-logo-sm.png" alt="ZebAlpha Drop" className="h-full w-full object-cover rounded-xl" />
             </div>
           )}

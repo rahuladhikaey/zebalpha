@@ -90,8 +90,14 @@ export function RecommendationProductCard({
         </Link>
 
         {/* Subtle Dark Gradient Overlay at Bottom & Top for Readable Badges */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/50 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/65 to-transparent" />
+        <div
+          data-photo-overlay="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/50 to-transparent"
+        />
+        <div
+          data-photo-overlay="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/65 to-transparent"
+        />
 
         {/* Bestseller / Badge Indicator (Only when real DB qualifies) */}
         {(product.is_bestseller || product.badge_label) && (

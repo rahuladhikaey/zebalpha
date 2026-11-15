@@ -5,6 +5,7 @@ import { EditorialHeading } from "./EditorialHeading";
 import { EditorialCarousel } from "./EditorialCarousel";
 import { EditorialItemData } from "./EditorialCard";
 import { EditorialCard } from "@/lib/types";
+import { useIsNativeApp } from "@/lib/platform";
 
 interface ZebalphaEditorialProps {
   initialEditorialCards?: EditorialCard[];
@@ -13,6 +14,7 @@ interface ZebalphaEditorialProps {
 export function ZebalphaEditorial({
   initialEditorialCards = [],
 }: ZebalphaEditorialProps) {
+  const isNativeApp = useIsNativeApp();
   // Map ONLY active, real admin-managed editorial cards from the database
   const editorialItems = useMemo<EditorialItemData[]>(() => {
     if (!initialEditorialCards || initialEditorialCards.length === 0) {
@@ -40,7 +42,9 @@ export function ZebalphaEditorial({
   return (
     <section
       id="zebalpha-editorial-section"
-      className="my-10 sm:my-16 relative w-full overflow-hidden text-white bg-transparent"
+      className={`my-10 sm:my-16 relative w-full overflow-hidden bg-transparent ${
+        isNativeApp ? "text-[#111111]" : "text-white"
+      }`}
     >
       {/* 1. EDITORIAL HEADER */}
       <EditorialHeading

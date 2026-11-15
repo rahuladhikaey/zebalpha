@@ -19,6 +19,7 @@ import { evaluateProductTryOnEligibility } from "@/shared/constants/tryOnEligibi
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { getProductDisplayPricing } from "@/lib/productPricing";
+import { useIsNativeApp } from "@/lib/platform";
 export default function ProductDetailTemplate({
   product,
   relatedProducts = [],
@@ -28,6 +29,7 @@ export default function ProductDetailTemplate({
   relatedProducts?: Product[];
   relatedProductsSlot?: React.ReactNode;
 }) {
+  const isNativeApp = useIsNativeApp();
   // 1. Normalize packages from product
   const normalizedPackages = useMemo(() => {
     if (!product.packages || product.packages.length === 0) return [];
@@ -1311,15 +1313,23 @@ export default function ProductDetailTemplate({
                     <div className="flex flex-col">
                       {pPricing.hasDiscount && (
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] font-bold text-zinc-500 line-through">
+                          <span className={`text-[10px] font-bold line-through ${isNativeApp ? "text-[#857860]" : "text-zinc-500"}`}>
                             ₹{pPricing.mrp}
                           </span>
-                          <span className="text-[9px] font-extrabold text-white bg-zinc-900 border border-zinc-800 px-1 py-0.5 rounded">
+                          <span
+                            className={`text-[9px] font-extrabold px-1 py-0.5 rounded border ${
+                              isNativeApp
+                                ? "text-[#111111] bg-[#FAF0D1] border-[#E4C988]"
+                                : "text-white bg-zinc-900 border-zinc-800"
+                            }`}
+                          >
                             {pPricing.discountPercent}% OFF
                           </span>
                         </div>
                       )}
-                      <span className="text-sm font-black text-white">₹{pPricing.price}</span>
+                      <span className={`text-sm font-black ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                        ₹{pPricing.price}
+                      </span>
                     </div>
                   </div>
                 </Link>
@@ -1331,7 +1341,13 @@ export default function ProductDetailTemplate({
       </div>
 
       {/* STICKY BOTTOM BAR FOR MOBILE */}
-      <div className="fixed bottom-0 left-0 right-0 z-[60] flex h-16 w-full items-center bg-black/95 backdrop-blur-md border-t border-zinc-800 lg:hidden shadow-2xl px-3 gap-2">
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-[60] flex h-16 w-full items-center backdrop-blur-md border-t lg:hidden shadow-2xl px-3 gap-2 ${
+          isNativeApp
+            ? "bg-[#FFFDF8]/95 border-[#DFBE6F]"
+            : "bg-black/95 border-zinc-800"
+        }`}
+      >
         {isUpcomingDrop ? (
           <div className="flex-1 flex gap-2 h-11">
             <button
@@ -1339,7 +1355,11 @@ export default function ProductDetailTemplate({
               onClick={handleNotifyDrop}
               className={`flex-1 flex items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                 isDropNotified
-                  ? "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
+                  ? isNativeApp
+                    ? "bg-emerald-100 text-emerald-900 border border-emerald-400 cursor-default"
+                    : "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
+                  : isNativeApp
+                  ? "bg-gradient-to-r from-[#FDE047] via-[#EAB308] to-[#C68A12] text-[#111111] shadow-sm"
                   : "bg-white text-black"
               }`}
             >
@@ -1347,7 +1367,11 @@ export default function ProductDetailTemplate({
             </button>
             <Link
               href="/new-drops"
-              className="px-3 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-[10px] font-black text-white"
+              className={`px-3 flex items-center justify-center rounded-xl border text-[10px] font-black ${
+                isNativeApp
+                  ? "bg-[#FAF0D1] border-[#DFBE6F] text-[#111111]"
+                  : "bg-zinc-900 border-zinc-800 text-white"
+              }`}
             >
               Drops ⚡
             </Link>
@@ -1357,10 +1381,14 @@ export default function ProductDetailTemplate({
             {tryOnEligibility.isEligible && (
               <Link
                 href={tryOnUrl}
-                className="flex flex-col items-center justify-center px-2.5 h-full rounded-xl bg-gradient-to-r from-zinc-900 to-zinc-850 border border-zinc-700/80 text-white text-[9px] font-black uppercase tracking-wider hover:border-white transition-all shadow-md active:scale-95 shrink-0"
+                className={`flex flex-col items-center justify-center px-2.5 h-full rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95 shrink-0 ${
+                  isNativeApp
+                    ? "bg-[#FAF0D1] border-[#DFBE6F] text-[#111111] hover:border-[#9A6503]"
+                    : "bg-gradient-to-r from-zinc-900 to-zinc-850 border-zinc-700/80 text-white hover:border-white"
+                }`}
                 aria-label="Virtual Try-On"
               >
-                <Sparkles size={13} className="text-amber-400 animate-pulse" />
+                <Sparkles size={13} className={`${isNativeApp ? "text-[#9A6503]" : "text-amber-400"} animate-pulse`} />
                 <span className="mt-0.5 leading-none">Try On</span>
               </Link>
             )}
@@ -1369,18 +1397,33 @@ export default function ProductDetailTemplate({
                 product={computedProduct}
                 variant="outline"
                 onBeforeAdd={handleValidateAndProceed}
-                className="flex h-full items-center justify-center rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors border border-zinc-800 cursor-pointer"
+                className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border cursor-pointer ${
+                  isNativeApp
+                    ? "bg-[#FAF0D1] text-[#111111] border-[#DFBE6F] hover:bg-[#F3E2B3]"
+                    : "bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-800"
+                }`}
               />
               <BuyNowButton
                 product={computedProduct}
                 onBeforeBuy={handleValidateAndProceed}
-                className="flex h-full items-center justify-center rounded-xl bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors cursor-pointer"
+                className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer ${
+                  isNativeApp
+                    ? "bg-gradient-to-r from-[#FDE047] via-[#EAB308] to-[#C68A12] text-[#111111] shadow-sm"
+                    : "bg-white text-black hover:bg-zinc-200"
+                }`}
               />
             </div>
           </div>
         ) : (
           <div className="flex-1 h-11">
-            <button disabled className="flex h-full w-full items-center justify-center rounded-xl bg-zinc-900 text-[10px] font-black uppercase tracking-widest text-zinc-500 border border-zinc-800 cursor-not-allowed">
+            <button
+              disabled
+              className={`flex h-full w-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest border cursor-not-allowed ${
+                isNativeApp
+                  ? "bg-[#FAF0D1] text-[#6B5A3C] border-[#E4C988]"
+                  : "bg-zinc-900 text-zinc-500 border-zinc-800"
+              }`}
+            >
               Out of Stock
             </button>
           </div>

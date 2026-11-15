@@ -24,29 +24,39 @@ interface RecommendationCarouselShellProps {
 }
 
 export function RecommendationCarouselSkeleton({ title = "Suggested for You" }: { title?: string }) {
+  const isNativeApp = useIsNativeApp();
+
   return (
     <section
       aria-label={title}
-      className="my-10 rounded-3xl bg-gradient-to-b from-[#070b09] via-[#050505] to-black border border-emerald-500/20 p-4 sm:p-6 shadow-[0_12px_40px_rgba(0,0,0,0.75)]"
+      className={`my-10 rounded-3xl border p-4 sm:p-6 ${
+        isNativeApp
+          ? "bg-gradient-to-b from-[#FFFFFF] via-[#FDF6DC] to-[#FAF0D1] border-[#E4C988] shadow-[0_12px_32px_rgba(166,124,28,0.12)]"
+          : "bg-gradient-to-b from-[#070b09] via-[#050505] to-black border-emerald-500/20 shadow-[0_12px_40px_rgba(0,0,0,0.75)]"
+      }`}
     >
       <div className="flex items-center justify-between mb-5">
         <div className="space-y-2">
-          <div className="h-6 w-48 rounded-lg bg-zinc-800/80 animate-pulse" />
-          <div className="h-3.5 w-64 rounded-md bg-zinc-900 animate-pulse" />
+          <div className={`h-6 w-48 rounded-lg animate-pulse ${isNativeApp ? "bg-[#F3E2B3]" : "bg-zinc-800/80"}`} />
+          <div className={`h-3.5 w-64 rounded-md animate-pulse ${isNativeApp ? "bg-[#FAF0D1]" : "bg-zinc-900"}`} />
         </div>
-        <div className="h-8 w-24 rounded-full bg-zinc-900 animate-pulse" />
+        <div className={`h-8 w-24 rounded-full animate-pulse ${isNativeApp ? "bg-[#FAF0D1]" : "bg-zinc-900"}`} />
       </div>
       <div className="flex gap-3 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className="w-[46%] sm:w-[31%] md:w-[23.5%] lg:w-[19.2%] shrink-0 rounded-2xl bg-zinc-950 border border-zinc-800/80 p-2.5 space-y-3"
+            className={`w-[46%] sm:w-[31%] md:w-[23.5%] lg:w-[19.2%] shrink-0 rounded-2xl border p-2.5 space-y-3 ${
+              isNativeApp
+                ? "bg-[#FFFDF8] border-[#E4C988]"
+                : "bg-zinc-950 border-zinc-800/80"
+            }`}
           >
-            <div className="aspect-[4/5] w-full rounded-xl bg-zinc-900 animate-pulse" />
-            <div className="h-3 w-16 rounded bg-zinc-800 animate-pulse" />
-            <div className="h-4 w-full rounded bg-zinc-800 animate-pulse" />
-            <div className="h-4 w-24 rounded bg-zinc-800 animate-pulse" />
-            <div className="h-9 w-full rounded-xl bg-zinc-900 animate-pulse" />
+            <div className={`aspect-[4/5] w-full rounded-xl animate-pulse ${isNativeApp ? "bg-[#FAF0D1]" : "bg-zinc-900"}`} />
+            <div className={`h-3 w-16 rounded animate-pulse ${isNativeApp ? "bg-[#EAD49C]" : "bg-zinc-800"}`} />
+            <div className={`h-4 w-full rounded animate-pulse ${isNativeApp ? "bg-[#F3E2B3]" : "bg-zinc-800"}`} />
+            <div className={`h-4 w-24 rounded animate-pulse ${isNativeApp ? "bg-[#F3E2B3]" : "bg-zinc-800"}`} />
+            <div className={`h-9 w-full rounded-xl animate-pulse ${isNativeApp ? "bg-[#FAF0D1]" : "bg-zinc-900"}`} />
           </div>
         ))}
       </div>

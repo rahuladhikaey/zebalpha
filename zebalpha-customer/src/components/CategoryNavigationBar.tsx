@@ -260,7 +260,7 @@ export function CategoryNavigationBar({
     return (
       <div
         className={`w-full py-2.5 px-3 md:px-6 ${
-          isNativeApp ? "bg-[#050402]" : "bg-[#050402]/95 border-b border-amber-500/20"
+          isNativeApp ? "bg-[#FCF9F2]" : "bg-[#050402]/95 border-b border-amber-500/20"
         } ${className}`}
       >
         <div className="flex items-center gap-3 overflow-hidden no-scrollbar animate-pulse">
@@ -269,8 +269,18 @@ export function CategoryNavigationBar({
               key={i}
               className="flex flex-col items-center gap-1.5 shrink-0 w-[64px] sm:w-[72px]"
             >
-              <div className="w-11 h-11 rounded-2xl bg-[#120e07] border border-amber-500/20" />
-              <div className="w-12 h-2.5 bg-[#1a140a] rounded" />
+              <div
+                className={`w-11 h-11 rounded-2xl border ${
+                  isNativeApp
+                    ? "bg-[#FAF0D1] border-[#E4C988]"
+                    : "bg-[#120e07] border-amber-500/20"
+                }`}
+              />
+              <div
+                className={`w-12 h-2.5 rounded ${
+                  isNativeApp ? "bg-[#F3E2B3]" : "bg-[#1a140a]"
+                }`}
+              />
             </div>
           ))}
         </div>

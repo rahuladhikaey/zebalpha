@@ -271,6 +271,7 @@ export default function AlphaAssistantPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
               <span
+                data-keep-dark={isNativeApp ? "true" : undefined}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider ${isNativeApp
                   ? "bg-[#111111] text-[#F3DB91]"
                   : "border border-[#D4AF37]/40 bg-[#D4AF37]/15 text-[#F3DB91]"

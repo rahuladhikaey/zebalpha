@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { CreditCard, Mail, Sparkles, Shield, ArrowUpRight, Volume2, VolumeX, Flame, Store } from "lucide-react";
 import Link from "next/link";
+import { useIsNativeApp } from "@/lib/platform";
 
 const FOOTER_VIDEOS = [
   {
@@ -13,6 +14,7 @@ const FOOTER_VIDEOS = [
 ];
 
 export function Footer() {
+  const isNativeApp = useIsNativeApp();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
@@ -21,7 +23,7 @@ export function Footer() {
 
   // Lazy load video only when footer is near viewport (eliminates 4.2MB initial payload)
   useEffect(() => {
-    if (!footerRef.current) return;
+    if (isNativeApp || !footerRef.current) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -33,24 +35,24 @@ export function Footer() {
     );
     observer.observe(footerRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [isNativeApp]);
 
   // Auto-cycle background videos every 12 seconds
   useEffect(() => {
-    if (!shouldLoadVideo) return;
+    if (isNativeApp || !shouldLoadVideo) return;
     const interval = setInterval(() => {
       setCurrentVideoIndex((prev) => (prev + 1) % FOOTER_VIDEOS.length);
     }, 12000);
     return () => clearInterval(interval);
-  }, [shouldLoadVideo]);
+  }, [shouldLoadVideo, isNativeApp]);
 
   // Update video src and play when currentVideoIndex changes
   useEffect(() => {
-    if (shouldLoadVideo && videoRef.current) {
+    if (!isNativeApp && shouldLoadVideo && videoRef.current) {
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(() => {});
     }
-  }, [currentVideoIndex, shouldLoadVideo]);
+  }, [currentVideoIndex, shouldLoadVideo, isNativeApp]);
 
   const toggleMute = () => {
     const nextMuted = !isMuted;
@@ -61,6 +63,88 @@ export function Footer() {
   };
 
   const currentMeta = FOOTER_VIDEOS[currentVideoIndex];
+
+  if (isNativeApp) {
+    return (
+      <footer className="relative overflow-hidden border-t border-[#E4C988]/85 bg-gradient-to-b from-[#FFFFFF] via-[#FDF6DC] to-[#F9ECC0] text-[#111111]">
+        <div className="mx-auto w-full max-w-[1400px] px-4 pt-8 pb-28 sm:px-6">
+          {/* Brand Intro */}
+          <Link href="/" className="inline-flex items-center gap-3 group">
+            <div className="relative h-10 w-10 rounded-full overflow-hidden bg-[#111111] flex items-center justify-center p-0.5 border border-[#DFBE6F] shadow-sm">
+              <img
+                src="/official-logo-sm.png"
+                alt="ZebAlpha Logo"
+                className="h-full w-full object-cover rounded-full"
+              />
+            </div>
+            <div>
+              <span className="text-xl font-black tracking-[0.14em] uppercase text-[#111111]">
+                ZebAlpha
+              </span>
+              <span className="block text-[10px] font-bold tracking-widest text-[#9A6503]">
+                Indian E-Commerce Marketplace
+              </span>
+            </div>
+          </Link>
+
+          <p className="mt-3 text-xs leading-5 text-[#4A3F2B] font-medium">
+            ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal.
+          </p>
+
+          <div className="mt-4 grid grid-cols-2 gap-2 max-w-md w-full">
+            <span className="flex items-center justify-center text-center rounded-full border border-[#E4C988] bg-[#FFFDF8] px-3 py-1.5 font-black uppercase tracking-wider text-[10px] text-[#111111] shadow-sm">
+              ✦ Kolkata, India
+            </span>
+            <span className="flex items-center justify-center text-center rounded-full border border-[#E4C988] bg-[#FFFDF8] px-3 py-1.5 font-black uppercase tracking-wider text-[10px] text-[#111111] shadow-sm">
+              ✦ 0% Commission
+            </span>
+            <span className="flex items-center justify-center text-center rounded-full border border-[#E4C988] bg-[#FFFDF8] px-3 py-1.5 font-black uppercase tracking-wider text-[10px] text-[#111111] shadow-sm">
+              ✦ Order Accuracy
+            </span>
+            <span className="flex items-center justify-center text-center rounded-full border border-[#E4C988] bg-[#FFFDF8] px-3 py-1.5 font-black uppercase tracking-wider text-[10px] text-[#111111] shadow-sm">
+              ✦ Pan-India Delivery
+            </span>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-4 pt-5 border-t border-[#E4C988]/70 text-xs font-bold text-[#111111]">
+            <div className="space-y-2">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9A6503]">Shop</h3>
+              <ul className="space-y-1.5">
+                <li><Link href="/products" className="text-[#111111] hover:text-[#9A6503]">All Products</Link></li>
+                <li><Link href="/categories" className="text-[#111111] hover:text-[#9A6503]">Categories</Link></li>
+                <li><Link href="/about" className="text-[#111111] hover:text-[#9A6503]">About ZebAlpha</Link></li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9A6503]">Support</h3>
+              <ul className="space-y-1.5">
+                <li><Link href="/profile/orders" className="text-[#111111] hover:text-[#9A6503]">Track Order</Link></li>
+                <li><Link href="/contact" className="text-[#111111] hover:text-[#9A6503]">Help Desk</Link></li>
+                <li><Link href="/return-policy" className="text-[#111111] hover:text-[#9A6503]">Return Policy</Link></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-[#E4C988]/70 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-[#4A3F2B]">
+            <p className="text-[#111111]">© 2026 ZebAlpha. All rights reserved.</p>
+            <div className="flex items-center gap-3">
+              <a
+                href="https://www.instagram.com/zebalpha_official?psln=MW5jZHU3YjF0M2x3eg=="
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-[#9A6503]"
+              >
+                @zebalpha_official
+              </a>
+              <Link href="mailto:support@zebalpha.shop" className="font-bold text-[#111111]">
+                support@zebalpha.shop
+              </Link>
+            </div>
+          </div>
+        </div>
+      </footer>
+    );
+  }
 
   return (
     <footer

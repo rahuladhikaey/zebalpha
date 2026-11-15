@@ -261,7 +261,10 @@ export function BannerCarousel() {
               </div>
 
               {/* Gentle bottom shadow so progress indicator dots remain crystal clear */}
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none rounded-b-2xl sm:rounded-b-3xl md:rounded-b-[2.5rem]" />
+              <div
+                data-photo-overlay="true"
+                className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none rounded-b-2xl sm:rounded-b-3xl md:rounded-b-[2.5rem]"
+              />
             </SlideWrapper>
           );
         })}
