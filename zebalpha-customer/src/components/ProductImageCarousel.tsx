@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
+import { useIsNativeApp } from "@/lib/platform";
 
 export default function ProductImageCarousel({
   images,
   productName,
+  topRightAction,
 }: {
   images: string[];
   productName: string;
+  topRightAction?: React.ReactNode;
 }) {
+  const isNativeApp = useIsNativeApp();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const safeImages = Array.isArray(images) ? images.filter(Boolean) : [];
@@ -122,7 +126,11 @@ export default function ProductImageCarousel({
 
       {/* Main Carousel Container */}
       <div
-        className="relative overflow-hidden rounded-[2.5rem] bg-zinc-950 border border-zinc-800 shadow-2xl"
+        className={`relative overflow-hidden rounded-3xl sm:rounded-[2.5rem] border shadow-2xl ${
+          isNativeApp
+            ? "bg-white border-[#E4C988] shadow-[0_10px_28px_-14px_rgba(160,115,20,0.22)]"
+            : "bg-zinc-950 border-zinc-800"
+        }`}
         onMouseDown={onStart}
         onMouseMove={onMove}
         onMouseUp={onEnd}
@@ -131,6 +139,18 @@ export default function ProductImageCarousel({
         onTouchMove={onMove}
         onTouchEnd={onEnd}
       >
+        {/* Top-Right Photo Action Slot (Flipkart-style Wishlist Heart overlay) */}
+        {topRightAction && (
+          <div
+            data-photo-overlay="true"
+            className="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 z-30"
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            {topRightAction}
+          </div>
+        )}
+
         {/* Sliding Track */}
         <div
           ref={sliderRef}
@@ -146,7 +166,11 @@ export default function ProductImageCarousel({
 
             return (
               <div key={idx} className="flex-none w-full p-1 sm:p-2">
-                <div className="relative overflow-hidden rounded-[2rem] bg-zinc-950 flex items-center justify-center w-full aspect-[3/4] min-h-[380px] sm:min-h-[500px] md:min-h-[600px] max-h-[750px]">
+                <div
+                  className={`relative overflow-hidden rounded-[1.35rem] sm:rounded-[2rem] flex items-center justify-center w-full aspect-square sm:aspect-[4/5] lg:aspect-[3/4] min-h-[290px] sm:min-h-[440px] md:min-h-[540px] max-h-[680px] ${
+                    isNativeApp ? "bg-[#FFFDF8]" : "bg-zinc-950"
+                  }`}
+                >
                   {isVisibleOrAdjacent ? (
                     <img
                       src={optimizedSrc || "/placeholder.jpg"}
@@ -157,7 +181,11 @@ export default function ProductImageCarousel({
                       className="h-full w-full object-contain transition-transform duration-300"
                     />
                   ) : (
-                    <div className="w-full h-full bg-zinc-900/40 animate-pulse" />
+                    <div
+                      className={`w-full h-full animate-pulse ${
+                        isNativeApp ? "bg-[#FAF0D1]/60" : "bg-zinc-900/40"
+                      }`}
+                    />
                   )}
                 </div>
               </div>
@@ -171,27 +199,34 @@ export default function ProductImageCarousel({
         <>
           <button
             onClick={handlePrev}
-            className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-black/80 backdrop-blur-xl border border-white/20 shadow-xl hover:bg-black transition-all hover:scale-110 active:scale-95 group cursor-pointer"
+            data-photo-overlay="true"
+            className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 z-20 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-black/75 backdrop-blur-xl border border-white/20 shadow-xl hover:bg-black transition-all hover:scale-110 active:scale-95 group cursor-pointer"
           >
             <ChevronLeft className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
           </button>
 
           <button
             onClick={handleNext}
-            className="absolute right-6 top-1/2 -translate-y-1/2 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-black/80 backdrop-blur-xl border border-white/20 shadow-xl hover:bg-black transition-all hover:scale-110 active:scale-95 group cursor-pointer"
+            data-photo-overlay="true"
+            className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-black/75 backdrop-blur-xl border border-white/20 shadow-xl hover:bg-black transition-all hover:scale-110 active:scale-95 group cursor-pointer"
           >
             <ChevronRight className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
           </button>
 
-          <div className="flex items-center justify-center gap-2 mt-8">
+          <div className="flex items-center justify-center gap-2 mt-3 sm:mt-5">
             {Array.from({ length: totalSlides }).map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentIndex(idx)}
-                className={`transition-all duration-500 rounded-full ${idx === currentIndex
-                    ? "bg-white h-2 w-10 shadow-lg shadow-white/20"
-                    : "bg-zinc-700 h-2 w-2 hover:bg-zinc-500"
-                  }`}
+                className={`transition-all duration-500 rounded-full ${
+                  idx === currentIndex
+                    ? isNativeApp
+                      ? "bg-[#D97706] h-2 w-8 shadow-sm"
+                      : "bg-white h-2 w-10 shadow-lg shadow-white/20"
+                    : isNativeApp
+                      ? "bg-[#D4A017]/35 h-2 w-2 hover:bg-[#D97706]/70"
+                      : "bg-zinc-700 h-2 w-2 hover:bg-zinc-500"
+                }`}
               />
             ))}
           </div>
@@ -199,12 +234,20 @@ export default function ProductImageCarousel({
       )}
 
       {/* Footer Info */}
-      <div className="mt-6 flex items-center justify-between px-2 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+      <div
+        className={`mt-2 sm:mt-3.5 flex items-center justify-between px-1.5 text-[10px] font-black uppercase tracking-widest ${
+          isNativeApp ? "text-[#4A3F2B]" : "text-zinc-400"
+        }`}
+      >
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <div
+            className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+              isNativeApp ? "bg-[#D97706]" : "bg-white"
+            }`}
+          />
           <span>Interactive Gallery</span>
         </div>
-        <span className="text-zinc-500">
+        <span className={isNativeApp ? "text-[#6B5B3E]" : "text-zinc-500"}>
           Slide to explore
         </span>
       </div>

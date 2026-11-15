@@ -17,7 +17,13 @@ export function WishlistButton({ product, className = "" }: { product: Product; 
       className={`group flex items-center justify-center transition-all duration-300 ${className}`}
       aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
     >
-      <div className={`flex items-center justify-center rounded-full p-2.5 transition-all duration-300 ${isWishlisted ? "bg-rose-50 text-rose-500" : "bg-white/80 text-slate-400 backdrop-blur-sm hover:bg-white hover:text-rose-400 shadow-sm"}`}>
+      <div
+        className={`flex items-center justify-center rounded-full p-2.5 transition-all duration-300 shadow-md ${
+          isWishlisted
+            ? "bg-rose-50 text-rose-500 border border-rose-200/80"
+            : "bg-white/90 text-slate-600 backdrop-blur-md border border-black/10 hover:bg-white hover:text-rose-500"
+        }`}
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"

@@ -813,33 +813,31 @@ export default function ProductDetailTemplate({
         </div>
       )}
 
-      <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 lg:py-12">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-start">
+      <div className="mx-auto max-w-[1440px] px-3.5 pt-2.5 pb-6 md:px-8 lg:py-10">
+        <div className="grid grid-cols-1 gap-3.5 sm:gap-6 lg:gap-12 lg:grid-cols-12 lg:items-start">
 
           {/* LEFT COLUMN: Interactive Image Carousel */}
           <div className="lg:col-span-7 lg:sticky lg:top-24">
-            <div className="flex flex-col gap-6">
-              {/* Image Carousel with Slide Controls */}
-              <ProductImageCarousel images={images} productName={product.name} />
-
-              {/* Wishlist Button */}
-              <div className="flex justify-end">
-                <WishlistButton product={product} />
-              </div>
-
+            <div className="flex flex-col gap-2">
+              {/* Image Carousel with Flipkart-style Top-Right Wishlist Button */}
+              <ProductImageCarousel
+                images={images}
+                productName={product.name}
+                topRightAction={<WishlistButton product={product} />}
+              />
             </div>
           </div>
 
           {/* RIGHT COLUMN: Product Info */}
-          <div className="lg:col-span-5 space-y-10">
+          <div className="lg:col-span-5 space-y-3.5 sm:space-y-5 lg:space-y-8">
             {/* Breadcrumbs */}
-            <nav className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest">
+            <nav className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-zinc-400 uppercase tracking-widest">
               <span>Home</span> <ChevronRight size={12} aria-hidden="true" />
               <span>{product.category_name || "Products"}</span> <ChevronRight size={12} aria-hidden="true" />
               <span className="text-white truncate text-[10px] sm:text-xs">{product.name}</span>
             </nav>
 
-            <div className="space-y-4">
+            <div className="space-y-1.5 sm:space-y-2.5">
               {isNewDrop && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
@@ -856,10 +854,10 @@ export default function ProductDetailTemplate({
                 </div>
               )}
 
-              <span className="text-xs font-black tracking-widest text-zinc-400 uppercase">
+              <span className="block text-[11px] sm:text-xs font-black tracking-widest text-zinc-400 uppercase">
                 {product.brand || "ZEBALPHA"}
               </span>
-              <h1 className="text-2xl font-bold text-white md:text-3xl leading-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-white md:text-3xl leading-snug">
                 {product.name}
               </h1>
             </div>
@@ -987,8 +985,8 @@ export default function ProductDetailTemplate({
               </div>
             )}
 
-            {/* Interactive Product Details Tabs (Matching Picture 1) */}
-            <div className="pt-6 border-t border-zinc-800 space-y-4">
+            {/* Interactive Product Details Tabs */}
+            <div className="pt-3.5 sm:pt-5 border-t border-zinc-800 space-y-3 sm:space-y-4">
               {/* Pill Tabs Header */}
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
                 {sanitizedSpecs.length > 0 && (
@@ -1342,10 +1340,10 @@ export default function ProductDetailTemplate({
 
       {/* STICKY BOTTOM BAR FOR MOBILE */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-[60] flex h-16 w-full items-center backdrop-blur-md border-t lg:hidden shadow-2xl px-3 gap-2 ${
+        className={`fixed bottom-0 left-0 right-0 z-[60] flex w-full items-center border-t lg:hidden px-3 gap-2 ${
           isNativeApp
-            ? "bg-[#FFFDF8]/95 border-[#DFBE6F]"
-            : "bg-black/95 border-zinc-800"
+            ? "min-h-[68px] py-2.5 pb-[max(env(safe-area-inset-bottom,10px),12px)] bg-[#FFFFFF] border-[#DFBE6F] shadow-[0_-10px_28px_rgba(160,115,20,0.14)]"
+            : "h-16 bg-black/95 backdrop-blur-md border-zinc-800 shadow-2xl"
         }`}
       >
         {isUpcomingDrop ? (
@@ -1356,10 +1354,10 @@ export default function ProductDetailTemplate({
               className={`flex-1 flex items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                 isDropNotified
                   ? isNativeApp
-                    ? "bg-emerald-100 text-emerald-900 border border-emerald-400 cursor-default"
+                    ? "bg-[#FFF6D6] text-[#8A5800] border border-[#D49A18]/60 cursor-default"
                     : "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
                   : isNativeApp
-                  ? "bg-gradient-to-r from-[#FDE047] via-[#EAB308] to-[#C68A12] text-[#111111] shadow-sm"
+                  ? "bg-gradient-to-b from-[#FCE89C] via-[#F5B922] to-[#D49014] text-[#111111] border border-[#B4780C]/55 shadow-sm"
                   : "bg-white text-black"
               }`}
             >
@@ -1369,7 +1367,7 @@ export default function ProductDetailTemplate({
               href="/new-drops"
               className={`px-3 flex items-center justify-center rounded-xl border text-[10px] font-black ${
                 isNativeApp
-                  ? "bg-[#FAF0D1] border-[#DFBE6F] text-[#111111]"
+                  ? "bg-[#FFF4CC] border-[#C68A12]/70 text-[#111111]"
                   : "bg-zinc-900 border-zinc-800 text-white"
               }`}
             >
@@ -1381,9 +1379,9 @@ export default function ProductDetailTemplate({
             {tryOnEligibility.isEligible && (
               <Link
                 href={tryOnUrl}
-                className={`flex flex-col items-center justify-center px-2.5 h-full rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95 shrink-0 ${
+                className={`flex flex-col items-center justify-center px-2.5 h-full rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0 ${
                   isNativeApp
-                    ? "bg-[#FAF0D1] border-[#DFBE6F] text-[#111111] hover:border-[#9A6503]"
+                    ? "bg-[#FFF4CC] border-[#C68A12]/70 text-[#111111] hover:bg-[#FCE89C]"
                     : "bg-gradient-to-r from-zinc-900 to-zinc-850 border-zinc-700/80 text-white hover:border-white"
                 }`}
                 aria-label="Virtual Try-On"
@@ -1392,14 +1390,14 @@ export default function ProductDetailTemplate({
                 <span className="mt-0.5 leading-none">Try On</span>
               </Link>
             )}
-            <div className="grid grid-cols-2 h-full flex-1 gap-2">
+            <div className="grid grid-cols-2 h-full flex-1 gap-2.5">
               <AddToCartButton
                 product={computedProduct}
                 variant="outline"
                 onBeforeAdd={handleValidateAndProceed}
                 className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border cursor-pointer ${
                   isNativeApp
-                    ? "bg-[#FAF0D1] text-[#111111] border-[#DFBE6F] hover:bg-[#F3E2B3]"
+                    ? "bg-[#FFF4CC] text-[#111111] border-[#C68A12]/80 hover:bg-[#FCE89C]"
                     : "bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-800"
                 }`}
               />
@@ -1408,7 +1406,7 @@ export default function ProductDetailTemplate({
                 onBeforeBuy={handleValidateAndProceed}
                 className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer ${
                   isNativeApp
-                    ? "bg-gradient-to-r from-[#FDE047] via-[#EAB308] to-[#C68A12] text-[#111111] shadow-sm"
+                    ? "bg-gradient-to-b from-[#FCE89C] via-[#F5B922] to-[#D49014] text-[#111111] shadow-sm"
                     : "bg-white text-black hover:bg-zinc-200"
                 }`}
               />
@@ -1420,7 +1418,7 @@ export default function ProductDetailTemplate({
               disabled
               className={`flex h-full w-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest border cursor-not-allowed ${
                 isNativeApp
-                  ? "bg-[#FAF0D1] text-[#6B5A3C] border-[#E4C988]"
+                  ? "bg-[#FFF6D6] text-[#6B5A3C] border-[#E4C988]"
                   : "bg-zinc-900 text-zinc-500 border-zinc-800"
               }`}
             >
@@ -1430,8 +1428,8 @@ export default function ProductDetailTemplate({
         )}
       </div>
 
-      {/* Padding for bottom bar on mobile */}
-      <div className="h-20 lg:hidden" />
+      {/*Padding for bottom bar on mobile*/}
+      <div className={isNativeApp ? "h-24 lg:hidden" : "h-20 lg:hidden"} />
     </div>
   );
 }

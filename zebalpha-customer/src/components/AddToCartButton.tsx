@@ -315,7 +315,7 @@ export function AddToCartButton({
   const resolvedClass = className
     ? (isNativeApp
         ? variant === "outline"
-          ? `${className} !bg-[#FFFDF8] !text-[#14120F] !border-[#D49A18]/75 shadow-sm hover:!bg-[#FAF0D1]`
+          ? `${className} !bg-[#FFF4CC] !text-[#111111] !border-[#C68A12]/80 shadow-sm hover:!bg-[#FCE89C]`
           : `${className} !bg-gradient-to-b !from-[#FCE89C] !via-[#F2C34B] !to-[#DDA216] !text-[#111111] !border-[#D49A18]/55 shadow-[0_4px_14px_rgba(202,138,4,0.25)]`
         : className)
     : defaultClasses;

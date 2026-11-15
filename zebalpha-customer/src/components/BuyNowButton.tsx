@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { useIsNativeApp } from "@/lib/platform";
+import { Zap } from "lucide-react";
 
 export function BuyNowButton({ 
   product, 
@@ -83,7 +84,7 @@ export function BuyNowButton({
 
   const resolvedClass = className
     ? (isNativeApp
-        ? `${className} !bg-gradient-to-b !from-[#FCE89C] !via-[#F2C34B] !to-[#DDA216] !text-[#111111] !border-[#D49A18]/55 shadow-[0_6px_18px_rgba(202,138,4,0.26)]`
+        ? `${className} !bg-gradient-to-b !from-[#FCE89C] !via-[#F5B922] !to-[#D49014] !text-[#111111] !border !border-[#B4780C]/55 shadow-[0_6px_18px_rgba(202,138,4,0.26)]`
         : className)
     : defaultClasses;
 
@@ -93,7 +94,16 @@ export function BuyNowButton({
       onClick={handleBuyNow}
       className={resolvedClass}
     >
-      {isPreOrder ? "Pre-Order 📦" : "Buy Now ⚡"}
+      {isPreOrder ? (
+        "Pre-Order 📦"
+      ) : isNativeApp ? (
+        <>
+          <span>Buy Now</span>
+          <Zap className="h-3.5 w-3.5 fill-current ml-1 shrink-0" />
+        </>
+      ) : (
+        "Buy Now ⚡"
+      )}
     </button>
   );
 }
