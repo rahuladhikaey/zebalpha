@@ -1,397 +1,439 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Truck, Loader2, MapPin, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Truck, MapPin, Check, AlertCircle, RotateCcw } from "lucide-react";
+import { useIsNativeApp } from "@/lib/platform";
+import {
+  computeStandardDeliveryWindow,
+  isValidIndianPincode,
+  normalizeIndianPincode,
+} from "@/lib/deliveryWindow";
 
-interface DeliveryEstimateWidgetProps {
-  productId: string | number;
-  sellerId?: string | null;
+export interface DeliveryEstimateWidgetProps {
+  productId?: string | number;
+  sellerId?: string | number | null;
+  weight?: number;
   compact?: boolean;
   className?: string;
-  onEstimateResolved?: (data: any) => void;
+  isOutOfStock?: boolean;
 }
 
-interface EstimateState {
-  status: "idle" | "loading" | "serviceable" | "unserviceable" | "unavailable" | "out_of_stock" | "error";
-  formattedDate: string | null;
-  displayText: string | null;
-  courierName: string | null;
-  transitDays: number | null;
-  rate: number | null;
-  message: string | null;
-  pincode: string;
+interface EstimateResult {
+  serviceable: boolean;
+  has_estimate: boolean;
+  in_stock: boolean;
+  pincode?: string;
+  cod_available?: boolean;
+  courier_name?: string | null;
+  formatted_date?: string | null;
+  display_text?: string | null;
+  message?: string | null;
 }
 
 const PINCODE_STORAGE_KEY = "zebalpha_delivery_pincode";
+const PINCODE_EVENT_NAME = "zebalpha_pincode_updated";
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+interface CacheEntry {
+  expiresAt: number;
+  data: EstimateResult;
+}
+
+// Shared module-level cache + in-flight request deduplication across widgets
+const estimateCache = new Map<string, CacheEntry>();
+const inFlightRequests = new Map<string, Promise<EstimateResult>>();
+
+async function fetchDeduplicatedEstimate(
+  pincode: string,
+  productId?: string | number,
+  sellerId?: string | number | null,
+  weight: number = 0.5
+): Promise<EstimateResult> {
+  const prodKey = productId !== undefined && productId !== null ? String(productId) : "";
+  const sellerKey = sellerId !== undefined && sellerId !== null ? String(sellerId) : "";
+  const key = `${pincode}::${prodKey}::${sellerKey}::${weight}`;
+  const now = Date.now();
+  const cached = estimateCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  const existingPromise = inFlightRequests.get(key);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const params = new URLSearchParams({ pincode, weight: String(weight) });
+  if (prodKey) params.set("product_id", prodKey);
+  if (sellerKey) params.set("seller_id", sellerKey);
+
+  const reqPromise = (async (): Promise<EstimateResult> => {
+    try {
+      const res = await fetch(`/api/shipping/edd?${params.toString()}`, {
+        method: "GET",
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP_${res.status}`);
+      }
+
+      const json = await res.json();
+      const standard = computeStandardDeliveryWindow();
+      const result: EstimateResult = {
+        serviceable: json.serviceable !== false,
+        has_estimate: json.in_stock === false ? false : true,
+        in_stock: json.in_stock !== false,
+        pincode,
+        cod_available: json.cod_available ?? true,
+        courier_name: json.courier_name || "Standard Express Delivery",
+        formatted_date: json.formatted_date || standard.formatted_date,
+        display_text: json.display_text || standard.display_text,
+        message: json.message || null,
+      };
+
+      estimateCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, data: result });
+      return result;
+    } catch {
+      // Never surface transient API/rate-limit errors for a valid 6-digit PIN
+      const standard = computeStandardDeliveryWindow();
+      const fallback: EstimateResult = {
+        serviceable: true,
+        has_estimate: true,
+        in_stock: true,
+        pincode,
+        cod_available: true,
+        courier_name: "Standard Express Delivery",
+        formatted_date: standard.formatted_date,
+        display_text: standard.display_text,
+        message: null,
+      };
+      return fallback;
+    } finally {
+      inFlightRequests.delete(key);
+    }
+  })();
+
+  inFlightRequests.set(key, reqPromise);
+  return reqPromise;
+}
 
 export function DeliveryEstimateWidget({
   productId,
   sellerId,
+  weight = 0.5,
   compact = false,
   className = "",
-  onEstimateResolved,
+  isOutOfStock = false,
 }: DeliveryEstimateWidgetProps) {
+  const isNativeApp = useIsNativeApp();
+
+  // Compute today's 7-day standard window purely in IST memory
+  const standardWindow = useMemo(() => computeStandardDeliveryWindow(), []);
+
   const [pincode, setPincode] = useState<string>("");
   const [inputVal, setInputVal] = useState<string>("");
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [estimate, setEstimate] = useState<EstimateResult>(() => ({
+    serviceable: !isOutOfStock,
+    has_estimate: !isOutOfStock,
+    in_stock: !isOutOfStock,
+    cod_available: true,
+    formatted_date: standardWindow.formatted_date,
+    display_text: standardWindow.display_text,
+  }));
 
-  const [state, setState] = useState<EstimateState>({
-    status: "idle",
-    formattedDate: null,
-    displayText: null,
-    courierName: null,
-    transitDays: null,
-    rate: null,
-    message: null,
-    pincode: "",
-  });
-
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // 1. Fetch real delivery estimate from backend/Shiprocket
-  const fetchEstimate = useCallback(
-    async (targetPincode: string) => {
-      const cleanPin = String(targetPincode).replace(/\D/g, "").slice(0, 6);
-      if (!cleanPin || !/^[1-9][0-9]{5}$/.test(cleanPin)) {
+  const runPinLookup = useCallback(
+    async (pin: string) => {
+      const clean = normalizeIndianPincode(pin);
+      if (!isValidIndianPincode(clean)) {
+        setValidationError("Enter a valid 6-digit PIN code");
         return;
       }
 
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      setState((prev) => ({
-        ...prev,
-        status: "loading",
-        pincode: cleanPin,
-        message: null,
-      }));
-
-      try {
-        const params = new URLSearchParams({
-          delivery_pincode: cleanPin,
-          product_id: String(productId),
-        });
-        if (sellerId) {
-          params.set("seller_id", String(sellerId));
-        }
-
-        const res = await fetch(`/api/shipping/edd?${params.toString()}`, {
-          method: "GET",
-          signal: controller.signal,
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          setState({
-            status: "error",
-            formattedDate: null,
-            displayText: null,
-            courierName: null,
-            transitDays: null,
-            rate: null,
-            message: data?.error || "Unable to check delivery at this moment.",
-            pincode: cleanPin,
-          });
-          return;
-        }
-
-        // Out of stock
-        if (data.in_stock === false) {
-          setState({
-            status: "out_of_stock",
-            formattedDate: null,
-            displayText: null,
-            courierName: null,
-            transitDays: null,
-            rate: null,
-            message: data.message || "Product is currently out of stock.",
-            pincode: cleanPin,
-          });
-          return;
-        }
-
-        // Location Unserviceable
-        if (!data.serviceable) {
-          setState({
-            status: "unserviceable",
-            formattedDate: null,
-            displayText: null,
-            courierName: null,
-            transitDays: null,
-            rate: null,
-            message: data.message || `Delivery not available to PIN code ${cleanPin}.`,
-            pincode: cleanPin,
-          });
-          return;
-        }
-
-        // Serviceable with verified delivery date
-        if (data.has_estimate && data.formatted_date) {
-          const newState: EstimateState = {
-            status: "serviceable",
-            formattedDate: data.formatted_date,
-            displayText: data.display_text || `Delivery by ${data.formatted_date}`,
-            courierName: data.courier_name || null,
-            transitDays: data.transit_days || null,
-            rate: data.rate || null,
-            message: null,
-            pincode: cleanPin,
-          };
-          setState(newState);
-          onEstimateResolved?.(data);
-          return;
-        }
-
-        // Serviceable but no reliable transit time provided by carrier
-        setState({
-          status: "unavailable",
-          formattedDate: null,
-          displayText: null,
-          courierName: data.courier_name || null,
-          transitDays: null,
-          rate: data.rate || null,
-          message: data.message || `Delivery available to ${cleanPin}, but estimated date is currently unavailable.`,
-          pincode: cleanPin,
-        });
-      } catch (err: any) {
-        if (err.name === "AbortError") return;
-        setState({
-          status: "error",
-          formattedDate: null,
-          displayText: null,
-          courierName: null,
-          transitDays: null,
-          rate: null,
-          message: "Network error checking delivery. Please try again.",
-          pincode: cleanPin,
-        });
-      }
+      setValidationError(null);
+      setLoading(true);
+      const data = await fetchDeduplicatedEstimate(clean, productId, sellerId, weight);
+      setEstimate(data);
+      setLoading(false);
     },
-    [productId, sellerId, onEstimateResolved]
+    [productId, sellerId, weight]
   );
 
-  // 2. Initialize from localStorage and sync across tabs/components
+  // Hydrate saved pincode asynchronously (avoids synchronous setState-in-effect) & listen for cross-widget updates
   useEffect(() => {
-    let savedPin = "";
-    try {
-      savedPin = localStorage.getItem(PINCODE_STORAGE_KEY) || "";
-    } catch (_) {}
+    let cancelled = false;
 
-    if (savedPin && /^[1-9][0-9]{5}$/.test(savedPin)) {
-      setPincode(savedPin);
-      setInputVal(savedPin);
-      setIsEditing(false);
-      fetchEstimate(savedPin);
-    } else {
-      setIsEditing(true);
-    }
+    const syncSavedPin = async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      let saved = "";
+      try {
+        saved = localStorage.getItem(PINCODE_STORAGE_KEY) || "";
+      } catch {
+        saved = "";
+      }
+
+      if (!saved || !isValidIndianPincode(saved) || cancelled) return;
+
+      setPincode(saved);
+      setInputVal(saved);
+      if (!compact && !isOutOfStock) {
+        await runPinLookup(saved);
+      }
+    };
+
+    void syncSavedPin();
 
     const handleExternalPinUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<string>;
-      const newPin = customEvent.detail;
-      if (newPin && newPin !== pincode && /^[1-9][0-9]{5}$/.test(newPin)) {
+      const customEv = e as CustomEvent<string>;
+      const newPin = normalizeIndianPincode(customEv.detail);
+      if (isValidIndianPincode(newPin)) {
         setPincode(newPin);
         setInputVal(newPin);
         setIsEditing(false);
-        fetchEstimate(newPin);
+        setValidationError(null);
+        if (!compact && !isOutOfStock) {
+          void runPinLookup(newPin);
+        }
       }
     };
 
-    window.addEventListener("zebalpha_pincode_updated", handleExternalPinUpdate as EventListener);
+    window.addEventListener(PINCODE_EVENT_NAME, handleExternalPinUpdate as EventListener);
     return () => {
-      window.removeEventListener("zebalpha_pincode_updated", handleExternalPinUpdate as EventListener);
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      cancelled = true;
+      window.removeEventListener(PINCODE_EVENT_NAME, handleExternalPinUpdate as EventListener);
     };
-  }, [fetchEstimate]);
+  }, [compact, isOutOfStock, runPinLookup]);
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleApplyPincode = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const clean = inputVal.replace(/\D/g, "").slice(0, 6);
-    if (!clean || clean.length !== 6 || !/^[1-9][0-9]{5}$/.test(clean)) {
-      setValidationError("Please enter a valid 6-digit Indian PIN code");
+    const clean = normalizeIndianPincode(inputVal);
+    if (!isValidIndianPincode(clean)) {
+      setValidationError("Enter a valid 6-digit Indian PIN code");
       return;
     }
 
     setValidationError(null);
     setPincode(clean);
+    setInputVal(clean);
     setIsEditing(false);
 
     try {
       localStorage.setItem(PINCODE_STORAGE_KEY, clean);
-      window.dispatchEvent(new CustomEvent("zebalpha_pincode_updated", { detail: clean }));
-    } catch (_) {}
+      window.dispatchEvent(new CustomEvent(PINCODE_EVENT_NAME, { detail: clean }));
+    } catch {
+      // Ignore storage errors
+    }
 
-    fetchEstimate(clean);
+    if (!isOutOfStock) {
+      void runPinLookup(clean);
+    }
   };
 
-  const handleStartEditing = () => {
-    setInputVal(pincode || "");
-    setIsEditing(true);
-    setValidationError(null);
-  };
-
-  // Compact Mode (used in mini cards / summaries)
+  // Compact mode (product cards & cart line items): zero API calls, instant 7-day display
   if (compact) {
-    if (state.status === "loading") {
+    if (isOutOfStock || !estimate.in_stock) {
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400 font-medium animate-pulse">
-          <Truck className="w-3.5 h-3.5" />
-          <span>Checking delivery...</span>
-        </span>
+        <div
+          className={`flex items-center gap-1.5 text-[10px] font-bold ${
+            isNativeApp ? "text-rose-700" : "text-rose-400"
+          } ${className}`}
+        >
+          <AlertCircle size={11} className="shrink-0" />
+          <span>Currently out of stock</span>
+        </div>
       );
     }
-    if (state.status === "serviceable" && state.formattedDate) {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-200">
-          <Truck className="w-3.5 h-3.5 text-zinc-300 shrink-0" />
-          <span>Delivery by <strong className="text-white font-extrabold">{state.formattedDate}</strong></span>
+
+    const compactDate = estimate.formatted_date || standardWindow.formatted_date;
+    return (
+      <div
+        className={`flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight ${
+          isNativeApp ? "text-[#4E4229]" : "text-zinc-400"
+        } ${className}`}
+      >
+        <Truck
+          size={11}
+          className={`shrink-0 ${isNativeApp ? "text-[#15803D]" : "text-emerald-400"}`}
+        />
+        <span className="truncate">
+          Delivery by{" "}
+          <strong className={`font-extrabold ${isNativeApp ? "text-[#111111]" : "text-emerald-300"}`}>
+            {compactDate}
+          </strong>
         </span>
-      );
-    }
-    return null;
+      </div>
+    );
   }
 
-  // Standard Product Detail Page Mode
+  // Full mode (PDP / Cart summary / Checkout)
+  const displayRange = estimate.formatted_date || standardWindow.formatted_date;
+  const outOfStockState = isOutOfStock || !estimate.in_stock;
+
   return (
-    <div className={`p-4 rounded-2xl bg-zinc-950 border border-zinc-850 shadow-md ${className}`}>
-      {/* Reference UI Header: Delivery Truck Icon + Calculated Message */}
+    <div
+      className={`rounded-2xl border p-4 transition-all ${
+        isNativeApp
+          ? "border-[#E5C882] bg-[#FFFDF8] text-[#111111] shadow-[0_6px_18px_rgba(166,124,28,0.08)]"
+          : "border-zinc-800 bg-zinc-950 text-white shadow-xl"
+      } ${className}`}
+    >
+      {/* Top Delivery Promise Row */}
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-white shrink-0">
-            <Truck className="w-4 h-4 text-zinc-200" aria-hidden="true" />
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <div
+            className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border ${
+              outOfStockState
+                ? isNativeApp
+                  ? "bg-rose-50 border-rose-200 text-rose-700"
+                  : "bg-rose-950/50 border-rose-500/40 text-rose-400"
+                : isNativeApp
+                ? "bg-[#FAF0D1] border-[#E4C988] text-[#8A5A03]"
+                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+            }`}
+          >
+            {outOfStockState ? <AlertCircle size={18} /> : <Truck size={18} />}
           </div>
 
-          <div>
-            {state.status === "loading" ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
-                <span className="text-sm font-bold text-zinc-300">Checking delivery date...</span>
-              </div>
-            ) : state.status === "serviceable" && state.formattedDate ? (
-              <div>
-                <p className="text-sm sm:text-base font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                  Delivery by {state.formattedDate}
+          <div className="min-w-0 flex-1 space-y-0.5">
+            {outOfStockState ? (
+              <>
+                <p className={`text-sm font-black ${isNativeApp ? "text-rose-700" : "text-rose-400"}`}>
+                  Currently Out of Stock
                 </p>
-                <p className="text-xs font-medium text-emerald-400 flex items-center gap-1 mt-0.5">
-                  <CheckCircle2 className="w-3 h-3 shrink-0" />
-                  In Stock
+                <p className={`text-xs font-medium ${isNativeApp ? "text-[#6D5F42]" : "text-zinc-400"}`}>
+                  Delivery resumes once restocked by seller.
                 </p>
-              </div>
-            ) : state.status === "unserviceable" ? (
-              <div>
-                <p className="text-sm font-bold text-rose-400 flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                  Delivery not available
-                </p>
-                <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                  {state.message || `Delivery not serviceable to PIN code ${state.pincode}`}
-                </p>
-              </div>
-            ) : state.status === "out_of_stock" ? (
-              <div>
-                <p className="text-sm font-bold text-amber-400">Out of Stock</p>
-                <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                  Delivery date will be calculated once stock is replenished.
-                </p>
-              </div>
-            ) : state.status === "unavailable" ? (
-              <div>
-                <p className="text-sm font-bold text-zinc-300">Delivery estimate unavailable</p>
-                <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                  Location is serviceable; estimated date will update upon dispatch.
-                </p>
-              </div>
-            ) : state.status === "error" ? (
-              <div>
-                <p className="text-sm font-bold text-rose-400">Could not check delivery</p>
-                <p className="text-xs font-medium text-zinc-400 mt-0.5">{state.message}</p>
-              </div>
+              </>
             ) : (
-              <div>
-                <p className="text-sm font-bold text-white">Check Estimated Delivery</p>
-                <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                  Enter your destination PIN code to get the exact verified delivery date.
+              <>
+                <p className={`text-sm sm:text-[15px] font-black leading-snug ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                  Delivery by{" "}
+                  <span className={isNativeApp ? "text-[#15803D]" : "text-emerald-400"}>
+                    {displayRange}
+                  </span>
                 </p>
-              </div>
+                <p className={`text-xs font-semibold leading-snug ${isNativeApp ? "text-[#5E4E2E]" : "text-zinc-400"}`}>
+                  {loading
+                    ? "Verifying pincode availability..."
+                    : `7-day doorstep delivery${estimate.cod_available !== false ? " • Cash on Delivery available" : ""}`}
+                </p>
+              </>
             )}
           </div>
         </div>
 
-        {/* Change / Edit PIN Code action button when estimate is resolved */}
-        {!isEditing && pincode && (
+        {pincode && !isEditing && (
           <button
             type="button"
-            onClick={handleStartEditing}
-            className="text-xs font-black uppercase tracking-wider text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-750 px-3 py-1.5 rounded-xl transition-all cursor-pointer shrink-0"
+            onClick={() => {
+              setInputVal(pincode);
+              setValidationError(null);
+              setIsEditing(true);
+            }}
+            className={`shrink-0 whitespace-nowrap rounded-xl border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wider transition cursor-pointer active:scale-95 ${
+              isNativeApp
+                ? "border-[#D4A017]/60 bg-[#FAF0D1] text-[#111111] hover:bg-[#F5E3AF]"
+                : "border-zinc-700 bg-zinc-900 text-white hover:bg-zinc-800"
+            }`}
           >
             Change
           </button>
         )}
       </div>
 
-      {/* Pincode Info & Entry Section */}
-      <div className="mt-3 pt-3 border-t border-zinc-900">
-        {!isEditing && pincode ? (
-          <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span className="flex items-center gap-1.5 font-medium">
-              <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-              Delivering to <strong className="text-zinc-200 font-bold">{pincode}</strong>
-            </span>
-            {state.status === "error" && (
+      {/* Divider + Pincode Controls */}
+      <div
+        className={`mt-3.5 pt-3 border-t ${
+          isNativeApp ? "border-[#EFE3BF]" : "border-zinc-800/80"
+        }`}
+      >
+        {pincode && !isEditing ? (
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className={`flex items-center gap-1.5 font-medium ${isNativeApp ? "text-[#5D4C2D]" : "text-zinc-400"}`}>
+              <MapPin size={13} className={isNativeApp ? "text-[#8A5A03]" : "text-emerald-400"} />
+              <span>
+                Delivering to{" "}
+                <strong className={`font-black ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                  {pincode}
+                </strong>
+              </span>
+            </div>
+
+            {!loading && (
               <button
                 type="button"
-                onClick={() => fetchEstimate(pincode)}
-                className="text-xs font-bold text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                onClick={() => void runPinLookup(pincode)}
+                className={`inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider cursor-pointer transition ${
+                  isNativeApp
+                    ? "text-[#8A5A03] hover:text-[#111111]"
+                    : "text-emerald-400 hover:text-emerald-300"
+                }`}
               >
-                <RefreshCw className="w-3 h-3" /> Retry
+                <RotateCcw size={11} />
+                <span>Refresh</span>
               </button>
             )}
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-2">
+          <form onSubmit={handleApplyPincode} className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <MapPin className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <div className="relative flex-1 min-w-0">
+                <MapPin
+                  size={14}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${
+                    isNativeApp ? "text-[#8A5A03]" : "text-zinc-400"
+                  }`}
+                />
                 <input
                   type="text"
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   maxLength={6}
                   value={inputVal}
                   onChange={(e) => {
-                    const clean = e.target.value.replace(/\D/g, "").slice(0, 6);
-                    setInputVal(clean);
+                    const cleaned = normalizeIndianPincode(e.target.value);
+                    setInputVal(cleaned);
                     if (validationError) setValidationError(null);
                   }}
-                  placeholder="Enter 6-digit delivery PIN code"
-                  className="w-full h-10 pl-9 pr-3 text-xs sm:text-sm font-semibold text-white bg-zinc-900 border border-zinc-800 rounded-xl focus:outline-none focus:border-zinc-500 transition-colors"
+                  placeholder="Enter delivery PIN (e.g. 741254)"
+                  aria-label="Enter delivery PIN code"
+                  className={`w-full rounded-xl border pl-8 pr-3 py-2 text-xs font-bold outline-none transition ${
+                    isNativeApp
+                      ? "border-[#DEC88B] bg-white text-[#111111] placeholder:text-[#8B7B5B] focus:border-[#C28D12]"
+                      : "border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-500 focus:border-white"
+                  }`}
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={state.status === "loading" || inputVal.length !== 6}
-                className="h-10 px-4 rounded-xl bg-white text-black text-xs font-black uppercase tracking-wider hover:bg-zinc-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                disabled={loading}
+                className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition cursor-pointer active:scale-95 inline-flex items-center gap-1 ${
+                  isNativeApp
+                    ? "bg-gradient-to-r from-[#F3C64F] via-[#E1AD25] to-[#C88D0F] text-[#111111] shadow-sm"
+                    : "bg-white text-black hover:bg-zinc-200"
+                }`}
               >
-                {state.status === "loading" ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  "Check"
-                )}
+                <Check size={13} />
+                <span>Check</span>
               </button>
 
-              {pincode && isEditing && (
+              {pincode && (
                 <button
                   type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="h-10 px-3 rounded-xl bg-zinc-900 text-zinc-400 text-xs font-bold hover:text-white transition-colors"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setValidationError(null);
+                    setInputVal(pincode);
+                  }}
+                  className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-bold transition cursor-pointer ${
+                    isNativeApp
+                      ? "border-[#DEC88B] bg-[#FAF0D1] text-[#111111]"
+                      : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:text-white"
+                  }`}
                 >
                   Cancel
                 </button>
@@ -399,7 +441,9 @@ export function DeliveryEstimateWidget({
             </div>
 
             {validationError && (
-              <p className="text-xs font-semibold text-rose-400">{validationError}</p>
+              <p className={`text-[11px] font-bold ${isNativeApp ? "text-rose-700" : "text-rose-400"}`}>
+                {validationError}
+              </p>
             )}
           </form>
         )}
@@ -407,4 +451,5 @@ export function DeliveryEstimateWidget({
     </div>
   );
 }
+
 export default DeliveryEstimateWidget;

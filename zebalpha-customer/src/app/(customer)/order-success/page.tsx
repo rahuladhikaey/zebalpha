@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { resolveOrderDeliveryDisplay } from "@/lib/deliveryWindow";
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
@@ -67,6 +68,19 @@ function OrderSuccessContent() {
   const rawMethod = String(order?.payment_method || "").toUpperCase();
   const isCOD = rawMethod === "COD" || rawMethod.includes("CASH");
   const displayOrderNum = (order?.order_number as string) || (orderId ? String(orderId) : "CONFIRMED");
+  const expectedDelivery = resolveOrderDeliveryDisplay(
+    order
+      ? {
+          created_at: order.created_at as string | undefined,
+          expected_delivery_from: order.expected_delivery_from as string | undefined,
+          expected_delivery_to: order.expected_delivery_to as string | undefined,
+          expected_delivery_date: order.expected_delivery_date as string | undefined,
+          edd_source: order.edd_source as string | undefined,
+          order_status: order.order_status as string | undefined,
+          delivered_at: order.delivered_at as string | undefined,
+        }
+      : null
+  );
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -99,6 +113,12 @@ function OrderSuccessContent() {
             <div className="flex justify-between items-center text-sm">
               <span className="font-bold text-zinc-400 uppercase tracking-widest">Shipping Status</span>
               <span className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-white text-[10px] font-black tracking-widest uppercase">Pending</span>
+            </div>
+            <div className="flex justify-between items-center text-sm pt-2 border-t border-zinc-800/80">
+              <span className="font-bold text-zinc-400 uppercase tracking-widest">Expected Delivery</span>
+              <span className="px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-black tracking-wide">
+                {expectedDelivery.formattedRange}
+              </span>
             </div>
           </div>
 

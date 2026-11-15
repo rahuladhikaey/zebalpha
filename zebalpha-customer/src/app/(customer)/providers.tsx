@@ -9,6 +9,7 @@ import { MeeshoVariantBottomSheet } from "@/components/MeeshoVariantBottomSheet"
 import FloatingCartBanner from "@/components/FloatingCartBanner";
 import DesktopSideCart from "@/components/DesktopSideCart";
 import { ActiveSessionTracker } from "@/components/ActiveSessionTracker";
+import { ProductNavigationOverlay } from "@/components/ProductDetailsLoadingScreen";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <WishlistProvider>
           <CartProvider>
             <VariantSelectorProvider>
+              <ProductNavigationOverlay />
               <div className="flex w-full min-h-screen">
                 <div className="flex-1 min-w-0 flex flex-col">
                   {children}

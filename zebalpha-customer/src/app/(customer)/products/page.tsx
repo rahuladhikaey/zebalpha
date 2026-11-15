@@ -11,6 +11,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { Header } from "@/components/Header";
 import { WishlistButton } from "@/components/WishlistButton";
 import { QuickCartButton } from "@/components/QuickCartButton";
+import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star } from "lucide-react";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
@@ -1364,6 +1365,15 @@ function ProductsContent() {
                                   Save ₹{discountAmount}
                                 </span>
                               )}
+
+                              <div className="pt-1.5">
+                                <DeliveryEstimateWidget
+                                  compact
+                                  productId={product.id}
+                                  sellerId={product.seller_id}
+                                  isOutOfStock={Number(product.stock ?? 1) <= 0}
+                                />
+                              </div>
                             </div>
 
                             <div className="pt-1 flex items-center justify-between gap-2">

@@ -77,7 +77,14 @@ export async function proxy(request: NextRequest) {
   }
 
   // 2. Resilient Rate limiting check for API endpoints (fail-open if Redis encounters network error)
-  if (ratelimit && pathname.startsWith('/api/')) {
+  // Shipping EDD read checks may fire alongside catalog browsing without exhausting API quota.
+  const isShippingReadEndpoint =
+    request.method === 'GET' &&
+    (pathname.startsWith('/api/shipping/edd') ||
+      pathname.startsWith('/api/shipping/estimate') ||
+      pathname.startsWith('/api/shipping/check-serviceability'));
+
+  if (ratelimit && pathname.startsWith('/api/') && !isShippingReadEndpoint) {
     try {
       const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
       

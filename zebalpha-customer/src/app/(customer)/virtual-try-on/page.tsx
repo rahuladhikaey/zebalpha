@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { hasFreshCachedProductDetail, startProductNavigation } from "@/lib/productDetailCache";
 import { Product } from "@/lib/types";
 import { GenZAvatarFittingRoom } from "@/components/vto/GenZAvatarFittingRoom";
 import { ClothingCollectionSection } from "@/components/vto/ClothingCollectionSection";
@@ -87,6 +88,12 @@ function VirtualTryOnContent() {
   // Back / Exit navigation logic
   const handleExitFittingRoom = useCallback(() => {
     if (productIdParam) {
+      if (!hasFreshCachedProductDetail(productIdParam)) {
+        startProductNavigation(productIdParam, {
+          targetHref: `/products/${productIdParam}`,
+          isOffline: typeof navigator !== "undefined" && navigator.onLine === false,
+        });
+      }
       router.push(`/products/${productIdParam}`);
     } else {
       router.push("/");

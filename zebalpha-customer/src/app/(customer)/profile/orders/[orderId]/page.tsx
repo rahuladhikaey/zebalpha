@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { ProductRatingWidget } from "@/components/ProductRatingWidget";
+import { resolveOrderDeliveryDisplay } from "@/lib/deliveryWindow";
 import {
   Package,
   Truck,
@@ -71,6 +72,10 @@ interface OrderDetail {
   tracking_number?: string;
   courier_name?: string;
   estimated_delivery?: string;
+  expected_delivery_from?: string | null;
+  expected_delivery_to?: string | null;
+  expected_delivery_date?: string | null;
+  edd_source?: string | null;
   created_at: string;
   updated_at?: string;
   delivered_at?: string;
@@ -680,24 +685,10 @@ interface TimelineStep {
     return null;
   }, [order?.notes]);
 
-  // Expected Delivery Date calculation (Flipkart/Meesho style fallback if not explicitly stored)
+  // Expected Delivery Date calculation (Flipkart/Meesho style 7-day standard window)
   const resolvedEdd = useMemo(() => {
-    if (order?.estimated_delivery && typeof order.estimated_delivery === "string" && order.estimated_delivery.trim()) {
-      return order.estimated_delivery;
-    }
-    if (!order?.created_at) return "3-5 Business Days";
-    try {
-      const orderDate = new Date(order.created_at);
-      const deliveryDate = new Date(orderDate.getTime() + 4 * 24 * 60 * 60 * 1000);
-      return deliveryDate.toLocaleDateString("en-IN", {
-        weekday: "short",
-        day: "numeric",
-        month: "short"
-      });
-    } catch (_) {
-      return "3-5 Business Days";
-    }
-  }, [order?.estimated_delivery, order?.created_at]);
+    return resolveOrderDeliveryDisplay(order).formattedRange;
+  }, [order]);
 
   // Item Price Calculations
   const calculatedSubtotal = useMemo(() => {

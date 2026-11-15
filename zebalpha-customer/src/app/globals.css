@@ -163,6 +163,49 @@ img {
   scrollbar-width: none;
 }
 
+/* Product Details full-screen loading surface (preserves pure #FFFFFF across Android/Web themes) */
+html [data-pure-white-loading="true"],
+html.is-android-app [data-pure-white-loading="true"] {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+  color: #111111 !important;
+}
+
+@keyframes zebalpha-pdp-spinner-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes zebalpha-pdp-spinner-dash {
+  0% {
+    stroke-dasharray: 12, 120;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 82, 120;
+    stroke-dashoffset: -28;
+  }
+  100% {
+    stroke-dasharray: 82, 120;
+    stroke-dashoffset: -108;
+  }
+}
+
+.zebalpha-pdp-spinner-svg {
+  animation: zebalpha-pdp-spinner-rotate 1.35s linear infinite;
+  will-change: transform;
+}
+
+.zebalpha-pdp-spinner-circle {
+  stroke-dasharray: 64, 120;
+  stroke-dashoffset: 0;
+  animation: zebalpha-pdp-spinner-dash 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 /* ── ANDROID APP ONLY: Warm White & Sunny Champagne Yellow Design System (Zero effect on website) ── */
 html.is-android-app {
   color-scheme: light;

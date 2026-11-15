@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { SimilarProductItem } from "@/lib/similarProducts";
+import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import {
   trackRecommendationClick,
   trackRecommendationImpressions,
@@ -224,6 +225,8 @@ export default function SimilarProductsCarousel({
                       {p.highlight_label}
                     </div>
                   )}
+
+                  <DeliveryEstimateWidget compact productId={p.id} className="pt-0.5" />
                 </div>
               </div>
             </Link>

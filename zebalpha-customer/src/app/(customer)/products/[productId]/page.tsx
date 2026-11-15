@@ -11,6 +11,7 @@ import SimilarProductsCarousel from "@/components/catalog/SimilarProductsCarouse
 import { RecentlyViewedSection } from "@/components/recommendations/RecentlyViewedSection";
 import { getSimilarProducts, detectProductFamily } from "@/lib/similarProducts";
 import { computeRatingBreakdown, type PublicReview } from "@/lib/productRatings";
+import { ProductNotFoundSignal } from "@/components/ProductDetailsLoadingScreen";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "dummy-anon-key-for-build").trim();
@@ -270,6 +271,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   if (!product) {
     return (
       <main className="min-h-screen bg-black flex items-center justify-center p-6 text-white">
+        <ProductNotFoundSignal productId={productId} />
         <div className="max-w-md w-full rounded-[2.5rem] bg-zinc-950 p-10 text-center border border-zinc-800 shadow-2xl">
           <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-3xl mb-6">🚫</div>
           <h1 className="text-2xl font-black text-white">Product not found</h1>

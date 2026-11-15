@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { OrderSkeleton } from "@/components/skeletons";
 import { ProductRatingWidget } from "@/components/ProductRatingWidget";
+import { resolveOrderDeliveryDisplay } from "@/lib/deliveryWindow";
 
 interface Order {
   id: string;
@@ -23,6 +24,11 @@ interface Order {
   tracking_number?: string;
   courier_name?: string;
   shipping_address?: any;
+  estimated_delivery?: string | null;
+  expected_delivery_from?: string | null;
+  expected_delivery_to?: string | null;
+  expected_delivery_date?: string | null;
+  edd_source?: string | null;
   // Return & Cancellation fields
   cancellation_reason?: string;
   cancellation_comment?: string;
@@ -506,6 +512,7 @@ export default function MyOrdersPage() {
               const isCancelled = statusLower === "cancelled";
               const isDelivered = statusLower === "delivered" || statusLower === "completed";
               const hasReturn = hasActiveReturn(order);
+              const deliveryInfo = resolveOrderDeliveryDisplay(order);
 
               return (
                 <div key={order.id} className="group relative overflow-hidden rounded-[2.5rem] bg-zinc-950 p-6 md:p-8 border border-zinc-800 shadow-2xl transition-all hover:border-zinc-700">
@@ -542,6 +549,12 @@ export default function MyOrdersPage() {
                         {order.refund_status && order.refund_status !== "NONE" && (
                           <span className="rounded-full bg-blue-950/60 border border-blue-500/40 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-blue-300">
                             💰 REFUND: {order.refund_status}
+                          </span>
+                        )}
+
+                        {!isCancelled && !isDelivered && (
+                          <span className="rounded-full bg-emerald-950/60 border border-emerald-500/40 px-3 py-1 text-[10px] font-black tracking-wide text-emerald-300">
+                            🚚 {deliveryInfo.displayText}
                           </span>
                         )}
                       </div>
@@ -678,9 +691,21 @@ export default function MyOrdersPage() {
                         </p>
                         <p className="text-2xl font-black text-white">₹{order.total_amount}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Placed On</p>
-                        <p className="text-sm font-bold text-zinc-300">{new Date(order.created_at).toLocaleDateString()}</p>
+                      <div className="text-right space-y-2">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Placed On</p>
+                          <p className="text-sm font-bold text-zinc-300">{new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                        </div>
+                        {!isCancelled && (
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                              {isDelivered ? "Delivery" : "Expected Delivery"}
+                            </p>
+                            <p className="text-xs font-black text-emerald-400">
+                              {deliveryInfo.formattedRange}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

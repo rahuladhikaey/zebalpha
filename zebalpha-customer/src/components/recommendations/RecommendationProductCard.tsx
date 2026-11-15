@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Star, Award, Sparkles } from "lucide-react";
 import { WishlistButton } from "@/components/WishlistButton";
 import { AddToCartButton } from "@/components/AddToCartButton";
+import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useIsNativeApp } from "@/lib/platform";
 import { trackRecommendationClick } from "@/lib/recommendationClient";
 import type {
@@ -176,6 +177,8 @@ export function RecommendationProductCard({
               </>
             )}
           </div>
+
+          <DeliveryEstimateWidget compact productId={product.id} className="pt-0.5" />
         </div>
 
         {/* Touch-Friendly Add to Cart Button */}

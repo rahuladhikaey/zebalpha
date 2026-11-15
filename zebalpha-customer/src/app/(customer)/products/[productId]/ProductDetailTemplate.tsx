@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useContext } from "react";
+import { QueryClientContext } from "@tanstack/react-query";
 import { Product, ProductPackage } from "@/lib/types";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
@@ -22,6 +23,13 @@ import { getProductDisplayPricing } from "@/lib/productPricing";
 import { useIsNativeApp } from "@/lib/platform";
 import { ProductRatingWidget } from "@/components/ProductRatingWidget";
 import { computeRatingBreakdown, type PublicReview } from "@/lib/productRatings";
+import {
+  completeProductNavigation,
+  hasFreshCachedProductDetail,
+  preloadProductImage,
+  PRODUCT_IMAGE_PRELOAD_DEADLINE_MS,
+  setCachedProductDetail,
+} from "@/lib/productDetailCache";
 export default function ProductDetailTemplate({
   product,
   relatedProducts = [],
@@ -767,6 +775,41 @@ export default function ProductDetailTemplate({
       cancelled = true;
     };
   }, [product.id]);
+
+  const queryClient = useContext(QueryClientContext);
+  const primaryHeroImage = images[0] || product.image_url || null;
+
+  // Hydrate L1 cache, preload hero visual cleanly, and dismiss full-screen product loader
+  useEffect(() => {
+    if (!product?.id) return;
+    const pid = String(product.id);
+    const wasAlreadyCached = hasFreshCachedProductDetail(pid);
+
+    setCachedProductDetail(product, initialReviews);
+    if (queryClient) {
+      try {
+        queryClient.setQueryData(["product", pid], product);
+      } catch {
+        // Non-fatal if cache update fails
+      }
+    }
+
+    if (wasAlreadyCached) {
+      completeProductNavigation(pid);
+      return;
+    }
+
+    let cancelled = false;
+    preloadProductImage(primaryHeroImage, PRODUCT_IMAGE_PRELOAD_DEADLINE_MS).finally(() => {
+      if (!cancelled) {
+        completeProductNavigation(pid);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product, initialReviews, primaryHeroImage, queryClient]);
 
   // Record product view behavioral signal for cross-platform personalization & recently viewed
   useEffect(() => {

@@ -347,20 +347,21 @@ export async function createMasterOrder(payload: MasterOrderPayload) {
     }
   }
 
-  // Update parent order with aggregated EDD
-  if (createdSellerEDDs.length > 0) {
-    try {
-      const parentEDD = aggregateMultiVendorEDD(createdSellerEDDs);
-      await supabaseServer.from('orders').update({
-        expected_delivery_from: parentEDD.expected_delivery_from,
-        expected_delivery_to: parentEDD.expected_delivery_to,
-        expected_delivery_date: parentEDD.expected_delivery_date,
-        edd_source: parentEDD.edd_source,
-        edd_updated_at: new Date().toISOString()
-      }).eq('id', parentOrderId);
-    } catch (parentEddErr) {
-      console.warn("Parent order EDD update notice:", parentEddErr);
-    }
+  // Update parent order with aggregated EDD (always guaranteeing standard 7-day baseline)
+  try {
+    const parentEDD =
+      createdSellerEDDs.length > 0
+        ? aggregateMultiVendorEDD(createdSellerEDDs)
+        : calculateFallbackEDD(undefined, deliveryPincode, new Date());
+    await supabaseServer.from('orders').update({
+      expected_delivery_from: parentEDD.expected_delivery_from,
+      expected_delivery_to: parentEDD.expected_delivery_to,
+      expected_delivery_date: parentEDD.expected_delivery_date,
+      edd_source: parentEDD.edd_source,
+      edd_updated_at: new Date().toISOString()
+    }).eq('id', parentOrderId);
+  } catch (parentEddErr) {
+    console.warn("Parent order EDD update notice:", parentEddErr);
   }
 
   trace['seller_orders_creation_ms'] = Date.now() - tSellerStart;
