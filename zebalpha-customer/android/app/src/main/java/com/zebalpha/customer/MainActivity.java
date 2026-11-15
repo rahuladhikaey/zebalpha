@@ -29,19 +29,27 @@ import android.widget.Toast;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.provider.Settings;
 import android.net.Uri;
 import android.content.pm.PackageManager;
+import android.os.SystemClock;
 import android.webkit.JavascriptInterface;
-import androidx.core.app.NotificationCompat;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.google.firebase.messaging.FirebaseMessaging;
 import java.util.Locale;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
 
@@ -91,6 +99,11 @@ public class MainActivity extends BridgeActivity {
     private boolean isRetrying = false;
     private int autoRetryCount = 0;
     private ConnectivityManager.NetworkCallback networkCallback;
+    private ActivityResultLauncher<String> notificationPermissionLauncher;
+    private long permissionPromptRequestedAtMs = 0L;
+    private boolean permissionRationaleBeforePrompt = false;
+    private String pendingDeepLinkUrl = null;
+    private BroadcastReceiver fcmTokenReceiver;
 
     private final Handler timeoutHandler = new Handler(Looper.getMainLooper());
     private final Runnable timeoutWatchdog = () -> {
@@ -171,6 +184,14 @@ public class MainActivity extends BridgeActivity {
                     autoRetryCount = 0;
                     if (view != null) {
                         view.setVisibility(View.VISIBLE);
+                    }
+                    dispatchNotificationStatusToWebView();
+                    if (pendingDeepLinkUrl != null && !pendingDeepLinkUrl.trim().isEmpty()) {
+                        String deepTarget = resolveAppDeepLinkUrl(pendingDeepLinkUrl);
+                        pendingDeepLinkUrl = null;
+                        if (deepTarget != null && !deepTarget.equals(url)) {
+                            navigateToUrl(deepTarget);
+                        }
                     }
                 }
             });
@@ -371,6 +392,18 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Register ActivityResultLauncher unconditionally before STARTED state
+        notificationPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(),
+            this::handlePermissionLauncherResult
+        );
+
+        // Listen for FCM token refreshes while app is alive
+        registerFcmTokenReceiver();
+
+        // Capture any deep link from notification tap on cold launch
+        extractTargetUrlFromIntent(getIntent());
+
         // 1. Setup offline error overlay view
         setupOfflineOverlay();
 
@@ -385,9 +418,11 @@ public class MainActivity extends BridgeActivity {
             Log.e(TAG, "Error installing custom ZebAlphaWebViewClient", e);
         }
 
-        // 3. Register Notification Channel & System Permissions
-        createNotificationChannel();
-        checkAndRequestNotificationPermission();
+        // 3. Create high-importance notification channel immediately at startup (avoid blocking SplashScreen with permission dialog)
+        ZebAlphaFirebaseMessagingService.ensureNotificationChannel(this);
+        if (isNotificationEnabledInternal()) {
+            fetchAndDispatchFcmToken();
+        }
 
         // 4. Custom User-Agent header for Android App identification
         try {
@@ -420,61 +455,246 @@ public class MainActivity extends BridgeActivity {
         setupBackNavigation();
     }
 
-    public static final String NOTIFICATION_CHANNEL_ID = "zebalpha_alerts_channel";
-    public static final String NOTIFICATION_CHANNEL_NAME = "ZebAlpha Drops & Orders";
-    private static final int PERMISSION_REQUEST_CODE_NOTIF = 2001;
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        extractTargetUrlFromIntent(intent);
+        if (pendingDeepLinkUrl != null && !pendingDeepLinkUrl.trim().isEmpty()) {
+            String deepTarget = resolveAppDeepLinkUrl(pendingDeepLinkUrl);
+            pendingDeepLinkUrl = null;
+            if (deepTarget != null) {
+                navigateToUrl(deepTarget);
+            }
+        }
+    }
 
-    /**
-     * Creates the Android Notification Channel required by Android 8.0+ (Oreo through Android 15).
-     * Enables system notification toggles, sound, vibration, and lockscreen presentation.
-     */
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                NOTIFICATION_CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH
-            );
-            channel.setDescription("VIP drops, flash discounts, and custom print proofs alerts");
-            channel.enableLights(true);
-            channel.enableVibration(true);
-            channel.setShowBadge(true);
-            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+    public static final String NOTIFICATION_CHANNEL_ID = ZebAlphaFirebaseMessagingService.NOTIFICATION_CHANNEL_ID;
+    public static final String NOTIFICATION_CHANNEL_NAME = ZebAlphaFirebaseMessagingService.NOTIFICATION_CHANNEL_NAME;
 
+    private void extractTargetUrlFromIntent(Intent intent) {
+        if (intent == null) return;
+        try {
+            String target = intent.getStringExtra("target_url");
+            if (target == null || target.trim().isEmpty()) {
+                target = intent.getStringExtra("url");
+            }
+            if (target != null && !target.trim().isEmpty()) {
+                pendingDeepLinkUrl = target.trim();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error reading notification target_url", e);
+        }
+    }
+
+    private String resolveAppDeepLinkUrl(String raw) {
+        if (raw == null) return null;
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) return null;
+        if (trimmed.startsWith("/")) {
+            return DEFAULT_URL + trimmed;
+        }
+        String lower = trimmed.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("https://zebalpha.shop") || lower.startsWith("http://zebalpha.shop")) {
+            return trimmed;
+        }
+        return null;
+    }
+
+    private void registerFcmTokenReceiver() {
+        try {
+            fcmTokenReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent == null) return;
+                    String token = intent.getStringExtra("token");
+                    if (token != null && !token.isEmpty()) {
+                        dispatchFcmTokenToWebView(token);
+                    }
+                }
+            };
+            IntentFilter filter = new IntentFilter(ZebAlphaFirebaseMessagingService.ACTION_FCM_TOKEN);
+            ContextCompat.registerReceiver(this, fcmTokenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register FCM token receiver", e);
+        }
+    }
+
+    private boolean isPostNotificationsGranted() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return true;
+        }
+        return ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+            == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean isChannelBlocked() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return false;
+        }
+        try {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
-                manager.createNotificationChannel(channel);
-                Log.i(TAG, "NotificationChannel created: " + NOTIFICATION_CHANNEL_ID);
+                NotificationChannel channel = manager.getNotificationChannel(NOTIFICATION_CHANNEL_ID);
+                return channel != null && channel.getImportance() == NotificationManager.IMPORTANCE_NONE;
             }
+        } catch (Exception e) {
+            Log.w(TAG, "Error checking notification channel importance", e);
+        }
+        return false;
+    }
+
+    private boolean isNotificationEnabledInternal() {
+        NotificationManagerCompat manager = NotificationManagerCompat.from(this);
+        return isPostNotificationsGranted() && manager.areNotificationsEnabled() && !isChannelBlocked();
+    }
+
+    private String buildNotificationStatusJson(boolean blockedBySystem) {
+        try {
+            JSONObject obj = new JSONObject();
+            boolean postGranted = isPostNotificationsGranted();
+            boolean appEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled();
+            boolean channelBlocked = isChannelBlocked();
+            boolean enabled = postGranted && appEnabled && !channelBlocked;
+            boolean rationale = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.POST_NOTIFICATIONS);
+
+            obj.put("enabled", enabled);
+            obj.put("granted", enabled);
+            obj.put("postNotificationsGranted", postGranted);
+            obj.put("areNotificationsEnabled", appEnabled);
+            obj.put("channelBlocked", channelBlocked);
+            obj.put("shouldShowRationale", rationale);
+            obj.put("blockedBySystem", blockedBySystem);
+            obj.put("sdkInt", Build.VERSION.SDK_INT);
+            return obj.toString();
+        } catch (Exception e) {
+            return "{\"enabled\":false,\"granted\":false}";
         }
     }
 
-    /**
-     * Checks and requests runtime notification permission on Android 13+ (API 33+).
-     */
-    private void checkAndRequestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST_CODE_NOTIF);
-            }
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CODE_NOTIF) {
-            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            Log.i(TAG, "Notification permission result: granted = " + granted);
-            runOnUiThread(() -> {
+    private void dispatchJsEvent(String eventName, String jsonDetail) {
+        runOnUiThread(() -> {
+            try {
                 Bridge bridge = getBridge();
                 if (bridge != null && bridge.getWebView() != null) {
                     bridge.getWebView().evaluateJavascript(
-                        "window.dispatchEvent(new CustomEvent('zebalpha:notification-permission', { detail: { granted: " + granted + " } }));",
+                        "window.dispatchEvent(new CustomEvent('" + eventName + "', { detail: " + jsonDetail + " }));",
                         null
                     );
                 }
+            } catch (Exception e) {
+                Log.w(TAG, "Failed dispatching JS event: " + eventName, e);
+            }
+        });
+    }
+
+    private void dispatchNotificationStatusToWebView() {
+        dispatchJsEvent("zebalpha:notification-status", buildNotificationStatusJson(false));
+    }
+
+    private void sendActivationNotificationIfFirstTime() {
+        if (!isNotificationEnabledInternal()) return;
+        try {
+            SharedPreferences prefs = getSharedPreferences(ZebAlphaFirebaseMessagingService.PREFS_NAME, MODE_PRIVATE);
+            if (prefs.getBoolean("notif_activation_sent", false)) {
+                return;
+            }
+            boolean posted = ZebAlphaFirebaseMessagingService.showSystemNotification(
+                this,
+                "ZebAlpha Alerts Activated ✦",
+                "You're all set! Order tracking, flash deals & exclusive drop updates are now active.",
+                "/notifications"
+            );
+            if (posted) {
+                prefs.edit().putBoolean("notif_activation_sent", true).apply();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error sending activation notification", e);
+        }
+    }
+
+    private void fetchAndDispatchFcmToken() {
+        try {
+            FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+                if (!task.isSuccessful()) {
+                    Log.w(TAG, "Fetching FCM registration token failed", task.getException());
+                    return;
+                }
+                String token = task.getResult();
+                if (token != null && !token.isEmpty()) {
+                    SharedPreferences prefs = getSharedPreferences(ZebAlphaFirebaseMessagingService.PREFS_NAME, MODE_PRIVATE);
+                    prefs.edit().putString(ZebAlphaFirebaseMessagingService.KEY_FCM_TOKEN, token).apply();
+                    dispatchFcmTokenToWebView(token);
+                }
             });
+        } catch (Exception e) {
+            Log.w(TAG, "FCM token retrieval error", e);
+        }
+    }
+
+    private void dispatchFcmTokenToWebView(String token) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("token", token);
+            dispatchJsEvent("zebalpha:fcm-token", obj.toString());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed dispatching FCM token event", e);
+        }
+    }
+
+    private void handlePermissionLauncherResult(Boolean isGranted) {
+        ZebAlphaFirebaseMessagingService.ensureNotificationChannel(this);
+        boolean enabledNow = isNotificationEnabledInternal();
+        boolean grantedNow = Boolean.TRUE.equals(isGranted) && enabledNow;
+        long elapsedMs = SystemClock.elapsedRealtime() - permissionPromptRequestedAtMs;
+        boolean rationaleAfter = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.POST_NOTIFICATIONS);
+
+        // If Android closes the launcher almost instantly with no rationale, OS suppressed dialog (Restricted Settings or permanent denial)
+        boolean blockedBySystem = !grantedNow && !rationaleAfter && (elapsedMs < 450L || !permissionRationaleBeforePrompt);
+
+        Log.i(TAG, "Notification permission result: isGranted=" + isGranted + ", enabledNow=" + enabledNow + ", blockedBySystem=" + blockedBySystem + ", elapsedMs=" + elapsedMs);
+
+        if (grantedNow) {
+            sendActivationNotificationIfFirstTime();
+            fetchAndDispatchFcmToken();
+        }
+
+        String statusJson = buildNotificationStatusJson(blockedBySystem);
+        dispatchJsEvent("zebalpha:notification-permission", statusJson);
+        dispatchJsEvent("zebalpha:notification-status", statusJson);
+    }
+
+    /**
+     * Checks and requests runtime notification permission safely on Android 13+ (API 33+).
+     */
+    private void checkAndRequestNotificationPermission() {
+        ZebAlphaFirebaseMessagingService.ensureNotificationChannel(this);
+
+        if (isNotificationEnabledInternal()) {
+            sendActivationNotificationIfFirstTime();
+            fetchAndDispatchFcmToken();
+            String statusJson = buildNotificationStatusJson(false);
+            dispatchJsEvent("zebalpha:notification-permission", statusJson);
+            dispatchJsEvent("zebalpha:notification-status", statusJson);
+            return;
+        }
+
+        // If POST_NOTIFICATIONS is granted but user/system muted master switch or channel, runtime dialog won't appear -> guide directly
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || isPostNotificationsGranted()) {
+            String statusJson = buildNotificationStatusJson(true);
+            dispatchJsEvent("zebalpha:notification-permission", statusJson);
+            return;
+        }
+
+        if (notificationPermissionLauncher != null) {
+            permissionPromptRequestedAtMs = SystemClock.elapsedRealtime();
+            permissionRationaleBeforePrompt = ActivityCompat.shouldShowRequestPermissionRationale(
+                this,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            );
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS);
         }
     }
 
@@ -485,45 +705,7 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void showNotification(String title, String message, String url) {
-            runOnUiThread(() -> {
-                try {
-                    Intent intent = new Intent(MainActivity.this, MainActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    if (url != null && !url.trim().isEmpty()) {
-                        intent.putExtra("target_url", url);
-                    }
-
-                    int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        flags |= PendingIntent.FLAG_IMMUTABLE;
-                    }
-
-                    PendingIntent pendingIntent = PendingIntent.getActivity(
-                        MainActivity.this,
-                        (int) System.currentTimeMillis(),
-                        intent,
-                        flags
-                    );
-
-                    NotificationCompat.Builder builder = new NotificationCompat.Builder(MainActivity.this, NOTIFICATION_CHANNEL_ID)
-                        .setSmallIcon(R.mipmap.ic_launcher)
-                        .setContentTitle(title)
-                        .setContentText(message)
-                        .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-                        .setDefaults(NotificationCompat.DEFAULT_ALL)
-                        .setAutoCancel(true)
-                        .setContentIntent(pendingIntent);
-
-                    NotificationManagerCompat manager = NotificationManagerCompat.from(MainActivity.this);
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                        ContextCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-                        manager.notify((int) System.currentTimeMillis(), builder.build());
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error displaying native notification", e);
-                }
-            });
+            runOnUiThread(() -> ZebAlphaFirebaseMessagingService.showSystemNotification(MainActivity.this, title, message, url));
         }
 
         @JavascriptInterface
@@ -533,8 +715,34 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public boolean isNotificationEnabled() {
-            NotificationManagerCompat manager = NotificationManagerCompat.from(MainActivity.this);
-            return manager.areNotificationsEnabled();
+            return isNotificationEnabledInternal();
+        }
+
+        @JavascriptInterface
+        public String getNotificationStatus() {
+            return buildNotificationStatusJson(false);
+        }
+
+        @JavascriptInterface
+        public String getFcmToken() {
+            SharedPreferences prefs = getSharedPreferences(ZebAlphaFirebaseMessagingService.PREFS_NAME, MODE_PRIVATE);
+            String cached = prefs.getString(ZebAlphaFirebaseMessagingService.KEY_FCM_TOKEN, "");
+            fetchAndDispatchFcmToken();
+            return cached != null ? cached : "";
+        }
+
+        @JavascriptInterface
+        public void openAppInfoSettings() {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to open app info settings", e);
+                }
+            });
         }
 
         @JavascriptInterface
@@ -542,7 +750,11 @@ public class MainActivity extends BridgeActivity {
             runOnUiThread(() -> {
                 try {
                     Intent intent = new Intent();
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPostNotificationsGranted() && isChannelBlocked()) {
+                        intent.setAction(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+                        intent.putExtra(Settings.EXTRA_CHANNEL_ID, NOTIFICATION_CHANNEL_ID);
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         intent.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
                         intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
                     } else {
@@ -553,6 +765,7 @@ public class MainActivity extends BridgeActivity {
                     startActivity(intent);
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to open notification settings", e);
+                    openAppInfoSettings();
                 }
             });
         }
@@ -835,6 +1048,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        ZebAlphaFirebaseMessagingService.ensureNotificationChannel(this);
+        if (isNotificationEnabledInternal()) {
+            sendActivationNotificationIfFirstTime();
+            fetchAndDispatchFcmToken();
+        }
+        dispatchNotificationStatusToWebView();
+
         if (!isNetworkConnected()) {
             WebView webView = getBridge() != null ? getBridge().getWebView() : null;
             if (webView != null) {
@@ -850,6 +1070,14 @@ public class MainActivity extends BridgeActivity {
     public void onDestroy() {
         super.onDestroy();
         cancelTimeoutWatchdog();
+        try {
+            if (fcmTokenReceiver != null) {
+                unregisterReceiver(fcmTokenReceiver);
+                fcmTokenReceiver = null;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error unregistering FCM token receiver", e);
+        }
         try {
             if (networkCallback != null) {
                 ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);

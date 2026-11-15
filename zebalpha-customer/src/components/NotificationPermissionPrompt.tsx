@@ -1,126 +1,48 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isNativeApp } from "@/lib/platform";
-import { initPushNotifications } from "@/lib/pushNotifications";
-import { Bell, Sparkles, X, ShieldAlert, CheckCircle2, Truck, Zap } from "lucide-react";
+import {
+  getCapacitorPushNotifications,
+  getNativeNotificationStatus,
+  getZebAlphaNative,
+  initPushNotifications,
+  saveDeviceToken,
+  type NativeNotificationStatus,
+} from "@/lib/pushNotifications";
+import { Bell, Sparkles, X, ShieldAlert, CheckCircle2, Truck, Zap, Settings, LockOpen } from "lucide-react";
 
 const DISMISSED_KEY = "zebalpha_notif_prompt_dismissed_until";
 const DISMISS_COUNT_KEY = "zebalpha_notif_prompt_dismiss_count";
 const GRANTED_KEY = "zebalpha_notif_granted";
+
+function isOnboardingComplete(): boolean {
+  if (typeof window === "undefined") return true;
+  if (!isNativeApp()) return true;
+  const langDone = localStorage.getItem("zebalpha_onboarding_language_completed") === "true";
+  const guest = localStorage.getItem("zebalpha_onboarding_guest_mode") === "true";
+  const fullDone = localStorage.getItem("zebalpha_onboarding_completed") === "true";
+  return langDone && (fullDone || guest);
+}
 
 export function NotificationPermissionPrompt() {
   const pathname = usePathname();
   const [showPrompt, setShowPrompt] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDeniedGuide, setShowDeniedGuide] = useState(false);
-  const [permissionState, setPermissionState] = useState<"default" | "granted" | "denied" | "unsupported">("default");
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [nativeStatus, setNativeStatus] = useState<NativeNotificationStatus | null>(null);
+  const [onboardingTick, setOnboardingTick] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const awaitingNativeResultRef = useRef(false);
+  const isShowingUiRef = useRef(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    isShowingUiRef.current = showPrompt || showDeniedGuide;
+  }, [showPrompt, showDeniedGuide]);
 
-    // Do NOT show prompt on Auth screens, Checkout, or during Onboarding
-    const isExcluded =
-      pathname === "/login" ||
-      pathname === "/signup" ||
-      pathname === "/checkout" ||
-      pathname === "/auth/callback";
-    if (isExcluded) return;
-
-    if (isNativeApp()) {
-      const langDone = localStorage.getItem("zebalpha_onboarding_language_completed") === "true";
-      const guest = localStorage.getItem("zebalpha_onboarding_guest_mode") === "true";
-      const fullDone = localStorage.getItem("zebalpha_onboarding_completed") === "true";
-      if (!langDone || (!fullDone && !guest)) {
-        return; // In onboarding flow, do NOT show
-      }
-    }
-
-    // 1. If previously granted, never show the prompt again
-    const isGranted = localStorage.getItem(GRANTED_KEY) === "true";
-    if (isGranted) {
-      setPermissionState("granted");
-      return;
-    }
-
-    // 2. Check dismissal cooldown (applies to BOTH native app and web)
-    const dismissedUntil = localStorage.getItem(DISMISSED_KEY);
-    if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
-      return; // Still in cooldown period, do NOT show
-    }
-
-    // 3. Platform Permission Check
-    const checkPermissions = async () => {
-      // 3a. Native Android App (Capacitor)
-      if (isNativeApp()) {
-        const cap = (window as any).Capacitor;
-        const PushNotifications = cap?.Plugins?.PushNotifications;
-
-        if (PushNotifications) {
-          try {
-            const status = await PushNotifications.checkPermissions();
-            if (status.receive === "granted") {
-              setPermissionState("granted");
-              localStorage.setItem(GRANTED_KEY, "true");
-              return;
-            } else if (status.receive === "denied") {
-              setPermissionState("denied");
-              return; // Do not nag if permanently denied in Android settings
-            }
-          } catch (_) {}
-        }
-
-        // Graceful 3.5s delay before showing so user can view products first
-        timerRef.current = setTimeout(() => {
-          setShowPrompt(true);
-        }, 3500);
-        return;
-      }
-
-      // 3b. Standard Web Browser
-      if ("Notification" in window) {
-        const current = Notification.permission;
-        setPermissionState(current);
-
-        if (current === "granted") {
-          localStorage.setItem(GRANTED_KEY, "true");
-          registerServiceWorker();
-          return;
-        }
-
-        if (current === "denied") {
-          return; // Browser permanently blocked notifications, don't show prompt
-        }
-
-        // If permission is 'default' (unasked), wait 3.5 seconds before showing
-        timerRef.current = setTimeout(() => {
-          setShowPrompt(true);
-        }, 3500);
-      } else {
-        setPermissionState("unsupported");
-      }
-    };
-
-    checkPermissions();
-
-    const handleNativePermission = (e: any) => {
-      if (e.detail?.granted) {
-        markGranted();
-      } else {
-        setShowDeniedGuide(true);
-      }
-    };
-    window.addEventListener("zebalpha:notification-permission", handleNativePermission);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      window.removeEventListener("zebalpha:notification-permission", handleNativePermission);
-    };
-  }, []);
-
-  const registerServiceWorker = async () => {
+  const registerServiceWorker = useCallback(async () => {
     if ("serviceWorker" in navigator) {
       try {
         await navigator.serviceWorker.register("/sw.js", { scope: "/" });
@@ -128,117 +50,302 @@ export function NotificationPermissionPrompt() {
         console.warn("ServiceWorker registration notice:", err);
       }
     }
-  };
+  }, []);
 
-  const handleRequestPermission = async () => {
+  const markGranted = useCallback((showToast = true) => {
+    awaitingNativeResultRef.current = false;
+    setIsRequesting(false);
+    setShowDeniedGuide(false);
+    localStorage.setItem(GRANTED_KEY, "true");
+    if (showToast) {
+      setShowSuccess(true);
+      window.setTimeout(() => {
+        setShowSuccess(false);
+        setShowPrompt(false);
+      }, 2200);
+    } else {
+      setShowPrompt(false);
+    }
+  }, []);
+
+  // Re-evaluate prompt visibility when onboarding opens or finishes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOnboardingState = (e: Event) => {
+      const detail = (e as CustomEvent<{ isOpen?: boolean }>).detail;
+      if (!detail?.isOpen) {
+        setOnboardingTick((n) => n + 1);
+      }
+    };
+    window.addEventListener("zebalpha:onboarding-state", onOnboardingState);
+    return () => {
+      window.removeEventListener("zebalpha:onboarding-state", onOnboardingState);
+    };
+  }, []);
+
+  // Keep FCM tokens synced automatically whenever Android dispatches a new or refreshed token
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onFcmToken = (e: Event) => {
+      const token = (e as CustomEvent<{ token?: string }>).detail?.token;
+      if (!token) return;
+      const previous = localStorage.getItem("zebalpha_fcm_token");
+      if (token !== previous) {
+        void saveDeviceToken({
+          token,
+          platform: "android",
+          topics: ["all", "new_drops", "orders"],
+        });
+      }
+    };
+    window.addEventListener("zebalpha:fcm-token", onFcmToken);
+    return () => {
+      window.removeEventListener("zebalpha:fcm-token", onFcmToken);
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
-    try {
-      // 1. Android Native App with JavaScript Bridge
-      const win = window as any;
-      if (win.ZebAlphaNative) {
-        const isEnabled = typeof win.ZebAlphaNative.isNotificationEnabled === "function" 
-          ? win.ZebAlphaNative.isNotificationEnabled() 
-          : false;
+    const isExcluded =
+      pathname === "/login" ||
+      pathname === "/signup" ||
+      pathname === "/checkout" ||
+      pathname === "/auth/callback";
+    if (isExcluded) return;
 
-        if (isEnabled) {
-          markGranted();
+    if (!isOnboardingComplete()) {
+      return;
+    }
+
+    const syncPermissions = async () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+
+      const native = getZebAlphaNative();
+      if (native) {
+        const status = getNativeNotificationStatus();
+        setNativeStatus(status);
+
+        if (status?.enabled) {
+          markGranted(isShowingUiRef.current);
+          void initPushNotifications();
           return;
         }
 
-        // Trigger native permission request
-        if (typeof win.ZebAlphaNative.requestPermission === "function") {
-          win.ZebAlphaNative.requestPermission();
+        // OS notifications are disabled; never trust stale GRANTED_KEY
+        localStorage.removeItem(GRANTED_KEY);
+        const dismissedUntil = localStorage.getItem(DISMISSED_KEY);
+        if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
+          return;
         }
 
-        // Verify status after a brief moment
-        setTimeout(() => {
-          const checkAgain = typeof win.ZebAlphaNative.isNotificationEnabled === "function" 
-            ? win.ZebAlphaNative.isNotificationEnabled() 
-            : false;
-
-          if (checkAgain) {
-            markGranted();
-          } else {
-            setShowDeniedGuide(true);
-          }
-        }, 900);
+        timerRef.current = setTimeout(() => {
+          setShowPrompt(true);
+        }, 3500);
         return;
       }
 
-      // 2. Android Native App with Capacitor
+      // Check dismissal cooldown for Capacitor / Web
+      const dismissedUntil = localStorage.getItem(DISMISSED_KEY);
+      const inCooldown = Boolean(dismissedUntil && Date.now() < parseInt(dismissedUntil, 10));
+
       if (isNativeApp()) {
-        const cap = win.Capacitor;
-        const PushNotifications = cap?.Plugins?.PushNotifications;
+        const PushNotifications = getCapacitorPushNotifications();
+
         if (PushNotifications) {
+          try {
+            const status = await PushNotifications.checkPermissions();
+            if (status.receive === "granted") {
+              markGranted(false);
+              return;
+            } else if (status.receive === "denied") {
+              localStorage.removeItem(GRANTED_KEY);
+              return;
+            }
+          } catch {}
+        }
+
+        if (localStorage.getItem(GRANTED_KEY) === "true" || inCooldown) {
+          return;
+        }
+
+        timerRef.current = setTimeout(() => {
+          setShowPrompt(true);
+        }, 3500);
+        return;
+      }
+
+      if ("Notification" in window) {
+        const current = Notification.permission;
+
+        if (current === "granted") {
+          markGranted(false);
+          void registerServiceWorker();
+          return;
+        }
+
+        if (current === "denied" || inCooldown) {
+          return;
+        }
+
+        timerRef.current = setTimeout(() => {
+          setShowPrompt(true);
+        }, 3500);
+      }
+    };
+
+    void syncPermissions();
+
+    const handleNativePermission = (e: Event) => {
+      const detail = (e as CustomEvent<NativeNotificationStatus>).detail;
+      if (!detail) return;
+
+      setNativeStatus(detail);
+      setIsRequesting(false);
+
+      if (detail.enabled || detail.granted) {
+        markGranted(true);
+        void initPushNotifications();
+      } else if (awaitingNativeResultRef.current) {
+        awaitingNativeResultRef.current = false;
+        setShowPrompt(false);
+        setShowDeniedGuide(true);
+      }
+    };
+
+    const handleNativeStatus = (e: Event) => {
+      const detail = (e as CustomEvent<NativeNotificationStatus>).detail;
+      if (!detail) return;
+      setNativeStatus(detail);
+      if (detail.enabled || detail.granted) {
+        markGranted(isShowingUiRef.current);
+        void initPushNotifications();
+      } else {
+        localStorage.removeItem(GRANTED_KEY);
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        const status = getNativeNotificationStatus();
+        if (status) {
+          setNativeStatus(status);
+          if (status.enabled) {
+            markGranted(isShowingUiRef.current);
+            void initPushNotifications();
+          }
+        }
+      }
+    };
+
+    window.addEventListener("zebalpha:notification-permission", handleNativePermission);
+    window.addEventListener("zebalpha:notification-status", handleNativeStatus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      window.removeEventListener("zebalpha:notification-permission", handleNativePermission);
+      window.removeEventListener("zebalpha:notification-status", handleNativeStatus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+    };
+  }, [pathname, onboardingTick, markGranted, registerServiceWorker]);
+
+  const handleRequestPermission = async () => {
+    if (typeof window === "undefined" || isRequesting) return;
+
+    try {
+      const native = getZebAlphaNative();
+      if (native) {
+        const current = getNativeNotificationStatus();
+        if (current?.enabled) {
+          markGranted(true);
+          void initPushNotifications();
+          return;
+        }
+
+        if (typeof native.requestPermission === "function") {
+          setIsRequesting(true);
+          awaitingNativeResultRef.current = true;
+          native.requestPermission();
+          return;
+        }
+      }
+
+      if (isNativeApp()) {
+        const PushNotifications = getCapacitorPushNotifications();
+        if (PushNotifications) {
+          setIsRequesting(true);
           const res = await PushNotifications.requestPermissions();
+          setIsRequesting(false);
           if (res.receive === "granted") {
-            markGranted();
+            markGranted(true);
             await PushNotifications.register();
             return;
-          } else {
-            setPermissionState("denied");
-            setShowDeniedGuide(true);
-            return;
           }
-        } else {
+          setShowPrompt(false);
+          setShowDeniedGuide(true);
+          return;
+        }
+
+        // Web preview (?view=app) without native bridge: fall through to browser Notifications if supported
+        if (!("Notification" in window)) {
+          setShowPrompt(false);
           setShowDeniedGuide(true);
           return;
         }
       }
 
-      // 3. Standard Web Browser / PWA
       if ("Notification" in window) {
+        setIsRequesting(true);
         const permission = await Notification.requestPermission();
-        setPermissionState(permission);
+        setIsRequesting(false);
 
         if (permission === "granted") {
-          markGranted();
+          markGranted(true);
           await registerServiceWorker();
 
-          // Initialize push subscription via pushNotifications service
           try {
             await initPushNotifications();
-          } catch (_) {}
+          } catch {}
 
-          // Send immediate welcome alert
           try {
             if ("serviceWorker" in navigator) {
               const reg = await navigator.serviceWorker.ready;
-              (reg as any).showNotification("ZebAlpha Alerts Activated ✦", {
+              await reg.showNotification("ZebAlpha Alerts Activated ✦", {
                 body: "You're all set! You'll receive instant updates for order tracking, flash drops, and exclusive discounts.",
                 icon: "/official-logo-sm.png",
                 badge: "/official-logo-sm.png",
                 vibrate: [150, 70, 150],
-              });
+              } as NotificationOptions & { vibrate?: number[] });
             } else {
               new Notification("ZebAlpha Alerts Activated ✦", {
                 body: "You're all set! You'll receive instant updates for order tracking, flash drops, and exclusive discounts.",
                 icon: "/official-logo-sm.png",
               });
             }
-          } catch (_) {}
+          } catch {}
         } else if (permission === "denied") {
+          setShowPrompt(false);
           setShowDeniedGuide(true);
         }
       }
     } catch (err) {
       console.warn("Notification permission error:", err);
+      awaitingNativeResultRef.current = false;
+      setIsRequesting(false);
+      setShowPrompt(false);
       setShowDeniedGuide(true);
     }
   };
 
-  const markGranted = () => {
-    setPermissionState("granted");
-    localStorage.setItem(GRANTED_KEY, "true");
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setShowPrompt(false);
-    }, 2000);
-  };
-
   const handleDismiss = () => {
+    awaitingNativeResultRef.current = false;
+    setIsRequesting(false);
     setShowPrompt(false);
     setShowDeniedGuide(false);
 
@@ -261,6 +368,9 @@ export function NotificationPermissionPrompt() {
     return null;
   }
 
+  const nativeBridge = getZebAlphaNative();
+  const isAndroidUi = Boolean(nativeBridge || isNativeApp());
+
   return (
     <div className="fixed bottom-20 md:bottom-6 right-3 left-3 sm:right-4 sm:left-4 md:left-auto md:max-w-md z-[80] animate-in fade-in slide-in-from-bottom-5 duration-300 pointer-events-auto">
       <div className="bg-zinc-950/95 border border-emerald-500/40 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_16px_40px_rgba(0,0,0,0.85)] backdrop-blur-2xl text-white">
@@ -282,7 +392,7 @@ export function NotificationPermissionPrompt() {
             </div>
           </div>
         ) : showDeniedGuide ? (
-          // Guide when notifications were previously blocked or restricted in phone settings
+          // Guide when notifications were previously blocked or greyed out (Restricted Settings) in phone settings
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400">
@@ -290,16 +400,24 @@ export function NotificationPermissionPrompt() {
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-extrabold text-white tracking-tight">
-                  Enable Notifications in App Info
+                  {isAndroidUi ? "Unlock & Enable Notifications" : "Enable Browser Notifications"}
                 </h4>
-                <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                  If the notification toggle is greyed out or inactive in App Info:
-                </p>
-                <ol className="text-[11px] text-zinc-400 mt-1.5 list-decimal list-inside space-y-1.5 leading-relaxed">
-                  <li>In App Info, tap the <b>3 dots (⋮)</b> in top right</li>
-                  <li>Tap <b>"Allow restricted settings"</b> (ফোন PIN দিন)</li>
-                  <li>Then tap <b>Notifications</b> ➔ Turn <b>ON</b></li>
-                </ol>
+                {isAndroidUi ? (
+                  <>
+                    <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                      If <b className="text-white">Show notifications</b> is greyed out / locked on your phone:
+                    </p>
+                    <ol className="text-[11px] text-zinc-400 mt-1.5 list-decimal list-inside space-y-1.5 leading-relaxed">
+                      <li>Tap <b className="text-white">Unlock in App Info</b> below</li>
+                      <li>Tap top-right <b className="text-white">⋮ (3 dots)</b> or scroll to the bottom ➔ tap <b className="text-amber-300">&quot;Allow restricted settings&quot;</b> &amp; enter phone PIN</li>
+                      <li>Then open <b className="text-white">Notification Settings</b> ➔ turn <b className="text-emerald-400">ON</b></li>
+                    </ol>
+                  </>
+                ) : (
+                  <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                    Notifications are blocked in your browser. Tap the lock/tune icon beside the address bar, set Notifications to <b>Allow</b>, and reload.
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -310,21 +428,52 @@ export function NotificationPermissionPrompt() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  const win = window as any;
-                  if (win.ZebAlphaNative?.openNotificationSettings) {
-                    win.ZebAlphaNative.openNotificationSettings();
-                  } else {
-                    handleDismiss();
-                  }
-                }}
-                className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-xs font-black uppercase tracking-wider text-black transition-all cursor-pointer shadow-md"
-              >
-                Open Settings ⚙️
-              </button>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {isAndroidUi && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (nativeBridge?.openAppInfoSettings) {
+                        nativeBridge.openAppInfoSettings();
+                      } else if (nativeBridge?.openNotificationSettings) {
+                        nativeBridge.openNotificationSettings();
+                      } else {
+                        handleDismiss();
+                      }
+                    }}
+                    className="flex-1 min-w-[140px] py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-[11px] font-black uppercase tracking-wider text-black transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    <LockOpen className="w-3.5 h-3.5" />
+                    1. Unlock in App Info
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (nativeBridge?.openNotificationSettings) {
+                        nativeBridge.openNotificationSettings();
+                      } else if (nativeBridge?.openAppInfoSettings) {
+                        nativeBridge.openAppInfoSettings();
+                      } else {
+                        handleDismiss();
+                      }
+                    }}
+                    className="flex-1 min-w-[140px] py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-[11px] font-black uppercase tracking-wider text-black transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    2. Notification Settings
+                  </button>
+                </>
+              )}
+              {nativeStatus?.shouldShowRationale && (
+                <button
+                  type="button"
+                  onClick={handleRequestPermission}
+                  className="py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-xs font-bold text-emerald-400 transition-all cursor-pointer"
+                >
+                  Try Popup
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleDismiss}
@@ -378,9 +527,10 @@ export function NotificationPermissionPrompt() {
                 <button
                   type="button"
                   onClick={handleRequestPermission}
-                  className="px-4 py-2 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-black text-xs uppercase tracking-wider transition-all shadow-[0_2px_14px_rgba(16,185,129,0.35)] cursor-pointer"
+                  disabled={isRequesting}
+                  className="px-4 py-2 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 active:scale-95 text-black font-black text-xs uppercase tracking-wider transition-all shadow-[0_2px_14px_rgba(16,185,129,0.35)] cursor-pointer"
                 >
-                  Allow Notifications
+                  {isRequesting ? "Checking..." : "Allow Notifications"}
                 </button>
                 <button
                   type="button"
