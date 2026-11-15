@@ -202,11 +202,8 @@ function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: bo
       <div className="flex flex-col items-start">
         {lightTheme ? (
           <>
-            <span className="text-[15px] sm:text-base font-black tracking-[0.18em] uppercase leading-tight">
-              <span className="text-[#111111]">ZEB</span>
-              <span className="bg-gradient-to-r from-[#D4A017] via-[#C68A12] to-[#9A6503] bg-clip-text text-transparent">
-                ALPHA
-              </span>
+            <span className="text-[15px] sm:text-base font-black tracking-[0.18em] uppercase leading-tight text-[#000000]">
+              ZEBALPHA
             </span>
             <span className="mt-0.5 flex items-center gap-1.5 leading-none">
               <span className="h-[1px] w-3 bg-[#C8941B]/80" />

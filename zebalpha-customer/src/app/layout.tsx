@@ -96,14 +96,21 @@ export default function RootLayout({
               (function() {
                 try {
                   var ua = navigator.userAgent || "";
-                  var isNative = !!(window.Capacitor || ua.indexOf("ZEBALPHA_ANDROID_APP") !== -1 || ua.indexOf("Capacitor") !== -1 || window.location.search.indexOf("view=app") !== -1);
+                  var isWebViewUa = ua.indexOf("Android") !== -1 && ua.indexOf("Version/") !== -1 && ua.indexOf("Chrome/") === -1;
+                  var isNative = !!(window.Capacitor || ua.indexOf("ZEBALPHA_ANDROID_APP") !== -1 || ua.indexOf("Capacitor") !== -1 || ua.indexOf("; wv") !== -1 || isWebViewUa || window.location.search.indexOf("view=app") !== -1);
                   if (isNative) {
-                    document.documentElement.classList.add("is-android-app");
+                    var root = document.documentElement;
+                    root.classList.remove("dark");
+                    root.classList.add("is-android-app", "zebalpha-app-hydrating");
+                    root.style.backgroundColor = "#FCF9F2";
+                    setTimeout(function() {
+                      root.classList.remove("zebalpha-app-hydrating");
+                    }, 2500);
                     var langDone = localStorage.getItem("zebalpha_onboarding_language_completed") === "true";
                     var guest = localStorage.getItem("zebalpha_onboarding_guest_mode") === "true";
                     var fullDone = localStorage.getItem("zebalpha_onboarding_completed") === "true";
                     if (!langDone || (!fullDone && !guest)) {
-                      document.documentElement.classList.add("zebalpha-onboarding-pending");
+                      root.classList.add("zebalpha-onboarding-pending");
                     }
                   }
                 } catch(e) {}

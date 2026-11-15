@@ -12,6 +12,8 @@ import { RecentlyViewedSection } from "@/components/recommendations/RecentlyView
 import { getSimilarProducts, detectProductFamily } from "@/lib/similarProducts";
 import { computeRatingBreakdown, type PublicReview } from "@/lib/productRatings";
 import { ProductNotFoundSignal } from "@/components/ProductDetailsLoadingScreen";
+import { NativePlatformProvider } from "@/lib/platform";
+import { detectNativeAppOnServer } from "@/lib/platformServer";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "dummy-anon-key-for-build").trim();
@@ -20,6 +22,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 type PageProps = {
   params: Promise<{ productId: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export const revalidate = 60;
@@ -261,26 +264,39 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function ProductDetailPage({ params }: PageProps) {
-  const { productId } = await params;
-  const [product, initialReviews] = await Promise.all([
+export default async function ProductDetailPage({ params, searchParams }: PageProps) {
+  const [{ productId }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve(undefined),
+  ]);
+  const [product, initialReviews, serverIsNative] = await Promise.all([
     getProduct(productId),
     getProductReviews(productId),
+    detectNativeAppOnServer(resolvedSearchParams),
   ]);
 
   if (!product) {
     return (
-      <main className="min-h-screen bg-black flex items-center justify-center p-6 text-white">
-        <ProductNotFoundSignal productId={productId} />
-        <div className="max-w-md w-full rounded-[2.5rem] bg-zinc-950 p-10 text-center border border-zinc-800 shadow-2xl">
-          <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-3xl mb-6">🚫</div>
-          <h1 className="text-2xl font-black text-white">Product not found</h1>
-          <p className="mt-3 text-zinc-400 font-medium">This product might have been moved or removed. (ID: {productId})</p>
-          <Link href="/products" className="mt-8 inline-flex w-full items-center justify-center rounded-2xl bg-white px-6 py-4 text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition hover:bg-zinc-200 active:scale-95">
-            Back to store
-          </Link>
-        </div>
-      </main>
+      <NativePlatformProvider initialIsNativeApp={serverIsNative}>
+        <main
+          data-ssr-native={serverIsNative ? "true" : undefined}
+          className={
+            serverIsNative
+              ? "min-h-screen bg-[#FFFFFF] flex items-center justify-center p-6 text-[#111111]"
+              : "min-h-screen bg-black flex items-center justify-center p-6 text-white"
+          }
+        >
+          <ProductNotFoundSignal productId={productId} />
+          <div className="max-w-md w-full rounded-[2.5rem] bg-zinc-950 p-10 text-center border border-zinc-800 shadow-2xl">
+            <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-3xl mb-6">🚫</div>
+            <h1 className="text-2xl font-black text-white">Product not found</h1>
+            <p className="mt-3 text-zinc-400 font-medium">This product might have been moved or removed. (ID: {productId})</p>
+            <Link href="/products" className="mt-8 inline-flex w-full items-center justify-center rounded-2xl bg-white px-6 py-4 text-sm font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition hover:bg-zinc-200 active:scale-95">
+              Back to store
+            </Link>
+          </div>
+        </main>
+      </NativePlatformProvider>
     );
   }
 
@@ -324,7 +340,15 @@ export default async function ProductDetailPage({ params }: PageProps) {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white overflow-x-hidden selection:bg-white selection:text-black">
+    <NativePlatformProvider initialIsNativeApp={serverIsNative}>
+      <main
+        data-ssr-native={serverIsNative ? "true" : undefined}
+        className={
+          serverIsNative
+            ? "min-h-screen bg-[#FFFFFF] text-[#111111] overflow-x-hidden selection:bg-[#F5B922]/30 selection:text-[#111111]"
+            : "min-h-screen bg-black text-white overflow-x-hidden selection:bg-white selection:text-black"
+        }
+      >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph) }}
@@ -363,5 +387,6 @@ export default async function ProductDetailPage({ params }: PageProps) {
         </div>
       </div>
     </main>
+    </NativePlatformProvider>
   );
 }

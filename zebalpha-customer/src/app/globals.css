@@ -550,7 +550,8 @@ body.zebalpha-onboarding-active [data-floating-assistant] {
   display: none;
 }
 
-html.zebalpha-onboarding-pending #zebalpha-instant-splash {
+html.zebalpha-onboarding-pending #zebalpha-instant-splash,
+html.is-android-app.zebalpha-app-hydrating:not(:has([data-ssr-native="true"])) #zebalpha-instant-splash {
   display: flex;
 }
 

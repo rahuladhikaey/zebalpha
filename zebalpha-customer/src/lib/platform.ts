@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import { Capacitor } from "@capacitor/core";
+import { isNativeUserAgent } from "@/lib/platformShared";
+
+const NativePlatformContext = createContext<boolean | null>(null);
+
+const subscribeNoop = () => () => {};
 
 /**
  * Checks whether the current environment is the native ZEBALPHA Android App
@@ -17,19 +22,14 @@ export function checkIsNativeApp(): boolean {
     }
 
     // 2. Window Capacitor Bridge fallback
-    const win = window as any;
+    const win = window as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } };
     if (win.Capacitor?.isNativePlatform?.() || win.Capacitor?.getPlatform?.() === "android") {
       return true;
     }
 
     // 3. Custom Android User-Agent / WebView signature
     const ua = window.navigator?.userAgent || "";
-    if (
-      ua.includes("ZEBALPHA_ANDROID_APP") ||
-      ua.includes("Capacitor") ||
-      ua.includes("; wv") ||
-      (ua.includes("Android") && ua.includes("Version/") && !ua.includes("Chrome/"))
-    ) {
+    if (isNativeUserAgent(ua)) {
       return true;
     }
 
@@ -50,30 +50,47 @@ export function checkIsNativeApp(): boolean {
 export const isNativeApp = checkIsNativeApp;
 
 /**
+ * Propagates server-detected Android WebView state down the React tree so SSR HTML
+ * and initial client hydration match without flashing Web UI first.
+ */
+export function NativePlatformProvider({
+  initialIsNativeApp,
+  children,
+}: {
+  initialIsNativeApp: boolean;
+  children: React.ReactNode;
+}) {
+  return React.createElement(
+    NativePlatformContext.Provider,
+    { value: initialIsNativeApp },
+    children
+  );
+}
+
+/**
  * React hook to reactively determine if the user is in the native Android App shell.
- * Defaults to false on SSR and initializes on client mount.
+ * Uses server-provided context when available to eliminate SSR-to-client UI flicker.
  */
 export function useIsNativeApp(): boolean {
-  const [isNative, setIsNative] = useState(() => {
-    if (typeof window !== "undefined") {
-      return checkIsNativeApp();
-    }
-    return false;
-  });
+  const serverNative = useContext(NativePlatformContext);
+
+  const isNative = useSyncExternalStore(
+    subscribeNoop,
+    checkIsNativeApp,
+    () => serverNative ?? false
+  );
 
   useEffect(() => {
-    const native = checkIsNativeApp();
-    setIsNative(native);
-    if (typeof document !== "undefined") {
-      if (native) {
-        document.documentElement.classList.add("is-android-app");
-        document.body.classList.add("is-android-app");
-      } else {
-        document.documentElement.classList.remove("is-android-app");
-        document.body.classList.remove("is-android-app");
-      }
+    if (typeof document === "undefined") return;
+    if (isNative) {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.classList.add("is-android-app");
+      document.body.classList.add("is-android-app");
+    } else {
+      document.documentElement.classList.remove("is-android-app");
+      document.body.classList.remove("is-android-app");
     }
-  }, []);
+  }, [isNative]);
 
   return isNative;
 }

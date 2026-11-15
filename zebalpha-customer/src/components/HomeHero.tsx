@@ -6,7 +6,7 @@ import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { MobileSearch } from "@/components/MobileSearch";
 import { CategoryNavigationBar, NavigationCategory } from "@/components/CategoryNavigationBar";
 import { AndroidHomeTrustBar } from "@/components/home/AndroidHomeTrustAndDrop";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 
 interface HomeHeroProps {
   initialCategories?: NavigationCategory[];
@@ -126,11 +126,6 @@ function AndroidCreamCurvesBackdrop() {
 
 export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
   const isNativeApp = useIsNativeApp();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // When in Android App:
   // Order:
@@ -138,7 +133,7 @@ export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
   //    Stops immediately below Android status bar during downward scroll.
   // 2. Hero Banner (BannerCarousel)
   // 3. Promotional Announcement / Marquee (MovingOfferBanner)
-  if (mounted && isNativeApp) {
+  if (isNativeApp) {
     return (
       <>
         {/* =================================================================== */}

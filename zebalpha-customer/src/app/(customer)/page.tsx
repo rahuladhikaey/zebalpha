@@ -27,6 +27,8 @@ import {
   buildOrganizationSchema,
   buildWebSiteSchema,
 } from "@/lib/aeo-geo/schemaGenerator";
+import { NativePlatformProvider } from "@/lib/platform";
+import { detectNativeAppOnServer } from "@/lib/platformServer";
 
 export const revalidate = 60;
 
@@ -97,7 +99,10 @@ export default async function HomePage(props: {
   const resolvedParams = await props.searchParams;
   const brandParam = typeof resolvedParams?.brand === "string" ? resolvedParams.brand : undefined;
 
-  const navigationCategories = await getCachedNavigationCategories().catch(() => []);
+  const [navigationCategories, serverIsNative] = await Promise.all([
+    getCachedNavigationCategories().catch(() => []),
+    detectNativeAppOnServer(resolvedParams),
+  ]);
 
   const jsonLdGraph = {
     "@context": "https://schema.org",
@@ -108,12 +113,19 @@ export default async function HomePage(props: {
   };
 
   return (
-    <>
+    <NativePlatformProvider initialIsNativeApp={serverIsNative}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph) }}
       />
-      <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-clip">
+      <main
+        data-ssr-native={serverIsNative ? "true" : undefined}
+        className={
+          serverIsNative
+            ? "min-h-screen bg-[#FFFFFF] text-[#111111] selection:bg-[#F5B922]/30 selection:text-[#111111] overflow-x-clip"
+            : "min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-clip"
+        }
+      >
         {/* P0 IMMEDIATE: Header */}
         <Header title="ZebAlpha" subtitle="CLOTHING FOR THE CULTURE ✦" />
 
@@ -168,6 +180,6 @@ export default async function HomePage(props: {
         </div>
       </main>
       <Footer />
-    </>
+    </NativePlatformProvider>
   );
 }
