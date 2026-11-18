@@ -29,34 +29,30 @@ export function RecommendationCarouselSkeleton({ title = "Suggested for You" }: 
   return (
     <section
       aria-label={title}
-      className={`my-10 rounded-3xl border p-4 sm:p-6 ${
+      className={`my-8 sm:my-10 rounded-3xl border p-4 sm:p-6 ${
         isNativeApp
-          ? "bg-gradient-to-b from-[#FFFFFF] via-[#FDF6DC] to-[#FAF0D1] border-[#E4C988] shadow-[0_12px_32px_rgba(166,124,28,0.12)]"
-          : "bg-gradient-to-b from-[#070b09] via-[#050505] to-black border-emerald-500/20 shadow-[0_12px_40px_rgba(0,0,0,0.75)]"
+          ? "bg-gradient-to-b from-[#FFFDFC] via-[#FFF8FA] to-[#FFF0F4] border-[#FCE7F0] shadow-[0_8px_24px_rgba(244,114,182,0.06)]"
+          : "bg-gradient-to-b from-[#070b09] via-[#050505] to-black border-pink-500/20 shadow-[0_12px_40px_rgba(0,0,0,0.75)]"
       }`}
     >
       <div className="flex items-center justify-between mb-5">
         <div className="space-y-2">
-          <div className={`h-6 w-48 rounded-lg animate-pulse ${isNativeApp ? "bg-[#F3E2B3]" : "bg-zinc-800/80"}`} />
-          <div className={`h-3.5 w-64 rounded-md animate-pulse ${isNativeApp ? "bg-[#FAF0D1]" : "bg-zinc-900"}`} />
+          <div className="h-6 w-48 rounded-lg animate-pulse bg-pink-200/50" />
+          <div className="h-3.5 w-64 rounded-md animate-pulse bg-pink-100/60" />
         </div>
-        <div className={`h-8 w-24 rounded-full animate-pulse ${isNativeApp ? "bg-[#FAF0D1]" : "bg-zinc-900"}`} />
+        <div className="h-8 w-24 rounded-full animate-pulse bg-pink-100/60" />
       </div>
       <div className="flex gap-3 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className={`w-[46%] sm:w-[31%] md:w-[23.5%] lg:w-[19.2%] shrink-0 rounded-2xl border p-2.5 space-y-3 ${
-              isNativeApp
-                ? "bg-[#FFFDF8] border-[#E4C988]"
-                : "bg-zinc-950 border-zinc-800/80"
-            }`}
+            className="w-[47%] sm:w-[31%] md:w-[23.5%] lg:w-[19.2%] shrink-0 rounded-[22px] border border-[#FCE7F0] bg-[#FFF5F8] p-3 space-y-3"
           >
-            <div className={`aspect-[4/5] w-full rounded-xl animate-pulse ${isNativeApp ? "bg-[#FAF0D1]" : "bg-zinc-900"}`} />
-            <div className={`h-3 w-16 rounded animate-pulse ${isNativeApp ? "bg-[#EAD49C]" : "bg-zinc-800"}`} />
-            <div className={`h-4 w-full rounded animate-pulse ${isNativeApp ? "bg-[#F3E2B3]" : "bg-zinc-800"}`} />
-            <div className={`h-4 w-24 rounded animate-pulse ${isNativeApp ? "bg-[#F3E2B3]" : "bg-zinc-800"}`} />
-            <div className={`h-9 w-full rounded-xl animate-pulse ${isNativeApp ? "bg-[#FAF0D1]" : "bg-zinc-900"}`} />
+            <div className="aspect-[3/4] w-full rounded-2xl bg-pink-100/60 animate-pulse" />
+            <div className="h-3 w-16 rounded bg-pink-100/80 animate-pulse" />
+            <div className="h-4 w-full rounded bg-pink-100/80 animate-pulse" />
+            <div className="h-4 w-24 rounded bg-pink-100/80 animate-pulse" />
+            <div className="h-3.5 w-32 rounded bg-pink-100/60 animate-pulse" />
           </div>
         ))}
       </div>
@@ -155,15 +151,15 @@ export function RecommendationCarouselShell({
       aria-label={title}
       className={`relative my-8 sm:my-10 rounded-3xl p-4 sm:p-6 overflow-hidden border ${
         isNativeApp
-          ? "bg-gradient-to-b from-[#FFFDF8] to-[#FAF2DE] border-[#E3C167]/75 shadow-[0_8px_28px_rgba(166,124,28,0.10)]"
-          : "bg-gradient-to-b from-[#070b09] via-[#050505] to-black border-emerald-500/25 shadow-[0_12px_45px_rgba(0,0,0,0.8),0_0_36px_rgba(16,185,129,0.09)]"
+          ? "bg-gradient-to-b from-[#FFFDFC] via-[#FFF8FA] to-[#FFF0F4] border-[#FCE7F0] shadow-[0_8px_24px_rgba(244,114,182,0.06)]"
+          : "bg-gradient-to-b from-[#0e070a] via-[#050505] to-black border-pink-500/20 shadow-[0_12px_45px_rgba(0,0,0,0.8),0_0_36px_rgba(255,30,111,0.08)]"
       }`}
     >
       {/* Subtle aura */}
       <div
         aria-hidden="true"
         className={`pointer-events-none absolute -top-24 left-10 h-44 w-72 rounded-full blur-3xl ${
-          isNativeApp ? "bg-[#FDE047]/15" : "bg-emerald-500/10"
+          isNativeApp ? "bg-pink-300/15" : "bg-[#FF1E6F]/10"
         }`}
       />
 
@@ -171,18 +167,14 @@ export function RecommendationCarouselShell({
       <div className="relative z-10 flex items-center justify-between gap-3 mb-5">
         <div className="flex items-start gap-3 min-w-0">
           <span
-            className={`mt-1 h-6 w-1.5 shrink-0 rounded-full ${
-              isNativeApp
-                ? "bg-gradient-to-b from-[#FCE38A] to-[#C68A12] shadow-sm"
-                : "bg-gradient-to-b from-emerald-300 to-emerald-500 shadow-[0_0_12px_#10b981]"
-            }`}
+            className="mt-1 h-6 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#FF1E6F] to-[#E11D48] shadow-sm"
           />
           <div className="min-w-0">
             <h2 className={`text-lg sm:text-xl md:text-2xl font-black tracking-tight truncate ${isNativeApp ? "text-[#14120F]" : "text-white"}`}>
               {title}
             </h2>
             {subtitle && (
-              <p className={`text-xs sm:text-[13px] font-medium mt-0.5 line-clamp-1 ${isNativeApp ? "text-[#5C4E35]" : "text-zinc-400"}`}>
+              <p className={`text-xs sm:text-[13px] font-medium mt-0.5 line-clamp-1 ${isNativeApp ? "text-[#6E555C]" : "text-zinc-400"}`}>
                 {subtitle}
               </p>
             )}
@@ -200,7 +192,7 @@ export function RecommendationCarouselShell({
                 aria-label={`Previous ${title}`}
                 className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${
                   canScrollLeft
-                    ? "border-emerald-500/40 bg-zinc-900 text-white hover:bg-emerald-500 hover:text-black hover:border-emerald-400 cursor-pointer"
+                    ? "border-pink-500/40 bg-zinc-900 text-white hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] cursor-pointer"
                     : "border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed"
                 }`}
               >
@@ -213,7 +205,7 @@ export function RecommendationCarouselShell({
                 aria-label={`Next ${title}`}
                 className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${
                   canScrollRight
-                    ? "border-emerald-500/40 bg-zinc-900 text-white hover:bg-emerald-500 hover:text-black hover:border-emerald-400 cursor-pointer"
+                    ? "border-pink-500/40 bg-zinc-900 text-white hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] cursor-pointer"
                     : "border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed"
                 }`}
               >
@@ -227,8 +219,8 @@ export function RecommendationCarouselShell({
               href={seeAllHref}
               className={`group inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-extrabold transition-all ${
                 isNativeApp
-                  ? "border-[#DFBE6F] bg-[#FFFDF8] text-[#8E6208] hover:bg-[#F7E8BD] shadow-sm"
-                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500 hover:text-black hover:border-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.14)]"
+                  ? "border-pink-200 bg-pink-50/80 text-[#FF1E6F] hover:bg-[#FF1E6F] hover:text-white shadow-sm"
+                  : "border-pink-500/40 bg-pink-500/10 text-pink-300 hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] shadow-[0_0_16px_rgba(255,30,111,0.18)]"
               }`}
             >
               <span>{seeAllLabel}</span>
@@ -238,16 +230,16 @@ export function RecommendationCarouselShell({
         </div>
       </div>
 
-      {/* Horizontal Carousel Track (~5 cards desktop, smooth swipe Android) */}
+      {/* Horizontal Carousel Track (~5 cards desktop, smooth swipe Android with 2 columns visible on mobile) */}
       <div
         ref={trackRef}
         onScroll={updateScrollButtons}
-        className="relative z-10 flex gap-3 sm:gap-4 overflow-x-auto pb-2 pt-1 scroll-smooth snap-x snap-mandatory touch-pan-x no-scrollbar"
+        className="relative z-10 flex gap-3 sm:gap-4 overflow-x-auto pb-4 pt-1 scroll-smooth snap-x snap-mandatory touch-pan-x no-scrollbar"
       >
         {items.map((prod, idx) => (
           <div
             key={String(prod.id)}
-            className="w-[46.5%] sm:w-[31%] md:w-[23.6%] lg:w-[19%] shrink-0 snap-start flex"
+            className="w-[47%] sm:w-[31%] md:w-[23.6%] lg:w-[19%] shrink-0 snap-start flex"
           >
             <RecommendationProductCard
               product={prod}

@@ -1,32 +1,36 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { Star, Award, Sparkles } from "lucide-react";
+import { Plus, Check, Star } from "lucide-react";
 import { WishlistButton } from "@/components/WishlistButton";
-import { AddToCartButton } from "@/components/AddToCartButton";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
-import { useIsNativeApp } from "@/lib/platform";
+import { useCart } from "@/context/CartContext";
+import { useVariantSelector } from "@/context/VariantSelectorContext";
+import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { trackRecommendationClick } from "@/lib/recommendationClient";
+import { Product } from "@/lib/types";
 import type {
   RecommendationSurface,
   RecommendedProductCard,
 } from "@/lib/recommendationScoring";
 
 interface RecommendationProductCardProps {
-  product: RecommendedProductCard;
-  surface: RecommendationSurface;
-  positionIndex: number;
+  product: Product | RecommendedProductCard;
+  surface?: RecommendationSurface;
+  positionIndex?: number;
   className?: string;
 }
 
 export function RecommendationProductCard({
   product,
   surface,
-  positionIndex,
+  positionIndex = 0,
   className = "",
 }: RecommendationProductCardProps) {
-  const isNativeApp = useIsNativeApp();
+  const { addToCart } = useCart();
+  const { openVariantSelector } = useVariantSelector();
+  const [justAdded, setJustAdded] = useState(false);
 
   const sellingPrice = Number(product.price) || 0;
   const mrp =
@@ -34,41 +38,75 @@ export function RecommendationProductCard({
   const hasValidDiscount = mrp > sellingPrice && mrp > 0;
   const discountPct =
     hasValidDiscount
-      ? product.discount_percentage ?? Math.round(((mrp - sellingPrice) / mrp) * 100)
+      ? ("discount_percentage" in product && typeof product.discount_percentage === "number"
+          ? product.discount_percentage
+          : Math.round(((mrp - sellingPrice) / mrp) * 100))
       : 0;
 
   const primaryImage =
-    product.thumbnail_url ||
-    product.image_url ||
-    (Array.isArray(product.images) && product.images[0]) ||
-    "";
+    ("thumbnail_url" in product && typeof product.thumbnail_url === "string" && product.thumbnail_url
+      ? product.thumbnail_url
+      : product.image_url ||
+        (Array.isArray(product.images) && product.images[0]) ||
+        "");
 
-  const hasValidRating =
-    typeof product.rating === "number" && product.rating > 0;
+  const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
+  const isOutOfStock =
+    !isUpcomingDrop &&
+    ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) ||
+      product.status === "OUT_OF_STOCK");
 
   const productHref = `/products/${product.id}`;
 
   const handleCardClick = () => {
-    trackRecommendationClick({
-      productId: product.id,
-      categoryId: product.category_id,
-      surface,
-      strategy: product.recommendation_strategy || "hybrid",
-      positionIndex,
-    }).catch(() => {});
+    if (surface) {
+      trackRecommendationClick({
+        productId: product.id,
+        categoryId: product.category_id,
+        surface,
+        strategy:
+          "recommendation_strategy" in product && product.recommendation_strategy
+            ? product.recommendation_strategy
+            : "hybrid",
+        positionIndex,
+      }).catch(() => {});
+    }
   };
+
+  const handlePlusClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isUpcomingDrop || isOutOfStock) return;
+
+    // If item has sizes/packages or specs requiring choice, open variant selector bottom sheet
+    const pkgs = product.packages;
+    const hasMultiplePkgs = Array.isArray(pkgs) && pkgs.length > 1;
+    const productRecord = product as Record<string, unknown>;
+    const hasUnselectedPkg = Array.isArray(pkgs) && pkgs.length > 0 && !productRecord.variant_id;
+    const sizeChart = (product.specifications as Record<string, unknown> | null)?.size_chart;
+    const mightHaveVariants = !pkgs && (product.category_id || sizeChart);
+
+    if (hasMultiplePkgs || hasUnselectedPkg || mightHaveVariants) {
+      openVariantSelector(product);
+      return;
+    }
+
+    addToCart(product, 1);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1400);
+  };
+
+  const brandName = (product.brand || "ZEBALPHA").trim();
+  const hasValidRating = typeof product.rating === "number" && product.rating > 0;
 
   return (
     <article
       data-testid="recommendation-product-card"
-      className={`group relative flex flex-col justify-between rounded-2xl transition-all duration-300 overflow-hidden ${
-        isNativeApp
-          ? "bg-[#FFFDF8] border border-[#E5C882]/85 shadow-[0_8px_22px_rgba(166,124,28,0.10)] hover:border-[#C28D12]"
-          : "bg-gradient-to-b from-zinc-900/95 via-zinc-950 to-black border border-zinc-800/90 hover:border-emerald-500/60 shadow-[0_8px_24px_rgba(0,0,0,0.6)] hover:shadow-[0_12px_32px_rgba(16,185,129,0.16)]"
-      } ${className}`}
+      className={`group relative flex flex-col justify-between rounded-[22px] sm:rounded-[24px] bg-[#FFF5F8] border border-[#FCE7F0] shadow-[0_4px_18px_rgba(244,114,182,0.08)] hover:shadow-[0_8px_24px_rgba(244,114,182,0.16)] transition-all duration-300 overflow-hidden select-none ${className}`}
     >
-      {/* Image & Overlay Badges */}
-      <div className={`relative aspect-[4/5] w-full overflow-hidden ${isNativeApp ? "bg-[#FAF3E1]" : "bg-zinc-900"}`}>
+      {/* Product Image Holder */}
+      <div className="relative aspect-[3/4] w-full bg-[#FCECEF]/60 overflow-hidden">
         <Link
           href={productHref}
           onClick={handleCardClick}
@@ -81,96 +119,80 @@ export function RecommendationProductCard({
               alt={product.name}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+              className="h-full w-full object-cover object-top transition-transform duration-500 ease-out group-hover:scale-105"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase tracking-widest text-zinc-600">
-              ZebAlpha
+            <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase tracking-widest text-[#FF1E6F]/60">
+              {brandName}
             </div>
           )}
         </Link>
 
-        {/* Subtle Dark Gradient Overlay at Bottom & Top for Readable Badges */}
-        <div
-          data-photo-overlay="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/50 to-transparent"
-        />
-        <div
-          data-photo-overlay="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/65 to-transparent"
-        />
-
-        {/* Bestseller / Badge Indicator (Only when real DB qualifies) */}
-        {(product.is_bestseller || product.badge_label) && (
-          <div
-            data-photo-overlay="true"
-            className={`pointer-events-none absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider backdrop-blur-md border ${
-              isNativeApp
-                ? "border-[#FCE38A]/70 bg-[#14120F]/85 text-[#FDE047] shadow-md"
-                : "border-emerald-400/50 bg-black/80 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.28)]"
-            }`}
-          >
-            {product.is_bestseller ? (
-              <Award className={`h-2.5 w-2.5 ${isNativeApp ? "text-[#FDE047]" : "text-emerald-400"}`} />
-            ) : (
-              <Sparkles className={`h-2.5 w-2.5 ${isNativeApp ? "text-[#FDE047]" : "text-emerald-400"}`} />
-            )}
-            <span>{product.is_bestseller ? "Bestseller" : product.badge_label}</span>
-          </div>
-        )}
-
-        {/* Wishlist Action */}
-        <div className="absolute right-1.5 top-1.5 z-10 scale-[0.82] origin-top-right">
+        {/* Wishlist Button at top-right of image */}
+        <div className="absolute right-2 top-2 z-10 scale-[0.82] origin-top-right">
           <WishlistButton product={product} />
         </div>
 
-        {/* Real Verified Rating Pill (Shown ONLY when verified reviews exist) */}
+        {/* Optional Rating Badge (if verified reviews exist) */}
         {hasValidRating && (
-          <div
-            data-photo-overlay="true"
-            className={`pointer-events-none absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 rounded-md bg-black/85 border px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm ${
-              isNativeApp ? "border-[#EAB308]/55" : "border-emerald-500/40"
-            }`}
-          >
+          <div className="absolute bottom-3 left-2.5 z-10 inline-flex items-center gap-1 rounded-md bg-white/90 backdrop-blur-sm border border-pink-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-900 shadow-sm">
             <span>{Number(product.rating).toFixed(1)}</span>
-            <Star className={`h-2.5 w-2.5 ${isNativeApp ? "fill-[#FDE047] text-[#FDE047]" : "fill-emerald-400 text-emerald-400"}`} />
-            {typeof product.review_count === "number" && product.review_count > 0 && (
-              <span className="text-zinc-300 font-medium">({product.review_count})</span>
-            )}
+            <Star size={9} className="fill-[#FF1E6F] text-[#FF1E6F]" />
           </div>
         )}
+
+        {/* Floating Hot-Pink Circular Plus Button at bottom-right of image */}
+        <button
+          type="button"
+          onClick={handlePlusClick}
+          disabled={isOutOfStock}
+          aria-label={justAdded ? "Added to Cart" : isOutOfStock ? "Out of Stock" : "Add to Cart"}
+          title={justAdded ? "Added to Cart" : isOutOfStock ? "Out of Stock" : "Add to Cart"}
+          className={`absolute -bottom-4 right-3 sm:-bottom-5 sm:right-3.5 z-20 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-[#FF1E6F] text-white shadow-[0_4px_14px_rgba(255,30,111,0.42)] active:scale-90 transition-all duration-200 cursor-pointer ${
+            isOutOfStock
+              ? "opacity-50 cursor-not-allowed bg-zinc-400 shadow-none"
+              : "hover:bg-[#E91E63] hover:scale-105"
+          }`}
+        >
+          {justAdded ? (
+            <Check size={22} className="stroke-[3] text-white" />
+          ) : (
+            <Plus size={24} className="stroke-[2.5] text-white" />
+          )}
+        </button>
       </div>
 
-      {/* Product Info + Cart Action */}
-      <div className="flex flex-1 flex-col justify-between gap-2.5 p-2.5 sm:p-3">
+      {/* Content Section below image */}
+      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 pt-4 sm:pt-4.5">
         <div className="space-y-1">
-          {product.brand && (
-            <p className={`text-[10px] font-bold uppercase tracking-wider truncate ${isNativeApp ? "text-[#8E6208]" : "text-emerald-400/90"}`}>
-              {product.brand}
-            </p>
-          )}
+          {/* Brand Name in Vibrant Pink */}
+          <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#FF1E6F] truncate">
+            {brandName}
+          </p>
+
+          {/* Product Title in Bold Black */}
           <Link
             href={productHref}
             onClick={handleCardClick}
-            className="block"
+            className="block group/title"
           >
-            <h3 className={`text-xs sm:text-[13px] font-bold leading-snug line-clamp-2 transition-colors ${isNativeApp ? "text-[#14120F]" : "text-white group-hover:text-emerald-300"}`}>
+            <h3 className="text-sm sm:text-[15px] font-bold text-zinc-900 leading-snug line-clamp-2 min-h-[2.5rem] group-hover/title:text-[#FF1E6F] transition-colors">
               {product.name}
             </h3>
           </Link>
 
-          {/* Price Row */}
-          <div className="flex items-baseline gap-1.5 flex-wrap pt-0.5">
-            <span className={`text-sm sm:text-[15px] font-black tracking-tight ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+          {/* Price Row: Selling Price + Strikethrough MRP + Soft Pink Discount Pill */}
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <span className="text-base sm:text-lg font-black text-zinc-900 tracking-tight">
               ₹{sellingPrice.toLocaleString("en-IN")}
             </span>
             {hasValidDiscount && (
               <>
-                <span className={`text-[11px] font-medium line-through ${isNativeApp ? "text-[#857860]" : "text-zinc-500"}`}>
+                <span className="text-xs sm:text-sm font-medium text-zinc-400 line-through">
                   ₹{mrp.toLocaleString("en-IN")}
                 </span>
                 {discountPct > 0 && (
-                  <span className={`text-[10px] font-extrabold ${isNativeApp ? "text-[#15803D]" : "text-emerald-400"}`}>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-[#E11D48] bg-[#FFE4EE] px-2 py-0.5 rounded-full inline-flex items-center">
                     {discountPct}% off
                   </span>
                 )}
@@ -178,23 +200,13 @@ export function RecommendationProductCard({
             )}
           </div>
 
-          <DeliveryEstimateWidget compact productId={product.id} className="pt-0.5" />
-        </div>
-
-        {/* Touch-Friendly Add to Cart Button */}
-        <div
-          className="pt-1"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          <AddToCartButton
-            product={product}
-            className={`w-full rounded-xl font-black uppercase tracking-wider transition-all active:scale-95 ${
-              isNativeApp
-                ? "min-h-[38px] text-[10px]"
-                : "h-9 text-[10px] sm:text-[11px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500 hover:text-black hover:border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.12)]"
-            }`}
+          {/* Delivery Row: Pink Truck + "Delivery by DD – DD MMM" */}
+          <DeliveryEstimateWidget
+            compact
+            variant="pink"
+            productId={product.id}
+            sellerId={product.seller_id}
+            className="pt-1.5"
           />
         </div>
       </div>

@@ -14,6 +14,7 @@ export interface DeliveryEstimateWidgetProps {
   sellerId?: string | number | null;
   weight?: number;
   compact?: boolean;
+  variant?: "standard" | "pink";
   className?: string;
   isOutOfStock?: boolean;
 }
@@ -122,6 +123,7 @@ export function DeliveryEstimateWidget({
   sellerId,
   weight = 0.5,
   compact = false,
+  variant = "standard",
   className = "",
   isOutOfStock = false,
 }: DeliveryEstimateWidgetProps) {
@@ -236,6 +238,16 @@ export function DeliveryEstimateWidget({
   // Compact mode (product cards & cart line items): zero API calls, instant 7-day display
   if (compact) {
     if (isOutOfStock || !estimate.in_stock) {
+      if (variant === "pink") {
+        return (
+          <div
+            className={`flex items-center gap-1.5 text-xs font-bold text-rose-600 ${className}`}
+          >
+            <AlertCircle size={14} className="shrink-0" />
+            <span>Out of stock</span>
+          </div>
+        );
+      }
       return (
         <div
           className={`flex items-center gap-1.5 text-[10px] font-bold ${
@@ -249,6 +261,26 @@ export function DeliveryEstimateWidget({
     }
 
     const compactDate = estimate.formatted_date || standardWindow.formatted_date;
+
+    if (variant === "pink") {
+      return (
+        <div
+          className={`flex items-center gap-1.5 sm:gap-2 text-xs sm:text-[13px] text-zinc-700 leading-tight ${className}`}
+        >
+          <Truck
+            size={16}
+            className="shrink-0 text-[#FF1E6F]"
+          />
+          <span className="truncate">
+            Delivery by{" "}
+            <strong className="font-bold text-zinc-900">
+              {compactDate}
+            </strong>
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div
         className={`flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight ${

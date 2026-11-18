@@ -18,6 +18,7 @@ import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUt
 import { supabase } from "@/lib/supabaseClient";
 import { evaluateProductTryOnEligibility } from "@/shared/constants/tryOnEligibility";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
+import { RecommendationProductCard } from "@/components/recommendations/RecommendationProductCard";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { getProductDisplayPricing } from "@/lib/productPricing";
 import { useIsNativeApp } from "@/lib/platform";
@@ -1445,66 +1446,21 @@ export default function ProductDetailTemplate({
           <div className="mt-20 border-t border-zinc-800 pt-16">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Suggestions</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FF1E6F]">Suggestions</span>
                 <h2 className="text-2xl font-black text-white mt-1">You Might Also Like</h2>
               </div>
               <Link href="/products" className="text-sm font-black text-white hover:underline">View All Products</Link>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-              {relatedProducts.map((p) => {
-                const pPricing = getProductDisplayPricing(p);
-                return (
-                <Link
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-5">
+              {relatedProducts.map((p, idx) => (
+                <RecommendationProductCard
                   key={p.id}
-                  href={`/products/${p.id}`}
-                  className="group flex flex-col rounded-3xl bg-zinc-950 p-3 transition-all hover:shadow-2xl border border-zinc-800 hover:border-zinc-700"
-                >
-                  <div className="aspect-square w-full overflow-hidden rounded-2xl bg-zinc-900 mb-4 flex items-center justify-center">
-                    <img
-                      src={p.images?.[0] || p.image_url}
-                      alt={p.name}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <h3 className="text-sm font-bold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">{p.name}</h3>
-                    {typeof p.rating === "number" && p.rating > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex h-5 items-center gap-0.5 rounded-md bg-white text-black px-1.5 text-[10px] font-bold">
-                          <span>{p.rating}</span>
-                          <Star size={8} fill="currentColor" aria-hidden="true" />
-                        </div>
-                        {typeof p.review_count === "number" && p.review_count > 0 && (
-                          <span className="text-[10px] font-bold text-zinc-400">({p.review_count})</span>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex flex-col">
-                      {pPricing.hasDiscount && (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-[10px] font-bold line-through ${isNativeApp ? "text-[#857860]" : "text-zinc-500"}`}>
-                            ₹{pPricing.mrp}
-                          </span>
-                          <span
-                            className={`text-[9px] font-extrabold px-1 py-0.5 rounded border ${
-                              isNativeApp
-                                ? "text-[#111111] bg-[#FAF0D1] border-[#E4C988]"
-                                : "text-white bg-zinc-900 border-zinc-800"
-                            }`}
-                          >
-                            {pPricing.discountPercent}% OFF
-                          </span>
-                        </div>
-                      )}
-                      <span className={`text-sm font-black ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
-                        ₹{pPricing.price}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-                );
-              })}
+                  product={p}
+                  surface="similar_products"
+                  positionIndex={idx}
+                />
+              ))}
             </div>
           </div>
         ) : null}

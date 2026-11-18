@@ -2,9 +2,12 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Check, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { SimilarProductItem } from "@/lib/similarProducts";
+import { Product } from "@/lib/types";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
+import { useCart } from "@/context/CartContext";
+import { useVariantSelector } from "@/context/VariantSelectorContext";
 import {
   trackRecommendationClick,
   trackRecommendationImpressions,
@@ -15,6 +18,173 @@ interface SimilarProductsCarouselProps {
   title?: string;
   subtitle?: string;
   className?: string;
+}
+
+function SimilarProductCardItem({
+  p,
+  idx,
+}: {
+  p: SimilarProductItem;
+  idx: number;
+}) {
+  const { addToCart } = useCart();
+  const { openVariantSelector } = useVariantSelector();
+  const [justAdded, setJustAdded] = useState(false);
+
+  const sellingPrice = Number(p.price) || 0;
+  const mrp = p.mrp != null && !isNaN(Number(p.mrp)) ? Number(p.mrp) : 0;
+  const discountPct =
+    p.discount_percentage ??
+    (mrp > sellingPrice && mrp > 0
+      ? Math.round(((mrp - sellingPrice) / mrp) * 100)
+      : 0);
+
+  const primaryImage =
+    p.thumbnail_url ||
+    p.image_url ||
+    (Array.isArray(p.images) && p.images[0]) ||
+    "";
+
+  const brandName = (p.brand || "ZEBALPHA").trim();
+  const isOutOfStock =
+    (p.stock !== undefined && p.stock !== null && Number(p.stock) <= 0) ||
+    p.status === "OUT_OF_STOCK";
+
+  const handleCardClick = () => {
+    trackRecommendationClick({
+      productId: p.id,
+      categoryId: p.category_id,
+      surface: "similar_products",
+      strategy: "product_similarity",
+      positionIndex: idx,
+    }).catch(() => {});
+  };
+
+  const handlePlusClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isOutOfStock) return;
+
+    const pkgs = p.packages;
+    const hasMultiplePkgs = Array.isArray(pkgs) && pkgs.length > 1;
+    const pRecord = p as unknown as Record<string, unknown>;
+    const hasUnselectedPkg = Array.isArray(pkgs) && pkgs.length > 0 && !pRecord.variant_id;
+    const sizeChart = (p.specifications as Record<string, unknown> | null)?.size_chart;
+    const mightHaveVariants = !pkgs && (p.category_id || sizeChart);
+
+    if (hasMultiplePkgs || hasUnselectedPkg || mightHaveVariants) {
+      openVariantSelector(p as unknown as Product);
+      return;
+    }
+
+    addToCart(p as unknown as Product, 1);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1400);
+  };
+
+  return (
+    <article
+      data-testid="similar-product-card"
+      className="group shrink-0 w-[165px] sm:w-[185px] md:w-[210px] snap-start flex flex-col justify-between rounded-[22px] sm:rounded-[24px] bg-[#FFF5F8] border border-[#FCE7F0] shadow-[0_4px_18px_rgba(244,114,182,0.08)] hover:shadow-[0_8px_24px_rgba(244,114,182,0.16)] transition-all duration-300 overflow-hidden select-none"
+    >
+      {/* Product Image Container */}
+      <div className="relative aspect-[3/4] w-full bg-[#FCECEF]/60 overflow-hidden">
+        <Link
+          href={`/products/${p.id}`}
+          onClick={handleCardClick}
+          className="block h-full w-full"
+          aria-label={p.name}
+        >
+          {primaryImage ? (
+            <img
+              src={primaryImage}
+              alt={p.name}
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover object-top transition-transform duration-500 ease-out group-hover:scale-105"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase tracking-widest text-[#FF1E6F]/60">
+              {brandName}
+            </div>
+          )}
+        </Link>
+
+        {/* Circular Hot-Pink Plus Button at bottom-right of image */}
+        <button
+          type="button"
+          onClick={handlePlusClick}
+          disabled={isOutOfStock}
+          aria-label={justAdded ? "Added to Cart" : isOutOfStock ? "Out of Stock" : "Add to Cart"}
+          title={justAdded ? "Added to Cart" : isOutOfStock ? "Out of Stock" : "Add to Cart"}
+          className={`absolute -bottom-4 right-3 sm:-bottom-5 sm:right-3.5 z-20 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-[#FF1E6F] text-white shadow-[0_4px_14px_rgba(255,30,111,0.42)] active:scale-90 transition-all duration-200 cursor-pointer ${
+            isOutOfStock
+              ? "opacity-50 cursor-not-allowed bg-zinc-400 shadow-none"
+              : "hover:bg-[#E91E63] hover:scale-105"
+          }`}
+        >
+          {justAdded ? (
+            <Check size={22} className="stroke-[3] text-white" />
+          ) : (
+            <Plus size={24} className="stroke-[2.5] text-white" />
+          )}
+        </button>
+      </div>
+
+      {/* Product Info Block */}
+      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 pt-4 sm:pt-4.5">
+        <div className="space-y-1">
+          {/* Brand Name in Pink */}
+          <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#FF1E6F] truncate">
+            {brandName}
+          </p>
+
+          {/* Title in Bold Black */}
+          <Link
+            href={`/products/${p.id}`}
+            onClick={handleCardClick}
+            className="block group/title"
+          >
+            <h3 className="text-sm sm:text-[15px] font-bold text-zinc-900 leading-snug line-clamp-2 min-h-[2.5rem] group-hover/title:text-[#FF1E6F] transition-colors">
+              {p.name}
+            </h3>
+          </Link>
+
+          {/* Pricing Row */}
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <span className="text-base sm:text-lg font-black text-zinc-900 tracking-tight">
+              ₹{sellingPrice.toLocaleString("en-IN")}
+            </span>
+            {mrp > sellingPrice && (
+              <>
+                <span className="text-xs sm:text-sm font-medium text-zinc-400 line-through">
+                  ₹{mrp.toLocaleString("en-IN")}
+                </span>
+                {discountPct > 0 && (
+                  <span className="text-[10px] sm:text-[11px] font-bold text-[#E11D48] bg-[#FFE4EE] px-2 py-0.5 rounded-full inline-flex items-center">
+                    {discountPct}% off
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Delivery Row */}
+          <DeliveryEstimateWidget
+            compact
+            variant="pink"
+            productId={p.id}
+            sellerId={p.seller_id}
+            className="pt-1.5"
+          />
+        </div>
+      </div>
+    </article>
+  );
 }
 
 export default function SimilarProductsCarousel({
@@ -68,10 +238,11 @@ export default function SimilarProductsCarousel({
       <div className="flex items-center justify-between mb-3.5 px-1 sm:px-0">
         <div>
           <div className="flex items-center gap-2">
+            <span className="h-5 w-1 rounded-full bg-gradient-to-b from-[#FF1E6F] to-[#E11D48]" />
             <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
               {title}
             </h2>
-            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold text-[#FF1E6F] bg-[#FFE4EE] px-2 py-0.5 rounded-full">
               {products.length} Items
             </span>
           </div>
@@ -117,121 +288,16 @@ export default function SimilarProductsCarousel({
       <div
         ref={scrollContainerRef}
         onScroll={checkScroll}
-        className="flex gap-3 overflow-x-auto pb-3 pt-1 scroll-smooth no-scrollbar snap-x snap-mandatory touch-pan-x"
+        className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 pt-1 scroll-smooth no-scrollbar snap-x snap-mandatory touch-pan-x"
         style={{
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
         }}
       >
-        {products.map((p, idx) => {
-          const sellingPrice = Number(p.price) || 0;
-          const mrp = p.mrp != null && !isNaN(Number(p.mrp)) ? Number(p.mrp) : 0;
-          const discountPct =
-            p.discount_percentage ??
-            (mrp > sellingPrice && mrp > 0
-              ? Math.round(((mrp - sellingPrice) / mrp) * 100)
-              : 0);
-
-          const primaryImage =
-            p.thumbnail_url ||
-            p.image_url ||
-            (Array.isArray(p.images) && p.images[0]) ||
-            "";
-
-          const ratingVal = p.rating ? Number(p.rating).toFixed(1) : null;
-
-          return (
-            <Link
-              key={p.id}
-              href={`/products/${p.id}`}
-              onClick={() => {
-                trackRecommendationClick({
-                  productId: p.id,
-                  categoryId: p.category_id,
-                  surface: "similar_products",
-                  strategy: "product_similarity",
-                  positionIndex: idx,
-                }).catch(() => {});
-              }}
-              className="group shrink-0 w-[150px] sm:w-[175px] md:w-[190px] snap-start flex flex-col rounded-2xl bg-zinc-950/90 border border-zinc-850 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(34,197,94,0.18)] transition-all duration-200 overflow-hidden select-none active:scale-[0.98]"
-            >
-              {/* Product Image Container */}
-              <div className="relative aspect-[3/4] w-full bg-zinc-900 overflow-hidden flex items-center justify-center">
-                {primaryImage ? (
-                  <img
-                    src={primaryImage}
-                    alt={p.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
-                    onError={(e) => {
-                      // Fallback placeholder on broken image
-                      (e.target as HTMLElement).style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-600 text-[10px] font-bold uppercase tracking-wider">
-                    ZebAlpha
-                  </div>
-                )}
-
-                {/* Rating Badge (Bottom Left of Photo - Flipkart Style) */}
-                {ratingVal && (
-                  <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-black/85 backdrop-blur-md px-1.5 py-0.5 text-[10px] font-black text-white shadow-md border border-white/10">
-                    <span>{ratingVal}</span>
-                    <Star
-                      size={9}
-                      className="text-emerald-400 fill-emerald-400"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Product Info Block */}
-              <div className="p-2.5 flex flex-col flex-1 justify-between gap-1.5">
-                {/* Title */}
-                <h3
-                  className="text-xs font-medium text-zinc-200 line-clamp-2 leading-snug group-hover:text-white transition-colors"
-                  title={p.name}
-                >
-                  {p.name}
-                </h3>
-
-                {/* Pricing Structure */}
-                <div className="space-y-0.5 pt-0.5">
-                  {/* Discount percent badge (Flipkart-style green highlight) */}
-                  {discountPct > 0 && (
-                    <div className="text-[11px] font-bold text-emerald-400 tracking-tight">
-                      {discountPct}% OFF
-                    </div>
-                  )}
-
-                  {/* MRP with strikethrough & Selling Price */}
-                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                    {mrp > sellingPrice && (
-                      <span className="text-[11px] text-zinc-500 line-through">
-                        ₹{mrp.toLocaleString("en-IN")}
-                      </span>
-                    )}
-                    <span className="text-xs sm:text-sm font-extrabold text-white">
-                      ₹{sellingPrice.toLocaleString("en-IN")}
-                    </span>
-                  </div>
-
-                  {/* Optional Real Highlight / Offer Label */}
-                  {p.highlight_label && (
-                    <div className="text-[10px] font-semibold text-sky-400 truncate pt-0.5">
-                      {p.highlight_label}
-                    </div>
-                  )}
-
-                  <DeliveryEstimateWidget compact productId={p.id} className="pt-0.5" />
-                </div>
-              </div>
-            </Link>
-          );
-        })}
+        {products.map((p, idx) => (
+          <SimilarProductCardItem key={p.id} p={p} idx={idx} />
+        ))}
       </div>
     </section>
   );
