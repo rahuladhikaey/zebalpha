@@ -89,11 +89,15 @@ export function SuggestedForYouSection({
   );
 
   useEffect(() => {
+    // If SSR provided initialItems and user is unauthenticated, skip redundant initial API roundtrip
+    if (initialItems.length > 0 && !userId) {
+      return;
+    }
     const timer = setTimeout(() => {
       void fetchPersonalized(1, false);
     }, 0);
     return () => clearTimeout(timer);
-  }, [fetchPersonalized, userId]);
+  }, [fetchPersonalized, userId, initialItems.length]);
 
   // Refresh personalized feed when user searches, views, wishlists, or carts items
   useEffect(() => {

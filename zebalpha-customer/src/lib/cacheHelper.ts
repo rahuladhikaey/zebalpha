@@ -3,9 +3,9 @@ import { redis } from './redis'
 // Enterprise L1 In-Memory Cache (RAM-based, 0ms latency, $0 bandwidth)
 const inMemoryCache = new Map<string, { data: any; expiresAt: number }>()
 
-// Maximum payload size allowed for remote Redis (15 KB)
-// Anything larger stays in ultra-fast L1 In-Memory Cache to guarantee Upstash bandwidth is never exhausted.
-const MAX_REDIS_PAYLOAD_BYTES = 15 * 1024
+// Maximum payload size allowed for remote Redis (512 KB)
+// Safe headroom within Upstash 250 MB free tier storage to cache product lists & prevent Supabase egress exhaustion.
+const MAX_REDIS_PAYLOAD_BYTES = 512 * 1024
 
 /**
  * Enterprise Two-Tier Cache Helper (L1 In-Memory + L2 Redis)

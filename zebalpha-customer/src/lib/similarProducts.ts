@@ -121,8 +121,8 @@ export async function getSimilarProducts(
           : {};
         const currentGender = (specs.target_gender || specs.gender || "").toLowerCase().trim();
 
-        // 1. Gather Candidate Pool
-        let candidatePool: any[] = [];
+        // 1. Gather Candidate Pool (Focused query: Category first, fallback to broader only if needed)
+        const candidatePool: any[] = [];
         const seenIds = new Set<string>([String(productId)]);
 
         // 1a. If product has category_id, fetch items in that category
@@ -135,7 +135,7 @@ export async function getSimilarProducts(
               .neq("id", productId)
               .or("is_active.is.null,is_active.eq.true")
               .order("created_at", { ascending: false })
-              .limit(50);
+              .limit(Math.min(limit * 2, 24));
 
             if (catProducts && !catErr) {
               for (const p of catProducts) {
@@ -150,26 +150,28 @@ export async function getSimilarProducts(
           }
         }
 
-        // 1b. Always fetch broader active catalog items to ensure pool is rich and never empty
-        try {
-          const { data: broaderProducts, error: broadErr } = await client
-            .from("products")
-            .select(SIMILAR_PRODUCT_FIELDS)
-            .neq("id", productId)
-            .or("is_active.is.null,is_active.eq.true")
-            .order("created_at", { ascending: false })
-            .limit(100);
+        // 1b. Only fetch broader active catalog items if category pool is insufficient (< 8)
+        if (candidatePool.length < 8) {
+          try {
+            const { data: broaderProducts, error: broadErr } = await client
+              .from("products")
+              .select(SIMILAR_PRODUCT_FIELDS)
+              .neq("id", productId)
+              .or("is_active.is.null,is_active.eq.true")
+              .order("created_at", { ascending: false })
+              .limit(16);
 
-          if (broaderProducts && !broadErr) {
-            for (const p of broaderProducts) {
-              if (!seenIds.has(String(p.id))) {
-                seenIds.add(String(p.id));
-                candidatePool.push(p);
+            if (broaderProducts && !broadErr) {
+              for (const p of broaderProducts) {
+                if (!seenIds.has(String(p.id))) {
+                  seenIds.add(String(p.id));
+                  candidatePool.push(p);
+                }
               }
             }
+          } catch (bErr) {
+            console.warn("[Similar Products] Notice fetching broader candidates:", bErr);
           }
-        } catch (bErr) {
-          console.warn("[Similar Products] Notice fetching broader candidates:", bErr);
         }
 
         if (candidatePool.length === 0) {
@@ -344,6 +346,6 @@ export async function getSimilarProducts(
         return [];
       }
     },
-    180 // 3 min cache TTL
+    1800 // 30 min cache TTL in Upstash Redis (drastically cuts Supabase egress)
   );
 }

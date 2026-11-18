@@ -6,7 +6,7 @@ import { getOrCreateRecommendationSessionId } from "@/lib/recommendationClient";
 import { useIsNativeApp } from "@/lib/platform";
 
 const SESSION_STORAGE_KEY = "zebalpha_client_session_id";
-const HEARTBEAT_INTERVAL_MS = 45000; // 45 seconds
+const HEARTBEAT_INTERVAL_MS = 180000; // 3 minutes (optimized to prevent database egress exhaustion)
 
 export function ActiveSessionTracker() {
   const { user } = useAuth();

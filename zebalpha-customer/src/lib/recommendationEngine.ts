@@ -18,7 +18,7 @@ import {
 } from "@/lib/recommendationScoring";
 
 const CATALOG_FIELDS =
-  "id, seller_id, category_id, name, slug, description, price, mrp, image_url, images, brand, stock, stock_count, low_stock_limit, is_active, status, is_approved, approval_status, specifications, packages, is_premium, is_new_drop, collection, target_drop_date, tier, created_at";
+  "id, seller_id, category_id, name, slug, price, mrp, image_url, images, brand, stock, stock_count, low_stock_limit, is_active, status, is_approved, approval_status, is_premium, is_new_drop, collection, target_drop_date, tier, created_at";
 
 const VALID_EVENT_TYPES = new Set<RecommendationEventType>([
   "product_viewed",
@@ -92,31 +92,31 @@ async function getCatalogSnapshot(): Promise<{
           .select(CATALOG_FIELDS)
           .or("is_active.is.null,is_active.eq.true")
           .order("created_at", { ascending: false })
-          .limit(500),
+          .limit(80),
         supabaseServer
           .from("sellers")
           .select("id, status, account_status, is_suspended, is_deleted")
-          .limit(1000),
+          .limit(200),
         supabaseServer
           .from("categories")
           .select("id, name, slug")
-          .limit(300),
+          .limit(100),
         supabaseServer
           .from("reviews")
           .select("product_id, rating, is_approved")
           .eq("is_approved", true)
-          .limit(3000),
+          .limit(500),
         supabaseServer
           .from("orders")
           .select("items, product_details, order_status")
           .gte("created_at", since30d)
-          .limit(500),
+          .limit(60),
         supabaseServer
           .from("customer_product_events")
           .select("product_id, event_type")
           .gte("created_at", since30d)
           .in("event_type", ["product_viewed", "cart_added", "wishlist_added", "product_purchased", "recommendation_clicked"])
-          .limit(2000),
+          .limit(300),
       ]);
 
       const sellerMap = new Map<string, SellerStatusRecord>();
@@ -133,7 +133,7 @@ async function getCatalogSnapshot(): Promise<{
         }
       }
 
-      const rawProducts = Array.isArray(prodRes.data) ? (prodRes.data as Product[]) : [];
+      const rawProducts = Array.isArray(prodRes.data) ? (prodRes.data as unknown as Product[]) : [];
       const eligibleProducts = rawProducts
         .map((p) => ({
           ...p,
@@ -213,7 +213,7 @@ async function getCatalogSnapshot(): Promise<{
         popularity,
       };
     },
-    120
+    900 // 15 mins TTL in Upstash Redis (drastically cuts Supabase egress)
   );
 
   return {
@@ -607,7 +607,7 @@ export async function getSimilarRecommendations(productId: string, limit = 12): 
         .eq("id", safeId)
         .maybeSingle();
       if (!data) return [];
-      targetProduct = data as Product;
+      targetProduct = data as unknown as Product;
     }
 
     const similarRaw = await getSimilarProducts(targetProduct, Math.max(limit * 2, 16));

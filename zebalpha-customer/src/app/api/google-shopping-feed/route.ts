@@ -8,7 +8,9 @@ export const revalidate = 3600;
 export async function GET() {
   const { data: products } = await supabaseServer
     .from("products")
-    .select("*");
+    .select("id, name, description, price, images, image_url, brand")
+    .or("is_active.is.null,is_active.eq.true")
+    .limit(100);
 
   if (!products) {
     return new NextResponse('Error fetching products', { status: 500 });

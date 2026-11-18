@@ -37,7 +37,7 @@ export async function getCachedCuratedCollections(): Promise<CuratedCollection[]
       }
       return [];
     },
-    10 // 10s short TTL for instant responsiveness with Supabase
+    600 // 10 min cache TTL in Upstash Redis
   );
 }
 
@@ -193,7 +193,7 @@ export async function getCachedEditorialCards(): Promise<EditorialCard[]> {
       }
       return [];
     },
-    10 // 10s TTL for real-time admin sync
+    600 // 10 min TTL in Upstash Redis
   );
 }
 
@@ -285,7 +285,7 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
       );
       return attachRatingsToProducts(normalized, ratingsMap);
     },
-    120 // 2 min TTL
+    600 // 10 min TTL in Upstash Redis
   );
 }
 

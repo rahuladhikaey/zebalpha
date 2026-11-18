@@ -36,6 +36,10 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    const headers = {
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+    };
+
     if (includeHierarchy) {
       const mainCategories = normalized.filter((c) => !c.parent_id);
       const subcategories = normalized.filter((c) => !!c.parent_id);
@@ -45,12 +49,13 @@ export async function GET(req: NextRequest) {
         subcategories: subcategories.filter((sub) => String(sub.parent_id) === String(main.id)),
       }));
 
-      return NextResponse.json({ success: true, data: tree });
+      return NextResponse.json({ success: true, data: tree }, { headers });
     }
 
-    return NextResponse.json({ success: true, data: normalized });
-  } catch (err: any) {
+    return NextResponse.json({ success: true, data: normalized }, { headers });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("[API /api/categories Exception]:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
