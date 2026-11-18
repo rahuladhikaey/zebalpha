@@ -8,10 +8,7 @@ import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
 import { OurProductsBanner } from "@/components/home/OurProductsBanner";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
-import { SuggestedForYouSection } from "@/components/recommendations/SuggestedForYouSection";
 import { RecentlyViewedSection } from "@/components/recommendations/RecentlyViewedSection";
-import { RecommendationCarouselSkeleton } from "@/components/recommendations/RecommendationCarouselShell";
-import { getTrendingProducts } from "@/lib/recommendationEngine";
 import {
   CollectionSkeleton,
   EditorialSkeleton,
@@ -84,13 +81,6 @@ async function ProductFeedContainer({ brandParam }: { brandParam?: string }) {
   return <InfiniteProductFeed initialProducts={products} brandFilter={brandParam} />;
 }
 
-async function SuggestedForYouContainer() {
-  const initialRes = await getTrendingProducts({ page: 1, limit: 15 }).catch(() => ({
-    items: [],
-  }));
-  return <SuggestedForYouSection initialItems={initialRes.items || []} />;
-}
-
 // --- MAIN HOMEPAGE ---
 
 export default async function HomePage(props: {
@@ -142,11 +132,6 @@ export default async function HomePage(props: {
           {/* Editorial Section */}
           <Suspense fallback={<EditorialSkeleton />}>
             <EditorialContainer brandParam={brandParam} />
-          </Suspense>
-
-          {/* Suggested for You — Positioned strictly above Our Products */}
-          <Suspense fallback={<RecommendationCarouselSkeleton title="Suggested for You" />}>
-            <SuggestedForYouContainer />
           </Suspense>
 
           {/* Featured Marketplace Products Grid */}
