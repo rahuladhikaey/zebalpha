@@ -49,6 +49,8 @@ interface SpeechRecognitionInstance {
 
 interface ZebAlphaNativeVoiceBridge {
   hasVoiceSearchSupport?: () => boolean;
+  hasMicPermission?: () => boolean;
+  requestMicPermission?: () => void;
   startVoiceSearch?: (langTag: string) => void;
   stopVoiceSearch?: () => void;
   cancelVoiceSearch?: () => void;
@@ -225,76 +227,108 @@ export function useVoiceSearch({ onResult, onUnsupportedFallback }: UseVoiceSear
       // 2. Standard Web Speech API (Chrome Android / Desktop / Safari / Edge)
       const SpeechRec = getWebSpeechConstructor();
       if (SpeechRec) {
-        try {
-          const recognition = new SpeechRec();
-          recognitionRef.current = recognition;
-          recognition.lang = targetLang;
-          recognition.interimResults = true;
-          recognition.continuous = false;
-          recognition.maxAlternatives = 3;
-
-          recognition.onstart = () => {
-            if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
-            setStatus("listening");
-          };
-
-          recognition.onresult = (event) => {
-            if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
-            let fullText = "";
-            let isFinalChunk = false;
-
-            for (let i = 0; i < event.results.length; i++) {
-              const res = event.results[i];
-              const alt = res?.[0]?.transcript || "";
-              fullText += alt + " ";
-              if (res?.isFinal) isFinalChunk = true;
-            }
-
-            const cleaned = fullText.trim();
-            if (cleaned) {
-              latestInterimRef.current = cleaned;
-              setTranscript(cleaned);
-              const quickParse = parseMultilingualSearchQuery(cleaned);
-              if (quickParse.wasTranslated && quickParse.translatedQuery !== cleaned) {
-                setTranslatedPreview(quickParse.translatedQuery);
+        (async () => {
+          // Proactively request mic permission via mediaDevices to trigger browser's native prompt
+          if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              // Permission granted! Immediately stop tracks to release hardware for SpeechRecognition
+              stream.getTracks().forEach((track) => track.stop());
+            } catch (err: unknown) {
+              if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
+              const errName =
+                typeof err === "object" && err !== null && "name" in err
+                  ? String((err as { name?: unknown }).name || "")
+                  : "";
+              if (
+                errName === "NotAllowedError" ||
+                errName === "PermissionDeniedError" ||
+                errName === "SecurityError"
+              ) {
+                console.warn("[VoiceSearch] Microphone permission denied or dismissed:", err);
+                setStatus("error");
+                setErrorMsg(t("voice_mic_permission"));
+                return;
               }
+              // Non-permission mediaDevices error: fall through and try SpeechRecognition directly
             }
+          }
 
-            if (isFinalChunk && cleaned) {
-              finalizeTranscript(cleaned, targetLang, mySeq);
-            }
-          };
+          if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
 
-          recognition.onerror = (event) => {
-            if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
-            if (hasFinalizedRef.current) return;
-            const errCode = String(event?.error || "");
-            if (errCode === "aborted") return;
+          try {
+            const recognition = new SpeechRec();
+            recognitionRef.current = recognition;
+            recognition.lang = targetLang;
+            recognition.interimResults = true;
+            recognition.continuous = false;
+            recognition.maxAlternatives = 3;
 
+            recognition.onstart = () => {
+              if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
+              setStatus("listening");
+            };
+
+            recognition.onresult = (event) => {
+              if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
+              let fullText = "";
+              let isFinalChunk = false;
+
+              for (let i = 0; i < event.results.length; i++) {
+                const res = event.results[i];
+                const alt = res?.[0]?.transcript || "";
+                fullText += alt + " ";
+                if (res?.isFinal) isFinalChunk = true;
+              }
+
+              const cleaned = fullText.trim();
+              if (cleaned) {
+                latestInterimRef.current = cleaned;
+                setTranscript(cleaned);
+                const quickParse = parseMultilingualSearchQuery(cleaned);
+                if (quickParse.wasTranslated && quickParse.translatedQuery !== cleaned) {
+                  setTranslatedPreview(quickParse.translatedQuery);
+                }
+              }
+
+              if (isFinalChunk && cleaned) {
+                finalizeTranscript(cleaned, targetLang, mySeq);
+              }
+            };
+
+            recognition.onerror = (event) => {
+              if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
+              if (hasFinalizedRef.current) return;
+              const errCode = String(event?.error || "");
+              if (errCode === "aborted") return;
+
+              setStatus("error");
+              if (errCode === "not-allowed" || errCode === "service-not-allowed") {
+                setErrorMsg(t("voice_mic_permission"));
+              } else if (errCode === "network") {
+                setErrorMsg("Network unavailable for voice recognition. Check your internet.");
+              } else {
+                setErrorMsg(t("voice_no_speech"));
+              }
+            };
+
+            recognition.onend = () => {
+              if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
+              if (!hasFinalizedRef.current && latestInterimRef.current.trim()) {
+                finalizeTranscript(latestInterimRef.current.trim(), targetLang, mySeq);
+                return;
+              }
+              setStatus((prev) => (prev === "listening" || prev === "starting" ? "idle" : prev));
+            };
+
+            recognition.start();
+          } catch (e) {
+            console.error("[VoiceSearch] Failed starting speech recognition:", e);
             setStatus("error");
-            if (errCode === "not-allowed" || errCode === "service-not-allowed") {
-              setErrorMsg(t("voice_mic_permission"));
-            } else if (errCode === "network") {
-              setErrorMsg("Network unavailable for voice recognition. Check your internet.");
-            } else {
-              setErrorMsg(t("voice_no_speech"));
-            }
-          };
-
-          recognition.onend = () => {
-            if (!isMountedRef.current || sessionSeqRef.current !== mySeq) return;
-            if (!hasFinalizedRef.current && latestInterimRef.current.trim()) {
-              finalizeTranscript(latestInterimRef.current.trim(), targetLang, mySeq);
-              return;
-            }
-            setStatus((prev) => (prev === "listening" || prev === "starting" ? "idle" : prev));
-          };
-
-          recognition.start();
-          return;
-        } catch {
-          // Fall through to unsupported state
-        }
+            setErrorMsg(t("voice_mic_permission"));
+          }
+        })();
+        return;
       }
 
       // 3. Fallback when browser/WebView lacks both Native Bridge and WebSpeech
@@ -419,6 +453,11 @@ export function useVoiceSearch({ onResult, onUnsupportedFallback }: UseVoiceSear
   );
 
   const retryListening = useCallback(() => {
+    const nativeBridge = getNativeVoiceBridge();
+    if (nativeBridge?.requestMicPermission && nativeBridge.hasMicPermission?.() === false) {
+      nativeBridge.requestMicPermission();
+      return;
+    }
     startSessionWithLang(voiceLang);
   }, [startSessionWithLang, voiceLang]);
 
@@ -626,8 +665,17 @@ export function VoiceSearchSheet({ controller, isNativeApp }: VoiceSearchSheetPr
                     : "bg-amber-400 text-black"
                 }`}
               >
-                <RotateCcw className="h-3.5 w-3.5" />
-                {t("voice_try_again")}
+                {errorMsg === t("voice_mic_permission") ? (
+                  <>
+                    <Mic className="h-3.5 w-3.5" />
+                    Allow Microphone & Speak
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {t("voice_try_again")}
+                  </>
+                )}
               </button>
             </div>
           ) : (

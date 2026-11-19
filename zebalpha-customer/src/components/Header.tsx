@@ -30,33 +30,20 @@ const GOLD_WEB_BTN_CLASS =
 const CREAM_GOLD_ICON_BTN_CLASS =
   "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E4B7] border border-[#DFBC5E]/75 text-[#14120F] hover:border-[#C28D12] active:scale-95 transition-all shadow-[0_3px_10px_rgba(160,115,20,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] cursor-pointer";
 
-function AndroidCreamGoldHeaderBackdrop() {
-  const gradId = useId();
+function AndroidFestiveHeaderBackdrop() {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden select-none">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#FCF9F2] via-[#FDFBF6] to-[#FAF3E1]" />
-      <svg
-        viewBox="0 0 1000 120"
-        preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full"
-      >
-        <defs>
-          <linearGradient id={`${gradId}-l`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#F5D57A" stopOpacity="0.48" />
-            <stop offset="60%" stopColor="#E6BA46" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#FCF9F2" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id={`${gradId}-r`} x1="100%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#F5D57A" stopOpacity="0.46" />
-            <stop offset="60%" stopColor="#E6BA46" stopOpacity="0.16" />
-            <stop offset="100%" stopColor="#FCF9F2" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d="M 0,0 L 290,0 C 210,55 125,88 0,108 Z" fill={`url(#${gradId}-l)`} />
-        <path d="M 1000,0 L 710,0 C 790,55 875,88 1000,108 Z" fill={`url(#${gradId}-r)`} />
-        <path d="M 0,92 C 110,74 195,44 268,0" fill="none" stroke="#E2B94F" strokeOpacity="0.45" strokeWidth="1.3" />
-        <path d="M 1000,92 C 890,74 805,44 732,0" fill="none" stroke="#E2B94F" strokeOpacity="0.45" strokeWidth="1.3" />
-      </svg>
+      {/* Base rich festive red color matching the top edge of the pattern */}
+      <div className="absolute inset-0 bg-[#f03a46]" />
+      {/* Festive traditional ornamental pattern image anchored to top center */}
+      <div
+        className="absolute inset-0 bg-no-repeat"
+        style={{
+          backgroundImage: "url('/festive-header-bg.jpg')",
+          backgroundSize: "100% auto",
+          backgroundPosition: "center 0px",
+        }}
+      />
     </div>
   );
 }
@@ -202,15 +189,15 @@ function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: bo
       <div className="flex flex-col items-start">
         {lightTheme ? (
           <>
-            <span className="text-[15px] sm:text-base font-black tracking-[0.18em] uppercase leading-tight text-[#000000]">
+            <span className="text-[15px] sm:text-base font-black tracking-[0.18em] uppercase leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
               ZEBALPHA
             </span>
             <span className="mt-0.5 flex items-center gap-1.5 leading-none">
-              <span className="h-[1px] w-3 bg-[#C8941B]/80" />
-              <span className="text-[7.5px] sm:text-[8.5px] font-extrabold text-[#2B2419] tracking-[0.12em] uppercase">
+              <span className="h-[1px] w-3 bg-[#FFE68B]/90" />
+              <span className="text-[7.5px] sm:text-[8.5px] font-black text-[#FFE68B] tracking-[0.13em] uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
                 CLOTHING FOR THE CULTURE
               </span>
-              <span className="h-[1px] w-3 bg-[#C8941B]/80" />
+              <span className="h-[1px] w-3 bg-[#FFE68B]/90" />
             </span>
           </>
         ) : (
@@ -269,19 +256,19 @@ export function Header({
     if (isHome) {
       return (
         <>
-          {/* Status bar background filler to ensure no scrolling content shows behind system icons */}
+          {/* Status bar background filler matching top of festive pattern */}
           <div
-            className="fixed top-0 left-0 right-0 z-50 bg-[#FCF9F2] pointer-events-none"
+            className="fixed top-0 left-0 right-0 z-50 bg-[#f03a46] pointer-events-none"
             style={{ height: "env(safe-area-inset-top, 0px)" }}
             aria-hidden="true"
           />
 
           {/* =================================================================== */}
           {/* ANDROID ZEBALPHA HEADER (NORMAL SCROLL - NOT STICKY)                */}
-          {/* Luxury Warm Ivory Cream & Champagne Gold Theme                      */}
+          {/* Festive Traditional Red Floral Lattice Pattern                      */}
           {/* =================================================================== */}
-          <header className="relative z-20 w-full overflow-hidden border-b border-[#EAD9AE]/75 bg-[#FCF9F2] px-3.5 py-2.5 text-[#14120F] select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
-            <AndroidCreamGoldHeaderBackdrop />
+          <header className="relative z-20 w-full overflow-hidden bg-[#f03a46] px-3.5 py-2.5 text-[#14120F] select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+            <AndroidFestiveHeaderBackdrop />
 
             <div className="relative z-10 flex w-full items-center justify-between gap-2">
               {/* Left: Hamburger Menu Icon */}
@@ -314,8 +301,8 @@ export function Header({
     // On other Android pages (non-home, e.g. /products, /categories, /profile)
     return (
       <>
-        <header className="sticky top-0 z-40 overflow-hidden border-b border-[#EAD9AE]/80 bg-[#FCF9F2]/96 px-3.5 py-2.5 backdrop-blur-xl text-[#14120F] transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
-          <AndroidCreamGoldHeaderBackdrop />
+        <header className="sticky top-0 z-40 overflow-hidden border-b border-rose-950/20 bg-[#f03a46]/96 px-3.5 py-2.5 backdrop-blur-xl text-[#14120F] transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+          <AndroidFestiveHeaderBackdrop />
 
           <div className="relative z-10 flex w-full items-center justify-between gap-2">
             {/* Left: Back button */}

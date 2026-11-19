@@ -99,27 +99,32 @@ function LuxuryGoldCurvesBackdrop() {
   );
 }
 
-function AndroidCreamCurvesBackdrop() {
+function AndroidFestiveCurvesBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden z-0 select-none" aria-hidden="true">
+      {/* Base warm peach-coral gradient foundation matching image gradient */}
       <div
         className="absolute inset-0"
         style={{
-          background:
-            "linear-gradient(180deg, #FCF9F2 0%, #FAF2DC 100%)",
+          background: "linear-gradient(180deg, #fd5852 0%, #feaa90 40%, #ffd0be 75%, #FFFFFF 100%)",
         }}
       />
-      <svg className="w-full h-full object-cover" viewBox="0 0 1000 240" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="androidCreamRibbon" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#F5D36A" stopOpacity="0.45" />
-            <stop offset="50%" stopColor="#E6BA46" stopOpacity="0.16" />
-            <stop offset="100%" stopColor="#F5D36A" stopOpacity="0.45" />
-          </linearGradient>
-        </defs>
-        <path d="M -20,30 C 160,82 400,98 620,66 C 810,38 920,45 1020,20" fill="none" stroke="url(#androidCreamRibbon)" strokeWidth="2.5" />
-        <path d="M -10,190 C 200,140 440,210 720,170 C 870,145 950,165 1010,190" fill="none" stroke="url(#androidCreamRibbon)" strokeWidth="2" />
-      </svg>
+      {/* Continuing festive floral lattice pattern from image */}
+      <div
+        className="absolute inset-0 bg-no-repeat"
+        style={{
+          backgroundImage: "url('/festive-header-bg.jpg')",
+          backgroundSize: "100% auto",
+          backgroundPosition: "center -60px",
+        }}
+      />
+      {/* Seamless bottom fade to pure white so categories flow organically into the page */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-10 pointer-events-none"
+        style={{
+          background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 60%, #FFFFFF 100%)",
+        }}
+      />
     </div>
   );
 }
@@ -138,13 +143,13 @@ export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
       <>
         {/* =================================================================== */}
         {/* ANDROID APP: STICKY SEARCH BAR + HORIZONTAL CATEGORY NAVIGATION     */}
-        {/* Luxury Warm Ivory Cream & Champagne Gold Top Unit                   */}
+        {/* Festive Red & Peach Coral Pattern Top Unit                          */}
         {/* =================================================================== */}
         <div
-          className="sticky z-40 w-full bg-[#FCF9F2] border-b border-[#EAD9AE]/80 shadow-[0_8px_24px_rgba(166,124,28,0.10)] select-none"
+          className="sticky z-40 w-full bg-[#FFFFFF] border-b border-[#feece2]/60 shadow-[0_6px_20px_rgba(240,58,70,0.08)] select-none"
           style={{ top: "env(safe-area-inset-top, 0px)" }}
         >
-          <AndroidCreamCurvesBackdrop />
+          <AndroidFestiveCurvesBackdrop />
 
           {/* 1. Sticky Search Bar */}
           <div className="relative z-30 w-full px-3.5 pt-2 pb-1">

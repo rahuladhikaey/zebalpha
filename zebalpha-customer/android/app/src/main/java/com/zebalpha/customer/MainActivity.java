@@ -818,6 +818,25 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public boolean hasMicPermission() {
+            return ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED;
+        }
+
+        @JavascriptInterface
+        public void requestMicPermission() {
+            runOnUiThread(() -> {
+                if (micPermissionLauncher != null) {
+                    try {
+                        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO);
+                    } catch (Exception e) {
+                        Log.w(TAG, "Failed launching RECORD_AUDIO permission request", e);
+                    }
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void startVoiceSearch(String langTag) {
             runOnUiThread(() -> initiateVoiceSearch(langTag));
         }
@@ -936,7 +955,7 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
-        if (SpeechRecognizer.isRecognitionAvailable(this) && micPermissionLauncher != null) {
+        if (micPermissionLauncher != null) {
             try {
                 micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO);
                 return;
@@ -952,8 +971,7 @@ public class MainActivity extends BridgeActivity {
         if (Boolean.TRUE.equals(isGranted)) {
             startInlineSpeechOrFallback(pendingVoiceLangTag);
         } else {
-            // Fall back to system Google Voice Search dialog when available
-            launchSpeechRecognizerIntent(pendingVoiceLangTag);
+            dispatchVoiceError("permission_denied", "Please allow microphone permission to search by voice.", true);
         }
     }
 
@@ -1402,7 +1420,9 @@ public class MainActivity extends BridgeActivity {
     private void applyCreamGoldSystemBars() {
         try {
             Window window = getWindow();
-            if (window == null) return;
+            if (window == null) {
+                return;
+            }
             window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
             int statusColor = ContextCompat.getColor(this, R.color.zebalpha_cream_bg);
             int navColor = ContextCompat.getColor(this, R.color.zebalpha_bottom_cream);
