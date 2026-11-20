@@ -6,13 +6,15 @@ import { getOrCreateRecommendationSessionId } from "@/lib/recommendationClient";
 import { useIsNativeApp } from "@/lib/platform";
 
 const SESSION_STORAGE_KEY = "zebalpha_client_session_id";
-const HEARTBEAT_INTERVAL_MS = 180000; // 3 minutes (optimized to prevent database egress exhaustion)
+const HEARTBEAT_INTERVAL_MS = 300000; // 5 minutes (prevents redundant Supabase session writes at 500+ users)
+const MIN_PING_GAP_MS = 120000; // Throttle rapid app/tab resume pings to at most once every 2 minutes
 
 export function ActiveSessionTracker() {
   const { user } = useAuth();
   const isNative = useIsNativeApp();
   const sessionIdRef = useRef<string>("");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPingAtRef = useRef<number>(0);
   const userRef = useRef(user);
 
   useEffect(() => {
@@ -34,9 +36,16 @@ export function ActiveSessionTracker() {
     const sessionId = sessionIdRef.current;
     const platform = isNative ? "android" : "website";
 
-    // 2. Ping function
-    const sendHeartbeat = async (action: "ping" | "end" = "ping") => {
+    // 2. Ping function (throttled for normal pings so rapid mobile app-switching doesn't spam Supabase)
+    const sendHeartbeat = async (action: "ping" | "end" = "ping", force = false) => {
       try {
+        if (action === "ping" && !force) {
+          const now = Date.now();
+          if (now - lastPingAtRef.current < MIN_PING_GAP_MS) {
+            return;
+          }
+          lastPingAtRef.current = now;
+        }
         if (action === "end") {
           // Use sendBeacon for reliable delivery during page unload
           if (typeof navigator !== "undefined" && navigator.sendBeacon) {
@@ -63,7 +72,7 @@ export function ActiveSessionTracker() {
     };
 
     // 3. Immediate initial heartbeat
-    sendHeartbeat("ping");
+    sendHeartbeat("ping", true);
 
     // 4. Start recurring interval while tab is active
     if (intervalRef.current) clearInterval(intervalRef.current);

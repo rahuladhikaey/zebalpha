@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { getCachedOrFetch } from "@/lib/cacheHelper";
 import { Product } from "@/lib/types";
 import { Header } from "@/components/Header";
 import ProductDetailTemplate from "./ProductDetailTemplate";
@@ -33,135 +34,141 @@ const SLIM_PDP_FIELDS = "id, name, brand, price, mrp, stock, status, is_active, 
 const getProduct = cache(async (productId: string) => {
   if (!productId || typeof productId !== "string") return null;
 
-  let productData: any = null;
+  return getCachedOrFetch<Product | null>(
+    `pdp:product:v2:${productId}`,
+    async () => {
+      let productData: any = null;
 
-  // 1. Authoritative Server Query (Service Role / Server Client)
-  try {
-    const { data, error } = await supabaseServer
-      .from("products")
-      .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
-      .eq("id", productId)
-      .maybeSingle();
-
-    if (data && !error) {
-      productData = data;
-    } else {
-      // Fallback: select(*) via supabaseServer without relationship
-      const fallbackServer = await supabaseServer
-        .from("products")
-        .select("*")
-        .eq("id", productId)
-        .maybeSingle();
-
-      if (fallbackServer.data) {
-        productData = fallbackServer.data;
-      }
-    }
-  } catch (serverErr) {
-    console.warn("supabaseServer product fetch failed, attempting public fallback:", serverErr);
-  }
-
-  // 2. Resilient Public Fallback (if server client is unavailable or during build phase)
-  if (!productData) {
-    try {
-      const { data, error } = await supabase
-        .from("products")
-        .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
-        .eq("id", productId)
-        .maybeSingle();
-
-      if (data && !error) {
-        productData = data;
-      } else {
-        const fallback = await supabase
+      // 1. Authoritative Server Query (Service Role / Server Client)
+      try {
+        const { data, error } = await supabaseServer
           .from("products")
-          .select("*")
+          .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
           .eq("id", productId)
           .maybeSingle();
 
-        if (fallback.data) {
-          productData = fallback.data;
-        } else {
-          console.error("Error fetching product via public fallback:", fallback.error || error);
+        if (data && !error) {
+          productData = data;
+        } else if (error) {
+          const fallbackServer = await supabaseServer
+            .from("products")
+            .select(SLIM_PDP_FIELDS)
+            .eq("id", productId)
+            .maybeSingle();
+
+          if (fallbackServer.data) {
+            productData = fallbackServer.data;
+          }
+        }
+      } catch (serverErr) {
+        console.warn("supabaseServer product fetch failed, attempting public fallback:", serverErr);
+      }
+
+      // 2. Resilient Public Fallback (only if server client unavailable)
+      if (!productData) {
+        try {
+          const { data, error } = await supabase
+            .from("products")
+            .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
+            .eq("id", productId)
+            .maybeSingle();
+
+          if (data && !error) {
+            productData = data;
+          } else if (error) {
+            const fallback = await supabase
+              .from("products")
+              .select(SLIM_PDP_FIELDS)
+              .eq("id", productId)
+              .maybeSingle();
+
+            if (fallback.data) {
+              productData = fallback.data;
+            }
+          }
+        } catch (anonErr) {
+          console.error("Anon client product fetch failed:", anonErr);
         }
       }
-    } catch (anonErr) {
-      console.error("Anon client product fetch failed:", anonErr);
-    }
-  }
 
-  if (!productData) {
-    return null;
-  }
-
-  // Populate seller fields directly from embedded seller without extra sequential query
-  if (productData.seller) {
-    const s = Array.isArray(productData.seller) ? productData.seller[0] : productData.seller;
-    if (s) {
-      productData.seller_name = s.business_name || s.owner_name;
-      productData.business_name = s.business_name;
-      productData.seller_city = s.city;
-      productData.seller_logo = s.business_logo_url;
-    }
-    delete productData.seller;
-  }
-
-  // If seller name is missing but seller_id is present, resolve seller metadata
-  if (!productData.seller_name && productData.seller_id) {
-    try {
-      const client = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseServer : supabase;
-      const { data: s } = await client
-        .from("sellers")
-        .select("business_name, city, state, business_logo_url")
-        .eq("id", productData.seller_id)
-        .maybeSingle();
-      if (s) {
-        productData.seller_name = s.business_name;
-        productData.business_name = s.business_name;
-        productData.seller_city = s.city;
-        productData.seller_logo = s.business_logo_url;
+      if (!productData) {
+        return null;
       }
-    } catch (_) {}
-  }
 
-  if (productData) {
-    const specs = productData.specifications || {};
-    productData.thumbnail_url = productData.thumbnail_url || productData.image_url || (Array.isArray(productData.images) && productData.images[0]) || "";
-    productData.category_name = productData.category_name || specs.category || "Apparel";
-    productData.is_premium = productData.is_premium ?? (productData.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true");
-    productData.is_new_drop = productData.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || productData.status === "COMING_SOON");
-    productData.tier = productData.tier || specs.tier || "STANDARD";
-  }
+      if (productData.seller) {
+        const s = Array.isArray(productData.seller) ? productData.seller[0] : productData.seller;
+        if (s) {
+          productData.seller_name = s.business_name || s.owner_name;
+          productData.business_name = s.business_name;
+          productData.seller_city = s.city;
+          productData.seller_logo = s.business_logo_url;
+        }
+        delete productData.seller;
+      }
 
-  return productData as Product;
+      if (!productData.seller_name && productData.seller_id) {
+        try {
+          const client = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseServer : supabase;
+          const { data: s } = await client
+            .from("sellers")
+            .select("business_name, city, state, business_logo_url")
+            .eq("id", productData.seller_id)
+            .maybeSingle();
+          if (s) {
+            productData.seller_name = s.business_name;
+            productData.business_name = s.business_name;
+            productData.seller_city = s.city;
+            productData.seller_logo = s.business_logo_url;
+          }
+        } catch (_) {}
+      }
+
+      const specs = productData.specifications || {};
+      productData.thumbnail_url = productData.thumbnail_url || productData.image_url || (Array.isArray(productData.images) && productData.images[0]) || "";
+      productData.category_name = productData.category_name || specs.category || "Apparel";
+      productData.is_premium = productData.is_premium ?? (productData.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true");
+      productData.is_new_drop = productData.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || productData.status === "COMING_SOON");
+      productData.tier = productData.tier || specs.tier || "STANDARD";
+
+      return productData as Product;
+    },
+    600 // 10 min L1 RAM + Singleflight + Upstash Redis TTL
+  );
 });
 
 const getProductReviews = cache(async (productId: string): Promise<PublicReview[]> => {
   if (!productId) return [];
-  try {
-    const client = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseServer : supabase;
-    const { data, error } = await client
-      .from("reviews")
-      .select("id, product_id, user_id, user_name, rating, comment, is_approved, created_at, updated_at")
-      .eq("product_id", productId)
-      .eq("is_approved", true)
-      .order("created_at", { ascending: false });
+  return getCachedOrFetch<PublicReview[]>(
+    `pdp:reviews:v1:${productId}`,
+    async () => {
+      try {
+        const client = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseServer : supabase;
+        const { data, error } = await client
+          .from("reviews")
+          .select("id, product_id, user_id, user_name, rating, comment, is_approved, created_at, updated_at")
+          .eq("product_id", productId)
+          .eq("is_approved", true)
+          .order("created_at", { ascending: false })
+          .limit(50);
 
-    if (error || !Array.isArray(data)) return [];
-    return data.map((r: any) => ({
-      id: r.id,
-      product_id: String(r.product_id),
-      user_id: r.user_id ?? null,
-      user_name: r.user_name || "Customer",
-      rating: Number(r.rating),
-      comment: typeof r.comment === "string" ? r.comment : "",
-      is_approved: r.is_approved !== false,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    }));
-  } catch {
-    return [];
-  }
+        if (error || !Array.isArray(data)) return [];
+        return data.map((r: any) => ({
+          id: r.id,
+          product_id: String(r.product_id),
+          user_id: r.user_id ?? null,
+          user_name: r.user_name || "Customer",
+          rating: Number(r.rating),
+          comment: typeof r.comment === "string" ? r.comment : "",
+          is_approved: r.is_approved !== false,
+          created_at: r.created_at,
+          updated_at: r.updated_at,
+        }));
+      } catch {
+        return [];
+      }
+    },
+    300 // 5 min L1 RAM + Redis TTL
+  );
 });
 
 function SimilarProductsSkeleton() {

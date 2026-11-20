@@ -172,8 +172,12 @@ export function CategoryNavigationBar({
     }
   }, [initialCategories]);
 
-  // 1. Fetch live categories from backend/Supabase if not pre-populated
+  // 1. Fetch live categories from cached API ONLY if SSR did not pre-populate them
   useEffect(() => {
+    if (initialCategories && initialCategories.length > 0) {
+      setLoading(false);
+      return;
+    }
     let isMounted = true;
     async function loadNavigationCategories() {
       try {
@@ -194,7 +198,7 @@ export function CategoryNavigationBar({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [initialCategories]);
 
   // 2. Scroll-linked icon collapse animation (Flipkart-style)
   useEffect(() => {

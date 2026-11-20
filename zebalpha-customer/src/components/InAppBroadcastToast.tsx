@@ -78,10 +78,10 @@ export function InAppBroadcastToast() {
   }, []);
 
   const checkLatestBroadcast = useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
     try {
-      const res = await fetch("/api/notifications/latest", {
-        cache: "no-store",
-      });
+      const res = await fetch("/api/notifications/latest");
+      if (!res.ok) return;
       const data = await res.json();
 
       if (data.success && data.latest?.id) {
@@ -127,8 +127,12 @@ export function InAppBroadcastToast() {
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    // Active polling interval (checks every 7 seconds for instant alert delivery)
-    const interval = setInterval(checkLatestBroadcast, 7000);
+    // Relaxed polling interval (every 5 minutes when visible; instant delivery uses Push / FCM)
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        checkLatestBroadcast();
+      }
+    }, 300000);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);

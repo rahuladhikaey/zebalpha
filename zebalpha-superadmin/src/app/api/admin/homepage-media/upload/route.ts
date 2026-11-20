@@ -125,7 +125,42 @@ export async function POST(req: Request) {
     const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const filePath = `${folderPrefix}/${filePrefix}_${uniqueId}.${ext}`;
 
-    // 5. Upload to Supabase Storage Bucket ('editorial' primary, fallback to 'editorial-images' or 'product-images')
+    // 5A. PRIMARY: Upload directly to Cloudinary Global CDN (0 bytes Supabase Storage egress!)
+    const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "vtweyirx").trim();
+    const uploadPreset = (process.env.CLOUDINARY_UPLOAD_PRESET || process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "zebalpha_preset").trim();
+
+    try {
+      const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
+      const cloudForm = new URLSearchParams();
+      cloudForm.append("file", dataUri);
+      cloudForm.append("upload_preset", uploadPreset);
+      cloudForm.append("folder", folderPrefix);
+
+      const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: cloudForm,
+      });
+
+      if (cloudRes.ok) {
+        const cloudData = await cloudRes.json();
+        if (cloudData?.secure_url) {
+          const cdnUrl = String(cloudData.secure_url).replace("/image/upload/", "/image/upload/f_auto,q_auto/");
+          return NextResponse.json({
+            success: true,
+            publicUrl: cdnUrl,
+            filePath: cloudData.public_id || filePath,
+            bucket: "cloudinary",
+            storageProvider: "CLOUDINARY_CDN",
+            fileSize: actualSizeBytes,
+            formattedSize: `${(actualSizeBytes / 1024).toFixed(1)} KB`,
+          });
+        }
+      }
+    } catch (cloudErr: any) {
+      console.warn("[Admin Media Upload] Cloudinary primary upload failed, falling back to Supabase Storage:", cloudErr?.message || cloudErr);
+    }
+
+    // 5B. FALLBACK ONLY: Upload to Supabase Storage Bucket if Cloudinary is unavailable
     const candidateBuckets = ["editorial", "editorial-images", "product-images"];
     let targetBucket = "editorial";
     let uploadSuccess = false;

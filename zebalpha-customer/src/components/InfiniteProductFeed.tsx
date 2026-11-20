@@ -11,10 +11,8 @@ import { AddToCartButton } from "./AddToCartButton";
 import { WishlistButton } from "./WishlistButton";
 import { QuickCartButton } from "./QuickCartButton";
 import { DeliveryEstimateWidget } from "./DeliveryEstimateWidget";
-import { supabase } from "@/lib/supabaseClient";
-import { SLIM_PRODUCT_CARD_FIELDS, getProductDisplayPricing } from "@/hooks/useCatalogQueries";
+import { getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 import { useIsNativeApp } from "@/lib/platform";
-import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
 import { Star } from "lucide-react";
 
 import { isProductNewDrop } from "@/lib/dropUtils";
@@ -32,11 +30,22 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
 
   const cleanInitial = (initialProducts || []).filter((p) => !isProductNewDrop(p));
   const [products, setProducts] = useState<Product[]>(cleanInitial);
-  const [hasMore, setHasMore] = useState(cleanInitial.length >= 8);
+  // SSR fetches up to 20 items; if fewer than 20 returned, catalog has no further pages
+  const [hasMore, setHasMore] = useState(cleanInitial.length >= 20);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [lastCreatedAt, setLastCreatedAt] = useState<string | null>(
-    cleanInitial.length > 0 ? cleanInitial[cleanInitial.length - 1].created_at || null : null
-  );
+  const [nextCursor, setNextCursor] = useState<string | null>(() => {
+    if (cleanInitial.length >= 20) {
+      const last = cleanInitial[cleanInitial.length - 1];
+      if (last?.created_at && last?.id && typeof window !== "undefined") {
+        try {
+          return window.btoa(JSON.stringify({ createdAt: last.created_at, id: String(last.id) }));
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  });
 
   const observerRef = useRef<HTMLDivElement | null>(null);
 
@@ -45,64 +54,40 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     const clean = (initialProducts || []).filter((p) => !isProductNewDrop(p));
     if (clean.length > 0) {
       setProducts(clean);
-      setLastCreatedAt(clean[clean.length - 1].created_at || null);
-      setHasMore(clean.length >= 8);
+      setHasMore(clean.length >= 20);
+      if (clean.length >= 20) {
+        const last = clean[clean.length - 1];
+        if (last?.created_at && last?.id && typeof window !== "undefined") {
+          try {
+            setNextCursor(window.btoa(JSON.stringify({ createdAt: last.created_at, id: String(last.id) })));
+          } catch {
+            setNextCursor(null);
+          }
+        }
+      } else {
+        setNextCursor(null);
+      }
     }
   }, [initialProducts]);
 
-  // Initial client fallback fetch if SSR returned empty array (e.g., cold cache)
+  // Initial client fallback fetch via Edge CDN + Upstash Redis cached /api/products if SSR returned empty
   useEffect(() => {
     if (products.length === 0) {
       let isMounted = true;
       (async () => {
         try {
-          let query = supabase
-            .from("products")
-            .select(SLIM_PRODUCT_CARD_FIELDS)
-            .or("is_active.is.null,is_active.eq.true")
-            .neq("approval_status", "rejected")
-            .neq("status", "COMING_SOON")
-            .neq("tier", "DROP")
-            .order("created_at", { ascending: false })
-            .limit(currentBatchSize);
+          const params = new URLSearchParams({ limit: String(currentBatchSize) });
+          if (brandFilter) params.set("brand", brandFilter);
+          const res = await fetch(`/api/products?${params.toString()}`);
+          if (!res.ok) return;
+          const json = await res.json();
+          const rows = Array.isArray(json?.items) ? json.items : [];
 
-          if (brandFilter) {
-            query = query.ilike("brand", `%${brandFilter}%`);
-          }
-
-          let { data, error } = await query;
-          if (error || !data || data.length === 0) {
-            const fallback = await supabase
-              .from("products")
-              .select("*")
-              .or("is_active.is.null,is_active.eq.true")
-              .neq("approval_status", "rejected")
-              .neq("status", "COMING_SOON")
-              .neq("tier", "DROP")
-              .order("created_at", { ascending: false })
-              .limit(currentBatchSize);
-            data = fallback.data;
-          }
-
-          if (isMounted && data && data.length > 0) {
-            const nonDrops = data.filter((p: any) => !isProductNewDrop(p));
-            const mapped = nonDrops.map((p: any) => {
-              const specs = p.specifications || {};
-              const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM";
-              return {
-                ...p,
-                thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
-                is_premium: isPrem,
-                tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
-                is_new_drop: false,
-                category: p.category || specs.category || "Apparel",
-              };
-            });
-            setProducts(mapped);
-            if (mapped.length > 0) {
-              setLastCreatedAt(mapped[mapped.length - 1].created_at || null);
-            }
-            setHasMore(mapped.length >= currentBatchSize);
+          if (isMounted && rows.length > 0) {
+            const nonDrops = rows.filter((p: any) => !isProductNewDrop(p));
+            setProducts(nonDrops);
+            setNextCursor(json?.nextCursor || null);
+            setHasMore(Boolean(json?.hasMore));
           }
         } catch (e) {
           console.warn("Notice in client product fetch:", e);
@@ -114,82 +99,47 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
     }
   }, [products.length, brandFilter, currentBatchSize]);
 
-  // Lazy load next batch on scroll
+  // Lazy load next batch on scroll via Edge CDN + Upstash Redis cached /api/products (zero direct browser Supabase calls)
   const loadMoreProducts = useCallback(async () => {
-    if (isLoadingMore || !hasMore || !lastCreatedAt) return;
+    if (isLoadingMore || !hasMore || !nextCursor) return;
 
     setIsLoadingMore(true);
     try {
-      let query = supabase
-        .from("products")
-        .select(SLIM_PRODUCT_CARD_FIELDS)
-        .or("is_active.is.null,is_active.eq.true")
-        .neq("approval_status", "rejected")
-        .neq("status", "COMING_SOON")
-        .neq("tier", "DROP")
-        .lt("created_at", lastCreatedAt)
-        .order("created_at", { ascending: false })
-        .limit(currentBatchSize);
+      const params = new URLSearchParams({
+        limit: String(currentBatchSize),
+        cursor: nextCursor,
+      });
+      if (brandFilter) params.set("brand", brandFilter);
 
-      if (brandFilter) {
-        query = query.ilike("brand", `%${brandFilter}%`);
+      const res = await fetch(`/api/products?${params.toString()}`);
+      if (!res.ok) {
+        setHasMore(false);
+        return;
       }
 
-      let { data, error } = await query;
-      if (error || !data || data.length === 0) {
-        const fallback = await supabase
-          .from("products")
-          .select("*")
-          .or("is_active.is.null,is_active.eq.true")
-          .neq("approval_status", "rejected")
-          .neq("status", "COMING_SOON")
-          .neq("tier", "DROP")
-          .lt("created_at", lastCreatedAt)
-          .order("created_at", { ascending: false })
-          .limit(currentBatchSize);
-        data = fallback.data;
-        error = fallback.error;
-      }
+      const json = await res.json();
+      const rows = Array.isArray(json?.items) ? json.items : [];
 
-      if (!error && data && data.length > 0) {
-        const nonDrops = data.filter((p: any) => !isProductNewDrop(p));
-        const normalizedBatch: Product[] = nonDrops.map((p: any) => {
-          const specs = p.specifications || {};
-          const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM";
-          return {
-            ...p,
-            thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
-            is_premium: isPrem,
-            tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
-            is_new_drop: false,
-            category: p.category || specs.category || "Apparel",
-          };
-        });
-        const ratingsMap = await fetchProductRatingSummaries(
-          supabase,
-          normalizedBatch.map((p) => p.id)
-        );
-        const newBatch = attachRatingsToProducts(normalizedBatch, ratingsMap);
-
+      if (rows.length > 0) {
+        const nonDrops: Product[] = rows.filter((p: any) => !isProductNewDrop(p));
         setProducts((prev) => {
           const existingIds = new Set(prev.map((p) => p.id));
-          const uniqueNew = newBatch.filter((p) => !existingIds.has(p.id));
+          const uniqueNew = nonDrops.filter((p) => !existingIds.has(p.id));
           return [...prev, ...uniqueNew];
         });
-
-        if (newBatch.length > 0) {
-          setLastCreatedAt(newBatch[newBatch.length - 1].created_at || null);
-        }
-        setHasMore(newBatch.length >= currentBatchSize);
+        setNextCursor(json?.nextCursor || null);
+        setHasMore(Boolean(json?.hasMore) && Boolean(json?.nextCursor));
       } else {
         setHasMore(false);
+        setNextCursor(null);
       }
     } catch (err) {
       console.warn("Notice loading more products on scroll:", err);
+      setHasMore(false);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, lastCreatedAt, brandFilter, currentBatchSize]);
+  }, [isLoadingMore, hasMore, nextCursor, brandFilter, currentBatchSize]);
 
   // Intersection Observer trigger with network-adaptive prefetch margin
   useEffect(() => {

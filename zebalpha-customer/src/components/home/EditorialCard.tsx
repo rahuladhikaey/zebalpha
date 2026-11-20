@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useIsNativeApp } from "@/lib/platform";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 export interface EditorialItemData {
   id: string | number;
@@ -64,9 +65,9 @@ export function EditorialCard({
           </div>
         )}
 
-        {/* Fashion Image */}
+        {/* Fashion Image (Cloudinary CDN Responsive Variant) */}
         <Image
-          src={item.image}
+          src={IMAGE_VARIANTS.editorialCard(item.image)}
           alt={item.title}
           fill
           sizes="(max-width: 640px) 170px, (max-width: 768px) 220px, (max-width: 1024px) 260px, 280px"

@@ -8,6 +8,7 @@ import { Product } from "@/lib/types";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useCart } from "@/context/CartContext";
 import { useVariantSelector } from "@/context/VariantSelectorContext";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import {
   trackRecommendationClick,
   trackRecommendationImpressions,
@@ -98,7 +99,7 @@ function SimilarProductCardItem({
         >
           {primaryImage ? (
             <img
-              src={primaryImage}
+              src={IMAGE_VARIANTS.productGridCard(primaryImage)}
               alt={p.name}
               loading="lazy"
               decoding="async"

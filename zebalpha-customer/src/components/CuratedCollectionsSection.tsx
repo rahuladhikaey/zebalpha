@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { CuratedCollection } from "@/lib/types";
 import { CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { AndroidNewSeasonDropBanner } from "@/components/home/AndroidHomeTrustAndDrop";
 
 interface CuratedCollectionsSectionProps {
@@ -24,9 +25,11 @@ export function CuratedCollectionsSection({
     setCollections(initialCollections || []);
   }, [initialCollections]);
 
-  // Real-time listener and live verification on mount
+  // Fallback fetch ONLY when SSR did not hydrate initialCollections (zero duplicate DB calls & zero Realtime sockets)
   useEffect(() => {
-    const fetchLive = async () => {
+    if (initialCollections && initialCollections.length > 0) return;
+    let isMounted = true;
+    const fetchFallback = async () => {
       try {
         const { data, error } = await supabase
           .from("curated_collections")
@@ -35,32 +38,18 @@ export function CuratedCollectionsSection({
           .order("display_order", { ascending: true })
           .limit(24);
 
-        if (!error && Array.isArray(data)) {
+        if (isMounted && !error && Array.isArray(data)) {
           setCollections(data as CuratedCollection[]);
         }
       } catch (err) {
-        console.warn("Live curated collections sync note:", err);
+        console.warn("Curated collections fallback note:", err);
       }
     };
-
-    // Immediate mount check to guarantee real-time truth regardless of SSR cache
-    fetchLive();
-
-    const channel = supabase
-      .channel("customer-curated-collections-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "curated_collections" },
-        () => {
-          fetchLive();
-        }
-      )
-      .subscribe();
-
+    fetchFallback();
     return () => {
-      supabase.removeChannel(channel);
+      isMounted = false;
     };
-  }, []);
+  }, [initialCollections]);
 
   // Determine items to display: strictly active records with non-empty image_url (never filtered by image errors)
   const validCollections = collections.filter(
@@ -165,7 +154,7 @@ export function CuratedCollectionsSection({
                           </div>
                         ) : (
                           <img
-                            src={item.image_url}
+                            src={IMAGE_VARIANTS.curatedCollection(item.image_url)}
                             alt={item.title}
                             loading="lazy"
                             decoding="async"
@@ -210,7 +199,7 @@ export function CuratedCollectionsSection({
                         </div>
                       ) : (
                         <img
-                          src={item.image_url}
+                          src={IMAGE_VARIANTS.curatedCollection(item.image_url)}
                           alt={item.title}
                           loading="lazy"
                           decoding="async"

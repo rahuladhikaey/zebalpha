@@ -9,6 +9,7 @@ import { useCart } from "@/context/CartContext";
 import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { trackRecommendationClick } from "@/lib/recommendationClient";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { Product } from "@/lib/types";
 import type {
   RecommendationSurface,
@@ -115,7 +116,7 @@ export function RecommendationProductCard({
         >
           {primaryImage ? (
             <img
-              src={primaryImage}
+              src={IMAGE_VARIANTS.productGridCard(primaryImage)}
               alt={product.name}
               loading="lazy"
               decoding="async"

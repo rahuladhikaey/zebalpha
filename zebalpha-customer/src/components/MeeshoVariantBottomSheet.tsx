@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { Product, ProductPackage } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { useIsNativeApp } from "@/lib/platform";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 // In-memory cache for loaded variant products to avoid repeated network requests
 const productVariantsCache = new Map<string, Product>();
@@ -520,10 +521,11 @@ export function MeeshoVariantBottomSheet() {
             {/* Small Product Thumbnail */}
             <div className="relative w-16 h-20 rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200 shrink-0">
               <Image
-                src={displayImage}
+                src={IMAGE_VARIANTS.productDetailThumb(displayImage)}
                 alt={activeProduct?.name || "Product"}
                 fill
                 sizes="80px"
+                unoptimized={String(displayImage).includes("res.cloudinary.com")}
                 className="object-cover"
                 loading="eager"
               />
@@ -608,7 +610,7 @@ export function MeeshoVariantBottomSheet() {
                       }`}
                     >
                       <div className="relative w-6 h-7 rounded-md overflow-hidden bg-neutral-100 border border-neutral-300 shrink-0">
-                        <img src={colThumb} alt={col} className="w-full h-full object-cover" />
+                        <img src={IMAGE_VARIANTS.productDetailThumb(colThumb)} alt={col} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       </div>
                       <span className="text-xs font-bold capitalize pr-1">{col}</span>
                     </button>

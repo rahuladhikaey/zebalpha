@@ -26,14 +26,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Try Cloudinary CDN if configured
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "p1ish280";
-    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || "zebalpha_products";
+    // Upload directly to Cloudinary CDN (zero Supabase Storage egress)
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "vtweyirx";
+    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || "zebalpha_preset";
 
     try {
       const formData = new URLSearchParams();
       formData.append("file", imageBase64);
       formData.append("upload_preset", uploadPreset);
+      formData.append("folder", "return-proofs");
 
       const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: "POST",
@@ -42,9 +43,13 @@ export async function POST(req: Request) {
 
       if (cloudRes.ok) {
         const cloudData = await cloudRes.json();
+        const rawUrl = cloudData.secure_url || cloudData.url || "";
+        const cdnUrl = rawUrl.includes("/image/upload/")
+          ? rawUrl.replace("/image/upload/", "/image/upload/f_auto,q_auto:eco/")
+          : rawUrl;
         return NextResponse.json({
           success: true,
-          url: cloudData.secure_url || cloudData.url,
+          url: cdnUrl,
         });
       }
     } catch (cdnErr) {

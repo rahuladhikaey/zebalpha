@@ -2,24 +2,24 @@
 
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
-function RealtimeSyncSubscriber() {
-  useRealtimeSync();
-  return null;
-}
-
+/**
+ * Enterprise Query Provider tuned for 500+ concurrent shoppers on Free Tier:
+ * - Zero persistent Supabase Realtime WebSocket channels on customer storefront
+ *   (protects Supabase Free Tier's 200 concurrent Realtime connection ceiling).
+ * - Long 5-min staleTime + 30-min gcTime eliminates redundant refetches on navigation.
+ */
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30 * 1000, // 30 seconds fresh L1 cache (invalidated instantly by Realtime on DB mutations)
-            gcTime: 10 * 60 * 1000, // 10 minutes garbage collection retention
-            refetchOnWindowFocus: false, // Prevent unwanted focus refetches
-            refetchOnReconnect: true, // Reconcile authoritative state automatically upon network reconnect
-            retry: 1, // Single retry on transient network error
+            staleTime: 5 * 60 * 1000, // 5 minutes fresh client cache
+            gcTime: 30 * 60 * 1000, // 30 minutes memory retention
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: false,
+            retry: 1,
           },
         },
       })
@@ -27,7 +27,6 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RealtimeSyncSubscriber />
       {children}
     </QueryClientProvider>
   );

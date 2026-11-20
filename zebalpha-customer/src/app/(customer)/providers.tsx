@@ -23,6 +23,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       document.documentElement.style.backgroundColor = "";
       document.body.classList.add("is-android-app");
     }
+    // Register universal Service Worker for offline Cloudinary CDN media caching & push support
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
     const frame = window.requestAnimationFrame(() => {
       document.documentElement.classList.remove("zebalpha-app-hydrating");
     });

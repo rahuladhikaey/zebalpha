@@ -16,7 +16,7 @@ import {
 
 export const DEFAULT_CLOTHING_CATEGORIES: Category[] = [];
 
-export const SLIM_PRODUCT_CARD_FIELDS = "id, name, brand, price, mrp, image_url, images, category_id, subcategory_id, collection, stock, low_stock_limit, status, is_active, is_approved, approval_status, created_at, specifications, seller_id, packages";
+export const SLIM_PRODUCT_CARD_FIELDS = "id, name, brand, price, mrp, image_url, images, category_id, subcategory_id, collection, stock, low_stock_limit, status, is_active, is_approved, approval_status, created_at, specifications, seller_id";
 
 export { getProductDisplayPricing } from "@/lib/productPricing";
 
@@ -53,7 +53,29 @@ export function normalizeQueryString(str?: string): string {
  */
 export async function fetchCanonicalCategories(): Promise<Category[]> {
   try {
-    // 1. Fetch real active Main Categories strictly from categories table (never curated_collections)
+    // 1. Primary: Fetch from Edge CDN + Upstash Redis cached server API (0 direct Supabase hits)
+    const apiRes = await fetch("/api/categories/navigation");
+    if (apiRes.ok) {
+      const json = await apiRes.json();
+      if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+        return json.data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          icon: c.icon_key,
+          icon_key: c.icon_key,
+          icon_url: c.icon_url || null,
+          image_url: c.image_url || null,
+          is_active: c.is_active !== false,
+          display_order: c.display_order ?? 0,
+          parent_id: null,
+        })) as Category[];
+      }
+    }
+  } catch (_) {}
+
+  try {
+    // 2. Fallback: Direct Supabase query only if cached API unavailable
     const { data: catData, error: catErr } = await supabase
       .from("categories")
       .select("id, name, slug, icon_key, icon_url, icon_source, image_url, description, display_order, is_active, show_in_navigation, parent_id")
@@ -94,8 +116,8 @@ export function useCategories(initialCategories?: Category[]) {
     queryKey: ['categories'],
     queryFn: fetchCanonicalCategories,
     initialData: initialCategories && initialCategories.length > 0 ? initialCategories : undefined,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -145,7 +167,8 @@ export function useSubcategories(parentId?: string | number | null) {
     queryKey: ['subcategories', parentId],
     queryFn: () => fetchSubcategories(parentId),
     enabled: Boolean(parentId),
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -153,6 +176,16 @@ export function useSubcategories(parentId?: string | number | null) {
  * Full Category Tree Hook (Main Categories + their nested Subcategories)
  */
 export async function fetchCategoryTree(): Promise<Category[]> {
+  try {
+    const apiRes = await fetch("/api/categories?hierarchy=true");
+    if (apiRes.ok) {
+      const json = await apiRes.json();
+      if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+        return json.data as Category[];
+      }
+    }
+  } catch (_) {}
+
   try {
     const { data, error } = await supabase
       .from("categories")
@@ -197,7 +230,8 @@ export function useCategoryTree() {
   return useQuery<Category[]>({
     queryKey: ['categoryTree'],
     queryFn: fetchCategoryTree,
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -1106,8 +1140,8 @@ export function usePaginatedProducts(params: PaginatedProductsParams) {
   return useQuery<PaginatedProductsResponse>({
     queryKey: ['products', normalizedParams],
     queryFn: () => fetchPaginatedProducts(normalizedParams),
-    staleTime: 30 * 1000, // 30 seconds L1 cache (invalidated instantly by Realtime on DB mutations)
-    gcTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 min L1 browser cache to eliminate redundant Supabase egress
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -1138,8 +1172,8 @@ export function useProducts(params?: {
       if (res.error) throw new Error(res.error);
       return res.data;
     },
-    staleTime: 30 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -1192,8 +1226,8 @@ export function useCursorProducts(params?: {
     },
     initialPageParam: undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    staleTime: 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -1210,8 +1244,8 @@ export function useProductDetail(productId: string | number) {
       return res.data;
     },
     enabled: !!productId,
-    staleTime: 30 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -1272,7 +1306,8 @@ export function useActiveSellers() {
   return useQuery<string[]>({
     queryKey: ['activeSellers'],
     queryFn: fetchActiveSellers,
-    staleTime: 60 * 1000,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 

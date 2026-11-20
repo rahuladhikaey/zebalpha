@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { getCachedOrFetch } from "@/lib/cacheHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -18,20 +19,20 @@ export async function GET(
       );
     }
 
-    // Authoritative Server-Side Query for product variants & live inventory
-    const { data: product, error } = await supabaseServer
-      .from("products")
-      .select("id, name, brand, price, mrp, stock, status, is_active, image_url, images, category_id, packages, specifications, created_at, seller_id")
-      .eq("id", productId)
-      .maybeSingle();
+    const product = await getCachedOrFetch(
+      `product:variants:v1:${productId}`,
+      async () => {
+        const { data, error } = await supabaseServer
+          .from("products")
+          .select("id, name, brand, price, mrp, stock, status, is_active, image_url, images, category_id, packages, specifications, created_at, seller_id")
+          .eq("id", productId)
+          .maybeSingle();
 
-    if (error) {
-      console.error("[Variants API Error]:", error.message);
-      return NextResponse.json(
-        { success: false, error: "Failed to load product variant details" },
-        { status: 500 }
-      );
-    }
+        if (error) throw new Error(error.message);
+        return data;
+      },
+      300 // 5 min L1 RAM + Redis TTL
+    );
 
     if (!product) {
       return NextResponse.json(
@@ -68,7 +69,7 @@ export async function GET(
       },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
         },
       }
     );

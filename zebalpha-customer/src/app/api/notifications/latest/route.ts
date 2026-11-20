@@ -1,28 +1,21 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabaseServer";
+import { getCachedLatestBroadcast } from "@/lib/cachedQueries";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const { data: setting } = await supabaseServer
-      .from("store_settings")
-      .select("value")
-      .eq("key", "broadcast_messages")
-      .maybeSingle();
-
-    const messages = Array.isArray(setting?.value) ? setting.value : [];
-    const latest = messages.length > 0 ? messages[0] : null;
+    const { latest, total } = await getCachedLatestBroadcast();
 
     return NextResponse.json(
       {
         success: true,
         latest,
-        total: messages.length,
+        total,
       },
       {
         headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=180",
         },
       }
     );
@@ -33,4 +26,3 @@ export async function GET() {
     );
   }
 }
-

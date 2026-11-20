@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
 
 let lastCheckedTimestamp = 0;
 let cachedHasNew = false;
@@ -19,7 +18,8 @@ export default function NotificationBell({ className, iconClassName }: Notificat
   useEffect(() => {
     async function checkNewAlerts() {
       const now = Date.now();
-      if (now - lastCheckedTimestamp < 30000) {
+      // Check at most once every 5 minutes per browser session; served from Edge CDN + Redis
+      if (now - lastCheckedTimestamp < 300000) {
         setHasNew(cachedHasNew);
         return;
       }
@@ -27,36 +27,18 @@ export default function NotificationBell({ className, iconClassName }: Notificat
 
       let isUnread = false;
 
-      // 1. Check latest broadcast message via fast resilient API
       try {
-        const res = await fetch("/api/notifications/latest", { cache: "no-store" });
-        const json = await res.json();
-        if (json.success && json.latest?.id) {
-          const lastSeenId = localStorage.getItem("last_seen_broadcast_id");
-          if (!lastSeenId || String(json.latest.id) !== lastSeenId) {
-            isUnread = true;
-          }
-        }
-      } catch (_) {}
-
-      // 2. Check latest products if not already marked unread
-      if (!isUnread) {
-        try {
-          const { data } = await supabase
-            .from("products")
-            .select("created_at")
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-          if (data && data.length > 0) {
-            const latestCreatedAt = data[0].created_at;
-            const lastSeenAt = localStorage.getItem("last_seen_product_created_at");
-            if (!lastSeenAt || new Date(latestCreatedAt) > new Date(lastSeenAt)) {
+        const res = await fetch("/api/notifications/latest");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.latest?.id) {
+            const lastSeenId = localStorage.getItem("last_seen_broadcast_id");
+            if (!lastSeenId || String(json.latest.id) !== lastSeenId) {
               isUnread = true;
             }
           }
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
 
       setHasNew(isUnread);
       cachedHasNew = isUnread;
@@ -64,20 +46,6 @@ export default function NotificationBell({ className, iconClassName }: Notificat
 
     checkNewAlerts();
 
-    // Listen to realtime products
-    const channel = supabase
-      .channel("customer-new-products-bell")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "products" },
-        () => {
-          setHasNew(true);
-          cachedHasNew = true;
-        }
-      )
-      .subscribe();
-
-    // Listen to local window broadcast event
     const handleBroadcastEvent = () => {
       setHasNew(true);
       cachedHasNew = true;
@@ -86,7 +54,6 @@ export default function NotificationBell({ className, iconClassName }: Notificat
     window.addEventListener("zebalpha:new-broadcast", handleBroadcastEvent);
 
     return () => {
-      supabase.removeChannel(channel);
       window.removeEventListener("zebalpha:new-broadcast", handleBroadcastEvent);
     };
   }, []);
@@ -102,10 +69,10 @@ export default function NotificationBell({ className, iconClassName }: Notificat
   };
 
   return (
-    <Link 
-      href="/notifications" 
+    <Link
+      href="/notifications"
       onClick={handleClick}
-      className={className || "relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-[#1a140b] to-[#0b0905] border border-amber-500/35 text-amber-400 hover:text-amber-300 hover:border-amber-400/60 shadow-[0_4px_14px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(253,230,138,0.18)] transition-all shrink-0 active:scale-95"} 
+      className={className || "relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-[#1a140b] to-[#0b0905] border border-amber-500/35 text-amber-400 hover:text-amber-300 hover:border-amber-400/60 shadow-[0_4px_14px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(253,230,138,0.18)] transition-all shrink-0 active:scale-95"}
       aria-label="Notifications"
     >
       <Bell strokeWidth={2.2} className={iconClassName || "h-4 w-4 text-amber-400"} />

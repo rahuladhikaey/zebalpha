@@ -25,6 +25,7 @@ import {
   resolveCategoryIcon,
   getLocalizedCategoryName,
 } from "../../../shared/constants/categoryIcons";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 export {
   type CategoryIconKey,
@@ -50,15 +51,16 @@ export function CategoryIconRenderer({
   className = "w-5 h-5",
   size = 20,
 }: CategoryIconProps) {
-  // If custom uploaded image/SVG URL is provided, display image
+  // If custom uploaded image/SVG URL is provided, serve via Cloudinary CDN responsive variant
   if (iconUrl && typeof iconUrl === "string" && (iconUrl.startsWith("http") || iconUrl.startsWith("/"))) {
     return (
       <img
-        src={iconUrl}
+        src={IMAGE_VARIANTS.categoryIcon(iconUrl)}
         alt=""
         className={`object-contain ${className}`}
         style={{ width: size, height: size }}
         loading="lazy"
+        decoding="async"
         onError={(e) => {
           // Hide broken image and fallback to package icon
           (e.target as HTMLElement).style.display = "none";

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { useIsNativeApp } from "@/lib/platform";
 
@@ -77,17 +76,15 @@ export function BannerCarousel() {
   }, [currentIndex, banners.length]);
 
   useEffect(() => {
-    // Load admin-configured banners from store_settings DB if present
+    // Load admin-configured banners via Edge CDN + Upstash Redis cached API (zero direct Supabase calls)
+    let isMounted = true;
     const fetchBanners = async () => {
       try {
-        const { data } = await supabase
-          .from("store_settings")
-          .select("value")
-          .eq("key", "hero_banners")
-          .maybeSingle();
-
-        if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
-          setBanners(data.value);
+        const res = await fetch("/api/banners");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (isMounted && json?.success && Array.isArray(json.data) && json.data.length > 0) {
+          setBanners(json.data);
           setIsCustomBanners(true);
         }
       } catch (err) {
@@ -95,6 +92,9 @@ export function BannerCarousel() {
       }
     };
     fetchBanners();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Pre-calculate natural aspect ratios for all banners

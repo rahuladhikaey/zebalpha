@@ -1,27 +1,33 @@
 /**
- * ZebAlpha Enterprise Image Optimization & CDN Delivery Service
- * Flipkart & Meesho-grade responsive image transformations, multi-tier caching & network awareness.
+ * ZebAlpha Enterprise Image Optimization & Cloudinary CDN Delivery Service
+ * Flipkart & Meesho-grade responsive AVIF/WebP transforms, strict egress control, & zero wasted bytes.
  */
 
-// Memory Cache: LRU-style map to prevent repeated network requests for already-decoded images
 const IMAGE_MEMORY_CACHE = new Set<string>();
-const FAILED_IMAGES_CACHE = new Map<string, number>(); // url -> failure timestamp
+const FAILED_IMAGES_CACHE = new Map<string, number>();
 const MAX_FAILED_RETRIES = 2;
-const RETRY_BACKOFF_MS = 30000; // retry failed images after 30 seconds
+const RETRY_BACKOFF_MS = 30000;
 
 export interface ImageVariantOptions {
   width?: number;
   height?: number;
-  quality?: "auto" | number;
+  quality?: "auto" | "auto:eco" | "auto:good" | "auto:best" | number;
   format?: "auto" | "webp" | "avif";
   crop?: "limit" | "fill" | "thumb" | "fit";
-  blur?: number; // for LQIP (Low Quality Image Placeholder)
+  gravity?: "auto" | "face" | "center";
+  blur?: number;
   dpr?: "auto" | number;
 }
 
+const CLOUDINARY_TRANSFORM_SEGMENT_RE =
+  /^(?:[a-z]{1,3}_[^/,]+)(?:,[a-z]{1,3}_[^/,]+)*$/i;
+
 /**
- * Generates an optimized Cloudinary delivery URL with dynamic WebP, responsive resizing,
- * and high compression transforms.
+ * Generates an optimized Cloudinary CDN delivery URL with dynamic AVIF/WebP,
+ * exact responsive resizing, and bandwidth-saving compression.
+ *
+ * NOTE: Deliberately does NOT rewrite Supabase Storage URLs to `/render/image/public/`
+ * because Supabase Image Transformations are Pro-only (returns HTTP 400 on Free Plan).
  */
 export function getOptimizedImageUrl(
   rawUrl: string | undefined | null,
@@ -36,52 +42,54 @@ export function getOptimizedImageUrl(
     return "/placeholder.jpg";
   }
 
-  // Local assets or SVGs don't need Cloudinary transforms
+  // Local assets, data URIs, or SVGs do not need external CDN transforms
   if (trimmed.startsWith("/") || trimmed.startsWith("data:") || trimmed.endsWith(".svg")) {
     return trimmed;
   }
 
-  // Cloudinary URL Optimization: res.cloudinary.com
+  // Cloudinary CDN Optimization: res.cloudinary.com
   if (trimmed.includes("res.cloudinary.com")) {
-    const {
-      width,
-      height,
-      quality = "auto",
-      format = "auto",
-      crop = "limit",
-      blur,
-    } = options;
-
-    const transformParts: string[] = [];
-
-    // Format & Quality (lossy WebP/AVIF auto-negotiation)
-    transformParts.push(`f_${format}`);
-    transformParts.push(`q_${quality}`);
-    transformParts.push(`dpr_${options.dpr || "auto"}`);
-
-    // Dimensions
-    if (width) transformParts.push(`w_${width}`);
-    if (height) transformParts.push(`h_${height}`);
-    if (width || height) transformParts.push(`c_${crop}`);
-
-    // LQIP Blur placeholder
-    if (blur) transformParts.push(`e_blur:${blur}`);
-
-    const transformStr = transformParts.join(",");
-
-    // Inject before version or folder in Cloudinary URL
-    // e.g. https://res.cloudinary.com/vtweyirx/image/upload/v12345/products/xyz.webp
-    // -> https://res.cloudinary.com/vtweyirx/image/upload/f_auto,q_auto,w_400/v12345/products/xyz.webp
-    const uploadIndex = trimmed.indexOf("/upload/");
+    const uploadMarker = "/image/upload/";
+    const uploadIndex = trimmed.indexOf(uploadMarker);
     if (uploadIndex !== -1) {
-      const prefix = trimmed.substring(0, uploadIndex + 8);
-      let suffix = trimmed.substring(uploadIndex + 8);
+      const {
+        width,
+        height,
+        quality = "auto:eco",
+        format = "auto",
+        crop = "limit",
+        gravity,
+        blur,
+        dpr = "auto",
+      } = options;
 
-      // Strip any existing transforms so we don't chain duplicate transform blocks
-      if (suffix.startsWith("f_auto") || suffix.includes(",q_auto")) {
-        const nextSlash = suffix.indexOf("/");
-        if (nextSlash !== -1) {
-          suffix = suffix.substring(nextSlash + 1);
+      const transformParts: string[] = [
+        `f_${format}`,
+        `q_${quality}`,
+        `dpr_${dpr}`,
+      ];
+
+      if (width) transformParts.push(`w_${width}`);
+      if (height) transformParts.push(`h_${height}`);
+      if (width || height) transformParts.push(`c_${crop}`);
+      if (gravity && (crop === "fill" || crop === "thumb")) {
+        transformParts.push(`g_${gravity}`);
+      }
+      if (blur) transformParts.push(`e_blur:${blur}`);
+
+      const transformStr = transformParts.join(",");
+      const prefix = trimmed.substring(0, uploadIndex + uploadMarker.length);
+      let suffix = trimmed.substring(uploadIndex + uploadMarker.length);
+
+      // Strip any existing Cloudinary transform segments before version (v12345) or folder path
+      // so we never chain duplicate transforms and always emit a single canonical CDN cache key
+      while (suffix.includes("/")) {
+        const slashIdx = suffix.indexOf("/");
+        const seg = suffix.substring(0, slashIdx);
+        if (CLOUDINARY_TRANSFORM_SEGMENT_RE.test(seg) && !/^v\d+$/.test(seg)) {
+          suffix = suffix.substring(slashIdx + 1);
+        } else {
+          break;
         }
       }
 
@@ -89,112 +97,96 @@ export function getOptimizedImageUrl(
     }
   }
 
-  // Supabase Storage URL optimization (Render image resizing if available)
-  if (trimmed.includes("supabase.co/storage/v1/object/public/")) {
-    if (options.width || options.height) {
-      const { width, height } = options;
-      // Convert to Supabase transform endpoint if supported: /render/image/public/
-      const renderUrl = trimmed.replace(
-        "/storage/v1/object/public/",
-        "/storage/v1/render/image/public/"
-      );
-      const params = new URLSearchParams();
-      if (width) params.set("width", String(width));
-      if (height) params.set("height", String(height));
-      params.set("resize", "contain");
-      return `${renderUrl}?${params.toString()}`;
-    }
-  }
-
+  // Return non-Cloudinary URLs cleanly as-is (never break Free-tier Supabase URLs with Pro-only /render/image/)
   return trimmed;
 }
 
 /**
- * Predefined Responsive Breakpoints matching ZebAlpha's Product Cards & Carousels
+ * Canonical Responsive Cloudinary CDN Breakpoints
+ * Fixed width buckets maximize Cloudinary & Browser CDN cache-hit ratios across 500+ concurrent users.
  */
 export const IMAGE_VARIANTS = {
   // Ultra-light blur thumbnail for progressive shimmer (LQIP)
   blurPlaceholder: (url: string) =>
     getOptimizedImageUrl(url, { width: 40, height: 50, quality: 30, blur: 300 }),
 
-  // Mobile 2-column product grid card (~200px - 300px display)
+  // Mobile 2-column product grid card (~15-28 KB AVIF/WebP)
   productGridCard: (url: string) =>
-    getOptimizedImageUrl(url, { width: 480, height: 640, crop: "limit", quality: "auto" }),
+    getOptimizedImageUrl(url, { width: 400, height: 540, crop: "limit", quality: "auto:eco" }),
 
-  // Desktop 4-5 column product card
+  // Desktop 4-5 column product card (~22-36 KB AVIF/WebP)
   productGridCardLg: (url: string) =>
-    getOptimizedImageUrl(url, { width: 600, height: 800, crop: "limit", quality: "auto" }),
+    getOptimizedImageUrl(url, { width: 560, height: 740, crop: "limit", quality: "auto:eco" }),
 
-  // Product Detail Page main viewer (high-res with 1200px max)
-  productDetailMain: (url: string) =>
-    getOptimizedImageUrl(url, { width: 1080, height: 1440, crop: "limit", quality: "auto" }),
+  // Curated Collections square tile (~10-16 KB AVIF/WebP)
+  curatedCollection: (url: string) =>
+    getOptimizedImageUrl(url, { width: 280, height: 280, crop: "fill", gravity: "auto", quality: "auto:eco" }),
 
-  // Product Detail thumbnail strip
-  productDetailThumb: (url: string) =>
-    getOptimizedImageUrl(url, { width: 140, height: 180, crop: "fill", quality: "auto" }),
-
-  // Editorial Curved Carousel Card
+  // Editorial Curved Carousel Card (~25-40 KB AVIF/WebP)
   editorialCard: (url: string) =>
-    getOptimizedImageUrl(url, { width: 640, height: 960, crop: "limit", quality: "auto" }),
+    getOptimizedImageUrl(url, { width: 520, height: 700, crop: "limit", quality: "auto:good" }),
 
-  // Hero Banner (Wide display)
+  // Product Detail Page main viewer (~45-80 KB AVIF/WebP)
+  productDetailMain: (url: string) =>
+    getOptimizedImageUrl(url, { width: 960, height: 1280, crop: "limit", quality: "auto:good" }),
+
+  // Product Detail thumbnail strip (~4 KB AVIF/WebP)
+  productDetailThumb: (url: string) =>
+    getOptimizedImageUrl(url, { width: 140, height: 180, crop: "fill", gravity: "auto", quality: "auto:eco" }),
+
+  // Hero Banner (Wide display, sharp yet lightweight)
   heroBanner: (url: string) =>
-    getOptimizedImageUrl(url, { width: 1400, quality: "auto", crop: "limit" }),
+    getOptimizedImageUrl(url, { width: 1200, quality: "auto:good", crop: "limit" }),
 
-  // Category navigation circular/rounded icon
+  // Category navigation circular/rounded icon (~3 KB AVIF/WebP)
   categoryIcon: (url: string) =>
-    getOptimizedImageUrl(url, { width: 120, height: 120, crop: "fill", quality: "auto" }),
+    getOptimizedImageUrl(url, { width: 120, height: 120, crop: "fill", gravity: "auto", quality: "auto:eco" }),
 };
 
-/**
- * Checks if an image has already been successfully loaded in the current session
- */
-export function isImageCached(url: string): boolean {
+export function isImageCachedInMemory(url: string): boolean {
   return IMAGE_MEMORY_CACHE.has(url);
 }
 
-/**
- * Marks an image as cached
- */
-export function markImageCached(url: string): void {
+export function markImageLoadedInMemory(url: string): void {
+  if (IMAGE_MEMORY_CACHE.size > 400) {
+    const first = IMAGE_MEMORY_CACHE.values().next().value;
+    if (first) IMAGE_MEMORY_CACHE.delete(first);
+  }
   IMAGE_MEMORY_CACHE.add(url);
+  FAILED_IMAGES_CACHE.delete(url);
 }
 
-/**
- * Records an image failure and checks if retry is allowed
- */
-export function recordImageFailure(url: string): boolean {
-  const now = Date.now();
-  const lastFailed = FAILED_IMAGES_CACHE.get(url);
-
-  if (lastFailed && now - lastFailed < RETRY_BACKOFF_MS) {
-    return false; // In backoff period, do not retry immediately
+export function shouldRetryFailedImage(url: string): boolean {
+  const failTime = FAILED_IMAGES_CACHE.get(url);
+  if (!failTime) return true;
+  if (Date.now() - failTime > RETRY_BACKOFF_MS) {
+    FAILED_IMAGES_CACHE.delete(url);
+    return true;
   }
-
-  FAILED_IMAGES_CACHE.set(url, now);
-  return true;
+  return false;
 }
 
-/**
- * Intelligent Image Prefetcher:
- * Downloads image in background when browser is idle without blocking user interaction
- */
-export function prefetchImage(url: string, priority: "high" | "low" = "low"): void {
-  if (!url || typeof window === "undefined" || IMAGE_MEMORY_CACHE.has(url)) return;
+export function markImageFailed(url: string): void {
+  FAILED_IMAGES_CACHE.set(url, Date.now());
+}
 
-  const runPrefetch = () => {
+export function preloadImage(url: string): Promise<boolean> {
+  if (typeof window === "undefined" || !url) return Promise.resolve(false);
+  if (IMAGE_MEMORY_CACHE.has(url)) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
     const img = new window.Image();
+    img.decoding = "async";
+    img.onload = () => {
+      markImageLoadedInMemory(url);
+      resolve(true);
+    };
+    img.onerror = () => {
+      markImageFailed(url);
+      resolve(false);
+    };
     img.src = url;
-    img.onload = () => markImageCached(url);
-    img.onerror = () => recordImageFailure(url);
-  };
-
-  if (priority === "high") {
-    runPrefetch();
-  } else if ("requestIdleCallback" in window) {
-    (window as any).requestIdleCallback(runPrefetch, { timeout: 2000 });
-  } else {
-    setTimeout(runPrefetch, 250);
-  }
+  });
 }
 
+export { MAX_FAILED_RETRIES };

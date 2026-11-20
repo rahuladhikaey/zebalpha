@@ -94,11 +94,11 @@ export const initCronJobs = () => {
     }
   };
 
-  // Job 4: Payout Queue Worker (every 15s) - atomically claims jobs, reconciles before every dispatch
-  cron.schedule('*/15 * * * * *', guarded('payout-worker', () => processPayoutQueueBatch()));
+  // Job 4: Payout Queue Worker (every 5m) - relaxed from 15s to prevent idle Supabase DB egress (~95% reduction)
+  cron.schedule('*/5 * * * *', guarded('payout-worker', () => processPayoutQueueBatch()));
 
-  // Job 5: Webhook Worker (every 15s) - processes stored, signature-verified Razorpay events exactly once
-  cron.schedule('*/15 * * * * *', guarded('webhook-worker', () => drainWebhookQueue()));
+  // Job 5: Webhook Worker (every 5m) - processes stored, signature-verified Razorpay events
+  cron.schedule('*/5 * * * *', guarded('webhook-worker', () => drainWebhookQueue()));
 
   // Job 6: Stuck Withdrawal Detector & Razorpay reconciler (every 10 minutes)
   cron.schedule('*/10 * * * *', guarded('stuck-payouts', async () => {

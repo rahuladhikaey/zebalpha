@@ -1,44 +1,24 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { supabase } from "@/lib/supabaseClient";
 import { Category } from "@/lib/types";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useCategories } from "@/hooks/useCatalogQueries";
-import { useQueryClient } from "@tanstack/react-query";
 import { useIsNativeApp } from "@/lib/platform";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 const CLOTHING_TABS = ["ALL", "POLOS", "T-SHIRTS", "HOODIES", "SHIRTS", "BOTTOMS", "LIMITED", "ACCESSORIES"];
 
 export function ShopByCategorySection({ initialCategories = [] }: { initialCategories?: Category[] }) {
   const isNativeApp = useIsNativeApp();
-  const queryClient = useQueryClient();
   const { data: categories = initialCategories } = useCategories(
     initialCategories.length > 0 ? initialCategories : undefined
   );
   const [selectedMainTab, setSelectedMainTab] = useState<string>("ALL");
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Listen to real-time additions/updates by SuperAdmin
-    const channel = supabase
-      .channel("customer-categories-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "categories" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["categories"] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
 
   const displayList = categories || [];
 
@@ -134,7 +114,7 @@ export function ShopByCategorySection({ initialCategories = [] }: { initialCateg
                         : "bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border-neutral-800/70 group-hover:border-violet-500/40"
                     }`}>
                       <Image
-                        src={imageSrc}
+                        src={IMAGE_VARIANTS.curatedCollection(imageSrc)}
                         alt={cat.name}
                         fill
                         sizes="(max-width: 640px) 140px, (max-width: 1024px) 200px, 16vw"
