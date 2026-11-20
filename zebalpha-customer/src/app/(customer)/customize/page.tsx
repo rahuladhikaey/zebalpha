@@ -11,6 +11,7 @@ import {
   GarmentType,
   GarmentColorOption,
   PlacementPosition,
+  PrintTransform,
 } from "@/components/customize/GarmentMockupPreview";
 import {
   ADMIN_PRESET_DESIGNS,
@@ -53,6 +54,11 @@ export default function CustomizePage() {
   const [selectedGarment, setSelectedGarment] = useState<GarmentType>("oversized_tee");
   const [selectedColor, setSelectedColor] = useState<GarmentColorOption>(GARMENT_COLORS[0]);
   const [selectedPlacement, setSelectedPlacement] = useState<PlacementPosition>("front_chest");
+  const [printTransform, setPrintTransform] = useState<PrintTransform>({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+  });
   const [selectedSize, setSelectedSize] = useState<string>("L");
   const [quantity, setQuantity] = useState<number>(1);
 
@@ -65,6 +71,7 @@ export default function CustomizePage() {
     setActivePreset(preset);
     setDesignMode("vault");
     setSelectedCategory("all");
+    setPrintTransform({ scale: 1, offsetX: 0, offsetY: 0 });
 
     // Auto-select recommended garment color when matched
     if (preset.recommendedGarmentColor) {
@@ -297,7 +304,13 @@ export default function CustomizePage() {
       formData.append("quantity", String(quantity));
       formData.append("placement", selectedPlacement);
       formData.append("designMode", designMode === "upload" ? "custom_upload" : "preset_vault");
-      formData.append("notes", notes.trim());
+      const hasCustomOffset =
+        printTransform.scale !== 1 || printTransform.offsetX !== 0 || printTransform.offsetY !== 0;
+      const positioningSummary = hasCustomOffset
+        ? `[3D Layout: Scale ${Math.round(printTransform.scale * 100)}%, X ${Math.round(printTransform.offsetX * 100)}, Y ${Math.round(printTransform.offsetY * 100)}]`
+        : "";
+      const combinedNotes = [notes.trim(), positioningSummary].filter(Boolean).join(" | ");
+      formData.append("notes", combinedNotes);
 
       if (designMode === "upload" && uploadedFile) {
         formData.append("artworkFile", uploadedFile);
@@ -327,55 +340,55 @@ export default function CustomizePage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black">
-      <Header title="Custom Studio" subtitle="CREATE YOUR IDENTITY ✦" />
+    <div className="min-h-screen bg-[#07070A] text-white selection:bg-amber-400 selection:text-black">
+      <Header title="Custom Studio" subtitle="LIVE 3D STUDIO ✦" />
 
       {/* Main Studio Container */}
-      <main className="mx-auto w-full max-w-[1400px] px-4 md:px-8 py-6 sm:py-10">
-        {/* Navigation Breadcrumb */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8">
+      <main className="mx-auto w-full max-w-[1400px] px-4 md:px-8 py-5 sm:py-8">
+        {/* Top Single-Line Navigation Bar */}
+        <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
           <Link
             href="/"
-            className="flex items-center gap-2 text-xs font-bold text-neutral-400 hover:text-white transition-colors cursor-pointer group"
+            className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-zinc-400 hover:text-amber-300 transition-colors cursor-pointer group whitespace-nowrap shrink-0"
           >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span>Back to Storefront</span>
+            <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Store</span>
           </Link>
 
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Direct Production Order</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/15 to-emerald-500/15 border border-amber-400/35 text-amber-300 text-[10px] sm:text-xs font-black uppercase tracking-wider whitespace-nowrap shrink-0">
+            <Sparkles className="w-3 h-3 text-amber-300" />
+            <span>Print On Demand</span>
           </div>
         </div>
 
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-white flex items-center gap-3">
-            <span>Custom Design Studio</span>
-            <span className="text-xs sm:text-sm font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-              Print On Demand
+        {/* Single-Line Luxury Studio Header */}
+        <div className="mb-6 sm:mb-8">
+          <h1 className="whitespace-nowrap text-[clamp(1.32rem,5.7vw,2.65rem)] font-black uppercase tracking-tight leading-tight">
+            <span className="text-white">Custom </span>
+            <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-400 bg-clip-text text-transparent">
+              Design Studio
             </span>
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-400 font-medium mt-1">
-            Pick from our curated graphic vault or upload your own artwork. We deliver high-density DTF and screen prints across India.
+          <p className="text-[11px] sm:text-sm text-zinc-400 font-medium mt-1.5 max-w-2xl leading-relaxed">
+            Pick an artwork or upload yours — spin the live 3D garment to preview colors, print placement &amp; sizing before we print across India.
           </p>
         </div>
 
         {/* 2-Column Responsive Studio Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-10 items-start">
-          {/* Left Column: Live Mockup Canvas (Sticky on Desktop) */}
+          {/* Left Column: Live 3D Garment Studio Canvas (Sticky on Desktop) */}
           <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-24 space-y-4">
             {linkedFromHomepage && activePreset && (
-              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-xs font-bold">
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/15 to-emerald-500/15 border border-amber-400/35 text-amber-200 text-xs font-bold">
                 <span className="flex items-center gap-2 min-w-0">
-                  <Sparkles className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-                  <span className="truncate">Loaded &ldquo;{activePreset.title}&rdquo; — ready to customize!</span>
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-300" />
+                  <span className="truncate">Loaded &ldquo;{activePreset.title}&rdquo; on 3D garment</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => setLinkedFromHomepage(false)}
                   aria-label="Dismiss notice"
-                  className="text-emerald-300/70 hover:text-emerald-200 cursor-pointer shrink-0"
+                  className="text-amber-300/70 hover:text-amber-200 cursor-pointer shrink-0"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -389,82 +402,93 @@ export default function CustomizePage() {
               designImageSrc={activeArtworkUrl}
               designTitle={activeArtworkTitle}
               placement={selectedPlacement}
+              printTransform={printTransform}
+              onPrintTransformChange={setPrintTransform}
               isSubmitting={isSubmitting}
             />
 
             {/* Live Pricing & Spec Bar */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl">
-              <div>
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Selected Fabric</span>
-                <span className="text-xs font-black text-white">{selectedBase?.name} <span className="text-emerald-400 font-mono">({selectedBase?.gsm})</span></span>
+            <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-xl">
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  Selected Fabric
+                </span>
+                <span className="text-xs font-black text-white truncate block">
+                  {selectedBase?.name}{" "}
+                  <span className="text-amber-300 font-mono">({selectedBase?.gsm})</span>
+                </span>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Estimated Price</span>
-                <span className="text-base font-black text-emerald-400 font-mono">₹{estimatedTotal}</span>
+              <div className="text-right shrink-0">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  Estimated Price
+                </span>
+                <span className="text-base font-black text-emerald-400 font-mono">
+                  ₹{estimatedTotal}
+                </span>
               </div>
             </div>
 
             {/* Quality & Production Guarantees */}
-            <div className="grid grid-cols-3 gap-2.5 p-3.5 rounded-2xl bg-neutral-900/60 border border-neutral-800 text-center">
+            <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/90 text-center">
               <div className="flex flex-col items-center">
-                <Shirt className="w-4 h-4 text-emerald-400 mb-1" />
-                <span className="text-[10px] font-bold text-white">100% Combed</span>
-                <span className="text-[9px] text-neutral-400">Pure Cotton</span>
+                <Shirt className="w-4 h-4 text-amber-400 mb-1" />
+                <span className="text-[10px] font-bold text-white whitespace-nowrap">100% Combed</span>
+                <span className="text-[9px] text-zinc-400">Pure Cotton</span>
               </div>
               <div className="flex flex-col items-center">
                 <Clock className="w-4 h-4 text-emerald-400 mb-1" />
-                <span className="text-[10px] font-bold text-white">30 Min Proof</span>
-                <span className="text-[9px] text-neutral-400">Via WhatsApp</span>
+                <span className="text-[10px] font-bold text-white whitespace-nowrap">30-Min Proof</span>
+                <span className="text-[9px] text-zinc-400">On WhatsApp</span>
               </div>
               <div className="flex flex-col items-center">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 mb-1" />
-                <span className="text-[10px] font-bold text-white">Fade-Proof</span>
-                <span className="text-[9px] text-neutral-400">High-Density DTF</span>
+                <ShieldCheck className="w-4 h-4 text-amber-400 mb-1" />
+                <span className="text-[10px] font-bold text-white whitespace-nowrap">Fade-Proof</span>
+                <span className="text-[9px] text-zinc-400">HD DTF Print</span>
               </div>
             </div>
           </div>
 
           {/* Right Column: Customization Controls & Contact Deck */}
-          <div className="lg:col-span-7 xl:col-span-7 space-y-6">
+          <div className="lg:col-span-7 xl:col-span-7 space-y-5">
             {/* Step 1: Design Source Mode Switcher */}
-            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-5 w-1 bg-emerald-400 rounded-full" />
-                  <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-white">
-                    Step 1: Choose Your Artwork
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-zinc-900/85 border border-zinc-800/90 space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-5 w-1 bg-gradient-to-b from-amber-400 to-emerald-400 rounded-full shrink-0" />
+                  <h3 className="text-xs sm:text-base font-black uppercase tracking-wider text-white whitespace-nowrap truncate">
+                    Step 1: Choose Artwork
                   </h3>
                 </div>
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                  Select Source
+                <span className="text-[10px] font-bold text-amber-300/80 uppercase tracking-wider whitespace-nowrap shrink-0">
+                  Vault or Upload
                 </span>
               </div>
 
               {/* Mode Switch Tabs */}
-              <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-black border border-neutral-800">
+              <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-black/90 border border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setDesignMode("vault")}
-                  className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`py-2.5 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                     designMode === "vault"
-                      ? "bg-neutral-850 text-white shadow-lg border border-neutral-700"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-lg"
+                      : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  <Palette className="w-4 h-4 text-emerald-400" />
+                  <Palette className={`w-3.5 h-3.5 ${designMode === "vault" ? "text-black" : "text-amber-400"}`} />
                   <span>ZebAlpha Vault</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setDesignMode("upload")}
-                  className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`py-2.5 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                     designMode === "upload"
-                      ? "bg-neutral-850 text-white shadow-lg border border-neutral-700"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-gradient-to-r from-emerald-400 to-teal-300 text-black shadow-lg"
+                      : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  <Upload className="w-4 h-4 text-emerald-400" />
+                  <Upload className={`w-3.5 h-3.5 ${designMode === "upload" ? "text-black" : "text-emerald-400"}`} />
                   <span>Upload My Own</span>
                 </button>
               </div>
@@ -606,10 +630,10 @@ export default function CustomizePage() {
             </div>
 
             {/* Step 2: Garment Base Selection */}
-            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 space-y-3">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-zinc-900/85 border border-zinc-800/90 space-y-3">
               <div className="flex items-center gap-2">
-                <span className="h-5 w-1 bg-emerald-400 rounded-full" />
-                <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-white">
+                <span className="h-5 w-1 bg-gradient-to-b from-amber-400 to-emerald-400 rounded-full shrink-0" />
+                <h3 className="text-xs sm:text-base font-black uppercase tracking-wider text-white whitespace-nowrap">
                   Step 2: Select Apparel Base
                 </h3>
               </div>
@@ -627,16 +651,16 @@ export default function CustomizePage() {
                       }}
                       className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
                         isSelected
-                          ? "border-emerald-400 bg-neutral-850 shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30"
-                          : "border-neutral-800 bg-black hover:border-neutral-700"
+                          ? "border-amber-400 bg-amber-500/10 shadow-[0_0_20px_rgba(251,191,36,0.16)] ring-1 ring-amber-400/40"
+                          : "border-zinc-800 bg-black/80 hover:border-zinc-600"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1">
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-neutral-800 text-emerald-300 font-mono uppercase">
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-800 text-emerald-300 font-mono uppercase whitespace-nowrap">
                           {base.gsm}
                         </span>
                         {base.badge && (
-                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 uppercase whitespace-nowrap">
                             {base.badge}
                           </span>
                         )}
@@ -654,18 +678,18 @@ export default function CustomizePage() {
             </div>
 
             {/* Step 3: Color, Placement & Sizing */}
-            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 space-y-5">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-zinc-900/85 border border-zinc-800/90 space-y-5">
               <div className="flex items-center gap-2">
-                <span className="h-5 w-1 bg-emerald-400 rounded-full" />
-                <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-white">
-                  Step 3: Color, Placement & Size
+                <span className="h-5 w-1 bg-gradient-to-b from-amber-400 to-emerald-400 rounded-full shrink-0" />
+                <h3 className="text-xs sm:text-base font-black uppercase tracking-wider text-white whitespace-nowrap">
+                  Step 3: Color, Placement &amp; Size
                 </h3>
               </div>
 
               {/* Garment Color Swatches */}
               <div>
-                <label className="text-[11px] font-bold text-neutral-400 block mb-2 uppercase tracking-wider">
-                  Garment Color: <strong className="text-white">{selectedColor.name}</strong>
+                <label className="text-[11px] font-bold text-zinc-400 block mb-2.5 uppercase tracking-wider">
+                  Garment Color: <strong className="text-amber-300">{selectedColor.name}</strong>
                 </label>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   {GARMENT_COLORS.map((col) => {
@@ -678,8 +702,8 @@ export default function CustomizePage() {
                         title={col.name}
                         className={`h-9 w-9 rounded-full border-2 transition-all cursor-pointer flex items-center justify-center ${
                           isSelected
-                            ? "border-emerald-400 scale-110 shadow-[0_0_12px_rgba(16,185,129,0.5)]"
-                            : "border-neutral-700 hover:border-neutral-500"
+                            ? "border-amber-400 scale-110 shadow-[0_0_14px_rgba(251,191,36,0.55)]"
+                            : "border-zinc-700 hover:border-zinc-400"
                         }`}
                         style={{ backgroundColor: col.hex }}
                       >
@@ -698,8 +722,8 @@ export default function CustomizePage() {
 
               {/* Print Placement */}
               <div>
-                <label className="text-[11px] font-bold text-neutral-400 block mb-2 uppercase tracking-wider">
-                  Print Placement:
+                <label className="text-[11px] font-bold text-zinc-400 block mb-2 uppercase tracking-wider">
+                  Print Placement (3D Shirt Auto-Turns):
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
@@ -712,10 +736,10 @@ export default function CustomizePage() {
                       key={p.id}
                       type="button"
                       onClick={() => setSelectedPlacement(p.id as PlacementPosition)}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer border ${
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer border whitespace-nowrap ${
                         selectedPlacement === p.id
-                          ? "bg-neutral-800 border-emerald-400 text-emerald-400"
-                          : "bg-black border-neutral-800 text-neutral-400 hover:text-white"
+                          ? "bg-amber-400/15 border-amber-400 text-amber-300"
+                          : "bg-black/80 border-zinc-800 text-zinc-400 hover:text-white"
                       }`}
                     >
                       {p.label}
@@ -783,12 +807,12 @@ export default function CustomizePage() {
             {/* Step 4: Contact & Submission Form */}
             <form
               onSubmit={handleSubmit}
-              className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-neutral-900/90 border border-neutral-800 space-y-4"
+              className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-zinc-900/85 border border-zinc-800/90 space-y-4"
             >
               <div className="flex items-center gap-2">
-                <span className="h-5 w-1 bg-emerald-400 rounded-full" />
-                <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-white">
-                  Step 4: Contact & Finalize
+                <span className="h-5 w-1 bg-gradient-to-b from-amber-400 to-emerald-400 rounded-full shrink-0" />
+                <h3 className="text-xs sm:text-base font-black uppercase tracking-wider text-white whitespace-nowrap">
+                  Step 4: Contact &amp; Order
                 </h3>
               </div>
 
@@ -878,7 +902,7 @@ export default function CustomizePage() {
                   <span className="text-neutral-400">Quantity:</span>
                   <span className="font-mono font-bold text-neutral-300">{quantity} Pc(s)</span>
                 </div>
-                <div className="pt-2 border-t border-neutral-850 flex items-center justify-between">
+                <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
                   <span className="text-xs font-black uppercase tracking-wider text-white">Estimated Total:</span>
                   <span className="text-base font-black text-emerald-400 font-mono">₹{estimatedTotal}</span>
                 </div>
@@ -888,7 +912,7 @@ export default function CustomizePage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-4 rounded-full bg-emerald-400 hover:bg-emerald-300 active:scale-98 text-black font-black uppercase tracking-wider text-xs sm:text-sm transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] hover:shadow-[0_0_35px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-emerald-400 hover:brightness-105 active:scale-[0.98] text-black font-black uppercase tracking-wider text-xs sm:text-sm transition-all shadow-[0_0_28px_rgba(251,191,36,0.28)] hover:shadow-[0_0_38px_rgba(16,185,129,0.45)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>
