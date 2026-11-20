@@ -20,22 +20,98 @@ async function getAuthenticatedUser(req: NextRequest) {
   return null;
 }
 
-// Helper to invalidate customer storefront cache on Upstash Redis
-async function invalidateStorefrontCache() {
-  try {
-    const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
-    const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (!upstashUrl || !upstashToken) return;
+// Helper to immediately purge customer storefront caches (Upstash Redis + zebalpha.shop L1 RAM & ISR)
+async function invalidateStorefrontCache(productId?: string | number) {
+  const storefrontUrl = (
+    process.env.NEXT_PUBLIC_STOREFRONT_URL ||
+    process.env.STOREFRONT_URL ||
+    "https://zebalpha.shop"
+  ).replace(/\/+$/, "");
 
-    await fetch(`${upstashUrl}/pipeline`, {
+  const tasks: Promise<unknown>[] = [];
+
+  // 1. Direct Upstash Redis purge for all active homepage, catalog & PDP keys
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (upstashUrl && upstashToken) {
+    tasks.push(
+      (async () => {
+        try {
+          const directKeys = [
+            "homepage:section:featured:v6:brand:all:limit:20",
+            "homepage:section:featured:v6:brand:all:limit:12",
+            "homepage:section:featured:v4:brand:all:limit:12",
+            "homepage:section:featured:v3:brand:all:limit:12",
+            "rec:catalog-snapshot:v1",
+          ];
+          if (productId) {
+            directKeys.push(
+              `pdp:product:v3:${productId}`,
+              `pdp:product:v2:${productId}`,
+              `pdp:reviews:v1:${productId}`,
+              `product:detail:v2:${productId}`,
+              `product:detail:${productId}`,
+              `product:variants:v2:${productId}`,
+              `product:variants:v1:${productId}`,
+              `product:variants:${productId}`
+            );
+          }
+
+          // Also scan dynamic api:products:* and homepage:section:featured:* keys
+          const patternRes = await fetch(`${upstashUrl}/pipeline`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${upstashToken}` },
+            body: JSON.stringify([
+              ["KEYS", "homepage:section:featured:*"],
+              ["KEYS", "api:products:*"],
+              ["KEYS", "products:*"],
+            ]),
+          }).catch(() => null);
+
+          if (patternRes?.ok) {
+            const patternJson = await patternRes.json().catch(() => []);
+            if (Array.isArray(patternJson)) {
+              for (const entry of patternJson) {
+                if (Array.isArray(entry?.result)) {
+                  for (const k of entry.result) {
+                    if (typeof k === "string") directKeys.push(k);
+                  }
+                }
+              }
+            }
+          }
+
+          const uniqueKeys = Array.from(new Set(directKeys));
+          if (uniqueKeys.length > 0) {
+            await fetch(`${upstashUrl}/pipeline`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${upstashToken}` },
+              body: JSON.stringify([["DEL", ...uniqueKeys]]),
+            }).catch(() => {});
+          }
+        } catch (_) {}
+      })()
+    );
+  }
+
+  // 2. Call zebalpha.shop instant revalidation webhook (flushes L1 RAM + Redis + Next.js ISR immediately)
+  tasks.push(
+    fetch(`${storefrontUrl}/api/cache/revalidate`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${upstashToken}` },
-      body: JSON.stringify([
-        ["DEL", "homepage:section:featured:v4:brand:all:limit:12"],
-        ["DEL", "homepage:section:featured:v3:brand:all:limit:12"],
-      ]),
-    }).catch(() => { });
-  } catch (_) { }
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.CACHE_REVALIDATE_SECRET
+          ? { "x-revalidate-secret": process.env.CACHE_REVALIDATE_SECRET }
+          : {}),
+      },
+      body: JSON.stringify({
+        target: "product",
+        id: productId ? String(productId) : undefined,
+      }),
+    }).catch(() => {})
+  );
+
+  await Promise.allSettled(tasks);
 }
 // Helper to sanitize product packages so that variants of the same color share the exact same photoshoot gallery
 function sanitizeProductPackages(packages: any[]): any[] {
@@ -304,8 +380,8 @@ export async function POST(req: NextRequest) {
       }
     } catch (_) { }
 
-    // Invalidate customer storefront cache & L2 Redis caches
-    await invalidateStorefrontCache();
+    // Invalidate customer storefront cache (L1 RAM, Upstash Redis & Next.js ISR)
+    await invalidateStorefrontCache(savedProduct.id);
     try {
       await triggerCacheInvalidation({ target: "product", id: savedProduct.id, categoryId: savedProduct.category_id });
     } catch (_) { }
@@ -459,8 +535,8 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Invalidate customer storefront cache & L2 Redis caches
-    await invalidateStorefrontCache();
+    // Invalidate customer storefront cache (L1 RAM, Upstash Redis & Next.js ISR)
+    await invalidateStorefrontCache(targetId);
     try {
       await triggerCacheInvalidation({ target: "product", id: targetId, categoryId: updatedProduct?.category_id });
     } catch (_) { }
@@ -508,9 +584,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, products: [] });
     }
 
+    const visibleProducts = (products || []).filter(
+      (p: any) => String(p.status || "").toUpperCase() !== "DELETED"
+    );
+
     return NextResponse.json({
       success: true,
-      products: products || [],
+      products: visibleProducts,
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -570,19 +650,28 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Mark as inactive / soft-delete in DB
-    const { error: delError } = await supabaseServer
+    // Hard delete first so deleted items are cleanly removed; gracefully soft-delete if referenced by historical orders
+    const { error: hardDelError } = await supabaseServer
       .from("products")
-      .update({ is_active: false, status: "DELETED", updated_at: new Date().toISOString() })
+      .delete()
       .eq("id", productId);
 
-    if (delError) {
-      // Hard delete fallback if soft delete constraint fails
-      await supabaseServer.from("products").delete().eq("id", productId);
+    if (hardDelError) {
+      const { error: softDelError } = await supabaseServer
+        .from("products")
+        .update({ is_active: false, status: "DELETED", updated_at: new Date().toISOString() })
+        .eq("id", productId);
+
+      if (softDelError) {
+        return NextResponse.json(
+          { success: false, message: softDelError.message || "Failed to delete product." },
+          { status: 500 }
+        );
+      }
     }
 
-    // Invalidate customer storefront cache & L2 Redis caches
-    await invalidateStorefrontCache();
+    // Invalidate customer storefront cache (L1 RAM, Upstash Redis & Next.js ISR) immediately
+    await invalidateStorefrontCache(productId);
     try {
       await triggerCacheInvalidation({ target: "product", id: productId, categoryId: existing.category_id });
     } catch (_) { }

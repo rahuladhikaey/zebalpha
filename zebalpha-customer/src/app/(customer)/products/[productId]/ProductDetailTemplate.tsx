@@ -11,7 +11,7 @@ import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, B
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
-import { normalizeProductImages } from "@/lib/productImageUtils";
+import { normalizeProductImages, isDeadLegacySupabaseImage } from "@/lib/productImageUtils";
 import { VirtualTryOnButton } from "@/components/vto/VirtualTryOnButton";
 
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
@@ -67,16 +67,32 @@ export default function ProductDetailTemplate({
           ? Number(pkg.mrp)
           : (product.mrp != null && !isNaN(Number(product.mrp)) ? Number(product.mrp) : pkgPriceNum);
 
+      const parentImages = normalizeProductImages(product);
+      const rawGallery = Array.isArray(pkg.gallery)
+        ? pkg.gallery.filter((u: any) => typeof u === "string" && u.trim() && !isDeadLegacySupabaseImage(u))
+        : [];
+      const cleanImgUrl =
+        pkg.image_url && !isDeadLegacySupabaseImage(pkg.image_url)
+          ? pkg.image_url
+          : rawGallery[0] || parentImages[0] || product.image_url;
+      const cleanGallery =
+        rawGallery.length > 0
+          ? rawGallery
+          : cleanImgUrl && !isDeadLegacySupabaseImage(cleanImgUrl)
+          ? [cleanImgUrl]
+          : parentImages;
+
       return {
         ...pkg,
         color: col,
         size: sz,
         price: pkgPriceNum,
         mrp: pkgMrpNum,
-        gallery: pkg.gallery || (pkg.image_url ? [pkg.image_url] : []),
+        image_url: cleanImgUrl,
+        gallery: cleanGallery,
       };
     });
-  }, [product.packages, product.price, product.mrp]);
+  }, [product, product.packages, product.price, product.mrp]);
 
   // 2. Extract Color Groups & Available Colors
   const { colorGroups, defaultColorName } = useMemo(() => {
@@ -882,6 +898,7 @@ export default function ProductDetailTemplate({
               {/* Image Carousel with Flipkart-style Top-Right Wishlist & Share Actions */}
               <ProductImageCarousel
                 images={images}
+                fallbackImages={normalizeProductImages(product)}
                 productName={product.name}
                 topRightAction={
                   <div className="flex flex-col items-center gap-2">

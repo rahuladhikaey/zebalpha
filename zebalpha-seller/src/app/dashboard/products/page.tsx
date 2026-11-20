@@ -245,7 +245,9 @@ export default function SellerProducts() {
         }
       });
 
-      const mappedProducts: Product[] = productsData.map((p: any) => {
+      const mappedProducts: Product[] = productsData
+        .filter((p: any) => String(p.status || "").toUpperCase() !== "DELETED")
+        .map((p: any) => {
         const specs = p.specifications || {};
         const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium") || (p.name || "").toLowerCase().includes("supima");
         const isDrop = p.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON" || p.tier === "DROP";
@@ -448,15 +450,44 @@ export default function SellerProducts() {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      const { error } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", productId);
+      // 1. Primary: Delete via server API route (handles RLS, FK soft-delete fallback & instant storefront cache purge)
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
 
-      if (error) throw error;
+      const apiRes = await fetch(`/api/products?id=${encodeURIComponent(String(productId))}`, {
+        method: "DELETE",
+        headers,
+      });
+      const apiJson = await apiRes.json().catch(() => ({}));
 
-      setProducts(products.filter(p => p.id !== productId));
-      alert("Product deleted successfully.");
+      if (!apiRes.ok || !apiJson?.success) {
+        // 2. Fallback: Direct client delete/soft-delete if API route failed
+        const { error } = await supabase
+          .from("products")
+          .delete()
+          .eq("id", productId);
+
+        if (error) {
+          const { error: softErr } = await supabase
+            .from("products")
+            .update({ is_active: false, status: "DELETED" })
+            .eq("id", productId);
+          if (softErr) throw new Error(apiJson?.message || error.message || softErr.message);
+        }
+
+        // Still purge storefront cache even on client fallback
+        fetch("https://zebalpha.shop/api/cache/revalidate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: "product", id: String(productId) }),
+        }).catch(() => {});
+      }
+
+      setProducts((prev) => prev.filter((p) => p.id !== productId));
+      alert("Product deleted successfully from seller panel, website, and app.");
     } catch (e: any) {
       console.error(e);
       alert(e.message || "Failed to delete product.");
@@ -679,6 +710,13 @@ export default function SellerProducts() {
           savedProduct = res.data?.[0] || { ...cleanPayload };
           setStatusMessage("✅ Product added successfully!");
         }
+
+        // Ensure storefront cache purges even when client fallback path is used
+        fetch("https://zebalpha.shop/api/cache/revalidate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: "product", id: savedProduct?.id ? String(savedProduct.id) : undefined }),
+        }).catch(() => {});
       }
 
       setTimeout(() => {

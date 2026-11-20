@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
 import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
+import { triggerCacheInvalidation } from "@/shared/utils/cacheInvalidator";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -40,10 +41,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, data: [] }, { headers: NO_STORE_HEADERS });
     }
 
-    const normalized = (products || []).map((p: any) => ({
-      ...p,
-      thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || ""
-    }));
+    const normalized = (products || [])
+      .filter((p: any) => String(p.status || "").toUpperCase() !== "DELETED")
+      .map((p: any) => ({
+        ...p,
+        thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || ""
+      }));
 
     return NextResponse.json({ success: true, data: normalized }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
@@ -73,6 +76,9 @@ export async function PUT(req: Request) {
 
     if (error) throw error;
 
+    // Immediately sync changes to customer website & Android app
+    await triggerCacheInvalidation({ target: "product", id, categoryId: data?.[0]?.category_id }).catch(() => {});
+
     return NextResponse.json({ success: true, data: data?.[0] || null });
   } catch (error: any) {
     if (error.name === "AuthError") return authErrorResponse(error);
@@ -93,12 +99,22 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, message: "Product ID is required" }, { status: 400 });
     }
 
-    const { error } = await supabaseServer
+    const { error: hardErr } = await supabaseServer
       .from("products")
       .delete()
       .eq("id", id);
 
-    if (error) throw error;
+    if (hardErr) {
+      // Fallback to soft-delete if historical order_items reference this product
+      const { error: softErr } = await supabaseServer
+        .from("products")
+        .update({ is_active: false, status: "DELETED", updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (softErr) throw softErr;
+    }
+
+    // Immediately purge deleted product from customer website & Android app caches
+    await triggerCacheInvalidation({ target: "product", id }).catch(() => {});
 
     return NextResponse.json({ success: true, message: "Product deleted successfully" });
   } catch (error: any) {

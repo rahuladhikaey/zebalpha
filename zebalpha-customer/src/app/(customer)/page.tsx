@@ -27,7 +27,7 @@ import {
 import { NativePlatformProvider } from "@/lib/platform";
 import { detectNativeAppOnServer } from "@/lib/platformServer";
 
-export const revalidate = 60;
+export const revalidate = 30;
 
 export const metadata: Metadata = {
   title: "ZebAlpha | Indian E-Commerce Marketplace",

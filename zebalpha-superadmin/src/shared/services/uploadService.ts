@@ -139,11 +139,8 @@ export async function uploadToSupabaseBucket(
       });
 
     if (error) {
-      console.warn(`Notice uploading to Supabase bucket "${bucketName}":`, error.message);
-      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
-      if (publicUrlData?.publicUrl) return publicUrlData.publicUrl;
-      if (typeof fileOrBase64 === "string") return fileOrBase64;
-      return "/banner-premium-polo.png";
+      console.error(`Supabase bucket "${bucketName}" upload failed:`, error.message);
+      throw new Error(`Storage upload failed: ${error.message}`);
     }
 
     const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
@@ -151,8 +148,7 @@ export async function uploadToSupabaseBucket(
     return publicUrlData?.publicUrl || (baseUrl ? `${baseUrl}/storage/v1/object/public/${bucketName}/${filePath}` : "");
   } catch (err: any) {
     console.error("Supabase Storage upload error:", err);
-    if (typeof fileOrBase64 === "string") return fileOrBase64;
-    return "/banner-premium-polo.png";
+    throw err;
   }
 }
 
@@ -161,51 +157,58 @@ export async function uploadToSupabaseBucket(
  * Cloud Name: vtweyirx
  */
 const CLOUDINARY_CLOUD_NAME = "vtweyirx";
-const CLOUDINARY_UPLOAD_PRESET = "zebalpha_preset"; // Optional or unsigned preset
+const CLOUDINARY_UPLOAD_PRESET = "zebalpha_preset"; // Unsigned preset
 const CLOUDINARY_API_KEY = "317122266961536";
 
 export async function uploadDirectToCloudinary(
   fileOrBase64: File | Blob | string,
   folder: string = "products"
 ): Promise<string> {
-  try {
-    let base64Data = "";
-    if (typeof fileOrBase64 === "string") {
-      base64Data = fileOrBase64;
-    } else {
-      base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(fileOrBase64);
-      });
-    }
-
-    // Call Cloudinary Upload API directly
-    const formData = new FormData();
-    formData.append("file", base64Data);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-    formData.append("folder", folder);
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-      method: "POST",
-      body: formData,
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.secure_url) {
-        // Automatically inject Cloudinary's dynamic WebP and auto quality transforms
-        // e.g. https://res.cloudinary.com/vtweyirx/image/upload/f_auto,q_auto/v...
-        return data.secure_url.replace("/upload/", "/upload/f_auto,q_auto/");
-      }
-    }
-  } catch (err) {
-    console.warn("Direct Cloudinary upload fallback:", err);
+  if (typeof fileOrBase64 === "string" && /^https?:\/\//i.test(fileOrBase64)) {
+    return fileOrBase64;
   }
 
-  // Graceful fallback to Supabase Storage if Cloudinary unsigned preset is not yet created
-  return await uploadToSupabaseBucket("product-images", fileOrBase64);
+  let base64Data = "";
+  if (typeof fileOrBase64 === "string") {
+    base64Data = fileOrBase64;
+  } else {
+    base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(fileOrBase64);
+    });
+  }
+
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const formData = new FormData();
+      formData.append("file", base64Data);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      formData.append("folder", folder);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.secure_url) {
+          return data.secure_url.replace("/upload/", "/upload/f_auto,q_auto/");
+        }
+      } else {
+        const errText = await res.text().catch(() => "");
+        lastError = new Error(`Cloudinary upload HTTP ${res.status}: ${errText.slice(0, 160)}`);
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  console.error("Cloudinary upload failed after retry:", lastError);
+  throw lastError instanceof Error ? lastError : new Error("Failed to upload image to Cloudinary CDN");
 }
 
 /**

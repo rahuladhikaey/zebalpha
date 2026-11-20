@@ -248,20 +248,19 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
   return getCachedOrFetch<Product[]>(
     cacheKey,
     async () => {
+      // Fetch active products safely (avoiding SQL `neq` on nullable approval_status/status/tier columns)
+      const fetchLimit = Math.min(limit + 12, 60);
       let query = supabaseServer
         .from('products')
         .select(SLIM_PRODUCT_FIELDS)
         .or('is_active.is.null,is_active.eq.true')
-        .neq('approval_status', 'rejected')
-        .neq('status', 'COMING_SOON')
-        .neq('tier', 'DROP')
         .order('created_at', { ascending: false });
 
       if (brandFilter) {
         query = query.ilike('brand', `%${brandFilter}%`);
       }
 
-      query = query.limit(limit);
+      query = query.limit(fetchLimit);
 
       let { data, error } = await query;
 
@@ -272,11 +271,8 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
           .from('products')
           .select('*')
           .or('is_active.is.null,is_active.eq.true')
-          .neq('approval_status', 'rejected')
-          .neq('status', 'COMING_SOON')
-          .neq('tier', 'DROP')
           .order('created_at', { ascending: false })
-          .limit(limit);
+          .limit(fetchLimit);
 
         data = fallback.data;
         error = fallback.error;
@@ -290,17 +286,22 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
       const rawList = data || [];
       const normalized = rawList
         .filter((p: any) => {
+          if (p.is_active === false) return false;
+          const upperStatus = String(p.status || '').toUpperCase();
+          if (upperStatus === 'DELETED' || upperStatus === 'COMING_SOON') return false;
+          if (String(p.approval_status || '').toLowerCase() === 'rejected') return false;
+
           const specs = p.specifications || {};
           const isDrop =
             p.is_new_drop === true ||
             p.is_new_drop === 'true' ||
             specs.is_new_drop === true ||
             specs.is_new_drop === 'true' ||
-            p.status === 'COMING_SOON' ||
             p.tier === 'DROP' ||
             specs.tier === 'DROP';
           return !isDrop;
         })
+        .slice(0, limit)
         .map((p: any) => {
           const specs = p.specifications || {};
           const isPrem =
@@ -406,10 +407,14 @@ export async function invalidateProductCache(productId?: string, categoryId?: st
   if (productId) {
     await invalidateCacheKey(`product:detail:v2:${productId}`);
     await invalidateCacheKey(`product:detail:${productId}`);
+    await invalidateCacheKey(`product:variants:v1:${productId}`);
     await invalidateCacheKey(`product:variants:${productId}`);
     await invalidateCacheKey(`pdp:product:v2:${productId}`);
+    await invalidateCacheKey(`pdp:reviews:v1:${productId}`);
   }
   await invalidateCachePattern('homepage:section:featured:*');
+  await invalidateCachePattern('api:products:*');
+  await invalidateCacheKey('rec:catalog-snapshot:v1');
 
   if (categoryId) {
     await invalidateCachePattern(`products:cat:${categoryId}:*`);

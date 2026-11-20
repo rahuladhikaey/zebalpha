@@ -1016,12 +1016,18 @@ export default function CatalogUploadWizardModal({
             colKey === "main color" ||
             distinctColors[0]?.toLowerCase() === colKey;
 
-          // Find the best existing gallery for this color
+          // Find the best existing gallery for this color (strip dead legacy Supabase product-images URLs)
+          const isLegacyDeadSb = (u?: string) =>
+            typeof u === "string" && u.toLowerCase().includes(".supabase.co/storage/v1/object/public/product-images/");
+
           let rawColGallery: string[] = [];
           for (const v of colVariants) {
             if (Array.isArray(v.gallery) && v.gallery.length > 0) {
-              rawColGallery = v.gallery;
-              break;
+              const liveOnly = v.gallery.filter((img) => img && !isLegacyDeadSb(img));
+              if (liveOnly.length > 0) {
+                rawColGallery = liveOnly;
+                break;
+              }
             }
           }
 
@@ -1036,7 +1042,9 @@ export default function CatalogUploadWizardModal({
               rawColGallery = uploadedImagesList;
             } else if (!isMainCol) {
               const forbiddenImages = [...uploadedImagesList, coverImageUrl].filter(Boolean);
-              const firstWithImg = colVariants.find((v) => v.image_url && !forbiddenImages.includes(v.image_url));
+              const firstWithImg = colVariants.find(
+                (v) => v.image_url && !isLegacyDeadSb(v.image_url) && !forbiddenImages.includes(v.image_url)
+              );
               if (firstWithImg?.image_url) {
                 rawColGallery = [firstWithImg.image_url];
               }

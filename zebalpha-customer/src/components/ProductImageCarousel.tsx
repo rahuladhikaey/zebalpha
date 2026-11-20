@@ -7,18 +7,27 @@ import { useIsNativeApp } from "@/lib/platform";
 
 export default function ProductImageCarousel({
   images,
+  fallbackImages = [],
   productName,
   topRightAction,
 }: {
   images: string[];
+  fallbackImages?: string[];
   productName: string;
   topRightAction?: React.ReactNode;
 }) {
   const isNativeApp = useIsNativeApp();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [fallbackStepByIdx, setFallbackStepByIdx] = useState<Record<number, number>>({});
   const safeImages = Array.isArray(images) ? images.filter(Boolean) : [];
-  const normalizedImages = safeImages.length > 0 ? safeImages : ["/placeholder.jpg"];
+  const safeFallbacks = Array.isArray(fallbackImages) ? fallbackImages.filter(Boolean) : [];
+  const normalizedImages =
+    safeImages.length > 0
+      ? safeImages
+      : safeFallbacks.length > 0
+      ? safeFallbacks
+      : ["/official-logo.png"];
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>(0);
@@ -32,6 +41,7 @@ export default function ProductImageCarousel({
   // Reset to first slide when image set changes (e.g. on color variant selection)
   useEffect(() => {
     setCurrentIndex(0);
+    setFallbackStepByIdx({});
   }, [images]);
 
   // Sync state to ref for animation loop
@@ -163,6 +173,16 @@ export default function ProductImageCarousel({
               idx === (currentIndex + 1) % totalSlides ||
               idx === (currentIndex - 1 + totalSlides) % totalSlides;
             const optimizedSrc = IMAGE_VARIANTS.productDetailMain(img);
+            const fallbackCandidate = safeFallbacks[idx] || safeFallbacks[0] || "";
+            const step = fallbackStepByIdx[idx] || 0;
+            const resolvedSrc =
+              step === 0
+                ? optimizedSrc || img || "/official-logo.png"
+                : step === 1
+                ? img || fallbackCandidate || "/official-logo.png"
+                : step === 2 && fallbackCandidate
+                ? IMAGE_VARIANTS.productDetailMain(fallbackCandidate)
+                : "/official-logo.png";
 
             return (
               <div key={idx} className="flex-none w-full p-1 sm:p-2">
@@ -173,11 +193,18 @@ export default function ProductImageCarousel({
                 >
                   {isVisibleOrAdjacent ? (
                     <img
-                      src={optimizedSrc || "/placeholder.jpg"}
+                      src={resolvedSrc}
                       alt={`${productName} - View ${idx + 1}`}
                       loading={idx === 0 ? "eager" : "lazy"}
                       decoding="async"
                       fetchPriority={idx === 0 ? "high" : "low"}
+                      onError={() => {
+                        setFallbackStepByIdx((prev) => {
+                          const cur = prev[idx] || 0;
+                          if (cur >= 3) return prev;
+                          return { ...prev, [idx]: cur + 1 };
+                        });
+                      }}
                       className="h-full w-full object-contain transition-transform duration-300"
                     />
                   ) : (

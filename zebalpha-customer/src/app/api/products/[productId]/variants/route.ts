@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { getCachedOrFetch } from "@/lib/cacheHelper";
+import { sanitizeProductMedia } from "@/lib/productImageUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function GET(
     }
 
     const product = await getCachedOrFetch(
-      `product:variants:v1:${productId}`,
+      `product:variants:v2:${productId}`,
       async () => {
         const { data, error } = await supabaseServer
           .from("products")
@@ -29,9 +30,9 @@ export async function GET(
           .maybeSingle();
 
         if (error) throw new Error(error.message);
-        return data;
+        return data ? sanitizeProductMedia(data) : null;
       },
-      300 // 5 min L1 RAM + Redis TTL
+      300 // 5 min Redis TTL (L1 RAM capped at 30s)
     );
 
     if (!product) {
@@ -41,7 +42,11 @@ export async function GET(
       );
     }
 
-    if (product.is_active === false || product.status === "ARCHIVED") {
+    if (
+      product.is_active === false ||
+      product.status === "ARCHIVED" ||
+      String(product.status || "").toUpperCase() === "DELETED"
+    ) {
       return NextResponse.json(
         { success: false, error: "Product is currently inactive" },
         { status: 410 }

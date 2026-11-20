@@ -184,10 +184,7 @@ export async function GET(request: NextRequest) {
           let query = supabaseServer
             .from("products")
             .select(SLIM_FIELDS, { count: "exact" })
-            .or("is_active.is.null,is_active.eq.true")
-            .neq("approval_status", "rejected")
-            .neq("status", "COMING_SOON")
-            .neq("tier", "DROP");
+            .or("is_active.is.null,is_active.eq.true");
 
           if (validCategory) {
             if (isUuidCategory) {
@@ -252,7 +249,7 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          query = query.limit(limit + 1);
+          query = query.limit(limit + 10);
           return query;
         };
 
@@ -279,7 +276,17 @@ export async function GET(request: NextRequest) {
           throw new Error(error.message);
         }
 
-        const items = rows || [];
+        const items = (rows || []).filter((p: any) => {
+          if (p.is_active === false) return false;
+          const st = String(p.status || "").toUpperCase();
+          if (st === "DELETED" || st === "COMING_SOON") return false;
+          if (String(p.approval_status || "").toLowerCase() === "rejected") return false;
+          const specs = p.specifications || {};
+          if (p.tier === "DROP" || specs.tier === "DROP" || specs.is_new_drop === true || specs.is_new_drop === "true") {
+            return false;
+          }
+          return true;
+        });
         const hasMore = items.length > limit;
         const rawReturnItems = hasMore ? items.slice(0, limit) : items;
         const ratingsMap = await fetchProductRatingSummaries(
@@ -310,7 +317,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
       },
     });
   } catch (err: any) {

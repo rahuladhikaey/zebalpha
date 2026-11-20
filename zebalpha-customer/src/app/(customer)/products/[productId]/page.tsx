@@ -15,6 +15,7 @@ import { computeRatingBreakdown, type PublicReview } from "@/lib/productRatings"
 import { ProductNotFoundSignal } from "@/components/ProductDetailsLoadingScreen";
 import { NativePlatformProvider } from "@/lib/platform";
 import { detectNativeAppOnServer } from "@/lib/platformServer";
+import { sanitizeProductMedia } from "@/lib/productImageUtils";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "dummy-anon-key-for-build").trim();
@@ -26,7 +27,7 @@ type PageProps = {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export const revalidate = 60;
+export const revalidate = 30;
 
 // Explicit minimal projection of fields genuinely required by the PDP
 const SLIM_PDP_FIELDS = "id, name, brand, price, mrp, stock, status, is_active, image_url, images, category_id, seller_id, description, packages, offers, specifications, created_at";
@@ -35,7 +36,7 @@ const getProduct = cache(async (productId: string) => {
   if (!productId || typeof productId !== "string") return null;
 
   return getCachedOrFetch<Product | null>(
-    `pdp:product:v2:${productId}`,
+    `pdp:product:v3:${productId}`,
     async () => {
       let productData: any = null;
 
@@ -95,6 +96,10 @@ const getProduct = cache(async (productId: string) => {
         return null;
       }
 
+      if (productData.is_active === false || String(productData.status || "").toUpperCase() === "DELETED") {
+        return null;
+      }
+
       if (productData.seller) {
         const s = Array.isArray(productData.seller) ? productData.seller[0] : productData.seller;
         if (s) {
@@ -124,13 +129,14 @@ const getProduct = cache(async (productId: string) => {
       }
 
       const specs = productData.specifications || {};
-      productData.thumbnail_url = productData.thumbnail_url || productData.image_url || (Array.isArray(productData.images) && productData.images[0]) || "";
-      productData.category_name = productData.category_name || specs.category || "Apparel";
-      productData.is_premium = productData.is_premium ?? (productData.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true");
-      productData.is_new_drop = productData.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || productData.status === "COMING_SOON");
-      productData.tier = productData.tier || specs.tier || "STANDARD";
+      const sanitized = sanitizeProductMedia(productData);
+      sanitized.thumbnail_url = sanitized.thumbnail_url || sanitized.image_url || (Array.isArray(sanitized.images) && sanitized.images[0]) || "";
+      sanitized.category_name = sanitized.category_name || specs.category || "Apparel";
+      sanitized.is_premium = sanitized.is_premium ?? (sanitized.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true");
+      sanitized.is_new_drop = sanitized.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || sanitized.status === "COMING_SOON");
+      sanitized.tier = sanitized.tier || specs.tier || "STANDARD";
 
-      return productData as Product;
+      return sanitized as Product;
     },
     600 // 10 min L1 RAM + Singleflight + Upstash Redis TTL
   );

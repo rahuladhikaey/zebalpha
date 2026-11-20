@@ -983,10 +983,7 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       let query = supabase
         .from("products")
         .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
-        .or("is_active.is.null,is_active.eq.true")
-        .neq("approval_status", "rejected")
-        .neq("status", "COMING_SOON")
-        .neq("tier", "DROP");
+        .or("is_active.is.null,is_active.eq.true");
 
       if (validCat) {
         if (isUuidCat) {
@@ -1077,7 +1074,13 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
 
     const rawList = data || [];
     const normalizedProducts: Product[] = rawList
-      .filter((p: any) => !isProductNewDrop(p))
+      .filter((p: any) => {
+        if (p.is_active === false) return false;
+        const st = String(p.status || "").toUpperCase();
+        if (st === "DELETED" || st === "COMING_SOON") return false;
+        if (String(p.approval_status || "").toLowerCase() === "rejected") return false;
+        return !isProductNewDrop(p);
+      })
       .map((p: any) => {
         const specs = p.specifications || {};
         const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium");

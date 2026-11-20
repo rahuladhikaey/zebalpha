@@ -2,6 +2,9 @@ import { redis } from './redis'
 
 // Enterprise L1 In-Memory Cache (RAM-based, 0ms latency, $0 bandwidth, $0 Upstash commands)
 const L1_MAX_ENTRIES = 250
+// Cap L1 RAM TTL at 30s so cross-app writes (Seller/Superadmin) propagate to every serverless replica
+// quickly even if another replica handles the revalidation webhook, while still shielding 500+ concurrent bursts.
+const MAX_L1_TTL_SECONDS = 30
 const inMemoryCache = new Map<string, { data: unknown; expiresAt: number }>()
 
 // Singleflight map: coalesces concurrent cache misses (e.g. 500 users on cold start -> 1 DB read + 1 Redis write)
@@ -12,6 +15,7 @@ const inflightFetches = new Map<string, Promise<unknown>>()
 const MAX_REDIS_PAYLOAD_BYTES = 300 * 1024
 
 function setL1(key: string, data: unknown, ttlSeconds: number) {
+  const effectiveL1Ttl = Math.min(Math.max(1, ttlSeconds), MAX_L1_TTL_SECONDS)
   if (inMemoryCache.has(key)) {
     inMemoryCache.delete(key)
   } else if (inMemoryCache.size >= L1_MAX_ENTRIES) {
@@ -23,7 +27,7 @@ function setL1(key: string, data: unknown, ttlSeconds: number) {
   }
   inMemoryCache.set(key, {
     data,
-    expiresAt: Date.now() + ttlSeconds * 1000,
+    expiresAt: Date.now() + effectiveL1Ttl * 1000,
   })
 }
 
