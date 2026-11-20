@@ -47,6 +47,7 @@ export const metadata = {
 };
 
 import { QueryProvider } from "@/providers/QueryProvider";
+import { AppLaunchSplashController } from "@/components/AppLaunchSplashController";
 
 export default function RootLayout({
   children,
@@ -60,6 +61,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} h-full antialiased dark`}
     >
       <head>
+        <link rel="preload" as="image" href="/official-logo.png" fetchPriority="high" />
+
         {/* Google Tag Manager */}
         <Script id="google-tag-manager" strategy="lazyOnload">
           {`
@@ -89,17 +92,17 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* Android Native Splash & Onboarding Zero-Flash Guard: Runs synchronously before any DOM paint */}
+        {/* Universal Brand Launch Splash + Android Zero-Flash Guard: Runs synchronously before first paint */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
+                  var root = document.documentElement;
                   var ua = navigator.userAgent || "";
                   var isWebViewUa = ua.indexOf("Android") !== -1 && ua.indexOf("Version/") !== -1 && ua.indexOf("Chrome/") === -1;
                   var isNative = !!(window.Capacitor || ua.indexOf("ZEBALPHA_ANDROID_APP") !== -1 || ua.indexOf("Capacitor") !== -1 || ua.indexOf("; wv") !== -1 || isWebViewUa || window.location.search.indexOf("view=app") !== -1);
                   if (isNative) {
-                    var root = document.documentElement;
                     root.classList.remove("dark");
                     root.classList.add("is-android-app", "zebalpha-app-hydrating");
                     root.style.backgroundColor = "#FCF9F2";
@@ -113,6 +116,26 @@ export default function RootLayout({
                       root.classList.add("zebalpha-onboarding-pending");
                     }
                   }
+
+                  // Show official ZebAlpha logo launch splash once per app/browser session for all real users (Flipkart/Meesho style)
+                  var isBot = /bot|crawl|spider|slurp|googlebot|bingbot|lighthouse|pagespeed|headlesschrome/i.test(ua) || !!navigator.webdriver;
+                  var alreadyShown = false;
+                  try {
+                    alreadyShown = sessionStorage.getItem("zebalpha_launch_splash_shown") === "1";
+                  } catch (storageErr) {}
+
+                  if (!isBot && !alreadyShown) {
+                    window.__zebalphaSplashStart = Date.now();
+                    root.classList.add("zebalpha-splash-active");
+                    // Hard failsafe so splash can never stall even on slow/offline JS hydration
+                    window.__zebalphaSplashFallbackTimer = setTimeout(function() {
+                      try { sessionStorage.setItem("zebalpha_launch_splash_shown", "1"); } catch (e) {}
+                      root.classList.add("zebalpha-splash-exiting");
+                      setTimeout(function() {
+                        root.classList.remove("zebalpha-splash-active", "zebalpha-splash-exiting");
+                      }, 460);
+                    }, 2400);
+                  }
                 } catch(e) {}
               })();
             `,
@@ -120,21 +143,53 @@ export default function RootLayout({
         />
       </head>
       <body suppressHydrationWarning className="min-h-full font-sans bg-black text-white overflow-x-hidden">
-        {/* Instant Native Splash overlay while onboarding is pending (0 ms delay, eliminates flash of home) */}
+        {/* Universal Flipkart/Meesho-style Official Logo Launch Splash (0ms first-paint) */}
         <div
           id="zebalpha-instant-splash"
-          className="fixed inset-0 z-[99] bg-[#050505] flex flex-col items-center justify-center p-6 select-none"
+          role="presentation"
+          aria-hidden="true"
+          className="za-launch-splash"
         >
-          <div className="relative h-20 w-20 rounded-full overflow-hidden bg-black flex items-center justify-center p-1 border border-zinc-800 shadow-2xl animate-pulse">
-            <img
-              src="/official-logo-sm.png"
-              alt="ZebAlpha"
-              className="h-full w-full object-cover rounded-full"
-            />
+          <div className="za-splash-ambient" />
+
+          <div className="za-splash-center">
+            <div className="za-splash-logo-stage">
+              <span className="za-splash-ripple za-splash-ripple-1" />
+              <span className="za-splash-ripple za-splash-ripple-2" />
+              <div className="za-splash-ring">
+                <div className="za-splash-disc">
+                  <img
+                    src="/official-logo.png"
+                    alt="ZebAlpha Official Logo"
+                    width={112}
+                    height={112}
+                    decoding="sync"
+                    fetchPriority="high"
+                    className="za-splash-logo-img"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="za-splash-brand">
+              <span className="za-splash-wordmark">ZEBALPHA</span>
+              <span className="za-splash-tagline-row">
+                <span className="za-splash-rule" />
+                <span className="za-splash-tagline">CLOTHING FOR THE CULTURE</span>
+                <span className="za-splash-rule" />
+              </span>
+            </div>
+
+            <div className="za-splash-progress-track">
+              <div className="za-splash-progress-fill" />
+            </div>
           </div>
-          <span className="mt-4 text-xs font-black tracking-[0.25em] text-white/60 uppercase">
-            ZebAlpha
-          </span>
+
+          <div className="za-splash-footer">
+            <span className="za-splash-footer-dot" />
+            <span className="za-splash-footer-text">INDIA&apos;S CULTURE MARKETPLACE</span>
+            <span className="za-splash-footer-dot" />
+          </div>
         </div>
 
         {/* Google Tag Manager (noscript) */}
@@ -149,6 +204,7 @@ export default function RootLayout({
         {/* End Google Tag Manager (noscript) */}
 
         <QueryProvider>
+          <AppLaunchSplashController />
           {children}
         </QueryProvider>
       </body>
