@@ -87,11 +87,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (target === "category" || target === "homepage" || target === "all") {
+    if (target === "category" || target === "homepage" || target === "custom_studio" || target === "all") {
       tasks.push(
         invalidateCachePattern("navigation:*"),
         invalidateCachePattern("api:categories:*"),
         invalidateCachePattern("homepage:section:*"),
+        invalidateCacheKey("custom:studio:config:v1"),
         invalidateCacheKey("notifications:broadcast:latest:v1")
       );
     }
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
     try {
       revalidatePath("/");
       revalidatePath("/products");
+      revalidatePath("/customize");
       revalidatePath("/new-drops");
       revalidatePath("/premium-store");
       revalidatePath("/categories");

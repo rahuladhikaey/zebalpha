@@ -19,6 +19,7 @@ import {
   PresetDesign,
   ApparelBaseConfig,
 } from "@/lib/customDesignPresets";
+import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import {
   Upload,
   Sparkles,
@@ -58,21 +59,97 @@ export default function CustomizePage() {
   // Vault preset selection
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activePreset, setActivePreset] = useState<PresetDesign | null>(null);
+  const [linkedFromHomepage, setLinkedFromHomepage] = useState<boolean>(false);
 
-  // Load Admin configurations (GSM, Pricing, 20KB WebP Artwork) on mount
+  const applyPresetDefaults = (preset: PresetDesign, availableBases: ApparelBaseConfig[]) => {
+    setActivePreset(preset);
+    setDesignMode("vault");
+    setSelectedCategory("all");
+
+    // Auto-select recommended garment color when matched
+    if (preset.recommendedGarmentColor) {
+      const targetColor = preset.recommendedGarmentColor.trim().toLowerCase();
+      const matchedColor = GARMENT_COLORS.find(
+        (c) =>
+          c.name.toLowerCase() === targetColor ||
+          c.name.toLowerCase().includes(targetColor) ||
+          targetColor.includes(c.name.toLowerCase())
+      );
+      if (matchedColor) setSelectedColor(matchedColor);
+    }
+
+    // Auto-select recommended print placement when valid (maps Admin preset keys to PlacementPosition)
+    const rawPlacement = String(preset.placement || "").toLowerCase();
+    if (rawPlacement === "back_large" || rawPlacement === "back") {
+      setSelectedPlacement("back");
+    } else if (rawPlacement === "pocket_left" || rawPlacement === "pocket") {
+      setSelectedPlacement("pocket");
+    } else if (rawPlacement === "full_front") {
+      setSelectedPlacement("full_front");
+    } else if (rawPlacement === "front_chest") {
+      setSelectedPlacement("front_chest");
+    }
+
+    // Smartly match apparel base from title/category (e.g. Tote Bag -> tote_bag, Hoodie -> hoodie)
+    const hintText = `${preset.title || ""} ${preset.category || ""}`.toLowerCase();
+    if (hintText.includes("tote") || hintText.includes("bag")) {
+      const toteBase = availableBases.find((b) => b.id === "tote_bag" || b.name.toLowerCase().includes("tote"));
+      if (toteBase) {
+        setSelectedBase(toteBase);
+        setSelectedGarment(toteBase.id as GarmentType);
+        if (toteBase.availableSizes?.length) setSelectedSize(toteBase.availableSizes[0]);
+      }
+    } else if (hintText.includes("hoodie") || hintText.includes("fleece")) {
+      const hoodieBase = availableBases.find((b) => b.id === "hoodie" || b.name.toLowerCase().includes("hoodie"));
+      if (hoodieBase) {
+        setSelectedBase(hoodieBase);
+        setSelectedGarment(hoodieBase.id as GarmentType);
+        if (hoodieBase.availableSizes?.length) setSelectedSize(hoodieBase.availableSizes.includes("L") ? "L" : hoodieBase.availableSizes[0]);
+      }
+    }
+  };
+
+  // Load Admin configurations (GSM, Pricing, Unified Cloudinary CDN Artwork Vault) & honor ?design=<id> deep-link
   useEffect(() => {
+    const searchParams =
+      typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const requestedDesignId = (
+      searchParams?.get("design") ||
+      searchParams?.get("preset") ||
+      searchParams?.get("template") ||
+      ""
+    ).trim();
+
     fetch("/api/custom-design/config")
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
+          let loadedBases = DEFAULT_APPAREL_BASES;
           if (Array.isArray(json.data.apparelBases) && json.data.apparelBases.length > 0) {
-            setApparelBases(json.data.apparelBases);
-            setSelectedBase(json.data.apparelBases[0]);
-            setSelectedGarment(json.data.apparelBases[0].id);
+            loadedBases = json.data.apparelBases;
+            setApparelBases(loadedBases);
+            setSelectedBase(loadedBases[0]);
+            setSelectedGarment(loadedBases[0].id);
           }
+
           if (Array.isArray(json.data.presets) && json.data.presets.length > 0) {
-            setPresetVault(json.data.presets);
-            setActivePreset(json.data.presets[0]);
+            const loadedPresets: PresetDesign[] = json.data.presets;
+            setPresetVault(loadedPresets);
+
+            if (requestedDesignId) {
+              const matched = loadedPresets.find(
+                (p) =>
+                  String(p.id).toLowerCase() === requestedDesignId.toLowerCase() ||
+                  encodeURIComponent(String(p.id)).toLowerCase() === requestedDesignId.toLowerCase()
+              );
+              if (matched) {
+                applyPresetDefaults(matched, loadedBases);
+                setLinkedFromHomepage(true);
+                return;
+              }
+            }
+
+            setActivePreset(loadedPresets[0]);
             setDesignMode("vault");
           } else {
             setPresetVault([]);
@@ -288,6 +365,23 @@ export default function CustomizePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-10 items-start">
           {/* Left Column: Live Mockup Canvas (Sticky on Desktop) */}
           <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-24 space-y-4">
+            {linkedFromHomepage && activePreset && (
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-xs font-bold">
+                <span className="flex items-center gap-2 min-w-0">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                  <span className="truncate">Loaded &ldquo;{activePreset.title}&rdquo; — ready to customize!</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLinkedFromHomepage(false)}
+                  aria-label="Dismiss notice"
+                  className="text-emerald-300/70 hover:text-emerald-200 cursor-pointer shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             <GarmentMockupPreview
               garmentType={selectedGarment}
               garmentLabel={selectedBase?.name}
@@ -475,7 +569,10 @@ export default function CustomizePage() {
                         return (
                           <div
                             key={preset.id}
-                            onClick={() => setActivePreset(preset)}
+                            onClick={() => {
+                              applyPresetDefaults(preset, apparelBases);
+                              setLinkedFromHomepage(false);
+                            }}
                             className={`group relative rounded-xl bg-neutral-950 border p-2 flex flex-col items-center cursor-pointer transition-all ${
                               isSelected
                                 ? "border-emerald-400 ring-2 ring-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-neutral-900"
@@ -484,8 +581,10 @@ export default function CustomizePage() {
                           >
                             <div className="w-full aspect-square rounded-lg bg-neutral-900 overflow-hidden mb-1.5 flex items-center justify-center p-1.5">
                               <img
-                                src={preset.imageUrl}
+                                src={IMAGE_VARIANTS.productGridCard(preset.imageUrl)}
                                 alt={preset.title}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-300"
                               />
                             </div>

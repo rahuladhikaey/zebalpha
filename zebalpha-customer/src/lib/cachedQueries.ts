@@ -157,34 +157,93 @@ export async function getCachedHomeCategories(limit: number = 16): Promise<Categ
   );
 }
 
+function isLegacyDeadSupabaseUrl(url: string): boolean {
+  const lower = url.toLowerCase();
+  return (
+    lower.includes('.supabase.co/storage/v1/object/public/product-images/') ||
+    lower.includes('.supabase.co/storage/v1/object/public/editorial/')
+  );
+}
+
 /**
- * Cached fetcher for Homepage Curved Editorial Cards Section
- * Cache TTL: 10 minutes (600s)
+ * Unified Custom Studio & Homepage Design Showcase Fetcher (Single Source of Truth)
+ * Reads directly from `store_settings -> custom_design_presets` (Cloudinary CDN),
+ * deduplicates image URLs, and deep-links every card directly to `/customize?design=<id>`.
+ * Cache TTL: 5 minutes (300s Redis / 30s L1 RAM) — purged instantaneously on Admin save.
  */
 export async function getCachedEditorialCards(): Promise<EditorialCard[]> {
   return getCachedOrFetch<EditorialCard[]>(
-    'homepage:section:editorial_cards',
+    'homepage:section:custom_designs:v1',
     async () => {
       try {
-        const { data, error } = await supabaseServer
-          .from('editorial_cards')
-          .select(SLIM_EDITORIAL_CARD_FIELDS)
-          .eq('is_active', true)
-          .order('display_order', { ascending: true })
-          .limit(16);
+        let rawPresets: any = null;
 
-        if (!error && data && data.length > 0) {
-          return data as EditorialCard[];
+        const { data: storeRow, error: storeErr } = await supabaseServer
+          .from('store_settings')
+          .select('value')
+          .eq('key', 'custom_design_presets')
+          .maybeSingle();
+
+        if (!storeErr && storeRow?.value !== undefined && storeRow?.value !== null) {
+          rawPresets = storeRow.value;
+        } else {
+          const { data: mktRow, error: mktErr } = await supabaseServer
+            .from('marketplace_settings')
+            .select('setting_value')
+            .eq('setting_key', 'custom_design_presets')
+            .maybeSingle();
+
+          if (!mktErr && mktRow?.setting_value !== undefined && mktRow?.setting_value !== null) {
+            rawPresets = mktRow.setting_value;
+          }
         }
-        if (error) {
-          console.error('[Database Error] Failed to fetch editorial cards:', error.message);
+
+        if (rawPresets !== null && rawPresets !== undefined) {
+          const parsed = typeof rawPresets === 'string' ? JSON.parse(rawPresets) : rawPresets;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const seenUrls = new Set<string>();
+            const seenIds = new Set<string>();
+            const cards: EditorialCard[] = [];
+
+            for (let idx = 0; idx < parsed.length; idx++) {
+              const p = parsed[idx];
+              if (!p || p.isActive === false) continue;
+
+              const imgUrl = typeof (p.imageUrl || p.image_url) === 'string'
+                ? String(p.imageUrl || p.image_url).trim()
+                : '';
+              if (!imgUrl || isLegacyDeadSupabaseUrl(imgUrl)) continue;
+
+              const urlKey = imgUrl.toLowerCase();
+              const idStr = String(p.id || `design-${idx}`);
+              if (seenUrls.has(urlKey) || seenIds.has(idStr)) continue;
+
+              seenUrls.add(urlKey);
+              seenIds.add(idStr);
+
+              cards.push({
+                id: idStr,
+                title: String(p.title || 'Custom Design').trim(),
+                category: String(p.category || 'CUSTOM STUDIO').replace(/[-_]+/g, ' ').toUpperCase(),
+                image_url: imgUrl,
+                href: `/customize?design=${encodeURIComponent(idStr)}`,
+                badge: 'CUSTOMIZE NOW',
+                display_order: idx,
+                is_active: true,
+              });
+            }
+
+            if (cards.length > 0) {
+              return cards;
+            }
+          }
         }
       } catch (e) {
-        console.error('[Database Error] Failed to fetch editorial cards:', e);
+        console.error('[Database Error] Failed to fetch custom design showcase:', e);
       }
       return [];
     },
-    600 // 10 min TTL
+    300 // 5 min Redis TTL (30s L1 RAM), purged immediately by Superadmin on upload/edit/delete
   );
 }
 

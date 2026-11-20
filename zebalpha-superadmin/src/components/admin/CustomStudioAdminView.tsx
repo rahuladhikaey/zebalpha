@@ -55,8 +55,8 @@ export default function CustomStudioAdminView() {
   const [apparelBases, setApparelBases] = useState<ApparelBaseConfig[]>([]);
   const [presets, setPresets] = useState<PresetDesignConfig[]>([]);
 
-  // Selected Tab inside Custom Studio: 'apparel' or 'presets'
-  const [activeSubTab, setActiveSubTab] = useState<"apparel" | "presets">("apparel");
+  // Default to unified Design Vault & Homepage Showcase tab
+  const [activeSubTab, setActiveSubTab] = useState<"apparel" | "presets">("presets");
 
   // New Apparel Modal / Form State
   const [showAddBaseModal, setShowAddBaseModal] = useState(false);
@@ -253,17 +253,18 @@ export default function CustomStudioAdminView() {
     }
 
     setIsCompressing(true);
-    setCompressionProgress("Uploading optimized WebP to high-speed CDN...");
+    setCompressionProgress("Uploading optimized WebP to Cloudinary CDN...");
     try {
-      let finalImageUrl = compressedDataUrl!;
-      try {
-        // Attempt Cloudinary upload for fast global CDN
-        const cdnUrl = await uploadDirectToCloudinary(compressedBlob || compressedDataUrl!, "custom-studio-vault");
-        if (cdnUrl && cdnUrl.startsWith("http")) {
-          finalImageUrl = cdnUrl;
-        }
-      } catch (_) {
-        // Fallback to data URL if offline/unconfigured
+      // Strictly upload to Cloudinary CDN (1 single canonical link shared by Homepage Showcase + /customize)
+      const cdnUrl = await uploadDirectToCloudinary(compressedBlob || compressedDataUrl!, "custom-studio-vault");
+      if (!cdnUrl || !cdnUrl.startsWith("http")) {
+        throw new Error("Cloudinary CDN upload did not return a valid image URL. Please try again.");
+      }
+      const finalImageUrl = cdnUrl.trim();
+
+      if (presets.some((p) => p.imageUrl?.trim().toLowerCase() === finalImageUrl.toLowerCase())) {
+        setErrorMessage("This exact Cloudinary design URL already exists in the vault (duplicates are blocked).");
+        return;
       }
 
       const finalCategory =
@@ -459,17 +460,17 @@ export default function CustomStudioAdminView() {
       {/* Top Banner Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-black border border-zinc-800 shadow-2xl">
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[10px] font-black tracking-widest text-emerald-400 uppercase bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-              Admin Vault & GSM Pricing Engine
+              Unified Homepage Showcase + Custom Studio CDN Vault
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
-            Custom Design Studio Management
+            Custom Studio &amp; Homepage Design Showcase
           </h2>
-          <p className="text-xs text-zinc-400 max-w-xl">
-            Upload curated vault artwork in strictly <strong className="text-white">≤ 20 KB WebP</strong> format and dynamically configure garment fabrics, GSM weights, and customer pricing.
+          <p className="text-xs text-zinc-400 max-w-2xl">
+            Every design uploaded here is stored <strong className="text-white">once on Cloudinary CDN</strong> (zero duplicate links) and automatically appears on <strong className="text-emerald-300">BOTH the Homepage curved carousel AND /customize</strong>. Clicking any design on the Homepage takes customers directly to that exact design in Custom Studio.
           </p>
         </div>
 
@@ -518,19 +519,7 @@ export default function CustomStudioAdminView() {
       )}
 
       {/* Sub-tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
-        <button
-          onClick={() => setActiveSubTab("apparel")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition cursor-pointer ${
-            activeSubTab === "apparel"
-              ? "bg-white text-black shadow-lg shadow-white/10"
-              : "text-zinc-400 hover:text-white hover:bg-zinc-900"
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Apparel Bases & GSM Pricing ({apparelBases.length})</span>
-        </button>
-
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 flex-wrap">
         <button
           onClick={() => setActiveSubTab("presets")}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition cursor-pointer ${
@@ -540,10 +529,22 @@ export default function CustomStudioAdminView() {
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          <span>Design Vault Presets ({presets.length})</span>
+          <span>Homepage &amp; Studio Designs ({presets.length})</span>
           <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-            ≤ 20KB WebP
+            Cloudinary CDN
           </span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("apparel")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition cursor-pointer ${
+            activeSubTab === "apparel"
+              ? "bg-white text-black shadow-lg shadow-white/10"
+              : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Apparel Bases &amp; GSM Pricing ({apparelBases.length})</span>
         </button>
       </div>
 
@@ -666,10 +667,10 @@ export default function CustomStudioAdminView() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                Admin Curated Artwork Vault
+                Unified Homepage Scroll &amp; Custom Studio Designs
               </h3>
               <p className="text-xs text-zinc-400">
-                All uploaded artwork is dynamically optimized into <strong className="text-emerald-400">≤ 20 KB pure WebP</strong> for zero-lag mobile loading.
+                Upload once to <strong className="text-emerald-400">Cloudinary CDN (≤ 20 KB WebP)</strong> — automatically appears on the Homepage curved scroll &amp; <code className="text-emerald-300">/customize</code> with zero duplicate links. Clicking any homepage design opens it straight in Custom Studio.
               </p>
             </div>
             <div className="flex items-center gap-2">

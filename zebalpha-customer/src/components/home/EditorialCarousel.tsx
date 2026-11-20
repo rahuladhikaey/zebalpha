@@ -25,6 +25,7 @@ export function EditorialCarousel({
   const [scrollDir, setScrollDir] = useState<1 | -1>(1); // 1 = moving right, -1 = moving left
   const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
+  const didDragRef = useRef<boolean>(false);
 
   // Check prefers-reduced-motion & container width & window width
   useEffect(() => {
@@ -97,6 +98,7 @@ export function EditorialCarousel({
   // Dragging / Touch Swiping Handlers
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!canScroll) return;
+    didDragRef.current = false;
     setIsDragging(true);
     setDragStartX(e.clientX);
     setDragStartScroll(scrollPos);
@@ -106,6 +108,9 @@ export function EditorialCarousel({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging || !canScroll) return;
     const diffX = dragStartX - e.clientX;
+    if (Math.abs(diffX) > 10) {
+      didDragRef.current = true;
+    }
     let newPos = dragStartScroll + diffX;
     if (newPos < 0) newPos = 0;
     if (newPos > maxScroll) newPos = maxScroll;
@@ -115,6 +120,9 @@ export function EditorialCarousel({
   const handlePointerUp = () => {
     if (!isDragging) return;
     setIsDragging(false);
+    setTimeout(() => {
+      didDragRef.current = false;
+    }, 80);
     setTimeout(() => setIsPaused(false), 2500);
   };
 
@@ -216,6 +224,11 @@ export function EditorialCarousel({
                 translateY={translateY}
                 rotateDeg={rotateDeg}
                 scale={scale}
+                onCardClick={(e) => {
+                  if (didDragRef.current) {
+                    e.preventDefault();
+                  }
+                }}
               />
             );
           })}

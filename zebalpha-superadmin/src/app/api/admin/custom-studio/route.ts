@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@shared/utils/supabaseServer";
 import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
+import { triggerCacheInvalidation } from "@/shared/utils/cacheInvalidator";
 
 export const dynamic = "force-dynamic";
 
@@ -208,7 +209,21 @@ export async function POST(req: Request) {
       if (!Array.isArray(presets)) {
         return NextResponse.json({ success: false, message: "Presets must be an array." }, { status: 400 });
       }
-      const saved = await persistSetting("custom_design_presets", presets);
+      // Deduplicate presets by normalized CDN imageUrl & id so zero duplicate image links are ever saved
+      const seenUrls = new Set<string>();
+      const seenIds = new Set<string>();
+      const dedupedPresets = presets.filter((item: any) => {
+        if (!item) return false;
+        const url = typeof item.imageUrl === "string" ? item.imageUrl.trim() : "";
+        if (!url) return false;
+        const urlKey = url.toLowerCase();
+        const idStr = String(item.id || "").trim();
+        if (seenUrls.has(urlKey) || (idStr && seenIds.has(idStr))) return false;
+        seenUrls.add(urlKey);
+        if (idStr) seenIds.add(idStr);
+        return true;
+      });
+      const saved = await persistSetting("custom_design_presets", dedupedPresets);
       if (!saved) {
         return NextResponse.json(
           { success: false, message: "Failed to persist artwork presets to database store_settings table." },
@@ -230,9 +245,12 @@ export async function POST(req: Request) {
       }
     }
 
+    // Immediately sync BOTH Homepage curved carousel AND /customize page caches on zebalpha.shop
+    await triggerCacheInvalidation({ target: "homepage" }).catch(() => {});
+
     return NextResponse.json({
       success: true,
-      message: "Custom Studio configurations successfully updated in production database.",
+      message: "Custom Studio & Homepage Showcase successfully synced live via Cloudinary CDN!",
     });
   } catch (error: any) {
     if (error.name === "AuthError") return authErrorResponse(error);
