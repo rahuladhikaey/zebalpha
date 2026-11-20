@@ -601,13 +601,12 @@ export function MeeshoVariantBottomSheet() {
                       type="button"
                       disabled={!isColInStock}
                       onClick={() => handleColorChange(col)}
-                      className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all shrink-0 cursor-pointer ${
-                        isColSelected
-                          ? "border-black bg-neutral-900 text-white shadow-md"
-                          : isColInStock
+                      className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all shrink-0 cursor-pointer ${isColSelected
+                        ? "border-black bg-neutral-900 text-white shadow-md"
+                        : isColInStock
                           ? "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400"
                           : "border-neutral-200 bg-neutral-50 text-neutral-400 opacity-50 cursor-not-allowed"
-                      }`}
+                        }`}
                     >
                       <div className="relative w-6 h-7 rounded-md overflow-hidden bg-neutral-100 border border-neutral-300 shrink-0">
                         <img src={IMAGE_VARIANTS.productDetailThumb(colThumb)} alt={col} loading="lazy" decoding="async" className="w-full h-full object-cover" />
@@ -664,19 +663,18 @@ export function MeeshoVariantBottomSheet() {
                         setSelectedSize(sizeName);
                         setValidationError(null);
                       }}
-                      className={`relative flex min-w-[62px] sm:min-w-[68px] h-14 flex-col items-center justify-center rounded-xl border px-3 text-center transition-all cursor-pointer ${
-                        isSizeOOS
-                          ? "bg-neutral-100 border-neutral-200 text-neutral-400 cursor-not-allowed opacity-60"
-                          : isSelected
+                      className={`relative flex min-w-[62px] sm:min-w-[68px] h-14 flex-col items-center justify-center rounded-xl border px-3 text-center transition-all cursor-pointer ${isSizeOOS
+                        ? "bg-neutral-100 border-neutral-200 text-neutral-400 cursor-not-allowed opacity-60"
+                        : isSelected
                           ? "bg-black text-white border-black shadow-lg scale-102 ring-2 ring-black/20"
                           : "bg-white text-neutral-900 border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50"
-                      }`}
+                        }`}
                       title={
                         isSizeOOS
                           ? `${sizeName} is Out of Stock`
                           : inCartQty > 0
-                          ? `${inCartQty} in cart. Select size ${sizeName}`
-                          : `Select size ${sizeName}`
+                            ? `${inCartQty} in cart. Select size ${sizeName}`
+                            : `Select size ${sizeName}`
                       }
                     >
                       {/* Out of Stock Strike */}
@@ -695,18 +693,16 @@ export function MeeshoVariantBottomSheet() {
 
                       {/* Size Name */}
                       <span
-                        className={`text-sm font-black tracking-tight ${
-                          isSelected ? "text-white" : isSizeOOS ? "text-neutral-400 line-through" : "text-neutral-950"
-                        }`}
+                        className={`text-sm font-black tracking-tight ${isSelected ? "text-white" : isSizeOOS ? "text-neutral-400 line-through" : "text-neutral-950"
+                          }`}
                       >
                         {sizeName}
                       </span>
 
                       {/* Variant Price */}
                       <span
-                        className={`text-[10px] font-semibold mt-0.5 ${
-                          isSelected ? "text-neutral-300" : isSizeOOS ? "text-neutral-400" : "text-neutral-500"
-                        }`}
+                        className={`text-[10px] font-semibold mt-0.5 ${isSelected ? "text-neutral-300" : isSizeOOS ? "text-neutral-400" : "text-neutral-500"
+                          }`}
                       >
                         {isSizeOOS ? "OOS" : `₹${sizePrice}`}
                       </span>
@@ -741,11 +737,10 @@ export function MeeshoVariantBottomSheet() {
             type="button"
             disabled={isAdding || isOutOfStock || (distinctSizes.length > 0 && !selectedSize)}
             onClick={handleAddToCart}
-            className={`w-full flex h-13 items-center justify-center gap-2 rounded-xl active:scale-[0.99] font-black uppercase tracking-wider text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none ${
-              isNativeApp
-                ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.28)]"
-                : "bg-[#FEE500] hover:bg-[#FDD800] text-black"
-            }`}
+            className={`w-full flex h-13 items-center justify-center gap-2 rounded-xl active:scale-[0.99] font-black uppercase tracking-wider text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none ${isNativeApp
+              ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.28)]"
+              : "bg-[#FEE500] hover:bg-[#FDD800] text-black"
+              }`}
           >
             {isAdding ? (
               <>
