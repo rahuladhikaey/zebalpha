@@ -5,26 +5,49 @@ import { Capacitor } from "@capacitor/core";
 import { SplashScreen } from "@capacitor/splash-screen";
 
 const SPLASH_SESSION_KEY = "zebalpha_launch_splash_shown";
-const MIN_SPLASH_MS = 1350;
-const REDUCED_MOTION_MS = 450;
-const EXIT_DURATION_MS = 440;
+const MIN_SPLASH_MS = 1480;
+const REDUCED_MOTION_MS = 420;
+const EXIT_DURATION_MS = 540;
 
 export function AppLaunchSplashController() {
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
 
-    // 1. Hand off seamlessly from native Capacitor static splash to animated web logo splash
-    try {
-      if (Capacitor.isNativePlatform()) {
-        SplashScreen.hide({ fadeOutDuration: 220 }).catch(() => {});
+    let raf1: number | undefined;
+    let raf2: number | undefined;
+
+    // 1. Hand off seamlessly from native Capacitor static splash AFTER first WebView frame paints
+    const hideNativeSplashSmoothly = () => {
+      try {
+        if (Capacitor.isNativePlatform()) {
+          SplashScreen.hide({ fadeOutDuration: 200 }).catch(() => {});
+        }
+      } catch {
+        // Ignore on standard web browsers
       }
-    } catch {
-      // Ignore on standard web browsers
+    };
+
+    const splashImg = document.querySelector<HTMLImageElement>(
+      "#zebalpha-instant-splash .za-splash-logo-img"
+    );
+    const scheduleNativeHide = () => {
+      raf1 = window.requestAnimationFrame(() => {
+        raf2 = window.requestAnimationFrame(hideNativeSplashSmoothly);
+      });
+    };
+
+    if (splashImg && !splashImg.complete && typeof splashImg.decode === "function") {
+      splashImg.decode().then(scheduleNativeHide).catch(scheduleNativeHide);
+    } else {
+      scheduleNativeHide();
     }
 
     const root = document.documentElement;
     if (!root.classList.contains("zebalpha-splash-active")) {
-      return;
+      return () => {
+        if (raf1 !== undefined) window.cancelAnimationFrame(raf1);
+        if (raf2 !== undefined) window.cancelAnimationFrame(raf2);
+      };
     }
 
     const win = window as unknown as {
@@ -46,8 +69,9 @@ export function AppLaunchSplashController() {
     const startedAt =
       typeof win.__zebalphaSplashStart === "number" ? win.__zebalphaSplashStart : Date.now();
     const elapsed = Math.max(0, Date.now() - startedAt);
-    const remaining = Math.max(180, targetDuration - elapsed);
+    const remaining = Math.max(220, targetDuration - elapsed);
 
+    let exitRaf: number | undefined;
     let cleanupTimer: number | undefined;
     let dismissed = false;
 
@@ -61,16 +85,22 @@ export function AppLaunchSplashController() {
         // Ignore storage restrictions in private browsing
       }
 
-      root.classList.add("zebalpha-splash-exiting");
+      // Align exit transition to a clean vsync frame for 60fps/120fps silky smoothness
+      exitRaf = window.requestAnimationFrame(() => {
+        root.classList.add("zebalpha-splash-exiting");
 
-      cleanupTimer = window.setTimeout(() => {
-        root.classList.remove("zebalpha-splash-active", "zebalpha-splash-exiting");
-      }, EXIT_DURATION_MS);
+        cleanupTimer = window.setTimeout(() => {
+          root.classList.remove("zebalpha-splash-active", "zebalpha-splash-exiting");
+        }, EXIT_DURATION_MS);
+      });
     };
 
     const dismissTimer = window.setTimeout(beginExit, remaining);
 
     return () => {
+      if (raf1 !== undefined) window.cancelAnimationFrame(raf1);
+      if (raf2 !== undefined) window.cancelAnimationFrame(raf2);
+      if (exitRaf !== undefined) window.cancelAnimationFrame(exitRaf);
       window.clearTimeout(dismissTimer);
       if (cleanupTimer !== undefined) {
         window.clearTimeout(cleanupTimer);

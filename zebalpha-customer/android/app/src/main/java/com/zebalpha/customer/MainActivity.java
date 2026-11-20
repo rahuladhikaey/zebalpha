@@ -1,10 +1,15 @@
 package com.zebalpha.customer;
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -167,7 +172,11 @@ public class MainActivity extends BridgeActivity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             if (request != null && request.getUrl() != null) {
-                String target = request.getUrl().toString();
+                Uri uri = request.getUrl();
+                String target = uri.toString();
+                if (handleExternalShareOrAppUri(uri, target)) {
+                    return true;
+                }
                 if (isValidHttpUrl(target)) {
                     lastTargetUrl = target;
                 }
@@ -411,6 +420,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        configureSmoothNativeSplashExit();
         applyCreamGoldSystemBars();
 
         // Register ActivityResultLauncher unconditionally before STARTED state
@@ -849,6 +859,147 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void cancelVoiceSearch() {
             runOnUiThread(() -> destroyVoiceRecognizer(true));
+        }
+
+        @JavascriptInterface
+        public boolean hasNativeShareSupport() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public void shareContent(String title, String text, String url) {
+            runOnUiThread(() -> launchNativeShareChooser(title, text, url));
+        }
+    }
+
+    private void configureSmoothNativeSplashExit() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                getSplashScreen().setOnExitAnimationListener(splashScreenView -> {
+                    try {
+                        View iconView = splashScreenView.getIconView();
+                        if (iconView != null) {
+                            ObjectAnimator iconAnim = ObjectAnimator.ofPropertyValuesHolder(
+                                iconView,
+                                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.08f),
+                                PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.08f),
+                                PropertyValuesHolder.ofFloat(View.ALPHA, 1f, 0f)
+                            );
+                            iconAnim.setDuration(220L);
+                            iconAnim.setInterpolator(new AccelerateDecelerateInterpolator());
+                            iconAnim.start();
+                        }
+
+                        ObjectAnimator fadeOut = ObjectAnimator.ofFloat(splashScreenView, View.ALPHA, 1f, 0f);
+                        fadeOut.setDuration(240L);
+                        fadeOut.setInterpolator(new AccelerateDecelerateInterpolator());
+                        fadeOut.addListener(new AnimatorListenerAdapter() {
+                            @Override
+                            public void onAnimationEnd(Animator animation) {
+                                try {
+                                    splashScreenView.remove();
+                                } catch (Exception ignored) {}
+                            }
+                        });
+                        fadeOut.start();
+                    } catch (Exception e) {
+                        try {
+                            splashScreenView.remove();
+                        } catch (Exception ignored) {}
+                    }
+                });
+            } catch (Exception e) {
+                Log.w(TAG, "Unable to attach Android 12+ splash exit animation", e);
+            }
+        }
+    }
+
+    private boolean handleExternalShareOrAppUri(Uri uri, String target) {
+        if (uri == null || target == null) return false;
+        String lower = target.toLowerCase(Locale.ROOT);
+        boolean isExternalScheme =
+            lower.startsWith("whatsapp:") ||
+            lower.startsWith("tg:") ||
+            lower.startsWith("sms:") ||
+            lower.startsWith("smsto:") ||
+            lower.startsWith("mailto:") ||
+            lower.startsWith("tel:") ||
+            lower.startsWith("upi:") ||
+            lower.startsWith("intent:") ||
+            lower.startsWith("market:");
+
+        boolean isExternalShareWebLink =
+            lower.startsWith("https://wa.me/") ||
+            lower.startsWith("https://api.whatsapp.com/") ||
+            lower.startsWith("https://t.me/") ||
+            lower.startsWith("https://play.google.com/store/apps/");
+
+        if (!isExternalScheme && !isExternalShareWebLink) {
+            return false;
+        }
+
+        try {
+            Intent intent;
+            if (lower.startsWith("intent:")) {
+                intent = Intent.parseUri(target, Intent.URI_INTENT_SCHEME);
+            } else {
+                intent = new Intent(Intent.ACTION_VIEW, uri);
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return true;
+        } catch (ActivityNotFoundException e) {
+            if (lower.startsWith("whatsapp:")) {
+                try {
+                    String query = uri.getEncodedQuery();
+                    Uri webFallback = Uri.parse("https://api.whatsapp.com/send" + (query != null ? "?" + query : ""));
+                    Intent fallbackIntent = new Intent(Intent.ACTION_VIEW, webFallback);
+                    fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(fallbackIntent);
+                    return true;
+                } catch (Exception ignored) {}
+            }
+            Log.w(TAG, "No external app found to handle URI: " + target);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Failed launching external URI: " + target, e);
+            return false;
+        }
+    }
+
+    private void launchNativeShareChooser(String title, String text, String url) {
+        try {
+            String safeTitle = (title != null && !title.trim().isEmpty())
+                ? title.trim()
+                : "ZebAlpha - Online Shopping App";
+            String safeText = text != null ? text.trim() : "";
+            String safeUrl = url != null ? url.trim() : "";
+
+            StringBuilder body = new StringBuilder();
+            if (!safeText.isEmpty()) {
+                body.append(safeText);
+            }
+            if (!safeUrl.isEmpty() && !safeText.contains(safeUrl)) {
+                if (body.length() > 0) {
+                    body.append("\n\n");
+                }
+                body.append(safeUrl);
+            }
+            if (body.length() == 0) {
+                body.append("https://play.google.com/store/apps/details?id=com.zebalpha.customer");
+            }
+
+            Intent sendIntent = new Intent(Intent.ACTION_SEND);
+            sendIntent.setType("text/plain");
+            sendIntent.putExtra(Intent.EXTRA_SUBJECT, safeTitle);
+            sendIntent.putExtra(Intent.EXTRA_TITLE, safeTitle);
+            sendIntent.putExtra(Intent.EXTRA_TEXT, body.toString());
+
+            Intent chooser = Intent.createChooser(sendIntent, "Share via");
+            startActivity(chooser);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open Android share sheet", e);
+            Toast.makeText(this, "Unable to open share menu right now", Toast.LENGTH_SHORT).show();
         }
     }
 

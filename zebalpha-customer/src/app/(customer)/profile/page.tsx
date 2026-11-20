@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useIsNativeApp } from "@/lib/platform";
+import { buildAppInviteSharePayload, shareProfessionally } from "@/lib/shareService";
 
 export default function ProfileDashboard() {
   const { user, profile, loading, signOut } = useAuth();
@@ -385,21 +386,8 @@ export default function ProfileDashboard() {
         <div className="space-y-3 px-1">
           <button
             type="button"
-            onClick={async () => {
-              try {
-                if (navigator.share) {
-                  await navigator.share({
-                    title: "ZEBALPHA - Premium Streetwear & Fashion",
-                    text: "Check out ZEBALPHA for exclusive premium streetwear and contemporary fashion! Discover the latest drops today.",
-                    url: window.location.origin,
-                  });
-                } else {
-                  await navigator.clipboard.writeText(window.location.origin);
-                  alert("Link copied to clipboard! Share it with your friends.");
-                }
-              } catch (error) {
-                console.log("Sharing failed or cancelled:", error);
-              }
+            onClick={() => {
+              void shareProfessionally(buildAppInviteSharePayload(isNativeApp));
             }}
             className="w-full rounded-2xl bg-white px-6 py-3.5 text-xs font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
           >

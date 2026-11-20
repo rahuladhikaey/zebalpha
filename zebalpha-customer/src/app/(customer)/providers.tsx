@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { VariantSelectorProvider } from "@/context/VariantSelectorContext";
 import { MeeshoVariantBottomSheet } from "@/components/MeeshoVariantBottomSheet";
+import { ShareBottomSheet } from "@/components/ShareBottomSheet";
 import FloatingCartBanner from "@/components/FloatingCartBanner";
 import DesktopSideCart from "@/components/DesktopSideCart";
 import { ActiveSessionTracker } from "@/components/ActiveSessionTracker";
@@ -50,6 +51,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               </div>
               <FloatingCartBanner />
               <MeeshoVariantBottomSheet />
+              <ShareBottomSheet />
             </VariantSelectorProvider>
           </CartProvider>
         </WishlistProvider>

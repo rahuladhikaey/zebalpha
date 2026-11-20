@@ -7,7 +7,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
 import { useCart } from "@/context/CartContext";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Sparkles, Flame } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Sparkles, Flame, Share2 } from "lucide-react";
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
@@ -22,6 +22,7 @@ import { RecommendationProductCard } from "@/components/recommendations/Recommen
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { getProductDisplayPricing } from "@/lib/productPricing";
 import { useIsNativeApp } from "@/lib/platform";
+import { buildProductSharePayload, shareProfessionally } from "@/lib/shareService";
 import { ProductRatingWidget } from "@/components/ProductRatingWidget";
 import { computeRatingBreakdown, type PublicReview } from "@/lib/productRatings";
 import {
@@ -878,11 +879,43 @@ export default function ProductDetailTemplate({
           {/* LEFT COLUMN: Interactive Image Carousel */}
           <div className="lg:col-span-7 lg:sticky lg:top-24">
             <div className="flex flex-col gap-2">
-              {/* Image Carousel with Flipkart-style Top-Right Wishlist Button */}
+              {/* Image Carousel with Flipkart-style Top-Right Wishlist & Share Actions */}
               <ProductImageCarousel
                 images={images}
                 productName={product.name}
-                topRightAction={<WishlistButton product={product} />}
+                topRightAction={
+                  <div className="flex flex-col items-center gap-2">
+                    <WishlistButton product={product} />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const pricing = getProductDisplayPricing(product);
+                        void shareProfessionally(
+                          buildProductSharePayload({
+                            id: product.id,
+                            name: product.name,
+                            brand: product.brand,
+                            price: pricing.price,
+                            mrp: pricing.mrp,
+                            image_url: product.image_url,
+                            images,
+                          })
+                        );
+                      }}
+                      aria-label="Share this product"
+                      title="Share product"
+                      className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border backdrop-blur-md shadow-md transition-all active:scale-90 cursor-pointer ${
+                        isNativeApp
+                          ? "bg-[#FFFDF8]/95 border-[#DFBE6F] text-[#14120F] hover:bg-[#FAF2DE]"
+                          : "bg-black/65 border-white/20 text-white hover:bg-black/85"
+                      }`}
+                    >
+                      <Share2 className="h-4 w-4" strokeWidth={2.25} />
+                    </button>
+                  </div>
+                }
               />
             </div>
           </div>

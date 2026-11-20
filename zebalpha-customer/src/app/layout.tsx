@@ -133,8 +133,8 @@ export default function RootLayout({
                       root.classList.add("zebalpha-splash-exiting");
                       setTimeout(function() {
                         root.classList.remove("zebalpha-splash-active", "zebalpha-splash-exiting");
-                      }, 460);
-                    }, 2400);
+                      }, 560);
+                    }, 3200);
                   }
                 } catch(e) {}
               })();
@@ -143,7 +143,7 @@ export default function RootLayout({
         />
       </head>
       <body suppressHydrationWarning className="min-h-full font-sans bg-black text-white overflow-x-hidden">
-        {/* Universal Flipkart/Meesho-style Official Logo Launch Splash (0ms first-paint) */}
+        {/* Universal Flipkart/Meesho-style Official Logo Launch Splash (60fps GPU-composited) */}
         <div
           id="zebalpha-instant-splash"
           role="presentation"
@@ -151,6 +151,7 @@ export default function RootLayout({
           className="za-launch-splash"
         >
           <div className="za-splash-ambient" />
+          <div className="za-splash-aura" />
 
           <div className="za-splash-center">
             <div className="za-splash-logo-stage">
@@ -167,16 +168,19 @@ export default function RootLayout({
                     fetchPriority="high"
                     className="za-splash-logo-img"
                   />
+                  <span className="za-splash-sheen" />
                 </div>
               </div>
             </div>
 
             <div className="za-splash-brand">
-              <span className="za-splash-wordmark">ZEBALPHA</span>
+              <div className="za-splash-wordmark-mask">
+                <span className="za-splash-wordmark">ZEBALPHA</span>
+              </div>
               <span className="za-splash-tagline-row">
-                <span className="za-splash-rule" />
+                <span className="za-splash-rule za-splash-rule-left" />
                 <span className="za-splash-tagline">CLOTHING FOR THE CULTURE</span>
-                <span className="za-splash-rule" />
+                <span className="za-splash-rule za-splash-rule-right" />
               </span>
             </div>
 
