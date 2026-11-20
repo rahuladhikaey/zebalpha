@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId } from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 
 /**
@@ -26,8 +26,12 @@ export function OurProductsBanner() {
       <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFFDF8] via-[#FAF0D1] to-[#FFFDF8] border border-[#E2BE66]/85 shadow-[0_8px_22px_rgba(166,124,28,0.10)] px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#FFE68B] via-[#F2BF43] to-[#C88D0F] text-[#111111] shadow-sm">
-              <Sparkles className="h-5 w-5" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white p-0.5 border-2 border-[#E2BE66] shadow-[0_4px_12px_rgba(166,124,28,0.22)] overflow-hidden">
+              <img
+                src="/official-logo-sm.png"
+                alt="ZebAlpha"
+                className="h-full w-full rounded-full object-contain"
+              />
             </span>
             <div className="min-w-0">
               <h2 className="text-base font-black uppercase tracking-tight leading-none text-[#14120F]">
