@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
@@ -13,70 +13,71 @@ interface BannerItem {
   title?: string;
   tagline?: string;
   link?: string;
-  aspectRatio?: number;
-  width?: number;
-  height?: number;
+  bgColor?: string;
 }
 
+const AUTO_SCROLL_INTERVAL_MS = 4200;
+
+/**
+ * Default Homepage Hero Banners
+ * Slide 1 is always the official Grand Opening Sale banner.
+ * Every slide renders inside one identical fixed aspect-ratio frame (zero height jump).
+ */
 const DEFAULT_BANNERS: BannerItem[] = [
-  { 
-    id: 1, 
-    src: "/banner-casual-green.png", 
-    alt: "Zebalpha Casual - Confidence In Every Detail",
-    title: "Zebalpha Casuals",
-    tagline: "CONFIDENCE IN EVERY DETAIL • 100% COMBED COTTON",
-    link: "/products?category=T-Shirts",
-    aspectRatio: 3.0,
-    width: 1600,
-    height: 533
+  {
+    id: "grand-opening-sale",
+    src: "/banner-grand-opening.jpg",
+    alt: "ZebAlpha Grand Opening Sale Now Live - Explore new clothing collections & special offers",
+    title: "Grand Opening Sale",
+    tagline: "NOW LIVE • SPECIAL OFFERS ON LAUNCH PRODUCTS",
+    link: "/products",
+    bgColor: "#c5cdd9",
   },
-  { 
-    id: 2, 
-    src: "/banner-retro-cream.png", 
-    alt: "Zebalpha Limited Release - Clothing For The Culture",
+  {
+    id: "retro-cream-drop",
+    src: "/banner-retro-cream.png",
+    alt: "ZebAlpha Limited Release - Clothing For The Culture 50% Off",
     title: "Exclusive New Drops",
-    tagline: "TEASERS & HYPE RELEASES • PREVIEW UPCOMING DROPS",
+    tagline: "LIMITED RELEASE • CLOTHING FOR THE CULTURE",
     link: "/new-drops",
-    aspectRatio: 2.367,
-    width: 1600,
-    height: 676
+    bgColor: "#e6dbc8",
   },
-  { 
-    id: 3, 
-    src: "/banner-premium-polo.png", 
-    alt: "Zebalpha Men's Premium Polo T-Shirt - Comfortable & Stylish",
+  {
+    id: "premium-polo",
+    src: "/banner-premium-polo.png",
+    alt: "ZebAlpha Men's Premium Polo T-Shirt - Comfortable & Stylish",
     title: "Men's Premium Polo",
     tagline: "TEXTURED FABRIC • MODERN ZIP COLLAR FIT",
     link: "/products?category=Polos",
-    aspectRatio: 2.41,
-    width: 1600,
-    height: 664
+    bgColor: "#041630",
+  },
+  {
+    id: "casual-green",
+    src: "/banner-casual-green.png",
+    alt: "ZebAlpha Casual - Confidence In Every Detail",
+    title: "ZebAlpha Casuals",
+    tagline: "CONFIDENCE IN EVERY DETAIL • 100% COMBED COTTON",
+    link: "/products?category=T-Shirts",
+    bgColor: "#4f5633",
   },
 ];
 
 export function BannerCarousel() {
   const isNativeApp = useIsNativeApp();
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [banners, setBanners] = useState<BannerItem[]>(DEFAULT_BANNERS);
-  const [isCustomBanners, setIsCustomBanners] = useState(false);
-  const [naturalDimensions, setNaturalDimensions] = useState<Record<string, { width: number; height: number; ratio: number }>>({});
-  const [isHovered, setIsHovered] = useState(false);
-  const [loadedSlides, setLoadedSlides] = useState<Set<number>>(new Set([0]));
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffsetPx, setDragOffsetPx] = useState(0);
 
-  // Progressive slide preloader: only load adjacent slide when needed
-  useEffect(() => {
-    if (banners.length > 0) {
-      setLoadedSlides((prev) => {
-        const next = new Set(prev);
-        next.add(currentIndex);
-        next.add((currentIndex + 1) % banners.length);
-        return next;
-      });
-    }
-  }, [currentIndex, banners.length]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartXRef = useRef<number>(0);
+  const touchStartYRef = useRef<number>(0);
+  const isHorizontalSwipeRef = useRef<boolean | null>(null);
+  const didSwipeRef = useRef<boolean>(false);
 
+  // Load admin-configured custom banners via Edge CDN + Upstash Redis cached API
   useEffect(() => {
-    // Load admin-configured banners via Edge CDN + Upstash Redis cached API (zero direct Supabase calls)
     let isMounted = true;
     const fetchBanners = async () => {
       try {
@@ -85,10 +86,10 @@ export function BannerCarousel() {
         const json = await res.json();
         if (isMounted && json?.success && Array.isArray(json.data) && json.data.length > 0) {
           setBanners(json.data);
-          setIsCustomBanners(true);
+          setCurrentIndex(0);
         }
-      } catch (err) {
-        // Fallback to default banners
+      } catch {
+        // Keep DEFAULT_BANNERS seamlessly
       }
     };
     fetchBanners();
@@ -97,233 +98,297 @@ export function BannerCarousel() {
     };
   }, []);
 
-  // Pre-calculate natural aspect ratios for all banners
+  const totalSlides = banners.length;
+
+  const goToSlide = useCallback(
+    (nextIndex: number) => {
+      if (totalSlides <= 0) return;
+      const normalized = ((nextIndex % totalSlides) + totalSlides) % totalSlides;
+      setCurrentIndex(normalized);
+    },
+    [totalSlides]
+  );
+
+  // Smooth Flipkart/Meesho-style automatic horizontal side-scroll
   useEffect(() => {
-    banners.forEach((b) => {
-      if (b.src) {
-        if (b.aspectRatio && b.width && b.height) {
-          setNaturalDimensions((prev) => ({
-            ...prev,
-            [b.src]: { width: b.width!, height: b.height!, ratio: b.aspectRatio! },
-          }));
-        } else {
-          const img = new window.Image();
-          img.onload = () => {
-            if (img.naturalWidth && img.naturalHeight) {
-              const ratio = Number((img.naturalWidth / img.naturalHeight).toFixed(3));
-              setNaturalDimensions((prev) => ({
-                ...prev,
-                [b.src]: {
-                  width: img.naturalWidth,
-                  height: img.naturalHeight,
-                  ratio,
-                },
-              }));
-            }
-          };
-          img.src = b.src;
-        }
+    if (isPaused || isDragging || totalSlides <= 1) return;
+
+    const timer = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      setCurrentIndex((prev) => (prev + 1) % totalSlides);
+    }, AUTO_SCROLL_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [totalSlides, isPaused, isDragging]);
+
+  // Native-feel horizontal touch swipe with vertical scroll lock protection
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (totalSlides <= 1 || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartXRef.current = touch.clientX;
+    touchStartYRef.current = touch.clientY;
+    isHorizontalSwipeRef.current = null;
+    didSwipeRef.current = false;
+    setIsDragging(true);
+    setDragOffsetPx(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartXRef.current;
+    const dy = touch.clientY - touchStartYRef.current;
+
+    if (isHorizontalSwipeRef.current === null) {
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        isHorizontalSwipeRef.current = Math.abs(dx) > Math.abs(dy);
       }
-    });
-  }, [banners]);
+    }
 
-  useEffect(() => {
-    if (isHovered || banners.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % banners.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [banners.length, isHovered]);
+    if (isHorizontalSwipeRef.current) {
+      didSwipeRef.current = true;
+      setDragOffsetPx(dx);
+    }
+  };
 
-  const activeBanner = banners[currentIndex] || banners[0];
-  const activeRatio = 
-    activeBanner?.aspectRatio ||
-    naturalDimensions[activeBanner?.src]?.ratio ||
-    2.4;
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    const width = containerRef.current?.offsetWidth || 320;
+    const swipeThreshold = Math.min(56, width * 0.16);
+
+    if (isHorizontalSwipeRef.current && Math.abs(dragOffsetPx) > swipeThreshold) {
+      if (dragOffsetPx < 0) {
+        goToSlide(currentIndex + 1);
+      } else {
+        goToSlide(currentIndex - 1);
+      }
+    }
+
+    setIsDragging(false);
+    setDragOffsetPx(0);
+    isHorizontalSwipeRef.current = null;
+
+    // Reset click-suppression flag after the synthetic click event tick
+    window.setTimeout(() => {
+      didSwipeRef.current = false;
+    }, 80);
+  };
 
   return (
-    <div 
-      className={`relative w-full overflow-hidden group transition-all duration-500 isolate ${
-        isNativeApp
-          ? "mt-1 rounded-2xl bg-[#FFFDF8] border border-[#E2BE66]/85 shadow-[0_12px_28px_rgba(166,124,28,0.14)]"
-          : "mt-2 md:mt-4 rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] bg-neutral-950 border border-neutral-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
-      }`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <div
+      className="w-full select-none"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Corner Royal Accents - only shown on default placeholder banners; hidden on custom banners so they never cover custom artwork */}
-      {!isCustomBanners && (
-        <>
-          <div
-            data-photo-overlay="true"
-            className={`absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-1.5 backdrop-blur-md px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-lg ${
-              isNativeApp
-                ? "bg-gradient-to-r from-[#FCE89C] to-[#E6B32E] border border-[#FFF5C8]"
-                : "bg-black/75 border border-white/20"
-            }`}
-          >
-            <span className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full animate-ping ${isNativeApp ? "bg-[#111111]" : "bg-emerald-400"}`} />
-            <span className={`text-[9px] sm:text-[10px] font-black tracking-[0.18em] uppercase ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
-              ZEBALPHA ORIGINALS
-            </span>
-          </div>
-
-          <div
-            data-photo-overlay="true"
-            className={`absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-1.5 font-black text-[9px] sm:text-[10px] px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-xl uppercase tracking-wider ${
-              isNativeApp
-                ? "bg-gradient-to-r from-[#F5C642] to-[#C68A12] text-[#111111] border border-[#FFF5C8]"
-                : "bg-white text-black"
-            }`}
-          >
-            <span>DROP 2026</span>
-          </div>
-        </>
-      )}
-
-      {/* Responsive Banner Container - Dynamically matching the banner's actual aspect ratio without any cropping */}
-      <div 
-        className="relative w-full overflow-hidden transition-[aspect-ratio] duration-500 ease-out"
-        style={{ aspectRatio: `${activeRatio}` }}
+      {/* Uniform Fixed-Size Banner Frame — 100% consistent height across every slide */}
+      <div
+        ref={containerRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        className={`relative w-full overflow-hidden group isolate touch-pan-y ${
+          isNativeApp
+            ? "mt-1 rounded-2xl bg-[#FFFDF8] border border-[#E2BE66]/80 shadow-[0_10px_26px_rgba(166,124,28,0.13)]"
+            : "mt-2 md:mt-4 rounded-2xl sm:rounded-3xl md:rounded-[2rem] bg-neutral-950 border border-neutral-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
+        }`}
       >
-        {banners.map((banner, index) => {
-          const isActive = index === currentIndex;
-          const isPreloadable = loadedSlides.has(index);
-          const SlideWrapper = banner.link ? Link : "div";
-          const wrapperProps = banner.link
-            ? { href: banner.link, "aria-label": banner.alt || "Featured ZebAlpha collection promotion" }
-            : {};
+        {/* Locked uniform aspect ratio: identical height on every slide (zero layout bounce) */}
+        <div className="relative w-full aspect-[16/9] sm:aspect-[2.2/1] lg:aspect-[2.35/1] overflow-hidden">
+          {/* GPU-Accelerated Horizontal Side-Scroll Track */}
+          <div
+            className="flex h-full w-full will-change-transform"
+            style={{
+              transform: `translate3d(calc(-${currentIndex * 100}% + ${dragOffsetPx}px), 0, 0)`,
+              transition: isDragging
+                ? "none"
+                : "transform 540ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+            {banners.map((banner, index) => {
+              const bannerSrc = IMAGE_VARIANTS.heroBanner(banner.src);
+              const slideStyle = {
+                backgroundColor:
+                  banner.bgColor || (isNativeApp ? "#FAF4E4" : "#0A0A0C"),
+              };
+              const slideClassName =
+                "relative h-full w-full shrink-0 overflow-hidden block";
 
-          if (!isPreloadable && !isActive) {
-            return (
-              <div
-                key={banner.id || index}
-                className="absolute inset-0 w-full h-full bg-neutral-900/40 opacity-0 pointer-events-none"
-              />
-            );
-          }
-
-          const bannerSrc = IMAGE_VARIANTS.heroBanner(banner.src);
-
-          return (
-            <SlideWrapper
-              key={banner.id || index}
-              {...(wrapperProps as any)}
-              className={`absolute inset-0 w-full h-full transition-[opacity,transform] duration-700 ease-in-out ${
-                isActive
-                  ? "opacity-100 scale-100 z-10 pointer-events-auto"
-                  : "opacity-0 scale-[1.02] pointer-events-none z-0"
-              }`}
-            >
-              {/* Main Banner Image / Video - Actual Size, 100% Uncropped, Perfectly Responsive */}
-              <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                {banner.src.endsWith(".mp4") ? (
-                  <video
-                    src={banner.src}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="w-full h-full object-contain object-center rounded-2xl sm:rounded-3xl md:rounded-[2.5rem]"
+              const slideMedia = banner.src.endsWith(".mp4") ? (
+                <video
+                  src={banner.src}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="h-full w-full object-cover object-center"
+                />
+              ) : (
+                <>
+                  {/* Seamless color-matched ambient backdrop so every slide fills 100% edge-to-edge */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 bg-cover bg-center scale-110 blur-2xl opacity-90 pointer-events-none"
+                    style={{ backgroundImage: `url(${bannerSrc})` }}
                   />
-                ) : (
-                  <>
-                    {/* Ambient subtle blur backdrop matching image color to smoothly fill any boundary */}
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center filter blur-2xl opacity-20 scale-105 pointer-events-none"
-                      style={{ backgroundImage: `url(${bannerSrc})` }}
-                    />
-                    <Image
-                      src={bannerSrc}
-                      alt={banner.alt || "Zeb-alpha Banner"}
-                      fill
-                      priority={index === 0}
-                      fetchPriority={index === 0 ? "high" : "auto"}
-                      sizes="(max-width: 640px) 100vw, (max-width: 1400px) 100vw, 1400px"
-                      onLoad={(e) => {
-                        const img = e.currentTarget;
-                        if (img.naturalWidth && img.naturalHeight) {
-                          const ratio = Number((img.naturalWidth / img.naturalHeight).toFixed(3));
-                          setNaturalDimensions((prev) => ({
-                            ...prev,
-                            [banner.src]: {
-                              width: img.naturalWidth,
-                              height: img.naturalHeight,
-                              ratio,
-                            },
-                          }));
-                        }
-                      }}
-                      className="w-full h-full object-contain object-center rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] transition-transform duration-700 ease-out group-hover:scale-[1.01]"
-                    />
-                  </>
-                )}
-              </div>
+                  {/* Crisp uncropped artwork centered inside the uniform frame */}
+                  <Image
+                    src={bannerSrc}
+                    alt={banner.alt || "ZebAlpha Banner"}
+                    fill
+                    priority={index === 0}
+                    loading={index <= 1 ? "eager" : "lazy"}
+                    fetchPriority={index === 0 ? "high" : "auto"}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1400px) 95vw, 1360px"
+                    draggable={false}
+                    className="relative z-10 h-full w-full object-contain object-center"
+                  />
+                </>
+              );
 
-              {/* Gentle bottom shadow so progress indicator dots remain crystal clear */}
-              <div
-                data-photo-overlay="true"
-                className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none rounded-b-2xl sm:rounded-b-3xl md:rounded-b-[2.5rem]"
-              />
-            </SlideWrapper>
-          );
-        })}
-      </div>
+              if (banner.link) {
+                return (
+                  <Link
+                    key={banner.id || index}
+                    href={banner.link}
+                    aria-label={
+                      banner.alt ||
+                      banner.title ||
+                      `Featured ZebAlpha promotion ${index + 1}`
+                    }
+                    onClick={(e) => {
+                      if (didSwipeRef.current) {
+                        e.preventDefault();
+                      }
+                    }}
+                    className={slideClassName}
+                    style={slideStyle}
+                  >
+                    {slideMedia}
+                  </Link>
+                );
+              }
 
-      {/* Modern Royal Progress Indicators */}
-      <div className="absolute bottom-1 sm:bottom-2 left-1/2 z-20 flex -translate-x-1/2 gap-2 sm:gap-2.5 px-4 w-full max-w-[240px] sm:max-w-[280px]">
-        {banners.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentIndex(index)}
-            className="group/dot relative py-3.5 flex-1 flex items-center justify-center transition-all cursor-pointer"
-            aria-label={`Go to slide ${index + 1}`}
-          >
-            <div className={`relative h-1.5 w-full overflow-hidden rounded-full backdrop-blur-sm ${isNativeApp ? "bg-[#14120F]/25" : "bg-white/30"}`}>
-              <div
-                className={`absolute inset-0 origin-left transition-transform ease-linear will-change-transform ${isNativeApp ? "bg-gradient-to-r from-[#FCE89C] via-[#EAB308] to-[#C68A12]" : "bg-white"}`}
-                style={{ 
-                  transform: index === currentIndex ? 'scaleX(1)' : 'scaleX(0)',
-                  transitionDuration: index === currentIndex && !isHovered ? '5000ms' : '0ms' 
+              return (
+                <div
+                  key={banner.id || index}
+                  className={slideClassName}
+                  style={slideStyle}
+                >
+                  {slideMedia}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop Hover Navigation Arrows */}
+          {totalSlides > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  goToSlide(currentIndex - 1);
                 }}
-              />
-            </div>
-          </button>
-        ))}
+                className="absolute left-3 sm:left-4 top-1/2 z-20 -translate-y-1/2 hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-white border border-white/20 backdrop-blur-md opacity-0 transition-all hover:bg-white hover:text-black hover:scale-105 group-hover:opacity-100 shadow-xl active:scale-95 cursor-pointer"
+                aria-label="Previous banner"
+              >
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  goToSlide(currentIndex + 1);
+                }}
+                className="absolute right-3 sm:right-4 top-1/2 z-20 -translate-y-1/2 hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-white border border-white/20 backdrop-blur-md opacity-0 transition-all hover:bg-white hover:text-black hover:scale-105 group-hover:opacity-100 shadow-xl active:scale-95 cursor-pointer"
+                aria-label="Next banner"
+              >
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Navigation Arrows */}
-      {banners.length > 1 && (
-        <>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setCurrentIndex((currentIndex - 1 + banners.length) % banners.length);
-            }}
-            className="absolute left-3 sm:left-4 top-1/2 z-30 -translate-y-1/2 flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 backdrop-blur-md opacity-0 transition-all hover:bg-white hover:text-black hover:scale-110 group-hover:opacity-100 hidden md:flex shadow-2xl active:scale-95 cursor-pointer"
-            aria-label="Previous banner"
-          >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setCurrentIndex((currentIndex + 1) % banners.length);
-            }}
-            className="absolute right-3 sm:right-4 top-1/2 z-30 -translate-y-1/2 flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 backdrop-blur-md opacity-0 transition-all hover:bg-white hover:text-black hover:scale-110 group-hover:opacity-100 hidden md:flex shadow-2xl active:scale-95 cursor-pointer"
-            aria-label="Next banner"
-          >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </>
+      {/* Clean Flipkart/Meesho-Style Animated Pill Indicators below banner (never covers artwork) */}
+      {totalSlides > 1 && (
+        <div
+          className="mt-2.5 flex items-center justify-center gap-1.5"
+          role="tablist"
+          aria-label="Banner slides"
+        >
+          {banners.map((banner, index) => {
+            const isActive = index === currentIndex;
+            return (
+              <button
+                key={banner.id || index}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-label={`Go to slide ${index + 1}`}
+                onClick={() => goToSlide(index)}
+                className="py-1 px-0.5 cursor-pointer flex items-center"
+              >
+                <span
+                  className={`relative block h-1.5 overflow-hidden rounded-full transition-all duration-300 ${
+                    isActive
+                      ? isNativeApp
+                        ? "w-7 bg-[#E6D4A6]"
+                        : "w-7 bg-white/25"
+                      : isNativeApp
+                      ? "w-1.5 bg-[#D4BC82]/80 hover:bg-[#B88D26]"
+                      : "w-1.5 bg-white/30 hover:bg-white/60"
+                  }`}
+                >
+                  {isActive && (
+                    <span
+                      key={`${currentIndex}-${isPaused ? "paused" : "play"}`}
+                      className={`absolute inset-0 origin-left rounded-full ${
+                        isNativeApp
+                          ? "bg-gradient-to-r from-[#EAB308] to-[#B45309]"
+                          : "bg-white"
+                      }`}
+                      style={{
+                        animation:
+                          !isPaused && !isDragging
+                            ? `za-banner-pill-fill ${AUTO_SCROLL_INTERVAL_MS}ms linear forwards`
+                            : "none",
+                      }}
+                    />
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 }
-

@@ -17,6 +17,11 @@
   50% { opacity: 0.85; transform: scale(1.02); }
 }
 
+@keyframes za-banner-pill-fill {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
 :root {
   color-scheme: dark;
   --background: #050505;

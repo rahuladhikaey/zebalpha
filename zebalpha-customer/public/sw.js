@@ -7,6 +7,7 @@ const STATIC_MEDIA_PATHS = new Set([
   "/official-logo.png",
   "/official-logo-sm.png",
   "/festive-header-bg.jpg",
+  "/banner-grand-opening.jpg",
   "/banner-casual-green.png",
   "/banner-retro-cream.png",
   "/banner-premium-polo.png",
