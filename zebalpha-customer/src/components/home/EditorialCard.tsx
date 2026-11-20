@@ -52,69 +52,84 @@ export function EditorialCard({
         href={item.href}
         onClick={onCardClick}
         draggable={false}
-        className={`group relative block w-[170px] sm:w-[220px] md:w-[260px] lg:w-[280px] aspect-[3/4] rounded-2xl overflow-hidden transition-all duration-300 ${
+        className={`group relative flex flex-col w-[168px] sm:w-[205px] md:w-[235px] lg:w-[256px] rounded-2xl overflow-hidden transition-all duration-300 ${
           isNativeApp
-            ? "bg-[#FAF2DE] border border-[#E4C988] shadow-[0_8px_22px_rgba(160,115,20,0.14)] hover:border-[#C28D12]"
-            : "bg-neutral-900 border border-white/10 shadow-2xl hover:border-amber-400/50"
+            ? "bg-[#FFFDF7] border border-[#E4C988] shadow-[0_8px_22px_rgba(160,115,20,0.14)] hover:border-[#C28D12]"
+            : "bg-neutral-950 border border-white/10 shadow-2xl hover:border-amber-400/50"
         }`}
       >
-        {/* Loading Skeleton */}
-        {!imageLoaded && (
-          <div
-            className={`absolute inset-0 animate-pulse flex items-center justify-center ${
-              isNativeApp ? "bg-[#FAF2DE]" : "bg-neutral-900"
-            }`}
-          >
-            <span
-              className={`text-[9px] font-mono tracking-widest uppercase ${
-                isNativeApp ? "text-[#9A6503]" : "text-neutral-600"
+        {/* Uniform 1:1 Artwork Showcase Stage — zero awkward cropping across square, portrait & tote artworks */}
+        <div
+          className={`relative w-full aspect-square overflow-hidden ${
+            isNativeApp ? "bg-[#F6EED9]" : "bg-neutral-900"
+          }`}
+        >
+          {/* Loading Skeleton */}
+          {!imageLoaded && (
+            <div
+              className={`absolute inset-0 z-20 animate-pulse flex items-center justify-center ${
+                isNativeApp ? "bg-[#FAF2DE]" : "bg-neutral-900"
               }`}
             >
-              CUSTOM STUDIO
-            </span>
-          </div>
-        )}
+              <span
+                className={`text-[9px] font-mono tracking-widest uppercase ${
+                  isNativeApp ? "text-[#9A6503]" : "text-neutral-600"
+                }`}
+              >
+                CUSTOM STUDIO
+              </span>
+            </div>
+          )}
 
-        {/* Top-right Customize Pill Badge */}
-        <div
-          data-photo-overlay="true"
-          className="absolute top-2.5 right-2.5 z-20 inline-flex items-center gap-1 rounded-full bg-black/70 backdrop-blur-md border border-amber-400/40 px-2.5 py-1 text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-amber-300 shadow-md transition-transform group-hover:scale-105"
-        >
-          <Sparkles className="h-2.5 w-2.5 text-amber-300" />
-          <span>Customize</span>
+          {/* Soft Blurred Ambient Backdrop (eliminates harsh letterbox bars for portrait/wide designs) */}
+          <img
+            src={imgSrc}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`absolute inset-0 z-0 w-full h-full object-cover scale-125 blur-xl pointer-events-none transition-opacity duration-500 ${
+              imageLoaded ? (isNativeApp ? "opacity-25" : "opacity-35") : "opacity-0"
+            }`}
+          />
+
+          {/* Top-right Compact Customize Pill */}
+          <div
+            data-photo-overlay="true"
+            className="absolute top-2 right-2 z-30 inline-flex items-center gap-1 rounded-full bg-black/75 backdrop-blur-md border border-amber-400/40 px-2 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-amber-300 shadow-md transition-transform group-hover:scale-105"
+          >
+            <Sparkles className="h-2.5 w-2.5 text-amber-300" />
+            <span>Customize</span>
+          </div>
+
+          {/* Crisp Uncropped Custom Design Artwork */}
+          <Image
+            src={imgSrc}
+            alt={item.title}
+            fill
+            sizes="(max-width: 640px) 168px, (max-width: 768px) 205px, (max-width: 1024px) 235px, 256px"
+            draggable={false}
+            className={`z-10 object-contain object-center p-1.5 sm:p-2 transition-transform duration-500 ease-out group-hover:scale-105 ${
+              imageLoaded ? "opacity-100" : "opacity-0"
+            }`}
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              if (!useRawFallback) {
+                setUseRawFallback(true);
+              } else {
+                setImageLoaded(true);
+              }
+            }}
+            unoptimized
+          />
         </div>
 
-        {/* Custom Design Artwork (Cloudinary CDN Responsive Variant) */}
-        <Image
-          src={imgSrc}
-          alt={item.title}
-          fill
-          sizes="(max-width: 640px) 170px, (max-width: 768px) 220px, (max-width: 1024px) 260px, 280px"
-          draggable={false}
-          className={`object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${
-            imageLoaded ? "opacity-100" : "opacity-0"
+        {/* Dedicated Clean Card Footer (never covers the design artwork) */}
+        <div
+          className={`px-2.5 py-2 sm:px-3 sm:py-2.5 h-[66px] sm:h-[74px] flex flex-col justify-center text-left border-t ${
+            isNativeApp
+              ? "bg-[#FFFDF7] border-[#EFE2BE]"
+              : "bg-neutral-950 border-white/10"
           }`}
-          onLoad={() => setImageLoaded(true)}
-          onError={() => {
-            if (!useRawFallback) {
-              setUseRawFallback(true);
-            } else {
-              setImageLoaded(true);
-            }
-          }}
-          unoptimized
-        />
-
-        {/* Minimal Bottom Dark Shadow Overlay */}
-        <div
-          data-photo-overlay="true"
-          className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity"
-        />
-
-        {/* Minimal Bottom Left Text Overlay */}
-        <div
-          data-photo-overlay="true"
-          className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 z-10 flex flex-col text-left space-y-0.5"
         >
           {(() => {
             const isDuplicate =
@@ -123,18 +138,28 @@ export function EditorialCard({
               ? item.badge?.trim().toUpperCase() || "CUSTOM STUDIO"
               : item.category?.trim().toUpperCase() || "CUSTOM STUDIO";
             return (
-              <span className="text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest text-amber-400/90 group-hover:text-amber-300 transition-colors truncate">
+              <span
+                className={`text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest truncate ${
+                  isNativeApp ? "text-[#9A6503]" : "text-amber-400/90 group-hover:text-amber-300"
+                }`}
+              >
                 {displayCategory}
               </span>
             );
           })()}
           <h3
-            className="text-xs sm:text-sm font-bold text-white tracking-tight leading-snug line-clamp-2 drop-shadow-md"
+            className={`text-[11px] sm:text-xs font-bold tracking-tight leading-snug truncate ${
+              isNativeApp ? "text-[#141414]" : "text-white"
+            }`}
             title={item.title}
           >
             {item.title}
           </h3>
-          <span className="text-[9px] sm:text-[10px] font-bold text-amber-300/90 pt-0.5">
+          <span
+            className={`text-[9px] sm:text-[10px] font-bold pt-0.5 truncate ${
+              isNativeApp ? "text-[#B87D0B]" : "text-amber-300/90"
+            }`}
+          >
             Tap to customize →
           </span>
         </div>

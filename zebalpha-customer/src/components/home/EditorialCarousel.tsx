@@ -47,7 +47,7 @@ export function EditorialCarousel({
   const isMobile = windowWidth < 640;
   const isTablet = windowWidth >= 640 && windowWidth < 1024;
 
-  const cardWidth = windowWidth < 640 ? 170 : windowWidth < 768 ? 220 : windowWidth < 1024 ? 260 : 280;
+  const cardWidth = windowWidth < 640 ? 168 : windowWidth < 768 ? 205 : windowWidth < 1024 ? 235 : 256;
   const cardGap = windowWidth < 640 ? 12 : windowWidth < 768 ? 14 : 16;
 
   // Single set: Every uploaded card is rendered EXACTLY ONCE (never duplicated 3 times)
@@ -141,8 +141,8 @@ export function EditorialCarousel({
     <div
       ref={containerRef}
       role="region"
-      aria-label="Woven to Be Remembered Fashion Carousel"
-      className="relative w-full py-4 sm:py-8 overflow-hidden select-none outline-none group"
+      aria-label="ZebAlpha Custom Studio Design Carousel"
+      className="relative w-full py-2 sm:py-5 overflow-hidden select-none outline-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => {
         if (!isDragging) setIsPaused(false);
@@ -150,7 +150,7 @@ export function EditorialCarousel({
     >
       {/* Background Subtle Curved Arc Line */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-15">
-        <div className="w-[110%] h-[220px] sm:h-[260px] rounded-[100%] border-b-2 border-amber-500/40 transform translate-y-10 sm:translate-y-12" />
+        <div className="w-[110%] h-[200px] sm:h-[240px] rounded-[100%] border-b-2 border-amber-500/40 transform translate-y-8 sm:translate-y-10" />
       </div>
 
       {/* Manual Navigation Controls (shown only when cards overflow and can scroll) */}
@@ -179,11 +179,11 @@ export function EditorialCarousel({
         </>
       )}
 
-      {/* Interactive Curved Tray (Explicit height prevents CLS reflow) */}
+      {/* Interactive Curved Tray (Explicit height matched tightly to card dimensions for 0 CLS & no dead space) */}
       <div
-        className={`relative w-full h-[320px] sm:h-[380px] md:h-[440px] flex items-center touch-pan-y ${
+        className={`relative w-full h-[264px] sm:h-[320px] md:h-[360px] lg:h-[395px] flex items-center touch-pan-y ${
           canScroll ? "cursor-grab active:cursor-grabbing" : "justify-center"
-        } overflow-hidden px-4`}
+        } overflow-hidden px-3 sm:px-4`}
         onPointerDown={canScroll ? handlePointerDown : undefined}
         onPointerMove={canScroll ? handlePointerMove : undefined}
         onPointerUp={canScroll ? handlePointerUp : undefined}

@@ -19,7 +19,18 @@ import {
   CheckCircle2,
   FileImage,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
+
+const BUILTIN_PRESET_CATEGORIES = ["genz", "anime", "bengali", "streetwear", "minimal"];
+const STUDIO_COLOR_SUGGESTIONS = [
+  "Jet Black",
+  "Off-White",
+  "Vintage Beige",
+  "Royal Navy",
+  "Maroon Crimson",
+  "Forest Green",
+];
 
 interface ApparelBaseConfig {
   id: string;
@@ -67,8 +78,11 @@ export default function CustomStudioAdminView() {
   const [newBaseDesc, setNewBaseDesc] = useState("");
   const [newBaseSizes, setNewBaseSizes] = useState("S, M, L, XL, XXL");
 
-  // New Artwork Form State
+  // New / Edit Artwork Modal Form State
   const [showAddPresetModal, setShowAddPresetModal] = useState(false);
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [existingPresetImageUrl, setExistingPresetImageUrl] = useState<string | null>(null);
+  const [existingPresetSizeKb, setExistingPresetSizeKb] = useState<number | null>(null);
   const [newPresetTitle, setNewPresetTitle] = useState("");
   const [newPresetCategory, setNewPresetCategory] = useState("genz");
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -76,6 +90,7 @@ export default function CustomStudioAdminView() {
   const [newPresetPlacement, setNewPresetPlacement] = useState("front_chest");
   const [newPresetDesc, setNewPresetDesc] = useState("");
   const [newPresetTags, setNewPresetTags] = useState("");
+  const [newPresetActive, setNewPresetActive] = useState(true);
 
   // WebP Compression State (Strictly <= 20 KB)
   const [isCompressing, setIsCompressing] = useState(false);
@@ -244,27 +259,126 @@ export default function CustomStudioAdminView() {
     }
   };
 
-  // Add new Preset artwork
-  const handleCreatePreset = async (e: React.FormEvent) => {
+  const resetPresetModal = () => {
+    setShowAddPresetModal(false);
+    setEditingPresetId(null);
+    setExistingPresetImageUrl(null);
+    setExistingPresetSizeKb(null);
+    setNewPresetTitle("");
+    setNewPresetCategory("genz");
+    setCustomCategoryInput("");
+    setNewPresetColor("Jet Black");
+    setNewPresetPlacement("front_chest");
+    setNewPresetDesc("");
+    setNewPresetTags("");
+    setNewPresetActive(true);
+    setCompressedBlob(null);
+    setCompressedDataUrl(null);
+    setCompressedSizeKb(null);
+    setOriginalSizeKb(null);
+    setCompressionProgress(null);
+    if (artworkInputRef.current) artworkInputRef.current.value = "";
+  };
+
+  const openCreatePresetModal = () => {
+    resetPresetModal();
+    setErrorMessage(null);
+    setShowAddPresetModal(true);
+  };
+
+  const openEditPresetModal = (preset: PresetDesignConfig) => {
+    setErrorMessage(null);
+    setEditingPresetId(preset.id);
+    setExistingPresetImageUrl(preset.imageUrl || null);
+    setExistingPresetSizeKb(preset.fileSizeKb ?? null);
+    setNewPresetTitle(preset.title || "");
+
+    const normalizedCat = (preset.category || "genz").trim().toLowerCase();
+    if (BUILTIN_PRESET_CATEGORIES.includes(normalizedCat)) {
+      setNewPresetCategory(normalizedCat);
+      setCustomCategoryInput("");
+    } else {
+      setNewPresetCategory("custom");
+      setCustomCategoryInput(preset.category || "");
+    }
+
+    setNewPresetColor(preset.recommendedGarmentColor || "Jet Black");
+
+    const rawPlacement = (preset.placement || "front_chest").toLowerCase();
+    if (rawPlacement === "back_large" || rawPlacement === "back") {
+      setNewPresetPlacement("back");
+    } else if (rawPlacement === "pocket_left" || rawPlacement === "pocket") {
+      setNewPresetPlacement("pocket");
+    } else if (rawPlacement === "full_front") {
+      setNewPresetPlacement("full_front");
+    } else {
+      setNewPresetPlacement("front_chest");
+    }
+
+    setNewPresetDesc(preset.description || "");
+    setNewPresetTags(Array.isArray(preset.tags) ? preset.tags.join(", ") : "");
+    setNewPresetActive(preset.isActive !== false);
+    setCompressedBlob(null);
+    setCompressedDataUrl(null);
+    setCompressedSizeKb(null);
+    setOriginalSizeKb(null);
+    setCompressionProgress(null);
+    if (artworkInputRef.current) artworkInputRef.current.value = "";
+    setShowAddPresetModal(true);
+  };
+
+  // Create OR Update Preset artwork (single Cloudinary CDN link, auto-synced to Homepage + /customize)
+  const handleSavePreset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!compressedBlob && !compressedDataUrl) {
+    if (!newPresetTitle.trim()) {
+      setErrorMessage("Please enter a design title.");
+      return;
+    }
+
+    const isEditing = Boolean(editingPresetId);
+    const hasNewFile = Boolean(compressedBlob || compressedDataUrl);
+
+    if (!isEditing && !hasNewFile) {
       setErrorMessage("Please select an artwork file to compress.");
       return;
     }
 
-    setIsCompressing(true);
-    setCompressionProgress("Uploading optimized WebP to Cloudinary CDN...");
-    try {
-      // Strictly upload to Cloudinary CDN (1 single canonical link shared by Homepage Showcase + /customize)
-      const cdnUrl = await uploadDirectToCloudinary(compressedBlob || compressedDataUrl!, "custom-studio-vault");
-      if (!cdnUrl || !cdnUrl.startsWith("http")) {
-        throw new Error("Cloudinary CDN upload did not return a valid image URL. Please try again.");
-      }
-      const finalImageUrl = cdnUrl.trim();
+    if (isEditing && !hasNewFile && !existingPresetImageUrl) {
+      setErrorMessage("Please select an artwork image for this design.");
+      return;
+    }
 
-      if (presets.some((p) => p.imageUrl?.trim().toLowerCase() === finalImageUrl.toLowerCase())) {
-        setErrorMessage("This exact Cloudinary design URL already exists in the vault (duplicates are blocked).");
-        return;
+    setIsCompressing(true);
+    setErrorMessage(null);
+    setCompressionProgress(
+      hasNewFile
+        ? "Uploading optimized WebP to Cloudinary CDN..."
+        : "Syncing updated design to Homepage & Custom Studio..."
+    );
+
+    try {
+      let finalImageUrl = (existingPresetImageUrl || "").trim();
+      let finalFileSizeKb = existingPresetSizeKb ?? 19.5;
+
+      if (hasNewFile) {
+        // Strictly upload to Cloudinary CDN (1 single canonical link shared by Homepage Showcase + /customize)
+        const cdnUrl = await uploadDirectToCloudinary(compressedBlob || compressedDataUrl!, "custom-studio-vault");
+        if (!cdnUrl || !cdnUrl.startsWith("http")) {
+          throw new Error("Cloudinary CDN upload did not return a valid image URL. Please try again.");
+        }
+        finalImageUrl = cdnUrl.trim();
+        finalFileSizeKb = compressedSizeKb || 19.5;
+
+        if (
+          presets.some(
+            (p) =>
+              p.id !== editingPresetId &&
+              p.imageUrl?.trim().toLowerCase() === finalImageUrl.toLowerCase()
+          )
+        ) {
+          setErrorMessage("This exact Cloudinary design URL already exists in the vault (duplicates are blocked).");
+          return;
+        }
       }
 
       const finalCategory =
@@ -272,44 +386,68 @@ export default function CustomStudioAdminView() {
           ? customCategoryInput.trim().toLowerCase().replace(/\s+/g, "-")
           : newPresetCategory;
 
-      const newPreset: PresetDesignConfig = {
-        id: `preset-${Date.now()}`,
-        title: newPresetTitle.trim(),
-        category: finalCategory,
-        imageUrl: finalImageUrl,
-        fileSizeKb: compressedSizeKb || 19.5,
-        recommendedGarmentColor: newPresetColor,
-        placement: newPresetPlacement,
-        description: newPresetDesc.trim() || `${newPresetTitle} official artwork graphic.`,
-        tags: newPresetTags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-        isActive: true,
-      };
+      const parsedTags = newPresetTags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
 
-      const updated = [newPreset, ...presets];
-      setPresets(updated);
+      let updated: PresetDesignConfig[];
+      let savedTitle = newPresetTitle.trim();
 
-      // Auto save to API
-      await fetch("/api/admin/custom-studio", {
+      if (isEditing && editingPresetId) {
+        updated = presets.map((p) =>
+          p.id === editingPresetId
+            ? {
+                ...p,
+                title: savedTitle,
+                category: finalCategory,
+                imageUrl: finalImageUrl,
+                fileSizeKb: finalFileSizeKb,
+                recommendedGarmentColor: newPresetColor.trim() || "Jet Black",
+                placement: newPresetPlacement,
+                description: newPresetDesc.trim() || `${savedTitle} official artwork graphic.`,
+                tags: parsedTags,
+                isActive: newPresetActive,
+              }
+            : p
+        );
+      } else {
+        const newPreset: PresetDesignConfig = {
+          id: `preset-${Date.now()}`,
+          title: savedTitle,
+          category: finalCategory,
+          imageUrl: finalImageUrl,
+          fileSizeKb: finalFileSizeKb,
+          recommendedGarmentColor: newPresetColor.trim() || "Jet Black",
+          placement: newPresetPlacement,
+          description: newPresetDesc.trim() || `${savedTitle} official artwork graphic.`,
+          tags: parsedTags,
+          isActive: newPresetActive,
+        };
+        updated = [newPreset, ...presets];
+      }
+
+      // Auto save to API (invalidates Homepage + /customize cache immediately)
+      const res = await fetch("/api/admin/custom-studio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ presets: updated }),
       });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to save design changes to database.");
+      }
 
-      setShowAddPresetModal(false);
-      setNewPresetTitle("");
-      setNewPresetDesc("");
-      setNewPresetTags("");
-      setCompressedBlob(null);
-      setCompressedDataUrl(null);
-      setCompressedSizeKb(null);
-      setOriginalSizeKb(null);
-      setSuccessMessage(`"${newPreset.title}" uploaded in ${newPreset.fileSizeKb} KB WebP format!`);
+      setPresets(updated);
+      resetPresetModal();
+      setSuccessMessage(
+        isEditing
+          ? `"${savedTitle}" updated & synced live to Homepage + Custom Studio!`
+          : `"${savedTitle}" uploaded (${finalFileSizeKb} KB WebP) & synced live!`
+      );
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to create artwork preset.");
+      setErrorMessage(err.message || (isEditing ? "Failed to update design." : "Failed to create artwork preset."));
     } finally {
       setIsCompressing(false);
       setCompressionProgress(null);
@@ -684,7 +822,7 @@ export default function CustomStudioAdminView() {
                 </button>
               )}
               <button
-                onClick={() => setShowAddPresetModal(true)}
+                onClick={openCreatePresetModal}
                 className="px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-emerald-500/20"
               >
                 <Plus className="w-4 h-4" />
@@ -705,7 +843,7 @@ export default function CustomStudioAdminView() {
                 All sample presets have been removed. Click &quot;Upload New Artwork&quot; to add your real production designs in strictly ≤ 20 KB WebP format.
               </p>
               <button
-                onClick={() => setShowAddPresetModal(true)}
+                onClick={openCreatePresetModal}
                 className="mt-2 px-5 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase tracking-wider cursor-pointer"
               >
                 + Upload First Artwork
@@ -730,17 +868,28 @@ export default function CustomStudioAdminView() {
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <span className="text-[9px] font-black uppercase text-zinc-400 truncate">
                         {preset.category}
                       </span>
-                      <button
-                        onClick={() => deletePreset(preset.id)}
-                        className="text-zinc-600 hover:text-rose-400 p-0.5 cursor-pointer"
-                        title="Remove"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => openEditPresetModal(preset)}
+                          className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition cursor-pointer"
+                          title="Edit design"
+                          aria-label={`Edit ${preset.title}`}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => deletePreset(preset.id)}
+                          className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/10 transition cursor-pointer"
+                          title="Delete design"
+                          aria-label={`Delete ${preset.title}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                     <h4 className="text-xs font-bold text-white truncate" title={preset.title}>
                       {preset.title}
@@ -884,39 +1033,48 @@ export default function CustomStudioAdminView() {
         </div>
       )}
 
-      {/* MODAL: UPLOAD NEW ARTWORK PRESET (STRICTLY <= 20 KB WEBP) */}
+      {/* MODAL: UPLOAD OR EDIT ARTWORK PRESET (STRICTLY <= 20 KB WEBP, CLOUDINARY CDN) */}
       {showAddPresetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
           <div className="w-full max-w-lg rounded-3xl bg-zinc-950 border border-zinc-800 p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-emerald-400" />
+                {editingPresetId ? (
+                  <Pencil className="w-5 h-5 text-emerald-400" />
+                ) : (
+                  <Sparkles className="w-5 h-5 text-emerald-400" />
+                )}
                 <h3 className="text-base font-black text-white uppercase tracking-wider">
-                  Upload Vault Artwork
+                  {editingPresetId ? "Edit Design & Showcase Card" : "Upload Vault Artwork"}
                 </h3>
               </div>
               <button
-                onClick={() => {
-                  setShowAddPresetModal(false);
-                  setCompressedBlob(null);
-                  setCompressedDataUrl(null);
-                }}
-                className="text-zinc-500 hover:text-white text-sm"
+                onClick={resetPresetModal}
+                className="text-zinc-500 hover:text-white text-sm cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
+            {errorMessage && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2 text-rose-400 text-xs font-bold">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
             {/* Compression Engine Dropzone */}
             <div className="space-y-2">
               <label className="text-[11px] font-black uppercase tracking-wider text-zinc-300 block">
-                Artwork Graphic (Target: ≤ 20 KB WebP)
+                {editingPresetId
+                  ? "Artwork Graphic (Keep current CDN image or click to replace)"
+                  : "Artwork Graphic (Target: ≤ 20 KB WebP)"}
               </label>
 
               <div
                 onClick={() => artworkInputRef.current?.click()}
                 className={`p-6 rounded-2xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center text-center ${
-                  compressedDataUrl
+                  compressedDataUrl || existingPresetImageUrl
                     ? "border-emerald-500/50 bg-emerald-500/5"
                     : "border-zinc-700 hover:border-zinc-500 bg-zinc-900/50"
                 }`}
@@ -940,7 +1098,7 @@ export default function CustomStudioAdminView() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-xs font-mono font-black text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30 inline-block">
-                        Output: {compressedSizeKb} KB WebP (Target ≤ 20 KB) ✓
+                        New Output: {compressedSizeKb} KB WebP (Target ≤ 20 KB) ✓
                       </span>
                       {originalSizeKb && (
                         <p className="text-[10px] text-zinc-400">
@@ -949,6 +1107,27 @@ export default function CustomStudioAdminView() {
                       )}
                     </div>
                     <span className="text-[10px] text-zinc-400 underline">Click to choose another photo</span>
+                  </div>
+                ) : existingPresetImageUrl ? (
+                  <div className="space-y-3 flex flex-col items-center">
+                    <div className="w-24 h-24 rounded-xl bg-zinc-900 overflow-hidden border border-emerald-500/40 p-1">
+                      <img
+                        src={existingPresetImageUrl}
+                        alt={newPresetTitle || "Current Design"}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-mono font-black text-emerald-400 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30 inline-block">
+                        Current Cloudinary CDN ({existingPresetSizeKb ? `${existingPresetSizeKb} KB` : "≤ 20 KB"}) ✓
+                      </span>
+                      <p className="text-[10px] text-zinc-400">
+                        Same CDN link will stay active unless you upload a replacement.
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-emerald-300 underline font-semibold">
+                      Click here to replace artwork image (optional)
+                    </span>
                   </div>
                 ) : (
                   <div className="space-y-2 flex flex-col items-center">
@@ -971,7 +1150,7 @@ export default function CustomStudioAdminView() {
               )}
             </div>
 
-            <form onSubmit={handleCreatePreset} className="space-y-3.5">
+            <form onSubmit={handleSavePreset} className="space-y-3.5">
               <div>
                 <label className="text-[11px] font-bold text-zinc-300 block mb-1">
                   Design Title <span className="text-rose-400">*</span>
@@ -1035,11 +1214,17 @@ export default function CustomStudioAdminView() {
                   </label>
                   <input
                     type="text"
+                    list="studio-garment-colors"
                     placeholder="e.g. Jet Black, Vintage Beige"
                     value={newPresetColor}
                     onChange={(e) => setNewPresetColor(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-white text-xs focus:border-emerald-400 focus:outline-none"
                   />
+                  <datalist id="studio-garment-colors">
+                    {STUDIO_COLOR_SUGGESTIONS.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div>
@@ -1065,20 +1250,42 @@ export default function CustomStudioAdminView() {
                 />
               </div>
 
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                <div>
+                  <p className="text-[11px] font-bold text-white">Live Visibility (Homepage + /customize)</p>
+                  <p className="text-[10px] text-zinc-500">Disable to hide without deleting from vault</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewPresetActive((prev) => !prev)}
+                  className={`text-[10px] font-black uppercase px-3 py-1 rounded-full cursor-pointer transition ${
+                    newPresetActive
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                      : "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                  }`}
+                >
+                  {newPresetActive ? "Active" : "Disabled"}
+                </button>
+              </div>
+
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddPresetModal(false)}
-                  className="flex-1 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-bold text-xs uppercase"
+                  onClick={resetPresetModal}
+                  className="flex-1 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-bold text-xs uppercase cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!compressedDataUrl || isCompressing}
-                  className="flex-1 py-3 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase tracking-wider disabled:opacity-50"
+                  disabled={
+                    (editingPresetId
+                      ? !compressedDataUrl && !existingPresetImageUrl
+                      : !compressedDataUrl) || isCompressing
+                  }
+                  className="flex-1 py-3 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase tracking-wider disabled:opacity-50 cursor-pointer"
                 >
-                  Save to Vault
+                  {editingPresetId ? "Update & Sync Live" : "Save to Vault"}
                 </button>
               </div>
             </form>
