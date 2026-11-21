@@ -46,7 +46,7 @@ export const BLOG_POSTS: BlogPost[] = [
     title: "ZebAlpha: How Two College Friends Are Reimagining Indian E-Commerce for Customers and Small Businesses",
     headline: "From a College Ambition in Kolkata to an Indian Marketplace Ecosystem: The Journey of Rahul Adhikary, Alakesh Biswas, 0% Commission for Sellers, and Uncompromising Customer Trust",
     metaTitle: "How Two College Friends Are Reimagining Indian E-Commerce | ZebAlpha Story",
-    metaDescription: "Read the story of ZebAlpha: how Kolkata college friends Rahul Adhikary and Alakesh Biswas are reimagining Indian e-commerce with 0% seller commission, dedicated seller tools, GST-free selling for micro-brands, and customer order accuracy.",
+    metaDescription: "Read the story of ZebAlpha: how Kolkata college friends Rahul Adhikary and Alakesh Biswas are reimagining Indian e-commerce with 0% seller commission, dedicated seller tools, easy Enrolment ID onboarding for micro-brands, and customer order accuracy.",
     category: "Founder Story",
     categoryBadgeColor: "emerald",
     author: {
@@ -72,7 +72,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "0% Commission",
       "Small Business Online",
       "Kolkata Startup",
-      "GST-Free Selling",
+      "Enrolment ID Selling",
       "Dedicated Seller Panel",
       "Customer Trust",
       "D2C Apparel",
@@ -83,7 +83,7 @@ export const BLOG_POSTS: BlogPost[] = [
     keyTakeaways: [
       "The College Genesis in Kolkata: ZebAlpha was conceived by college student Rahul Adhikary in Kolkata, West Bengal, who was joined 7 months later by friend and co-founder Alakesh Biswas to transform an ambition into an inclusive Indian marketplace.",
       "0% Commission for Eligible Sellers: Eliminates legacy 25-40% commission cuts, allowing small businesses, apparel makers, and emerging brands to keep 100% of their selling value.",
-      "GST-Free Micro-Seller Inclusivity: Designed to onboard eligible small creators and local artisans who lack GST registration where legally permissible under applicable Indian law.",
+      "Simple Enrolment ID Onboarding: Designed to onboard small creators, boutiques, and local artisans with just a free 15-character Enrolment ID and direct 5-day UPI payouts.",
       "Practical Seller Panel: Purpose-built dashboard engineered for fast product cataloging, multi-color and multi-size variant management, inventory sync, and dispatch tracking without technical friction.",
       "Three-Sided Trust Architecture: Connects Customer ↔ ZebAlpha ↔ Seller with non-negotiable order accuracy: 'The product ordered should be the product delivered.'",
       "The Co-Builder Philosophy: Replaces traditional employee hierarchy with a culture where team members, sellers, and customers build and grow together sustainably."
@@ -96,7 +96,7 @@ export const BLOG_POSTS: BlogPost[] = [
       { id: "team-member-philosophy", title: "5. Our Philosophy: Team Member, Not Just Employee" },
       { id: "the-bigger-problem", title: "6. The Bigger Problem We Want to Solve" },
       { id: "give-small-businesses-a-chance", title: "7. Main Vision: Give Small Businesses a Chance to Compete" },
-      { id: "gst-free-small-sellers", title: "8. Supporting Eligible Sellers (Including Sellers Without GST)" },
+      { id: "enrolment-id-small-sellers", title: "8. Supporting Small Sellers with Easy Enrolment ID Onboarding" },
       { id: "zero-percent-commission", title: "9. 0% Commission: Helping Sellers Keep More of What They Earn" },
       { id: "no-hidden-charges", title: "10. No Hidden Charges: Transparency Matters" },
       { id: "dedicated-seller-panel", title: "11. Dedicated Seller Panel: Sell Products, Not Complicated Tech" },
@@ -134,8 +134,8 @@ export const BLOG_POSTS: BlogPost[] = [
         answer: "Yes, supporting small businesses, boutique labels, and independent sellers is a foundational pillar of ZebAlpha. The platform removes traditional marketplace entry barriers while ensuring applicable compliance and verification."
       },
       {
-        question: "Can sellers without GST registration sell on ZebAlpha?",
-        answer: "Eligible small sellers who do not possess a GST registration may participate where legally permitted under applicable Indian tax laws and ZebAlpha's seller policies, depending on turnover thresholds and product categories."
+        question: "How do small sellers register on ZebAlpha?",
+        answer: "Small sellers can create their ZebAlpha Seller account easily using their free 15-character Enrolment ID, verified email, pickup address, and UPI ID — with zero Bank Account, PAN, or Aadhaar paperwork required."
       },
       {
         question: "Does ZebAlpha charge seller commission?",
@@ -341,7 +341,7 @@ export const BLOG_POSTS: BlogPost[] = [
               <span>Small boutique manufacturers lack enterprise software engineering teams to navigate clunky, hostile seller interfaces.</span>
             </li>
             <li class="flex items-start gap-2.5">
-              <span class="text-red-400 font-bold shrink-0">3. Regulatory &amp; GST Gatekeeping:</span>
+              <span class="text-red-400 font-bold shrink-0">3. Heavy Paperwork &amp; Onboarding Gatekeeping:</span>
               <span>Talented artisans and micro-producers testing early products are often turned away before they even make their first sale.</span>
             </li>
             <li class="flex items-start gap-2.5">
@@ -372,23 +372,23 @@ export const BLOG_POSTS: BlogPost[] = [
         </p>
       </section>
 
-      <!-- Section: GST-Free Small Sellers & Regulatory Compliance -->
-      <section id="gst-free-small-sellers" class="scroll-mt-24 space-y-4 pt-6">
+      <!-- Section: Enrolment ID Small Sellers & Easy Onboarding -->
+      <section id="enrolment-id-small-sellers" class="scroll-mt-24 space-y-4 pt-6">
         <div class="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-emerald-400">
           Chapter VIII • Inclusivity
         </div>
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          8. Supporting Eligible Small Sellers (Including Sellers Without GST Registration)
+          8. Supporting Small Sellers with Easy Enrolment ID Onboarding
         </h2>
         <p class="text-neutral-300 leading-relaxed">
-          One of the heaviest friction points for early-stage entrepreneurs in India has been mandatory GST registration requirements before a single product can be tested online. Many small creators operate locally, craft small batches from home or small workshops, and cannot afford compliance overhead before proving product-market fit.
+          One of the heaviest friction points for early-stage entrepreneurs in India has been complex paperwork before a single product can be tested online. Many small creators operate locally, craft small batches from home or small workshops, and need a fast, straightforward way to launch.
         </p>
         <div class="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-5 space-y-3">
           <h3 class="text-base font-bold text-emerald-400 uppercase">
-            ✦ Compliance Meets Inclusivity
+            ✦ Fast, Accessible Seller Entry
           </h3>
           <p class="text-neutral-300 text-sm leading-relaxed">
-            Where permitted under applicable Indian laws and statutory marketplace frameworks, ZebAlpha aims to provide onboarding opportunities for <strong>eligible small sellers who may not possess GST registration</strong>. By simplifying entry parameters for micro-sellers while upholding legal verification, we lower barriers without compromising marketplace integrity.
+            ZebAlpha streamlines onboarding so small creators and independent sellers can start selling with their <strong>free 15-character Enrolment ID and direct 5-day UPI payouts</strong> — without sharing Bank Account Numbers, PAN Cards, or Aadhaar details.
           </p>
         </div>
         <blockquote class="my-4 rounded-xl border-l-4 border-emerald-500 bg-neutral-950 p-4">
@@ -806,7 +806,7 @@ export const BLOG_POSTS: BlogPost[] = [
           <div class="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
             <span class="text-xs font-black uppercase tracking-widest text-emerald-400">Principle 05</span>
             <h4 class="text-white font-bold text-base">Easy Onboarding</h4>
-            <p class="text-xs text-neutral-300">Fast, guided registration supporting eligible micro-sellers with or without GST.</p>
+            <p class="text-xs text-neutral-300">Fast, guided registration with Enrolment ID and direct 5-day UPI payouts.</p>
           </div>
           <div class="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
             <span class="text-xs font-black uppercase tracking-widest text-emerald-400">Principle 06</span>

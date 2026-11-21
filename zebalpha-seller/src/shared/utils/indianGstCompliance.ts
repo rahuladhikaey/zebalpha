@@ -244,16 +244,16 @@ export function validateEnrolmentIdFormat(rawEnrolmentId: string): FormatValidat
     return {
       valid: false,
       normalized,
-      error: "Invalid Enrolment ID format. GST Enrolment ID must be 15 alphanumeric characters starting with a valid 2-digit Indian State code.",
+      error: "Invalid Enrolment ID format. Enrolment ID must be 15 alphanumeric characters starting with a valid 2-digit Indian State code.",
     };
   }
 
-  // Ensure a regular GSTIN is not accidentally entered as an Enrolment ID
+  // Ensure a regular GSTIN is not entered in the Enrolment ID field
   if (/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(normalized)) {
     return {
       valid: false,
       normalized,
-      error: "This appears to be a regular 15-character GSTIN, not a GST Enrolment ID. Please select 'GSTIN Registered Seller' instead.",
+      error: "Please enter a valid 15-character Enrolment ID (regular business tax numbers are not accepted during onboarding).",
     };
   }
 
@@ -263,7 +263,7 @@ export function validateEnrolmentIdFormat(rawEnrolmentId: string): FormatValidat
     return {
       valid: false,
       normalized,
-      error: `Invalid State code "${stateCode}" in GST Enrolment ID.`,
+      error: `Invalid State code "${stateCode}" in Enrolment ID.`,
     };
   }
 

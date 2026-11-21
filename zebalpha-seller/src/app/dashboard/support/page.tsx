@@ -439,7 +439,7 @@ export default function SellerSupport() {
                     <option value="Payouts & Billing">Payouts & Billing</option>
                     <option value="Product Catalog">Product Catalog & Approvals</option>
                     <option value="Technical Issue">Technical Issue</option>
-                    <option value="Account Settings">Account & GST/FSSAI</option>
+                    <option value="Account Settings">Account &amp; Enrolment ID</option>
                     <option value="General Inquiry">General Inquiry</option>
                   </select>
                 </div>

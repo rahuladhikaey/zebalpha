@@ -63,11 +63,10 @@ export const cleanCategory = (cat?: string | null) => {
   return cat;
 };
 
-export const getSellerTaxIdBadge = (rawGstin?: string | null): { type: "GSTIN" | "Enrolment ID"; value: string } | null => {
+export const getSellerTaxIdBadge = (rawGstin?: string | null): { type: "Enrolment ID"; value: string } | null => {
   const clean = String(rawGstin || "").trim().toUpperCase();
   if (!clean) return null;
-  const isGstin = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(clean);
-  return { type: isGstin ? "GSTIN" : "Enrolment ID", value: clean };
+  return { type: "Enrolment ID", value: clean };
 };
 
 export const getMerchantId = (seller: any) => {
@@ -421,6 +420,7 @@ export default function SellerManagementView({
         (s.email || "").toLowerCase().includes(query) ||
         (s.phone_number || s.mobile_number || "").includes(query) ||
         (s.upi_id || s.phonepay_no || s.phonepay_number || "").toLowerCase().includes(query) ||
+        (s.gstin || "").toLowerCase().includes(query) ||
         (s.city || s.pickup_location || "").toLowerCase().includes(query) ||
         (s.state || "").toLowerCase().includes(query) ||
         (s.pincode || "").includes(query) ||
@@ -444,12 +444,20 @@ export default function SellerManagementView({
 
   // ── Action Handlers ─────────────────────────────────────────────────────
   const [copiedMerchantId, setCopiedMerchantId] = useState<string | null>(null);
+  const [copiedEnrolmentId, setCopiedEnrolmentId] = useState<string | null>(null);
 
   const handleCopyMerchantId = (mId: string) => {
     if (!mId) return;
     navigator.clipboard.writeText(mId);
     setCopiedMerchantId(mId);
     setTimeout(() => setCopiedMerchantId(null), 2500);
+  };
+
+  const handleCopyEnrolmentId = (enrId: string) => {
+    if (!enrId) return;
+    navigator.clipboard.writeText(enrId);
+    setCopiedEnrolmentId(enrId);
+    setTimeout(() => setCopiedEnrolmentId(null), 2500);
   };
 
   const handleCopyUpi = (upi: string) => {
@@ -639,6 +647,7 @@ export default function SellerManagementView({
         upi_id: editingSellerData.upi_id,
         phonepay_no: editingSellerData.upi_id,
         phonepay_number: editingSellerData.upi_id,
+        gstin: (editingSellerData.gstin || "").trim().toUpperCase() || null,
         category: editingSellerData.category,
         business_category: editingSellerData.category,
         city: editingSellerData.city,
@@ -678,7 +687,7 @@ export default function SellerManagementView({
       "Merchant Type": s.is_primary_brand ? "1st-Party Direct Brand" : "3rd-Party Marketplace Merchant",
       "Phone Number": s.phone_number || s.mobile_number || "N/A",
       "Email": s.email || "N/A",
-      "GSTIN / Enrolment ID": s.gstin || "Not Provided",
+      "Enrolment ID": s.gstin || "Not Provided",
       "Payout UPI / PhonePe": s.upi_id || s.phonepay_no || "N/A",
       "Fulfillment Hub / City": s.pickup_location || s.city || "Kolkata, WB",
       "Gross Revenue (₹)": s.grossRevenue,
@@ -1086,6 +1095,7 @@ export default function SellerManagementView({
                               email: seller.email || "",
                               phone_number: seller.phone_number || seller.mobile_number || "",
                               upi_id: seller.upi_id || seller.phonepay_no || seller.phonepay_number || "",
+                              gstin: seller.gstin || "",
                               category: cleanCategory(seller.category || seller.business_category),
                               city: seller.city || seller.pickup_location || "",
                               pickup_location: seller.pickup_location || seller.city || "",
@@ -1351,7 +1361,7 @@ export default function SellerManagementView({
                     </div>
                     <div>
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">
-                        {getSellerTaxIdBadge(selectedSeller.gstin)?.type || "GSTIN / Enrolment ID"}
+                        Enrolment ID
                       </span>
                       <div className="flex items-center gap-2 flex-wrap mt-0.5">
                         <span className="text-emerald-300 font-mono text-[11px] font-bold">
@@ -1360,15 +1370,21 @@ export default function SellerManagementView({
                         {selectedSeller.gstin && (
                           <button
                             type="button"
-                            onClick={() => {
-                              navigator.clipboard?.writeText(String(selectedSeller.gstin));
-                              window.open("https://services.gst.gov.in/services/searchtp", "_blank", "noopener,noreferrer");
-                            }}
+                            onClick={() => handleCopyEnrolmentId(String(selectedSeller.gstin))}
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[9px] font-black uppercase cursor-pointer transition"
-                            title="Copy ID and open official GST Portal"
+                            title="Copy Enrolment ID"
                           >
-                            <span>Check on GST.gov.in</span>
-                            <ExternalLink size={9} />
+                            {copiedEnrolmentId === String(selectedSeller.gstin) ? (
+                              <>
+                                <Check size={9} />
+                                <span>Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={9} />
+                                <span>Copy ID</span>
+                              </>
+                            )}
                           </button>
                         )}
                       </div>
@@ -1660,18 +1676,40 @@ export default function SellerManagementView({
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-zinc-300 flex items-center gap-1.5 text-emerald-400">
-                  <CreditCard size={14} />
-                  <span>Payout UPI ID / PhonePe / GPay Number</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editingSellerData.upi_id}
-                  onChange={(e) => setEditingSellerData({ ...editingSellerData, upi_id: e.target.value })}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-zinc-300 flex items-center gap-1.5 text-emerald-400">
+                    <CreditCard size={14} />
+                    <span>Payout UPI ID / PhonePe / GPay Number</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingSellerData.upi_id}
+                    onChange={(e) => setEditingSellerData({ ...editingSellerData, upi_id: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-zinc-300 flex items-center gap-1.5 text-emerald-400">
+                    <ShieldCheck size={14} />
+                    <span>Enrolment ID (15-char)</span>
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={15}
+                    placeholder="e.g. 19E000123456789"
+                    value={editingSellerData.gstin || ""}
+                    onChange={(e) =>
+                      setEditingSellerData({
+                        ...editingSellerData,
+                        gstin: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""),
+                      })
+                    }
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

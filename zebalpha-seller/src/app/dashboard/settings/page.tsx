@@ -179,12 +179,7 @@ export default function SellerSettings() {
     setTimeout(() => setCopiedUpi(false), 2500);
   };
 
-  const detectTaxMode = (val: string): "GSTIN" | "ENROLMENT_ID" => {
-    const clean = val.trim().toUpperCase();
-    return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(clean) ? "GSTIN" : "ENROLMENT_ID";
-  };
-
-  const handleVerifyTaxId = async () => {
+  const handleVerifyEnrolmentId = async () => {
     const cleanId = form.gstin.trim().toUpperCase();
     if (cleanId.length !== 15) return;
     setTaxVerifying(true);
@@ -194,20 +189,18 @@ export default function SellerSettings() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode: detectTaxMode(cleanId),
-          taxId: cleanId,
+          enrolmentId: cleanId,
+          excludeSellerId: sellerId || undefined,
           mobile: form.mobile_number.trim(),
           email: form.email.trim().toLowerCase(),
           businessName: form.business_name.trim(),
         }),
       });
       const json = await res.json();
-      if (json.verified) {
+      if (json.verified || json.formatVerifiedOnly || json.manualReviewRequired) {
         setTaxVerifyMsg({ type: "success", text: json.message });
-      } else if (json.manualReviewRequired) {
-        setTaxVerifyMsg({ type: "warning", text: json.message });
       } else {
-        setTaxVerifyMsg({ type: "error", text: json.error || json.message || "Could not verify ID." });
+        setTaxVerifyMsg({ type: "error", text: json.error || json.message || "Could not verify Enrolment ID." });
       }
     } catch {
       setTaxVerifyMsg({ type: "error", text: "Verification service unreachable right now." });
@@ -607,11 +600,11 @@ export default function SellerSettings() {
             <label className="text-xs font-bold text-zinc-300 flex items-center justify-between gap-2 flex-wrap">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck size={14} className="text-emerald-400" />
-                <span>GSTIN / Enrolment ID (Optional • No PAN Needed)</span>
+                <span>Enrolment ID (No PAN Needed)</span>
               </span>
               {form.gstin.trim().length === 15 && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  {detectTaxMode(form.gstin) === "GSTIN" ? "Regular GSTIN" : "GST Enrolment ID"}
+                  Enrolment ID
                 </span>
               )}
             </label>
@@ -619,7 +612,7 @@ export default function SellerSettings() {
               <input
                 type="text"
                 maxLength={15}
-                placeholder="15-character GSTIN or GST Enrolment ID"
+                placeholder="15-character Enrolment ID (e.g. 19E000123456789)"
                 value={form.gstin}
                 onChange={(e) => {
                   setForm({ ...form, gstin: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") });
@@ -629,7 +622,7 @@ export default function SellerSettings() {
               />
               <button
                 type="button"
-                onClick={handleVerifyTaxId}
+                onClick={handleVerifyEnrolmentId}
                 disabled={taxVerifying || form.gstin.trim().length !== 15}
                 className="px-4 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider disabled:opacity-40 cursor-pointer shrink-0 transition"
               >
@@ -655,7 +648,7 @@ export default function SellerSettings() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-2 mt-1"
             >
-              <span>Don&apos;t have an Enrolment ID? Generate Free on GST Portal →</span>
+              <span>Don&apos;t have an Enrolment ID? Generate Free on Official Portal →</span>
             </a>
           </div>
         </div>
@@ -804,7 +797,7 @@ export default function SellerSettings() {
             <span className="text-[10px] font-black uppercase text-emerald-400 block">Fast-Track Onboarding</span>
             <p className="text-white font-bold">No Document Uploads Required</p>
             <p className="text-zinc-400 text-[11px]">
-              Initial onboarding for our clothing line does not require Aadhaar, PAN, GST, or FSSAI uploads. Your merchant account is immediately cleared for product publishing.
+              Initial onboarding for our clothing line only requires your Enrolment ID &amp; UPI ID — no Aadhaar, PAN, or Bank Account uploads needed. Your merchant account is immediately cleared for product publishing.
             </p>
           </div>
 

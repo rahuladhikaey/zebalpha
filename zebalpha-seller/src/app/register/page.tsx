@@ -20,7 +20,6 @@ import {
   MapPin,
   FileBadge2,
   AlertCircle,
-  Clock,
 } from "lucide-react";
 
 const BUSINESS_CATEGORIES = [
@@ -79,12 +78,11 @@ function SellerRegisterContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState<"info" | "otp" | "submitted">("info");
 
-  // Clean Seller Fields (NO Bank Account No., NO PAN, NO Aadhaar!)
+  // Clean Seller Fields (Enrolment ID ONLY — NO GSTIN, NO Bank Account No., NO PAN, NO Aadhaar!)
   const [sellerName, setSellerName] = useState("");
   const [shopName, setShopName] = useState("");
   const [businessCategory, setBusinessCategory] = useState("Clothing & Apparel");
-  const [taxMode, setTaxMode] = useState<"enrolment" | "gst">("enrolment");
-  const [gstOrEnrolmentId, setGstOrEnrolmentId] = useState("");
+  const [enrolmentId, setEnrolmentId] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [upiId, setUpiId] = useState("");
   const [email, setEmail] = useState("");
@@ -95,10 +93,10 @@ function SellerRegisterContent() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Instant Meesho-style Tax ID Check (Without PAN!)
+  // Instant Enrolment ID Format + Duplicate Check (Without PAN!)
   const [taxVerifying, setTaxVerifying] = useState(false);
   const [taxVerifyState, setTaxVerifyState] = useState<{
-    status: "idle" | "verified" | "manual_review" | "error";
+    status: "idle" | "verified" | "error";
     message: string;
     legalName?: string | null;
     stateName?: string | null;
@@ -115,15 +113,12 @@ function SellerRegisterContent() {
 
   useEffect(() => {
     const catParam = searchParams.get("category");
-    const gstParam = searchParams.get("gst");
     if (catParam) {
       const matched = BUSINESS_CATEGORIES.find((c) =>
         c.toLowerCase().includes(catParam.toLowerCase())
       );
       setBusinessCategory(matched || catParam);
     }
-    if (gstParam === "none") setTaxMode("enrolment");
-    if (gstParam === "gstin") setTaxMode("gst");
   }, [searchParams]);
 
   useEffect(() => {
@@ -151,10 +146,8 @@ function SellerRegisterContent() {
     return { score: 100, label: "Strong", color: "bg-emerald-500" };
   }, [password]);
 
-  // Meesho-style instant GSTIN / Enrolment ID check WITHOUT PAN!
-  const handleVerifyTaxId = async () => {
-    const cleanId = gstOrEnrolmentId.trim().toUpperCase();
-    if (!cleanId) return;
+  // Instant Enrolment ID format + duplicate check (NO PAN needed!)
+  const verifyEnrolmentIdServer = async (cleanId: string): Promise<{ ok: boolean; error?: string }> => {
     setTaxVerifying(true);
     setTaxVerifyState({ status: "idle", message: "" });
     try {
@@ -162,15 +155,14 @@ function SellerRegisterContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode: taxMode === "gst" ? "GSTIN" : "ENROLMENT_ID",
-          taxId: cleanId,
+          enrolmentId: cleanId,
           mobile: mobileNumber.trim(),
           email: email.trim().toLowerCase(),
           businessName: shopName.trim() || sellerName.trim(),
         }),
       });
       const data = await res.json();
-      if (data.verified) {
+      if (data.verified || data.formatVerifiedOnly || data.manualReviewRequired) {
         setTaxVerifyState({
           status: "verified",
           message: data.message,
@@ -180,37 +172,44 @@ function SellerRegisterContent() {
         if (data.stateName && INDIAN_STATE_NAMES.includes(data.stateName)) {
           setState(data.stateName);
         }
-      } else if (data.manualReviewRequired) {
-        setTaxVerifyState({
-          status: "manual_review",
-          message: data.message,
-          stateName: data.stateName,
-        });
-        if (data.stateName && INDIAN_STATE_NAMES.includes(data.stateName)) {
-          setState(data.stateName);
-        }
+        setTaxVerifying(false);
+        return { ok: true };
       } else {
+        const msg = data.error || data.message || "Could not verify Enrolment ID. Please check and try again.";
         setTaxVerifyState({
           status: "error",
-          message: data.error || data.message || "Could not verify ID. Please check and try again.",
+          message: msg,
         });
+        setTaxVerifying(false);
+        return { ok: false, error: msg };
       }
     } catch {
+      const msg = "Verification service unreachable right now. Please try again.";
       setTaxVerifyState({
         status: "error",
-        message: "Verification service unreachable right now. Please try again.",
+        message: msg,
       });
+      setTaxVerifying(false);
+      return { ok: false, error: msg };
     }
-    setTaxVerifying(false);
+  };
+
+  const handleVerifyEnrolmentId = async () => {
+    const cleanId = enrolmentId.trim().toUpperCase();
+    if (!cleanId) return;
+    await verifyEnrolmentIdServer(cleanId);
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
+    const cleanEnrolmentId = enrolmentId.trim().toUpperCase();
+
     if (
       !sellerName.trim() ||
       !shopName.trim() ||
+      !cleanEnrolmentId ||
       !mobileNumber.trim() ||
       !email.trim() ||
       !pickupAddress.trim() ||
@@ -218,7 +217,12 @@ function SellerRegisterContent() {
       !pincode.trim() ||
       !password
     ) {
-      setError("Please fill in all required fields including your Pickup Address and 6-digit Pincode.");
+      setError("Please fill in all required fields including your Enrolment ID, Pickup Address, and 6-digit Pincode.");
+      return;
+    }
+
+    if (cleanEnrolmentId.length !== 15) {
+      setError("Please enter your valid 15-character Enrolment ID (you can generate one free using the link below).");
       return;
     }
 
@@ -238,6 +242,17 @@ function SellerRegisterContent() {
     }
 
     setLoading(true);
+
+    // Auto-check Enrolment ID format + uniqueness before sending Email OTP
+    if (taxVerifyState.status !== "verified") {
+      const checkRes = await verifyEnrolmentIdServer(cleanEnrolmentId);
+      if (!checkRes.ok) {
+        setError(checkRes.error || "Please enter a valid 15-character Enrolment ID.");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const normalizedEmail = email.trim().toLowerCase();
       const res = await fetch("/api/otp", {
@@ -321,10 +336,10 @@ function SellerRegisterContent() {
       return;
     }
 
-    // 2. Register via Verified Backend Endpoint (NO PAN / NO Bank Account / NO Aadhaar needed!)
+    // 2. Register via Verified Backend Endpoint (Enrolment ID ONLY — NO PAN / NO Bank Account / NO Aadhaar!)
     try {
       const finalUpi = upiId.trim() || `${mobileNumber.trim()}@upi`;
-      const cleanTaxId = gstOrEnrolmentId.trim().toUpperCase();
+      const cleanEnrolmentId = enrolmentId.trim().toUpperCase();
 
       const signupRes = await fetch("/api/auth/signup-verified", {
         method: "POST",
@@ -341,11 +356,7 @@ function SellerRegisterContent() {
           state: state.trim(),
           pincode: pincode.trim(),
           category: businessCategory,
-          gstCategory: taxMode === "gst" ? "GSTIN" : "ENROLMENT_ID",
-          gstin: taxMode === "gst" && cleanTaxId ? cleanTaxId : undefined,
-          enrolmentId: taxMode === "enrolment" && cleanTaxId ? cleanTaxId : undefined,
-          supplyType: "goods",
-          dpdpaConsentAccepted: true,
+          enrolmentId: cleanEnrolmentId,
           signupToken: verifiedSignupToken,
         }),
       });
@@ -507,7 +518,7 @@ function SellerRegisterContent() {
                   </div>
                 </div>
 
-                {/* Business Category & Meesho-Style PAN-Less GST / Enrolment ID Verification */}
+                {/* Business Category & Enrolment ID (Enrolment ID Only — No PAN Needed) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#4A3F2B] mb-1.5 block">
@@ -527,59 +538,26 @@ function SellerRegisterContent() {
                   <div>
                     <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#4A3F2B] mb-1.5 flex items-center gap-1.5">
                       <FileBadge2 size={13} className="text-[#9A6503]" />
-                      <span>GST / Enrolment ID (No PAN Needed)</span>
+                      <span>Enrolment ID * (No PAN Needed)</span>
                     </label>
-                    <div className="flex gap-1.5 mb-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTaxMode("enrolment");
-                          setTaxVerifyState({ status: "idle", message: "" });
-                        }}
-                        className={`flex-1 rounded-xl py-1.5 text-[10px] font-extrabold border transition cursor-pointer ${
-                          taxMode === "enrolment"
-                            ? "bg-[#FFF3C4] border-[#D49A18] text-[#14120F]"
-                            : "bg-[#FFFDF8] border-[#EAD296] text-[#6E5C3D]"
-                        }`}
-                      >
-                        No GST (Enrolment ID)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTaxMode("gst");
-                          setTaxVerifyState({ status: "idle", message: "" });
-                        }}
-                        className={`flex-1 rounded-xl py-1.5 text-[10px] font-extrabold border transition cursor-pointer ${
-                          taxMode === "gst"
-                            ? "bg-[#FFF3C4] border-[#D49A18] text-[#14120F]"
-                            : "bg-[#FFFDF8] border-[#EAD296] text-[#6E5C3D]"
-                        }`}
-                      >
-                        Have Regular GSTIN
-                      </button>
-                    </div>
                     <div className="flex gap-1.5">
                       <input
                         type="text"
+                        required
                         maxLength={15}
-                        placeholder={
-                          taxMode === "gst"
-                            ? "15-digit GSTIN (e.g. 19ABCPA1234F1Z5)"
-                            : "15-char Enrolment ID / UIN"
-                        }
-                        value={gstOrEnrolmentId}
+                        placeholder="15-char Enrolment ID (e.g. 19E000123456789)"
+                        value={enrolmentId}
                         onChange={(e) => {
-                          setGstOrEnrolmentId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+                          setEnrolmentId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
                           setTaxVerifyState({ status: "idle", message: "" });
                         }}
-                        className="flex-1 min-w-0 rounded-xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-3 py-2 text-xs font-mono font-bold text-[#14120F] placeholder:text-[#9C8B6B] outline-none focus:border-[#F03A46] focus:bg-white transition-all"
+                        className="flex-1 min-w-0 rounded-2xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-3.5 py-3 text-xs font-mono font-bold text-[#14120F] placeholder:text-[#9C8B6B] outline-none focus:border-[#F03A46] focus:bg-white transition-all"
                       />
                       <button
                         type="button"
-                        onClick={handleVerifyTaxId}
-                        disabled={taxVerifying || gstOrEnrolmentId.trim().length !== 15}
-                        className="rounded-xl bg-[#14120F] hover:bg-[#2B251D] text-[#FCE08A] px-3 py-2 text-[11px] font-black uppercase tracking-wider disabled:opacity-40 cursor-pointer shrink-0 transition"
+                        onClick={handleVerifyEnrolmentId}
+                        disabled={taxVerifying || enrolmentId.trim().length !== 15}
+                        className="rounded-2xl bg-[#14120F] hover:bg-[#2B251D] text-[#FCE08A] px-3.5 py-2 text-[11px] font-black uppercase tracking-wider disabled:opacity-40 cursor-pointer shrink-0 transition"
                       >
                         {taxVerifying ? "..." : "Verify"}
                       </button>
@@ -587,21 +565,17 @@ function SellerRegisterContent() {
                   </div>
                 </div>
 
-                {/* Live GST / Enrolment Verification Status Feedback */}
+                {/* Live Enrolment ID Verification Status Feedback */}
                 {taxVerifyState.status !== "idle" && (
                   <div
                     className={`rounded-2xl p-3.5 border text-xs font-bold flex items-start gap-2 ${
                       taxVerifyState.status === "verified"
                         ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                        : taxVerifyState.status === "manual_review"
-                        ? "bg-amber-50 border-amber-200 text-amber-900"
                         : "bg-rose-50 border-rose-200 text-rose-700"
                     }`}
                   >
                     {taxVerifyState.status === "verified" ? (
                       <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-                    ) : taxVerifyState.status === "manual_review" ? (
-                      <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
                     ) : (
                       <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
                     )}
@@ -609,22 +583,20 @@ function SellerRegisterContent() {
                   </div>
                 )}
 
-                {taxMode === "enrolment" && (
-                  <div className="text-[11px] font-medium text-[#6E5C3D] bg-[#FFFBF0] border border-[#EAD296]/80 rounded-xl px-3.5 py-2.5 space-y-1.5">
-                    <p>
-                      <strong>No GSTIN?</strong> Enter your 15-character <strong>GST Enrolment ID</strong> directly (no PAN, Bank A/C, or Aadhaar needed).
-                    </p>
-                    <a
-                      href="https://reg.gst.gov.in/registration/generateuid"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-black text-[#F03A46] hover:text-[#C82333] underline underline-offset-2 transition-colors"
-                    >
-                      <span>Don&apos;t have an Enrolment ID? Generate Free on GST Portal</span>
-                      <ArrowRight size={12} />
-                    </a>
-                  </div>
-                )}
+                <div className="text-[11px] font-medium text-[#6E5C3D] bg-[#FFFBF0] border border-[#EAD296]/80 rounded-xl px-3.5 py-2.5 space-y-1.5">
+                  <p>
+                    Enter your 15-character <strong>Enrolment ID</strong> to create your seller account (no PAN, Bank A/C, or Aadhaar needed).
+                  </p>
+                  <a
+                    href="https://reg.gst.gov.in/registration/generateuid"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-black text-[#F03A46] hover:text-[#C82333] underline underline-offset-2 transition-colors"
+                  >
+                    <span>Don&apos;t have an Enrolment ID? Generate Free on Official Portal</span>
+                    <ArrowRight size={12} />
+                  </a>
+                </div>
 
                 {/* Phone & Email */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

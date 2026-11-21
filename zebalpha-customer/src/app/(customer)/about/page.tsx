@@ -192,9 +192,9 @@ export default function AboutPage() {
                   </p>
 
                   <div className="mt-6 rounded-2xl bg-neutral-950 border border-neutral-800 p-5">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">Transparent GST Guidelines</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">Simple Enrolment ID Onboarding</h3>
                     <p className="mt-2 text-xs leading-6 text-neutral-300">
-                      ZebAlpha aims to support eligible small sellers, including businesses that may be able to sell without GST registration where permitted by applicable Indian laws, tax rules, and marketplace requirements. Eligibility depends strictly on current government regulations, product category, seller annual turnover, and marketplace validation.
+                      ZebAlpha makes onboarding fast and accessible for small businesses and independent creators across India. Sellers can create their account using their 15-character Enrolment ID and UPI ID — with zero Bank Account, PAN, or Aadhaar uploads required.
                     </p>
                   </div>
 

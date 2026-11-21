@@ -146,7 +146,7 @@ const NAV_LINKS = [
   { label: "Pricing & Commission", href: "#pricing" },
   { label: "Shipping & Returns", href: "#shipping" },
   { label: "Grow Business", href: "#grow-business" },
-  { label: "Don't have GST?", href: "#no-gst" },
+  { label: "Enrolment ID", href: "#enrolment-id" },
 ];
 
 export function SellerLandingPage() {
@@ -360,9 +360,9 @@ export function SellerLandingPage() {
                   SAFE &amp; EASY
                 </span>
                 <span>
-                  No Bank Account, PAN, Aadhaar or GSTIN required! Take your earnings directly via UPI ID.{" "}
+                  Start with just your Enrolment ID &amp; UPI ID — No Bank Account, PAN, or Aadhaar required!{" "}
                   <a
-                    href="#no-gst"
+                    href="#enrolment-id"
                     className="font-extrabold text-[#F03A46] underline decoration-[#F03A46]/50 underline-offset-4 hover:text-[#C82333]"
                   >
                     Know more
@@ -578,7 +578,7 @@ export function SellerLandingPage() {
               <div>
                 <h3 className="text-lg font-black text-[#14120F]">Growth for Every Supplier</h3>
                 <p className="mt-1 text-sm text-[#5C4E35] leading-relaxed">
-                  From small local studios and unbranded manufacturers to branded streetwear labels — and open for eligible sellers without a Regular GSTIN too.
+                  From small local studios and unbranded manufacturers to growing streetwear labels — start selling easily with just your Enrolment ID.
                 </p>
               </div>
             </div>
@@ -748,7 +748,7 @@ export function SellerLandingPage() {
                 bullets: [
                   "Verified Email & Pickup Address",
                   "UPI ID / UPI Number (100% safe direct payouts)",
-                  "GSTIN or Enrolment ID (optional for eligible sellers)",
+                  "15-character Enrolment ID (free to generate online)",
                 ],
               },
               {
@@ -930,36 +930,46 @@ export function SellerLandingPage() {
       </section>
 
       {/* ===================================================================== */}
-      {/* 10. ZERO SENSITIVE DOCUMENTS + SAFE 5-DAY UPI PAYOUTS (#no-gst)       */}
+      {/* 10. ENROLMENT ID ONBOARDING + SAFE 5-DAY UPI PAYOUTS (#enrolment-id)  */}
       {/* ===================================================================== */}
-      <section id="no-gst" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
+      <section id="enrolment-id" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
         <div className="rounded-[2rem] bg-gradient-to-br from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE] border-[1.5px] border-[#DFBE6F] p-7 sm:p-10 shadow-[0_14px_36px_rgba(166,124,28,0.12)]">
           <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-[#F03A46] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
                 <FileCheck2 size={13} />
-                <span>100% Safe • Zero Sensitive Paperwork</span>
+                <span>100% Safe • Enrolment ID Onboarding</span>
               </div>
               <h2 className="mt-4 text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
-                No Bank Account No., No PAN, No Aadhaar Needed — Receive Payouts Directly via UPI!
+                Start with Just Your Enrolment ID — Receive Payouts Directly via UPI!
               </h2>
               <p className="mt-3 text-sm sm:text-base text-[#4A3F2B] leading-relaxed">
                 Your privacy and safety come first on <strong className="text-[#000000]">ZebAlpha</strong>. You do{" "}
-                <strong className="text-[#14120F]">not need to share your Bank Account Number, PAN Card, or Aadhaar Number</strong> to start selling. Simply connect your{" "}
-                <strong className="text-[#14120F]">UPI ID / UPI Number</strong> and receive your full earnings safely within a fast{" "}
-                <strong className="text-[#F03A46]">5-day payment cycle</strong>. Even without a Regular GSTIN, eligible small sellers can onboard effortlessly.
+                <strong className="text-[#14120F]">not need to share your Bank Account Number, PAN Card, or Aadhaar Number</strong> to start selling. Simply enter your{" "}
+                <strong className="text-[#14120F]">15-character Enrolment ID</strong>, connect your{" "}
+                <strong className="text-[#14120F]">UPI ID / UPI Number</strong>, and receive your full earnings safely within a fast{" "}
+                <strong className="text-[#F03A46]">5-day payment cycle</strong>.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
-                  href="/register?gst=none"
+                  href="/register"
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)] hover:brightness-105 transition"
                 >
-                  <span>Start Selling Safely with UPI</span>
+                  <span>Start Selling with Enrolment ID</span>
                   <ArrowRight size={16} />
                 </Link>
+                <a
+                  href="https://reg.gst.gov.in/registration/generateuid"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border-[1.5px] border-[#DFBE6F] bg-white px-5 py-3 text-sm font-extrabold text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46] transition"
+                >
+                  <span>Generate Free Enrolment ID</span>
+                  <ArrowRight size={15} />
+                </a>
               </div>
               <p className="mt-4 text-[11px] text-[#7A6847] leading-relaxed">
-                All seller contact &amp; UPI details are strictly protected and encrypted on ZebAlpha. Non-GST eligibility applies as per standard Indian e-commerce &amp; intra-state guidelines.
+                All seller contact, Enrolment ID &amp; UPI details are strictly protected and encrypted on ZebAlpha.
               </p>
             </div>
 
@@ -977,8 +987,8 @@ export function SellerLandingPage() {
                 },
                 {
                   step: "3",
-                  title: "Sell With or Without Regular GSTIN",
-                  desc: "Eligible small boutiques & creators can onboard seamlessly with optional Enrolment ID / UIN at 0% commission.",
+                  title: "Simple Enrolment ID Onboarding",
+                  desc: "Create your seller account using your free 15-character Enrolment ID at 0% marketplace commission.",
                 },
               ].map((row) => (
                 <div

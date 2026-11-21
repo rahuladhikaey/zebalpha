@@ -155,7 +155,7 @@ export default function SellerPage() {
               </div>
             </section>
 
-            {/* GST POLICY NOTICE */}
+            {/* ENROLMENT ID ONBOARDING NOTICE */}
             <section className="rounded-[2rem] bg-neutral-900 border border-neutral-800 p-6 sm:p-8">
               <div className="flex items-start gap-4">
                 <div className="rounded-xl bg-neutral-800 p-3 text-amber-400 shrink-0">
@@ -163,13 +163,13 @@ export default function SellerPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">
-                    GST Registration & Seller Eligibility Policy
+                    Simple Enrolment ID Onboarding &amp; Direct 5-Day UPI Payouts
                   </h3>
                   <p className="mt-2 text-sm leading-7 text-neutral-300">
-                    <strong>ZebAlpha aims to support eligible small sellers, including businesses that may be able to sell without GST registration where permitted by applicable Indian laws, tax rules, and marketplace requirements.</strong>
+                    <strong>Start selling on ZebAlpha easily with your 15-character Enrolment ID, verified email, pickup address, and UPI ID — no Bank Account Number, PAN, or Aadhaar required.</strong>
                   </p>
                   <p className="mt-2 text-xs leading-6 text-neutral-400">
-                    Tax compliance and exemption qualifications depend strictly on Indian tax legislation, seller business turnover, and product classification. ZebAlpha complies fully with Indian e-commerce laws and does not offer tax or legal advice. Always verify your specific tax status before onboarding.
+                    Don&apos;t have an Enrolment ID yet? You can generate one free online in minutes and start listing your products at 0% marketplace commission with safe 5-day direct UPI settlements.
                   </p>
                 </div>
               </div>
@@ -216,7 +216,7 @@ export default function SellerPage() {
                   <TrendingUp className="h-6 w-6 text-white mb-3" />
                   <h3 className="text-base font-bold text-white">Sales & Revenue Tracking</h3>
                   <p className="mt-2 text-xs leading-6 text-neutral-400">
-                    Clear visibility into gross sales, units shipped, return rates, and scheduled bank transfers with complete transparency.
+                    Clear visibility into gross sales, units shipped, return rates, and fast 5-day direct UPI payouts with complete transparency.
                   </p>
                 </div>
 
