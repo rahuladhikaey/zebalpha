@@ -16,6 +16,7 @@ back.env
 !*.env.example
 env
 client_secret*.json
+*firebase-adminsdk*.json
 *.pem
 *.key
 *rzp*
