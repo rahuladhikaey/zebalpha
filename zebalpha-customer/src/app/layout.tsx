@@ -92,7 +92,7 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* Universal Brand Launch Splash + Android Zero-Flash Guard: Runs synchronously before first paint */}
+        {/* Android Native Theme & Onboarding Zero-Flash Guard (Website shows zero splash) */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -108,33 +108,13 @@ export default function RootLayout({
                     root.style.backgroundColor = "#FCF9F2";
                     setTimeout(function() {
                       root.classList.remove("zebalpha-app-hydrating");
-                    }, 2500);
+                    }, 2000);
                     var langDone = localStorage.getItem("zebalpha_onboarding_language_completed") === "true";
                     var guest = localStorage.getItem("zebalpha_onboarding_guest_mode") === "true";
                     var fullDone = localStorage.getItem("zebalpha_onboarding_completed") === "true";
                     if (!langDone || (!fullDone && !guest)) {
                       root.classList.add("zebalpha-onboarding-pending");
                     }
-                  }
-
-                  // Show official ZebAlpha logo launch splash once per app/browser session for all real users (Flipkart/Meesho style)
-                  var isBot = /bot|crawl|spider|slurp|googlebot|bingbot|lighthouse|pagespeed|headlesschrome/i.test(ua) || !!navigator.webdriver;
-                  var alreadyShown = false;
-                  try {
-                    alreadyShown = sessionStorage.getItem("zebalpha_launch_splash_shown") === "1";
-                  } catch (storageErr) {}
-
-                  if (!isBot && !alreadyShown) {
-                    window.__zebalphaSplashStart = Date.now();
-                    root.classList.add("zebalpha-splash-active");
-                    // Hard failsafe so splash can never stall even on slow/offline JS hydration
-                    window.__zebalphaSplashFallbackTimer = setTimeout(function() {
-                      try { sessionStorage.setItem("zebalpha_launch_splash_shown", "1"); } catch (e) {}
-                      root.classList.add("zebalpha-splash-exiting");
-                      setTimeout(function() {
-                        root.classList.remove("zebalpha-splash-active", "zebalpha-splash-exiting");
-                      }, 560);
-                    }, 3200);
                   }
                 } catch(e) {}
               })();
@@ -143,59 +123,6 @@ export default function RootLayout({
         />
       </head>
       <body suppressHydrationWarning className="min-h-full font-sans bg-black text-white overflow-x-hidden">
-        {/* Universal Flipkart/Meesho-style Official Logo Launch Splash (60fps GPU-composited) */}
-        <div
-          id="zebalpha-instant-splash"
-          role="presentation"
-          aria-hidden="true"
-          className="za-launch-splash"
-        >
-          <div className="za-splash-ambient" />
-          <div className="za-splash-aura" />
-
-          <div className="za-splash-center">
-            <div className="za-splash-logo-stage">
-              <span className="za-splash-ripple za-splash-ripple-1" />
-              <span className="za-splash-ripple za-splash-ripple-2" />
-              <div className="za-splash-ring">
-                <div className="za-splash-disc">
-                  <img
-                    src="/official-logo.png"
-                    alt="ZebAlpha Official Logo"
-                    width={112}
-                    height={112}
-                    decoding="sync"
-                    fetchPriority="high"
-                    className="za-splash-logo-img"
-                  />
-                  <span className="za-splash-sheen" />
-                </div>
-              </div>
-            </div>
-
-            <div className="za-splash-brand">
-              <div className="za-splash-wordmark-mask">
-                <span className="za-splash-wordmark">ZEBALPHA</span>
-              </div>
-              <span className="za-splash-tagline-row">
-                <span className="za-splash-rule za-splash-rule-left" />
-                <span className="za-splash-tagline">CLOTHING FOR THE CULTURE</span>
-                <span className="za-splash-rule za-splash-rule-right" />
-              </span>
-            </div>
-
-            <div className="za-splash-progress-track">
-              <div className="za-splash-progress-fill" />
-            </div>
-          </div>
-
-          <div className="za-splash-footer">
-            <span className="za-splash-footer-dot" />
-            <span className="za-splash-footer-text">INDIA&apos;S CULTURE MARKETPLACE</span>
-            <span className="za-splash-footer-dot" />
-          </div>
-        </div>
-
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe
