@@ -210,8 +210,8 @@ export function CuratedCollectionsSection({
         ))}
       </div>
 
-      {/* Android Secondary Promo Banner ("NEW SEASON DROP") below Curated Collections */}
-      {isNativeApp && <AndroidNewSeasonDropBanner />}
+      {/* Auto-Scrolling Promo Carousel (Slide 1: 1st Order ₹100 OFF -> Slide 2: New Season Drop) */}
+      <AndroidNewSeasonDropBanner />
     </section>
   );
 }

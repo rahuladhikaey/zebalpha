@@ -238,7 +238,7 @@ function CheckoutContent() {
                 if (parsed.pincode) setPincode(parsed.pincode);
                 if (parsed.addressDetail || parsed.address_detail) setAddressDetail(parsed.addressDetail || parsed.address_detail);
                 setUseSavedAddress(true);
-              } catch (e) {}
+              } catch (e) { }
             } else if (user) {
               const defaultName = user?.user_metadata?.full_name || user?.user_metadata?.name || "";
               const defaultPhone = user?.user_metadata?.phone || "";
@@ -258,7 +258,7 @@ function CheckoutContent() {
     loadRazorpay();
     try {
       router.prefetch('/order-success');
-    } catch (e) {}
+    } catch (e) { }
   }, [user, authLoading, router]);
 
   // 3. Auto-check for VIP / Alpha Membership card
@@ -528,7 +528,7 @@ function CheckoutContent() {
         const stored = localStorage.getItem("zebalpha-card-applications") || localStorage.getItem("asali-swad-card-applications");
         if (stored) {
           const list = JSON.parse(stored);
-          const found = list.find((a: any) => 
+          const found = list.find((a: any) =>
             (a.cardNumber || a.card_number || "").toUpperCase() === searchCard ||
             (a.email || a.user_email || "").toUpperCase() === searchCard
           );
@@ -538,7 +538,7 @@ function CheckoutContent() {
             return;
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     setCardError("Invalid or unverified Alpha Card number. Please check your card number.");
@@ -1265,13 +1265,12 @@ function CheckoutContent() {
               <button
                 type="submit"
                 disabled={saving || orderPlacedRef.current || inStockBaseCart.length === 0}
-                className={`flex h-16 w-full items-center justify-center rounded-2xl px-6 text-xs sm:text-sm font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 cursor-pointer ${
-                  saving || inStockBaseCart.length > 0
-                    ? isNativeApp
-                      ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
-                      : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
-                    : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                }`}
+                className={`flex h-16 w-full items-center justify-center rounded-2xl px-6 text-xs sm:text-sm font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 cursor-pointer ${saving || inStockBaseCart.length > 0
+                  ? isNativeApp
+                    ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
+                    : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
+                  : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                  }`}
               >
                 {saving
                   ? "Processing..."
@@ -1324,18 +1323,16 @@ function CheckoutContent() {
                 <div className="mt-5">
                   {discountResolution.firstOrderApplied ? (
                     <div
-                      className={`flex items-center justify-between gap-2.5 rounded-2xl border p-3 ${
-                        isNativeApp
-                          ? "border-[#D4A017]/65 bg-gradient-to-r from-[#FFF9E3] via-[#FFF3C4] to-[#FCE89C]/75"
-                          : "border-emerald-500/40 bg-emerald-950/40"
-                      }`}
+                      className={`flex items-center justify-between gap-2.5 rounded-2xl border p-3 ${isNativeApp
+                        ? "border-[#D4A017]/65 bg-gradient-to-r from-[#FFF9E3] via-[#FFF3C4] to-[#FCE89C]/75"
+                        : "border-emerald-500/40 bg-emerald-950/40"
+                        }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <span
                           data-photo-overlay="true"
-                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white ${
-                            isNativeApp ? "bg-gradient-to-br from-[#EAB308] to-[#B45309]" : "bg-emerald-600"
-                          }`}
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white ${isNativeApp ? "bg-gradient-to-br from-[#EAB308] to-[#B45309]" : "bg-emerald-600"
+                            }`}
                         >
                           <Gift size={14} />
                         </span>
@@ -1350,22 +1347,20 @@ function CheckoutContent() {
                         </div>
                       </div>
                       <span
-                        className={`shrink-0 rounded-lg border px-2 py-0.5 font-mono text-[10px] font-black ${
-                          isNativeApp
-                            ? "border-[#C68A12]/60 bg-[#FFFDF7] text-[#8A5A00]"
-                            : "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
-                        }`}
+                        className={`shrink-0 rounded-lg border px-2 py-0.5 font-mono text-[10px] font-black ${isNativeApp
+                          ? "border-[#C68A12]/60 bg-[#FFFDF7] text-[#8A5A00]"
+                          : "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                          }`}
                       >
                         -₹{discountResolution.firstOrderDiscount}
                       </span>
                     </div>
                   ) : isFirstOrderEligible && discountResolution.amountNeededForFirstOrder > 0 ? (
                     <div
-                      className={`rounded-2xl border p-3 text-[11px] font-bold flex items-center gap-2 ${
-                        isNativeApp
-                          ? "border-[#D4A017]/55 bg-[#FFF9E3] text-[#14120F]"
-                          : "border-amber-400/30 bg-amber-500/10 text-amber-300"
-                      }`}
+                      className={`rounded-2xl border p-3 text-[11px] font-bold flex items-center gap-2 ${isNativeApp
+                        ? "border-[#D4A017]/55 bg-[#FFF9E3] text-[#14120F]"
+                        : "border-amber-400/30 bg-amber-500/10 text-amber-300"
+                        }`}
                     >
                       <Gift size={14} className="shrink-0" />
                       <span>
@@ -1440,11 +1435,10 @@ function CheckoutContent() {
                         type="button"
                         disabled={!couponInput.trim() || isValidatingCoupon}
                         onClick={() => applyCouponCode(couponInput)}
-                        className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider disabled:opacity-40 transition-all cursor-pointer shadow-md ${
-                          isNativeApp
-                            ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
-                            : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
-                        }`}
+                        className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider disabled:opacity-40 transition-all cursor-pointer shadow-md ${isNativeApp
+                          ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/30"
+                          : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
+                          }`}
                       >
                         {isValidatingCoupon ? "..." : "Apply"}
                       </button>
