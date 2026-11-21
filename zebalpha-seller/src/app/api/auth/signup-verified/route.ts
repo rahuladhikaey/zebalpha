@@ -5,6 +5,11 @@ import {
   consumeSignupProofToken,
   checkRateLimit,
 } from "@/shared/services/securityTokenService";
+import {
+  DUPLICATE_IDENTITY_SUPPORT_MESSAGE,
+  validateEnrolmentIdFormat,
+  validateGstinFormat,
+} from "@/shared/utils/indianGstCompliance";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +26,9 @@ export async function POST(request: NextRequest) {
       state,
       pincode,
       category,
+      gstCategory,
+      gstin,
+      enrolmentId,
       signupToken,
     } = body;
 
@@ -109,6 +117,30 @@ export async function POST(request: NextRequest) {
     const sellerShopName = (shopName || "").trim() || `${sellerName}'s Store`;
     const finalUpi = (upiId || "").trim();
 
+    // Optional GSTIN / Enrolment ID validation + duplicate check (NO PAN required!)
+    const rawTaxId = String(gstin || enrolmentId || "").trim().toUpperCase();
+    let validatedTaxId: string | null = null;
+    if (rawTaxId) {
+      const isGstin = String(gstCategory || "").toUpperCase() === "GSTIN" || Boolean(gstin);
+      const fmt = isGstin ? validateGstinFormat(rawTaxId) : validateEnrolmentIdFormat(rawTaxId);
+      if (!fmt.valid) {
+        return NextResponse.json({ success: false, error: fmt.error }, { status: 400 });
+      }
+      const { data: dupTaxSeller } = await supabaseServer
+        .from("sellers")
+        .select("id")
+        .ilike("gstin", fmt.normalized)
+        .limit(1)
+        .maybeSingle();
+      if (dupTaxSeller) {
+        return NextResponse.json(
+          { success: false, error: DUPLICATE_IDENTITY_SUPPORT_MESSAGE },
+          { status: 409 }
+        );
+      }
+      validatedTaxId = fmt.normalized;
+    }
+
     // 2. Create user in Supabase Auth via Admin API
     const { data: authData, error: createError } = await supabaseServer.auth.admin.createUser({
       email: normalizedEmail,
@@ -177,6 +209,7 @@ export async function POST(request: NextRequest) {
           pincode: pincode || "",
           category: category || "Clothing & Apparel",
           business_category: category || "Clothing & Apparel",
+          ...(validatedTaxId ? { gstin: validatedTaxId } : {}),
           status: "pending", // New sellers start in pending approval status
           account_status: "Active",
           email_verified: true,

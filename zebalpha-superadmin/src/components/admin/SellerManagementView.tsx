@@ -63,6 +63,13 @@ export const cleanCategory = (cat?: string | null) => {
   return cat;
 };
 
+export const getSellerTaxIdBadge = (rawGstin?: string | null): { type: "GSTIN" | "Enrolment ID"; value: string } | null => {
+  const clean = String(rawGstin || "").trim().toUpperCase();
+  if (!clean) return null;
+  const isGstin = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(clean);
+  return { type: isGstin ? "GSTIN" : "Enrolment ID", value: clean };
+};
+
 export const getMerchantId = (seller: any) => {
   if (seller?.seller_id && String(seller.seller_id).trim()) return String(seller.seller_id).trim();
   if (seller?.seller_code && String(seller.seller_code).trim()) return String(seller.seller_code).trim();
@@ -671,6 +678,7 @@ export default function SellerManagementView({
       "Merchant Type": s.is_primary_brand ? "1st-Party Direct Brand" : "3rd-Party Marketplace Merchant",
       "Phone Number": s.phone_number || s.mobile_number || "N/A",
       "Email": s.email || "N/A",
+      "GSTIN / Enrolment ID": s.gstin || "Not Provided",
       "Payout UPI / PhonePe": s.upi_id || s.phonepay_no || "N/A",
       "Fulfillment Hub / City": s.pickup_location || s.city || "Kolkata, WB",
       "Gross Revenue (₹)": s.grossRevenue,
@@ -966,6 +974,15 @@ export default function SellerManagementView({
                             </div>
                             <div className="text-[10px] font-bold text-zinc-400 block mt-1 max-w-xs space-y-0.5">
                               <div>{sCategory} • 📍 {seller.primaryLoc?.city || seller.city || "—"} ({seller.primaryLoc?.pincode || seller.pincode || "—"})</div>
+                              {(() => {
+                                const taxInfo = getSellerTaxIdBadge(seller.gstin);
+                                return taxInfo ? (
+                                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-mono text-[9px] font-black">
+                                    <span>{taxInfo.type}:</span>
+                                    <span>{taxInfo.value}</span>
+                                  </div>
+                                ) : null;
+                              })()}
                               <div className="text-zinc-500 font-mono text-[9px] truncate">
                                 Hub: {seller.primaryLoc?.location_name || seller.primaryLoc?.name || seller.pickup_location || "Main Warehouse"}
                               </div>
@@ -1333,8 +1350,12 @@ export default function SellerManagementView({
                       <span className="text-white">{cleanCategory(selectedSeller.category || selectedSeller.business_category)}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">GSTIN / Registration</span>
-                      <span className="text-zinc-300 font-mono text-[11px]">{selectedSeller.gstin || "Unregistered / Composition"}</span>
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">
+                        {getSellerTaxIdBadge(selectedSeller.gstin)?.type || "GSTIN / Enrolment ID"}
+                      </span>
+                      <span className="text-emerald-300 font-mono text-[11px] font-bold">
+                        {selectedSeller.gstin || "Not Provided"}
+                      </span>
                     </div>
                     <div className="col-span-2 pt-1 border-t border-zinc-800/60">
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">Verified Payout UPI / PhonePe</span>

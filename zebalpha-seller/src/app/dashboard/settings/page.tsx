@@ -48,6 +48,8 @@ export default function SellerSettings() {
   const [statusMsg, setStatusMsg] = useState("");
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [copiedUpi, setCopiedUpi] = useState(false);
+  const [taxVerifying, setTaxVerifying] = useState(false);
+  const [taxVerifyMsg, setTaxVerifyMsg] = useState<{ type: "success" | "warning" | "error"; text: string } | null>(null);
 
   // OTP state for email verification if needed
   const [sendingOtp, setSendingOtp] = useState(false);
@@ -66,6 +68,7 @@ export default function SellerSettings() {
     business_category: "Clothing & Apparel",
     upi_id: "",
     phonepay_number: "",
+    gstin: "",
     pickup_address: "",
     warehouse_address: "",
     city: "",
@@ -105,6 +108,7 @@ export default function SellerSettings() {
           business_category: resolvedCategory,
           upi_id: resolvedUpi,
           phonepay_number: resolvedUpi,
+          gstin: seller.gstin || "",
           pickup_address: seller.pickup_address || seller.warehouse_address || "",
           warehouse_address: seller.warehouse_address || seller.pickup_address || "",
           city: seller.city || seller.pickup_location || "",
@@ -152,7 +156,8 @@ export default function SellerSettings() {
                 ...prev,
                 account_status: payload.new.account_status || payload.new.status || prev.account_status,
                 business_name: payload.new.business_name || prev.business_name,
-                upi_id: payload.new.upi_id || payload.new.phonepay_number || prev.upi_id
+                upi_id: payload.new.upi_id || payload.new.phonepay_number || prev.upi_id,
+                gstin: payload.new.gstin !== undefined ? (payload.new.gstin || "") : prev.gstin
               }));
             }
           }
@@ -172,6 +177,42 @@ export default function SellerSettings() {
     navigator.clipboard.writeText(form.upi_id);
     setCopiedUpi(true);
     setTimeout(() => setCopiedUpi(false), 2500);
+  };
+
+  const detectTaxMode = (val: string): "GSTIN" | "ENROLMENT_ID" => {
+    const clean = val.trim().toUpperCase();
+    return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(clean) ? "GSTIN" : "ENROLMENT_ID";
+  };
+
+  const handleVerifyTaxId = async () => {
+    const cleanId = form.gstin.trim().toUpperCase();
+    if (cleanId.length !== 15) return;
+    setTaxVerifying(true);
+    setTaxVerifyMsg(null);
+    try {
+      const res = await fetch("/api/seller/verify-tax-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: detectTaxMode(cleanId),
+          taxId: cleanId,
+          mobile: form.mobile_number.trim(),
+          email: form.email.trim().toLowerCase(),
+          businessName: form.business_name.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (json.verified) {
+        setTaxVerifyMsg({ type: "success", text: json.message });
+      } else if (json.manualReviewRequired) {
+        setTaxVerifyMsg({ type: "warning", text: json.message });
+      } else {
+        setTaxVerifyMsg({ type: "error", text: json.error || json.message || "Could not verify ID." });
+      }
+    } catch {
+      setTaxVerifyMsg({ type: "error", text: "Verification service unreachable right now." });
+    }
+    setTaxVerifying(false);
   };
 
   const handleSendOtp = async () => {
@@ -252,6 +293,7 @@ export default function SellerSettings() {
         upi_id: finalUpi,
         phonepay_no: finalUpi,
         phonepay_number: finalUpi,
+        gstin: form.gstin.trim().toUpperCase() || null,
         pickup_address: form.pickup_address.trim(),
         warehouse_address: form.pickup_address.trim(),
         pickup_location: form.city.trim() || form.pickup_address.trim(),
@@ -559,6 +601,54 @@ export default function SellerSettings() {
               onChange={(e) => setForm({ ...form, business_logo_url: e.target.value })}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-white transition-all"
             />
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="text-xs font-bold text-zinc-300 flex items-center justify-between gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-emerald-400" />
+                <span>GSTIN / Enrolment ID (Optional • No PAN Needed)</span>
+              </span>
+              {form.gstin.trim().length === 15 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  {detectTaxMode(form.gstin) === "GSTIN" ? "Regular GSTIN" : "GST Enrolment ID"}
+                </span>
+              )}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                maxLength={15}
+                placeholder="15-character GSTIN or GST Enrolment ID"
+                value={form.gstin}
+                onChange={(e) => {
+                  setForm({ ...form, gstin: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") });
+                  setTaxVerifyMsg(null);
+                }}
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-mono font-bold text-white outline-none focus:border-emerald-400 transition-all"
+              />
+              <button
+                type="button"
+                onClick={handleVerifyTaxId}
+                disabled={taxVerifying || form.gstin.trim().length !== 15}
+                className="px-4 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider disabled:opacity-40 cursor-pointer shrink-0 transition"
+              >
+                {taxVerifying ? "Checking..." : "Verify ID"}
+              </button>
+            </div>
+            {taxVerifyMsg && (
+              <p
+                className={`text-[11px] font-bold mt-1 ${
+                  taxVerifyMsg.type === "success"
+                    ? "text-emerald-400"
+                    : taxVerifyMsg.type === "warning"
+                    ? "text-amber-300"
+                    : "text-rose-400"
+                }`}
+              >
+                {taxVerifyMsg.text}
+              </p>
+            )}
           </div>
         </div>
 

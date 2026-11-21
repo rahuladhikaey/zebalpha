@@ -19,6 +19,8 @@ import {
   CreditCard,
   MapPin,
   FileBadge2,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
 
 const BUSINESS_CATEGORIES = [
@@ -34,15 +36,54 @@ const BUSINESS_CATEGORIES = [
   "Home & Kitchen",
 ];
 
+const INDIAN_STATE_NAMES = [
+  "Andaman and Nicobar Islands",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chandigarh",
+  "Chhattisgarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jammu and Kashmir",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Ladakh",
+  "Lakshadweep",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Puducherry",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+];
+
 function SellerRegisterContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState<"info" | "otp" | "submitted">("info");
 
-  // Required Fields
+  // Clean Seller Fields (NO Bank Account No., NO PAN, NO Aadhaar!)
   const [sellerName, setSellerName] = useState("");
   const [shopName, setShopName] = useState("");
   const [businessCategory, setBusinessCategory] = useState("Clothing & Apparel");
-  const [taxMode, setTaxMode] = useState<"gst" | "enrolment">("enrolment");
+  const [taxMode, setTaxMode] = useState<"enrolment" | "gst">("enrolment");
   const [gstOrEnrolmentId, setGstOrEnrolmentId] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [upiId, setUpiId] = useState("");
@@ -54,17 +95,24 @@ function SellerRegisterContent() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // OTP Verification
+  // Instant Meesho-style Tax ID Check (Without PAN!)
+  const [taxVerifying, setTaxVerifying] = useState(false);
+  const [taxVerifyState, setTaxVerifyState] = useState<{
+    status: "idle" | "verified" | "manual_review" | "error";
+    message: string;
+    legalName?: string | null;
+    stateName?: string | null;
+  }>({ status: "idle", message: "" });
+
+  // Email OTP Verification
   const [otpInput, setOtpInput] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpInputRef = useRef<HTMLInputElement>(null);
 
-  // Form State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
 
-  // Pre-fill category or non-GST mode from landing page links
   useEffect(() => {
     const catParam = searchParams.get("category");
     const gstParam = searchParams.get("gst");
@@ -74,30 +122,22 @@ function SellerRegisterContent() {
       );
       setBusinessCategory(matched || catParam);
     }
-    if (gstParam === "none") {
-      setTaxMode("enrolment");
-    }
+    if (gstParam === "none") setTaxMode("enrolment");
+    if (gstParam === "gstin") setTaxMode("gst");
   }, [searchParams]);
 
-  // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => prev - 1);
-    }, 1000);
+    const timer = setInterval(() => setResendCooldown((prev) => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Autofocus OTP input when switching to OTP step
   useEffect(() => {
     if (step === "otp" && otpInputRef.current) {
-      setTimeout(() => {
-        otpInputRef.current?.focus();
-      }, 150);
+      setTimeout(() => otpInputRef.current?.focus(), 150);
     }
   }, [step]);
 
-  // Password Strength Calculation
   const passwordStrength = useMemo(() => {
     if (!password) return { score: 0, label: "Empty", color: "bg-[#EAD296]" };
     let score = 0;
@@ -106,17 +146,62 @@ function SellerRegisterContent() {
     if (/[A-Z]/.test(password)) score++;
     if (/[0-9]/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
-
     if (score <= 2) return { score: 33, label: "Weak", color: "bg-[#F03A46]" };
     if (score <= 4) return { score: 66, label: "Medium", color: "bg-[#F5B922]" };
     return { score: 100, label: "Strong", color: "bg-emerald-500" };
   }, [password]);
 
-  const parseErrorMsg = (err: any): string => {
-    if (!err) return "";
-    if (typeof err === "string") return err;
-    if (err.message && typeof err.message === "string") return err.message;
-    return "Registration encountered an issue. Please verify your details.";
+  // Meesho-style instant GSTIN / Enrolment ID check WITHOUT PAN!
+  const handleVerifyTaxId = async () => {
+    const cleanId = gstOrEnrolmentId.trim().toUpperCase();
+    if (!cleanId) return;
+    setTaxVerifying(true);
+    setTaxVerifyState({ status: "idle", message: "" });
+    try {
+      const res = await fetch("/api/seller/verify-tax-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: taxMode === "gst" ? "GSTIN" : "ENROLMENT_ID",
+          taxId: cleanId,
+          mobile: mobileNumber.trim(),
+          email: email.trim().toLowerCase(),
+          businessName: shopName.trim() || sellerName.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.verified) {
+        setTaxVerifyState({
+          status: "verified",
+          message: data.message,
+          legalName: data.legalName,
+          stateName: data.stateName,
+        });
+        if (data.stateName && INDIAN_STATE_NAMES.includes(data.stateName)) {
+          setState(data.stateName);
+        }
+      } else if (data.manualReviewRequired) {
+        setTaxVerifyState({
+          status: "manual_review",
+          message: data.message,
+          stateName: data.stateName,
+        });
+        if (data.stateName && INDIAN_STATE_NAMES.includes(data.stateName)) {
+          setState(data.stateName);
+        }
+      } else {
+        setTaxVerifyState({
+          status: "error",
+          message: data.error || data.message || "Could not verify ID. Please check and try again.",
+        });
+      }
+    } catch {
+      setTaxVerifyState({
+        status: "error",
+        message: "Verification service unreachable right now. Please try again.",
+      });
+    }
+    setTaxVerifying(false);
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -137,7 +222,7 @@ function SellerRegisterContent() {
       return;
     }
 
-    if (mobileNumber.trim().length !== 10) {
+    if (!/^[6-9]\d{9}$/.test(mobileNumber.trim())) {
       setError("Please enter a valid 10-digit Indian mobile number.");
       return;
     }
@@ -169,11 +254,9 @@ function SellerRegisterContent() {
 
       setStep("otp");
       setResendCooldown(60);
-      setInfoMessage(
-        `Verification OTP sent to ${normalizedEmail}! Please check your email inbox (and spam folder).`
-      );
+      setInfoMessage(`Verification OTP sent to ${normalizedEmail}! Valid for 10 minutes.`);
     } catch {
-      setError("Network error: Failed to connect to verification service. Please try again.");
+      setError("Network error: Failed to connect to verification service.");
     }
     setLoading(false);
   };
@@ -182,7 +265,6 @@ function SellerRegisterContent() {
     if (resendCooldown > 0 || loading) return;
     setError("");
     setLoading(true);
-
     try {
       const normalizedEmail = email.trim().toLowerCase();
       const res = await fetch("/api/otp", {
@@ -196,10 +278,10 @@ function SellerRegisterContent() {
         setOtpInput("");
         setInfoMessage(`New verification OTP sent to ${normalizedEmail}!`);
       } else {
-        setError(data.error || "Failed to resend OTP. Please try again.");
+        setError(data.error || "Failed to resend OTP.");
       }
     } catch {
-      setError("Failed to resend verification code. Please try again.");
+      setError("Failed to resend verification code.");
     } finally {
       setLoading(false);
     }
@@ -210,7 +292,6 @@ function SellerRegisterContent() {
     setError("");
 
     const cleanOtp = (overrideOtp !== undefined ? overrideOtp : otpInput).trim();
-
     if (cleanOtp.length !== 6) {
       setError("Please enter the 6-digit OTP code sent to your email.");
       return;
@@ -219,7 +300,7 @@ function SellerRegisterContent() {
     setLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 1. Verify OTP Code & Obtain Cryptographically Signed Proof Token
+    // 1. Server-side OTP Verification -> signed proof token
     let verifiedSignupToken = "";
     try {
       const verifyRes = await fetch("/api/otp", {
@@ -229,7 +310,7 @@ function SellerRegisterContent() {
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok || !verifyData.success || !verifyData.signupToken) {
-        setError(verifyData.error || "Invalid or expired OTP code. Please check your email and try again.");
+        setError(verifyData.error || "Invalid or expired OTP code.");
         setLoading(false);
         return;
       }
@@ -240,13 +321,10 @@ function SellerRegisterContent() {
       return;
     }
 
-    // 2. Register Merchant Credentials via Server-Verified Endpoint (with cryptographic signupToken)
+    // 2. Register via Verified Backend Endpoint (NO PAN / NO Bank Account / NO Aadhaar needed!)
     try {
       const finalUpi = upiId.trim() || `${mobileNumber.trim()}@upi`;
-      const finalPickupAddress = pickupAddress.trim();
-      const finalCity = city.trim();
-      const finalState = state.trim();
-      const finalPincode = pincode.trim();
+      const cleanTaxId = gstOrEnrolmentId.trim().toUpperCase();
 
       const signupRes = await fetch("/api/auth/signup-verified", {
         method: "POST",
@@ -258,99 +336,70 @@ function SellerRegisterContent() {
           phone: mobileNumber.trim(),
           shopName: shopName.trim(),
           upiId: finalUpi,
-          pickupAddress: finalPickupAddress,
-          city: finalCity,
-          state: finalState,
-          pincode: finalPincode,
+          pickupAddress: pickupAddress.trim(),
+          city: city.trim(),
+          state: state.trim(),
+          pincode: pincode.trim(),
           category: businessCategory,
+          gstCategory: taxMode === "gst" ? "GSTIN" : "ENROLMENT_ID",
+          gstin: taxMode === "gst" && cleanTaxId ? cleanTaxId : undefined,
+          enrolmentId: taxMode === "enrolment" && cleanTaxId ? cleanTaxId : undefined,
+          supplyType: "goods",
+          dpdpaConsentAccepted: true,
           signupToken: verifiedSignupToken,
         }),
       });
 
       const signupData = await signupRes.json();
 
-      // Strictly respect 409 duplicate-account security protection
-      if (signupRes.status === 409) {
-        setError(
-          signupData.error ||
-            "An account with this email already exists. Please log in instead."
-        );
-        setLoading(false);
-        return;
-      }
-
-      let userId: string | undefined = signupData?.user?.id;
-
-      if (!signupRes.ok || !signupData.success || !userId) {
+      if (!signupRes.ok || !signupData.success) {
         setError(signupData.error || "Could not complete verified registration. Please try again.");
         setLoading(false);
         return;
       }
 
-      // 3. Establish authenticated session cookies cleanly so seller can enter dashboard & sync pickup location
       try {
-        await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
-      } catch (loginErr) {
-        console.warn("Auto sign-in after registration notice:", loginErr);
-      }
+        await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+      } catch {}
 
-      // 4. Create dedicated default pickup hub row (RLS-authorized with active session)
-      try {
-        await supabase.from("seller_pickup_locations").insert([
-          {
-            seller_id: userId,
-            name: `${shopName.trim()} Warehouse`,
-            location_name: `${shopName.trim()} Warehouse`,
-            address: finalPickupAddress,
-            address_line1: finalPickupAddress,
-            city: finalCity,
-            state: finalState,
-            pincode: finalPincode,
-            phone: mobileNumber.trim(),
-            contact_phone: mobileNumber.trim(),
-            contact_name: sellerName.trim(),
-            contact_email: normalizedEmail,
-            is_default: true,
-            is_active: true,
-            approval_status: "approved",
-            shiprocket_sync_status: "synced",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ]);
-      } catch (locErr) {
-        console.warn("seller_pickup_locations insert notice:", locErr);
-      }
-
-      // Optionally store GSTIN / Enrolment ID on seller profile if provided
-      if (gstOrEnrolmentId.trim()) {
+      // Save default pickup warehouse cleanly as before
+      if (signupData?.user?.id) {
         try {
-          await supabase
-            .from("sellers")
-            .update({
-              gst_number: gstOrEnrolmentId.trim().toUpperCase(),
+          await supabase.from("seller_pickup_locations").insert([
+            {
+              seller_id: signupData.user.id,
+              name: `${shopName.trim()} Warehouse`,
+              location_name: `${shopName.trim()} Warehouse`,
+              address: pickupAddress.trim(),
+              address_line1: pickupAddress.trim(),
+              city: city.trim(),
+              state: state.trim(),
+              pincode: pincode.trim(),
+              phone: mobileNumber.trim(),
+              contact_phone: mobileNumber.trim(),
+              contact_name: sellerName.trim(),
+              contact_email: normalizedEmail,
+              is_default: true,
+              is_active: true,
+              approval_status: "approved",
+              shiprocket_sync_status: "synced",
+              created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-            })
-            .eq("user_id", userId);
-        } catch {
-          // ignore if column differs
-        }
+            },
+          ]);
+        } catch {}
       }
 
       setStep("submitted");
-    } catch (err: any) {
-      console.error("Registration error:", err);
-      setError(parseErrorMsg(err));
+    } catch {
+      setError("Registration encountered an unexpected network error.");
     }
     setLoading(false);
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#FFF7F5] via-[#FFFDF8] to-[#FFF8E6] text-[#14120F]">
-      {/* Official Top Header */}
+      {/* Official Top Header (Yellow + Gold + White + Bright Coral) */}
       <header className="sticky top-0 z-40 border-b border-[#EAD296]/70 bg-white/95 backdrop-blur-md">
         <div className="h-1 w-full bg-gradient-to-r from-[#F03A46] via-[#F5B922] to-[#F03A46]" />
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-3.5">
@@ -398,39 +447,27 @@ function SellerRegisterContent() {
                 <span>0% Commission Onboarding</span>
               </span>
               <div className="flex items-center gap-2">
-                <span
-                  className={`h-2 w-10 rounded-full transition-all ${
-                    step === "info" ? "bg-[#F03A46]" : "bg-[#F5B922]"
-                  }`}
-                />
-                <span
-                  className={`h-2 w-10 rounded-full transition-all ${
-                    step === "otp"
-                      ? "bg-[#F03A46]"
-                      : step === "submitted"
-                      ? "bg-emerald-500"
-                      : "bg-[#F0E2BE]"
-                  }`}
-                />
+                <span className={`h-2 w-10 rounded-full transition-all ${step === "info" ? "bg-[#F03A46]" : "bg-[#F5B922]"}`} />
+                <span className={`h-2 w-10 rounded-full transition-all ${step === "otp" ? "bg-[#F03A46]" : step === "submitted" ? "bg-emerald-500" : "bg-[#F0E2BE]"}`} />
               </div>
             </div>
 
             {step !== "submitted" && (
               <div className="mb-6">
                 <h1 className="text-2xl sm:text-3xl font-black text-[#14120F] tracking-tight">
-                  {step === "info" && "Create Your Seller Account"}
-                  {step === "otp" && "Verify Your Merchant Email"}
+                  {step === "info" ? "Create Your Seller Account" : "Verify Your Merchant Email"}
                 </h1>
                 <p className="text-xs sm:text-sm font-medium text-[#5C4E35] mt-1">
-                  {step === "info" &&
-                    "No Bank Account No., PAN, or Aadhaar required — start selling at 0% commission with safe 5-day direct UPI payouts."}
-                  {step === "otp" && `Enter the 6-digit security code sent to ${email}`}
+                  {step === "info"
+                    ? "No Bank Account No., PAN, or Aadhaar required — start selling at 0% commission with safe 5-day direct UPI payouts."
+                    : `Enter the 6-digit security code sent to ${email}`}
                 </p>
               </div>
             )}
 
             {error && (
-              <div className="mb-6 rounded-2xl bg-rose-50 p-4 border border-rose-200">
+              <div className="mb-6 rounded-2xl bg-rose-50 p-4 border border-rose-200 flex items-start gap-2">
+                <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
                 <p className="text-xs font-bold text-rose-700 leading-relaxed">{error}</p>
               </div>
             )}
@@ -470,7 +507,7 @@ function SellerRegisterContent() {
                   </div>
                 </div>
 
-                {/* Business Category & Tax Mode */}
+                {/* Business Category & Meesho-Style PAN-Less GST / Enrolment ID Verification */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#4A3F2B] mb-1.5 block">
@@ -482,9 +519,7 @@ function SellerRegisterContent() {
                       className="w-full rounded-2xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-4 py-3 text-sm font-semibold text-[#14120F] outline-none focus:border-[#F03A46] focus:bg-white transition-all"
                     >
                       {BUSINESS_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
+                        <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
                   </div>
@@ -492,12 +527,15 @@ function SellerRegisterContent() {
                   <div>
                     <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#4A3F2B] mb-1.5 flex items-center gap-1.5">
                       <FileBadge2 size={13} className="text-[#9A6503]" />
-                      <span>GST / Enrolment ID (Optional)</span>
+                      <span>GST / Enrolment ID (No PAN Needed)</span>
                     </label>
                     <div className="flex gap-1.5 mb-1.5">
                       <button
                         type="button"
-                        onClick={() => setTaxMode("enrolment")}
+                        onClick={() => {
+                          setTaxMode("enrolment");
+                          setTaxVerifyState({ status: "idle", message: "" });
+                        }}
                         className={`flex-1 rounded-xl py-1.5 text-[10px] font-extrabold border transition cursor-pointer ${
                           taxMode === "enrolment"
                             ? "bg-[#FFF3C4] border-[#D49A18] text-[#14120F]"
@@ -508,7 +546,10 @@ function SellerRegisterContent() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setTaxMode("gst")}
+                        onClick={() => {
+                          setTaxMode("gst");
+                          setTaxVerifyState({ status: "idle", message: "" });
+                        }}
                         className={`flex-1 rounded-xl py-1.5 text-[10px] font-extrabold border transition cursor-pointer ${
                           taxMode === "gst"
                             ? "bg-[#FFF3C4] border-[#D49A18] text-[#14120F]"
@@ -518,20 +559,61 @@ function SellerRegisterContent() {
                         Have Regular GSTIN
                       </button>
                     </div>
-                    <input
-                      type="text"
-                      maxLength={20}
-                      placeholder={
-                        taxMode === "gst"
-                          ? "Enter 15-digit GSTIN (optional)"
-                          : "Enrolment ID / UIN (optional for now)"
-                      }
-                      value={gstOrEnrolmentId}
-                      onChange={(e) => setGstOrEnrolmentId(e.target.value.toUpperCase())}
-                      className="w-full rounded-xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-3.5 py-2 text-xs font-mono font-bold text-[#14120F] placeholder:text-[#9C8B6B] outline-none focus:border-[#F03A46] focus:bg-white transition-all"
-                    />
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        maxLength={15}
+                        placeholder={
+                          taxMode === "gst"
+                            ? "15-digit GSTIN (e.g. 19ABCPA1234F1Z5)"
+                            : "15-char Enrolment ID / UIN"
+                        }
+                        value={gstOrEnrolmentId}
+                        onChange={(e) => {
+                          setGstOrEnrolmentId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+                          setTaxVerifyState({ status: "idle", message: "" });
+                        }}
+                        className="flex-1 min-w-0 rounded-xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-3 py-2 text-xs font-mono font-bold text-[#14120F] placeholder:text-[#9C8B6B] outline-none focus:border-[#F03A46] focus:bg-white transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyTaxId}
+                        disabled={taxVerifying || gstOrEnrolmentId.trim().length !== 15}
+                        className="rounded-xl bg-[#14120F] hover:bg-[#2B251D] text-[#FCE08A] px-3 py-2 text-[11px] font-black uppercase tracking-wider disabled:opacity-40 cursor-pointer shrink-0 transition"
+                      >
+                        {taxVerifying ? "..." : "Verify"}
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {/* Live GST / Enrolment Verification Status Feedback */}
+                {taxVerifyState.status !== "idle" && (
+                  <div
+                    className={`rounded-2xl p-3.5 border text-xs font-bold flex items-start gap-2 ${
+                      taxVerifyState.status === "verified"
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                        : taxVerifyState.status === "manual_review"
+                        ? "bg-amber-50 border-amber-200 text-amber-900"
+                        : "bg-rose-50 border-rose-200 text-rose-700"
+                    }`}
+                  >
+                    {taxVerifyState.status === "verified" ? (
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                    ) : taxVerifyState.status === "manual_review" ? (
+                      <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <span>{taxVerifyState.message}</span>
+                  </div>
+                )}
+
+                {taxMode === "enrolment" && (
+                  <p className="text-[11px] font-medium text-[#6E5C3D] bg-[#FFFBF0] border border-[#EAD296]/80 rounded-xl px-3.5 py-2">
+                    <strong>No GSTIN?</strong> Verify with your <strong>GST Enrolment ID</strong> directly (no PAN input needed — verified automatically against your registered Mobile &amp; Email via GSTN). Enrolment ID sellers deliver goods intra-state within their registered State.
+                  </p>
+                )}
 
                 {/* Phone & Email */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -616,9 +698,7 @@ function SellerRegisterContent() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-[10px] font-extrabold uppercase text-[#5C4E35] mb-1 block">
-                        City / Hub *
-                      </label>
+                      <label className="text-[10px] font-extrabold uppercase text-[#5C4E35] mb-1 block">City / Hub *</label>
                       <input
                         type="text"
                         required
@@ -629,22 +709,19 @@ function SellerRegisterContent() {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-extrabold uppercase text-[#5C4E35] mb-1 block">
-                        State *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. West Bengal"
+                      <label className="text-[10px] font-extrabold uppercase text-[#5C4E35] mb-1 block">State *</label>
+                      <select
                         value={state}
                         onChange={(e) => setState(e.target.value)}
-                        className="w-full rounded-2xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-3.5 py-2.5 text-xs font-bold text-[#14120F] placeholder:text-[#9C8B6B] outline-none focus:border-[#F03A46] focus:bg-white"
-                      />
+                        className="w-full rounded-2xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-3.5 py-2.5 text-xs font-bold text-[#14120F] outline-none focus:border-[#F03A46] focus:bg-white"
+                      >
+                        {INDIAN_STATE_NAMES.map((st) => (
+                          <option key={st} value={st}>{st}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-extrabold uppercase text-[#5C4E35] mb-1 block">
-                        Pincode *
-                      </label>
+                      <label className="text-[10px] font-extrabold uppercase text-[#5C4E35] mb-1 block">Pincode *</label>
                       <input
                         type="text"
                         required
@@ -666,17 +743,7 @@ function SellerRegisterContent() {
                       <span>Create Strong Password *</span>
                     </span>
                     {password && (
-                      <span
-                        className={`text-[10px] font-black uppercase ${
-                          passwordStrength.label === "Strong"
-                            ? "text-emerald-700"
-                            : passwordStrength.label === "Medium"
-                            ? "text-[#9A6503]"
-                            : "text-[#F03A46]"
-                        }`}
-                      >
-                        {passwordStrength.label}
-                      </span>
+                      <span className="text-[10px] font-black uppercase">{passwordStrength.label}</span>
                     )}
                   </label>
                   <div className="relative">
@@ -695,7 +762,7 @@ function SellerRegisterContent() {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7A6847] hover:text-[#14120F] transition-colors p-1 cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7A6847] hover:text-[#14120F] p-1 cursor-pointer"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -703,10 +770,7 @@ function SellerRegisterContent() {
                   </div>
                   {password && (
                     <div className="mt-2 h-1.5 w-full bg-[#F3E7C8] rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${passwordStrength.color}`}
-                        style={{ width: `${passwordStrength.score}%` }}
-                      />
+                      <div className={`h-full transition-all duration-300 ${passwordStrength.color}`} style={{ width: `${passwordStrength.score}%` }} />
                     </div>
                   )}
                 </div>
@@ -742,7 +806,7 @@ function SellerRegisterContent() {
                   <button
                     type="button"
                     onClick={() => setStep("info")}
-                    className="text-[11px] font-extrabold text-[#F03A46] hover:underline transition-colors cursor-pointer"
+                    className="text-[11px] font-extrabold text-[#F03A46] hover:underline cursor-pointer"
                   >
                     Change Email / Edit Details
                   </button>
@@ -764,23 +828,16 @@ function SellerRegisterContent() {
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, "").slice(0, 6);
                       setOtpInput(val);
-                      if (val.length === 6) {
-                        setTimeout(() => {
-                          handleRegisterSubmit(undefined, val);
-                        }, 120);
-                      }
                     }}
-                    className="w-full text-center tracking-[0.55em] font-mono text-3xl font-black rounded-2xl border-2 border-[#DFBE6F] bg-[#FFFDF8] px-5 py-4 text-[#14120F] outline-none transition-all placeholder:text-[#C5B289] focus:border-[#F03A46] focus:bg-white focus:ring-4 focus:ring-[#F03A46]/10"
+                    className="w-full text-center tracking-[0.55em] font-mono text-3xl font-black rounded-2xl border-2 border-[#DFBE6F] bg-[#FFFDF8] px-5 py-4 text-[#14120F] outline-none focus:border-[#F03A46] focus:bg-white"
                   />
                   <div className="flex items-center justify-between mt-3 px-1">
-                    <span className="text-[11px] text-[#6E5C3D] font-medium">
-                      Check your inbox & spam folder
-                    </span>
+                    <span className="text-[11px] text-[#6E5C3D] font-medium">Valid for 10 minutes</span>
                     <button
                       type="button"
                       onClick={handleResendOtp}
                       disabled={loading || resendCooldown > 0}
-                      className="text-[11px] font-extrabold text-[#F03A46] hover:underline disabled:opacity-40 transition-colors cursor-pointer"
+                      className="text-[11px] font-extrabold text-[#F03A46] hover:underline disabled:opacity-40 cursor-pointer"
                     >
                       {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
                     </button>
@@ -791,61 +848,51 @@ function SellerRegisterContent() {
                   <button
                     type="button"
                     onClick={() => setStep("info")}
-                    className="h-14 px-6 rounded-2xl border border-[#EAD296] bg-[#FFFDF8] text-[#4A3F2B] font-bold text-xs uppercase tracking-wider hover:bg-[#FAF2DC] transition-colors cursor-pointer"
+                    className="h-14 px-6 rounded-2xl border border-[#EAD296] bg-[#FFFDF8] text-[#4A3F2B] font-bold text-xs uppercase cursor-pointer"
                   >
                     Back
                   </button>
                   <button
                     type="submit"
                     disabled={loading || otpInput.length < 6}
-                    className="flex-1 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#F03A46] via-[#FF5757] to-[#E63946] text-xs font-black uppercase tracking-wider text-white shadow-[0_10px_24px_rgba(240,58,70,0.3)] hover:brightness-105 active:scale-[0.98] disabled:opacity-50 transition-all cursor-pointer"
+                    className="flex-1 h-14 rounded-2xl bg-gradient-to-r from-[#F03A46] to-[#E63946] text-white font-black text-sm uppercase tracking-wider disabled:opacity-50 cursor-pointer"
                   >
-                    {loading ? "Verifying & Creating Store..." : "Verify OTP & Complete Signup"}
+                    {loading ? "Creating Account..." : "Complete Registration"}
                   </button>
                 </div>
               </form>
             )}
 
-            {/* STEP 3: SUCCESS */}
+            {/* STEP 3: SUBMITTED */}
             {step === "submitted" && (
-              <div className="text-center py-6 space-y-4">
-                <div className="mx-auto h-20 w-20 rounded-full bg-emerald-50 text-emerald-600 border-2 border-emerald-200 flex items-center justify-center shadow-md">
-                  <CheckCircle2 size={42} />
+              <div className="text-center py-6 space-y-5">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 border-2 border-emerald-300">
+                  <CheckCircle2 size={34} />
                 </div>
-                <h2 className="text-2xl font-black text-[#14120F] tracking-tight">
-                  Welcome to ZebAlpha Seller Hub!
-                </h2>
-                <p className="text-xs sm:text-sm font-medium text-[#5C4E35] max-w-md mx-auto leading-relaxed">
-                  <span className="text-[#14120F] font-extrabold">{shopName}</span> is now registered under{" "}
-                  <span className="text-[#9A6503] font-extrabold">{businessCategory}</span>. Direct payouts will route to{" "}
-                  <span className="text-emerald-700 font-mono font-bold">
-                    {upiId || `${mobileNumber}@upi`}
-                  </span>
-                  {" "}within 5 days of delivery.
-                </p>
-                <div className="pt-4 flex flex-wrap justify-center gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-[#14120F]">Seller Account Created!</h2>
+                  <p className="mt-2 text-sm font-medium text-[#5C4E35] max-w-md mx-auto">
+                    Your ZebAlpha seller account is ready. Log in to your Seller Dashboard to list products and start selling at 0% commission with fast 5-day UPI payouts!
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                   <Link
                     href="/dashboard"
-                    className="inline-flex h-12 items-center justify-center gap-2 px-8 rounded-2xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white text-xs font-black uppercase tracking-wider shadow-[0_10px_24px_rgba(240,58,70,0.3)] hover:brightness-105 transition-all"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F03A46] to-[#E63946] px-7 py-3.5 text-sm font-black uppercase tracking-wider text-white shadow-lg"
                   >
                     <span>Open Seller Dashboard</span>
-                    <ArrowRight size={15} />
+                    <ArrowRight size={16} />
+                  </Link>
+                  <Link
+                    href="/login?registered=1"
+                    className="inline-flex items-center justify-center rounded-2xl border border-[#EAD296] bg-[#FFFDF8] px-6 py-3.5 text-xs font-extrabold text-[#4A3F2B]"
+                  >
+                    Go to Seller Login
                   </Link>
                 </div>
               </div>
             )}
-
-            <div className="mt-8 border-t border-[#F0E2BE] pt-5 text-center">
-              <p className="text-xs font-semibold text-[#5C4E35]">
-                Already have a seller account?{" "}
-                <Link
-                  href="/login"
-                  className="text-[#F03A46] font-black underline hover:text-[#C82333]"
-                >
-                  Login to Seller Panel
-                </Link>
-              </p>
-            </div>
           </div>
         </div>
       </main>
@@ -857,9 +904,9 @@ export default function SellerRegisterPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#FFFDF8] text-[#14120F]">
+        <div className="min-h-screen flex items-center justify-center bg-[#FFFDF8]">
           <div className="animate-spin rounded-full h-9 w-9 border-2 border-[#EAD296] border-t-[#F03A46]" />
-        </main>
+        </div>
       }
     >
       <SellerRegisterContent />
