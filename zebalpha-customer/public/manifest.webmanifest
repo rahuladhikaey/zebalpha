@@ -1,0 +1,22 @@
+{
+  "name": "ZebAlpha — Streetwear & Indian E-Commerce Marketplace",
+  "short_name": "ZebAlpha",
+  "description": "Shop heavyweight 240 GSM oversized t-shirts, zip polos, hoodies, and Custom Print Studio apparel across India on ZebAlpha.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070709",
+  "theme_color": "#EAB308",
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "/official-logo-sm.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/official-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

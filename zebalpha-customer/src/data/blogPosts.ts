@@ -1359,6 +1359,208 @@ export const BLOG_POSTS: BlogPost[] = [
         </div>
       </section>
     `
+  },
+  {
+    slug: "custom-t-shirt-printing-online-india-zebalpha-studio",
+    title: "Custom T-Shirt Printing Online in India: Design 240 GSM Oversized Tees, Hoodies & Tote Bags",
+    headline: "How to Design & Print Your Own Custom 240 GSM Oversized T-Shirt Online in India",
+    metaTitle: "Custom T-Shirt Printing Online India (240 GSM Oversized Tees) | ZebAlpha Studio",
+    metaDescription:
+      "Design custom printed 240 GSM oversized t-shirts, classic cotton tees, heavyweight hoodies & tote bags online in India with zero MOQ, 1-click background remover, COD & fast pan-India delivery on ZebAlpha Custom Studio.",
+    category: "Streetwear Culture",
+    categoryBadgeColor: "bg-amber-500/20 text-amber-300 border-amber-400/35",
+    author: {
+      name: "Rahul Adhikary",
+      role: "Founder, ZebAlpha",
+      avatar: "/official-logo-sm.png",
+    },
+    coAuthor: {
+      name: "Alakesh Biswas",
+      role: "Co-Founder, ZebAlpha",
+      avatar: "/official-logo-sm.png",
+    },
+    publishedAt: "2026-11-21",
+    modifiedAt: "2026-11-21",
+    readTime: "6 min read",
+    coverImage: "/mockups/oversized-tee-front.webp",
+    coverImageAlt: "Custom printed 240 GSM oversized cotton t-shirt mockup on ZebAlpha Custom Studio India",
+    tags: [
+      "Custom T-Shirt Printing India",
+      "ZebAlpha Custom Studio",
+      "240 GSM Oversized T-Shirt",
+      "Custom Hoodie India",
+      "Custom Tote Bag Printing",
+      "Print On Demand India",
+    ],
+    excerpt:
+      "Want to print your own graphic, anime art, college club logo, or brand emblem on a heavyweight 240 GSM oversized tee? Here is how ZebAlpha Custom Studio makes single-piece custom printing effortless across India.",
+    keyTakeaways: [
+      "ZebAlpha Custom Studio supports 240 GSM Oversized Tees, Classic Tees, 350+ GSM Hoodies, and Heavy Canvas Tote Bags.",
+      "Built-in 1-click Background Remover strips white/solid boxes cleanly before printing.",
+      "Zero Minimum Order Quantity (MOQ) — order 1 custom tee or bulk college/creator merch across 19,000+ Indian PIN codes.",
+      "New shoppers also unlock Flat ₹100 OFF on their 1st catalog order (₹399+) with code FIRST100.",
+    ],
+    tableOfContents: [
+      { id: "why-fabric-gsm-matters-for-custom-prints", title: "1. Why 240 GSM Matters for Custom Printed T-Shirts" },
+      { id: "step-by-step-zebalpha-custom-studio", title: "2. Step-by-Step: Design on ZebAlpha Custom Studio" },
+      { id: "best-artwork-tips-for-crisp-prints", title: "3. Artwork & Background Removal Tips for Sharp Prints" },
+      { id: "wash-care-for-custom-streetwear", title: "4. Wash Care to Keep Prints Vivid for Years" },
+    ],
+    faqs: [
+      {
+        question: "What is the minimum order quantity on ZebAlpha Custom Studio?",
+        answer:
+          "Zero MOQ. You can design and order a single custom-printed 240 GSM oversized t-shirt, classic tee, hoodie, or tote bag on ZebAlpha with delivery anywhere in India.",
+      },
+      {
+        question: "Can I print on both the front and back of an oversized t-shirt?",
+        answer:
+          "Yes. ZebAlpha Custom Studio provides interactive Front and Back garment mockup previews so you can place artwork on the chest, full front, back, or both sides accurately.",
+      },
+      {
+        question: "Do I need a transparent PNG file to print my design?",
+        answer:
+          "No. Even if your artwork has a solid white or colored background, ZebAlpha Custom Studio includes a 1-click Remove BG cutout tool right inside the preview canvas.",
+      },
+    ],
+    isFeatured: true,
+    contentHtml: `
+      <section id="why-fabric-gsm-matters-for-custom-prints" class="scroll-mt-24">
+        <h2>1. Why 240 GSM Matters for Custom Printed T-Shirts</h2>
+        <p>
+          Most generic custom t-shirt printing websites in India print on flimsy 150–160 GSM blanks that turn translucent after two washes and sag around the collar. On <strong>ZebAlpha Custom Studio</strong>, our flagship oversized blank uses dense <strong>240 GSM 100% combed cotton</strong> engineered specifically to hold crisp high-density graphics without wrinkling or puckering.
+        </p>
+        <p>
+          Whether you are creating a one-of-one graphic streetwear tee, matching college fest merchandise in Kolkata, or launching your first micro-brand drop, starting with heavy GSM cotton immediately elevates the garment feel.
+        </p>
+      </section>
+
+      <section id="step-by-step-zebalpha-custom-studio" class="scroll-mt-24">
+        <h2>2. Step-by-Step: Design on ZebAlpha Custom Studio</h2>
+        <ol class="list-decimal pl-5 space-y-2 my-4">
+          <li><strong>Pick Your Garment &amp; GSM:</strong> Open <a href="/customize" class="text-amber-400 underline font-bold">ZebAlpha Custom Studio</a> and choose between 240 GSM Oversized Tee, Classic Tee, Heavyweight Hoodie, or Canvas Tote Bag.</li>
+          <li><strong>Select Color &amp; Size:</strong> Preview your exact color and Indian chest sizing (S to XXL) directly on real studio garment photography.</li>
+          <li><strong>Upload Your Artwork or Choose a Preset:</strong> Upload any PNG/JPG image from your phone or pick one of our curated graphic presets.</li>
+          <li><strong>1-Click Remove BG &amp; Placement:</strong> Cleanly knock out unwanted backgrounds, drag to position, resize, and toggle between Front &amp; Back views.</li>
+          <li><strong>Confirm Your Print:</strong> Submit your custom order directly and enjoy tracked Pan-India dispatch across 19,000+ PIN codes.</li>
+        </ol>
+      </section>
+
+      <section id="best-artwork-tips-for-crisp-prints" class="scroll-mt-24">
+        <h2>3. Artwork &amp; Background Removal Tips for Sharp Prints</h2>
+        <p>
+          For razor-sharp edges on dark black or navy cotton tees, upload high-resolution artwork (at least 1500px wide) and tap <strong>Remove BG</strong> inside the studio canvas. High-contrast typography, anime illustrations, minimalist line art, and vintage distressed badges look extraordinary on 240 GSM drop-shoulder tees.
+        </p>
+      </section>
+
+      <section id="wash-care-for-custom-streetwear" class="scroll-mt-24">
+        <h2>4. Wash Care to Keep Prints Vivid for Years</h2>
+        <p>
+          Always turn custom-printed garments inside out before cold machine washing. Avoid harsh bleach and never press a hot iron directly over the graphic print — iron on the reverse side for crisp drape.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3 justify-center">
+          <a href="/customize" class="inline-flex items-center gap-2 rounded-full bg-amber-400 text-black px-6 py-3 text-xs font-black uppercase tracking-wider hover:bg-amber-300 transition-all">
+            Launch ZebAlpha Custom Studio →
+          </a>
+          <a href="/category/oversized-t-shirts" class="inline-flex items-center gap-2 rounded-full bg-white text-black px-6 py-3 text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition-all">
+            Shop 240 GSM Oversized Tees
+          </a>
+        </div>
+      </section>
+    `,
+  },
+  {
+    slug: "best-heavyweight-oversized-t-shirts-india-240-gsm-guide",
+    title: "Best 240 GSM Heavyweight Oversized T-Shirts in India (2026 Buyer's Guide)",
+    headline: "How to Choose the Best 240 GSM Oversized T-Shirt in India Without Overpaying",
+    metaTitle: "Best 240 GSM Oversized T-Shirts in India (2026 Guide) | ZebAlpha",
+    metaDescription:
+      "Compare 180 GSM vs 240 GSM oversized t-shirts in India, drop-shoulder sizing, collar rib quality, and how to save Flat ₹100 OFF on your 1st order at ZebAlpha (zebalpha.shop).",
+    category: "Streetwear Culture",
+    categoryBadgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-400/35",
+    author: {
+      name: "Rahul Adhikary",
+      role: "Founder, ZebAlpha",
+      avatar: "/official-logo-sm.png",
+    },
+    publishedAt: "2026-11-21",
+    modifiedAt: "2026-11-21",
+    readTime: "5 min read",
+    coverImage: "/official-logo.png",
+    coverImageAlt: "ZebAlpha 240 GSM heavyweight oversized streetwear t-shirts India guide",
+    tags: [
+      "Oversized T-Shirts India",
+      "240 GSM T-Shirt",
+      "ZebAlpha Streetwear",
+      "Best Oversized Tees Under 500",
+      "Indian Streetwear Brands",
+    ],
+    excerpt:
+      "Confused why some oversized t-shirts hang like structured luxury streetwear while others look sloppy? This 2026 Indian buyer's guide breaks down GSM fabric weight, collar ribbing, and true drop-shoulder fit.",
+    keyTakeaways: [
+      "240–260 GSM combed cotton is the sweet spot for Indian weather — structured boxy drape without overheating.",
+      "Always check for a thick 1.25-inch Lycra-ribbed collar so the neckline never bacon-necks.",
+      "Buy your true Indian size on ZebAlpha oversized tees; extra chest and sleeve ease is already built in.",
+      "First-time ZebAlpha shoppers automatically get Flat ₹100 OFF on orders ₹399+ (code FIRST100) on both COD and UPI.",
+    ],
+    tableOfContents: [
+      { id: "gsm-comparison-india", title: "1. 180 GSM vs 240 GSM: Which Is Best for Indian Climate?" },
+      { id: "three-quality-checks", title: "2. Three Instant Quality Checks Before Buying Online" },
+      { id: "sizing-and-styling", title: "3. Oversized T-Shirt Sizing & Styling Blueprint" },
+      { id: "save-100-on-first-order", title: "4. Claim Flat ₹100 OFF on Your First ZebAlpha Order" },
+    ],
+    faqs: [
+      {
+        question: "Is 240 GSM too thick for Indian summers?",
+        answer:
+          "No, as long as the fabric is 100% combed cotton rather than polyester blends. Pure 240 GSM combed cotton breathes naturally while holding an architectural boxy silhouette.",
+      },
+      {
+        question: "How do I get ₹100 off my first oversized t-shirt order on ZebAlpha?",
+        answer:
+          "Simply add ₹399 or more to your cart on zebalpha.shop or the ZebAlpha Android app. New buyers automatically receive Flat ₹100 OFF (FIRST100) at checkout on both COD and UPI/Card.",
+      },
+    ],
+    isFeatured: false,
+    contentHtml: `
+      <section id="gsm-comparison-india" class="scroll-mt-24">
+        <h2>1. 180 GSM vs 240 GSM: Which Is Best for Indian Climate?</h2>
+        <p>
+          GSM stands for <em>Grams per Square Meter</em>. Lightweight 160–180 GSM tees work for tight innerwear, but they cling to the torso when cut in an oversized pattern. <strong>240 GSM pure combed cotton</strong> creates a clean, architectural drop-shoulder silhouette that falls straight off the shoulders while remaining breathable in humid cities like Kolkata, Mumbai, Bengaluru, and Delhi.
+        </p>
+      </section>
+
+      <section id="three-quality-checks" class="scroll-mt-24">
+        <h2>2. Three Instant Quality Checks Before Buying Online</h2>
+        <ul class="list-disc pl-5 space-y-2 my-4">
+          <li><strong>Ribbed Neckband Thickness:</strong> Look for a dense 1.25-inch Lycra-blended rib collar that snaps back wash after wash.</li>
+          <li><strong>Bio-Wash &amp; Pre-Shrunk Finish:</strong> Bio-washing removes micro-fuzz so the tee feels velvety smooth and prevents post-wash shrinkage.</li>
+          <li><strong>True Drop-Shoulder Geometry:</strong> Simply sizing up a regular t-shirt makes the length awkwardly long; a genuine oversized tee widens the chest and drops the shoulder seam while keeping torso length balanced.</li>
+        </ul>
+      </section>
+
+      <section id="sizing-and-styling" class="scroll-mt-24">
+        <h2>3. Oversized T-Shirt Sizing &amp; Styling Blueprint</h2>
+        <p>
+          Check our <a href="/size-guide" class="text-emerald-400 underline font-bold">ZebAlpha Size Guide</a> before ordering. Pair a heavyweight graphic oversized tee with relaxed cargos or straight-fit denim and chunky sneakers for an effortless everyday look.
+        </p>
+      </section>
+
+      <section id="save-100-on-first-order" class="scroll-mt-24">
+        <h2>4. Claim Flat ₹100 OFF on Your First ZebAlpha Order</h2>
+        <p>
+          Because ZebAlpha connects customers directly with independent makers and zero-commission sellers, heavyweight oversized tees stay accessible without luxury markups — plus new users automatically unlock <strong>Flat ₹100 OFF on orders ₹399+</strong> (code <code>FIRST100</code>) on both Cash on Delivery and UPI/Card.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3 justify-center">
+          <a href="/category/oversized-t-shirts" class="inline-flex items-center gap-2 rounded-full bg-white text-black px-6 py-3 text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition-all">
+            Shop Oversized T-Shirts →
+          </a>
+          <a href="/customize" class="inline-flex items-center gap-2 rounded-full bg-amber-400 text-black px-6 py-3 text-xs font-black uppercase tracking-wider hover:bg-amber-300 transition-all">
+            Design Your Own Tee
+          </a>
+        </div>
+      </section>
+    `,
   }
 ];
 

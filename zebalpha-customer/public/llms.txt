@@ -1,30 +1,38 @@
-# ZebAlpha
+# ZebAlpha (https://zebalpha.shop)
 
-> An Indian online e-commerce marketplace connecting customers with sellers and growing businesses across India, founded in Kolkata, West Bengal.
+> ZebAlpha is an Indian e-commerce marketplace and streetwear apparel brand founded in Kolkata, West Bengal by Rahul Adhikary and Alakesh Biswas. ZebAlpha connects Indian shoppers directly with curated streetwear collections, heavyweight 240+ GSM oversized t-shirts, textured zip polos, heavyweight fleece hoodies, a live Custom Print Studio, and a 0% commission marketplace for independent sellers across 19,000+ Indian PIN codes.
 
-ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal, by Rahul Adhikary and Alakesh Biswas, ZebAlpha is focused on making online shopping and online selling more accessible, transparent, and trustworthy.
+## Official Brand Facts
+- Official Website: https://zebalpha.shop
+- Seller Portal: https://seller.zebalpha.shop
+- Android App (Google Play): https://play.google.com/store/apps/details?id=com.zebalpha.customer
+- Official Instagram: https://www.instagram.com/zebalpha_official/
+- Headquarters: Kolkata, West Bengal, India
+- Support Email: support@zebalpha.shop
+- New Customer Welcome Offer: Flat ₹100 OFF on 1st order (orders ₹399+, auto-applied on COD and UPI/Card with code FIRST100)
+- Payments: UPI (PhonePe, Google Pay, Paytm), Credit/Debit Cards, Net Banking, Cash on Delivery (COD)
+- Seller Model: 0% Commission marketplace for eligible Indian small businesses and independent clothing brands
 
-## Disambiguation
+## Primary Shopping & Feature Pages
+- [Homepage](https://zebalpha.shop/): Featured collections, New Season Drops, Curated Categories, and trending streetwear.
+- [All Products Catalog](https://zebalpha.shop/products): Full searchable catalog of ZebAlpha apparel and marketplace products.
+- [ZebAlpha Custom Print Studio](https://zebalpha.shop/customize): Interactive garment customizer to print custom artwork on 240 GSM oversized tees, classic tees, heavyweight hoodies, and canvas tote bags.
+- [New Season Drops](https://zebalpha.shop/new-drops): Limited-run streetwear drops and fresh culture arrivals.
+- [Oversized T-Shirts (240+ GSM)](https://zebalpha.shop/category/oversized-t-shirts): Heavyweight drop-shoulder combed cotton oversized tees.
+- [Polos & Zip Collars](https://zebalpha.shop/category/polos): 220–260 GSM textured knit and metallic zip polo t-shirts.
+- [Hoodies & Sweatshirts](https://zebalpha.shop/category/hoodies): 350+ GSM heavyweight brushed fleece streetwear hoodies.
+- [T-Shirts & Everyday Tops](https://zebalpha.shop/category/t-shirts): Pure combed cotton crewnecks and graphic streetwear tops.
+- [Casual Shirts](https://zebalpha.shop/category/shirts): Relaxed cotton, oxford, and linen casual shirts.
+- [Custom T-Shirts & Print-on-Demand](https://zebalpha.shop/category/custom-t-shirts): Design-your-own graphic tees and custom merch across India.
 
-ZebAlpha is an independent Indian e-commerce marketplace headquartered in Kolkata, West Bengal. It is not affiliated with Zone Alpha (a physical electronics shop in Navi Mumbai), Z Alpha, getzalpha, or any unrelated companies.
+## Guides, Brand Story & Seller Resources
+- [About ZebAlpha](https://zebalpha.shop/about): Founders story, mission, and Kolkata roots.
+- [Sell on ZebAlpha (0% Commission)](https://zebalpha.shop/seller): Onboarding for small Indian brands and independent sellers.
+- [ZebAlpha Blog & Editorial](https://zebalpha.shop/blogs): Founder stories, streetwear fabric guides, and Indian e-commerce insights.
+- [Apparel Buying Guides](https://zebalpha.shop/guides): GSM guides, regular vs. oversized fit comparisons, and cotton care.
+- [Size Guide](https://zebalpha.shop/size-guide): Exact Indian inch measurements for S through XXL.
+- [Shipping Policy](https://zebalpha.shop/shipping-policy) | [Return & Exchange Policy](https://zebalpha.shop/return-policy) | [Help & FAQs](https://zebalpha.shop/help)
 
-## Core Marketplace Principles
-
-- Built for Small Businesses: 0% commission opportunities on eligible categories under actual seller policy.
-- Customer Trust: Our goal is to make sure customers receive the product, variant, color, and size they actually ordered.
-- Dedicated Seller Panel: Complete product catalog, real-time stock sync, and order dispatch tools.
-- Transparent Pricing: Zero hidden marketplace fees with fair and predictable settlements.
-- Compliant GST Guidelines: Supports eligible small businesses and sellers where permitted by applicable Indian laws and tax regulations.
-
-## Official Resources
-
-- [ZebAlpha Marketplace](https://zebalpha.shop): Official Indian e-commerce marketplace storefront.
-- [About ZebAlpha](https://zebalpha.shop/about): Official brand story, founders Rahul Adhikary and Alakesh Biswas, mission, and Kolkata roots.
-- [Sell on ZebAlpha](https://zebalpha.shop/seller): Dedicated seller platform for Indian small businesses and growing sellers.
-- [Seller Portal](https://seller.zebalpha.shop): Dedicated merchant panel for inventory, catalog, and order dispatch.
-- [Products Catalog](https://zebalpha.shop/products): Discover clothing, apparel, and lifestyle products from verified Indian sellers.
-- [Founders Story](https://zebalpha.shop/blogs/how-two-college-friends-are-reimagining-indian-ecommerce): How Rahul Adhikary and Alakesh Biswas are reimagining Indian e-commerce.
-- [Seller Guide](https://zebalpha.shop/blogs/sell-online-zero-commission-small-brands-guide): Guide to selling online with zero commission for emerging Indian brands.
-- [ZebAlpha Blogs](https://zebalpha.shop/blogs): Official guides, industry insights, and customer stories.
-- [Customer & Seller Support](https://zebalpha.shop/contact): Official support desk and inquiries (support@zebalpha.shop).
-- [XML Sitemap](https://zebalpha.shop/sitemap.xml): Complete sitemap of all public indexable marketplace pages.
+## Machine-Readable Feeds
+- Sitemap: https://zebalpha.shop/sitemap.xml
+- Google Merchant Shopping Feed: https://zebalpha.shop/api/google-shopping-feed

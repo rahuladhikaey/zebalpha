@@ -210,6 +210,84 @@ export const CATEGORY_AEO_CATALOG: Record<string, CategoryAeoData> = {
       { name: "Heavyweight Hoodies", slug: "hoodies" }
     ],
     canonicalUrl: "https://zebalpha.shop/category/shirts"
+  },
+
+  "custom-t-shirts": {
+    slug: "custom-t-shirts",
+    name: "Custom Printed T-Shirts & Merch",
+    h1: "Custom Printed Oversized T-Shirts, Hoodies & Tote Bags Online India",
+    shortDirectAnswer: "Design your own custom-printed 240 GSM oversized t-shirt, classic tee, heavyweight hoodie, or canvas tote bag online in India using ZebAlpha Custom Studio with zero minimum order quantity and pan-India shipping.",
+    summary: "ZebAlpha Custom Studio combines heavyweight 100% combed cotton blanks with high-definition fade-resistant DTF/DTG printing, instant background removal, and front-and-back placement preview.",
+    keyCharacteristics: [
+      "Heavyweight 240 GSM oversized cotton blanks & 350+ GSM fleece hoodies",
+      "One-click background removal and live studio mockup preview before ordering",
+      "No minimum order quantity — print 1 piece or bulk college/team merch",
+      "Crisp wash-proof DTF & DTG prints with vibrant color fidelity",
+      "Fast dispatch from Kolkata to 19,000+ Indian PIN codes"
+    ],
+    availableTypes: [
+      "Custom Printed 240 GSM Oversized T-Shirts",
+      "Custom Classic Crewneck Cotton Tees",
+      "Custom Heavyweight Streetwear Hoodies",
+      "Custom Printed Heavy Canvas Tote Bags"
+    ],
+    buyingGuidance: "Upload high-resolution PNG or JPG artwork (300 DPI recommended) in ZebAlpha Custom Studio at /customize, use the built-in Remove BG tool for crisp transparent prints, and verify both front and back views before submitting.",
+    fabricAndCareTips: "Wash custom-printed garments inside out in cold water. Do not bleach or iron directly over the printed artwork.",
+    sizingGuidance: "Available in Indian sizes S to XXL for oversized tees, classic tees, and hoodies.",
+    faqs: [
+      {
+        question: "How can I print my own design on an oversized t-shirt on ZebAlpha?",
+        answer: "Open ZebAlpha Custom Studio at zebalpha.shop/customize, pick your garment (Oversized Tee, Classic Tee, Hoodie, or Tote Bag), upload your artwork, optionally click Remove BG, position it on front or back, and submit your order."
+      },
+      {
+        question: "What is the minimum order for custom t-shirt printing on ZebAlpha?",
+        answer: "There is no minimum order quantity. You can print a single custom t-shirt, couple tee, or bulk college/creator merch across India."
+      }
+    ],
+    relatedCategories: [
+      { name: "Oversized T-Shirts", slug: "oversized-t-shirts" },
+      { name: "Heavyweight Hoodies", slug: "hoodies" },
+      { name: "Canvas Tote Bags", slug: "tote-bags" }
+    ],
+    canonicalUrl: "https://zebalpha.shop/category/custom-t-shirts"
+  },
+
+  "tote-bags": {
+    slug: "tote-bags",
+    name: "Canvas Tote Bags",
+    h1: "Heavy-Duty Printed Canvas Tote Bags Online India | ZebAlpha",
+    shortDirectAnswer: "ZebAlpha canvas tote bags are crafted from thick eco-friendly cotton canvas with reinforced shoulder straps and bold graphic or custom prints ideal for college, work, and daily streetwear carry.",
+    summary: "Reusable, spacious, and structured cotton canvas tote bags built to hold laptops, books, and everyday essentials without sagging.",
+    keyCharacteristics: [
+      "Thick heavy-gauge 100% cotton canvas fabric",
+      "Cross-stitched reinforced shoulder handles for heavy daily loads",
+      "Fade-resistant graphic prints and Custom Studio personalization",
+      "Eco-friendly, washable, and foldable everyday utility"
+    ],
+    availableTypes: [
+      "Graphic Art Canvas Tote Bags",
+      "Custom Printed Personal Tote Bags",
+      "Minimalist Typography College Totes"
+    ],
+    buyingGuidance: "Choose heavy-gauge natural or black cotton canvas totes for carrying books and laptops comfortably across college campuses and daily commutes.",
+    fabricAndCareTips: "Spot clean or hand wash gently in cold water. Line dry in shade to retain crisp canvas structure.",
+    sizingGuidance: "Generous daily carry capacity fitting standard notebooks, 15-inch laptops, and essentials.",
+    faqs: [
+      {
+        question: "Can I print my own photo or artwork on a ZebAlpha tote bag?",
+        answer: "Yes. Visit ZebAlpha Custom Studio (/customize), select Tote Bag, upload your artwork, and preview the print before ordering."
+      },
+      {
+        question: "Are ZebAlpha canvas tote bags strong enough for college books and laptops?",
+        answer: "Yes, ZebAlpha tote bags use heavy-duty cotton canvas with reinforced strap stitching designed for daily college and office loads."
+      }
+    ],
+    relatedCategories: [
+      { name: "Custom Printed T-Shirts", slug: "custom-t-shirts" },
+      { name: "Oversized T-Shirts", slug: "oversized-t-shirts" },
+      { name: "T-Shirts & Polos", slug: "t-shirts" }
+    ],
+    canonicalUrl: "https://zebalpha.shop/category/tote-bags"
   }
 };
 

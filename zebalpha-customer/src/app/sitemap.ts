@@ -4,31 +4,61 @@ import { BLOG_POSTS } from "@/data/blogPosts";
 import { CATEGORY_AEO_CATALOG } from "@/lib/aeo-geo/categoryAeo";
 import { BUYING_GUIDES } from "@/lib/aeo-geo/buyingGuides";
 
+export const revalidate = 3600;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://zebalpha.shop';
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zebalpha.shop').replace(/\/$/, '');
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY;
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY;
 
-  let products: Array<{ id: string | number }> | null = null;
-  if (supabaseUrl && supabaseAnonKey) {
+  let products: Array<{
+    id: string | number;
+    updated_at?: string | null;
+    created_at?: string | null;
+    image_url?: string | null;
+    images?: string[] | null;
+  }> = [];
+
+  if (supabaseUrl && supabaseKey) {
     try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      const { data } = await supabase.from("products").select("id");
-      products = data;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data } = await supabase
+        .from("products")
+        .select("id, updated_at, created_at, image_url, images")
+        .or("is_active.is.null,is_active.eq.true")
+        .neq("status", "DELETED")
+        .order("created_at", { ascending: false })
+        .limit(2000);
+
+      if (Array.isArray(data)) {
+        products = data;
+      }
     } catch (err) {
       console.warn("[sitemap] Failed to fetch product URLs:", err);
     }
   }
 
-  const productUrls: MetadataRoute.Sitemap = products
-    ? products.map((product) => ({
-        url: `${baseUrl}/products/${product.id}`,
-        lastModified: new Date(),
-        changeFrequency: 'weekly',
-        priority: 0.8,
-      }))
-    : [];
+  const productUrls: MetadataRoute.Sitemap = products.map((product) => {
+    const rawImgs = [
+      ...(Array.isArray(product.images) ? product.images : []),
+      ...(product.image_url ? [product.image_url] : []),
+    ]
+      .filter((u): u is string => typeof u === "string" && u.trim().startsWith("http"))
+      .slice(0, 3);
+
+    const lastMod = product.updated_at || product.created_at;
+    return {
+      url: `${baseUrl}/products/${product.id}`,
+      lastModified: lastMod ? new Date(lastMod) : new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.85,
+      ...(rawImgs.length > 0 ? { images: rawImgs } : {}),
+    };
+  });
 
   const blogUrls: MetadataRoute.Sitemap = BLOG_POSTS.map((post) => ({
     url: `${baseUrl}/blogs/${post.slug}`,
@@ -41,7 +71,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${baseUrl}/category/${slug}`,
     lastModified: new Date(),
     changeFrequency: 'daily',
-    priority: 0.85,
+    priority: 0.9,
   }));
 
   const guideUrls: MetadataRoute.Sitemap = Object.values(BUYING_GUIDES).map((guide) => ({
@@ -56,13 +86,49 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: baseUrl,
       lastModified: new Date(),
       changeFrequency: 'daily',
-      priority: 1,
+      priority: 1.0,
     },
     {
       url: `${baseUrl}/products`,
       lastModified: new Date(),
       changeFrequency: 'daily',
-      priority: 0.9,
+      priority: 0.95,
+    },
+    {
+      url: `${baseUrl}/customize`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.95,
+    },
+    {
+      url: `${baseUrl}/new-drops`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.95,
+    },
+    {
+      url: `${baseUrl}/categories`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/collections`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/premium-store`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/recommended`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
     },
     {
       url: `${baseUrl}/about`,
@@ -77,7 +143,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/contact`,
+      url: `${baseUrl}/blogs`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/guides`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/size-guide`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/virtual-try-on`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.7,
@@ -89,28 +173,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.75,
     },
     {
-      url: `${baseUrl}/shipping-policy`,
+      url: `${baseUrl}/contact`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/shipping-policy`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.65,
     },
     {
       url: `${baseUrl}/return-policy`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/size-guide`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/guides`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.85,
+      priority: 0.65,
     },
     {
       url: `${baseUrl}/privacy-policy`,
@@ -123,18 +201,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'yearly',
       priority: 0.4,
-    },
-    {
-      url: `${baseUrl}/blogs`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/signup`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
     },
     ...categoryUrls,
     ...guideUrls,

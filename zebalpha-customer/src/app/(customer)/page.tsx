@@ -23,6 +23,8 @@ import {
 import {
   buildOrganizationSchema,
   buildWebSiteSchema,
+  buildMobileAppSchema,
+  buildFaqSchema,
 } from "@/lib/aeo-geo/schemaGenerator";
 import { NativePlatformProvider } from "@/lib/platform";
 import { detectNativeAppOnServer } from "@/lib/platformServer";
@@ -30,25 +32,30 @@ import { detectNativeAppOnServer } from "@/lib/platformServer";
 export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: "ZebAlpha | Indian E-Commerce Marketplace",
+  title: "ZebAlpha | Oversized T-Shirts, Custom Print Studio & Indian Streetwear Marketplace",
   description:
-    "ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Discover products and shop online with ZebAlpha.",
+    "Shop 240 GSM heavyweight oversized t-shirts, textured zip polos, hoodies & custom printed tees on ZebAlpha India. Enjoy Flat ₹100 OFF on your 1st order (₹399+), COD, Pan-India delivery & 0% commission for sellers.",
   alternates: {
     canonical: "https://zebalpha.shop",
   },
   keywords: [
     "ZebAlpha",
     "Zeb Alpha",
-    "zeb alpha ecommerce",
-    "zebalpha ecommerce",
-    "ZebAlpha marketplace",
-    "zeb alpha online shopping",
-    "zebalpha official website",
+    "zebalpha.shop",
+    "ZebAlpha clothing",
+    "ZebAlpha oversized t-shirts",
+    "ZebAlpha custom t-shirt studio",
+    "oversized t-shirts India",
+    "240 GSM oversized t-shirt India",
+    "custom t-shirt printing India",
+    "Indian streetwear marketplace",
+    "zero commission marketplace India",
+    "ZebAlpha Kolkata",
   ],
   openGraph: {
-    title: "ZebAlpha | Indian E-Commerce Marketplace",
+    title: "ZebAlpha | Oversized T-Shirts, Custom Studio & Indian Streetwear Marketplace",
     description:
-      "ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal.",
+      "Shop 240 GSM oversized tees, zip polos, hoodies & custom printed apparel across India. Flat ₹100 OFF on your 1st order (₹399+) with COD & UPI.",
     url: "https://zebalpha.shop",
     siteName: "ZebAlpha",
     locale: "en_IN",
@@ -58,7 +65,7 @@ export const metadata: Metadata = {
         url: "/official-logo.png",
         width: 1200,
         height: 630,
-        alt: "ZebAlpha - Indian E-Commerce Marketplace",
+        alt: "ZebAlpha — Streetwear & Indian E-Commerce Marketplace",
       },
     ],
   },
@@ -94,11 +101,36 @@ export default async function HomePage(props: {
     detectNativeAppOnServer(resolvedParams),
   ]);
 
+  const homeFaqSchema = buildFaqSchema([
+    {
+      question: "What is ZebAlpha?",
+      answer:
+        "ZebAlpha (zebalpha.shop) is an Indian e-commerce marketplace and streetwear apparel brand founded in Kolkata, West Bengal, offering 240+ GSM oversized t-shirts, textured zip polos, heavyweight hoodies, a live Custom Print Studio, and a 0% commission seller platform.",
+    },
+    {
+      question: "Does ZebAlpha offer a first-order discount for new customers?",
+      answer:
+        "Yes. New customers automatically receive Flat ₹100 OFF on their first order of ₹399 or more (code FIRST100), valid on both Cash on Delivery (COD) and Online UPI/Card payments.",
+    },
+    {
+      question: "Can I design and print my own custom t-shirt on ZebAlpha?",
+      answer:
+        "Yes. Visit ZebAlpha Custom Studio at zebalpha.shop/customize to upload your artwork, remove backgrounds in 1 click, preview on real 240 GSM oversized tees, classic tees, hoodies, or canvas tote bags, and order with pan-India delivery.",
+    },
+    {
+      question: "Does ZebAlpha support Cash on Delivery (COD) and Pan-India shipping?",
+      answer:
+        "Yes. ZebAlpha ships across 19,000+ Indian PIN codes with both Cash on Delivery (COD) and secure Razorpay UPI, Card, and Net Banking payments, backed by an easy return and exchange policy.",
+    },
+  ]);
+
   const jsonLdGraph = {
     "@context": "https://schema.org",
     "@graph": [
       buildOrganizationSchema(),
       buildWebSiteSchema(),
+      buildMobileAppSchema(),
+      ...(homeFaqSchema ? [homeFaqSchema] : []),
     ],
   };
 

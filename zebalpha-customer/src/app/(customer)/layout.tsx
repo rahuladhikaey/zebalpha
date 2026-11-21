@@ -106,6 +106,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://zebalpha.shop",
   },
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     title: "ZebAlpha",
     statusBarStyle: "black-translucent",

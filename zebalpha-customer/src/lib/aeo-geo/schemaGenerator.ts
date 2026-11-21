@@ -2,24 +2,42 @@ import { ZEBALPHA_BRAND_ENTITY, ENTITY_DISAMBIGUATION } from "./brandEntity";
 import { ProductAeoData, FaqItem, BuyingGuideArticle } from "./types";
 
 /**
- * Builds canonical Organization schema for ZebAlpha
+ * Builds canonical Organization + OnlineStore schema for ZebAlpha
  */
 export function buildOrganizationSchema() {
   return {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": ["Organization", "OnlineStore"],
     "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization`,
     "name": "ZebAlpha",
-    "alternateName": ["ZebAlpha E-Commerce", "ZebAlpha Marketplace"],
+    "alternateName": ["ZebAlpha E-Commerce", "ZebAlpha Marketplace", "ZEBALPHA Clothing", "ZebAlpha Custom Studio"],
     "legalName": "ZebAlpha",
     "url": ZEBALPHA_BRAND_ENTITY.url,
     "logo": {
       "@type": "ImageObject",
       "url": ZEBALPHA_BRAND_ENTITY.logoUrl,
+      "width": 512,
+      "height": 512,
       "caption": "ZebAlpha Brand Logo"
     },
+    "image": ZEBALPHA_BRAND_ENTITY.logoUrl,
     "description": ZEBALPHA_BRAND_ENTITY.description,
     "disambiguatingDescription": ENTITY_DISAMBIGUATION.clarification,
+    "priceRange": ZEBALPHA_BRAND_ENTITY.priceRange,
+    "currenciesAccepted": ZEBALPHA_BRAND_ENTITY.currenciesAccepted,
+    "paymentAccepted": ZEBALPHA_BRAND_ENTITY.paymentAccepted,
+    "areaServed": {
+      "@type": "Country",
+      "name": "India"
+    },
+    "hasMerchantReturnPolicy": {
+      "@type": "MerchantReturnPolicy",
+      "applicableCountry": "IN",
+      "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+      "merchantReturnDays": ZEBALPHA_BRAND_ENTITY.returnWindowDays,
+      "returnMethod": "https://schema.org/ReturnByMail",
+      "returnFees": "https://schema.org/FreeReturn"
+    },
     "foundingLocation": {
       "@type": "Place",
       "name": "Kolkata, West Bengal, India",
@@ -58,6 +76,55 @@ export function buildOrganizationSchema() {
       "addressRegion": "West Bengal",
       "addressCountry": "IN"
     }
+  };
+}
+
+/**
+ * Builds MobileApplication schema linking the official Android Play Store app to the ZebAlpha web entity
+ */
+export function buildMobileAppSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "MobileApplication",
+    "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#android-app`,
+    "name": "ZEBALPHA - Streetwear & Custom Print Studio",
+    "operatingSystem": "ANDROID",
+    "applicationCategory": "ShoppingApplication",
+    "url": ZEBALPHA_BRAND_ENTITY.url,
+    "downloadUrl": "https://play.google.com/store/apps/details?id=com.zebalpha.customer",
+    "installUrl": "https://play.google.com/store/apps/details?id=com.zebalpha.customer",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "INR"
+    },
+    "publisher": {
+      "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization`
+    }
+  };
+}
+
+/**
+ * Builds ItemList schema for Category & Collection pages
+ */
+export function buildItemListSchema(
+  items: Array<{ name: string; url: string; image?: string }>,
+  listName: string,
+  listUrl: string
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": listName,
+    "url": listUrl,
+    "numberOfItems": items.length,
+    "itemListElement": items.slice(0, 24).map((item, idx) => ({
+      "@type": "ListItem",
+      "position": idx + 1,
+      "name": item.name,
+      "url": item.url,
+      ...(item.image ? { "image": item.image } : {})
+    }))
   };
 }
 

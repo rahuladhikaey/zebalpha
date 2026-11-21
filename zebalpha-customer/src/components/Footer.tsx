@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { CreditCard, Mail, Shield, ArrowUpRight, Volume2, VolumeX, Flame, Store } from "lucide-react";
+import { CreditCard, Mail, Shield, ArrowUpRight, Volume2, VolumeX, Flame, Store, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { useIsNativeApp } from "@/lib/platform";
 
@@ -176,6 +176,45 @@ export function Footer() {
               </span>
             </div>
 
+            {/* Website-Only App Download QR Card (Hidden inside the Android App itself) */}
+            {!isNativeApp && (
+              <div className="mt-6 max-w-md w-full rounded-2xl border border-amber-400/35 bg-black/75 backdrop-blur-xl p-3.5 sm:p-4 shadow-[0_12px_32px_rgba(0,0,0,0.65)]">
+                <div className="flex items-center gap-3.5 sm:gap-4">
+                  <div className="shrink-0 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-amber-300/40">
+                    <img
+                      src="/zebalpha-app-qr.jpg"
+                      alt="Scan QR code to download the ZebAlpha Android App"
+                      loading="lazy"
+                      decoding="async"
+                      className="h-24 w-24 sm:h-28 sm:w-28 object-contain rounded-lg block"
+                    />
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/35 bg-amber-400/15 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-300">
+                      <Smartphone className="h-3 w-3" />
+                      <span>ZebAlpha App</span>
+                    </span>
+                    <h3 className="text-sm sm:text-base font-black text-white tracking-tight leading-snug">
+                      Scan to Get the App
+                    </h3>
+                    <p className="text-[11px] sm:text-xs font-medium text-neutral-300 leading-relaxed">
+                      Scan with your phone camera for instant drop alerts, faster checkout &amp; Flat ₹100 OFF on 1st order.
+                    </p>
+                    <a
+                      href="https://play.google.com/store/apps/details?id=com.zebalpha.customer"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-black hover:brightness-105 transition-all shadow-md"
+                    >
+                      <span>Download App</span>
+                      <ArrowUpRight className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isNativeApp && (
               <div className="mt-6 grid grid-cols-2 gap-4 pt-5 border-t border-white/20 text-xs font-bold lg:hidden">
                 <div className="space-y-2">
@@ -199,18 +238,25 @@ export function Footer() {
 
           </div>
 
-          {/* Desktop Only: Collections & Customer Support */}
-          <div className="hidden lg:grid grid-cols-2 gap-10 lg:grid-cols-6 lg:col-span-6 w-full">
+          {/* Collections, Custom Studio & Customer Support (Crawlable on Mobile Web & Desktop for Mobile-First SEO) */}
+          <div className={`${isNativeApp ? "hidden lg:grid" : "grid"} grid-cols-2 gap-8 lg:gap-10 lg:grid-cols-6 lg:col-span-6 w-full`}>
             <div className="col-span-1 lg:col-span-3">
               <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Marketplace &amp; Shop</h3>
-              <ul className="mt-5 space-y-3 text-sm text-neutral-100 font-bold drop-shadow">
+              <ul className="mt-5 space-y-2.5 text-sm text-neutral-100 font-bold drop-shadow">
                 <li><Link href="/products" className="transition hover:text-white block">Shop All Products</Link></li>
+                <li><Link href="/customize" className="transition hover:text-amber-300 text-amber-200 block">Custom Print Studio</Link></li>
+                <li><Link href="/new-drops" className="transition hover:text-white block">New Season Drops</Link></li>
+                <li><Link href="/category/oversized-t-shirts" className="transition hover:text-white block">Oversized T-Shirts (240 GSM)</Link></li>
                 <li><Link href="/category/polos" className="transition hover:text-white block">Polo T-Shirts</Link></li>
-                <li><Link href="/category/oversized-t-shirts" className="transition hover:text-white block">Oversized T-Shirts</Link></li>
                 <li><Link href="/category/hoodies" className="transition hover:text-white block">Hoodies &amp; Sweatshirts</Link></li>
-                <li><Link href="/blogs" className="transition hover:text-white block">ZebAlpha Blogs &amp; Guides</Link></li>
+                <li><Link href="/category/custom-t-shirts" className="transition hover:text-white block">Custom Printed Tees</Link></li>
+                <li><Link href="/category/tote-bags" className="transition hover:text-white block">Canvas Tote Bags</Link></li>
+                <li><Link href="/categories" className="transition hover:text-white block">All Categories</Link></li>
+                <li><Link href="/blogs" className="transition hover:text-white block">ZebAlpha Blogs &amp; Story</Link></li>
+                <li><Link href="/guides" className="transition hover:text-white block">Fabric &amp; Buying Guides</Link></li>
+                <li><Link href="/size-guide" className="transition hover:text-white block">Size Guide</Link></li>
                 <li><Link href="/about" className="transition hover:text-white block">About ZebAlpha</Link></li>
-                <li><Link href="/seller" className="transition hover:text-white block">Sell on ZebAlpha (Seller Hub)</Link></li>
+                <li><Link href="/seller" className="transition hover:text-white block">Sell on ZebAlpha (0% Commission)</Link></li>
                 <li className="pt-2">
                   <Link 
                     href="https://seller.zebalpha.shop"
@@ -233,7 +279,7 @@ export function Footer() {
 
             <div className="col-span-1 lg:col-span-3">
               <h3 className="text-xs font-black uppercase tracking-[0.25em] text-white drop-shadow-md">Customer &amp; Seller Support</h3>
-              <ul className="mt-5 space-y-3 text-sm text-neutral-100 font-bold drop-shadow">
+              <ul className="mt-5 space-y-2.5 text-sm text-neutral-100 font-bold drop-shadow">
                 <li><Link href="/contact" className="transition hover:text-white block">Contact Support Desk</Link></li>
                 <li><Link href="/profile/orders" className="transition hover:text-white block">Track Your Order</Link></li>
                 <li><Link href="/shipping-policy" className="transition hover:text-white block">Shipping &amp; Delivery Policy</Link></li>
@@ -251,7 +297,7 @@ export function Footer() {
           <p>© 2026 ZebAlpha. All rights reserved. Indian E-Commerce Marketplace.</p>
           <div className="mt-4 flex flex-wrap items-center gap-4 sm:mt-0">
             <a
-              href="https://www.instagram.com/zebalpha_official?psln=MW5jZHU3YjF0M2x3eg=="
+              href="https://www.instagram.com/zebalpha_official/"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 transition text-pink-400 hover:text-pink-300 font-bold"

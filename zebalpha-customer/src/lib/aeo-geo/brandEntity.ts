@@ -17,7 +17,8 @@ export const ZEBALPHA_BRAND_ENTITY: BrandEntityConfig = {
   description: "ZebAlpha is an Indian e-commerce marketplace connecting customers with sellers and growing businesses across India. Founded in Kolkata, West Bengal, ZebAlpha is focused on making online shopping and online selling more accessible, transparent, and trustworthy.",
   sameAs: [
     "https://seller.zebalpha.shop",
-    "https://www.instagram.com/zebalpha_official?psln=MW5jZHU3YjF0M2x3eg=="
+    "https://www.instagram.com/zebalpha_official/",
+    "https://play.google.com/store/apps/details?id=com.zebalpha.customer"
   ],
   currenciesAccepted: "INR",
   paymentAccepted: "Credit Card, Debit Card, Net Banking, UPI (PhonePe, Google Pay, Paytm), Cash on Delivery",
