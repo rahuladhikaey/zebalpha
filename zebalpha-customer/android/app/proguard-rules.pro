@@ -1,21 +1,41 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ==============================================================================
+# ZebAlpha Customer Android — R8 Full Mode ProGuard Rules
+# Maximizes DEX shrinking, obfuscation & runtime optimization while preserving
+# Capacitor 8 plugins, Firebase Messaging, and ZebAlphaNative JS Bridge.
+# ==============================================================================
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preserve stack trace line numbers for Google Play Console de-obfuscation
+# while obfuscating original source filenames.
+-keepattributes SourceFile,LineNumberTable,*Annotation*,Signature,InnerClasses,EnclosingMethod
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ── 1. ZebAlpha Native WebView JavaScript Bridge (@JavascriptInterface) ──────
+# Critical: keeps showNotification, getFcmToken, startVoiceSearch, shareContent, etc.
+-keepattributes JavascriptInterface
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keep public class com.zebalpha.customer.MainActivity$ZebAlphaNativeInterface {
+    public *;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ── 2. Manifest-referenced Entry Points (Activity & FCM Service) ─────────────
+-keep public class com.zebalpha.customer.MainActivity
+-keep public class com.zebalpha.customer.ZebAlphaFirebaseMessagingService
+
+# ── 3. Capacitor 8 Core, Plugins & Reflection-loaded Plugin Methods ──────────
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keep class * extends com.getcapacitor.Plugin {
+    public <init>(...);
+    @com.getcapacitor.PluginMethod <methods>;
+    @com.getcapacitor.annotation.PermissionCallback <methods>;
+    @com.getcapacitor.annotation.ActivityCallback <methods>;
+}
+-keep class com.getcapacitor.** { *; }
+-keep class com.capacitorjs.plugins.** { *; }
+-keep class org.apache.cordova.** { *; }
+
+# ── 4. Safe Reflection / JSON / WebView Interop Guards ───────────────────────
+-dontwarn org.apache.cordova.**
+-dontwarn com.getcapacitor.**
+-dontwarn androidx.webkit.**
