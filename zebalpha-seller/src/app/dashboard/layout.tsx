@@ -63,7 +63,7 @@ export default function DashboardLayout({
           console.warn("[Security Guard] Unauthorized access attempt blocked. Redirecting to login.");
           setAuthStatus("unauthorized");
           const currentPath = typeof window !== "undefined" ? window.location.pathname : "/dashboard";
-          router.replace(`/?error=unauthorized&redirect=${encodeURIComponent(currentPath)}`);
+          router.replace(`/login?error=unauthorized&redirect=${encodeURIComponent(currentPath)}`);
           return;
         }
 
@@ -88,14 +88,14 @@ export default function DashboardLayout({
           if (accStatus === "pending") {
             setAuthStatus("unauthorized");
             await supabase.auth.signOut();
-            router.replace("/?error=pending");
+            router.replace("/login?error=pending");
             return;
           }
 
           if (accStatus === "rejected") {
             setAuthStatus("unauthorized");
             await supabase.auth.signOut();
-            router.replace(`/?error=rejected&reason=${encodeURIComponent(seller.rejection_reason || "Registration rejected")}`);
+            router.replace(`/login?error=rejected&reason=${encodeURIComponent(seller.rejection_reason || "Registration rejected")}`);
             return;
           }
 
@@ -120,7 +120,7 @@ export default function DashboardLayout({
                 const accStatus = (payload.new.account_status || payload.new.status || "Active").toLowerCase();
                 setIsSuspended(accStatus === "suspended");
                 if (accStatus === "rejected" || accStatus === "pending") {
-                  router.replace("/?error=unauthorized");
+                  router.replace("/login?error=unauthorized");
                 }
               }
             }
@@ -131,7 +131,7 @@ export default function DashboardLayout({
         console.error("[Security Guard Exception]:", err);
         if (isMounted) {
           setAuthStatus("unauthorized");
-          router.replace("/?error=unauthorized");
+          router.replace("/login?error=unauthorized");
         }
       }
     }
@@ -143,7 +143,7 @@ export default function DashboardLayout({
       if (event === "SIGNED_OUT" || !session) {
         if (isMounted) {
           setAuthStatus("unauthorized");
-          router.replace("/?error=unauthorized");
+          router.replace("/login?error=unauthorized");
         }
       }
     });
@@ -162,7 +162,7 @@ export default function DashboardLayout({
       sessionStorage.clear();
     }
     await supabase.auth.signOut();
-    router.replace("/");
+    router.replace("/login?logged_out=1");
   };
 
   const navItems: Array<{ name: string; href: string; icon: any; badge?: string }> = [
@@ -251,7 +251,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-black text-white overflow-hidden font-sans select-none relative">
+    <div className="seller-dashboard-dark flex h-screen bg-black text-white overflow-hidden font-sans select-none relative">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 

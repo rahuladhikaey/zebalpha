@@ -1,0 +1,1334 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { supabase } from "@shared/utils/supabaseClient";
+import {
+  ArrowRight,
+  BadgePercent,
+  BarChart3,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  FileCheck2,
+  Handshake,
+  LayoutDashboard,
+  Mail,
+  MapPin,
+  Megaphone,
+  Menu,
+  PackageCheck,
+  Play,
+  Rocket,
+  ShieldCheck,
+  Flame,
+  Store,
+  TrendingUp,
+  Truck,
+  X,
+  Ban,
+} from "lucide-react";
+
+type SellerStory = {
+  id: string;
+  name: string;
+  business: string;
+  city: string;
+  image: string;
+  quote: string;
+  highlight: string;
+  fullStory: string;
+  featured?: boolean;
+};
+
+const SELLER_STORIES: SellerStory[] = [
+  {
+    id: "story-1",
+    name: "Aarav & Rohan Verma",
+    business: "Urban Loom Apparel",
+    city: "Tiruppur",
+    image: "/images/seller-story-1.jpg",
+    quote:
+      "Our apparel business scaled far beyond local wholesale. Keeping 100% of our margin at 0% commission helped us launch fresh oversized tee drops every week.",
+    highlight: "3.8x Monthly Order Growth",
+    fullStory:
+      "Starting from a small cotton knitting unit in Tiruppur, Aarav and Rohan listed 40 core oversized T-shirts on ZebAlpha Seller Hub. With zero marketplace commission, automated Shiprocket pickups, and transparent 7-day settlements, they reinvested margins directly into new colorways and now ship across 18 Indian states.",
+  },
+  {
+    id: "story-2",
+    name: "Meera Deshmukh",
+    business: "Kesar Ethnic Studio",
+    city: "Jaipur",
+    image: "/images/seller-story-2.jpg",
+    quote:
+      "I started selling on ZebAlpha with 4-5 daily boutique orders in my very first week. Easy listing and zero cancellation penalties made going online completely stress-free.",
+    highlight: "Zero Commission • 7-Day Payouts",
+    fullStory:
+      "Meera ran a neighbourhood kurti & ethnic wear studio before joining ZebAlpha with her Enrolment ID. She prints thermal shipping labels straight from the Seller Dashboard and manages stock variants in minutes—turning her local studio into a pan-India direct-to-consumer brand.",
+    featured: true,
+  },
+  {
+    id: "story-3",
+    name: "Rajesh & Dev Patel",
+    business: "Vastra House Collective",
+    city: "Surat",
+    image: "/images/seller-story-3.jpg",
+    quote:
+      "ZebAlpha made transitioning our family textile business online effortless. Real-time inventory alerts and affordable Pan-India shipping helped us reach shoppers nationwide.",
+    highlight: "28,000+ Pincode Reach",
+    fullStory:
+      "As a second-generation apparel supplier in Surat, Rajesh and Dev wanted a fair, seller-first marketplace without hefty commissions eating into margins. ZebAlpha's ledger transparency and SKU-level analytics helped them identify top-selling festive designs early and multiply festive season volume.",
+  },
+];
+
+const POPULAR_CATEGORIES_PRIMARY = [
+  { label: "Sell Sarees Online", query: "Sarees & Ethnic Wear" },
+  { label: "Sell Jewellery Online", query: "Jewellery & Accessories" },
+  { label: "Sell T-Shirts Online", query: "T-Shirts & Streetwear" },
+  { label: "Sell Shirts Online", query: "Men's Shirts & Polos" },
+  { label: "Sell Kurtis Online", query: "Kurtis & Women's Fashion" },
+  { label: "Sell Hoodies Online", query: "Hoodies & Winterwear" },
+  { label: "Sell Clothes Online", query: "Clothing & Apparel" },
+  { label: "Sell Socks & Accessories", query: "Footwear & Socks" },
+];
+
+const POPULAR_CATEGORIES_EXTRA = [
+  { label: "Sell Polos Online", query: "Men's Shirts & Polos" },
+  { label: "Sell Streetwear Online", query: "T-Shirts & Streetwear" },
+  { label: "Sell Watches Online", query: "Watches & Lifestyle" },
+  { label: "Sell Ethnic Sets Online", query: "Sarees & Ethnic Wear" },
+  { label: "Sell Footwear Online", query: "Footwear & Socks" },
+  { label: "Sell Winterwear Online", query: "Hoodies & Winterwear" },
+  { label: "Sell Tote Bags Online", query: "Jewellery & Accessories" },
+  { label: "Sell Home Decor Online", query: "Home & Kitchen" },
+];
+
+const LEARNING_HUB_GUIDES = [
+  {
+    step: "01",
+    title: "High-Converting Catalog Photography",
+    points: [
+      "Upload bright, clean front/back photos on neutral light backgrounds.",
+      "Add accurate size charts, fabric GSM, and fit details to minimize returns.",
+    ],
+  },
+  {
+    step: "02",
+    title: "Smart 0% Commission Pricing",
+    points: [
+      "Because ZebAlpha charges 0% marketplace commission, price competitively while protecting healthy profit margins.",
+      "Offer multi-color & size variants under a single listing for higher conversion.",
+    ],
+  },
+  {
+    step: "03",
+    title: "Fast Packing & Doorstep Pickup",
+    points: [
+      "Download thermal/A4 shipping labels with one click inside Seller Dashboard.",
+      "Dispatch within 24 hours to qualify for faster delivery badges & higher buyer trust.",
+    ],
+  },
+  {
+    step: "04",
+    title: "Selling Without Regular GSTIN",
+    points: [
+      "Eligible small sellers can apply for a free GST Enrolment ID / UIN on the official GST portal.",
+      "Use your Enrolment ID + Bank/UPI account to onboard smoothly for intra-state orders.",
+    ],
+  },
+];
+
+const NAV_LINKS = [
+  { label: "Sell Online", href: "#sell-online" },
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Pricing & Commission", href: "#pricing" },
+  { label: "Shipping & Returns", href: "#shipping" },
+  { label: "Grow Business", href: "#grow-business" },
+  { label: "Don't have GST?", href: "#no-gst" },
+];
+
+export function SellerLandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showMoreCategories, setShowMoreCategories] = useState(false);
+  const [activeStory, setActiveStory] = useState<SellerStory | null>(null);
+  const [learningHubOpen, setLearningHubOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check if seller already has an active authenticated session (to show quick Dashboard button)
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (mounted && data?.user) {
+          setIsLoggedIn(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const visibleCategories = showMoreCategories
+    ? [...POPULAR_CATEGORIES_PRIMARY, ...POPULAR_CATEGORIES_EXTRA]
+    : POPULAR_CATEGORIES_PRIMARY;
+
+  return (
+    <div className="min-h-screen bg-white text-[#14120F] selection:bg-[#F5B922]/35 selection:text-[#14120F]">
+      {/* ===================================================================== */}
+      {/* 1. STICKY OFFICIAL NAVIGATION BAR                                     */}
+      {/* ===================================================================== */}
+      <header className="sticky top-0 z-50 bg-white/96 backdrop-blur-xl border-b border-[#F0E2BE] shadow-[0_4px_20px_rgba(166,124,28,0.06)]">
+        {/* Signature ZebAlpha Bright Coral + Champagne Gold Top Accent Strip */}
+        <div className="h-1 w-full bg-gradient-to-r from-[#F03A46] via-[#F5B922] to-[#F03A46]" />
+
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 h-[70px]">
+          {/* Left: Official ZebAlpha Brand */}
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <img
+              src="/official-logo.png"
+              alt="ZebAlpha Seller Hub"
+              className="h-10 w-10 rounded-full object-cover border-2 border-[#DFBE6F] shadow-sm"
+            />
+            <div className="leading-tight">
+              <span className="block text-xl font-black tracking-tight text-[#14120F]">
+                zeb<span className="text-[#F03A46]">alpha</span>
+              </span>
+              <span className="block text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#9A6503]">
+                Seller Hub
+              </span>
+            </div>
+          </Link>
+
+          {/* Center: Desktop Navigation */}
+          <nav className="hidden xl:flex items-center gap-6" aria-label="Seller Portal Navigation">
+            {NAV_LINKS.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="text-[13.5px] font-semibold text-[#3A3122] hover:text-[#F03A46] transition-colors whitespace-nowrap"
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+
+          {/* Right: Login + Start Selling (or Dashboard if already authenticated) */}
+          <div className="hidden sm:flex items-center gap-3 shrink-0">
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#F03A46] via-[#FF5757] to-[#E63946] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)] hover:brightness-105 active:scale-[0.98] transition-all"
+                >
+                  <LayoutDashboard size={16} />
+                  <span>Go to Dashboard</span>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center rounded-xl border-[1.5px] border-[#DFBE6F] bg-[#FFFDF8] px-6 py-2.5 text-sm font-extrabold text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46] hover:bg-[#FFF4F2] active:scale-[0.98] transition-all"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#F03A46] via-[#FF5757] to-[#E63946] px-6 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)] hover:brightness-105 active:scale-[0.98] transition-all"
+                >
+                  Start Selling
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Actions + Menu Toggle */}
+          <div className="flex sm:hidden items-center gap-2">
+            <Link
+              href={isLoggedIn ? "/dashboard" : "/login"}
+              className="rounded-lg border border-[#DFBE6F] bg-[#FFFDF8] px-3 py-1.5 text-xs font-extrabold text-[#14120F]"
+            >
+              {isLoggedIn ? "Dashboard" : "Login"}
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-lg bg-[#F03A46] px-3 py-1.5 text-xs font-extrabold text-white shadow-sm"
+            >
+              Sell
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label="Toggle Menu"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#EAD296] bg-[#FFFDF8] text-[#14120F]"
+            >
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Dropdown Navigation */}
+        {mobileMenuOpen && (
+          <div className="xl:hidden border-t border-[#F0E2BE] bg-[#FFFDF8] px-4 py-4 shadow-lg">
+            <div className="flex flex-col space-y-2.5">
+              {NAV_LINKS.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-xl px-3 py-2 text-sm font-bold text-[#2D2518] hover:bg-[#FAF2DC] hover:text-[#F03A46] transition"
+                >
+                  {item.label}
+                </a>
+              ))}
+              <div className="pt-2 flex gap-2.5 border-t border-[#F0E2BE]">
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 text-center rounded-xl border-[1.5px] border-[#DFBE6F] bg-white py-2.5 text-xs font-extrabold text-[#14120F]"
+                >
+                  Seller Login
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 text-center rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] py-2.5 text-xs font-extrabold text-white"
+                >
+                  Start Selling
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* ===================================================================== */}
+      {/* 2. HERO BANNER (MEESHO LAYOUT + ZEBALPHA YELLOW/GOLD/WHITE/CORAL)     */}
+      {/* ===================================================================== */}
+      <section
+        id="sell-online"
+        className="relative overflow-hidden bg-gradient-to-br from-[#FFF9F7] via-[#FFFDF8] to-[#FFF6E0] border-b border-[#F3E6C8]"
+      >
+        {/* Subtle festive floral watermark along top right edge */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-28 opacity-[0.07]"
+          style={{
+            backgroundImage: "url('/festive-header-bg.jpg')",
+            backgroundSize: "520px auto",
+            backgroundRepeat: "repeat-x",
+            WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
+            maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
+          }}
+        />
+
+        {/* Soft Sweeping Coral-Golden Arch Background on Right Half (like Meesho pink arch) */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none hidden lg:block absolute right-0 top-6 bottom-0 w-[56%] rounded-tl-[260px] bg-gradient-to-br from-[#FFE8E4]/85 via-[#FFF2D4]/75 to-[#FFE5DE]/70"
+        />
+
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-0">
+          <div className="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-end">
+            {/* Hero Left Copy */}
+            <div className="pb-10 lg:pb-16">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#F5B922]/60 bg-[#FFF8DB] px-3.5 py-1.5 text-xs font-extrabold text-[#8A5A00] mb-5 shadow-sm">
+                <Store size={14} className="text-[#F03A46]" />
+                <span>Official ZebAlpha Supplier Portal • Pan-India</span>
+              </div>
+
+              <h1 className="text-3xl sm:text-5xl lg:text-[50px] font-black tracking-tight text-[#14120F] leading-[1.12]">
+                Sell online to Crores of Customers at{" "}
+                <span className="bg-gradient-to-r from-[#F03A46] via-[#FF5757] to-[#D97706] bg-clip-text text-transparent">
+                  0% Commission
+                </span>
+              </h1>
+
+              <p className="mt-4 text-base sm:text-lg font-medium text-[#5C4E35] max-w-xl leading-relaxed">
+                Become a ZebAlpha seller and grow your apparel, fashion &amp; lifestyle business across India with transparent 7-day payouts.
+              </p>
+
+              {/* Bright Coral NEW Ribbon Notice */}
+              <div className="mt-5 flex flex-wrap items-center gap-2.5 text-sm font-medium text-[#3D3322]">
+                <span className="inline-flex items-center rounded-md bg-gradient-to-r from-[#F03A46] to-[#FF6B6B] px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-sm">
+                  NEW
+                </span>
+                <span>
+                  Don&apos;t have a GSTIN? You can still sell on ZebAlpha.{" "}
+                  <a
+                    href="#no-gst"
+                    className="font-extrabold text-[#F03A46] underline decoration-[#F03A46]/50 underline-offset-4 hover:text-[#C82333]"
+                  >
+                    Know more
+                  </a>
+                </span>
+              </div>
+
+              {/* Hero CTAs */}
+              <div className="mt-8 flex flex-wrap items-center gap-3.5">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#F03A46] via-[#FF5757] to-[#E63946] px-8 py-3.5 text-sm sm:text-base font-black text-white shadow-[0_12px_28px_rgba(240,58,70,0.32)] hover:brightness-105 active:scale-[0.98] transition-all"
+                >
+                  <span>Start Selling</span>
+                  <ArrowRight size={17} />
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border-[1.5px] border-[#DFBE6F] bg-white px-7 py-3.5 text-sm sm:text-base font-extrabold text-[#14120F] shadow-sm hover:border-[#F03A46] hover:text-[#F03A46] hover:bg-[#FFF9F7] active:scale-[0.98] transition-all"
+                >
+                  <span>Seller Login</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Hero Right Visual: Growth Chart + Location Pins + Studio Seller Portrait */}
+            <div className="relative flex items-end justify-center lg:justify-end min-h-[300px] sm:min-h-[370px]">
+              {/* Decorative Rising Coral-Gold Growth Bars + Curve (left-behind portrait) */}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 420 260"
+                className="pointer-events-none absolute left-0 bottom-2 w-[78%] max-w-[380px] z-10 hidden sm:block"
+              >
+                <defs>
+                  <linearGradient id="growthArrowGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#F5B922" />
+                    <stop offset="100%" stopColor="#F03A46" />
+                  </linearGradient>
+                </defs>
+                {/* Dotted axis */}
+                <line
+                  x1="20"
+                  y1="230"
+                  x2="380"
+                  y2="230"
+                  stroke="#F03A46"
+                  strokeOpacity="0.28"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 4"
+                />
+                <line
+                  x1="20"
+                  y1="50"
+                  x2="20"
+                  y2="230"
+                  stroke="#F03A46"
+                  strokeOpacity="0.28"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 4"
+                />
+                {/* Crisp White Growth Bars */}
+                <rect x="52" y="180" width="20" height="50" rx="5" fill="#FFFFFF" opacity="0.92" />
+                <rect x="112" y="140" width="20" height="90" rx="5" fill="#FFFFFF" opacity="0.92" />
+                <rect x="172" y="110" width="20" height="120" rx="5" fill="#FFFFFF" opacity="0.92" />
+                <rect x="232" y="65" width="20" height="165" rx="5" fill="#FFFFFF" opacity="0.92" />
+                {/* Sweeping Growth Curve */}
+                <path
+                  d="M 56 176 Q 130 120 190 112 T 288 28"
+                  fill="none"
+                  stroke="url(#growthArrowGrad)"
+                  strokeWidth="4.5"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 276 26 L 292 24 L 288 40"
+                  fill="none"
+                  stroke="#F03A46"
+                  strokeWidth="4.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+
+              {/* Floating Pin Badges */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none hidden sm:flex absolute left-10 top-12 z-20 items-center gap-1.5 rounded-full bg-white/95 border border-[#EAD296] px-3 py-1.5 text-[11px] font-extrabold text-[#14120F] shadow-md"
+              >
+                <MapPin size={13} className="text-[#F03A46]" />
+                <span>28,000+ Pincodes</span>
+              </div>
+
+              <div
+                aria-hidden="true"
+                className="pointer-events-none hidden sm:flex absolute right-2 top-8 z-20 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#FFF8DB] to-[#FCE89C] border border-[#DFBE6F] px-3 py-1.5 text-[11px] font-black text-[#8A5A00] shadow-md"
+              >
+                <BadgePercent size={13} className="text-[#F03A46]" />
+                <span>0% Commission</span>
+              </div>
+
+              {/* Studio Seller Portrait */}
+              <div className="relative z-20 w-full max-w-[520px] overflow-hidden rounded-t-3xl lg:rounded-t-none">
+                <img
+                  src="/images/seller-hero.jpg"
+                  alt="Smiling ZebAlpha Indian seller holding shipping boxes"
+                  className="w-full h-auto object-contain object-bottom mix-blend-multiply select-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 3. FOUR IMPACT METRIC CARDS (MEESHO 4-COLUMN STAT ROW)                */}
+      {/* ===================================================================== */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[
+            {
+              highlight: "0%",
+              title: "Commission fee — sellers keep 100% of their product margin",
+            },
+            {
+              highlight: "Pan-India",
+              title: "Customers shopping on ZebAlpha Website & Android App",
+            },
+            {
+              highlight: "28,000+",
+              title: "Serviceable pincodes across India — we deliver everywhere",
+            },
+            {
+              highlight: "100+",
+              title: "Apparel, streetwear & lifestyle categories to sell online",
+            },
+          ].map((stat) => (
+            <div
+              key={stat.highlight}
+              className="rounded-2xl bg-[#FFFDF8] border border-[#F0E2BE] p-6 sm:p-7 shadow-[0_8px_24px_rgba(166,124,28,0.07)] hover:border-[#DFBE6F] hover:-translate-y-0.5 transition-all"
+            >
+              <p className="text-3xl sm:text-[34px] font-black tracking-tight bg-gradient-to-r from-[#F03A46] to-[#D97706] bg-clip-text text-transparent">
+                {stat.highlight}
+              </p>
+              <p className="mt-2.5 text-base font-bold text-[#14120F] leading-snug">
+                {stat.title}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 4. WHY SUPPLIERS LOVE ZEBALPHA (#pricing)                             */}
+      {/* ===================================================================== */}
+      <section id="pricing" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+        <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          {/* Left Title */}
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF4F2] border border-[#F03A46]/25 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[#F03A46]">
+              Seller First Policy
+            </span>
+            <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-[#14120F]">
+              Why Suppliers Love ZebAlpha
+            </h2>
+            <p className="mt-4 text-base text-[#5C4E35] leading-relaxed max-w-md">
+              All the benefits that come with selling on ZebAlpha are designed to help you sell more, protect your profit margins, and make it easier to grow your business across India.
+            </p>
+          </div>
+
+          {/* Right White Feature Card with Dividers */}
+          <div className="rounded-3xl bg-white border-[1.5px] border-[#EAD296] p-6 sm:p-9 shadow-[0_14px_40px_rgba(166,124,28,0.1)] divide-y divide-[#F3E7C8]">
+            {/* Item 1 */}
+            <div className="flex items-start gap-4 pb-6">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFF4F2] to-[#FFE2DC] border border-[#F03A46]/25 text-[#F03A46]">
+                <BadgePercent size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-[#14120F]">0% Commission Fee</h3>
+                <p className="mt-1 text-sm text-[#5C4E35] leading-relaxed">
+                  Suppliers selling on ZebAlpha keep 100% of their selling profit by paying zero marketplace commission on orders.
+                </p>
+              </div>
+            </div>
+
+            {/* Item 2 */}
+            <div className="flex items-start gap-4 py-6">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFF8DB] to-[#FCE89C] border border-[#DFBE6F] text-[#9A6503]">
+                <Ban size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-[#14120F]">0 Penalty Charges</h3>
+                <p className="mt-1 text-sm text-[#5C4E35] leading-relaxed">
+                  Sell online without fear of surprise cancellation fees — 0 penalty charges for unforeseen cancellations or early onboarding adjustments.
+                </p>
+              </div>
+            </div>
+
+            {/* Item 3 */}
+            <div className="flex items-start gap-4 py-6">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFF4F2] to-[#FCE89C]/60 border border-[#F03A46]/20 text-[#F03A46]">
+                <TrendingUp size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-[#14120F]">Growth for Every Supplier</h3>
+                <p className="mt-1 text-sm text-[#5C4E35] leading-relaxed">
+                  From small local studios and unbranded manufacturers to branded streetwear labels — and open for eligible sellers without a Regular GSTIN too.
+                </p>
+              </div>
+            </div>
+
+            {/* Item 4 */}
+            <div className="flex items-start gap-4 pt-6">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFF8DB] to-[#FCE89C] border border-[#DFBE6F] text-[#9A6503]">
+                <Handshake size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-black text-[#14120F]">Ease of Doing Business</h3>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm font-semibold text-[#3D3322]">
+                  <span className="inline-flex items-center gap-2">
+                    <Check size={16} strokeWidth={3} className="text-[#F03A46] shrink-0" />
+                    Easy Product Listing
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <Check size={16} strokeWidth={3} className="text-[#F03A46] shrink-0" />
+                    Lowest Cost Shipping
+                  </span>
+                  <span className="inline-flex items-center gap-2 sm:col-span-2">
+                    <Check size={16} strokeWidth={3} className="text-[#F03A46] shrink-0" />
+                    7-Day Payment Cycle directly from the delivery date
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 5. EXCLUSIVE SELLER+ LAUNCH REWARDS FOR THE FIRST 30 DAYS             */}
+      {/* ===================================================================== */}
+      <section className="my-8 bg-gradient-to-r from-[#FFF4F2] via-[#FFF9EB] to-[#FFF4F2] border-y border-[#F0E2BE] py-14 sm:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#DFBE6F] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#9A6503] shadow-sm">
+                New Merchant Launch Boost
+              </span>
+              <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-[#14120F] leading-tight">
+                Exclusive Seller+ Rewards for the first 30 days
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-[#5C4E35] max-w-md">
+                Every newly verified ZebAlpha merchant gets priority onboarding perks to generate their first orders faster.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-5">
+              {/* Card 1 */}
+              <div className="rounded-3xl bg-white border border-[#EAD296] p-7 shadow-[0_14px_34px_rgba(166,124,28,0.12)]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F03A46] to-[#FF6B6B] text-white shadow-md">
+                  <Megaphone size={22} />
+                </div>
+                <h3 className="mt-5 text-lg font-black text-[#14120F]">
+                  Free Catalog Visibility Boost
+                </h3>
+                <p className="mt-2.5 text-sm text-[#5C4E35] leading-relaxed">
+                  Get featured discovery placement inside New Drops &amp; Trending Picks on ZebAlpha Web &amp; App to attract your first buyers quickly.
+                </p>
+              </div>
+
+              {/* Card 2 */}
+              <div className="rounded-3xl bg-white border border-[#EAD296] p-7 shadow-[0_14px_34px_rgba(166,124,28,0.12)]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FCE89C] via-[#F5B922] to-[#D9910F] text-[#14120F] shadow-md">
+                  <ShieldCheck size={22} />
+                </div>
+                <h3 className="mt-5 text-lg font-black text-[#14120F]">
+                  No Order Cancellation Charges
+                </h3>
+                <p className="mt-2.5 text-sm text-[#5C4E35] leading-relaxed">
+                  Cancel orders that you can&apos;t fulfil for unforeseen inventory reasons without worrying about marketplace penalties.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 6. EXPERIENCES SELLERS LOVE TO TALK ABOUT                             */}
+      {/* ===================================================================== */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
+        <div className="text-center max-w-2xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-[#14120F]">
+            Experiences sellers love to talk about
+          </h2>
+          <p className="mt-2.5 text-sm sm:text-base text-[#5C4E35]">
+            Real Indian apparel makers, homegrown labels, and wholesalers growing online with ZebAlpha.
+          </p>
+        </div>
+
+        <div className="mt-12 grid gap-7 md:grid-cols-3 items-stretch">
+          {SELLER_STORIES.map((story) => (
+            <div
+              key={story.id}
+              onClick={() => setActiveStory(story)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setActiveStory(story);
+                }
+              }}
+              className={`group rounded-3xl p-5 transition-all cursor-pointer flex flex-col ${
+                story.featured
+                  ? "bg-white border-2 border-[#DFBE6F] shadow-[0_20px_50px_rgba(166,124,28,0.16)] md:-translate-y-2"
+                  : "bg-[#FFFDF8] border border-[#F0E2BE] shadow-[0_10px_28px_rgba(166,124,28,0.08)] hover:border-[#DFBE6F] hover:-translate-y-1"
+              }`}
+            >
+              <div className="relative">
+                <div className="aspect-[16/10] w-full overflow-hidden rounded-2xl bg-[#FAF2DC]">
+                  <img
+                    src={story.image}
+                    alt={`${story.name} - ${story.business}`}
+                    loading="lazy"
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+                {/* Play / Story Spotlight Circle Badge (matches Meesho pink circle) */}
+                <span className="absolute -bottom-5 left-4 flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#F03A46] to-[#FF5757] text-white ring-4 ring-white shadow-lg group-hover:scale-110 transition-transform">
+                  <Play size={16} className="fill-white ml-0.5" />
+                </span>
+              </div>
+
+              <div className="mt-8 flex-1 flex flex-col">
+                <h3 className="text-lg font-black text-[#14120F]">{story.name}</h3>
+                <p className="text-xs font-bold text-[#9A6503] mt-0.5">
+                  {story.business}, {story.city}
+                </p>
+                <p className="mt-3 text-sm text-[#4A3F2B] leading-relaxed flex-1">
+                  &ldquo;{story.quote}&rdquo;
+                </p>
+                <div className="mt-4 pt-3 border-t border-[#F3E7C8] flex items-center justify-between text-xs font-extrabold">
+                  <span className="text-[#F03A46]">{story.highlight}</span>
+                  <span className="text-[#6E5C3D] group-hover:text-[#14120F] inline-flex items-center gap-1">
+                    Read story <ArrowRight size={13} />
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 7. HOW IT WORKS (5-STEP CONNECTED STEPPER)                            */}
+      {/* ===================================================================== */}
+      <section id="how-it-works" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <h2 className="text-center text-3xl sm:text-4xl font-black tracking-tight text-[#14120F] mb-10">
+          How it works
+        </h2>
+
+        <div className="rounded-3xl bg-[#FFFBF2] border border-[#EAD296] p-7 sm:p-10 shadow-[0_12px_32px_rgba(166,124,28,0.08)]">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-8 relative">
+            {[
+              {
+                num: 1,
+                title: "Create Account",
+                desc: "All you need is:",
+                bullets: [
+                  "GSTIN (for GST sellers) or Enrolment ID / UIN (for non-GST sellers)",
+                  "Bank Account / UPI ID",
+                ],
+              },
+              {
+                num: 2,
+                title: "List Products",
+                desc: "List the products, sizes, colors & prices you want to sell in your ZebAlpha Seller Panel.",
+              },
+              {
+                num: 3,
+                title: "Get Orders",
+                desc: "Start receiving orders from shoppers across India browsing ZebAlpha Web & Android App.",
+              },
+              {
+                num: 4,
+                title: "Affordable Shipping",
+                desc: "Enjoy doorstep courier pickup and affordable Pan-India shipping across 28,000+ pincodes.",
+              },
+              {
+                num: 5,
+                title: "Receive Payments",
+                desc: "Payments are deposited directly to your bank/UPI following a 7-day cycle from delivery.",
+              },
+            ].map((step, index) => (
+              <div key={step.num} className="relative">
+                {/* Connecting horizontal line on desktop */}
+                {index < 4 && (
+                  <div
+                    aria-hidden="true"
+                    className="hidden md:block absolute top-5 left-12 right-[-20px] h-[2px] bg-gradient-to-r from-[#F03A46]/60 to-[#F5B922]/60"
+                  />
+                )}
+
+                <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#F03A46] to-[#FF5757] text-sm font-black text-white shadow-[0_6px_14px_rgba(240,58,70,0.3)]">
+                  {step.num}
+                </div>
+
+                <h3 className="mt-4 text-base font-black text-[#14120F]">{step.title}</h3>
+                <p className="mt-2 text-xs sm:text-[13px] text-[#5C4E35] leading-relaxed">
+                  {step.desc}
+                </p>
+                {step.bullets && (
+                  <ul className="mt-2 space-y-1.5 text-xs text-[#4A3F2B] font-medium">
+                    {step.bullets.map((b) => (
+                      <li key={b} className="flex items-start gap-1.5">
+                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#F03A46] shrink-0" />
+                        <span>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-9 pt-6 border-t border-[#EAD296]/70 flex flex-wrap items-center justify-between gap-4">
+            <p className="text-xs sm:text-sm font-bold text-[#5C4E35]">
+              Ready in under 5 minutes — verified via email OTP with zero onboarding fee.
+            </p>
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FCE89C] via-[#F5B922] to-[#DDA216] border border-[#C68A12]/60 px-6 py-2.5 text-xs sm:text-sm font-black text-[#14120F] shadow-sm hover:brightness-105 transition"
+            >
+              <span>Create Free Seller Account</span>
+              <ArrowRight size={15} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 8. ZEBALPHA SELLER LEARNING HUB BANNER                                */}
+      {/* ===================================================================== */}
+      <section className="bg-[#FFF9EB] border-y border-[#F0E2BE] py-12 sm:py-14">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <span className="text-2xl font-black tracking-tight text-[#F03A46]">zebalpha</span>
+              <span className="h-6 w-[1.5px] bg-[#DFBE6F]" />
+              <span className="text-sm font-extrabold text-[#14120F] leading-tight">
+                Seller
+                <br />
+                LearningHub
+              </span>
+            </div>
+            <h2 className="mt-3 text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
+              Learn how to sell and grow your business on ZebAlpha
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setLearningHubOpen(true)}
+            className="inline-flex items-center gap-3 rounded-2xl border-[1.5px] border-[#F03A46]/45 bg-white px-7 py-4 text-sm font-black text-[#F03A46] shadow-sm hover:bg-[#FFF4F2] hover:border-[#F03A46] active:scale-[0.98] transition-all cursor-pointer w-fit"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#F03A46] to-[#FF5757] text-white">
+              <BookOpen size={15} />
+            </span>
+            <span>Visit Learning Hub</span>
+          </button>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 9. GROW YOUR BUSINESS WITH ZEBALPHA (#grow-business & #shipping)      */}
+      {/* ===================================================================== */}
+      <section
+        id="grow-business"
+        className="bg-gradient-to-b from-[#FFF6F4] via-[#FFFBF2] to-[#FFFDF8] py-16 sm:py-20"
+      >
+        <div id="shipping" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:items-center">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#EAD296] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#9A6503]">
+                Tools Built to Scale
+              </span>
+              <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-[#14120F] leading-tight">
+                Grow Your Business With ZebAlpha
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-[#5C4E35] leading-relaxed">
+                Everything from Pan-India courier integration to live revenue insights—ready inside your Seller Dashboard from Day 1.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-6">
+              {/* Left staggered column */}
+              <div className="space-y-6">
+                <div className="rounded-3xl bg-white border border-[#EAD296] p-7 shadow-[0_12px_30px_rgba(166,124,28,0.09)]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF4F2] border border-[#F03A46]/25 text-[#F03A46]">
+                    <Truck size={23} />
+                  </div>
+                  <h3 className="mt-4 text-lg font-black text-[#14120F]">
+                    Efficient &amp; Affordable Shipping
+                  </h3>
+                  <p className="mt-2 text-sm text-[#5C4E35] leading-relaxed">
+                    Sell your products across India to over 28,000+ serviceable pincodes with automated doorstep pickup and transparent shipping labels.
+                  </p>
+                </div>
+
+                <div className="rounded-3xl bg-white border border-[#EAD296] p-7 shadow-[0_12px_30px_rgba(166,124,28,0.09)]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF8DB] border border-[#DFBE6F] text-[#9A6503]">
+                    <Rocket size={23} />
+                  </div>
+                  <h3 className="mt-4 text-lg font-black text-[#14120F]">
+                    Next Day Dispatch (NDD) Program
+                  </h3>
+                  <p className="mt-2 text-sm text-[#5C4E35] leading-relaxed">
+                    Faster shipping timelines for reliable sellers with priority pickup support, boosting buyer trust and repeat orders.
+                  </p>
+                </div>
+              </div>
+
+              {/* Right staggered column */}
+              <div className="space-y-6 sm:mt-8">
+                <div className="rounded-3xl bg-white border border-[#EAD296] p-7 shadow-[0_12px_30px_rgba(166,124,28,0.09)]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFF4F2] to-[#FCE89C]/70 border border-[#F03A46]/20 text-[#F03A46]">
+                    <Flame size={23} />
+                  </div>
+                  <h3 className="mt-4 text-lg font-black text-[#14120F]">
+                    Storefront Drops &amp; Visibility
+                  </h3>
+                  <p className="mt-2 text-sm text-[#5C4E35] leading-relaxed">
+                    Feature your best collections inside ZebAlpha Curated Drops, Trending Now &amp; personalized shopper feeds to accelerate sales.
+                  </p>
+                </div>
+
+                <div className="rounded-3xl bg-white border border-[#EAD296] p-7 shadow-[0_12px_30px_rgba(166,124,28,0.09)]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF8DB] border border-[#DFBE6F] text-[#9A6503]">
+                    <BarChart3 size={23} />
+                  </div>
+                  <h3 className="mt-4 text-lg font-black text-[#14120F]">Business Insights</h3>
+                  <p className="mt-2 text-sm text-[#5C4E35] leading-relaxed">
+                    Use live order analytics, inventory alerts, and settlement ledger breakdowns so you always stay on top of your business.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 10. DON'T HAVE GST? EXPLAINER SECTION (#no-gst)                       */}
+      {/* ===================================================================== */}
+      <section id="no-gst" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
+        <div className="rounded-[2rem] bg-gradient-to-br from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE] border-[1.5px] border-[#DFBE6F] p-7 sm:p-10 shadow-[0_14px_36px_rgba(166,124,28,0.12)]">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#F03A46] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
+                <FileCheck2 size={13} />
+                <span>Sell Without Regular GSTIN</span>
+              </div>
+              <h2 className="mt-4 text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
+                Don&apos;t have a Regular GSTIN? You can still sell on ZebAlpha!
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-[#4A3F2B] leading-relaxed">
+                Eligible small businesses, college startups, and local boutiques can onboard using a free{" "}
+                <strong className="text-[#14120F]">GST Enrolment ID / UIN</strong> where permitted under Indian e-commerce &amp; intra-state tax guidelines.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/register?gst=none"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)] hover:brightness-105 transition"
+                >
+                  <span>Register with Enrolment ID</span>
+                  <ArrowRight size={16} />
+                </Link>
+              </div>
+              <p className="mt-4 text-[11px] text-[#7A6847] leading-relaxed">
+                Note: Non-GST eligibility depends on Indian GST council regulations, turnover thresholds, and intra-state supply rules.
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              {[
+                {
+                  step: "1",
+                  title: "Generate Free Enrolment ID",
+                  desc: "Apply on the official GST portal (gst.gov.in) using PAN & address details in minutes.",
+                },
+                {
+                  step: "2",
+                  title: "Sign Up on ZebAlpha Seller Hub",
+                  desc: "Create your account with your mobile number, verified email, pickup address & UPI/Bank.",
+                },
+                {
+                  step: "3",
+                  title: "Start Selling Immediately",
+                  desc: "Upload your catalog and start receiving orders at 0% commission.",
+                },
+              ].map((row) => (
+                <div
+                  key={row.step}
+                  className="flex items-start gap-3.5 rounded-2xl bg-white/95 border border-[#EAD296] p-4 shadow-sm"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#FCE89C] to-[#EAB308] text-xs font-black text-[#14120F]">
+                    {row.step}
+                  </span>
+                  <div>
+                    <p className="text-sm font-black text-[#14120F]">{row.title}</p>
+                    <p className="text-xs text-[#5C4E35] mt-0.5">{row.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 11. POPULAR CATEGORIES TO SELL ONLINE                                 */}
+      {/* ===================================================================== */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14 border-t border-[#F3E7C8]">
+        <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
+          Popular Categories to Sell Online
+        </h2>
+
+        <div className="mt-7 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4">
+          {visibleCategories.map((cat) => (
+            <Link
+              key={cat.label}
+              href={`/register?category=${encodeURIComponent(cat.query)}`}
+              className="text-sm font-bold text-[#3A3122] hover:text-[#F03A46] transition-colors inline-flex items-center gap-1.5 group"
+            >
+              <span>{cat.label}</span>
+              <ArrowRight
+                size={13}
+                className="opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 text-[#F03A46] transition-all"
+              />
+            </Link>
+          ))}
+        </div>
+
+        <div className="mt-8 text-center">
+          <button
+            type="button"
+            onClick={() => setShowMoreCategories((prev) => !prev)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#EAD296] bg-[#FFFDF8] px-5 py-2 text-xs font-black text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46] transition cursor-pointer"
+          >
+            <span>{showMoreCategories ? "View Less" : "View More"}</span>
+            {showMoreCategories ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </button>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 12. ZEBALPHA SELLER SUPPORT AVAILABLE 24/7                            */}
+      {/* ===================================================================== */}
+      <section className="bg-[#FFF9EB] border-y border-[#F0E2BE] py-14 sm:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid gap-6 md:grid-cols-[0.85fr_1.15fr] md:items-center">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
+              ZebAlpha Seller Support
+              <br />
+              Available 24/7
+            </h2>
+          </div>
+
+          <div>
+            <p className="text-sm sm:text-base text-[#5C4E35] leading-relaxed">
+              ZebAlpha seller support is available to solve all your doubts and issues before and after you start your online selling business.
+            </p>
+            <div className="mt-5 flex items-center gap-3.5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#F03A46] to-[#FF5757] text-white shadow-md">
+                <Mail size={20} />
+              </span>
+              <div className="text-sm">
+                <p className="text-xs font-semibold text-[#6E5C3D]">You can reach out to</p>
+                <a
+                  href="mailto:support@zebalpha.shop"
+                  className="font-extrabold text-[#F03A46] hover:underline"
+                >
+                  support@zebalpha.shop
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 13. CLEAN OFFICIAL SUPPLIER FOOTER                                    */}
+      {/* ===================================================================== */}
+      <footer className="bg-white pt-14 pb-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-10 md:grid-cols-3">
+            {/* Brand + Start Selling CTA */}
+            <div>
+              <Link href="/" className="inline-flex items-center gap-2.5">
+                <img
+                  src="/official-logo.png"
+                  alt="ZebAlpha Logo"
+                  className="h-11 w-11 rounded-full object-cover border-2 border-[#DFBE6F]"
+                />
+                <span className="text-2xl font-black tracking-tight text-[#14120F]">
+                  zeb<span className="text-[#F03A46]">alpha</span>
+                </span>
+              </Link>
+              <p className="mt-4 text-sm text-[#5C4E35] max-w-xs leading-relaxed">
+                Sell your products to customers across India on ZebAlpha at 0% commission with transparent 7-day payouts.
+              </p>
+              <div className="mt-6 flex items-center gap-3">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(240,58,70,0.25)] hover:brightness-105 transition"
+                >
+                  Start Selling
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center rounded-xl border border-[#DFBE6F] bg-[#FFFDF8] px-5 py-2.5 text-sm font-extrabold text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46] transition"
+                >
+                  Login
+                </Link>
+              </div>
+            </div>
+
+            {/* Sell on ZebAlpha Links */}
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-[#14120F]">
+                Sell on ZebAlpha
+              </h3>
+              <ul className="mt-4 space-y-2.5 text-sm font-medium text-[#5C4E35]">
+                <li>
+                  <a href="#sell-online" className="hover:text-[#F03A46] transition-colors">
+                    Sell Online
+                  </a>
+                </li>
+                <li>
+                  <a href="#pricing" className="hover:text-[#F03A46] transition-colors">
+                    Pricing &amp; Commission
+                  </a>
+                </li>
+                <li>
+                  <a href="#how-it-works" className="hover:text-[#F03A46] transition-colors">
+                    How it works
+                  </a>
+                </li>
+                <li>
+                  <a href="#shipping" className="hover:text-[#F03A46] transition-colors">
+                    Shipping &amp; Returns
+                  </a>
+                </li>
+                <li>
+                  <a href="#grow-business" className="hover:text-[#F03A46] transition-colors">
+                    Grow Your Business
+                  </a>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setLearningHubOpen(true)}
+                    className="hover:text-[#F03A46] transition-colors cursor-pointer"
+                  >
+                    Learning Hub
+                  </button>
+                </li>
+                <li>
+                  <a
+                    href="https://zebalpha.shop"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[#F03A46] transition-colors"
+                  >
+                    Shop Online on ZebAlpha
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Contact Us */}
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-[#14120F]">
+                Contact Us
+              </h3>
+              <div className="mt-4 space-y-3 text-sm text-[#5C4E35]">
+                <a
+                  href="mailto:support@zebalpha.shop"
+                  className="block font-bold text-[#14120F] hover:text-[#F03A46] transition-colors"
+                >
+                  support@zebalpha.shop
+                </a>
+                <p className="text-xs text-[#6E5C3D]">
+                  ZebAlpha Merchant Operations • Kolkata, West Bengal, India
+                </p>
+                <div className="flex items-center gap-2.5 pt-1">
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#FFF4F2] border border-[#F03A46]/25 px-3 py-1.5 text-xs font-extrabold text-[#F03A46] hover:bg-[#F03A46] hover:text-white transition"
+                  >
+                    <PackageCheck size={14} />
+                    <span>Seller Portal</span>
+                  </Link>
+                  <a
+                    href="https://zebalpha.shop"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#FFF8DB] border border-[#DFBE6F] px-3 py-1.5 text-xs font-extrabold text-[#9A6503] hover:bg-[#F5B922] hover:text-[#14120F] transition"
+                  >
+                    <Store size={14} />
+                    <span>Main Store</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-12 pt-6 border-t border-[#F0E2BE] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-medium text-[#7A6847]">
+            <p>© 2026 ZEBALPHA. All Rights Reserved.</p>
+            <div className="flex items-center gap-4">
+              <a
+                href="https://zebalpha.shop/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[#14120F]"
+              >
+                Privacy Policy
+              </a>
+              <a
+                href="https://zebalpha.shop/terms-and-conditions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[#14120F]"
+              >
+                Terms &amp; Conditions
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* ===================================================================== */}
+      {/* INTERACTIVE MODAL: SELLER STORY SPOTLIGHT                             */}
+      {/* ===================================================================== */}
+      {activeStory && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm p-4"
+          onClick={() => setActiveStory(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl bg-white border-2 border-[#DFBE6F] overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative aspect-[16/9] w-full bg-[#FAF2DC]">
+              <img
+                src={activeStory.image}
+                alt={activeStory.name}
+                className="h-full w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => setActiveStory(null)}
+                aria-label="Close Story"
+                className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#14120F] shadow-md hover:bg-[#F03A46] hover:text-white transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+              <span className="absolute bottom-3 left-3 rounded-full bg-[#F03A46] px-3 py-1 text-[11px] font-black text-white shadow">
+                {activeStory.highlight}
+              </span>
+            </div>
+            <div className="p-6">
+              <h3 className="text-xl font-black text-[#14120F]">{activeStory.name}</h3>
+              <p className="text-xs font-extrabold text-[#9A6503] mt-0.5">
+                {activeStory.business} • {activeStory.city}
+              </p>
+              <p className="mt-4 text-sm text-[#3D3322] leading-relaxed">
+                {activeStory.fullStory}
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveStory(null)}
+                  className="rounded-xl border border-[#EAD296] px-4 py-2 text-xs font-bold text-[#5C4E35] hover:bg-[#FFF9EB] cursor-pointer"
+                >
+                  Close
+                </button>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-5 py-2 text-xs font-black text-white shadow"
+                >
+                  <span>Start Your Journey</span>
+                  <ArrowRight size={14} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* INTERACTIVE MODAL: SELLER LEARNING HUB QUICK PLAYBOOK                 */}
+      {/* ===================================================================== */}
+      {learningHubOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-sm p-4"
+          onClick={() => setLearningHubOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[88vh] overflow-y-auto rounded-3xl bg-white border-2 border-[#DFBE6F] p-6 sm:p-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#F0E2BE]">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF4F2] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#F03A46]">
+                  ZebAlpha Seller Learning Hub
+                </span>
+                <h3 className="mt-2 text-xl sm:text-2xl font-black text-[#14120F]">
+                  Quick-Start Playbook for Indian Sellers
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLearningHubOpen(false)}
+                aria-label="Close Learning Hub"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#EAD296] bg-[#FFFDF8] text-[#14120F] hover:bg-[#F03A46] hover:text-white transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 grid sm:grid-cols-2 gap-4">
+              {LEARNING_HUB_GUIDES.map((guide) => (
+                <div
+                  key={guide.step}
+                  className="rounded-2xl bg-[#FFFDF8] border border-[#EAD296] p-4"
+                >
+                  <span className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-[#FCE89C] to-[#F5B922] px-2 py-0.5 text-[11px] font-black text-[#14120F]">
+                    Guide {guide.step}
+                  </span>
+                  <h4 className="mt-2.5 text-sm font-black text-[#14120F]">{guide.title}</h4>
+                  <ul className="mt-2 space-y-1.5 text-xs text-[#4A3F2B]">
+                    {guide.points.map((pt) => (
+                      <li key={pt} className="flex items-start gap-1.5">
+                        <CheckCircle2 size={13} className="text-[#F03A46] shrink-0 mt-0.5" />
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-[#F0E2BE] flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-[#5C4E35]">
+                Need onboarding help? Email <strong className="text-[#F03A46]">support@zebalpha.shop</strong>
+              </p>
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-2.5 text-xs font-black text-white shadow"
+              >
+                <span>Start Selling Free</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

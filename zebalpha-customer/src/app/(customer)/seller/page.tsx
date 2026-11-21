@@ -111,7 +111,7 @@ export default function SellerPage() {
 
                   <div className="mt-8 flex flex-wrap gap-4">
                     <Link
-                      href="https://seller.zebalpha.shop"
+                      href="https://seller.zebalpha.shop/register"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 rounded-full bg-white text-black px-8 py-4 text-xs font-black uppercase tracking-widest transition hover:bg-neutral-200 active:scale-95 shadow-xl"
@@ -120,7 +120,7 @@ export default function SellerPage() {
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                     <Link
-                      href="https://seller.zebalpha.shop"
+                      href="https://seller.zebalpha.shop/login"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 text-white px-8 py-4 text-xs font-black uppercase tracking-widest transition hover:bg-neutral-800 active:scale-95"
@@ -248,7 +248,7 @@ export default function SellerPage() {
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-4">
                 <Link
-                  href="https://seller.zebalpha.shop"
+                  href="https://seller.zebalpha.shop/register"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="rounded-full bg-white text-black px-8 py-4 text-xs font-black uppercase tracking-widest transition hover:bg-neutral-200 active:scale-95 shadow-xl"

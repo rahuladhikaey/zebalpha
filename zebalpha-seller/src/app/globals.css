@@ -3,6 +3,23 @@
 @tailwind utilities;
 
 :root {
+	--background: #ffffff;
+	--foreground: #14120f;
+	--primary: #f03a46;
+	--secondary: #fff9eb;
+	--accent: #f5b922;
+	--background-fresh: #fffdf8;
+	--text-primary: #14120f;
+	--text-secondary: #5c4e35;
+	--text-muted: #7a6847;
+	--text-disabled: #a89878;
+	--royal-black: #14120f;
+	--royal-surface: #fffdf8;
+	--royal-surface-elevated: #faf2dc;
+	--royal-border: #ead296;
+}
+
+.seller-dashboard-dark {
 	--background: #050505;
 	--foreground: #ffffff;
 	--primary: #ffffff;
@@ -17,6 +34,7 @@
 	--royal-surface: #0a0a0c;
 	--royal-surface-elevated: #141418;
 	--royal-border: #27272a;
+	color-scheme: dark;
 }
 
 @layer base {
@@ -27,80 +45,133 @@
 
 	html {
 		scroll-behavior: smooth;
-		background-color: #050505;
-		color-scheme: dark;
+		background-color: #ffffff;
+		color-scheme: light;
 	}
 
 	body {
 		min-height: 100vh;
 		margin: 0;
-		background: #050505;
-		color: #ffffff;
+		background: #ffffff;
+		color: #14120f;
 		-webkit-font-smoothing: antialiased;
+	}
+
+	::selection {
+		background: rgba(245, 185, 34, 0.35);
+		color: #14120f;
 	}
 }
 
 @layer utilities {
 	.bg-page {
-		background-color: #050505;
-		background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+		background-color: #ffffff;
+		background-image: radial-gradient(circle at 50% 0%, rgba(245, 185, 34, 0.08) 0%, transparent 70%);
 	}
 
 	.royal-card {
-		background: #0d0d10;
-		border: 1px solid #222228;
-		box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.7);
+		background: #fffdf8;
+		border: 1px solid #ead296;
+		box-shadow: 0 12px 32px -10px rgba(166, 124, 28, 0.14);
 	}
 
 	.royal-card-elevated {
-		background: #141418;
-		border: 1px solid #27272a;
+		background: #ffffff;
+		border: 1px solid #dfbe6f;
+		box-shadow: 0 16px 36px -12px rgba(166, 124, 28, 0.18);
 	}
 
 	.royal-btn-primary {
-		background: #ffffff;
-		color: #000000;
+		background: linear-gradient(135deg, #f03a46 0%, #ff5858 100%);
+		color: #ffffff;
 		font-weight: 800;
 		transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-		box-shadow: 0 4px 15px rgba(255, 255, 255, 0.15);
+		box-shadow: 0 8px 22px rgba(240, 58, 70, 0.28);
 	}
 
 	.royal-btn-primary:hover {
-		background: #e4e4e7;
+		filter: brightness(1.05);
 		transform: translateY(-1px);
-		box-shadow: 0 8px 25px rgba(255, 255, 255, 0.25);
+		box-shadow: 0 12px 26px rgba(240, 58, 70, 0.36);
 	}
 
 	.royal-btn-secondary {
-		background: #18181b;
-		color: #ffffff;
-		border: 1px solid #27272a;
+		background: #fffdf8;
+		color: #14120f;
+		border: 1.5px solid #dfbe6f;
 		transition: all 0.2s ease;
 	}
 
 	.royal-btn-secondary:hover {
-		background: #27272a;
-		border-color: #52525b;
+		background: #faf2dc;
+		border-color: #c68a12;
+	}
+
+	.no-scrollbar::-webkit-scrollbar {
+		display: none;
+	}
+
+	.no-scrollbar {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
 	}
 }
 
-/* Inputs styling */
-input, textarea, select {
+/* Scoped dark inputs ONLY inside the authenticated Seller Dashboard */
+.seller-dashboard-dark .bg-page {
+	background-color: #050505;
+	background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+}
+
+.seller-dashboard-dark .royal-card {
+	background: #0d0d10;
+	border: 1px solid #222228;
+	box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.7);
+}
+
+.seller-dashboard-dark .royal-card-elevated {
+	background: #141418;
+	border: 1px solid #27272a;
+}
+
+.seller-dashboard-dark .royal-btn-primary {
+	background: #ffffff;
+	color: #000000;
+	box-shadow: 0 4px 15px rgba(255, 255, 255, 0.15);
+}
+
+.seller-dashboard-dark .royal-btn-primary:hover {
+	background: #e4e4e7;
+	box-shadow: 0 8px 25px rgba(255, 255, 255, 0.25);
+}
+
+.seller-dashboard-dark .royal-btn-secondary {
+	background: #18181b;
+	color: #ffffff;
+	border: 1px solid #27272a;
+}
+
+.seller-dashboard-dark input,
+.seller-dashboard-dark textarea,
+.seller-dashboard-dark select {
 	color: #ffffff !important;
 	background-color: #0d0d11 !important;
 	border-color: #27272a !important;
 }
 
-select option {
+.seller-dashboard-dark select option {
 	background-color: #121216 !important;
 	color: #ffffff !important;
 }
 
-input:focus, textarea:focus, select:focus {
+.seller-dashboard-dark input:focus,
+.seller-dashboard-dark textarea:focus,
+.seller-dashboard-dark select:focus {
 	border-color: #ffffff !important;
 	outline: none !important;
 }
 
-input::placeholder, textarea::placeholder {
+.seller-dashboard-dark input::placeholder,
+.seller-dashboard-dark textarea::placeholder {
 	color: #71717a !important;
 }

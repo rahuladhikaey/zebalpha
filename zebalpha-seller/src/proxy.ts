@@ -94,13 +94,17 @@ export async function proxy(request: NextRequest) {
   }
 
   const isDashboardRoute = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
-  const isAuthRoute = pathname === "/" || pathname === "/register" || pathname === "/forgot-password";
+  const isAuthRoute =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password";
 
   // 1. STRICT ROUTE GUARD: Unauthenticated users CANNOT access /dashboard or any sub-pages
   if (isDashboardRoute && !user) {
-    const redirectUrl = new URL("/", request.url);
+    const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("error", "unauthorized");
-    if (pathname !== "/dashboard") {
+    if (pathname !== "/dashboard" && pathname.startsWith("/dashboard/")) {
       redirectUrl.searchParams.set("redirect", pathname);
     }
 
@@ -112,10 +116,15 @@ export async function proxy(request: NextRequest) {
     return redirectResponse;
   }
 
-  // 2. Auto-redirect already authenticated sellers from auth pages into dashboard
+  // 2. Auto-redirect already authenticated sellers from auth pages (/login, /register, /forgot-password) into dashboard
+  // Note: "/" (Seller Landing Page) remains publicly browsable even while signed in (navbar shows "Go to Dashboard")
   if (isAuthRoute && user) {
     const redirectParam = request.nextUrl.searchParams.get("redirect");
-    const targetPath = redirectParam && redirectParam.startsWith("/dashboard") ? redirectParam : "/dashboard";
+    const isSafeDashboardRedirect =
+      typeof redirectParam === "string" &&
+      (redirectParam === "/dashboard" || redirectParam.startsWith("/dashboard/")) &&
+      !redirectParam.startsWith("//");
+    const targetPath = isSafeDashboardRedirect ? redirectParam : "/dashboard";
     const redirectResponse = NextResponse.redirect(new URL(targetPath, request.url));
     return redirectResponse;
   }
@@ -125,6 +134,7 @@ export async function proxy(request: NextRequest) {
   supabaseResponse.headers.set("X-Content-Type-Options", "nosniff");
   supabaseResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   supabaseResponse.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  supabaseResponse.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 
   return supabaseResponse;
 }

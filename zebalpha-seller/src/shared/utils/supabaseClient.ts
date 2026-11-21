@@ -11,7 +11,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   }
 }
 
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createBrowserClient(
+  supabaseUrl || "https://placeholder.supabase.co",
+  supabaseAnonKey || "placeholder-anon-key"
+);
 export const supabaseA = supabase;
 export const supabaseB = supabase;
 export const supabaseStorage = supabase;
