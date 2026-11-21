@@ -11,7 +11,7 @@ import {
   ArrowRight,
   Layers,
 } from "lucide-react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import {
   hasFreshCachedProductDetail,
   startProductNavigation,
@@ -43,7 +43,7 @@ function padTwo(value: number): string {
 function VirtualTryOnComingSoonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const productIdParam = searchParams.get("productId");
 
   const [countdown, setCountdown] = useState<TimeRemaining | null>(null);

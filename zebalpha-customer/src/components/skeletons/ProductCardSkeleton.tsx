@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 export interface ProductCardSkeletonProps {
   count?: number;
 }
 
 export function ProductCardSkeleton({ count = 1 }: ProductCardSkeletonProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <>

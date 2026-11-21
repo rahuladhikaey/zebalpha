@@ -99,7 +99,7 @@ function LuxuryGoldCurvesBackdrop() {
   );
 }
 
-function AndroidFestiveCurvesBackdrop() {
+function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiveDesktop?: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden z-0 select-none" aria-hidden="true">
       {/* Base warm peach-coral gradient foundation matching image gradient */}
@@ -111,16 +111,27 @@ function AndroidFestiveCurvesBackdrop() {
       />
       {/* Continuing festive floral lattice pattern from image */}
       <div
-        className="absolute inset-0 bg-no-repeat"
+        className={`absolute inset-0 ${
+          responsiveDesktop
+            ? "bg-no-repeat md:bg-repeat-x bg-[length:100%_auto] md:bg-[length:560px_auto]"
+            : "bg-no-repeat bg-[length:100%_auto]"
+        }`}
         style={{
           backgroundImage: "url('/festive-header-bg.jpg')",
-          backgroundSize: "100% auto",
           backgroundPosition: "center -60px",
+          ...(responsiveDesktop
+            ? {
+                WebkitMaskImage:
+                  "linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.72) 55%, rgba(0,0,0,0) 100%)",
+                maskImage:
+                  "linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.72) 55%, rgba(0,0,0,0) 100%)",
+              }
+            : {}),
         }}
       />
       {/* Seamless bottom fade to pure white so categories flow organically into the page */}
       <div
-        className="absolute inset-x-0 bottom-0 h-10 pointer-events-none"
+        className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
         style={{
           background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 60%, #FFFFFF 100%)",
         }}
@@ -185,38 +196,41 @@ export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
     );
   }
 
-  // When on Website / Web Browser (Desktop, Mobile Browser, Tablet, or SSR):
-  // Order:
-  // 1. Obsidian & Gold Top Unit (Mobile Search directly above Category Navigation Bar)
-  // 2. MovingOfferBanner (Announcement / Marquee)
-  // 3. Hero Banner (BannerCarousel)
+  // Website / Browser (Desktop, Tablet, Mobile Browser):
+  // Uses the EXACT Official ZebAlpha App Festive Peach-Coral -> Pure White + Champagne Gold Theme!
   return (
     <>
-      <div className="relative w-full bg-[#050402] border-b border-amber-500/20 shadow-[0_10px_30px_rgba(0,0,0,0.85)]">
-        <LuxuryGoldCurvesBackdrop />
+      <div className="relative w-full bg-[#FFFFFF] border-b border-[#feece2]/70 shadow-[0_6px_20px_rgba(240,58,70,0.08)] select-none">
+        <AndroidFestiveCurvesBackdrop responsiveDesktop />
 
-        {/* Mobile Search - sits directly above Category Navigation Bar on mobile web */}
-        <div className="md:hidden relative z-30 w-full px-3.5 pt-2.5 pb-1">
-          <Suspense fallback={<div className="h-[54px] w-full rounded-full bg-[#120e07] animate-pulse" />}>
-            <MobileSearch className="relative flex w-full flex-col min-h-[54px]" />
-          </Suspense>
+        <div className="mx-auto w-full max-w-[1400px]">
+          {/* Mobile Search - sits directly above Category Navigation Bar on mobile/tablet web */}
+          <div className="lg:hidden relative z-30 w-full px-3.5 pt-2.5 pb-1">
+            <Suspense fallback={<div className="h-[50px] w-full rounded-full bg-[#F5E8C3] animate-pulse" />}>
+              <MobileSearch className="relative flex w-full flex-col min-h-[50px]" />
+            </Suspense>
+          </div>
+
+          {/* Category Navigation Bar (Official Warm White + Gold Underline styling) */}
+          <CategoryNavigationBar
+            initialCategories={initialCategories}
+            isNativeApp={true}
+            className="relative z-10 !bg-transparent !border-b-0"
+          />
         </div>
-
-        {/* Category Navigation Bar */}
-        <CategoryNavigationBar
-          initialCategories={initialCategories}
-          isNativeApp={false}
-          className="relative z-10 !bg-transparent !border-b-0"
-        />
       </div>
 
-      <MovingOfferBanner />
+      {/* 1. Hero Banner Carousel */}
+      <div className="mx-auto w-full max-w-[1400px] px-3.5 md:px-8 pt-3">
+        <BannerCarousel />
+      </div>
 
-      <div className="mx-auto w-full max-w-[1400px] px-4 md:px-8">
-        {/* Carousel Showcase */}
-        <div className="pt-2">
-          <BannerCarousel />
-        </div>
+      {/* 2. Official 3-Column Trust & Free Delivery Strip */}
+      <AndroidHomeTrustBar />
+
+      {/* 3. Official Champagne-Gold Marquee Banner */}
+      <div className="mt-3">
+        <MovingOfferBanner />
       </div>
     </>
   );

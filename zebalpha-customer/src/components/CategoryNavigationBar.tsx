@@ -144,7 +144,7 @@ function LuxuryGoldWaveBackdrop() {
 
 export function CategoryNavigationBar({
   initialCategories = [],
-  isNativeApp = false,
+  isNativeApp = true,
   className = "",
 }: CategoryNavigationBarProps) {
   const pathname = usePathname();

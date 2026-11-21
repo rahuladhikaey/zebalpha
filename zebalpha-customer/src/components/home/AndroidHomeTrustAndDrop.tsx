@@ -14,7 +14,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
 import { useCart } from "@/context/CartContext";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 /**
  * 3-Column Android Service Trust Bar matching Luxury Cream & Gold UI:
@@ -95,7 +95,7 @@ const AUTO_SLIDE_INTERVAL_MS = 4200;
  * Supports smooth GPU transform transitions, touch swipe, hover pause, and indicator pills.
  */
 export function AndroidNewSeasonDropBanner() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const { config: firstOrderConfig, eligible: isFirstOrderEligible, loading: firstOrderLoading } =
     useFirstOrderOffer();
   const { cart } = useCart();

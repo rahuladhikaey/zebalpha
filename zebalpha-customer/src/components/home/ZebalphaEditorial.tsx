@@ -5,7 +5,7 @@ import { EditorialHeading } from "./EditorialHeading";
 import { EditorialCarousel } from "./EditorialCarousel";
 import { EditorialItemData } from "./EditorialCard";
 import { EditorialCard } from "@/lib/types";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 interface ZebalphaEditorialProps {
   initialEditorialCards?: EditorialCard[];
@@ -14,7 +14,7 @@ interface ZebalphaEditorialProps {
 export function ZebalphaEditorial({
   initialEditorialCards = [],
 }: ZebalphaEditorialProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   // Map ONLY active, deduplicated Cloudinary CDN Custom Studio designs from the single source of truth
   const designItems = useMemo<EditorialItemData[]>(() => {

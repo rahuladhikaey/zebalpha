@@ -12,7 +12,7 @@ import { WishlistButton } from "./WishlistButton";
 import { QuickCartButton } from "./QuickCartButton";
 import { DeliveryEstimateWidget } from "./DeliveryEstimateWidget";
 import { getProductDisplayPricing } from "@/hooks/useCatalogQueries";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { Star } from "lucide-react";
 
 import { isProductNewDrop } from "@/lib/dropUtils";
@@ -24,7 +24,7 @@ interface InfiniteProductFeedProps {
 
 export function InfiniteProductFeed({ initialProducts = [], brandFilter }: InfiniteProductFeedProps) {
   useScrollRestoration("home_feed");
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const { recommendedBatchSize, prefetchMargin, isOnline } = useNetworkAdaptive();
   const currentBatchSize = isOnline ? recommendedBatchSize : 20;
 

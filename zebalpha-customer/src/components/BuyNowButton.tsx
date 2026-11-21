@@ -5,7 +5,7 @@ import { Product } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { Zap } from "lucide-react";
 
 export function BuyNowButton({ 
@@ -22,7 +22,7 @@ export function BuyNowButton({
   const { cart, addToCart } = useCart();
   const { session } = useAuth();
   const router = useRouter();
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
 

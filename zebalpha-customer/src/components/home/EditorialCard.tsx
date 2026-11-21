@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 export interface EditorialItemData {
@@ -31,7 +31,7 @@ export function EditorialCard({
   scale = 1,
   onCardClick,
 }: EditorialCardProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [useRawFallback, setUseRawFallback] = useState(false);
 

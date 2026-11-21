@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useId } from "react";
 import { ArrowRight } from "lucide-react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 /**
  * Luxury Metallic Gold & Obsidian "OUR PRODUCTS" section banner (Web)
  * and Warm Ivory Cream & Champagne Gold banner (Android App).
  */
 export function OurProductsBanner() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const uid = useId().replace(/:/g, "");
   const ribbonGoldId = `opRibbonGold-${uid}`;
   const ribbonDeepId = `opRibbonDeep-${uid}`;

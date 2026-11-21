@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Truck, Gift, CheckCircle2 } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
-import { useIsNativeApp } from "@/lib/platform";
+import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
 import { resolveOrderDiscounts } from "@/lib/firstOrderOffer";
@@ -15,6 +15,7 @@ import { resolveOrderDiscounts } from "@/lib/firstOrderOffer";
 export default function CartPage() {
   const router = useRouter();
   const isNativeApp = useIsNativeApp();
+  const isOfficialTheme = useOfficialTheme();
   const { cart, updateQuantity, removeFromCart, clearCart, totalValue, addToCart } = useCart();
   const {
     config: firstOrderConfig,
@@ -243,7 +244,7 @@ export default function CartPage() {
         <p className="text-sm font-bold text-zinc-400 mb-6 text-center">Add some limited drops to start your collection!</p>
         <button 
           onClick={() => router.push('/')}
-          className={`${isNativeApp ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.28)]" : "bg-white text-black hover:bg-zinc-200 shadow-white/10"} px-8 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-colors shadow-lg cursor-pointer`}
+          className={`${isOfficialTheme ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.28)]" : "bg-white text-black hover:bg-zinc-200 shadow-white/10"} px-8 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-colors shadow-lg cursor-pointer`}
         >
           Browse Collection
         </button>
@@ -448,7 +449,7 @@ export default function CartPage() {
             <div className="mb-4">
               {discountResolution.firstOrderApplied ? (
                 <div className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 ${
-                  isNativeApp
+                  isOfficialTheme
                     ? "border-[#D4A017]/65 bg-gradient-to-r from-[#FFF9E3] via-[#FFF3C4] to-[#FCE89C]/75"
                     : "border-emerald-500/40 bg-emerald-950/40"
                 }`}>
@@ -456,23 +457,23 @@ export default function CartPage() {
                     <span
                       data-photo-overlay="true"
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white ${
-                        isNativeApp ? "bg-gradient-to-br from-[#EAB308] to-[#B45309]" : "bg-emerald-600"
+                        isOfficialTheme ? "bg-gradient-to-br from-[#EAB308] to-[#B45309]" : "bg-emerald-600"
                       }`}
                     >
                       <Gift size={15} />
                     </span>
                     <div className="min-w-0">
-                      <p className={`text-xs font-black flex items-center gap-1.5 ${isNativeApp ? "text-[#14120F]" : "text-emerald-300"}`}>
+                      <p className={`text-xs font-black flex items-center gap-1.5 ${isOfficialTheme ? "text-[#14120F]" : "text-emerald-300"}`}>
                         <CheckCircle2 size={13} className="shrink-0" />
                         <span>1st Order Offer Applied • Saved ₹{discountResolution.firstOrderDiscount}</span>
                       </p>
-                      <p className={`text-[10px] font-semibold mt-0.5 ${isNativeApp ? "text-[#5C4924]" : "text-zinc-400"}`}>
+                      <p className={`text-[10px] font-semibold mt-0.5 ${isOfficialTheme ? "text-[#5C4924]" : "text-zinc-400"}`}>
                         Auto-applied for new customers ({firstOrderConfig.code})
                       </p>
                     </div>
                   </div>
                   <span className={`shrink-0 rounded-lg border px-2 py-0.5 font-mono text-[10px] font-black uppercase ${
-                    isNativeApp
+                    isOfficialTheme
                       ? "border-[#C68A12]/60 bg-[#FFFDF7] text-[#8A5A00]"
                       : "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
                   }`}>
@@ -480,27 +481,27 @@ export default function CartPage() {
                   </span>
                 </div>
               ) : discountResolution.supersededByBetterCoupon ? (
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/25 p-3 text-[11px] font-bold text-emerald-300">
+                <div className={`rounded-2xl border p-3 text-[11px] font-bold ${isOfficialTheme ? "border-emerald-500/40 bg-emerald-50 text-emerald-800" : "border-emerald-500/30 bg-emerald-950/25 text-emerald-300"}`}>
                   Best savings applied: Coupon <span className="font-mono font-black">{appliedCoupon?.code}</span> saves more than the ₹{firstOrderConfig.discountAmount} 1st-order offer.
                 </div>
               ) : discountResolution.amountNeededForFirstOrder > 0 ? (
                 <div className={`rounded-2xl border p-3.5 space-y-2 ${
-                  isNativeApp
+                  isOfficialTheme
                     ? "border-[#D4A017]/55 bg-[#FFF9E3]"
                     : "border-amber-400/30 bg-amber-500/10"
                 }`}>
                   <div className="flex items-center justify-between gap-2">
-                    <p className={`text-xs font-black flex items-center gap-1.5 ${isNativeApp ? "text-[#14120F]" : "text-amber-300"}`}>
+                    <p className={`text-xs font-black flex items-center gap-1.5 ${isOfficialTheme ? "text-[#14120F]" : "text-amber-300"}`}>
                       <Gift size={14} className="shrink-0" />
                       <span>
                         Add ₹{discountResolution.amountNeededForFirstOrder} more for Flat ₹{firstOrderConfig.discountAmount} OFF!
                       </span>
                     </p>
-                    <span className={`font-mono text-[10px] font-black ${isNativeApp ? "text-[#8A5A00]" : "text-amber-200"}`}>
+                    <span className={`font-mono text-[10px] font-black ${isOfficialTheme ? "text-[#8A5A00]" : "text-amber-200"}`}>
                       {firstOrderConfig.code}
                     </span>
                   </div>
-                  <div className={`h-1.5 w-full overflow-hidden rounded-full ${isNativeApp ? "bg-[#E4C988]/50" : "bg-zinc-800"}`}>
+                  <div className={`h-1.5 w-full overflow-hidden rounded-full ${isOfficialTheme ? "bg-[#E4C988]/50" : "bg-zinc-800"}`}>
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-[#F5B922] to-[#10B981] transition-all duration-300"
                       style={{
@@ -696,15 +697,17 @@ export default function CartPage() {
       {/* Bottom Sticky Bar */}
       <div
         className={`fixed left-0 right-0 z-40 backdrop-blur-md border-t shadow-2xl transition-all ${
-          isNativeApp
-            ? "bottom-[68px] pb-1 bg-[#FFFDF8]/96 border-[#DFBE6F]"
-            : "bottom-0 bg-zinc-950/95 border-zinc-800"
+          isNativeApp ? "bottom-[68px] pb-1" : "bottom-0"
+        } ${
+          isOfficialTheme
+            ? "bg-[#FFFDF8]/96 border-[#DFBE6F]"
+            : "bg-zinc-950/95 border-zinc-800"
         }`}
       >
         <div className="max-w-2xl mx-auto flex items-center justify-between px-5 py-3.5">
           <div className="flex flex-col">
-            <span className={`text-xs font-bold ${isNativeApp ? "text-[#6B5D44]" : "text-zinc-400"}`}>Item Total</span>
-            <span className={`text-xl font-black tracking-tight ${isNativeApp ? "text-[#14120F]" : "text-white"}`}>₹{grandTotal}</span>
+            <span className={`text-xs font-bold ${isOfficialTheme ? "text-[#6B5D44]" : "text-zinc-400"}`}>Item Total</span>
+            <span className={`text-xl font-black tracking-tight ${isOfficialTheme ? "text-[#14120F]" : "text-white"}`}>₹{grandTotal}</span>
           </div>
           <button 
             disabled={cart.filter(item => (item.stock ?? Infinity) > 0).length === 0}
@@ -712,7 +715,7 @@ export default function CartPage() {
             className={`transition-all px-9 sm:px-12 py-3.5 sm:py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide shadow-xl active:scale-95 min-w-[160px] text-center cursor-pointer ${
               cart.filter(item => (item.stock ?? Infinity) > 0).length === 0
                 ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                : isNativeApp
+                : isOfficialTheme
                 ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.3)]"
                 : "bg-white text-black hover:bg-zinc-200 shadow-white/10"
             }`}

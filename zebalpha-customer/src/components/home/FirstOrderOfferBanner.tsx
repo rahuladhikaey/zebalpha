@@ -5,12 +5,12 @@ import Link from "next/link";
 import { Gift, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
 import { useCart } from "@/context/CartContext";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 export function FirstOrderOfferBanner() {
   const { config, eligible, loading } = useFirstOrderOffer();
   const { cart } = useCart();
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   if (loading || !config.isActive || !eligible || config.discountAmount <= 0) {
     return null;

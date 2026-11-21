@@ -21,7 +21,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { useIsNativeApp } from "@/lib/platform";
+import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 import { buildAppInviteSharePayload, shareProfessionally } from "@/lib/shareService";
 
 export default function ProfileDashboard() {
@@ -29,6 +29,7 @@ export default function ProfileDashboard() {
   const [hasApprovedCard, setHasApprovedCard] = useState(false);
   const { language, openLanguageModal } = useLanguage();
   const isNativeApp = useIsNativeApp();
+  const isOfficialTheme = useOfficialTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -89,7 +90,7 @@ export default function ProfileDashboard() {
             <div className="mt-8 flex flex-col gap-3">
               <Link
                 href="/login"
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-8 py-3.5 text-xs font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition hover:bg-zinc-200 active:scale-95"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] border border-[#D49A18]/65 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-[#111111] shadow-[0_6px_18px_rgba(202,138,4,0.28)] transition hover:brightness-105 active:scale-95"
               >
                 Sign In With Email
               </Link>
@@ -124,22 +125,22 @@ export default function ProfileDashboard() {
         {/* Profile Card */}
         <div
           className={`rounded-[2.5rem] border animate-in fade-in zoom-in-95 duration-300 overflow-hidden mb-6 ${
-            isNativeApp
+            isOfficialTheme
               ? "bg-[#FFFDF8] border-[#E4C988] shadow-[0_12px_32px_rgba(166,124,28,0.12)]"
               : "bg-zinc-950 shadow-2xl border-zinc-800/90"
           }`}
         >
           <div
             className={`h-32 sm:h-36 border-b relative ${
-              isNativeApp
+              isOfficialTheme
                 ? "bg-gradient-to-r from-[#FFFFFF] via-[#FCF3D4] to-[#F7E1A0] border-[#E4C988]"
                 : "bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 border-zinc-800/80"
             }`}
           >
             <div
-              className={`absolute inset-0 ${isNativeApp ? "opacity-35" : "bg-white/5 opacity-20"}`}
+              className={`absolute inset-0 ${isOfficialTheme ? "opacity-35" : "bg-white/5 opacity-20"}`}
               style={{
-                backgroundImage: isNativeApp
+                backgroundImage: isOfficialTheme
                   ? "radial-gradient(circle at 2px 2px, rgba(154,101,3,0.18) 1px, transparent 0)"
                   : "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
                 backgroundSize: "20px 20px",
@@ -149,23 +150,23 @@ export default function ProfileDashboard() {
             {/* Gold Coins Badge */}
             <div
               className={`absolute top-4 right-4 z-10 flex items-center gap-2 rounded-2xl backdrop-blur-md px-3.5 py-1.5 border shadow-lg select-none ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-[#FFFDF8]/95 border-[#DFBE6F]"
                   : "bg-zinc-950/90 border-zinc-700"
               }`}
             >
-              <Coins className={`h-4 w-4 ${isNativeApp ? "text-[#9A6503]" : "text-amber-400"}`} />
+              <Coins className={`h-4 w-4 ${isOfficialTheme ? "text-[#9A6503]" : "text-amber-400"}`} />
               <div className="text-left leading-none">
                 <span
                   className={`text-[7px] font-black uppercase tracking-widest block ${
-                    isNativeApp ? "text-[#9A6503]" : "text-zinc-400"
+                    isOfficialTheme ? "text-[#9A6503]" : "text-zinc-400"
                   }`}
                 >
                   Reward Coins
                 </span>
                 <span
                   className={`text-[11px] font-black whitespace-nowrap ${
-                    isNativeApp ? "text-[#111111]" : "text-white"
+                    isOfficialTheme ? "text-[#111111]" : "text-white"
                   }`}
                 >
                   {hasApprovedCard ? "100 Coins" : "0 Coins"}
@@ -178,7 +179,7 @@ export default function ProfileDashboard() {
             <div className="relative -mt-14 flex flex-col items-center sm:flex-row sm:items-end gap-4">
               <div
                 className={`flex h-24 w-24 sm:h-28 sm:w-28 shrink-0 items-center justify-center rounded-full border-4 text-4xl font-black shadow-2xl z-10 overflow-hidden ${
-                  isNativeApp
+                  isOfficialTheme
                     ? "border-[#FFFDF8] bg-[#FAF0D1] text-[#111111]"
                     : "border-black bg-zinc-900 text-white"
                 }`}
@@ -192,7 +193,7 @@ export default function ProfileDashboard() {
               <div className="text-center sm:text-left min-w-0 flex-1">
                 <span
                   className={`inline-flex rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest mb-1.5 ${
-                    isNativeApp
+                    isOfficialTheme
                       ? "bg-[#FAF0D1] border-[#DFBE6F] text-[#111111]"
                       : "bg-white/10 border-white/20 text-white"
                   }`}
@@ -201,12 +202,12 @@ export default function ProfileDashboard() {
                 </span>
                 <h1
                   className={`text-xl sm:text-2xl font-black leading-tight break-words ${
-                    isNativeApp ? "text-[#111111]" : "text-white"
+                    isOfficialTheme ? "text-[#111111]" : "text-white"
                   }`}
                 >
                   {displayName}
                 </h1>
-                <p className={`text-xs font-semibold truncate ${isNativeApp ? "text-[#4A3F2B]" : "text-zinc-400"}`}>
+                <p className={`text-xs font-semibold truncate ${isOfficialTheme ? "text-[#4A3F2B]" : "text-zinc-400"}`}>
                   {user.email}
                 </p>
               </div>
@@ -388,7 +389,7 @@ export default function ProfileDashboard() {
             onClick={() => {
               void shareProfessionally(buildAppInviteSharePayload(isNativeApp));
             }}
-            className="w-full rounded-2xl bg-white px-6 py-3.5 text-xs font-black uppercase tracking-widest text-black shadow-xl shadow-white/10 transition-all hover:bg-zinc-200 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            className="w-full rounded-2xl bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] border border-[#D49A18]/65 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-[#111111] shadow-[0_6px_18px_rgba(202,138,4,0.28)] transition-all hover:brightness-105 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
           >
             <Share2 size={16} strokeWidth={2.5} />
             <span>Invite Friends</span>

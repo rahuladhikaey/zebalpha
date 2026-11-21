@@ -3,7 +3,7 @@
 import React from "react";
 import { Shirt, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 interface VirtualTryOnButtonProps {
   onClick?: () => void;
@@ -22,7 +22,7 @@ export function VirtualTryOnButton({
   label = "VIRTUAL TRY-ON",
   subtitle = "Coming Soon • Launching 07/07/2027",
 }: VirtualTryOnButtonProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   // Compact button for list views or mobile quick actions
   if (variant === "compact") {

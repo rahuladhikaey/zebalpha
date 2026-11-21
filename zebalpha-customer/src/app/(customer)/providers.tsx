@@ -15,11 +15,14 @@ import { ProductNavigationOverlay } from "@/components/ProductDetailsLoadingScre
 import { checkIsNativeApp } from "@/lib/platform";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Dismiss pre-hydration native shield once client UI commits
+  // Dismiss pre-hydration native shield once client UI commits & enforce official theme
   useEffect(() => {
     if (typeof document === "undefined") return;
+    document.documentElement.classList.remove("dark");
+    document.documentElement.classList.add("is-official-theme");
+    document.body.classList.add("is-official-theme");
+
     if (checkIsNativeApp()) {
-      document.documentElement.classList.remove("dark");
       document.documentElement.classList.add("is-android-app");
       document.documentElement.style.backgroundColor = "";
       document.body.classList.add("is-android-app");

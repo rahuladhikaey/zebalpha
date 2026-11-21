@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 import { trackRecommendationImpressions } from "@/lib/recommendationClient";
 import type {
   RecommendationSurface,
@@ -24,13 +24,13 @@ interface RecommendationCarouselShellProps {
 }
 
 export function RecommendationCarouselSkeleton({ title = "Suggested for You" }: { title?: string }) {
-  const isNativeApp = useIsNativeApp();
+  const isOfficialTheme = useOfficialTheme();
 
   return (
     <section
       aria-label={title}
       className={`my-8 sm:my-10 rounded-3xl border p-4 sm:p-6 ${
-        isNativeApp
+        isOfficialTheme
           ? "bg-gradient-to-b from-[#FFFDFC] via-[#FFF8FA] to-[#FFF0F4] border-[#FCE7F0] shadow-[0_8px_24px_rgba(244,114,182,0.06)]"
           : "bg-gradient-to-b from-[#070b09] via-[#050505] to-black border-pink-500/20 shadow-[0_12px_40px_rgba(0,0,0,0.75)]"
       }`}
@@ -72,6 +72,7 @@ export function RecommendationCarouselShell({
   sectionId,
 }: RecommendationCarouselShellProps) {
   const isNativeApp = useIsNativeApp();
+  const isOfficialTheme = useOfficialTheme();
   const trackRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const reportedIdsRef = useRef<Set<string>>(new Set());
@@ -150,7 +151,7 @@ export function RecommendationCarouselShell({
       id={sectionId}
       aria-label={title}
       className={`relative my-8 sm:my-10 rounded-3xl p-4 sm:p-6 overflow-hidden border ${
-        isNativeApp
+        isOfficialTheme
           ? "bg-gradient-to-b from-[#FFFDFC] via-[#FFF8FA] to-[#FFF0F4] border-[#FCE7F0] shadow-[0_8px_24px_rgba(244,114,182,0.06)]"
           : "bg-gradient-to-b from-[#0e070a] via-[#050505] to-black border-pink-500/20 shadow-[0_12px_45px_rgba(0,0,0,0.8),0_0_36px_rgba(255,30,111,0.08)]"
       }`}
@@ -159,7 +160,7 @@ export function RecommendationCarouselShell({
       <div
         aria-hidden="true"
         className={`pointer-events-none absolute -top-24 left-10 h-44 w-72 rounded-full blur-3xl ${
-          isNativeApp ? "bg-pink-300/15" : "bg-[#FF1E6F]/10"
+          isOfficialTheme ? "bg-pink-300/15" : "bg-[#FF1E6F]/10"
         }`}
       />
 
@@ -170,11 +171,11 @@ export function RecommendationCarouselShell({
             className="mt-1 h-6 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#FF1E6F] to-[#E11D48] shadow-sm"
           />
           <div className="min-w-0">
-            <h2 className={`text-lg sm:text-xl md:text-2xl font-black tracking-tight truncate ${isNativeApp ? "text-[#14120F]" : "text-white"}`}>
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-black tracking-tight truncate ${isOfficialTheme ? "text-[#14120F]" : "text-white"}`}>
               {title}
             </h2>
             {subtitle && (
-              <p className={`text-xs sm:text-[13px] font-medium mt-0.5 line-clamp-1 ${isNativeApp ? "text-[#6E555C]" : "text-zinc-400"}`}>
+              <p className={`text-xs sm:text-[13px] font-medium mt-0.5 line-clamp-1 ${isOfficialTheme ? "text-[#6E555C]" : "text-zinc-400"}`}>
                 {subtitle}
               </p>
             )}
@@ -192,8 +193,12 @@ export function RecommendationCarouselShell({
                 aria-label={`Previous ${title}`}
                 className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${
                   canScrollLeft
-                    ? "border-pink-500/40 bg-zinc-900 text-white hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] cursor-pointer"
-                    : "border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed"
+                    ? isOfficialTheme
+                      ? "border-pink-200 bg-[#FFFDFC] text-[#14120F] hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] shadow-sm cursor-pointer"
+                      : "border-pink-500/40 bg-zinc-900 text-white hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] cursor-pointer"
+                    : isOfficialTheme
+                      ? "border-pink-100 bg-pink-50/50 text-pink-300 cursor-not-allowed"
+                      : "border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed"
                 }`}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -205,8 +210,12 @@ export function RecommendationCarouselShell({
                 aria-label={`Next ${title}`}
                 className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${
                   canScrollRight
-                    ? "border-pink-500/40 bg-zinc-900 text-white hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] cursor-pointer"
-                    : "border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed"
+                    ? isOfficialTheme
+                      ? "border-pink-200 bg-[#FFFDFC] text-[#14120F] hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] shadow-sm cursor-pointer"
+                      : "border-pink-500/40 bg-zinc-900 text-white hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] cursor-pointer"
+                    : isOfficialTheme
+                      ? "border-pink-100 bg-pink-50/50 text-pink-300 cursor-not-allowed"
+                      : "border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed"
                 }`}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -218,7 +227,7 @@ export function RecommendationCarouselShell({
             <Link
               href={seeAllHref}
               className={`group inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-extrabold transition-all ${
-                isNativeApp
+                isOfficialTheme
                   ? "border-pink-200 bg-pink-50/80 text-[#FF1E6F] hover:bg-[#FF1E6F] hover:text-white shadow-sm"
                   : "border-pink-500/40 bg-pink-500/10 text-pink-300 hover:bg-[#FF1E6F] hover:text-white hover:border-[#FF1E6F] shadow-[0_0_16px_rgba(255,30,111,0.18)]"
               }`}

@@ -293,11 +293,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
       <NativePlatformProvider initialIsNativeApp={serverIsNative}>
         <main
           data-ssr-native={serverIsNative ? "true" : undefined}
-          className={
-            serverIsNative
-              ? "min-h-screen bg-[#FFFFFF] flex items-center justify-center p-6 text-[#111111]"
-              : "min-h-screen bg-black flex items-center justify-center p-6 text-white"
-          }
+          className="min-h-screen bg-[#FFFFFF] flex items-center justify-center p-6 text-[#111111]"
         >
           <ProductNotFoundSignal productId={productId} />
           <div className="max-w-md w-full rounded-[2.5rem] bg-zinc-950 p-10 text-center border border-zinc-800 shadow-2xl">
@@ -356,11 +352,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
     <NativePlatformProvider initialIsNativeApp={serverIsNative}>
       <main
         data-ssr-native={serverIsNative ? "true" : undefined}
-        className={
-          serverIsNative
-            ? "min-h-screen bg-[#FFFFFF] text-[#111111] overflow-x-hidden selection:bg-[#F5B922]/30 selection:text-[#111111]"
-            : "min-h-screen bg-black text-white overflow-x-hidden selection:bg-white selection:text-black"
-        }
+        className="min-h-screen bg-[#FFFFFF] text-[#111111] overflow-x-hidden selection:bg-[#F5B922]/30 selection:text-[#111111]"
       >
       <script
         type="application/ld+json"

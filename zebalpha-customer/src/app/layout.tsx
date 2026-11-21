@@ -58,7 +58,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} h-full antialiased is-official-theme`}
     >
       <head>
         <link rel="preload" as="image" href="/official-logo.png" fetchPriority="high" />
@@ -122,7 +122,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body suppressHydrationWarning className="min-h-full font-sans bg-black text-white overflow-x-hidden">
+      <body suppressHydrationWarning className="min-h-full font-sans bg-[#FFFFFF] text-[#111111] overflow-x-hidden is-official-theme">
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe

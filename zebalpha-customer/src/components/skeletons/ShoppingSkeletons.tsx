@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 export function CollectionSkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <div className="mt-10 sm:mt-14 space-y-4 animate-pulse select-none">
@@ -43,7 +43,7 @@ export function CollectionSkeleton() {
 }
 
 export function EditorialSkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <div className="mt-14 space-y-6 animate-pulse select-none">
@@ -77,7 +77,7 @@ export function EditorialSkeleton() {
 }
 
 export function ProductDetailSkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 md:px-8 py-6 animate-pulse select-none">
@@ -136,7 +136,7 @@ export function ProductDetailSkeleton() {
 }
 
 export function CartSkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-8 space-y-4 animate-pulse select-none">
@@ -167,7 +167,7 @@ export function CartSkeleton() {
 }
 
 export function OrderSkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <div className="space-y-4 animate-pulse select-none">
@@ -197,7 +197,7 @@ export function OrderSkeleton() {
 }
 
 export function ReviewSkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <div className="space-y-3 animate-pulse select-none">

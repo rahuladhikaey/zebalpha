@@ -5,7 +5,7 @@ import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { Product } from "@/lib/types";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 export function QuickCartButton({
   product,
@@ -16,7 +16,7 @@ export function QuickCartButton({
 }) {
   const { cart, addToCart } = useCart();
   const { openVariantSelector } = useVariantSelector();
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   const isUpcomingDrop = (product as any).is_new_drop && !(product as any).is_drop_live;
   const isOutOfStock =

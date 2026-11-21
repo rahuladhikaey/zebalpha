@@ -18,11 +18,11 @@ import {
   buildFormattedShareMessage,
   copyTextSilently,
 } from "@/lib/shareService";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 export function ShareBottomSheet() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const [payload, setPayload] = useState<SharePayload | null>(null);
   const [copiedMode, setCopiedMode] = useState<"none" | "link" | "message">("none");
 

@@ -29,10 +29,11 @@ import {
   X,
 } from "lucide-react";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
-import { useIsNativeApp } from "@/lib/platform";
+import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 
 function CategoriesContent() {
   const isNativeApp = useIsNativeApp();
+  const isOfficialTheme = useOfficialTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
@@ -199,7 +200,7 @@ function CategoriesContent() {
           </div>
 
           {/* Sticky Category Search Bar */}
-          <div className={`sticky z-30 backdrop-blur-xl py-2 mb-6 ${isNativeApp ? "top-[62px] bg-[#FCF9F2]/95" : "top-[60px] md:top-[68px] bg-black/95"}`}>
+          <div className={`sticky z-30 backdrop-blur-xl py-2 mb-6 ${isNativeApp ? "top-[62px]" : "top-[60px] md:top-[68px]"} ${isOfficialTheme ? "bg-[#FCF9F2]/95" : "bg-black/95"}`}>
             <div className="relative w-full">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
@@ -253,7 +254,7 @@ function CategoriesContent() {
                           <CategoryCard
                             key={cat.id}
                             category={cat}
-                            isNativeApp={isNativeApp}
+                            isNativeApp={isOfficialTheme}
                             onSelect={() => handleSelectCategory(cat.id)}
                           />
                         ))}
@@ -358,7 +359,7 @@ function CategoriesContent() {
                         key={category.id}
                         category={category}
                         subCount={subCount}
-                        isNativeApp={isNativeApp}
+                        isNativeApp={isOfficialTheme}
                         onSelect={() => handleSelectCategory(category.id)}
                       />
                     );
@@ -379,7 +380,7 @@ function CategoriesContent() {
               type="button"
               onClick={handleBackToDirectory}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all cursor-pointer shadow-sm group ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-[#FFFDF8] hover:bg-[#FAF2DE] border-[#DFBE6F] text-[#14120F]"
                   : "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300 hover:text-white"
               }`}
@@ -624,7 +625,7 @@ function CategoriesContent() {
 function CategoryCard({
   category,
   subCount,
-  isNativeApp = false,
+  isNativeApp = true,
   onSelect,
 }: {
   category: any;

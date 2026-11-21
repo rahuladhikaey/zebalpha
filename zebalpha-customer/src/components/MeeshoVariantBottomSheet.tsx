@@ -7,7 +7,7 @@ import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { useCart } from "@/context/CartContext";
 import { Product, ProductPackage } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 // In-memory cache for loaded variant products to avoid repeated network requests
@@ -16,7 +16,7 @@ const productVariantsCache = new Map<string, Product>();
 export function MeeshoVariantBottomSheet() {
   const { isOpen, product, initialColor, closeVariantSelector } = useVariantSelector();
   const { cart, addToCart } = useCart();
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   // Full product with packages (may be fetched asynchronously if card had slim data)
   const [fullProduct, setFullProduct] = useState<Product | null>(null);

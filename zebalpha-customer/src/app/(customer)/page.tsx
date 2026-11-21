@@ -142,11 +142,7 @@ export default async function HomePage(props: {
       />
       <main
         data-ssr-native={serverIsNative ? "true" : undefined}
-        className={
-          serverIsNative
-            ? "min-h-screen bg-[#FFFFFF] text-[#111111] selection:bg-[#F5B922]/30 selection:text-[#111111] overflow-x-clip"
-            : "min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-clip"
-        }
+        className="min-h-screen bg-[#FFFFFF] text-[#111111] selection:bg-[#F5B922]/30 selection:text-[#111111] overflow-x-clip"
       >
         {/* P0 IMMEDIATE: Header */}
         <Header title="ZebAlpha" subtitle="CLOTHING FOR THE CULTURE ✦" />

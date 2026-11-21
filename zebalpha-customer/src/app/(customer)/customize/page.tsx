@@ -4,7 +4,7 @@ import React, { useState, useRef, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import {
   GarmentMockupPreview,
   GARMENT_COLORS,
@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 
 export default function CustomizePage() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   // Mode selection: 'upload' (customer file) | 'vault' (admin presets)
   const [designMode, setDesignMode] = useState<"upload" | "vault">("upload");

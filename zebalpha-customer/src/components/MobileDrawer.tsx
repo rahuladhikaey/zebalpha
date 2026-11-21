@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { Store, ArrowUpRight, Globe } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { useIsNativeApp } from "@/lib/platform";
+import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 
 type MobileDrawerProps = {
   isOpen: boolean;
@@ -18,6 +18,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const router = useRouter();
   const { language, openLanguageModal, t } = useLanguage();
   const isNativeApp = useIsNativeApp();
+  const isOfficialTheme = useOfficialTheme();
 
   // Prevent scrolling when drawer is open
   useEffect(() => {
@@ -43,7 +44,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
       {isOpen && (
         <div
           className={`fixed inset-0 z-[60] transition-opacity duration-300 opacity-100 ${
-            isNativeApp ? "bg-black/45 backdrop-blur-sm" : "bg-black/70 backdrop-blur-md"
+            isOfficialTheme ? "bg-black/45 backdrop-blur-sm" : "bg-black/70 backdrop-blur-md"
           }`}
           onClick={onClose}
         />
@@ -52,7 +53,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
       {/* Drawer Panel (Slides in from Left for native Android pattern) */}
       <div
         className={`fixed left-0 top-0 z-[70] h-full w-[85%] max-w-[320px] shadow-2xl transition-transform duration-300 ease-out ${
-          isNativeApp
+          isOfficialTheme
             ? "bg-[#FCF9F2] border-r border-[#E6CF96]/80 text-[#14120F]"
             : "bg-neutral-950 border-r border-neutral-800 text-white"
         } ${
@@ -63,13 +64,13 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           {/* Header */}
           <div
             className={`flex items-center justify-between p-6 border-b ${
-              isNativeApp ? "border-[#E9D7A9]/75 bg-[#FAF3E1]/80" : "border-neutral-800"
+              isOfficialTheme ? "border-[#E9D7A9]/75 bg-[#FAF3E1]/80" : "border-neutral-800"
             }`}
           >
             <div className="flex items-center gap-3">
               <div
                 className={`h-8 w-8 rounded-full overflow-hidden bg-black flex items-center justify-center p-0.5 ${
-                  isNativeApp ? "border border-[#D4AF37]" : "border border-zinc-800"
+                  isOfficialTheme ? "border border-[#D4AF37]" : "border border-zinc-800"
                 }`}
               >
                 <img
@@ -78,15 +79,15 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                   className="h-full w-full object-cover rounded-full"
                 />
               </div>
-              <span className={`text-base font-black tracking-[0.2em] uppercase ${isNativeApp ? "text-[#14120F]" : "text-white"}`}>
-                ZEB<span className={isNativeApp ? "text-[#B8820E]" : "text-amber-400"}>ALPHA</span>
+              <span className={`text-base font-black tracking-[0.2em] uppercase ${isOfficialTheme ? "text-[#14120F]" : "text-white"}`}>
+                ZEB<span className={isOfficialTheme ? "text-[#B8820E]" : "text-amber-400"}>ALPHA</span>
               </span>
             </div>
             <button
               onClick={onClose}
               aria-label="Close menu"
               className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-[#FFFDF8] border-[#DFC16E]/70 text-[#4B402D] hover:text-[#14120F]"
                   : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
               }`}
@@ -101,19 +102,19 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           <div className="flex-1 overflow-y-auto p-6 scrollbar-hide space-y-8">
             {/* User Account Section */}
             <div>
-              <h3 className={`text-[10px] font-black uppercase tracking-[0.25em] mb-4 ${isNativeApp ? "text-[#8A7548]" : "text-neutral-400"}`}>Account</h3>
+              <h3 className={`text-[10px] font-black uppercase tracking-[0.25em] mb-4 ${isOfficialTheme ? "text-[#8A7548]" : "text-neutral-400"}`}>Account</h3>
               {user ? (
                 <div className="space-y-4">
                   <div
                     className={`flex items-center gap-3 p-3.5 rounded-2xl border ${
-                      isNativeApp
+                      isOfficialTheme
                         ? "bg-[#FFFDF8] border-[#E7CF94]/80 shadow-sm"
                         : "bg-neutral-900 border-neutral-800"
                     }`}
                   >
                     <div
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black text-sm uppercase ${
-                        isNativeApp
+                        isOfficialTheme
                           ? "bg-gradient-to-br from-[#FBE28A] to-[#D49B1A] text-[#111111]"
                           : "bg-white text-black"
                       }`}
@@ -122,23 +123,23 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                       {user.email?.[0]}
                     </div>
                     <div className="min-w-0">
-                      <p className={`text-sm font-black truncate ${isNativeApp ? "text-[#14120F]" : "text-white"}`}>
+                      <p className={`text-sm font-black truncate ${isOfficialTheme ? "text-[#14120F]" : "text-white"}`}>
                         {user.user_metadata?.full_name || user.email?.split("@")[0]}
                       </p>
-                      <p className={`text-xs truncate ${isNativeApp ? "text-[#6B5D44]" : "text-neutral-400"}`}>{user.email}</p>
+                      <p className={`text-xs truncate ${isOfficialTheme ? "text-[#6B5D44]" : "text-neutral-400"}`}>{user.email}</p>
                     </div>
                   </div>
                   <nav className="space-y-1">
-                    <Link href="/profile" onClick={onClose} className={`flex items-center py-2.5 text-sm font-bold border-b ${isNativeApp ? "text-[#292319] hover:text-[#14120F] border-[#EFE1BE]" : "text-neutral-300 hover:text-white border-neutral-900"}`}>
+                    <Link href="/profile" onClick={onClose} className={`flex items-center py-2.5 text-sm font-bold border-b ${isOfficialTheme ? "text-[#292319] hover:text-[#14120F] border-[#EFE1BE]" : "text-neutral-300 hover:text-white border-neutral-900"}`}>
                       View Profile
                     </Link>
-                    <Link href="/profile/orders" onClick={onClose} className={`flex items-center py-2.5 text-sm font-bold border-b ${isNativeApp ? "text-[#292319] hover:text-[#14120F] border-[#EFE1BE]" : "text-neutral-300 hover:text-white border-neutral-900"}`}>
+                    <Link href="/profile/orders" onClick={onClose} className={`flex items-center py-2.5 text-sm font-bold border-b ${isOfficialTheme ? "text-[#292319] hover:text-[#14120F] border-[#EFE1BE]" : "text-neutral-300 hover:text-white border-neutral-900"}`}>
                       My Orders
                     </Link>
-                    <Link href="/wishlist" onClick={onClose} className={`flex items-center py-2.5 text-sm font-bold border-b ${isNativeApp ? "text-[#292319] hover:text-[#14120F] border-[#EFE1BE]" : "text-neutral-300 hover:text-white border-neutral-900"}`}>
+                    <Link href="/wishlist" onClick={onClose} className={`flex items-center py-2.5 text-sm font-bold border-b ${isOfficialTheme ? "text-[#292319] hover:text-[#14120F] border-[#EFE1BE]" : "text-neutral-300 hover:text-white border-neutral-900"}`}>
                       My Wishlist
                     </Link>
-                    <button onClick={handleLogout} className={`flex w-full items-center py-2.5 text-sm font-bold ${isNativeApp ? "text-[#7A6B52] hover:text-[#14120F]" : "text-neutral-400 hover:text-white"}`}>
+                    <button onClick={handleLogout} className={`flex w-full items-center py-2.5 text-sm font-bold ${isOfficialTheme ? "text-[#7A6B52] hover:text-[#14120F]" : "text-neutral-400 hover:text-white"}`}>
                       Sign Out
                     </button>
                   </nav>
@@ -146,17 +147,17 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               ) : (
                 <div
                   className={`p-5 rounded-2xl border text-center ${
-                    isNativeApp
+                    isOfficialTheme
                       ? "bg-[#FFFDF8] border-[#E7CF94]/80 shadow-sm"
                       : "bg-neutral-900 border-neutral-800"
                   }`}
                 >
-                  <p className={`text-xs font-medium mb-4 ${isNativeApp ? "text-[#5C503C]" : "text-neutral-400"}`}>Log in to track orders and save your wishlist.</p>
+                  <p className={`text-xs font-medium mb-4 ${isOfficialTheme ? "text-[#5C503C]" : "text-neutral-400"}`}>Log in to track orders and save your wishlist.</p>
                   <Link
                     href="/login"
                     onClick={onClose}
                     className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition ${
-                      isNativeApp
+                      isOfficialTheme
                         ? "bg-gradient-to-r from-[#FBE28A] via-[#EAB308] to-[#C68A12] text-[#111111] shadow-sm"
                         : "bg-white text-black hover:bg-neutral-200"
                     }`}
@@ -196,7 +197,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               )}
             </div>
 
-            {isNativeApp && (
+            {isOfficialTheme && (
               <div>
                 <Link
                   href="/assistant"
@@ -219,7 +220,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
 
             {/* Quick Access Section */}
             <div>
-              <h3 className={`text-[10px] font-black uppercase tracking-[0.25em] mb-4 ${isNativeApp ? "text-[#8A7548]" : "text-neutral-400"}`}>Collections</h3>
+              <h3 className={`text-[10px] font-black uppercase tracking-[0.25em] mb-4 ${isOfficialTheme ? "text-[#8A7548]" : "text-neutral-400"}`}>Collections</h3>
               <nav className="space-y-1">
                 {[
                   { name: "Store Home", href: "/" },
@@ -234,7 +235,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                     href={item.href}
                     onClick={onClose}
                     className={`flex items-center py-2.5 text-sm font-bold transition-colors border-b ${
-                      isNativeApp
+                      isOfficialTheme
                         ? "text-[#292319] hover:text-[#14120F] border-[#EFE1BE]"
                         : "text-neutral-300 hover:text-white border-neutral-900"
                     }`}
@@ -249,7 +250,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                     href="/seller"
                     onClick={onClose}
                     className={`flex items-center justify-between p-3 rounded-xl border transition-all shadow-md group active:scale-95 ${
-                      isNativeApp
+                      isOfficialTheme
                         ? "bg-gradient-to-r from-[#FFF7DF] to-[#F7E8BD]/70 border-[#DFB953]/70 text-[#14120F]"
                         : "bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent border-emerald-500/35 text-white hover:border-emerald-400"
                     }`}
@@ -257,7 +258,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                     <div className="flex items-center gap-2.5">
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-lg ${
-                          isNativeApp ? "bg-gradient-to-br from-[#EAB308] to-[#B45309] text-[#111111]" : "bg-emerald-500 text-black"
+                          isOfficialTheme ? "bg-gradient-to-br from-[#EAB308] to-[#B45309] text-[#111111]" : "bg-emerald-500 text-black"
                         }`}
                       >
                         <Store className="h-3.5 w-3.5 stroke-[2.5]" />
@@ -265,15 +266,15 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                       <div>
                         <p
                           className={`text-xs font-black uppercase tracking-wider ${
-                            isNativeApp ? "text-[#8E6208]" : "text-emerald-300 group-hover:text-emerald-200"
+                            isOfficialTheme ? "text-[#8E6208]" : "text-emerald-300 group-hover:text-emerald-200"
                           }`}
                         >
                           Sell on ZebAlpha
                         </p>
-                        <p className={`text-[10px] font-medium ${isNativeApp ? "text-[#5C503C]" : "text-neutral-400"}`}>Small Business & Seller Hub</p>
+                        <p className={`text-[10px] font-medium ${isOfficialTheme ? "text-[#5C503C]" : "text-neutral-400"}`}>Small Business & Seller Hub</p>
                       </div>
                     </div>
-                    <ArrowUpRight className={`h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform ${isNativeApp ? "text-[#8E6208]" : "text-emerald-400"}`} />
+                    <ArrowUpRight className={`h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform ${isOfficialTheme ? "text-[#8E6208]" : "text-emerald-400"}`} />
                   </Link>
                 </div>
               </nav>
@@ -281,7 +282,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
 
             {/* Customer Care Section */}
             <div>
-              <h3 className={`text-[10px] font-black uppercase tracking-[0.25em] mb-4 ${isNativeApp ? "text-[#8A7548]" : "text-neutral-400"}`}>Brand & Help</h3>
+              <h3 className={`text-[10px] font-black uppercase tracking-[0.25em] mb-4 ${isOfficialTheme ? "text-[#8A7548]" : "text-neutral-400"}`}>Brand & Help</h3>
               <nav className="space-y-1">
                 {[
                   { name: "About ZebAlpha", href: "/about" },
@@ -296,7 +297,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                     href={item.href}
                     onClick={onClose}
                     className={`flex items-center py-2.5 text-sm font-bold transition-colors border-b last:border-0 ${
-                      isNativeApp
+                      isOfficialTheme
                         ? "text-[#292319] hover:text-[#14120F] border-[#EFE1BE]"
                         : "text-neutral-300 hover:text-white border-neutral-900"
                     }`}
@@ -309,8 +310,8 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           </div>
 
           {/* Footer inside Drawer */}
-          <div className={`border-t p-5 ${isNativeApp ? "border-[#E9D7A9] bg-[#F7EED7]" : "border-neutral-800 bg-black"}`}>
-            <p className={`text-[9px] font-black uppercase tracking-[0.25em] text-center ${isNativeApp ? "text-[#7A673E]" : "text-neutral-500"}`}>
+          <div className={`border-t p-5 ${isOfficialTheme ? "border-[#E9D7A9] bg-[#F7EED7]" : "border-neutral-800 bg-black"}`}>
+            <p className={`text-[9px] font-black uppercase tracking-[0.25em] text-center ${isOfficialTheme ? "text-[#7A673E]" : "text-neutral-500"}`}>
               © 2026 ZEBALPHA • APPAREL
             </p>
           </div>

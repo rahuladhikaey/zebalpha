@@ -13,7 +13,7 @@ import {
   Shirt,
   ShoppingBag,
 } from "lucide-react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import type { ApparelBaseConfig } from "@/lib/customDesignPresets";
 import { removeDesignBackground } from "@/lib/removeDesignBackground";
 
@@ -199,7 +199,7 @@ export function GarmentMockupPreview({
   onPrintTransformChange,
   isSubmitting = false,
 }: GarmentMockupPreviewProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const stageRef = useRef<HTMLDivElement>(null);
 
   const normalizedKind = useMemo(

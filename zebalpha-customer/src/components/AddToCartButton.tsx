@@ -6,7 +6,7 @@ import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { Product } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 export function AddToCartButton({ 
   product, 
@@ -25,7 +25,7 @@ export function AddToCartButton({
   const { openVariantSelector } = useVariantSelector();
   const { session } = useAuth();
   const router = useRouter();
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
   const isOutOfStock = !isUpcomingDrop && ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK");

@@ -50,6 +50,15 @@ export function checkIsNativeApp(): boolean {
 export const isNativeApp = checkIsNativeApp;
 
 /**
+ * Unified Official ZebAlpha Visual Theme (Festive Coral + Warm White + Champagne Gold).
+ * Active across BOTH the official Android App and the Website so brand colors match 100%.
+ * Use `useIsNativeApp()` strictly for native-shell behaviors (bottom dock, onboarding, splash, QR).
+ */
+export function useOfficialTheme(): boolean {
+  return true;
+}
+
+/**
  * Propagates server-detected Android WebView state down the React tree so SSR HTML
  * and initial client hydration match without flashing Web UI first.
  */
@@ -82,8 +91,11 @@ export function useIsNativeApp(): boolean {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
+    document.documentElement.classList.remove("dark");
+    document.documentElement.classList.add("is-official-theme");
+    document.body.classList.add("is-official-theme");
+
     if (isNative) {
-      document.documentElement.classList.remove("dark");
       document.documentElement.classList.add("is-android-app");
       document.body.classList.add("is-android-app");
     } else {

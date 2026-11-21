@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 export default function ProductImageCarousel({
   images,
@@ -16,7 +16,7 @@ export default function ProductImageCarousel({
   productName: string;
   topRightAction?: React.ReactNode;
 }) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [fallbackStepByIdx, setFallbackStepByIdx] = useState<Record<number, number>>({});

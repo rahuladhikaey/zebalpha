@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Star, RotateCcw } from "lucide-react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 export interface FilterState {
   genders: string[];
@@ -106,7 +106,7 @@ export function ProductFilters({
   priceRangeData,
   totalFilteredCount,
 }: ProductFiltersProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   // Expansion toggles for long lists
   const [showAllBrands, setShowAllBrands] = useState(false);

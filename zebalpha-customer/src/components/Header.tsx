@@ -30,17 +30,20 @@ const GOLD_WEB_BTN_CLASS =
 const CREAM_GOLD_ICON_BTN_CLASS =
   "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E4B7] border border-[#DFBC5E]/75 text-[#14120F] hover:border-[#C28D12] active:scale-95 transition-all shadow-[0_3px_10px_rgba(160,115,20,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] cursor-pointer";
 
-function AndroidFestiveHeaderBackdrop() {
+function AndroidFestiveHeaderBackdrop({ responsiveDesktop = false }: { responsiveDesktop?: boolean }) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden select-none">
       {/* Base rich festive red color matching the top edge of the pattern */}
       <div className="absolute inset-0 bg-[#f03a46]" />
       {/* Festive traditional ornamental pattern image anchored to top center */}
       <div
-        className="absolute inset-0 bg-no-repeat"
+        className={`absolute inset-0 ${
+          responsiveDesktop
+            ? "bg-no-repeat md:bg-repeat-x bg-[length:100%_auto] md:bg-[length:560px_auto]"
+            : "bg-no-repeat bg-[length:100%_auto]"
+        }`}
         style={{
           backgroundImage: "url('/festive-header-bg.jpg')",
-          backgroundSize: "100% auto",
           backgroundPosition: "center 0px",
         }}
       />
@@ -189,12 +192,18 @@ function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: bo
       <div className="flex flex-col items-start">
         {lightTheme ? (
           <>
-            <span className="text-[15px] sm:text-base font-black tracking-[0.18em] uppercase leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+            <span
+              data-photo-overlay="true"
+              className="text-[15px] sm:text-base font-black tracking-[0.18em] uppercase leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+            >
               ZEBALPHA
             </span>
             <span className="mt-0.5 flex items-center gap-1.5 leading-none">
               <span className="h-[1px] w-3 bg-[#FFE68B]/90" />
-              <span className="text-[7.5px] sm:text-[8.5px] font-black text-[#FFE68B] tracking-[0.13em] uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
+              <span
+                data-photo-overlay="true"
+                className="text-[7.5px] sm:text-[8.5px] font-black text-[#FFE68B] tracking-[0.13em] uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]"
+              >
                 CLOTHING FOR THE CULTURE
               </span>
               <span className="h-[1px] w-3 bg-[#FFE68B]/90" />
@@ -334,92 +343,123 @@ export function Header({
     );
   }
 
+  // Website Header — Uses the EXACT Official Festive Coral-Red Floral + Warm Cream-Gold Theme as the Android App
+  const wishlistCount = wishlist.length;
+
   return (
     <>
-      <header className="sticky top-0 z-50 overflow-hidden border-b border-amber-500/25 bg-[#050402]/92 px-4 py-3 backdrop-blur-xl md:px-8 text-white transition-all">
-        <LuxuryGoldHeaderBackdrop />
+      <header className="sticky top-0 z-50 overflow-visible border-b border-rose-950/20 bg-[#f03a46] px-3.5 py-2.5 md:px-8 text-[#14120F] transition-all shadow-[0_6px_22px_rgba(240,58,70,0.22)]">
+        <AndroidFestiveHeaderBackdrop responsiveDesktop />
 
-        <div className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between">
-          {/* Left Side: Back Button, Logo & Brand Name */}
-          <div className="flex items-center gap-3 md:gap-4">
-            {!isHome && (
+        <div className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between gap-2 md:gap-4">
+          {/* Left Side: Back Button (or Mobile Drawer), Logo & Brand Name */}
+          <div className="flex items-center gap-2.5 md:gap-3.5">
+            {!isHome ? (
               <button
+                type="button"
                 onClick={() => router.back()}
-                className={GOLD_WEB_BTN_CLASS}
+                className={CREAM_GOLD_ICON_BTN_CLASS}
                 aria-label="Go Back"
               >
-                <svg className="h-5 w-5 stroke-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                <svg className="h-5 w-5 text-[#14120F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(true)}
+                className={`${CREAM_GOLD_ICON_BTN_CLASS} lg:hidden`}
+                aria-label="Open Navigation Menu"
+              >
+                <Menu className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
+              </button>
             )}
-            
-            <HeaderBrandLogo />
+
+            <HeaderBrandLogo compact lightTheme />
           </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-7">
+          {/* Desktop Navigation Links (Crisp White & Warm Gold on Festive Red Header) */}
+          <nav className="hidden xl:flex items-center gap-6" data-photo-overlay="true">
             {[
               { name: "Shop", href: "/products" },
+              { name: "Custom Studio", href: "/customize" },
+              { name: "New Drops", href: "/new-drops" },
               { name: "About", href: "/about" },
               { name: "Sell", href: "/seller" },
               { name: "Blogs", href: "/blogs" },
-              { name: "Contact", href: "/contact" },
             ].map((link) => (
-              <Link 
-                key={link.name} 
+              <Link
+                key={link.name}
                 href={link.href}
-                className="relative text-[11px] font-black uppercase tracking-[0.22em] text-zinc-200 hover:text-amber-300 transition-all hover:-translate-y-0.5 active:scale-95 group"
+                className="relative text-[11px] font-black uppercase tracking-[0.18em] text-white hover:text-[#FFE68B] transition-all hover:-translate-y-0.5 active:scale-95 group drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] whitespace-nowrap"
               >
                 {link.name}
-                <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 shadow-[0_0_8px_rgba(251,191,36,0.6)] transition-all duration-300 group-hover:w-full" />
+                <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-[#FFF3C4] via-[#FDE047] to-[#EAB308] transition-all duration-300 group-hover:w-full" />
               </Link>
             ))}
           </nav>
 
           {/* Global Search Bar (Desktop) */}
-          <div className="hidden lg:flex flex-1 max-w-md mx-6">
+          <div className="hidden lg:flex flex-1 max-w-md mx-4">
             <AnimatedSearchBar />
           </div>
 
-          {/* Right Side: Actions & Drawer Trigger */}
-          <div className="flex items-center gap-2 md:gap-3.5 shrink-0">
-            {/* Shopping Cart Button */}
+          {/* Right Side: Official Cream-Gold Action Buttons */}
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-2.5 shrink-0">
+            {/* Wishlist Button */}
             <Link
-              href="/cart"
-              className={GOLD_WEB_BTN_CLASS}
-              aria-label="View Shopping Cart"
+              href="/wishlist"
+              aria-label={`Wishlist (${wishlistCount})`}
+              className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
             >
-              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400" />
-              {totalItems > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-[18px] px-1 items-center justify-center rounded-full bg-gradient-to-b from-[#fde68a] via-[#eab308] to-[#ca8a04] text-black text-[9px] font-black shadow-[0_0_10px_rgba(234,179,8,0.6)]">
-                  {totalItems}
+              <Heart className="h-[18px] w-[18px] stroke-[2.15] text-[#14120F]" />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm">
+                  {wishlistCount > 99 ? "99+" : wishlistCount}
                 </span>
               )}
             </Link>
 
-            {/* Mobile / Tablet Menu Trigger */}
-            <button
-              onClick={() => setIsDrawerOpen(true)}
-              className={`${GOLD_WEB_BTN_CLASS} lg:hidden`}
-              aria-label="Toggle Menu"
+            {/* Shopping Cart Button */}
+            <Link
+              href="/cart"
+              className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
+              aria-label="View Shopping Cart"
             >
-              <Menu className="h-5 w-5 text-amber-400" />
-            </button>
+              <ShoppingBag className="h-[18px] w-[18px] stroke-[2.15] text-[#14120F]" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm">
+                  {totalItems > 99 ? "99+" : totalItems}
+                </span>
+              )}
+            </Link>
+
+            <NotificationBell
+              className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
+              iconClassName="h-[18px] w-[18px] stroke-[2.15] text-[#14120F]"
+            />
 
             <UserMenu />
-            <NotificationBell
-              className={GOLD_WEB_BTN_CLASS}
-              iconClassName="h-4 w-4 sm:h-[18px] sm:w-[18px] text-amber-400"
-            />
+
+            {!isHome && (
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(true)}
+                className={`${CREAM_GOLD_ICON_BTN_CLASS} lg:hidden`}
+                aria-label="Toggle Menu"
+              >
+                <Menu className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Mobile Drawer */}
-      <MobileDrawer 
-        isOpen={isDrawerOpen} 
-        onClose={() => setIsDrawerOpen(false)} 
+      <MobileDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
       />
     </>
   );

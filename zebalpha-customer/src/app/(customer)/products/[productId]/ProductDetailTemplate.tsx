@@ -22,7 +22,7 @@ import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { RecommendationProductCard } from "@/components/recommendations/RecommendationProductCard";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { getProductDisplayPricing } from "@/lib/productPricing";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { buildProductSharePayload, shareProfessionally } from "@/lib/shareService";
 import { ProductRatingWidget } from "@/components/ProductRatingWidget";
 import { computeRatingBreakdown, type PublicReview } from "@/lib/productRatings";
@@ -44,7 +44,7 @@ export default function ProductDetailTemplate({
   relatedProductsSlot?: React.ReactNode;
   initialReviews?: PublicReview[];
 }) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const {
     config: firstOrderConfig,
     eligible: isFirstOrderEligible,

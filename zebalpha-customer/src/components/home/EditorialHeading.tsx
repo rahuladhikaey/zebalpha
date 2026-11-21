@@ -1,6 +1,6 @@
 "use client";
 
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 interface EditorialHeadingProps {
   eyebrow?: string;
@@ -15,7 +15,7 @@ export function EditorialHeading({
   titleLine2 = "Remembered",
   subtitle = "Pieces made for the moments that stay with you.",
 }: EditorialHeadingProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <header className="flex flex-col space-y-1.5 w-full pb-2 pt-1">

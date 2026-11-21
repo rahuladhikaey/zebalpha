@@ -7,14 +7,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchProducts } from "@/hooks/useCatalogQueries";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { useVoiceSearch, VoiceSearchSheet } from "@/components/VoiceSearchSheet";
 
 const searchItems = ["T-Shirts, Hoodies, Shoes", "Oversized Tees", "Polos", "Streetwear", "Joggers"];
 
 export function MobileSearch({ className }: { className?: string } = {}) {
   const router = useRouter();
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const [index, setIndex] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);

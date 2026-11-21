@@ -68,9 +68,7 @@ export function Footer() {
     <footer
       ref={footerRef}
       data-keep-dark="true"
-      className={`relative overflow-hidden border-t bg-black text-white selection:bg-white selection:text-black min-h-[480px] ${
-        isNativeApp ? "border-[#E4C988]/70" : "border-neutral-800/80"
-      }`}
+      className="relative overflow-hidden border-t border-[#E4C988]/70 bg-black text-white selection:bg-white selection:text-black min-h-[480px]"
     >
       
       {/* 1st Layer: Vivid Visible Background Video Player (Lazy-loaded) */}
@@ -106,11 +104,7 @@ export function Footer() {
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/20 flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <span
-              className={`flex h-2.5 w-2.5 rounded-full animate-pulse ${
-                isNativeApp
-                  ? "bg-[#FACC15] shadow-[0_0_12px_#FACC15]"
-                  : "bg-emerald-400 shadow-[0_0_12px_#34d399]"
-              }`}
+              className="flex h-2.5 w-2.5 rounded-full animate-pulse bg-[#FACC15] shadow-[0_0_12px_#FACC15]"
             />
             <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600/90 text-white font-black text-[9px] sm:text-[10px] px-3 py-1 uppercase tracking-wider shadow-xl backdrop-blur-md">
               <Flame className="w-3 h-3 fill-white" />
@@ -130,7 +124,7 @@ export function Footer() {
             {isMuted ? (
               <VolumeX className="w-4 h-4 text-neutral-300" />
             ) : (
-              <Volume2 className={`w-4 h-4 ${isNativeApp ? "text-[#FACC15]" : "text-emerald-400"}`} />
+              <Volume2 className="w-4 h-4 text-[#FACC15]" />
             )}
             <span>{isMuted ? "Sound Off" : "Sound On"}</span>
           </button>
@@ -148,11 +142,7 @@ export function Footer() {
               </div>
               <div>
                 <span>ZebAlpha</span>
-                <span
-                  className={`block text-[10px] font-bold tracking-widest normal-case ${
-                    isNativeApp ? "text-[#FACC15]" : "text-emerald-400"
-                  }`}
-                >
+                <span className="block text-[10px] font-bold tracking-widest normal-case text-[#FACC15]">
                   Indian E-Commerce Marketplace
                 </span>
               </div>

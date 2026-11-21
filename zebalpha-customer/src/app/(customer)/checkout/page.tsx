@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Tag, Check, X, Truck, Gift, CheckCircle2, Info } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { useFirstOrderOffer, clearFirstOrderOfferCache } from "@/hooks/useFirstOrderOffer";
 import { resolveOrderDiscounts } from "@/lib/firstOrderOffer";
 import {
@@ -54,7 +54,7 @@ function CheckoutContent() {
   const initialMethod = searchParams.get("method")?.toUpperCase() === "COD" ? "COD" : "ONLINE";
 
   const { user, loading: authLoading } = useAuth();
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   const isBuyNow = searchParams.get("buyNow") === "true";
   const { cart: contextCart, totalValue: contextTotalValue, clearCart } = useCart();

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, CheckCircle2, Edit2, Loader2, Star } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import {
   broadcastReviewUpdated,
   type ProductRatingBreakdown,
@@ -35,7 +35,7 @@ export function ProductRatingWidget({
   initialReview,
   onSubmitted,
 }: ProductRatingWidgetProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const [rating, setRating] = useState<number>(initialReview?.rating || 0);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [comment, setComment] = useState<string>(initialReview?.comment || "");

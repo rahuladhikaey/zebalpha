@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 interface BannerItem {
   id?: number | string;
@@ -63,7 +63,7 @@ const DEFAULT_BANNERS: BannerItem[] = [
 ];
 
 export function BannerCarousel() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const [banners, setBanners] = useState<BannerItem[]>(DEFAULT_BANNERS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);

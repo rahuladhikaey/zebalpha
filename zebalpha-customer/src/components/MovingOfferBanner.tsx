@@ -3,7 +3,7 @@
 import { Crown, Flame, Truck, ShieldCheck, Tag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 const DEFAULT_ITEMS = [
   { icon: "crown", text: "ZEBALPHA • CLOTHING FOR THE CULTURE" },
@@ -32,7 +32,7 @@ function getOfferIcon(icon: string, isNativeApp: boolean) {
 }
 
 export function MovingOfferBanner() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const [items, setItems] = useState(DEFAULT_ITEMS);
 
   useEffect(() => {

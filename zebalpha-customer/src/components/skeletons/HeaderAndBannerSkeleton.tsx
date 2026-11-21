@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 
 export function HeaderSkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <header
@@ -43,7 +43,7 @@ export function HeaderSkeleton() {
 }
 
 export function BannerSkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <div
@@ -71,7 +71,7 @@ export function BannerSkeleton() {
 }
 
 export function CategorySkeleton() {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   return (
     <div className="w-full overflow-x-auto py-2.5 no-scrollbar animate-pulse select-none">

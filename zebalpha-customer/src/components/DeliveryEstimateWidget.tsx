@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Truck, MapPin, Check, AlertCircle, RotateCcw } from "lucide-react";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import {
   computeStandardDeliveryWindow,
   isValidIndianPincode,
@@ -127,7 +127,7 @@ export function DeliveryEstimateWidget({
   className = "",
   isOutOfStock = false,
 }: DeliveryEstimateWidgetProps) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
 
   // Compute today's 7-day standard window purely in IST memory
   const standardWindow = useMemo(() => computeStandardDeliveryWindow(), []);

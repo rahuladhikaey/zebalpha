@@ -25,7 +25,7 @@ import {
   getProductDisplayPricing,
 } from "@/hooks/useCatalogQueries";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -37,7 +37,7 @@ import {
 
 function ProductsContent() {
   useScrollRestoration("products_catalog");
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();

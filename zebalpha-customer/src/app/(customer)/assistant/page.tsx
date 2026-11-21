@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, RotateCcw, Send } from "lucide-react";
 import { Header } from "@/components/Header";
 import { AddToCartButton } from "@/components/AddToCartButton";
-import { useIsNativeApp } from "@/lib/platform";
+import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 import { Product } from "@/lib/types";
 
 type AssistantQuickLink = {
@@ -94,6 +94,7 @@ function renderFormattedReply(content: string, isNativeApp: boolean) {
 
 export default function AlphaAssistantPage() {
   const isNativeApp = useIsNativeApp();
+  const isOfficialTheme = useOfficialTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_ASSISTANT_MESSAGE]);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -207,8 +208,12 @@ export default function AlphaAssistantPage() {
     <main
       className={`flex flex-col overflow-hidden ${
         isNativeApp
-          ? "fixed inset-0 z-30 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] bg-gradient-to-b from-[#FFFFFF] via-[#FFFDF4] to-[#FAF0D1] text-[#111111]"
-          : "min-h-screen bg-black text-white"
+          ? "fixed inset-0 z-30 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]"
+          : "min-h-screen"
+      } ${
+        isOfficialTheme
+          ? "bg-gradient-to-b from-[#FFFFFF] via-[#FFFDF4] to-[#FAF0D1] text-[#111111]"
+          : "bg-black text-white"
       }`}
     >
       <div className="shrink-0">
@@ -220,13 +225,15 @@ export default function AlphaAssistantPage() {
         className={`flex flex-1 min-h-0 flex-col w-full ${
           isNativeApp
             ? "mx-auto max-w-3xl"
-            : "mx-auto max-w-2xl my-4 sm:my-6 h-[calc(100dvh-7.5rem)] rounded-[2rem] border border-neutral-800 bg-neutral-950 shadow-2xl overflow-hidden"
+            : isOfficialTheme
+              ? "mx-auto max-w-2xl my-4 sm:my-6 h-[calc(100dvh-7.5rem)] rounded-[2rem] border border-[#DFBE6F] bg-[#FFFDF8] shadow-[0_18px_48px_rgba(166,124,28,0.14)] overflow-hidden"
+              : "mx-auto max-w-2xl my-4 sm:my-6 h-[calc(100dvh-7.5rem)] rounded-[2rem] border border-neutral-800 bg-neutral-950 shadow-2xl overflow-hidden"
         }`}
       >
         {/* Chat Bot Header Bar */}
         <div
           className={`shrink-0 px-4 py-3 flex items-center justify-between border-b ${
-            isNativeApp
+            isOfficialTheme
               ? "bg-gradient-to-r from-[#FFFFFF] via-[#FAF0D1] to-[#FFFFFF] border-[#E7CFA0]"
               : "bg-black border-neutral-800"
           }`}
@@ -234,7 +241,7 @@ export default function AlphaAssistantPage() {
           <div className="flex items-center gap-3 min-w-0">
             <div
               className={`relative h-10 w-10 shrink-0 rounded-full flex items-center justify-center shadow-sm overflow-hidden ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-white border-2 border-[#EAB308]"
                   : "bg-white border border-neutral-700"
               }`}
@@ -249,13 +256,13 @@ export default function AlphaAssistantPage() {
             <div className="min-w-0">
               <h1
                 className={`text-sm font-black tracking-tight leading-none flex items-center gap-1.5 ${
-                  isNativeApp ? "text-[#111111]" : "text-white"
+                  isOfficialTheme ? "text-[#111111]" : "text-white"
                 }`}
               >
                 <span>Alpha AI</span>
                 <span
                   className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border ${
-                    isNativeApp
+                    isOfficialTheme
                       ? "bg-gradient-to-r from-[#FBE28A] to-[#EAB308] text-[#111111] border-[#C68A12]/40"
                       : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                   }`}
@@ -265,7 +272,7 @@ export default function AlphaAssistantPage() {
               </h1>
               <span
                 className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mt-1 ${
-                  isNativeApp ? "text-[#4A3F2B]" : "text-neutral-400"
+                  isOfficialTheme ? "text-[#4A3F2B]" : "text-neutral-400"
                 }`}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -279,7 +286,7 @@ export default function AlphaAssistantPage() {
               type="button"
               onClick={handleResetChat}
               className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-extrabold border transition active:scale-95 ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-[#FFFDF8] border-[#DFBE6F] text-[#111111] hover:bg-[#FAF0D1]"
                   : "bg-neutral-900 border-neutral-700 text-neutral-200 hover:bg-neutral-800"
               }`}
@@ -294,7 +301,7 @@ export default function AlphaAssistantPage() {
         {/* Quick Options Horizontal Bar */}
         <div
           className={`shrink-0 px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar select-none border-b ${
-            isNativeApp
+            isOfficialTheme
               ? "bg-[#FFFDF8] border-[#EDE0BF]"
               : "bg-neutral-950 border-neutral-800/80"
           }`}
@@ -306,7 +313,7 @@ export default function AlphaAssistantPage() {
               onClick={() => handleSend(opt.query)}
               disabled={loading}
               className={`whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full border transition active:scale-95 shrink-0 disabled:opacity-50 ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#111111] border-[#E4C988]"
                   : "bg-neutral-900 hover:bg-neutral-800 text-neutral-200 hover:text-white border-neutral-800"
               }`}
@@ -319,7 +326,7 @@ export default function AlphaAssistantPage() {
         {/* Scrollable Chat Messages Area */}
         <div
           className={`flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 no-scrollbar ${
-            isNativeApp ? "bg-transparent" : "bg-neutral-900/40"
+            isOfficialTheme ? "bg-transparent" : "bg-neutral-900/40"
           }`}
         >
           {messages.map((m) => {
@@ -329,10 +336,10 @@ export default function AlphaAssistantPage() {
                 <div
                   className={`max-w-[88%] rounded-[1.4rem] px-4 py-3 text-xs sm:text-sm shadow-sm ${
                     isUser
-                      ? isNativeApp
+                      ? isOfficialTheme
                         ? "bg-gradient-to-br from-[#FBE28A] via-[#F2C34B] to-[#DCA118] text-[#111111] font-bold rounded-tr-sm border border-[#CE9412]/50"
                         : "bg-white text-black font-bold rounded-tr-sm"
-                      : isNativeApp
+                      : isOfficialTheme
                       ? "bg-[#FFFDF8] text-[#111111] border border-[#E7CF94] rounded-tl-sm font-medium"
                       : "bg-neutral-950 text-neutral-200 border border-neutral-800 rounded-tl-sm font-medium"
                   }`}
@@ -340,7 +347,7 @@ export default function AlphaAssistantPage() {
                   {isUser ? (
                     <p className="leading-relaxed whitespace-pre-wrap break-words">{m.content}</p>
                   ) : (
-                    renderFormattedReply(m.content, isNativeApp)
+                    renderFormattedReply(m.content, isOfficialTheme)
                   )}
                 </div>
 
@@ -353,7 +360,7 @@ export default function AlphaAssistantPage() {
                         <div
                           key={String(item.id)}
                           className={`flex flex-col justify-between overflow-hidden rounded-2xl border p-2 ${
-                            isNativeApp
+                            isOfficialTheme
                               ? "border-[#DFBE6F] bg-[#FFFDF8]"
                               : "border-zinc-800 bg-zinc-950"
                           }`}
@@ -362,7 +369,7 @@ export default function AlphaAssistantPage() {
                             <Link
                               href={`/products/${item.id}`}
                               className={`block aspect-square overflow-hidden rounded-xl ${
-                                isNativeApp ? "bg-[#F6EFE0]" : "bg-zinc-900"
+                                isOfficialTheme ? "bg-[#F6EFE0]" : "bg-zinc-900"
                               }`}
                             >
                               <img
@@ -376,7 +383,7 @@ export default function AlphaAssistantPage() {
                               <Link
                                 href={`/products/${item.id}`}
                                 className={`line-clamp-2 text-[11px] font-bold leading-snug ${
-                                  isNativeApp ? "text-[#111111]" : "text-white"
+                                  isOfficialTheme ? "text-[#111111]" : "text-white"
                                 }`}
                               >
                                 {item.name}
@@ -384,7 +391,7 @@ export default function AlphaAssistantPage() {
                               <div className="flex items-center gap-1.5 pt-0.5">
                                 <span
                                   className={`text-xs font-black ${
-                                    isNativeApp ? "text-[#111111]" : "text-white"
+                                    isOfficialTheme ? "text-[#111111]" : "text-white"
                                   }`}
                                 >
                                   {formatCurrency(item.price)}
@@ -392,7 +399,7 @@ export default function AlphaAssistantPage() {
                                 {hasDiscount && (
                                   <span
                                     className={`text-[10px] line-through ${
-                                      isNativeApp ? "text-[#7A6847]" : "text-zinc-500"
+                                      isOfficialTheme ? "text-[#7A6847]" : "text-zinc-500"
                                     }`}
                                   >
                                     {formatCurrency(item.mrp)}
@@ -406,7 +413,7 @@ export default function AlphaAssistantPage() {
                             <Link
                               href={`/products/${item.id}`}
                               className={`inline-flex items-center justify-center gap-1 rounded-xl border py-1 text-[10px] font-bold ${
-                                isNativeApp
+                                isOfficialTheme
                                   ? "border-[#DFBE6F] bg-[#FAF4E4] text-[#111111]"
                                   : "border-zinc-700 bg-zinc-900 text-zinc-200"
                               }`}
@@ -427,7 +434,7 @@ export default function AlphaAssistantPage() {
                         key={`${m.id}-${qLink.href}`}
                         href={qLink.href}
                         className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-bold ${
-                          isNativeApp
+                          isOfficialTheme
                             ? "border-[#DFBE6F] bg-[#FFFDF8] text-[#111111]"
                             : "border-zinc-700 bg-zinc-900 text-zinc-200"
                         }`}
@@ -446,24 +453,24 @@ export default function AlphaAssistantPage() {
             <div className="flex justify-start">
               <div
                 className={`rounded-[1.4rem] rounded-tl-sm px-4 py-3.5 flex items-center gap-1.5 shadow-sm border ${
-                  isNativeApp
+                  isOfficialTheme
                     ? "bg-[#FFFDF8] border-[#E7CF94]"
                     : "bg-neutral-950 border-neutral-800"
                 }`}
               >
                 <span
                   className={`h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:-0.3s] ${
-                    isNativeApp ? "bg-[#C68A12]" : "bg-white"
+                    isOfficialTheme ? "bg-[#C68A12]" : "bg-white"
                   }`}
                 />
                 <span
                   className={`h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:-0.15s] ${
-                    isNativeApp ? "bg-[#C68A12]" : "bg-white"
+                    isOfficialTheme ? "bg-[#C68A12]" : "bg-white"
                   }`}
                 />
                 <span
                   className={`h-1.5 w-1.5 rounded-full animate-bounce ${
-                    isNativeApp ? "bg-[#C68A12]" : "bg-white"
+                    isOfficialTheme ? "bg-[#C68A12]" : "bg-white"
                   }`}
                 />
               </div>
@@ -473,14 +480,14 @@ export default function AlphaAssistantPage() {
           {error && (
             <div
               className={`text-center rounded-2xl p-2.5 border ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-rose-50 border-rose-200"
                   : "bg-rose-950/40 border-rose-800"
               }`}
             >
               <p
                 className={`text-[11px] font-bold ${
-                  isNativeApp ? "text-rose-700" : "text-rose-300"
+                  isOfficialTheme ? "text-rose-700" : "text-rose-300"
                 }`}
               >
                 {error}
@@ -489,7 +496,7 @@ export default function AlphaAssistantPage() {
                 type="button"
                 onClick={() => setError("")}
                 className={`mt-1 text-[10px] font-black uppercase underline ${
-                  isNativeApp ? "text-rose-600" : "text-rose-400"
+                  isOfficialTheme ? "text-rose-600" : "text-rose-400"
                 }`}
               >
                 Dismiss
@@ -503,7 +510,7 @@ export default function AlphaAssistantPage() {
         {/* Quick Action Footer Chips */}
         <div
           className={`shrink-0 px-3 pt-2 pb-1.5 border-t flex flex-wrap gap-1.5 justify-center text-[10px] ${
-            isNativeApp
+            isOfficialTheme
               ? "bg-[#FFFDF8] border-[#EDE0BF]"
               : "bg-neutral-950 border-neutral-800/60"
           }`}
@@ -513,7 +520,7 @@ export default function AlphaAssistantPage() {
             onClick={() => handleSend("Track my order with Order ID")}
             disabled={loading}
             className={`text-[10px] font-bold px-2.5 py-1 rounded-md border ${
-              isNativeApp
+              isOfficialTheme
                 ? "bg-[#FAF2DE] text-[#111111] border-[#E4C988]"
                 : "bg-neutral-900 text-neutral-300 hover:text-white border-neutral-800"
             }`}
@@ -525,7 +532,7 @@ export default function AlphaAssistantPage() {
             onClick={() => handleSend("I want to return an item. What is your 5-day return policy?")}
             disabled={loading}
             className={`text-[10px] font-bold px-2.5 py-1 rounded-md border ${
-              isNativeApp
+              isOfficialTheme
                 ? "bg-[#FAF2DE] text-[#111111] border-[#E4C988]"
                 : "bg-neutral-900 text-neutral-300 hover:text-white border-neutral-800"
             }`}
@@ -537,7 +544,7 @@ export default function AlphaAssistantPage() {
             onClick={() => handleSend("Talk to customer support team")}
             disabled={loading}
             className={`text-[10px] font-bold px-2.5 py-1 rounded-md border ${
-              isNativeApp
+              isOfficialTheme
                 ? "bg-[#FAF2DE] text-[#111111] border-[#E4C988]"
                 : "bg-neutral-900 text-neutral-300 hover:text-white border-neutral-800"
             }`}
@@ -549,7 +556,7 @@ export default function AlphaAssistantPage() {
         {/* Prompt Input Form */}
         <div
           className={`shrink-0 p-3 border-t ${
-            isNativeApp
+            isOfficialTheme
               ? "border-[#E7CFA0] bg-[#FAF2DC]"
               : "border-neutral-800 bg-neutral-950"
           }`}
@@ -562,7 +569,7 @@ export default function AlphaAssistantPage() {
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Ask Alpha AI assistant..."
               className={`min-w-0 flex-1 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 outline-none font-medium transition border ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-[#FFFDF8] border-[#DEC171] text-[#111111] placeholder:text-[#7A6847] focus:border-[#B8800C]"
                   : "bg-neutral-900 border-neutral-800 text-white placeholder:text-neutral-500 focus:border-white"
               }`}
@@ -572,7 +579,7 @@ export default function AlphaAssistantPage() {
               disabled={loading || !prompt.trim()}
               aria-label="Send Message"
               className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-md active:scale-95 disabled:opacity-40 transition shrink-0 ${
-                isNativeApp
+                isOfficialTheme
                   ? "bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#C68A12] text-[#111111]"
                   : "bg-white text-black hover:bg-neutral-200"
               }`}

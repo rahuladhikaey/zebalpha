@@ -6,13 +6,13 @@ import Image from "next/image";
 import { Category } from "@/lib/types";
 import { CheckCircle2 } from "lucide-react";
 import { useCategories } from "@/hooks/useCatalogQueries";
-import { useIsNativeApp } from "@/lib/platform";
+import { useOfficialTheme } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
 const CLOTHING_TABS = ["ALL", "POLOS", "T-SHIRTS", "HOODIES", "SHIRTS", "BOTTOMS", "LIMITED", "ACCESSORIES"];
 
 export function ShopByCategorySection({ initialCategories = [] }: { initialCategories?: Category[] }) {
-  const isNativeApp = useIsNativeApp();
+  const isNativeApp = useOfficialTheme();
   const { data: categories = initialCategories } = useCategories(
     initialCategories.length > 0 ? initialCategories : undefined
   );

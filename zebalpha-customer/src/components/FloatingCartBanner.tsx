@@ -47,15 +47,15 @@ export default function FloatingCartBanner() {
 
   return (
     <div className="fixed left-0 right-0 z-50 px-3 sm:px-6 transition-all duration-300 lg:hidden bottom-3 sm:bottom-4">
-      <div className="max-w-xl mx-auto bg-zinc-950/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-2xl border border-zinc-800 flex flex-col gap-2.5">
+      <div className="max-w-xl mx-auto bg-[#FFFDF8]/96 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-[0_14px_34px_rgba(140,95,12,0.22)] border border-[#DFBE6F] flex flex-col gap-2.5">
         {/* Offer Section (Only when active) */}
         {hasValidOffer && (
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-black bg-white p-1 rounded-full">
+              <span className="text-[#111111] bg-gradient-to-br from-[#FCE89C] to-[#EAB308] p-1 rounded-full border border-[#C68A12]/40">
                 <Lock size={13} />
               </span>
-              <p className="text-white font-black text-xs sm:text-sm tracking-tight truncate">
+              <p className="text-[#14120F] font-black text-xs sm:text-sm tracking-tight truncate">
                 {amountRemaining > 0
                   ? `Add items for ₹${amountRemaining.toFixed(0)} to unlock ${offerPercentage}% OFF`
                   : `🎉 You've unlocked ${offerPercentage}% OFF!`}
@@ -63,9 +63,9 @@ export default function FloatingCartBanner() {
             </div>
             
             {/* Progress Bar */}
-            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-[#EDE0BF] rounded-full overflow-hidden">
               <div 
-                className="h-full bg-white rounded-full transition-all duration-500 ease-out"
+                className="h-full bg-gradient-to-r from-[#F5B922] to-[#C68A12] rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -73,16 +73,16 @@ export default function FloatingCartBanner() {
         )}
 
         {/* Cart Info & Action Button */}
-        <div className={`flex items-center justify-between gap-3 ${hasValidOffer ? "pt-2 border-t border-zinc-800/80" : ""}`}>
+        <div className={`flex items-center justify-between gap-3 ${hasValidOffer ? "pt-2 border-t border-[#EDE0BF]" : ""}`}>
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/20 shrink-0">
+            <div className="h-9 w-9 rounded-xl bg-[#FAF2DC] flex items-center justify-center text-[#9A6503] border border-[#E4C988] shrink-0">
               <ShoppingBag size={18} />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-white font-black text-xs sm:text-sm tracking-tight truncate">
+              <span className="text-[#14120F] font-black text-xs sm:text-sm tracking-tight truncate">
                 {totalItems} {totalItems === 1 ? 'Item' : 'Items'} in Cart
               </span>
-              <span className="text-emerald-400 font-black text-xs sm:text-sm">
+              <span className="text-emerald-700 font-black text-xs sm:text-sm">
                 ₹{totalValue.toLocaleString("en-IN")}
               </span>
             </div>
@@ -91,7 +91,7 @@ export default function FloatingCartBanner() {
           <button 
             type="button"
             onClick={() => router.push('/cart')}
-            className="bg-white hover:bg-zinc-200 active:scale-95 transition-all text-black px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm tracking-wider uppercase flex items-center gap-1.5 shadow-lg shadow-white/20 shrink-0 cursor-pointer"
+            className="bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] hover:brightness-105 active:scale-95 transition-all text-[#111111] border border-[#D49A18]/65 px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm tracking-wider uppercase flex items-center gap-1.5 shadow-[0_6px_16px_rgba(202,138,4,0.28)] shrink-0 cursor-pointer"
           >
             <span>View Cart</span>
             <ArrowRight size={14} strokeWidth={2.5} />
