@@ -9,8 +9,14 @@ import {
   SlidersHorizontal,
   Ruler,
   FlipHorizontal2,
+  Scissors,
+  Image as ImageIcon,
+  Shirt,
+  ShoppingBag,
 } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
+import type { ApparelBaseConfig } from "@/lib/customDesignPresets";
+import { removeDesignBackground } from "@/lib/removeDesignBackground";
 
 export type GarmentType = "oversized_tee" | "hoodie" | "standard_tee" | "tote_bag" | string;
 export type PlacementPosition = "front_chest" | "full_front" | "pocket" | "back";
@@ -54,14 +60,28 @@ export interface PrintTransform {
 interface GarmentMockupPreviewProps {
   garmentType: GarmentType;
   garmentLabel?: string;
+  apparelBases?: ApparelBaseConfig[];
+  onSelectApparelBase?: (base: ApparelBaseConfig) => void;
   selectedColor: GarmentColorOption;
   selectedSize?: string;
   designImageSrc: string | null;
   designTitle?: string;
   placement: PlacementPosition;
+  removeBackground?: boolean;
+  onRemoveBackgroundChange?: (next: boolean) => void;
+  onCutoutBlobReady?: (blob: Blob | null) => void;
   printTransform?: PrintTransform;
   onPrintTransformChange?: (next: PrintTransform) => void;
   isSubmitting?: boolean;
+}
+
+function getShortGarmentLabel(base: ApparelBaseConfig): string {
+  const hint = `${base.id || ""} ${base.name || ""}`.toLowerCase();
+  if (hint.includes("tote") || hint.includes("bag")) return "Tote Bag";
+  if (hint.includes("hoodie") || hint.includes("fleece")) return "Hoodie";
+  if (hint.includes("oversized")) return "Oversized Tee";
+  if (hint.includes("classic") || hint.includes("standard") || hint.includes("regular")) return "Classic Tee";
+  return base.name.length > 15 ? `${base.name.slice(0, 14)}…` : base.name;
 }
 
 type NormalizedGarmentKind = "oversized_tee" | "standard_tee" | "hoodie" | "tote_bag";
@@ -166,11 +186,16 @@ const DEFAULT_TRANSFORM: PrintTransform = { scale: 1, offsetX: 0, offsetY: 0 };
 export function GarmentMockupPreview({
   garmentType,
   garmentLabel,
+  apparelBases = [],
+  onSelectApparelBase,
   selectedColor,
   selectedSize = "L",
   designImageSrc,
   designTitle = "Custom Graphic",
   placement,
+  removeBackground = false,
+  onRemoveBackgroundChange,
+  onCutoutBlobReady,
   printTransform = DEFAULT_TRANSFORM,
   onPrintTransformChange,
   isSubmitting = false,
@@ -192,6 +217,50 @@ export function GarmentMockupPreview({
   const [dragMode, setDragMode] = useState<"tilt" | "move">("tilt");
   const isDraggingRef = useRef(false);
   const dragOriginRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
+
+  // Smart Background Removal state (live transparent PNG cutout)
+  const [bgTolerance, setBgTolerance] = useState<number>(44);
+  const [cutoutDataUrl, setCutoutDataUrl] = useState<string | null>(null);
+  const [isRemovingBg, setIsRemovingBg] = useState<boolean>(false);
+  const [bgRemovalError, setBgRemovalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!removeBackground || !designImageSrc) {
+      setCutoutDataUrl(null);
+      setIsRemovingBg(false);
+      setBgRemovalError(null);
+      onCutoutBlobReady?.(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsRemovingBg(true);
+    setBgRemovalError(null);
+
+    removeDesignBackground(designImageSrc, bgTolerance)
+      .then((res) => {
+        if (cancelled) return;
+        setCutoutDataUrl(res.dataUrl);
+        onCutoutBlobReady?.(res.blob);
+        setIsRemovingBg(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("Background removal notice:", err);
+        setCutoutDataUrl(null);
+        onCutoutBlobReady?.(null);
+        setBgRemovalError("Could not remove background on this image.");
+        setIsRemovingBg(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [removeBackground, designImageSrc, bgTolerance]);
+
+  const activeRenderedArtwork =
+    removeBackground && cutoutDataUrl ? cutoutDataUrl : designImageSrc;
 
   // Preload both front & back studio garment images for instant zero-flicker 3D flip
   useEffect(() => {
@@ -326,46 +395,79 @@ export function GarmentMockupPreview({
           }}
         />
 
-        {/* Top Single-Line Studio HUD */}
-        <div className="absolute top-3 inset-x-3 z-30 flex items-center justify-between gap-2 pointer-events-none">
-          <div
-            className={`inline-flex items-center gap-1.5 min-w-0 max-w-[66%] px-2.5 py-1 rounded-full backdrop-blur-md border shadow-sm ${
-              isNativeApp
-                ? "bg-white/95 border-[#DFC070]/90 text-[#14120F]"
-                : "bg-black/75 border-white/15 text-white"
-            }`}
-          >
-            <span
-              className="h-2.5 w-2.5 rounded-full shrink-0 border border-black/25"
-              style={{ backgroundColor: selectedColor.hex }}
-            />
-            <span className="text-[10px] font-extrabold truncate">
-              {displayGarmentName}
-            </span>
-            <span
-              className={`text-[10px] font-semibold shrink-0 hidden sm:inline ${
-                isNativeApp ? "text-[#7A5B14]" : "text-zinc-300"
+        {/* Top Quick Apparel Selector (Tee / Hoodie / Tote + GSM) right on the preview stage */}
+        <div
+          className="absolute top-2.5 inset-x-2.5 z-30 flex items-center gap-1.5"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {apparelBases.length > 0 && onSelectApparelBase ? (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
+              {apparelBases.map((base) => {
+                const active = garmentType === base.id;
+                const isTote =
+                  base.id.toLowerCase().includes("tote") ||
+                  base.name.toLowerCase().includes("tote") ||
+                  base.name.toLowerCase().includes("bag");
+                return (
+                  <button
+                    key={base.id}
+                    type="button"
+                    onClick={() => onSelectApparelBase(base)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border backdrop-blur-md transition-all cursor-pointer shrink-0 shadow-sm active:scale-95 ${
+                      active
+                        ? "bg-gradient-to-r from-[#FCE48C] via-[#F2BE38] to-[#D49212] text-[#14120F] border-[#B87D0B] font-black"
+                        : isNativeApp
+                        ? "bg-white/92 border-[#DFC070]/85 text-[#3F3626] hover:border-[#C68A12] font-bold"
+                        : "bg-black/75 border-white/15 text-zinc-200 hover:border-amber-400/50 font-bold"
+                    }`}
+                  >
+                    {isTote ? (
+                      <ShoppingBag className="w-3 h-3 shrink-0" />
+                    ) : (
+                      <Shirt className="w-3 h-3 shrink-0" />
+                    )}
+                    <span className="text-[10px] leading-none whitespace-nowrap">
+                      {getShortGarmentLabel(base)}
+                    </span>
+                    {base.gsm && (
+                      <span
+                        className={`text-[8.5px] font-mono px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap ${
+                          active
+                            ? "bg-black/15 text-[#14120F] font-black"
+                            : isNativeApp
+                            ? "bg-[#FAF0D1] text-[#8A5800] font-bold"
+                            : "bg-white/10 text-amber-300 font-bold"
+                        }`}
+                      >
+                        {base.gsm}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div
+              className={`inline-flex items-center gap-1.5 min-w-0 max-w-[66%] px-2.5 py-1 rounded-full backdrop-blur-md border shadow-sm ${
+                isNativeApp
+                  ? "bg-white/95 border-[#DFC070]/90 text-[#14120F]"
+                  : "bg-black/75 border-white/15 text-white"
               }`}
             >
-              • {selectedColor.name}
-            </span>
-          </div>
-
-          <div
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider backdrop-blur-md border shrink-0 shadow-sm ${
-              isNativeApp
-                ? "bg-[#FFF6D6]/95 border-[#D6A124] text-[#8A5800]"
-                : "bg-amber-400/15 border-amber-400/40 text-amber-300"
-            }`}
-          >
-            <Sparkles className="w-2.5 h-2.5 shrink-0" />
-            <span>Live Try View</span>
-          </div>
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0 border border-black/25"
+                style={{ backgroundColor: selectedColor.hex }}
+              />
+              <span className="text-[10px] font-extrabold truncate">
+                {displayGarmentName}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Real Studio Garment 3D Perspective Container */}
         <div
-          className="relative z-10 w-full h-full flex items-center justify-center pt-9 pb-14 px-5"
+          className="relative z-10 w-full h-full flex items-center justify-center pt-12 pb-14 px-5"
           style={{ perspective: "1100px" }}
         >
           <div
@@ -432,8 +534,8 @@ export function GarmentMockupPreview({
                 }}
               />
 
-              {/* Layer 4: User's Live Custom Artwork (Size-wise proportional & repositionable) */}
-              {showPrintOnCurrentSide && designImageSrc && (
+              {/* Layer 4: User's Live Custom Artwork (With Original BG OR Transparent Cutout BG Removed) */}
+              {showPrintOnCurrentSide && activeRenderedArtwork && (
                 <div
                   className="absolute z-10 flex items-center justify-center pointer-events-none"
                   style={{
@@ -448,12 +550,12 @@ export function GarmentMockupPreview({
                   }}
                 >
                   <img
-                    src={designImageSrc}
+                    src={activeRenderedArtwork}
                     alt={designTitle}
                     draggable={false}
                     className="max-w-full max-h-full object-contain select-none"
                     style={{
-                      opacity: 0.96,
+                      opacity: isRemovingBg ? 0.45 : 0.96,
                       filter: selectedColor.isDark
                         ? "contrast(1.03) saturate(1.04)"
                         : "contrast(1.02)",
@@ -466,7 +568,7 @@ export function GarmentMockupPreview({
               )}
 
               {/* Layer 5: Subtle Cotton Fabric Texture & Fold Shadow Pass OVER Artwork */}
-              {showPrintOnCurrentSide && designImageSrc && (
+              {showPrintOnCurrentSide && activeRenderedArtwork && (
                 <img
                   src={garmentSrc}
                   alt=""
@@ -482,6 +584,22 @@ export function GarmentMockupPreview({
             </div>
           </div>
         </div>
+
+        {/* Live Background Removal Processing Indicator */}
+        {isRemovingBg && (
+          <div className="absolute inset-0 z-25 pointer-events-none flex items-center justify-center">
+            <div
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border backdrop-blur-md text-[10px] font-black uppercase tracking-wider shadow-lg ${
+                isNativeApp
+                  ? "bg-white/95 border-[#D6A124] text-[#8A5800]"
+                  : "bg-black/80 border-amber-400/40 text-amber-300"
+              }`}
+            >
+              <div className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+              <span>Removing Background...</span>
+            </div>
+          </div>
+        )}
 
         {/* Helpful Cue When Looking at Blank Side */}
         {designImageSrc && !showPrintOnCurrentSide && (
@@ -592,6 +710,89 @@ export function GarmentMockupPreview({
           </div>
         )}
       </div>
+
+      {/* Design Background Mode Switcher: With Background vs Remove Background (Transparent Cutout) */}
+      {onRemoveBackgroundChange && (
+        <div
+          className={`flex items-center justify-between gap-2 p-2 rounded-2xl border ${
+            isNativeApp
+              ? "bg-white border-[#E4C87A] shadow-sm"
+              : "bg-zinc-900/90 border-zinc-800"
+          }`}
+        >
+          <div className="flex items-center gap-1.5 pl-1 min-w-0">
+            <Scissors
+              className={`w-3.5 h-3.5 shrink-0 ${
+                removeBackground
+                  ? isNativeApp
+                    ? "text-[#0F766E]"
+                    : "text-emerald-400"
+                  : isNativeApp
+                  ? "text-[#9A6503]"
+                  : "text-amber-400"
+              }`}
+            />
+            <div className="min-w-0">
+              <span
+                className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider block leading-none truncate ${
+                  isNativeApp ? "text-[#14120F]" : "text-white"
+                }`}
+              >
+                Design Background
+              </span>
+              <span
+                className={`text-[9px] font-medium block mt-0.5 truncate ${
+                  isNativeApp ? "text-[#5C4E35]" : "text-zinc-400"
+                }`}
+              >
+                {bgRemovalError
+                  ? bgRemovalError
+                  : removeBackground
+                  ? "Clean cutout (BG removed)"
+                  : "Original design with BG"}
+              </span>
+            </div>
+          </div>
+
+          <div
+            className={`inline-flex items-center gap-1 p-1 rounded-full border shrink-0 ${
+              isNativeApp
+                ? "bg-[#FFFBF0] border-[#E6CA82]"
+                : "bg-black/80 border-zinc-800"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => onRemoveBackgroundChange(false)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${
+                !removeBackground
+                  ? "bg-gradient-to-r from-[#FCE48C] via-[#F2BE38] to-[#D49212] text-[#14120F] shadow-sm"
+                  : isNativeApp
+                  ? "text-[#5C4E35] hover:text-[#14120F]"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <ImageIcon className="w-3 h-3 shrink-0" />
+              <span>With BG</span>
+            </button>
+            <button
+              type="button"
+              disabled={!designImageSrc || isRemovingBg}
+              onClick={() => onRemoveBackgroundChange(true)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition cursor-pointer whitespace-nowrap disabled:opacity-50 ${
+                removeBackground
+                  ? "bg-gradient-to-r from-[#FCE48C] via-[#F2BE38] to-[#D49212] text-[#14120F] shadow-sm"
+                  : isNativeApp
+                  ? "text-[#5C4E35] hover:text-[#14120F]"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Scissors className="w-3 h-3 shrink-0" />
+              <span>{isRemovingBg ? "Cutting..." : "Remove BG"}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Live Size-Wise Spec & Print Area Readout */}
       <div
@@ -710,6 +911,34 @@ export function GarmentMockupPreview({
               />
             </div>
           </div>
+
+          {removeBackground && (
+            <div
+              className={`pt-2.5 border-t ${
+                isNativeApp ? "border-[#EFE1BE]" : "border-zinc-800"
+              }`}
+            >
+              <div
+                className={`flex justify-between text-[10px] font-bold mb-1 ${
+                  isNativeApp ? "text-[#4A3C22]" : "text-zinc-400"
+                }`}
+              >
+                <span>BG Cutout Edge Cleanliness</span>
+                <span className={`font-mono font-black ${isNativeApp ? "text-[#0F766E]" : "text-emerald-400"}`}>
+                  {bgTolerance}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={20}
+                max={78}
+                step={4}
+                value={bgTolerance}
+                onChange={(e) => setBgTolerance(Number(e.target.value))}
+                className="w-full accent-amber-500 cursor-pointer"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

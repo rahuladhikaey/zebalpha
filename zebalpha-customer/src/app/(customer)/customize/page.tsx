@@ -51,6 +51,8 @@ export default function CustomizePage() {
   const [selectedGarment, setSelectedGarment] = useState<GarmentType>("oversized_tee");
   const [selectedColor, setSelectedColor] = useState<GarmentColorOption>(GARMENT_COLORS[0]);
   const [selectedPlacement, setSelectedPlacement] = useState<PlacementPosition>("front_chest");
+  const [removeBackground, setRemoveBackground] = useState<boolean>(false);
+  const [cutoutBlob, setCutoutBlob] = useState<Blob | null>(null);
   const [printTransform, setPrintTransform] = useState<PrintTransform>({
     scale: 1,
     offsetX: 0,
@@ -58,6 +60,16 @@ export default function CustomizePage() {
   });
   const [selectedSize, setSelectedSize] = useState<string>("L");
   const [quantity, setQuantity] = useState<number>(1);
+
+  const handleSelectApparelBase = (base: ApparelBaseConfig) => {
+    setSelectedGarment(base.id);
+    setSelectedBase(base);
+    if (base.availableSizes && base.availableSizes.length > 0) {
+      if (!base.availableSizes.includes(selectedSize)) {
+        setSelectedSize(base.availableSizes.includes("L") ? "L" : base.availableSizes[0]);
+      }
+    }
+  };
 
   // Vault preset selection
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -303,6 +315,7 @@ export default function CustomizePage() {
       formData.append("quantity", String(quantity));
       formData.append("placement", selectedPlacement);
       formData.append("designMode", designMode === "upload" ? "custom_upload" : "preset_vault");
+      formData.append("removeBackground", removeBackground ? "true" : "false");
 
       const hasCustomOffset =
         printTransform.scale !== 1 || printTransform.offsetX !== 0 || printTransform.offsetY !== 0;
@@ -311,6 +324,10 @@ export default function CustomizePage() {
         : "";
       const combinedNotes = [notes.trim(), positioningSummary].filter(Boolean).join(" | ");
       formData.append("notes", combinedNotes);
+
+      if (removeBackground && cutoutBlob) {
+        formData.append("cutoutArtworkFile", cutoutBlob, `cutout_${Date.now()}.png`);
+      }
 
       if (designMode === "upload" && uploadedFile) {
         formData.append("artworkFile", uploadedFile);
@@ -441,11 +458,16 @@ export default function CustomizePage() {
             <GarmentMockupPreview
               garmentType={selectedGarment}
               garmentLabel={selectedBase?.name}
+              apparelBases={apparelBases}
+              onSelectApparelBase={handleSelectApparelBase}
               selectedColor={selectedColor}
               selectedSize={selectedSize}
               designImageSrc={activeArtworkUrl}
               designTitle={activeArtworkTitle}
               placement={selectedPlacement}
+              removeBackground={removeBackground}
+              onRemoveBackgroundChange={setRemoveBackground}
+              onCutoutBlobReady={setCutoutBlob}
               printTransform={printTransform}
               onPrintTransformChange={setPrintTransform}
               isSubmitting={isSubmitting}
@@ -707,10 +729,7 @@ export default function CustomizePage() {
                     <button
                       key={base.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedGarment(base.id);
-                        setSelectedBase(base);
-                      }}
+                      onClick={() => handleSelectApparelBase(base)}
                       className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
                         isSelected
                           ? isNativeApp
@@ -1003,6 +1022,12 @@ export default function CustomizePage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
+                  <span className={bodyMuted}>Design Background:</span>
+                  <span className={`font-bold ${removeBackground ? priceText : headingText}`}>
+                    {removeBackground ? "Removed (Transparent Cutout)" : "Original (With BG)"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
                   <span className={bodyMuted}>Unit Price × Qty:</span>
                   <span className={`font-mono font-bold ${headingText}`}>
                     ₹{unitPrice} × {quantity} Pc(s)
@@ -1085,6 +1110,12 @@ export default function CustomizePage() {
               <div className="flex justify-between">
                 <span className="text-zinc-400">Color &amp; Size:</span>
                 <span className="font-bold text-white">{selectedColor.name} • {selectedSize}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Design Background:</span>
+                <span className="font-bold text-emerald-400">
+                  {removeBackground ? "Removed (Cutout PNG)" : "Original (With BG)"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-400">Target Contact:</span>

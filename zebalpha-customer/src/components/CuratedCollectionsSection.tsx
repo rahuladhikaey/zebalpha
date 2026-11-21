@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { CuratedCollection } from "@/lib/types";
-import { CheckCircle2, Sparkles, ArrowRight } from "lucide-react";
+import { CheckCircle2, Sparkles } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { AndroidNewSeasonDropBanner } from "@/components/home/AndroidHomeTrustAndDrop";
@@ -98,13 +98,12 @@ export function CuratedCollectionsSection({
 
   return (
     <section className={isNativeApp ? "mt-6 relative select-none" : "mt-10 sm:mt-14 relative select-none"} id="curated-collections-section">
-      {/* 1. Header with Verified Badge */}
+      {/* 1. Section Header */}
       <div className="flex items-center justify-between gap-4 mb-4 sm:mb-5">
         <div className="flex items-center gap-2">
           {isNativeApp ? (
-            <h2 className="text-base sm:text-lg font-black text-[#14120F] tracking-tight uppercase flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#C68A12] fill-[#FDE047]" />
-              <span>Curated Collections</span>
+            <h2 className="text-base sm:text-lg font-black text-[#14120F] tracking-tight uppercase">
+              Curated Collections
             </h2>
           ) : (
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
@@ -113,16 +112,6 @@ export function CuratedCollectionsSection({
             </h2>
           )}
         </div>
-
-        {isNativeApp && (
-          <Link
-            href="/products"
-            className="inline-flex items-center gap-1 rounded-full bg-[#FFFDF8] border border-[#DFBE6F] px-3 py-1 text-[11px] font-bold text-[#14120F] shadow-sm active:scale-95"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3 h-3 text-[#8E6208]" />
-          </Link>
-        )}
       </div>
 
       {/* 2. 6-Item Row Structure: Row-level horizontal scroll on Phone & Tablet, standard grid on Desktop */}

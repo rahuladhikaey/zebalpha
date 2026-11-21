@@ -20,10 +20,12 @@ export async function POST(request: NextRequest) {
     const quantity = parseInt((formData.get("quantity") as string) || "1", 10) || 1;
     const placement = (formData.get("placement") as string || "front_chest").trim();
     const designMode = (formData.get("designMode") as string || "custom_upload").trim();
+    const removeBackground = (formData.get("removeBackground") as string || "false").trim() === "true";
     const presetTitle = (formData.get("presetTitle") as string || "").trim();
     const presetImageUrl = (formData.get("presetImageUrl") as string || "").trim();
     const notes = (formData.get("notes") as string || "").trim();
     const artworkFile = formData.get("artworkFile") as File | null;
+    const cutoutArtworkFile = formData.get("cutoutArtworkFile") as File | null;
 
     // Basic Validation
     if (!customerName || !whatsappPhone) {
@@ -63,6 +65,9 @@ export async function POST(request: NextRequest) {
       `📦 <b>Quantity:</b> ${quantity} Pc(s)`,
       `🎯 <b>Print Placement:</b> ${placement.replace(/_/g, " ").toUpperCase()}`,
       `🖼️ <b>Design Source:</b> ${designMode === "preset_vault" ? `ZebAlpha Vault: <i>${presetTitle}</i>` : "Custom User Upload"}`,
+      removeBackground
+        ? `✂️ <b>Design Background:</b> REMOVED (Transparent Cutout PNG)`
+        : `🖼️ <b>Design Background:</b> ORIGINAL (With Background)`,
       notes ? `📝 <b>Customer Notes:</b> <i>"${notes}"</i>` : null,
       `─────────────────────────`,
       `🕒 <b>Submitted At:</b> ${timestamp}`,
@@ -99,14 +104,26 @@ export async function POST(request: NextRequest) {
     // 4. Zero-Database Streaming: Stream directly to Telegram
     if (botToken && chatId) {
       try {
-        if (designMode === "custom_upload" && artworkFile) {
-          // Stream raw uncompressed file buffer to Telegram via sendDocument
+        // When user chose Remove Background, send the actual transparent cutout PNG as a lossless document
+        const fileToDispatch =
+          removeBackground && cutoutArtworkFile && cutoutArtworkFile.size > 0
+            ? cutoutArtworkFile
+            : designMode === "custom_upload" && artworkFile
+            ? artworkFile
+            : null;
+
+        if (fileToDispatch) {
+          const fileName =
+            removeBackground && cutoutArtworkFile && cutoutArtworkFile.size > 0
+              ? `design_${orderToken}_no_bg.png`
+              : artworkFile?.name || `design_${orderToken}.png`;
+
           const tgFormData = new FormData();
           tgFormData.append("chat_id", chatId);
           tgFormData.append("caption", caption);
           tgFormData.append("parse_mode", "HTML");
           tgFormData.append("reply_markup", JSON.stringify(inlineKeyboard));
-          tgFormData.append("document", artworkFile, artworkFile.name || `design_${orderToken}.png`);
+          tgFormData.append("document", fileToDispatch, fileName);
 
           const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
             method: "POST",
@@ -122,7 +139,7 @@ export async function POST(request: NextRequest) {
             photoFormData.append("caption", caption);
             photoFormData.append("parse_mode", "HTML");
             photoFormData.append("reply_markup", JSON.stringify(inlineKeyboard));
-            photoFormData.append("photo", artworkFile, artworkFile.name || `design_${orderToken}.png`);
+            photoFormData.append("photo", fileToDispatch, fileName);
 
             const photoRes = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
               method: "POST",
