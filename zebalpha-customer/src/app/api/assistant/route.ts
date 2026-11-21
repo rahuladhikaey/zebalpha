@@ -186,14 +186,14 @@ function getAssistantQuickLinks(prompt: string): AssistantQuickLink[] {
   if (/(size|fit|chest|length|try on|try-on|vto|styling|outfit|polo|hoodie|tee)/i.test(normalized)) {
     return [
       { label: "Size Guide", href: "/size-guide" },
-      { label: "Virtual Try-On", href: "/virtual-try-on" },
+      { label: "Virtual Try-On (Coming Soon)", href: "/virtual-try-on" },
       { label: "New Drops", href: "/new-drops" },
       { label: "All Categories", href: "/categories" },
     ];
   }
   return [
     { label: "New Drops", href: "/new-drops" },
-    { label: "Virtual Try-On", href: "/virtual-try-on" },
+    { label: "Virtual Try-On (Coming Soon)", href: "/virtual-try-on" },
     { label: "Size Guide", href: "/size-guide" },
     { label: "My Orders", href: "/profile/orders" },
   ];
@@ -265,7 +265,7 @@ How can I help you today?`;
 • **Smart Streetwear Fit**: Pair a relaxed ZEBALPHA Heavyweight Oversized Tee with straight cargos or charcoal denims and crisp sneakers.
 • **Clean Semi-Formal / Date Look**: Go for our Champagne-trim Premium Zip Polo with tailored chinos or dark trousers — breathable combed cotton keeps it sharp all day.
 • **Layering Formula**: Combine a neutral Ivory/White base tee under an open overshirt or heavyweight hoodie for effortless evening contrast.
-• **Virtual Try-On**: Preview how any silhouette drapes on you using **Virtual Try-On** before ordering!
+• **Virtual Try-On (Coming Soon)**: Our AI Virtual Try-On experience launches on **07/07/2027**!
 
 Tell me the occasion, color vibe, or budget (for example, *under ₹999*) and I will match live ZEBALPHA pieces for you.`;
   }

@@ -67,7 +67,7 @@ export function QuickCartButton({
       disabled={isOutOfStock}
       aria-label={isInCart ? `${quantity} in cart` : "Add to cart"}
       title={isInCart ? `${quantity} in cart` : "Add to cart"}
-      className={`group/cart flex items-center justify-center rounded-full p-2 sm:p-2.5 transition-all duration-300 shadow-md cursor-pointer select-none ${
+      className={`group/cart flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full transition-all duration-300 shadow-md cursor-pointer select-none ${
         isInCart
           ? inCartStyle
           : isOutOfStock

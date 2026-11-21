@@ -1034,13 +1034,13 @@ export default function ProductDetailTemplate({
               />
             )}
 
-            {/* ✨ VIRTUAL TRY-ON BUTTON - Available for all eligible apparel products */}
+            {/* VIRTUAL TRY-ON BUTTON - Coming Soon (07/07/2027) */}
             {tryOnEligibility.isEligible && (
               <div className="pt-2 pb-1">
                 <VirtualTryOnButton
                   href={tryOnUrl}
-                  label="TRY IT ON ✨"
-                  subtitle={`See how this ${product.name.split(" ").slice(0, 3).join(" ")} looks on you in AI Fitting Room`}
+                  label="TRY IT ON"
+                  subtitle="Coming Soon • Launching 07/07/2027"
                   variant="pdp"
                 />
               </div>

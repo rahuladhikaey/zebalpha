@@ -130,41 +130,42 @@ export function RecommendationProductCard({
         </Link>
 
         {/* Wishlist Button at top-right of image */}
-        <div className="absolute right-2 top-2 z-10 scale-[0.82] origin-top-right">
+        <div className="absolute right-2.5 top-2.5 z-10">
           <WishlistButton product={product} />
         </div>
 
         {/* Optional Rating Badge (if verified reviews exist) */}
         {hasValidRating && (
-          <div className="absolute bottom-3 left-2.5 z-10 inline-flex items-center gap-1 rounded-md bg-white/90 backdrop-blur-sm border border-pink-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-900 shadow-sm">
+          <div className="absolute bottom-2.5 left-2.5 sm:bottom-3 sm:left-3 z-10 inline-flex items-center gap-1 rounded-md bg-white/90 backdrop-blur-sm border border-pink-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-900 shadow-sm">
             <span>{Number(product.rating).toFixed(1)}</span>
             <Star size={9} className="fill-[#FF1E6F] text-[#FF1E6F]" />
           </div>
         )}
 
-        {/* Floating Hot-Pink Circular Plus Button at bottom-right of image */}
+        {/* Circular Hot-Pink Plus Button cleanly inside bottom-right of image */}
         <button
           type="button"
+          data-photo-overlay="true"
           onClick={handlePlusClick}
           disabled={isOutOfStock}
           aria-label={justAdded ? "Added to Cart" : isOutOfStock ? "Out of Stock" : "Add to Cart"}
           title={justAdded ? "Added to Cart" : isOutOfStock ? "Out of Stock" : "Add to Cart"}
-          className={`absolute -bottom-4 right-3 sm:-bottom-5 sm:right-3.5 z-20 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-[#FF1E6F] text-white shadow-[0_4px_14px_rgba(255,30,111,0.42)] active:scale-90 transition-all duration-200 cursor-pointer ${
+          className={`absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-[#FF1E6F] text-white ring-2 ring-white/95 shadow-[0_4px_12px_rgba(255,30,111,0.42)] active:scale-90 transition-all duration-200 cursor-pointer ${
             isOutOfStock
               ? "opacity-50 cursor-not-allowed bg-zinc-400 shadow-none"
               : "hover:bg-[#E91E63] hover:scale-105"
           }`}
         >
           {justAdded ? (
-            <Check size={22} className="stroke-[3] text-white" />
+            <Check size={16} strokeWidth={3} className="text-white" />
           ) : (
-            <Plus size={24} className="stroke-[2.5] text-white" />
+            <Plus size={16} strokeWidth={2.75} className="text-white" />
           )}
         </button>
       </div>
 
       {/* Content Section below image */}
-      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 pt-4 sm:pt-4.5">
+      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 pt-3 sm:pt-3.5">
         <div className="space-y-1">
           {/* Brand Name in Vibrant Pink */}
           <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#FF1E6F] truncate">
