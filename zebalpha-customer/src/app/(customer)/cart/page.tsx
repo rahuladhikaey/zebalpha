@@ -5,15 +5,22 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Truck } from "lucide-react";
+import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Truck, Gift, CheckCircle2 } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useIsNativeApp } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
+import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
+import { resolveOrderDiscounts } from "@/lib/firstOrderOffer";
 
 export default function CartPage() {
   const router = useRouter();
   const isNativeApp = useIsNativeApp();
   const { cart, updateQuantity, removeFromCart, clearCart, totalValue, addToCart } = useCart();
+  const {
+    config: firstOrderConfig,
+    eligible: isFirstOrderEligible,
+    loading: firstOrderLoading,
+  } = useFirstOrderOffer();
   
   const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
   const [billingSettings, setBillingSettings] = useState({
@@ -246,11 +253,22 @@ export default function CartPage() {
 
   const offerApplied = Boolean(cartOffer && cartOffer.isActive && cartOffer.threshold > 0 && totalValue >= cartOffer.threshold && cartOffer.percentage > 0);
   const discountAmount = offerApplied && cartOffer ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
-  const totalDiscount = discountAmount + couponDiscount;
+
+  const discountResolution = resolveOrderDiscounts({
+    subtotal: totalValue,
+    firstOrderEligible: !firstOrderLoading && isFirstOrderEligible,
+    firstOrderConfig,
+    cartOfferDiscount: discountAmount,
+    manualCouponDiscount: appliedCoupon ? couponDiscount : 0,
+    manualCouponCode: appliedCoupon?.code || null,
+    manualCouponFreeShipping: appliedCoupon?.type === "Flat Shipping Off",
+  });
+
+  const totalDiscount = discountResolution.totalDiscount;
   const discountedSubtotal = Math.max(0, totalValue - totalDiscount);
 
-  const isFreeDeliveryByThreshold = discountedSubtotal >= billingSettings.freeDeliveryThreshold;
-  const isFreeDeliveryByCoupon = appliedCoupon?.type === "Flat Shipping Off";
+  const isFreeDeliveryByThreshold = billingSettings.freeDeliveryThreshold > 0 && discountedSubtotal >= billingSettings.freeDeliveryThreshold;
+  const isFreeDeliveryByCoupon = discountResolution.freeShippingByCoupon;
   const deliveryCost = (isFreeDeliveryByThreshold || isFreeDeliveryByCoupon) ? 0 : billingSettings.deliveryFee;
   const grandTotal = discountedSubtotal + deliveryCost + billingSettings.packagingFee + billingSettings.tax;
   const amountToFreeDelivery = Math.max(0, billingSettings.freeDeliveryThreshold - discountedSubtotal);
@@ -425,6 +443,76 @@ export default function CartPage() {
         <div className="bg-zinc-950 rounded-3xl p-5 sm:p-6 border border-zinc-800 shadow-xl">
           <h3 className="text-sm font-black text-white tracking-tight mb-4">Billing details</h3>
 
+          {/* New User 1st Order Auto-Discount Status Card */}
+          {!firstOrderLoading && firstOrderConfig.isActive && isFirstOrderEligible && firstOrderConfig.discountAmount > 0 && (
+            <div className="mb-4">
+              {discountResolution.firstOrderApplied ? (
+                <div className={`flex items-center justify-between gap-3 rounded-2xl border p-3.5 ${
+                  isNativeApp
+                    ? "border-[#D4A017]/65 bg-gradient-to-r from-[#FFF9E3] via-[#FFF3C4] to-[#FCE89C]/75"
+                    : "border-emerald-500/40 bg-emerald-950/40"
+                }`}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      data-photo-overlay="true"
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white ${
+                        isNativeApp ? "bg-gradient-to-br from-[#EAB308] to-[#B45309]" : "bg-emerald-600"
+                      }`}
+                    >
+                      <Gift size={15} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-black flex items-center gap-1.5 ${isNativeApp ? "text-[#14120F]" : "text-emerald-300"}`}>
+                        <CheckCircle2 size={13} className="shrink-0" />
+                        <span>1st Order Offer Applied • Saved ₹{discountResolution.firstOrderDiscount}</span>
+                      </p>
+                      <p className={`text-[10px] font-semibold mt-0.5 ${isNativeApp ? "text-[#5C4924]" : "text-zinc-400"}`}>
+                        Auto-applied for new customers ({firstOrderConfig.code})
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`shrink-0 rounded-lg border px-2 py-0.5 font-mono text-[10px] font-black uppercase ${
+                    isNativeApp
+                      ? "border-[#C68A12]/60 bg-[#FFFDF7] text-[#8A5A00]"
+                      : "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                  }`}>
+                    -₹{discountResolution.firstOrderDiscount}
+                  </span>
+                </div>
+              ) : discountResolution.supersededByBetterCoupon ? (
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/25 p-3 text-[11px] font-bold text-emerald-300">
+                  Best savings applied: Coupon <span className="font-mono font-black">{appliedCoupon?.code}</span> saves more than the ₹{firstOrderConfig.discountAmount} 1st-order offer.
+                </div>
+              ) : discountResolution.amountNeededForFirstOrder > 0 ? (
+                <div className={`rounded-2xl border p-3.5 space-y-2 ${
+                  isNativeApp
+                    ? "border-[#D4A017]/55 bg-[#FFF9E3]"
+                    : "border-amber-400/30 bg-amber-500/10"
+                }`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-xs font-black flex items-center gap-1.5 ${isNativeApp ? "text-[#14120F]" : "text-amber-300"}`}>
+                      <Gift size={14} className="shrink-0" />
+                      <span>
+                        Add ₹{discountResolution.amountNeededForFirstOrder} more for Flat ₹{firstOrderConfig.discountAmount} OFF!
+                      </span>
+                    </p>
+                    <span className={`font-mono text-[10px] font-black ${isNativeApp ? "text-[#8A5A00]" : "text-amber-200"}`}>
+                      {firstOrderConfig.code}
+                    </span>
+                  </div>
+                  <div className={`h-1.5 w-full overflow-hidden rounded-full ${isNativeApp ? "bg-[#E4C988]/50" : "bg-zinc-800"}`}>
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#F5B922] to-[#10B981] transition-all duration-300"
+                      style={{
+                        width: `${Math.min(100, Math.round((totalValue / Math.max(1, firstOrderConfig.minOrderAmount)) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* Promo / Coupon Code Section */}
           <div className="mb-4 pb-4 border-b border-zinc-800/80">
             <div className="flex items-center justify-between mb-2">
@@ -524,7 +612,7 @@ export default function CartPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-bold text-zinc-400">Subtotal</span>
-              <span className={`font-black ${offerApplied || (appliedCoupon && couponDiscount > 0) ? 'text-zinc-500 line-through' : 'text-white'}`}>₹{totalValue}</span>
+              <span className={`font-black ${totalDiscount > 0 ? 'text-zinc-500 line-through' : 'text-white'}`}>₹{totalValue}</span>
             </div>
             
             {offerApplied && cartOffer && (
@@ -537,12 +625,21 @@ export default function CartPage() {
               </div>
             )}
 
-            {appliedCoupon && couponDiscount > 0 && (
+            {discountResolution.firstOrderApplied && discountResolution.firstOrderDiscount > 0 && (
+              <div className="flex items-center justify-between text-sm text-emerald-400">
+                <span className="font-bold flex items-center gap-1.5">
+                  🎁 1st Order Discount ({firstOrderConfig.code})
+                </span>
+                <span className="font-black">-₹{discountResolution.firstOrderDiscount}</span>
+              </div>
+            )}
+
+            {appliedCoupon && discountResolution.effectiveCouponDiscount > 0 && (
               <div className="flex items-center justify-between text-sm text-emerald-400">
                 <span className="font-bold flex items-center gap-1.5">
                   🏷️ Coupon ({appliedCoupon.code})
                 </span>
-                <span className="font-black">-₹{couponDiscount}</span>
+                <span className="font-black">-₹{discountResolution.effectiveCouponDiscount}</span>
               </div>
             )}
             

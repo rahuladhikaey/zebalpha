@@ -88,6 +88,19 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
     minOrderAmount: "0"
   });
 
+  // New User 1st Order Auto-Discount State (Persisted in DB `store_settings` key `first_order_offer`)
+  const [firstOrderOffer, setFirstOrderOffer] = useState({
+    isActive: true,
+    discountAmount: "100",
+    minOrderAmount: "399",
+    code: "FIRST100",
+    badgeText: "1st Order Special",
+    bannerTitle: "Flat ₹100 OFF on Your 1st Order",
+    allowCod: true,
+    allowOnline: true,
+  });
+  const [savingFirstOrderOffer, setSavingFirstOrderOffer] = useState(false);
+
   // Special Offers & BOGO State (Persisted in DB `store_settings` key `special_offers_list`)
   const [specialOffers, setSpecialOffers] = useState<any[]>([]);
   const [newOfferForm, setNewOfferForm] = useState({
@@ -194,6 +207,20 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
               setCoupons(Array.isArray(rulesMap.promotional_coupons) ? rulesMap.promotional_coupons : []);
             }
 
+            if (rulesMap.first_order_offer && typeof rulesMap.first_order_offer === "object") {
+              const fo = rulesMap.first_order_offer;
+              setFirstOrderOffer({
+                isActive: fo.isActive !== false,
+                discountAmount: String(fo.discountAmount ?? 100),
+                minOrderAmount: String(fo.minOrderAmount ?? 399),
+                code: String(fo.code || "FIRST100"),
+                badgeText: String(fo.badgeText || "1st Order Special"),
+                bannerTitle: String(fo.bannerTitle || `Flat ₹${fo.discountAmount ?? 100} OFF on Your 1st Order`),
+                allowCod: fo.allowCod !== false,
+                allowOnline: fo.allowOnline !== false,
+              });
+            }
+
             if (rulesMap.special_offers_list) {
               setSpecialOffers(Array.isArray(rulesMap.special_offers_list) ? rulesMap.special_offers_list : []);
             }
@@ -247,6 +274,19 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
           }
           if (rulesMap.promotional_coupons) {
             setCoupons(Array.isArray(rulesMap.promotional_coupons) ? rulesMap.promotional_coupons : []);
+          }
+          if (rulesMap.first_order_offer && typeof rulesMap.first_order_offer === "object") {
+            const fo = rulesMap.first_order_offer;
+            setFirstOrderOffer({
+              isActive: fo.isActive !== false,
+              discountAmount: String(fo.discountAmount ?? 100),
+              minOrderAmount: String(fo.minOrderAmount ?? 399),
+              code: String(fo.code || "FIRST100"),
+              badgeText: String(fo.badgeText || "1st Order Special"),
+              bannerTitle: String(fo.bannerTitle || `Flat ₹${fo.discountAmount ?? 100} OFF on Your 1st Order`),
+              allowCod: fo.allowCod !== false,
+              allowOnline: fo.allowOnline !== false,
+            });
           }
           if (rulesMap.special_offers_list) {
             setSpecialOffers(Array.isArray(rulesMap.special_offers_list) ? rulesMap.special_offers_list : []);
@@ -387,6 +427,57 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
       notify("Coupon status updated in database.");
     } catch (err: any) {
       notify(err.message || "Failed to update coupon status.", "error");
+    }
+  };
+
+  const handleSaveFirstOrderOffer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const discountAmount = Math.max(0, Math.round(Number(firstOrderOffer.discountAmount) || 0));
+    const minOrderAmount = Math.max(0, Math.round(Number(firstOrderOffer.minOrderAmount) || 0));
+    const code = (firstOrderOffer.code || "FIRST100").trim().toUpperCase().slice(0, 24) || "FIRST100";
+    const badgeText = (firstOrderOffer.badgeText || "1st Order Special").trim();
+    const bannerTitle =
+      (firstOrderOffer.bannerTitle || "").trim() ||
+      `Flat ₹${discountAmount} OFF on Your 1st Order`;
+
+    if (!firstOrderOffer.allowCod && !firstOrderOffer.allowOnline) {
+      notify("Enable at least one payment method (COD or Online).", "error");
+      return;
+    }
+
+    setSavingFirstOrderOffer(true);
+    try {
+      const payload = {
+        isActive: firstOrderOffer.isActive,
+        discountAmount,
+        minOrderAmount,
+        code,
+        badgeText,
+        bannerTitle,
+        allowCod: firstOrderOffer.allowCod,
+        allowOnline: firstOrderOffer.allowOnline,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveSettingToDb("first_order_offer", payload);
+      setFirstOrderOffer({
+        isActive: payload.isActive,
+        discountAmount: String(payload.discountAmount),
+        minOrderAmount: String(payload.minOrderAmount),
+        code: payload.code,
+        badgeText: payload.badgeText,
+        bannerTitle: payload.bannerTitle,
+        allowCod: payload.allowCod,
+        allowOnline: payload.allowOnline,
+      });
+      notify(
+        payload.isActive
+          ? `✅ 1st Order Offer LIVE: Flat ₹${payload.discountAmount} OFF on ₹${payload.minOrderAmount}+ orders!`
+          : "✅ 1st Order Offer paused & saved to production database."
+      );
+    } catch (err: any) {
+      notify(err.message || "Failed to save 1st order offer settings.", "error");
+    } finally {
+      setSavingFirstOrderOffer(false);
     }
   };
 
@@ -913,6 +1004,162 @@ export default function MarketplaceSettingsView({ initialTab = "general" }: Mark
           {/* COUPONS TAB */}
           {activeTab === "coupons" && (
             <div className="space-y-6">
+              {/* New User 1st Order Auto-Discount Control Panel (Meesho-Style) */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border-2 border-amber-300/70 dark:border-amber-500/40 shadow-sm space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Gift className="w-5 h-5 text-amber-500" />
+                      <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                        New User 1st Order Auto-Discount
+                      </h2>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          firstOrderOffer.isActive
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                        }`}
+                      >
+                        {firstOrderOffer.isActive ? "LIVE" : "PAUSED"}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
+                      Auto-applied on a new buyer&apos;s 1st order across Homepage, Product Page, Cart &amp; Checkout. Server-verified against both Account ID &amp; 10-digit Phone Number to prevent repeat abuse.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFirstOrderOffer((prev) => ({ ...prev, isActive: !prev.isActive }))
+                    }
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 ${
+                      firstOrderOffer.isActive
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                        : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300"
+                    }`}
+                  >
+                    <Power className="w-3.5 h-3.5" />
+                    <span>{firstOrderOffer.isActive ? "Active (Click to Pause)" : "Paused (Click to Enable)"}</span>
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveFirstOrderOffer} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Flat Discount Amount (₹) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={firstOrderOffer.discountAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFirstOrderOffer((prev) => ({
+                          ...prev,
+                          discountAmount: val,
+                          bannerTitle:
+                            prev.bannerTitle.startsWith("Flat ₹")
+                              ? `Flat ₹${val || 0} OFF on Your 1st Order`
+                              : prev.bannerTitle,
+                        }));
+                      }}
+                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-black outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Minimum Order Value (₹) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={firstOrderOffer.minOrderAmount}
+                      onChange={(e) =>
+                        setFirstOrderOffer((prev) => ({ ...prev, minOrderAmount: e.target.value }))
+                      }
+                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-black outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Auto-Applied Code Tag</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={24}
+                      value={firstOrderOffer.code}
+                      onChange={(e) =>
+                        setFirstOrderOffer((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))
+                      }
+                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 font-mono text-xs font-black uppercase outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Homepage Banner Headline</label>
+                    <input
+                      type="text"
+                      required
+                      value={firstOrderOffer.bannerTitle}
+                      onChange={(e) =>
+                        setFirstOrderOffer((prev) => ({ ...prev, bannerTitle: e.target.value }))
+                      }
+                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Badge Label</label>
+                    <input
+                      type="text"
+                      required
+                      value={firstOrderOffer.badgeText}
+                      onChange={(e) =>
+                        setFirstOrderOffer((prev) => ({ ...prev, badgeText: e.target.value }))
+                      }
+                      className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex flex-wrap items-center gap-4">
+                      <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={firstOrderOffer.allowCod}
+                          onChange={(e) =>
+                            setFirstOrderOffer((prev) => ({ ...prev, allowCod: e.target.checked }))
+                          }
+                          className="h-4 w-4 rounded accent-amber-500"
+                        />
+                        <span>Allow on Cash on Delivery (COD)</span>
+                      </label>
+
+                      <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={firstOrderOffer.allowOnline}
+                          onChange={(e) =>
+                            setFirstOrderOffer((prev) => ({ ...prev, allowOnline: e.target.checked }))
+                          }
+                          className="h-4 w-4 rounded accent-amber-500"
+                        />
+                        <span>Allow on Online (UPI / Card)</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={savingFirstOrderOffer}
+                      className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase tracking-widest shadow-md cursor-pointer disabled:opacity-50 transition-all"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{savingFirstOrderOffer ? "Saving..." : "Save 1st Order Offer"}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
               {/* Create Coupon Form */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">

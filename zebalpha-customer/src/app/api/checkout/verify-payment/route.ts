@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { sendWhatsAppOrderConfirmation } from "@/lib/whatsapp";
 import { createMasterOrder } from "@/lib/orderRouter";
 import { recordOrderPurchaseEvents } from "@/lib/recommendationEngine";
+import { verifyCheckoutPricingServer } from "@/lib/firstOrderOfferServer";
 import crypto from "crypto";
 
 function verifySignature(orderId: string, paymentId: string, signature: string, secret: string): boolean {
@@ -158,63 +159,43 @@ export async function POST(req: Request) {
       }
     }
 
-    // Calculate server-verified authoritative total amount
+    // Calculate server-verified authoritative total amount (enforcing 1st-order anti-abuse & promo coupons)
     const computedSubtotal = items.reduce((sum: number, it: any) => {
       const itemPrice = Number(it.price) || 0;
       const itemQty = Math.max(1, Number(it.quantity) || 1);
       return sum + itemPrice * itemQty;
     }, 0);
-    const verifiedDiscount = Math.max(0, Math.min(Number(discount) || 0, computedSubtotal));
-    const discountedSubtotal = Math.max(0, computedSubtotal - verifiedDiscount);
 
-    // Fetch authoritative store settings for delivery & platform fees
-    let deliveryCharge = 0;
-    let freeShippingThreshold = 0;
-    let platformFee = 0;
-    let tax = 0;
+    const verifiedPricing = await verifyCheckoutPricingServer({
+      userId: user_id,
+      phone,
+      computedSubtotal,
+      paymentMethod: "ONLINE",
+      couponCode,
+      fallbackDeliveryFee: Number(delivery_fee ?? shipping_charge ?? 0),
+      fallbackPlatformFee: Number(platform_fee ?? handling_fee ?? 0),
+      fallbackTax: Number(clientTax ?? 0),
+    });
 
-    try {
-      const { data: bData } = await supabaseServer
-        .from('store_settings')
-        .select('key, value')
-        .in('key', ['billing', 'marketplace_rules']);
-
-      const map: Record<string, any> = {};
-      (bData || []).forEach((row: any) => { map[row.key] = row.value; });
-      const b = map.billing || {};
-      const m = map.marketplace_rules || {};
-
-      const parseNum = (val: any, fallback = 0) => {
-        if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
-          return Number(val);
-        }
-        return fallback;
-      };
-
-      deliveryCharge = parseNum(m.deliveryCharge ?? b.deliveryFee, Number(delivery_fee ?? shipping_charge ?? 0));
-      freeShippingThreshold = parseNum(m.freeShippingThreshold ?? b.freeDeliveryThreshold, 0);
-      platformFee = parseNum(m.appCharge ?? b.packagingFee, Number(platform_fee ?? handling_fee ?? 0));
-      tax = parseNum(b.tax, Number(clientTax ?? 0));
-    } catch (e) {
-      console.warn("Notice loading store settings in verify-payment route:", e);
-      deliveryCharge = Number(delivery_fee ?? shipping_charge ?? 0);
-      platformFee = Number(platform_fee ?? handling_fee ?? 0);
-      tax = Number(clientTax ?? 0);
-    }
-
-    const effectiveDeliveryFee = (freeShippingThreshold > 0 && discountedSubtotal >= freeShippingThreshold) ? 0 : deliveryCharge;
-    const authoritativeTotal = discountedSubtotal + effectiveDeliveryFee + platformFee + tax;
+    const verifiedDiscount = verifiedPricing.totalDiscount;
+    const effectiveDeliveryFee = verifiedPricing.effectiveDeliveryFee;
+    const platformFee = verifiedPricing.platformFee;
+    const tax = verifiedPricing.tax;
+    const authoritativeTotal = verifiedPricing.authoritativeTotal;
+    const effectiveCouponCode = verifiedPricing.effectiveCouponCode;
 
     const breakdownNotes = JSON.stringify({
       subtotal: computedSubtotal,
       discount: verifiedDiscount,
+      firstOrderApplied: verifiedPricing.firstOrderApplied,
+      firstOrderDiscount: verifiedPricing.firstOrderDiscount,
       deliveryFee: effectiveDeliveryFee,
       shippingCharge: effectiveDeliveryFee,
       platformFee: platformFee,
       handlingFee: platformFee,
       tax: tax,
       grandTotal: authoritativeTotal,
-      couponCode: couponCode || null,
+      couponCode: effectiveCouponCode,
     });
 
     // 2. Create Master Order (splits per seller, decrements stock, creates notifications)
@@ -235,7 +216,7 @@ export async function POST(req: Request) {
         handling_fee: platformFee,
         tax: tax,
         payment_method: "ONLINE",
-        coupon_code: couponCode || null,
+        coupon_code: effectiveCouponCode || undefined,
         discount_amount: verifiedDiscount,
         notes: breakdownNotes,
         razorpay_order_id,
@@ -296,7 +277,7 @@ export async function POST(req: Request) {
         try {
           await supabaseServer.from("payments").insert([{
             parent_order_id: createdOrder.id,
-            amount: total,
+            amount: authoritativeTotal,
             method: "ONLINE",
             status: "COMPLETE",
             transaction_reference: razorpay_payment_id,
@@ -313,7 +294,7 @@ export async function POST(req: Request) {
         phone,
         orderId: orderIdToReturn,
         customerName: customer_name,
-        totalAmount: total,
+        totalAmount: authoritativeTotal,
         items: items || [],
       }).catch((waError) => console.error("WhatsApp notification error:", waError));
     }

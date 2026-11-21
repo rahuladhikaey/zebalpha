@@ -6,6 +6,7 @@ import { HomeHero } from "@/components/HomeHero";
 import { CuratedCollectionsSection } from "@/components/CuratedCollectionsSection";
 import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
 import { OurProductsBanner } from "@/components/home/OurProductsBanner";
+import { FirstOrderOfferBanner } from "@/components/home/FirstOrderOfferBanner";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
 import { RecentlyViewedSection } from "@/components/recommendations/RecentlyViewedSection";
@@ -121,6 +122,9 @@ export default async function HomePage(props: {
 
         {/* Hero Section (Handles Android App vs Website layout) */}
         <HomeHero initialCategories={navigationCategories} />
+
+        {/* New User 1st Order Welcome Discount Strip (Auto-hides for returning buyers) */}
+        <FirstOrderOfferBanner />
 
         {/* Main Content Container */}
         <div className="mx-auto w-full max-w-[1400px] px-4 md:px-8">

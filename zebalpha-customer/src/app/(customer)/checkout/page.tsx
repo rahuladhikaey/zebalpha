@@ -9,9 +9,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { Tag, Check, X, Truck } from "lucide-react";
+import { Tag, Check, X, Truck, Gift, CheckCircle2, Info } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useIsNativeApp } from "@/lib/platform";
+import { useFirstOrderOffer, clearFirstOrderOfferCache } from "@/hooks/useFirstOrderOffer";
+import { resolveOrderDiscounts } from "@/lib/firstOrderOffer";
 import {
   getOrCreateRecommendationSessionId,
   getRecommendationPlatform,
@@ -357,17 +359,35 @@ function CheckoutContent() {
     ? (buyNowItem && (buyNowItem.stock ?? Infinity) > 0 ? buyNowItem.price * quantity : 0)
     : contextTotalValue;
 
+  const {
+    config: firstOrderConfig,
+    eligible: isFirstOrderEligible,
+    alreadyOrdered: firstOrderAlreadyUsed,
+    loading: firstOrderLoading,
+  } = useFirstOrderOffer({ phone, paymentMethod });
+
   // Offer discount applies ONLY on subtotal (item prices)
   const offerApplied = Boolean(cartOffer && cartOffer.isActive && cartOffer.threshold > 0 && totalValue >= cartOffer.threshold && cartOffer.percentage > 0);
   const discountAmount = offerApplied && cartOffer ? Math.round(totalValue * cartOffer.percentage / 100) : 0;
 
-  // Total discounts combined (Cart Offer + Coupon)
-  const totalDiscount = discountAmount + couponDiscount;
+  // Resolve best discount (First Order ₹100 OFF vs Manual Coupon — never double-stacked)
+  const discountResolution = resolveOrderDiscounts({
+    subtotal: totalValue,
+    firstOrderEligible: !firstOrderLoading && isFirstOrderEligible,
+    firstOrderConfig,
+    paymentMethod,
+    cartOfferDiscount: discountAmount,
+    manualCouponDiscount: appliedCoupon ? couponDiscount : 0,
+    manualCouponCode: appliedCoupon?.code || null,
+    manualCouponFreeShipping: appliedCoupon?.type === "Flat Shipping Off",
+  });
+
+  const totalDiscount = discountResolution.totalDiscount;
   const discountedSubtotal = Math.max(0, totalValue - totalDiscount);
 
   // Calculate final totals based on billing settings
   const isFreeDeliveryByThreshold = billingSettings.freeDeliveryThreshold > 0 && discountedSubtotal >= billingSettings.freeDeliveryThreshold;
-  const isFreeDeliveryByCoupon = appliedCoupon?.type === "Flat Shipping Off";
+  const isFreeDeliveryByCoupon = discountResolution.freeShippingByCoupon;
   const deliveryCost = (isFreeDeliveryByThreshold || isFreeDeliveryByCoupon) ? 0 : billingSettings.deliveryFee;
   const grandTotal = discountedSubtotal + deliveryCost + billingSettings.packagingFee + billingSettings.tax;
 
@@ -666,7 +686,7 @@ function CheckoutContent() {
           tax: billingSettings.tax,
           user_id: userId,
           applyAsCard: cardValidated,
-          couponCode: appliedCoupon ? appliedCoupon.code : "",
+          couponCode: discountResolution.effectiveCouponCode || "",
           discount: totalDiscount,
           sessionId: getOrCreateRecommendationSessionId(),
           platform: getRecommendationPlatform(),
@@ -708,6 +728,7 @@ function CheckoutContent() {
 
         if (responseData && responseData.success) {
           orderPlacedRef.current = true;
+          clearFirstOrderOfferCache();
           if (!isBuyNow) clearCart();
           saveUserAddress().catch((err) => console.warn("Background address save notice:", err));
           const successUrl = `/order-success?order_id=${responseData.orderId || responseData.orderNumber}`;
@@ -740,11 +761,22 @@ function CheckoutContent() {
         let orderData: any = null;
         let createOrderError = "";
 
+        const createOrderPayload = {
+          amount: grandTotal,
+          items: cart,
+          user_id: userId,
+          phone: phone,
+          couponCode: discountResolution.effectiveCouponCode || "",
+          delivery_fee: deliveryCost,
+          platform_fee: billingSettings.packagingFee,
+          tax: billingSettings.tax,
+        };
+
         try {
           const localRes = await fetch("/api/checkout/create-order", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount: grandTotal }),
+            body: JSON.stringify(createOrderPayload),
           });
           if (localRes.ok) {
             orderData = await localRes.json();
@@ -761,7 +793,7 @@ function CheckoutContent() {
             const remoteRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/checkout/create-order`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ amount: grandTotal }),
+              body: JSON.stringify(createOrderPayload),
             });
             if (remoteRes.ok) {
               orderData = await remoteRes.json();
@@ -835,7 +867,7 @@ function CheckoutContent() {
                 tax: billingSettings.tax,
                 user_id: userId,
                 applyAsCard: cardValidated,
-                couponCode: appliedCoupon ? appliedCoupon.code : "",
+                couponCode: discountResolution.effectiveCouponCode || "",
                 discount: totalDiscount,
                 sessionId: getOrCreateRecommendationSessionId(),
                 platform: getRecommendationPlatform(),
@@ -875,6 +907,7 @@ function CheckoutContent() {
 
               if (verifyData?.success) {
                 orderPlacedRef.current = true;
+                clearFirstOrderOfferCache();
                 if (!isBuyNow) clearCart();
                 saveUserAddress().catch((err) => console.warn("Background address save notice:", err));
                 const successUrl = `/order-success?order_id=${verifyData.orderId || verifyData.orderNumber}`;
@@ -1286,6 +1319,68 @@ function CheckoutContent() {
                 ))}
               </div>
 
+              {/* New User 1st Order Auto-Discount Status */}
+              {!firstOrderLoading && firstOrderConfig.isActive && firstOrderConfig.discountAmount > 0 && (
+                <div className="mt-5">
+                  {discountResolution.firstOrderApplied ? (
+                    <div
+                      className={`flex items-center justify-between gap-2.5 rounded-2xl border p-3 ${
+                        isNativeApp
+                          ? "border-[#D4A017]/65 bg-gradient-to-r from-[#FFF9E3] via-[#FFF3C4] to-[#FCE89C]/75"
+                          : "border-emerald-500/40 bg-emerald-950/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          data-photo-overlay="true"
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white ${
+                            isNativeApp ? "bg-gradient-to-br from-[#EAB308] to-[#B45309]" : "bg-emerald-600"
+                          }`}
+                        >
+                          <Gift size={14} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className={`text-[11px] font-black flex items-center gap-1 ${isNativeApp ? "text-[#14120F]" : "text-emerald-300"}`}>
+                            <CheckCircle2 size={12} className="shrink-0" />
+                            <span>1st Order Offer Applied!</span>
+                          </p>
+                          <p className={`text-[10px] font-semibold truncate ${isNativeApp ? "text-[#5C4924]" : "text-zinc-400"}`}>
+                            Saving ₹{discountResolution.firstOrderDiscount} ({firstOrderConfig.code})
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-lg border px-2 py-0.5 font-mono text-[10px] font-black ${
+                          isNativeApp
+                            ? "border-[#C68A12]/60 bg-[#FFFDF7] text-[#8A5A00]"
+                            : "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                        }`}
+                      >
+                        -₹{discountResolution.firstOrderDiscount}
+                      </span>
+                    </div>
+                  ) : isFirstOrderEligible && discountResolution.amountNeededForFirstOrder > 0 ? (
+                    <div
+                      className={`rounded-2xl border p-3 text-[11px] font-bold flex items-center gap-2 ${
+                        isNativeApp
+                          ? "border-[#D4A017]/55 bg-[#FFF9E3] text-[#14120F]"
+                          : "border-amber-400/30 bg-amber-500/10 text-amber-300"
+                      }`}
+                    >
+                      <Gift size={14} className="shrink-0" />
+                      <span>
+                        Add ₹{discountResolution.amountNeededForFirstOrder} more to unlock Flat ₹{firstOrderConfig.discountAmount} OFF on your 1st order!
+                      </span>
+                    </div>
+                  ) : firstOrderAlreadyUsed && phone.replace(/\D/g, "").length >= 10 ? (
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-[10px] font-semibold text-zinc-400 flex items-center gap-1.5">
+                      <Info size={12} className="shrink-0 text-zinc-500" />
+                      <span>1st Order ₹{firstOrderConfig.discountAmount} OFF is only valid on a customer&apos;s first order.</span>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
               {/* Promo / Coupon Code Section */}
               <div className="mt-6 border-t border-zinc-800/80 pt-5">
                 <div className="flex items-center justify-between mb-2.5">
@@ -1393,7 +1488,7 @@ function CheckoutContent() {
               <div className="mt-8 border-t border-zinc-800 pt-6 space-y-3">
                 <div className="flex items-center justify-between text-zinc-400">
                   <span className="text-[11px] font-bold uppercase tracking-widest">Subtotal</span>
-                  <span className={`font-bold ${offerApplied || (appliedCoupon && couponDiscount > 0) ? 'line-through text-zinc-500' : 'text-white'}`}>₹{totalValue}</span>
+                  <span className={`font-bold ${totalDiscount > 0 ? 'line-through text-zinc-500' : 'text-white'}`}>₹{totalValue}</span>
                 </div>
                 {offerApplied && cartOffer && (
                   <div className="flex items-center justify-between text-white">
@@ -1401,12 +1496,20 @@ function CheckoutContent() {
                     <span className="font-bold">-₹{discountAmount}</span>
                   </div>
                 )}
-                {appliedCoupon && couponDiscount > 0 && (
+                {discountResolution.firstOrderApplied && discountResolution.firstOrderDiscount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-400">
+                    <span className="text-[11px] font-bold uppercase tracking-widest flex items-center gap-1">
+                      🎁 1st Order ({firstOrderConfig.code})
+                    </span>
+                    <span className="font-bold">-₹{discountResolution.firstOrderDiscount}</span>
+                  </div>
+                )}
+                {appliedCoupon && discountResolution.effectiveCouponDiscount > 0 && (
                   <div className="flex items-center justify-between text-emerald-400">
                     <span className="text-[11px] font-bold uppercase tracking-widest flex items-center gap-1">
                       🏷️ Coupon ({appliedCoupon.code})
                     </span>
-                    <span className="font-bold">-₹{couponDiscount}</span>
+                    <span className="font-bold">-₹{discountResolution.effectiveCouponDiscount}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-zinc-400">

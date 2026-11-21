@@ -7,7 +7,8 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
 import { useCart } from "@/context/CartContext";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt, Gift } from "lucide-react";
+import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
@@ -44,6 +45,11 @@ export default function ProductDetailTemplate({
   initialReviews?: PublicReview[];
 }) {
   const isNativeApp = useIsNativeApp();
+  const {
+    config: firstOrderConfig,
+    eligible: isFirstOrderEligible,
+    loading: firstOrderLoading,
+  } = useFirstOrderOffer();
   // 1. Normalize packages from product
   const normalizedPackages = useMemo(() => {
     if (!product.packages || product.packages.length === 0) return [];
@@ -1015,6 +1021,87 @@ export default function ProductDetailTemplate({
               <p className="text-xs font-bold text-zinc-400">
                 {isUpcomingDrop ? "Preview Price (Inclusive of all taxes)" : "Special Price including all taxes"}
               </p>
+
+              {/* Meesho-Style 1st Order Instant Price Hook (Only shown to eligible 1st-time buyers) */}
+              {!firstOrderLoading &&
+                !isUpcomingDrop &&
+                firstOrderConfig.isActive &&
+                isFirstOrderEligible &&
+                firstOrderConfig.discountAmount > 0 && (
+                  <div
+                    className={`mt-2.5 flex items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 ${
+                      isNativeApp
+                        ? "border-[#D4A017]/60 bg-gradient-to-r from-[#FFF9E3] via-[#FFF3C4] to-[#FCE89C]/70"
+                        : "border-emerald-500/35 bg-gradient-to-r from-emerald-950/55 via-zinc-900/90 to-zinc-950"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span
+                        data-photo-overlay="true"
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${
+                          isNativeApp
+                            ? "bg-gradient-to-br from-[#EAB308] to-[#B45309]"
+                            : "bg-emerald-600"
+                        }`}
+                      >
+                        <Gift size={15} strokeWidth={2.4} />
+                      </span>
+                      <div className="min-w-0">
+                        {displayPrice >= firstOrderConfig.minOrderAmount ? (
+                          <>
+                            <p
+                              className={`text-xs sm:text-sm font-black leading-tight ${
+                                isNativeApp ? "text-[#14120F]" : "text-emerald-300"
+                              }`}
+                            >
+                              ₹{Math.max(0, displayPrice - firstOrderConfig.discountAmount).toLocaleString("en-IN")}{" "}
+                              <span
+                                className={`font-bold text-[11px] ${
+                                  isNativeApp ? "text-[#7A4F00]" : "text-white"
+                                }`}
+                              >
+                                with {firstOrderConfig.badgeText}
+                              </span>
+                            </p>
+                            <p
+                              className={`text-[10px] sm:text-[11px] font-semibold mt-0.5 ${
+                                isNativeApp ? "text-[#5C4924]" : "text-zinc-400"
+                              }`}
+                            >
+                              Flat ₹{firstOrderConfig.discountAmount} OFF auto-applied at checkout
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p
+                              className={`text-xs sm:text-sm font-black leading-tight ${
+                                isNativeApp ? "text-[#14120F]" : "text-emerald-300"
+                              }`}
+                            >
+                              {firstOrderConfig.badgeText}: Flat ₹{firstOrderConfig.discountAmount} OFF
+                            </p>
+                            <p
+                              className={`text-[10px] sm:text-[11px] font-semibold mt-0.5 ${
+                                isNativeApp ? "text-[#5C4924]" : "text-zinc-400"
+                              }`}
+                            >
+                              Add ₹{(firstOrderConfig.minOrderAmount - displayPrice).toLocaleString("en-IN")} more in cart (Min ₹{firstOrderConfig.minOrderAmount}) to unlock
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-lg border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-wider ${
+                        isNativeApp
+                          ? "border-[#C68A12]/60 bg-[#FFFDF7] text-[#8A5A00]"
+                          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                      }`}
+                    >
+                      {firstOrderConfig.code}
+                    </span>
+                  </div>
+                )}
             </div>
 
             {hasVariants && (
