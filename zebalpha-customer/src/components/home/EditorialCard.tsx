@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 
@@ -95,9 +94,8 @@ export function EditorialCard({
           {/* Top-right Compact Customize Pill */}
           <div
             data-photo-overlay="true"
-            className="absolute top-2 right-2 z-30 inline-flex items-center gap-1 rounded-full bg-black/75 backdrop-blur-md border border-amber-400/40 px-2 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-amber-300 shadow-md transition-transform group-hover:scale-105"
+            className="absolute top-2 right-2 z-30 inline-flex items-center gap-1 rounded-full bg-black/75 backdrop-blur-md border border-amber-400/40 px-2.5 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-amber-300 shadow-md transition-transform group-hover:scale-105"
           >
-            <Sparkles className="h-2.5 w-2.5 text-amber-300" />
             <span>Customize</span>
           </div>
 

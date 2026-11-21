@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Sparkles, Truck } from "lucide-react";
+import { ArrowLeft, Trash2, Zap, Minus, Plus, Tag, Check, X, Truck } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useIsNativeApp } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-import { Search, ArrowRight, Sparkles, Mic } from "lucide-react";
+import { Search, ArrowRight, Mic } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchProducts } from "@/hooks/useCatalogQueries";
@@ -155,7 +155,7 @@ export function MobileSearch({ className }: { className?: string } = {}) {
           <div className="absolute top-full left-0 right-0 mt-2 bg-[#FFFDF8] border border-[#DFBE6F] rounded-2xl shadow-[0_18px_40px_rgba(140,95,12,0.18)] overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="p-2.5 border-b border-[#EFE1BE] flex items-center justify-between text-[11px] text-[#6B5D44]">
               <span className="flex items-center gap-1 font-bold">
-                <Sparkles className="w-3 h-3 text-[#C68A12]" /> Suggestions
+                Suggestions
               </span>
               {isLoading && <span className="text-[#8E6208] animate-pulse">Loading...</span>}
             </div>
@@ -278,7 +278,7 @@ export function MobileSearch({ className }: { className?: string } = {}) {
         <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="p-2.5 border-b border-neutral-800/80 flex items-center justify-between text-[11px] text-neutral-400">
             <span className="flex items-center gap-1 font-medium">
-              <Sparkles className="w-3 h-3 text-yellow-400" /> Suggestions
+              Suggestions
             </span>
             {isLoading && <span className="text-neutral-500 animate-pulse">Loading...</span>}
           </div>

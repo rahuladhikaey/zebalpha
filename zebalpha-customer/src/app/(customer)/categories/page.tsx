@@ -25,7 +25,6 @@ import {
   ChevronRight,
   Package,
   Layers,
-  Sparkles,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -189,7 +188,6 @@ function CategoriesContent() {
           {/* Header Title & Directory Badge */}
           <div className="mb-5 sm:mb-6">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-300 mb-2.5">
-              <Sparkles size={12} className={isNativeApp ? "text-[#C68A12]" : "text-white"} />
               <span>Shop by Category</span>
             </div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tight text-white">

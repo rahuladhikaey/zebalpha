@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, User, ShoppingCart, Sparkles } from "lucide-react";
+import { LayoutGrid, User, ShoppingCart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useIsNativeApp } from "@/lib/platform";
@@ -76,7 +76,7 @@ export function AndroidBottomNav() {
       id: "alpha_ai",
       label: t("nav_alpha_ai"),
       href: "/assistant",
-      icon: Sparkles,
+      icon: LayoutGrid,
       isActive: isAlphaAiActive,
       isCenterAi: true,
     },

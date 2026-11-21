@@ -6,7 +6,7 @@ import { BreadcrumbsNav } from "@/components/aeo/BreadcrumbsNav";
 import { AeoAnswerBox } from "@/components/aeo/AeoAnswerBox";
 import { DynamicFaqSection } from "@/components/aeo/DynamicFaqSection";
 import { buildBreadcrumbSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGenerator";
-import { Ruler, Sparkles, CheckCircle2, ArrowRight } from "lucide-react";
+import { Ruler, CheckCircle2, ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Official Sizing & Measurement Guide | ZEBALPHA",

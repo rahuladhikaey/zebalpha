@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
-import { RotateCw, Sparkles, Move3d } from "lucide-react";
+import { RotateCw, Move3d } from "lucide-react";
 
 export type AvatarGender = "male" | "female";
 export type AvatarSkinTone = "#fce0d2" | "#e8b898" | "#c68652" | "#9e5c32" | "#66391d" | "#2b170c";

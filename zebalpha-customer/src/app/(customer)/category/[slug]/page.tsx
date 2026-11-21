@@ -11,7 +11,7 @@ import { buildBreadcrumbSchema, buildFaqSchema } from "@/lib/aeo-geo/schemaGener
 import { createClient } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
-import { Sparkles, ArrowRight, ShieldCheck, Tag, Ruler, Star } from "lucide-react";
+import { ArrowRight, ShieldCheck, Tag, Ruler, Star } from "lucide-react";
 import { getProductDisplayPricing } from "@/lib/productPricing";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
@@ -198,7 +198,6 @@ export default async function CategoryPage({ params }: PageProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <section className="rounded-3xl border border-neutral-800 bg-neutral-950 p-6 sm:p-8 space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-neutral-900">
-                <Sparkles className="h-4 w-4 text-white" />
                 <h2 className="text-base font-black text-white uppercase tracking-wider">
                   Key Technical Characteristics
                 </h2>

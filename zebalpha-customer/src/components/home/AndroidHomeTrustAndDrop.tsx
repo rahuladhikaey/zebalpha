@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Truck, ShieldCheck, BadgeCheck, ArrowRight, Crown, Sparkles } from "lucide-react";
+import { Truck, ShieldCheck, BadgeCheck, ArrowRight, Crown } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 /**
@@ -135,7 +135,6 @@ export function AndroidNewSeasonDropBanner() {
 
           <p className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-[#3F3626]">
             <span>Fresh Culture Arrivals</span>
-            <Sparkles className="h-3 w-3 text-[#B8800C]" />
           </p>
 
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#FBE28A] via-[#F2C34B] to-[#DDA216] border border-[#FFF3C4] px-3.5 py-1.5 text-[11px] font-black text-[#111111] shadow-[0_4px_12px_rgba(184,128,12,0.28)]">

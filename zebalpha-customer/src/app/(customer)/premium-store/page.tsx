@@ -9,7 +9,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { Product } from "@/lib/types";
 import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
 import { 
-  Sparkles, 
   Crown, 
   ShieldCheck, 
   Flame, 
@@ -266,7 +265,6 @@ export default function PremiumStorePage() {
             Showing <span className="text-white font-black">{filteredProducts.length}</span> Masterpiece Design{filteredProducts.length !== 1 ? "s" : ""}
           </p>
           <span className="text-[11px] font-bold text-amber-400/90 tracking-wide flex items-center gap-1.5">
-            <Sparkles size={13} />
             Verified Luxury Tier
           </span>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
-import { Search, ArrowRight, Sparkles } from "lucide-react";
+import { Search, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -136,7 +136,7 @@ function AnimatedSearchBarContent() {
         <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="p-3 border-b border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
             <span className="flex items-center gap-1.5 font-medium">
-              <Sparkles className="w-3.5 h-3.5 text-yellow-400" /> Quick Results
+              Quick Results
             </span>
             {isLoading && <span className="text-neutral-500 animate-pulse">Searching...</span>}
           </div>

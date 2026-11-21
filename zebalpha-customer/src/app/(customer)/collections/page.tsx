@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Header } from "@/components/Header";
 import { supabase } from "@/lib/supabaseClient";
 import { Product } from "@/lib/types";
-import { ArrowUpRight, Sparkles, Layers, Flame } from "lucide-react";
+import { ArrowUpRight, Layers, Flame } from "lucide-react";
 import { doesProductMatchCategory } from "@/hooks/useCatalogQueries";
 
 interface CollectionItem {

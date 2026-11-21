@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
-import { Send, X, ArrowUpRight, Sparkles, ShoppingBag, Package, RefreshCw, DollarSign, Truck, Ruler, CreditCard, Headset } from "lucide-react";
+import { Send, X, ArrowUpRight, ShoppingBag, Package, RefreshCw, DollarSign, Truck, Ruler, CreditCard, Headset } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 
 type ChatMessage = {
@@ -259,7 +259,6 @@ export default function FloatingAssistant() {
                   onClick={() => setIsOpen(false)}
                   className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FBE28A] to-[#EAB308] px-2.5 py-1 text-[10px] font-black text-[#111111] shadow-sm active:scale-95"
                 >
-                  <Sparkles className="h-3 w-3" />
                   Full AI
                 </Link>
               )}

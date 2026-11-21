@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { ArrowLeft, Sparkles, TrendingUp, Loader2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   getOrCreateRecommendationSessionId,
@@ -127,9 +127,7 @@ export default function RecommendedPage() {
                 <span className="text-zinc-700">•</span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
                   {personalized ? (
-                    <>
-                      <Sparkles className="h-3 w-3" /> Personalised Feed
-                    </>
+                    <>Personalised Feed</>
                   ) : (
                     <>
                       <TrendingUp className="h-3 w-3" /> Trending & Popular

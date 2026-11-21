@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { Store, ArrowUpRight, Globe, Sparkles } from "lucide-react";
+import { Store, ArrowUpRight, Globe } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useIsNativeApp } from "@/lib/platform";
 
@@ -204,8 +204,8 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                   className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-[#FFF3C4] via-[#FDE68A]/70 to-[#FAF0D1] border border-[#DCAA30]/60 text-[#14120F] shadow-sm active:scale-[0.98] transition-all"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#FDE047] to-[#C68A12] text-[#111111]">
-                      <Sparkles className="h-4 w-4" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white p-0.5 border border-[#DCAA30] overflow-hidden shrink-0">
+                      <img src="/official-logo-sm.png" alt="Alpha AI" className="h-full w-full rounded-full object-contain" />
                     </span>
                     <div>
                       <p className="text-xs font-black uppercase tracking-wider text-[#14120F]">Alpha AI Stylist</p>

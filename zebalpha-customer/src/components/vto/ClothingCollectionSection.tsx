@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Product, ProductPackage } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { evaluateProductTryOnEligibility } from "@/shared/constants/tryOnEligibility";
-import { Search, Sparkles, Check, Shirt, Loader2, ExternalLink } from "lucide-react";
+import { Search, Check, Shirt, Loader2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 interface ClothingCollectionSectionProps {
@@ -312,7 +312,7 @@ export function ClothingCollectionSection({
                         : "bg-white text-black hover:bg-zinc-200 shadow-md active:scale-95"
                     }`}
                   >
-                    <Sparkles size={11} className={isSelected ? "text-zinc-400" : "text-black"} />
+                    <Shirt size={11} className={isSelected ? "text-zinc-400" : "text-black"} />
                     <span>{isSelected ? "Currently In Fitting Room" : "Try This Outfit"}</span>
                   </button>
                 </div>

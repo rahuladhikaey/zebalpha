@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Plus, Check, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { Plus, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { SimilarProductItem } from "@/lib/similarProducts";
 import { Product } from "@/lib/types";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";

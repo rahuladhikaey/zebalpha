@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Shirt, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 interface VirtualTryOnButtonProps {
@@ -25,7 +25,7 @@ export function VirtualTryOnButton({
   if (variant === "compact") {
     const content = (
       <>
-        <Sparkles size={14} className="text-white animate-pulse" />
+        <Shirt size={14} className="text-white" />
         <span>{label}</span>
       </>
     );
@@ -56,7 +56,7 @@ export function VirtualTryOnButton({
   if (variant === "badge") {
     const content = (
       <>
-        <Sparkles size={12} className="text-amber-400 group-hover:text-black transition-colors" />
+        <Shirt size={12} className="text-amber-400 group-hover:text-black transition-colors" />
         <span>{label}</span>
       </>
     );
@@ -91,9 +91,9 @@ export function VirtualTryOnButton({
 
       <div className="relative flex items-center justify-between px-4 sm:px-5 py-3 sm:py-3.5 rounded-[calc(1rem-1px)] bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 backdrop-blur-md border border-zinc-800/90 group-hover:border-zinc-700 transition-all">
         <div className="flex items-center gap-3 sm:gap-3.5">
-          {/* Glowing Icon Badge */}
+          {/* Icon Badge */}
           <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-700/80 text-white shadow-inner group-hover:scale-105 group-hover:bg-white group-hover:text-black transition-all">
-            <Sparkles size={18} className="animate-pulse" />
+            <Shirt size={18} />
           </div>
 
           <div className="text-left">

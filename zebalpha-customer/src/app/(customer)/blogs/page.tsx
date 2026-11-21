@@ -5,7 +5,7 @@ import { Footer } from "@/components/Footer";
 import { BlogListClient } from "@/components/blog/BlogListClient";
 import { BLOG_POSTS } from "@/data/blogPosts";
 import Link from "next/link";
-import { Sparkles, ArrowRight, ShieldCheck, TrendingUp, Store } from "lucide-react";
+import { ArrowRight, ShieldCheck, TrendingUp, Store } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Blogs, Seller Guides & Fashion E-commerce Insights | ZEBALPHA",
@@ -132,7 +132,6 @@ export default function BlogsPage() {
           <section className="mb-10 text-center sm:text-left rounded-[2.5rem] bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 border border-neutral-800 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
             <div className="relative z-10 max-w-3xl space-y-4">
               <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest px-4 py-1.5">
-                <Sparkles className="h-3.5 w-3.5" />
                 Editorial, SEO & Marketplace Knowledge Hub
               </span>
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 interface AeoAnswerBoxProps {
   title?: string;
@@ -29,7 +29,7 @@ export function AeoAnswerBox({
     >
       <div className="flex items-center gap-2 mb-3">
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-black shadow-sm">
-          <Sparkles className="h-3 w-3 stroke-[2.5]" />
+          <CheckCircle2 className="h-3 w-3 stroke-[2.5]" />
         </span>
         <span className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400">
           {sourceLabel}

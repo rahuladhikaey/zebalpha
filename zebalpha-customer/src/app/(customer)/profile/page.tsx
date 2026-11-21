@@ -16,7 +16,6 @@ import {
   LogOut, 
   Share2, 
   ChevronRight, 
-  Sparkles, 
   Coins,
   Globe,
   Trash2

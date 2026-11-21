@@ -11,7 +11,7 @@ import {
   saveDeviceToken,
   type NativeNotificationStatus,
 } from "@/lib/pushNotifications";
-import { Bell, Sparkles, X, ShieldAlert, CheckCircle2, Truck, Zap, Settings, LockOpen } from "lucide-react";
+import { Bell, X, ShieldAlert, CheckCircle2, Truck, Zap, Settings, LockOpen } from "lucide-react";
 
 const DISMISSED_KEY = "zebalpha_notif_prompt_dismissed_until";
 const DISMISS_COUNT_KEY = "zebalpha_notif_prompt_dismiss_count";
@@ -384,7 +384,6 @@ export function NotificationPermissionPrompt() {
             <div>
               <h4 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
                 <span>Alerts Activated</span>
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               </h4>
               <p className="text-xs text-zinc-400 mt-0.5">
                 You will receive real-time updates for order tracking and exclusive drops.
@@ -496,7 +495,6 @@ export function NotificationPermissionPrompt() {
                 <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
                   Official App Updates
                 </span>
-                <Sparkles className="w-3 h-3 text-emerald-400" />
               </div>
 
               {/* Title */}

@@ -3,7 +3,6 @@
 import React from "react";
 import {
   Shirt,
-  Sparkles,
   Smartphone,
   Laptop,
   Home,
@@ -75,13 +74,13 @@ export function CategoryIconRenderer({
     case "shirt":
       return <Shirt size={size} className={className} aria-hidden="true" />;
     case "dress":
-      return <Sparkles size={size} className={className} aria-hidden="true" />;
+      return <ShoppingBag size={size} className={className} aria-hidden="true" />;
     case "smartphone":
       return <Smartphone size={size} className={className} aria-hidden="true" />;
     case "laptop":
       return <Laptop size={size} className={className} aria-hidden="true" />;
     case "sparkles":
-      return <Sparkles size={size} className={className} aria-hidden="true" />;
+      return <Tag size={size} className={className} aria-hidden="true" />;
     case "house":
       return <Home size={size} className={className} aria-hidden="true" />;
     case "handbag":

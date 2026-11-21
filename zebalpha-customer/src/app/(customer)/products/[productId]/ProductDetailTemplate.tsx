@@ -7,7 +7,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
 import { useCart } from "@/context/CartContext";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Sparkles, Flame, Share2 } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt } from "lucide-react";
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
 import { PackageSelection } from "@/components/PackageSelection";
@@ -954,7 +954,7 @@ export default function ProductDetailTemplate({
                       ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                       : "border border-amber-500/30 bg-amber-500/10 text-amber-400"
                   }`}>
-                    {isLive ? <Flame className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400" /> : <Sparkles className="h-3.5 w-3.5 text-amber-400" />}
+                    {isLive && <Flame className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400" />}
                     {dropStatusInfo.badgeLabel}
                   </span>
                   <span className="text-xs font-bold text-zinc-400">
@@ -994,7 +994,6 @@ export default function ProductDetailTemplate({
             {isUpcomingDrop && (
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
                 <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-wider">
-                  <Sparkles className="h-4 w-4" />
                   ⚡ Upcoming Exclusive Drop • {dropStatusInfo.dateText}
                 </div>
                 <p className="text-xs text-zinc-300 font-medium leading-relaxed">
@@ -1564,7 +1563,7 @@ export default function ProductDetailTemplate({
                 }`}
                 aria-label="Virtual Try-On"
               >
-                <Sparkles size={13} className={`${isNativeApp ? "text-[#9A6503]" : "text-amber-400"} animate-pulse`} />
+                <Shirt size={13} className={isNativeApp ? "text-[#9A6503]" : "text-amber-400"} />
                 <span className="mt-0.5 leading-none">Try On</span>
               </Link>
             )}

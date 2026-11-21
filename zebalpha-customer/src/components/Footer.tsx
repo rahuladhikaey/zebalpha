@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { CreditCard, Mail, Sparkles, Shield, ArrowUpRight, Volume2, VolumeX, Flame, Store } from "lucide-react";
+import { CreditCard, Mail, Shield, ArrowUpRight, Volume2, VolumeX, Flame, Store } from "lucide-react";
 import Link from "next/link";
 import { useIsNativeApp } from "@/lib/platform";
 

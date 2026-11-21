@@ -5,7 +5,6 @@ import Image from "next/image";
 import { 
   Volume2, 
   VolumeX, 
-  Sparkles, 
   Flame, 
   ShieldCheck,
   Truck,
@@ -211,7 +210,6 @@ export function AdShowcaseSection() {
             <div className="flex items-center justify-between gap-3 w-full">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 text-black font-black text-[9px] sm:text-[10px] px-3 py-1 uppercase tracking-wider shadow-lg backdrop-blur-sm animate-pulse">
-                  <Sparkles className="w-3 h-3 fill-black" />
                   EXCLUSIVE PROMO FILM
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-black/60 border border-white/20 text-neutral-300 font-bold text-[9px] sm:text-[10px] px-2.5 py-1 uppercase tracking-wider backdrop-blur-md">

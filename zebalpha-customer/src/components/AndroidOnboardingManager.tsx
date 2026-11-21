@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useLanguage, LanguageCode } from "@/context/LanguageContext";
 import { useIsNativeApp } from "@/lib/platform";
 import { supabase } from "@/lib/supabaseClient";
-import { Check, ChevronRight, Eye, EyeOff, Sparkles, ArrowLeft, ShieldCheck, ShoppingBag } from "lucide-react";
+import { Check, ChevronRight, Eye, EyeOff, ArrowLeft, ShieldCheck, ShoppingBag } from "lucide-react";
 
 type OnboardingStep = "language" | "login" | "signup" | "otp" | "welcome";
 
@@ -973,9 +973,9 @@ export function AndroidOnboardingManager() {
         {step === "welcome" && (
           <div className="flex-1 flex flex-col justify-between py-2 text-center animate-in zoom-in-95 duration-300">
             <div>
-              {/* Sparkle Badge */}
-              <div className="mx-auto h-20 w-20 rounded-3xl bg-neutral-950 text-white flex items-center justify-center mb-5 shadow-2xl border border-neutral-800">
-                <Sparkles size={36} className="text-amber-400" />
+              {/* Official ZebAlpha Brand Badge */}
+              <div className="mx-auto h-20 w-20 rounded-full bg-white p-1.5 flex items-center justify-center mb-5 shadow-2xl border-2 border-[#E2BE66]">
+                <img src="/official-logo-sm.png" alt="ZebAlpha" className="h-full w-full rounded-full object-contain" />
               </div>
 
               <h1 className="text-2xl font-black tracking-tight text-neutral-900">

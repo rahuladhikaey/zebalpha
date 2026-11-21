@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { CuratedCollection } from "@/lib/types";
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { AndroidNewSeasonDropBanner } from "@/components/home/AndroidHomeTrustAndDrop";
@@ -136,7 +136,6 @@ export function CuratedCollectionsSection({
                       <div className="relative w-full aspect-square rounded-xl bg-gradient-to-b from-[#FAF3E1] to-[#F4E3B7] overflow-hidden flex items-center justify-center">
                         {failedImages[keyId] ? (
                           <div className="w-full h-full flex flex-col items-center justify-center p-1">
-                            <Sparkles className="w-5 h-5 text-[#B8800C] mb-1" />
                             <span className="text-[9px] font-bold uppercase tracking-wider text-[#3D3528] text-center truncate max-w-full">
                               {item.title}
                             </span>
@@ -181,7 +180,6 @@ export function CuratedCollectionsSection({
                     <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-gradient-to-b from-neutral-800/80 to-neutral-950/90 border border-neutral-800/70 flex items-center justify-center overflow-hidden group-hover:border-violet-500/40 transition-all duration-300 shadow-inner p-1.5 sm:p-2">
                       {failedImages[keyId] ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900 rounded-lg sm:rounded-xl text-neutral-500 p-1">
-                          <Sparkles className="w-5 h-5 text-violet-400 mb-1" />
                           <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-neutral-400 text-center truncate max-w-full">
                             {item.title}
                           </span>

@@ -12,7 +12,6 @@ import { ClothingCollectionSection } from "@/components/vto/ClothingCollectionSe
 import {
   ChevronLeft,
   ShieldCheck,
-  Sparkles,
   ShoppingBag,
   Info
 } from "lucide-react";

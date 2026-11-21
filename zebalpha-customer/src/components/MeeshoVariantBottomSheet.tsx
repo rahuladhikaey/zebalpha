@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
-import { X, Check, ShoppingBag, Loader2, AlertCircle, Sparkles } from "lucide-react";
+import { X, Check, ShoppingBag, Loader2, AlertCircle } from "lucide-react";
 import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { useCart } from "@/context/CartContext";
 import { Product, ProductPackage } from "@/lib/types";

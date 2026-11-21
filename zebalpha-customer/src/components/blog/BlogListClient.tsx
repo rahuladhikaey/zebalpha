@@ -7,7 +7,6 @@ import {
   Search, 
   Clock, 
   ArrowRight, 
-  Sparkles, 
   Store, 
   CheckCircle2, 
   Share2, 
@@ -96,7 +95,6 @@ export function BlogListClient({ posts }: BlogListClientProps) {
             <div className="lg:col-span-7 space-y-5">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest px-3 py-1">
-                  <Sparkles className="h-3 w-3" />
                   Featured Seller Guide
                 </span>
                 <span className="text-xs text-neutral-400 font-bold flex items-center gap-1.5">

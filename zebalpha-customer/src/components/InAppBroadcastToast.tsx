@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Bell, Sparkles, X, ArrowRight } from "lucide-react";
+import { Bell, X, ArrowRight } from "lucide-react";
 
 interface BroadcastPayload {
   id: string | number;
@@ -174,7 +174,6 @@ export function InAppBroadcastToast() {
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
                 Live Broadcast
               </span>
-              <Sparkles className="w-3 h-3 text-emerald-400" />
             </div>
 
             <h4 className="text-sm font-bold text-white tracking-tight leading-snug">

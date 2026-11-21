@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 import { subscribeToDropAlert } from "@/lib/pushNotifications";
 import { broadcastReviewUpdated, fetchProductRatingSummaries } from "@/lib/productRatings";
-import { Star, Flame, Bell, CheckCircle2, Clock, Sparkles, ShoppingBag, ArrowRight } from "lucide-react";
+import { Star, Flame, Bell, CheckCircle2, Clock, ShoppingBag, ArrowRight } from "lucide-react";
 
 interface ComingSoonDesign {
   id: string;
@@ -222,7 +222,6 @@ export default function NewDropsPage() {
         <div className="mx-auto max-w-[1400px]">
           <div className="flex flex-col items-start gap-4 max-w-3xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-[0.25em] text-orange-400 backdrop-blur-md">
-              <Sparkles className="h-3.5 w-3.5 text-orange-400" />
               Exclusive Design Showcase • Customer Hype Base
             </span>
             <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl md:text-6xl uppercase">

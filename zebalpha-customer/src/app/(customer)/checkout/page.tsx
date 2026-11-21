@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { Tag, Check, X, Sparkles, Truck } from "lucide-react";
+import { Tag, Check, X, Truck } from "lucide-react";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useIsNativeApp } from "@/lib/platform";
 import {

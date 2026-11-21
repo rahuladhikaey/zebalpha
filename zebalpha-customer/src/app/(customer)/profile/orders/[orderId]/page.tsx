@@ -29,7 +29,6 @@ import {
   Copy,
   Check,
   ArrowLeft,
-  Sparkles,
   Upload,
   RefreshCw
 } from "lucide-react";

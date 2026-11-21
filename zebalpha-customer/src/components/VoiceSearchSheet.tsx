@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Mic, MicOff, X, Sparkles, Volume2, RotateCcw } from "lucide-react";
+import { Mic, MicOff, X, Loader2, Volume2, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   VOICE_LANGUAGES,
@@ -631,7 +631,7 @@ export function VoiceSearchSheet({ controller, isNativeApp }: VoiceSearchSheetPr
 
           {status === "processing" ? (
             <p className="text-sm font-extrabold tracking-tight flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-[#D49014] animate-spin" />
+              <Loader2 className="h-4 w-4 text-[#D49014] animate-spin" />
               {t("voice_searching_for")} &ldquo;{transcript}&rdquo;
             </p>
           ) : transcript ? (

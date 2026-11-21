@@ -14,7 +14,6 @@ import {
   DEFAULT_FEMALE_AVATAR,
 } from "./GenZAvatarModel";
 import {
-  Sparkles,
   RotateCcw,
   Check,
   Dices,

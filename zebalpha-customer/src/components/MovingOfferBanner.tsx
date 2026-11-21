@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, Sparkles, Flame, Truck, ShieldCheck, Tag } from "lucide-react";
+import { Crown, Flame, Truck, ShieldCheck, Tag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useIsNativeApp } from "@/lib/platform";
@@ -17,7 +17,7 @@ function getOfferIcon(icon: string, isNativeApp: boolean) {
   const cls = isNativeApp ? "w-3.5 h-3.5 text-[#9A6503]" : "w-4 h-4 text-white";
   switch (icon) {
     case "sparkles":
-      return <Sparkles className={cls} strokeWidth={2.4} />;
+      return <ShieldCheck className={cls} strokeWidth={2.4} />;
     case "flame":
       return <Flame className={cls} strokeWidth={2.4} />;
     case "truck":

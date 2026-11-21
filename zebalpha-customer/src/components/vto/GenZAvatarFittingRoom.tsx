@@ -11,7 +11,6 @@ import {
 import { AvatarCustomizerTabs } from "./AvatarCustomizerTabs";
 import { useCart } from "@/context/CartContext";
 import {
-  Sparkles,
   ShoppingBag,
   Sliders,
   Check,
