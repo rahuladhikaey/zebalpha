@@ -640,6 +640,23 @@ export async function GET(req: NextRequest) {
 
     const sellerIds = [user.id, seller?.id].filter(Boolean) as string[];
 
+    const { searchParams } = new URL(req.url);
+    const singleProductId = searchParams.get("id") || searchParams.get("productId");
+
+    if (singleProductId) {
+      const { data: singleProd } = await supabaseServer
+        .from("products")
+        .select("*, categories(id, name, slug, parent_id, main_category)")
+        .eq("id", singleProductId)
+        .in("seller_id", sellerIds)
+        .maybeSingle();
+
+      return NextResponse.json({
+        success: Boolean(singleProd),
+        product: singleProd || null,
+      });
+    }
+
     const { data: products, error } = await supabaseServer
       .from("products")
       .select("*, categories(name)")

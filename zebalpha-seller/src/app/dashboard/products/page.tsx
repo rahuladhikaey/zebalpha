@@ -363,19 +363,38 @@ export default function SellerProducts() {
     }
     const isDrop = Boolean(product.is_new_drop || product.status === "COMING_SOON" || product.tier === "DROP");
     setIsNewDropInitial(isDrop);
+    let resolvedFullProduct: any = null;
     try {
-      // Fetch complete fresh record to guarantee all images, packages, measurements, and specifications are loaded
-      const { data: fullProduct } = await supabase
-        .from("products")
-        .select("*, categories(id, name, main_category)")
-        .eq("id", product.id)
-        .maybeSingle();
-
-      setEditingProduct(fullProduct || product);
-    } catch (err) {
-      console.error("Failed to load full product for edit:", err);
-      setEditingProduct(product);
+      // 1. Primary: Fetch authoritative full product via server API (bypasses any client RLS limits)
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+      const apiRes = await fetch(`/api/products?id=${encodeURIComponent(String(product.id))}`, { headers });
+      if (apiRes.ok) {
+        const apiJson = await apiRes.json();
+        if (apiJson?.success && apiJson?.product) {
+          resolvedFullProduct = apiJson.product;
+        }
+      }
+    } catch (apiErr) {
+      console.warn("Notice fetching product via API for edit, trying direct DB:", apiErr);
     }
+
+    if (!resolvedFullProduct) {
+      try {
+        const { data: fullProduct } = await supabase
+          .from("products")
+          .select("*, categories(id, name, main_category)")
+          .eq("id", product.id)
+          .maybeSingle();
+        if (fullProduct) resolvedFullProduct = fullProduct;
+      } catch (err) {
+        console.error("Failed to load full product for edit:", err);
+      }
+    }
+
+    // Merge list item fallback fields with authoritative DB record so nothing is lost
+    setEditingProduct(resolvedFullProduct ? { ...product, ...resolvedFullProduct } : product);
     setIsWizardModalOpen(true);
   };
 
@@ -1145,6 +1164,15 @@ export default function SellerProducts() {
 
       {/* Seller Catalog Upload Wizard Modal */}
       <CatalogUploadWizardModal
+        key={
+          isWizardModalOpen
+            ? editingProduct?.id
+              ? `edit-${editingProduct.id}`
+              : isNewDropInitial
+              ? "new-drop"
+              : "new-product"
+            : "closed"
+        }
         isOpen={isWizardModalOpen}
         onClose={() => {
           setIsWizardModalOpen(false);

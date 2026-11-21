@@ -337,6 +337,10 @@ export default function CatalogUploadWizardModal({
   };
 
   React.useEffect(() => {
+    if (!isOpen) return;
+    setCurrentStep(1);
+    setErrorMsg("");
+
     if (editingProduct) {
       let specs = editingProduct.specifications;
       if (typeof specs === "string") {
@@ -518,9 +522,75 @@ export default function CatalogUploadWizardModal({
         specs?.subcategory_name ||
         specs?.subcategory ||
         editingProduct.category ||
-        (Array.isArray(editingProduct.categories) ? editingProduct.categories[0]?.name : editingProduct.categories?.name) ||
         ""
       );
+
+      // Resolve Main Category ID & Subcategory ID/Name cleanly against live categories taxonomy
+      let finalCatId = String(editingProduct.category_id || specs?.category_id || "");
+      let resolvedSubcatId = String((editingProduct as any).subcategory_id || specs?.subcategory_id || "");
+
+      if (categories && categories.length > 0) {
+        const directCatMatch = finalCatId
+          ? (categories.find((c: any) => String(c.id) === finalCatId) as any)
+          : null;
+
+        if (directCatMatch) {
+          if (directCatMatch.parent_id) {
+            // Product's category_id points directly to a subcategory row
+            resolvedSubcatId = String(directCatMatch.id);
+            if (!subcatCandidate) subcatCandidate = directCatMatch.name || "";
+            finalCatId = String(directCatMatch.parent_id);
+          } else {
+            // Product's category_id points to a main category row; resolve subcategory if stored
+            finalCatId = String(directCatMatch.id);
+          }
+        }
+
+        if (resolvedSubcatId) {
+          const subById = categories.find((c: any) => String(c.id) === resolvedSubcatId) as any;
+          if (subById) {
+            if (!subcatCandidate) subcatCandidate = subById.name || "";
+            if (subById.parent_id && !finalCatId) finalCatId = String(subById.parent_id);
+          }
+        }
+
+        if (!resolvedSubcatId && subcatCandidate) {
+          const subByName = categories.find(
+            (c: any) =>
+              c.parent_id &&
+              String(c.name || "").trim().toLowerCase() === String(subcatCandidate).trim().toLowerCase() &&
+              (!finalCatId || String(c.parent_id) === finalCatId)
+          ) as any;
+          if (subByName) {
+            resolvedSubcatId = String(subByName.id);
+            if (!finalCatId && subByName.parent_id) finalCatId = String(subByName.parent_id);
+          }
+        }
+
+        if (!finalCatId && subcatCandidate) {
+          const matchedAny = categories.find((c: any) =>
+            String(c.name || "").toLowerCase().includes(String(subcatCandidate).toLowerCase())
+          ) as any;
+          if (matchedAny?.id) {
+            finalCatId = matchedAny.parent_id ? String(matchedAny.parent_id) : String(matchedAny.id);
+          }
+        }
+      }
+
+      if (!subcatCandidate) {
+        const joinedCatName = Array.isArray(editingProduct.categories)
+          ? editingProduct.categories[0]?.name
+          : editingProduct.categories?.name;
+        const joinedIsMain =
+          finalCatId &&
+          categories?.some(
+            (c: any) => !c.parent_id && String(c.id) === finalCatId && String(c.name || "") === String(joinedCatName || "")
+          );
+        if (joinedCatName && !joinedIsMain) {
+          subcatCandidate = joinedCatName;
+        }
+      }
+
       if (!subcatCandidate && editingProduct.name) {
         const inferredPt = resolveProductTypeConfig("", editingProduct.name);
         if (inferredPt && inferredPt.name && inferredPt.name !== "General Product") {
@@ -528,17 +598,48 @@ export default function CatalogUploadWizardModal({
         }
       }
 
-      let finalCatId = String(editingProduct.category_id || "");
-      if (!finalCatId && categories && categories.length > 0) {
-        const matched = categories.find((c: any) =>
-          subcatCandidate && c.name?.toLowerCase().includes(subcatCandidate.toLowerCase())
-        );
-        if (matched?.id) finalCatId = String(matched.id);
-      }
+      // Restore all dynamic custom attributes saved inside specifications
+      const RESERVED_SPEC_KEYS = new Set([
+        "fabric", "pattern", "fit_type", "sleeve_type", "neck_type", "care_instructions",
+        "target_gender", "weight_grams", "country_of_origin", "manufacturer_same_as_pickup",
+        "manufacturer_name", "manufacturer_address", "manufacturer_pincode",
+        "packer_name", "packer_address", "packer_pincode", "defective_returns_price",
+        "style_code", "package_dimensions", "package_length", "package_width", "package_height",
+        "volumetric_weight", "billable_weight", "estimated_shipping_fee",
+        "is_premium", "is_new_drop", "collection", "target_drop_date", "tier",
+        "size_chart", "default_color", "main_color", "mainColorId", "defaultColorId",
+        "video_proof_url", "category_id", "subcategory_id", "subcategory_name", "subcategory",
+        "custom_attributes",
+      ]);
+      const hydratedCustomAttrs: Record<string, string> = {
+        ...(typeof specs.custom_attributes === "object" && specs.custom_attributes !== null
+          ? specs.custom_attributes
+          : {}),
+      };
+      Object.entries(specs).forEach(([k, v]) => {
+        if (!RESERVED_SPEC_KEYS.has(k) && v !== undefined && v !== null && typeof v !== "object") {
+          if (!(k in hydratedCustomAttrs)) {
+            hydratedCustomAttrs[k] = String(v);
+          }
+        }
+      });
+
+      const resolvedIsPremium =
+        editingProduct.is_premium === true ||
+        editingProduct.tier === "PREMIUM" ||
+        specs.is_premium === true ||
+        specs.is_premium === "true" ||
+        specs.tier === "PREMIUM";
+
+      const resolvedIsNewDrop =
+        editingProduct.is_new_drop === true ||
+        editingProduct.status === "COMING_SOON" ||
+        specs.is_new_drop === true ||
+        specs.is_new_drop === "true";
 
       setForm({
         category_id: finalCatId,
-        subcategory_id: "",
+        subcategory_id: resolvedSubcatId,
         subcategory_name: subcatCandidate,
         images: imgList,
         front_image_index: 0,
@@ -563,6 +664,14 @@ export default function CatalogUploadWizardModal({
         care_instructions: specs.care_instructions || "Machine Wash Cold",
         target_gender: specs.target_gender || "Unisex",
         weight_grams: String(specs.weight_grams || "300"),
+        custom_attributes: hydratedCustomAttrs,
+
+        package_length: String(specs.package_length || specs.package_dimensions?.length || "30"),
+        package_width: String(specs.package_width || specs.package_dimensions?.width || "24"),
+        package_height: String(specs.package_height || specs.package_dimensions?.height || "2.5"),
+        volumetric_weight: String(specs.volumetric_weight || "360"),
+        billable_weight: String(specs.billable_weight || specs.volumetric_weight || "360"),
+        estimated_shipping_fee: Number(specs.estimated_shipping_fee || 62),
 
         country_of_origin: specs.country_of_origin || "India",
         manufacturer_same_as_pickup: specs.manufacturer_same_as_pickup !== undefined
@@ -576,24 +685,23 @@ export default function CatalogUploadWizardModal({
         packer_address: specs.packer_address || "",
         packer_pincode: specs.packer_pincode || "",
 
-        price: String(editingProduct.price || ""),
+        price: String(editingProduct.price ?? ""),
         defective_returns_price: String(specs.defective_returns_price || ""),
-        mrp: String(editingProduct.mrp || editingProduct.price || ""),
+        mrp: String(editingProduct.mrp ?? editingProduct.price ?? ""),
 
         style_code: specs.style_code || "",
-        volumetric_weight: specs.volumetric_weight || "",
         brand: editingProduct.brand || "zebalpha",
-        is_premium: editingProduct.is_premium === true || editingProduct.tier === "PREMIUM",
-        is_new_drop: editingProduct.is_new_drop === true || editingProduct.status === "COMING_SOON",
-        collection: editingProduct.collection || "",
-        target_drop_date: editingProduct.target_drop_date || "",
-        tier: editingProduct.tier || "STANDARD",
+        is_premium: resolvedIsPremium,
+        is_new_drop: resolvedIsNewDrop,
+        collection: editingProduct.collection || specs.collection || "",
+        target_drop_date: editingProduct.target_drop_date || specs.target_drop_date || "",
+        tier: editingProduct.tier || specs.tier || (resolvedIsPremium ? "PREMIUM" : resolvedIsNewDrop ? "DROP" : "STANDARD"),
 
         has_variants: hasVars,
         variants: loadedVariants,
         default_color: (editingProduct as any).default_color || (editingProduct.specifications as any)?.default_color || editingProduct.packages?.[0]?.color || loadedVariants[0]?.color || "",
         main_color: (editingProduct as any).main_color || (editingProduct as any).default_color || (editingProduct.specifications as any)?.main_color || loadedVariants[0]?.color || "",
-        single_stock: (editingProduct.is_new_drop === true || editingProduct.status === "COMING_SOON") ? "0" : String(editingProduct.stock ?? 20),
+        single_stock: resolvedIsNewDrop ? "0" : String(editingProduct.stock ?? 20),
         single_sku: editingProduct.sku || "",
       });
     } else {
@@ -1163,9 +1271,14 @@ export default function CatalogUploadWizardModal({
         normalizedVideoProofUrl = videoCheck.normalizedUrl;
       }
 
-      // Specifications JSON payload
+      // Specifications JSON payload (persists category/subcategory & custom attributes cleanly for Edit hydration!)
       const baseSpecs: Record<string, any> = {
         ...(form.custom_attributes || {}),
+        custom_attributes: form.custom_attributes || {},
+        category_id: form.category_id || "",
+        subcategory_id: form.subcategory_id || "",
+        subcategory_name: form.subcategory_name || "",
+        subcategory: form.subcategory_name || "",
         ...(normalizedVideoProofUrl ? { video_proof_url: normalizedVideoProofUrl } : { video_proof_url: "" }),
         pattern: form.pattern,
         target_gender: form.target_gender,
@@ -1631,7 +1744,7 @@ export default function CatalogUploadWizardModal({
               ) : (
                 <>
                   <UploadCloud className="w-5 h-5 text-emerald-400" />
-                  Upload Product Catalog
+                  {editingProduct ? "Edit Product Catalog" : "Upload Product Catalog"}
                 </>
               )}
             </h2>
@@ -1822,7 +1935,7 @@ export default function CatalogUploadWizardModal({
                         {uploadStatus || "Uploading Catalog..."}
                       </>
                     ) : (
-                      "Submit & Publish Catalog"
+                      editingProduct ? "Save & Update Catalog" : "Submit & Publish Catalog"
                     )}
                   </button>
                 )}

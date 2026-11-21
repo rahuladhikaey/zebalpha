@@ -177,12 +177,42 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
     return "men";
   }, [currentDbMainCat]);
 
-  // Sync active main category if parent categories change
+  // Sync active main category whenever formData.category_id / subcategory hydrates (critical for Edit mode!)
   useEffect(() => {
+    if (formData.category_id && categories && categories.length > 0) {
+      const match = categories.find((c: any) => String(c.id) === String(formData.category_id)) as any;
+      if (match) {
+        const resolvedMainId = match.parent_id ? String(match.parent_id) : String(match.id);
+        if (resolvedMainId && resolvedMainId !== activeMainCatId) {
+          setActiveMainCatId(resolvedMainId);
+          return;
+        }
+      }
+    }
+
+    if (formData.subcategory_id && categories && categories.length > 0) {
+      const subMatch = categories.find((c: any) => String(c.id) === String(formData.subcategory_id)) as any;
+      if (subMatch?.parent_id && String(subMatch.parent_id) !== activeMainCatId) {
+        setActiveMainCatId(String(subMatch.parent_id));
+        return;
+      }
+    }
+
+    if (formData.subcategory_name && categories && categories.length > 0) {
+      const subNameLower = formData.subcategory_name.trim().toLowerCase();
+      const nameMatch = categories.find(
+        (c: any) => c.parent_id && String(c.name || "").trim().toLowerCase() === subNameLower
+      ) as any;
+      if (nameMatch?.parent_id && String(nameMatch.parent_id) !== activeMainCatId) {
+        setActiveMainCatId(String(nameMatch.parent_id));
+        return;
+      }
+    }
+
     if (!activeMainCatId && dbMainCategories.length > 0) {
       setActiveMainCatId(String(dbMainCategories[0].id));
     }
-  }, [dbMainCategories, activeMainCatId]);
+  }, [formData.category_id, formData.subcategory_id, formData.subcategory_name, categories, dbMainCategories, activeMainCatId]);
 
   // Approved subcategories under current main category
   // Locally created subcategories (instantly available without full page reload)
@@ -429,9 +459,20 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
 
   const userExplicitModeChangeRef = useRef(false);
 
-  // Sync mode if category changes to footwear / apparel and user hasn't explicitly set free_size
+  // Sync pricing mode when editing product sizes hydrate OR when category changes (unless user toggled manually)
   useEffect(() => {
     if (userExplicitModeChangeRef.current) return;
+
+    if (formData.selected_sizes && formData.selected_sizes.length > 0) {
+      const isSingleFreeSize =
+        formData.selected_sizes.length === 1 && formData.selected_sizes[0] === "Free Size";
+      const targetMode = isSingleFreeSize ? "free_size" : "size_variants";
+      if (pricingMode !== targetMode) {
+        setPricingMode(targetMode);
+      }
+      return;
+    }
+
     const mainLower = (currentDbMainCat?.slug || currentDbMainCat?.name || "").toLowerCase();
     const subLower = (formData.subcategory_name || "").toLowerCase();
     const isSizedCategory =
@@ -450,7 +491,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
       subLower.includes("pant") ||
       subLower.includes("jean");
 
-    if (isSizedCategory && pricingMode !== "size_variants" && (!formData.selected_sizes || formData.selected_sizes.length === 0 || (formData.selected_sizes.length === 1 && formData.selected_sizes[0] === "Free Size"))) {
+    if (isSizedCategory && pricingMode !== "size_variants") {
       setPricingMode("size_variants");
     }
   }, [currentDbMainCat, formData.subcategory_name, pricingMode, formData.selected_sizes]);
