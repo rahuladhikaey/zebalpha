@@ -183,16 +183,45 @@ export default function SellerProducts() {
         sellerIdsToQuery.push(resolvedSellerId);
       }
 
-      // SLIM VIEWPORT FIELDS: include all necessary catalog columns to prevent data starvation on edit
-      const SLIM_SELLER_FIELDS = "id, name, price, mrp, stock, low_stock_limit, sku, image_url, images, category_id, description, packages, brand, status, is_active, is_approved, approval_status, specifications, seller_id, created_at, categories(id, name, main_category)";
+      // Fetch seller products reliably (Primary: server API bypassing RLS + never dropping specifications/video_proof_url)
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {};
+      if (session?.access_token) authHeaders["Authorization"] = `Bearer ${session.access_token}`;
 
-      // PARALLEL EXECUTION: Fetch products, categories, and curated collections concurrently
-      const [productsRes, categoriesRes, curatedRes] = await Promise.all([
-        supabase
+      const fetchProductsSafe = async (): Promise<any[]> => {
+        try {
+          const apiRes = await fetch("/api/products", { headers: authHeaders, cache: "no-store" });
+          if (apiRes.ok) {
+            const apiJson = await apiRes.json();
+            if (apiJson?.success && Array.isArray(apiJson.products)) {
+              return apiJson.products;
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Notice fetching /api/products, falling back to Supabase client:", apiErr);
+        }
+
+        const SLIM_SELLER_FIELDS = "id, name, price, mrp, stock, low_stock_limit, sku, image_url, images, video_proof_url, category_id, description, packages, brand, status, is_active, is_approved, approval_status, specifications, seller_id, created_at, categories(id, name, parent_id)";
+        const primary = await supabase
           .from("products")
           .select(SLIM_SELLER_FIELDS)
           .in("seller_id", sellerIdsToQuery)
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false });
+
+        if (!primary.error && primary.data) return primary.data;
+
+        const fallbackWithSpecs = await supabase
+          .from("products")
+          .select("id, name, price, mrp, stock, low_stock_limit, sku, image_url, images, category_id, description, packages, brand, status, is_active, specifications, seller_id, created_at")
+          .in("seller_id", sellerIdsToQuery)
+          .order("created_at", { ascending: false });
+
+        return fallbackWithSpecs.data || [];
+      };
+
+      // PARALLEL EXECUTION: Fetch products, categories, and curated collections concurrently
+      const [productsData, categoriesRes, curatedRes] = await Promise.all([
+        fetchProductsSafe(),
         supabase
           .from("categories")
           .select("id, name, slug, parent_id, icon_key, icon_url, display_order, is_active, show_in_navigation")
@@ -204,17 +233,6 @@ export default function SellerProducts() {
           .eq("is_active", true)
           .order("display_order", { ascending: true })
       ]);
-
-      let productsData: any[] = (productsRes.data as any[]) || [];
-      if (productsRes.error) {
-        console.warn("Notice fetching slim fields, retrying with core fields:", productsRes.error.message);
-        const { data: fallbackProducts } = await supabase
-          .from("products")
-          .select("id, name, price, mrp, stock, sku, image_url, images, category_id, description, packages, brand, status, is_active, seller_id, created_at")
-          .in("seller_id", sellerIdsToQuery)
-          .order("created_at", { ascending: false });
-        if (fallbackProducts) productsData = fallbackProducts;
-      }
 
       const curatedItems = (curatedRes?.data || []).map((c: any) => ({
         id: c.id,
@@ -248,13 +266,18 @@ export default function SellerProducts() {
       const mappedProducts: Product[] = productsData
         .filter((p: any) => String(p.status || "").toUpperCase() !== "DELETED")
         .map((p: any) => {
-        const specs = p.specifications || {};
-        const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium") || (p.name || "").toLowerCase().includes("supima");
-        const isDrop = p.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON" || p.tier === "DROP";
+        const specs = typeof p.specifications === "string"
+          ? (() => { try { return JSON.parse(p.specifications); } catch { return {}; } })()
+          : (p.specifications || {});
+        const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === "true" || specs.is_premium === true || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium") || (p.name || "").toLowerCase().includes("supima");
+        const isDrop = p.is_new_drop === true || specs.is_new_drop === "true" || specs.is_new_drop === true || p.status === "COMING_SOON" || p.tier === "DROP";
         const coll = p.collection || specs.collection || "";
         const dropDate = p.target_drop_date || p.drop_date || specs.target_drop_date || "";
+        const resolvedVideoUrl = String(p.video_proof_url || specs.video_proof_url || "").trim();
         return {
           ...p,
+          specifications: specs,
+          video_proof_url: resolvedVideoUrl,
           stock: isDrop ? 0 : (p.stock ?? 0),
           is_premium: isPrem,
           is_new_drop: isDrop,
@@ -382,12 +405,21 @@ export default function SellerProducts() {
 
     if (!resolvedFullProduct) {
       try {
-        const { data: fullProduct } = await supabase
+        const { data: fullProduct, error: fullErr } = await supabase
           .from("products")
-          .select("*, categories(id, name, main_category)")
+          .select("*, categories(id, name, parent_id)")
           .eq("id", product.id)
           .maybeSingle();
-        if (fullProduct) resolvedFullProduct = fullProduct;
+        if (!fullErr && fullProduct) {
+          resolvedFullProduct = fullProduct;
+        } else {
+          const { data: plainProduct } = await supabase
+            .from("products")
+            .select("*")
+            .eq("id", product.id)
+            .maybeSingle();
+          if (plainProduct) resolvedFullProduct = plainProduct;
+        }
       } catch (err) {
         console.error("Failed to load full product for edit:", err);
       }

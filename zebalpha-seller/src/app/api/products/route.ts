@@ -644,12 +644,24 @@ export async function GET(req: NextRequest) {
     const singleProductId = searchParams.get("id") || searchParams.get("productId");
 
     if (singleProductId) {
-      const { data: singleProd } = await supabaseServer
+      let { data: singleProd, error: singleErr } = await supabaseServer
         .from("products")
-        .select("*, categories(id, name, slug, parent_id, main_category)")
+        .select("*, categories(id, name, slug, parent_id)")
         .eq("id", singleProductId)
         .in("seller_id", sellerIds)
         .maybeSingle();
+
+      if (singleErr || !singleProd) {
+        const fallbackSingle = await supabaseServer
+          .from("products")
+          .select("*")
+          .eq("id", singleProductId)
+          .in("seller_id", sellerIds)
+          .maybeSingle();
+        if (fallbackSingle.data) {
+          singleProd = fallbackSingle.data;
+        }
+      }
 
       return NextResponse.json({
         success: Boolean(singleProd),
@@ -657,11 +669,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const { data: products, error } = await supabaseServer
+    let { data: products, error } = await supabaseServer
       .from("products")
-      .select("*, categories(name)")
+      .select("*, categories(id, name, slug, parent_id)")
       .in("seller_id", sellerIds)
       .order("created_at", { ascending: false });
+
+    if (error) {
+      const fallbackList = await supabaseServer
+        .from("products")
+        .select("*")
+        .in("seller_id", sellerIds)
+        .order("created_at", { ascending: false });
+      products = fallbackList.data;
+      error = fallbackList.error;
+    }
 
     if (error) {
       return NextResponse.json({ success: true, products: [] });

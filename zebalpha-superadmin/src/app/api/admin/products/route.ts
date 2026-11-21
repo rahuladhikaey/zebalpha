@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   try {
     await requireSuperAdmin(req);
 
-    const VALID_ADMIN_PRODUCT_FIELDS = "id, name, slug, description, price, mrp, stock, low_stock_limit, status, is_premium, is_new_drop, tier, collection, target_drop_date, is_active, is_approved, approval_status, category_id, brand, seller_id, created_at, updated_at, image_url, images, specifications, packages";
+    const VALID_ADMIN_PRODUCT_FIELDS = "id, name, slug, description, price, mrp, stock, low_stock_limit, status, is_premium, is_new_drop, tier, collection, target_drop_date, is_active, is_approved, approval_status, category_id, brand, seller_id, created_at, updated_at, image_url, images, video_proof_url, specifications, packages";
 
     let { data: products, error } = await supabaseServer
       .from("products")
@@ -45,6 +45,7 @@ export async function GET(req: Request) {
       .filter((p: any) => String(p.status || "").toUpperCase() !== "DELETED")
       .map((p: any) => ({
         ...p,
+        video_proof_url: p.video_proof_url || p.specifications?.video_proof_url || "",
         thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || ""
       }));
 

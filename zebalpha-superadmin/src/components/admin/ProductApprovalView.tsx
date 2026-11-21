@@ -92,7 +92,7 @@ export default function ProductApprovalView({
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, specifications, created_at";
+      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, video_proof_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, specifications, created_at";
       const SLIM_SELLER_FIELDS = "id, user_id, seller_id, seller_code, business_name, shop_name, name, full_name, owner_name";
 
       let productsList: any[] = [];

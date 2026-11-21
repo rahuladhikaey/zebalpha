@@ -689,7 +689,19 @@ export default function CatalogUploadWizardModal({
         defective_returns_price: String(specs.defective_returns_price || ""),
         mrp: String(editingProduct.mrp ?? editingProduct.price ?? ""),
 
-        style_code: specs.style_code || "",
+        style_code: (() => {
+          const explicitCode = String(specs.style_code || specs.styleCode || "").trim();
+          if (explicitCode) return explicitCode;
+          const rawSku = String(editingProduct.sku || "").trim();
+          if (rawSku && rawSku !== "MULTI_VARIANT" && !/^SKU_\d{10,}$/i.test(rawSku)) {
+            return rawSku;
+          }
+          const firstPkgSku = String(existingPackages[0]?.sku || "").trim();
+          if (firstPkgSku && !/^SKU_\d{10,}$/i.test(firstPkgSku)) {
+            return firstPkgSku.replace(/[-_](XS|S|M|L|XL|XXL|3XL|4XL|FREE[\s_]?SIZE|\d{2})$/i, "") || firstPkgSku;
+          }
+          return "";
+        })(),
         brand: editingProduct.brand || "zebalpha",
         is_premium: resolvedIsPremium,
         is_new_drop: resolvedIsNewDrop,
