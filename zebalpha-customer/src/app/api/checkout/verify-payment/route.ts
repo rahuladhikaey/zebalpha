@@ -4,6 +4,7 @@ import { sendWhatsAppOrderConfirmation } from "@/lib/whatsapp";
 import { createMasterOrder } from "@/lib/orderRouter";
 import { recordOrderPurchaseEvents } from "@/lib/recommendationEngine";
 import { verifyCheckoutPricingServer } from "@/lib/firstOrderOfferServer";
+import { sendFcmPushServer } from "@/lib/fcmPushServer";
 import crypto from "crypto";
 
 function verifySignature(orderId: string, paymentId: string, signature: string, secret: string): boolean {
@@ -314,6 +315,17 @@ export async function POST(req: Request) {
         body?.platform ||
         (req.headers.get("user-agent")?.includes("ZEBALPHA_ANDROID_APP") ? "android" : "website"),
     }).catch(() => {});
+
+    if (user_id) {
+      sendFcmPushServer({
+        title: "Payment Received & Order Confirmed! 🎉",
+        body: `Your ZEBALPHA order #${createdOrder?.order_number || orderIdToReturn} (₹${authoritativeTotal}) is confirmed. Tap to track live.`,
+        url: "/profile/orders",
+        tag: `order-${orderIdToReturn}`,
+        target: "user",
+        userId: String(user_id),
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

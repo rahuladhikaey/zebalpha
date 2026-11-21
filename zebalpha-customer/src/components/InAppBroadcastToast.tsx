@@ -80,13 +80,13 @@ export function InAppBroadcastToast() {
   const checkLatestBroadcast = useCallback(async () => {
     if (typeof document !== "undefined" && document.hidden) return;
     try {
-      const res = await fetch("/api/notifications/latest");
+      const res = await fetch("/api/notifications/latest", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
 
       if (data.success && data.latest?.id) {
         const latestId = String(data.latest.id);
-        const storedLastSeenId = localStorage.getItem("last_seen_broadcast_id");
+        const storedTrayId = localStorage.getItem("last_tray_broadcast_id");
 
         // Check if broadcast is fresh (created within the last 24 hours)
         const isFresh = data.latest.created_at
@@ -94,8 +94,8 @@ export function InAppBroadcastToast() {
           : true;
 
         // First visit: if the latest broadcast is fresh, display it so new/re-opened sessions don't miss it!
-        if (!storedLastSeenId && !lastProcessedIdRef.current) {
-          localStorage.setItem("last_seen_broadcast_id", latestId);
+        if (!storedTrayId && !lastProcessedIdRef.current) {
+          localStorage.setItem("last_tray_broadcast_id", latestId);
           lastProcessedIdRef.current = latestId;
           if (isFresh) {
             displayNotification(data.latest);
@@ -104,9 +104,9 @@ export function InAppBroadcastToast() {
         }
 
         // New broadcast detected!
-        if (latestId !== storedLastSeenId && latestId !== lastProcessedIdRef.current) {
+        if (latestId !== storedTrayId && latestId !== lastProcessedIdRef.current) {
           lastProcessedIdRef.current = latestId;
-          localStorage.setItem("last_seen_broadcast_id", latestId);
+          localStorage.setItem("last_tray_broadcast_id", latestId);
           displayNotification(data.latest);
         }
       }
@@ -119,23 +119,28 @@ export function InAppBroadcastToast() {
     // Initial check
     checkLatestBroadcast();
 
-    // Check on tab focus / visibility change (e.g. user unlocks phone or switches back to tab)
+    // Check on tab focus / visibility change (e.g. user unlocks phone or switches back to app)
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         checkLatestBroadcast();
       }
     };
+    const handleFocus = () => {
+      checkLatestBroadcast();
+    };
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
 
-    // Relaxed polling interval (every 5 minutes when visible; instant delivery uses Push / FCM)
+    // Responsive 20s foreground sync (background/closed-app alerts arrive instantaneously via FCM HTTP v1)
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && !document.hidden) {
         checkLatestBroadcast();
       }
-    }, 300000);
+    }, 20000);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
       clearInterval(interval);
     };
   }, [checkLatestBroadcast]);

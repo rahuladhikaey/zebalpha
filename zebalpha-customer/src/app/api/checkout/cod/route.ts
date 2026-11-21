@@ -4,6 +4,7 @@ import { sendWhatsAppOrderConfirmation } from "@/lib/whatsapp";
 import { createMasterOrder } from "@/lib/orderRouter";
 import { recordOrderPurchaseEvents } from "@/lib/recommendationEngine";
 import { verifyCheckoutPricingServer } from "@/lib/firstOrderOfferServer";
+import { sendFcmPushServer } from "@/lib/fcmPushServer";
 
 
 // In-memory concurrency lock to prevent millisecond-level duplicate submissions
@@ -224,6 +225,18 @@ export async function POST(req: Request) {
         bodyPlatform ||
         (req.headers.get("user-agent")?.includes("ZEBALPHA_ANDROID_APP") ? "android" : "website"),
     }).catch(() => {});
+
+    // Send phone push notification for order confirmation (non-blocking)
+    if (user_id) {
+      sendFcmPushServer({
+        title: "Order Confirmed! 🎉",
+        body: `Your ZEBALPHA COD order #${parentOrder.order_number} (₹${authoritativeTotal}) is placed. Tap to track live.`,
+        url: "/profile/orders",
+        tag: `order-${parentOrder.id}`,
+        target: "user",
+        userId: String(user_id),
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, orderId: parentOrder.id, orderNumber: parentOrder.order_number });
   } catch (error: unknown) {

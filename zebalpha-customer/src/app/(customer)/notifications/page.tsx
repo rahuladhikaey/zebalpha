@@ -53,6 +53,11 @@ export default function NotificationsPage() {
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
       refreshNotificationStatus();
+      // Ensure this device's FCM token is actively synced to Supabase whenever user visits Notifications
+      const native = getZebAlphaNative();
+      if (native && getNativeNotificationStatus()?.enabled) {
+        void initPushNotifications();
+      }
     });
 
     const onStatusUpdate = () => {
@@ -185,13 +190,30 @@ export default function NotificationsPage() {
               </div>
             </div>
             {hasNativeBridge && (
-              <button
-                type="button"
-                onClick={() => getZebAlphaNative()?.openNotificationSettings?.()}
-                className="shrink-0 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-[11px] font-bold text-zinc-200 transition-colors cursor-pointer"
-              >
-                Settings
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const native = getZebAlphaNative();
+                    native?.showNotification?.(
+                      "ZebAlpha Test Alert",
+                      "Your phone notification tray is working properly!",
+                      "/notifications"
+                    );
+                    void initPushNotifications();
+                  }}
+                  className="rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 px-2.5 py-1.5 text-[11px] font-bold text-amber-300 transition-colors cursor-pointer"
+                >
+                  Test Alert
+                </button>
+                <button
+                  type="button"
+                  onClick={() => getZebAlphaNative()?.openNotificationSettings?.()}
+                  className="rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-[11px] font-bold text-zinc-200 transition-colors cursor-pointer"
+                >
+                  Settings
+                </button>
+              </div>
             )}
           </div>
         ) : notifEnabled === false ? (

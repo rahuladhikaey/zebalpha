@@ -668,6 +668,7 @@ public class MainActivity extends BridgeActivity {
 
     private void fetchAndDispatchFcmToken() {
         try {
+            ZebAlphaFirebaseMessagingService.subscribeToDefaultTopics();
             FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
                 if (!task.isSuccessful()) {
                     Log.w(TAG, "Fetching FCM registration token failed", task.getException());

@@ -83,21 +83,40 @@ export function NotificationPermissionPrompt() {
     };
   }, []);
 
-  // Keep FCM tokens synced automatically whenever Android dispatches a new or refreshed token
+  // Keep FCM tokens synced automatically to server at least once per session whenever Android dispatches or caches a token
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    const syncTokenToServer = (token: string | null | undefined) => {
+      if (!token || token.trim().length < 20) return;
+      const clean = token.trim();
+      const syncedThisSession = sessionStorage.getItem("zebalpha_fcm_synced_token");
+      if (syncedThisSession === clean) return;
+      sessionStorage.setItem("zebalpha_fcm_synced_token", clean);
+      void saveDeviceToken({
+        token: clean,
+        platform: "android",
+        topics: ["all", "new_drops", "orders"],
+      });
+    };
+
     const onFcmToken = (e: Event) => {
       const token = (e as CustomEvent<{ token?: string }>).detail?.token;
-      if (!token) return;
-      const previous = localStorage.getItem("zebalpha_fcm_token");
-      if (token !== previous) {
-        void saveDeviceToken({
-          token,
-          platform: "android",
-          topics: ["all", "new_drops", "orders"],
-        });
-      }
+      syncTokenToServer(token);
     };
+
+    // Proactively trigger native token sync on mount if notifications are already enabled
+    const native = getZebAlphaNative();
+    if (native) {
+      const status = getNativeNotificationStatus();
+      if (status?.enabled && typeof native.getFcmToken === "function") {
+        const cachedNativeToken = native.getFcmToken();
+        if (cachedNativeToken) {
+          syncTokenToServer(cachedNativeToken);
+        }
+      }
+    }
+
     window.addEventListener("zebalpha:fcm-token", onFcmToken);
     return () => {
       window.removeEventListener("zebalpha:fcm-token", onFcmToken);
