@@ -388,87 +388,97 @@ export function SellerLandingPage() {
               </div>
             </div>
 
-            {/* Hero Right Visual: Growth Chart + Location Pins + Studio Seller Portrait */}
-            <div className="relative flex items-end justify-center lg:justify-end min-h-[300px] sm:min-h-[370px]">
-              {/* Decorative Rising Coral-Gold Growth Bars + Curve (left-behind portrait) */}
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 420 260"
-                className="pointer-events-none absolute left-0 bottom-2 w-[78%] max-w-[380px] z-10 hidden sm:block"
-              >
-                <defs>
-                  <linearGradient id="growthArrowGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#F5B922" />
-                    <stop offset="100%" stopColor="#F03A46" />
-                  </linearGradient>
-                </defs>
-                {/* Dotted axis */}
-                <line
-                  x1="20"
-                  y1="230"
-                  x2="380"
-                  y2="230"
-                  stroke="#F03A46"
-                  strokeOpacity="0.28"
-                  strokeWidth="1.5"
-                  strokeDasharray="4 4"
-                />
-                <line
-                  x1="20"
-                  y1="50"
-                  x2="20"
-                  y2="230"
-                  stroke="#F03A46"
-                  strokeOpacity="0.28"
-                  strokeWidth="1.5"
-                  strokeDasharray="4 4"
-                />
-                {/* Crisp White Growth Bars */}
-                <rect x="52" y="180" width="20" height="50" rx="5" fill="#FFFFFF" opacity="0.92" />
-                <rect x="112" y="140" width="20" height="90" rx="5" fill="#FFFFFF" opacity="0.92" />
-                <rect x="172" y="110" width="20" height="120" rx="5" fill="#FFFFFF" opacity="0.92" />
-                <rect x="232" y="65" width="20" height="165" rx="5" fill="#FFFFFF" opacity="0.92" />
-                {/* Sweeping Growth Curve */}
-                <path
-                  d="M 56 176 Q 130 120 190 112 T 288 28"
-                  fill="none"
-                  stroke="url(#growthArrowGrad)"
-                  strokeWidth="4.5"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M 276 26 L 292 24 L 288 40"
-                  fill="none"
-                  stroke="#F03A46"
-                  strokeWidth="4.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-
-              {/* Floating Pin Badges */}
+            {/* Hero Right Visual: Glowing Pan-India 28,000+ Pincodes Map + Transparent ZebAlpha Seller Cutout */}
+            <div className="relative flex items-end justify-center lg:justify-end min-h-[370px] sm:min-h-[440px] lg:min-h-[480px] pt-8 sm:pt-6">
+              {/* Soft Golden Radial Halo behind India Map */}
               <div
                 aria-hidden="true"
-                className="pointer-events-none hidden sm:flex absolute left-10 top-12 z-20 items-center gap-1.5 rounded-full bg-white/95 border border-[#EAD296] px-3 py-1.5 text-[11px] font-extrabold text-[#14120F] shadow-md"
+                className="pointer-events-none absolute left-1/2 -translate-x-1/2 lg:left-4 lg:translate-x-0 top-6 h-[320px] w-[320px] sm:h-[400px] sm:w-[400px] rounded-full bg-gradient-to-tr from-[#FCE89C]/45 via-[#FFD6CC]/35 to-transparent blur-2xl z-0"
+              />
+
+              {/* Official India Map Highlighting 28,000+ Serviceable Pincodes */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-1/2 -translate-x-[58%] sm:-translate-x-[56%] lg:left-[-28px] lg:translate-x-0 bottom-2 sm:bottom-3 w-[310px] sm:w-[410px] lg:w-[455px] z-10 select-none"
               >
-                <MapPin size={13} className="text-[#F03A46]" />
-                <span>28,000+ Pincodes</span>
+                <div className="relative w-full">
+                  <img
+                    src="/images/india-pincodes-map.jpg"
+                    alt="India Map showing 28,000+ ZebAlpha serviceable delivery pincodes across India"
+                    className="w-full h-auto object-contain mix-blend-multiply opacity-95"
+                  />
+
+                  {/* Animated Live Radar Pulse Rings on Major Pan-India Pincode Hubs */}
+                  {[
+                    { top: "19%", left: "28%", label: "North" },
+                    { top: "33%", left: "35%", label: "Delhi NCR" },
+                    { top: "47%", left: "18%", label: "Gujarat" },
+                    { top: "58%", left: "22%", label: "Mumbai" },
+                    { top: "48%", left: "70%", label: "Kolkata" },
+                    { top: "38%", left: "84%", label: "Northeast" },
+                    { top: "74%", left: "36%", label: "South" },
+                  ].map((hub, idx) => (
+                    <span
+                      key={hub.label}
+                      style={{ top: hub.top, left: hub.left, animationDelay: `${idx * 240}ms` }}
+                      className="absolute flex h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2"
+                    >
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F03A46] opacity-55" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 m-auto bg-[#F03A46] ring-2 ring-white/90" />
+                    </span>
+                  ))}
+                </div>
               </div>
 
+              {/* Floating Callout Badge: 28,000+ Pincodes Across India */}
               <div
                 aria-hidden="true"
-                className="pointer-events-none hidden sm:flex absolute right-2 top-8 z-20 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#FFF8DB] to-[#FCE89C] border border-[#DFBE6F] px-3 py-1.5 text-[11px] font-black text-[#8A5A00] shadow-md"
+                className="pointer-events-none flex absolute left-1 sm:left-2 lg:-left-6 top-2 sm:top-5 z-30 items-center gap-2.5 rounded-2xl bg-white/96 backdrop-blur-md border-[1.5px] border-[#DFBE6F] px-3.5 py-2 shadow-[0_10px_28px_rgba(240,58,70,0.16)]"
+              >
+                <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#F03A46] to-[#FF5757] text-white shadow-sm">
+                  <MapPin size={16} />
+                  <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F5B922] opacity-80" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F5B922] border border-white" />
+                  </span>
+                </span>
+                <div className="leading-tight">
+                  <span className="block text-xs sm:text-[13px] font-black text-[#14120F]">
+                    28,000+ Pincodes
+                  </span>
+                  <span className="block text-[9.5px] sm:text-[10px] font-extrabold uppercase tracking-wider text-[#F03A46]">
+                    Pan-India Delivery
+                  </span>
+                </div>
+              </div>
+
+              {/* Floating Top-Right Badge: 0% Commission */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none flex absolute right-1 sm:right-2 top-3 sm:top-6 z-30 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#FFF8DB] to-[#FCE89C] border border-[#DFBE6F] px-3 sm:px-3.5 py-1.5 text-[10.5px] sm:text-[11px] font-black text-[#8A5A00] shadow-md"
               >
                 <BadgePercent size={13} className="text-[#F03A46]" />
                 <span>0% Commission</span>
               </div>
 
-              {/* Studio Seller Portrait */}
-              <div className="relative z-20 w-full max-w-[520px] overflow-hidden rounded-t-3xl lg:rounded-t-none">
+              {/* Floating Lower-Left Trust Chip: 5-Day Safe UPI Payouts */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none hidden sm:flex absolute left-0 lg:-left-4 bottom-6 z-30 items-center gap-2 rounded-2xl bg-white/95 backdrop-blur-md border border-[#EAD296] px-3.5 py-2 shadow-[0_10px_24px_rgba(166,124,28,0.14)]"
+              >
+                <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                <div className="leading-tight">
+                  <span className="block text-[11px] font-black text-[#14120F]">5-Day UPI Payouts</span>
+                  <span className="block text-[9.5px] font-bold text-[#6E5C3D]">No Bank A/C, PAN or Aadhaar</span>
+                </div>
+              </div>
+
+              {/* Transparent Cutout Studio Seller Portrait (Zero Rectangular Box Edge!) */}
+              <div className="relative z-20 ml-auto mr-0 sm:mr-2 lg:mr-1 w-[215px] sm:w-[265px] lg:w-[295px] flex items-end justify-end">
                 <img
-                  src="/images/seller-hero.jpg"
-                  alt="Smiling ZebAlpha Indian seller holding shipping boxes"
-                  className="w-full h-auto object-contain object-bottom mix-blend-multiply select-none"
+                  src="/images/seller-hero-cutout.png"
+                  alt="Smiling ZebAlpha Indian seller holding official ZebAlpha branded shipping boxes across India"
+                  className="w-full h-auto object-contain object-bottom drop-shadow-[0_14px_24px_rgba(110,60,15,0.18)] select-none"
                 />
               </div>
             </div>
