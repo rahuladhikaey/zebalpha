@@ -16,12 +16,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	title: "Sell Online on ZebAlpha | 0% Commission Seller Hub",
 	description:
-		"Become a ZebAlpha seller and sell online across India at 0% commission, zero penalty charges, fast 7-day bank payouts, and 28,000+ serviceable pincodes.",
+		"Become a ZebAlpha seller and sell online across India at 0% commission, zero penalty charges, fast 5-day direct UPI payouts (no bank account, PAN, or Aadhaar needed), and 28,000+ serviceable pincodes.",
 	metadataBase: new URL("https://seller.zebalpha.shop"),
 	openGraph: {
 		title: "Sell Online on ZebAlpha | 0% Commission Seller Hub",
 		description:
-			"Grow your apparel & fashion business across India on ZebAlpha with 0% commission, Pan-India shipping, and easy GST / Non-GST onboarding.",
+			"Grow your apparel & fashion business across India on ZebAlpha with 0% commission, 5-day safe UPI payouts (no bank account, PAN, or Aadhaar required), and Pan-India shipping.",
 		url: "https://seller.zebalpha.shop",
 		siteName: "ZebAlpha Seller Hub",
 		locale: "en_IN",

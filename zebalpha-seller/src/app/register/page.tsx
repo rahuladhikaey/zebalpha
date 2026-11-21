@@ -242,7 +242,7 @@ function SellerRegisterContent() {
 
     // 2. Register Merchant Credentials via Server-Verified Endpoint (with cryptographic signupToken)
     try {
-      const finalUpi = upiId.trim() || `${mobileNumber.trim()}@phonepe`;
+      const finalUpi = upiId.trim() || `${mobileNumber.trim()}@upi`;
       const finalPickupAddress = pickupAddress.trim();
       const finalCity = city.trim();
       const finalState = state.trim();
@@ -361,8 +361,8 @@ function SellerRegisterContent() {
               className="h-10 w-10 rounded-full object-cover border-2 border-[#DFBE6F] shadow-sm"
             />
             <div className="leading-tight">
-              <span className="block text-base sm:text-lg font-black tracking-tight text-[#14120F]">
-                ZEB<span className="text-[#F03A46]">ALPHA</span>
+              <span className="block text-base sm:text-lg font-black tracking-tight text-[#000000]">
+                ZEBALPHA
               </span>
               <span className="block text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#9A6503]">
                 Seller Registration
@@ -423,7 +423,7 @@ function SellerRegisterContent() {
                 </h1>
                 <p className="text-xs sm:text-sm font-medium text-[#5C4E35] mt-1">
                   {step === "info" &&
-                    "Start selling across 28,000+ Indian pincodes with 0% commission & direct 7-day payouts."}
+                    "No Bank Account No., PAN, or Aadhaar required — start selling at 0% commission with safe 5-day direct UPI payouts."}
                   {step === "otp" && `Enter the 6-digit security code sent to ${email}`}
                 </p>
               </div>
@@ -568,25 +568,28 @@ function SellerRegisterContent() {
                   </div>
                 </div>
 
-                {/* Payout UPI ID */}
+                {/* Payout UPI ID / UPI Number (No Bank Account / PAN / Aadhaar Needed) */}
                 <div>
-                  <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#4A3F2B] mb-1.5 flex items-center justify-between">
+                  <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#4A3F2B] mb-1.5 flex items-center justify-between gap-2 flex-wrap">
                     <span className="flex items-center gap-1.5 text-emerald-700">
                       <CreditCard size={13} />
-                      <span>Payout UPI ID / Bank UPI *</span>
+                      <span>Payout UPI ID / UPI Number *</span>
                     </span>
                     <span className="text-[10px] text-[#7A6847] font-semibold normal-case">
-                      For 7-day direct bank transfers
+                      No Bank A/C, PAN or Aadhaar needed • Safe 5-day UPI payouts
                     </span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. yourshop@ybl or 9876543210@paytm"
+                    placeholder="e.g. yourshop@upi or 9876543210@upi"
                     value={upiId}
                     onChange={(e) => setUpiId(e.target.value)}
                     className="w-full rounded-2xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-4 py-3 text-sm font-mono font-bold text-[#14120F] placeholder:text-[#9C8B6B] outline-none focus:border-[#F03A46] focus:bg-white transition-all"
                   />
+                  <p className="mt-1.5 text-[11px] font-medium text-[#6E5C3D]">
+                    100% Private &amp; Safe: Your income is transferred directly to your UPI ID / UPI Number within 5 days of delivery.
+                  </p>
                 </div>
 
                 {/* Pickup / Warehouse Location */}
@@ -816,9 +819,9 @@ function SellerRegisterContent() {
                   <span className="text-[#14120F] font-extrabold">{shopName}</span> is now registered under{" "}
                   <span className="text-[#9A6503] font-extrabold">{businessCategory}</span>. Direct payouts will route to{" "}
                   <span className="text-emerald-700 font-mono font-bold">
-                    {upiId || `${mobileNumber}@phonepe`}
+                    {upiId || `${mobileNumber}@upi`}
                   </span>
-                  .
+                  {" "}within 5 days of delivery.
                 </p>
                 <div className="pt-4 flex flex-wrap justify-center gap-3">
                   <Link

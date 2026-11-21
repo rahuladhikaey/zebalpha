@@ -66,7 +66,7 @@ export default function Step3AdditionalDetails({ formData, onChange }: Step3Prop
               Automated Package Dimensions & Billable Weight
             </span>
             <span className="text-[11px] text-zinc-400">
-              Calculated dynamically via Shiprocket & Flipkart standard in Step 2.
+              Calculated dynamically via ZebAlpha Logistics standard in Step 2.
             </span>
           </div>
           <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg self-start sm:self-auto">

@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@shared/utils/supabaseClient";
 import type { Order, Product } from "@shared/types";
-import { 
-  Receipt, 
-  Package, 
-  User, 
-  MapPin, 
+import {
+  Receipt,
+  Package,
+  User,
+  MapPin,
   Calendar,
   ChevronDown,
   ChevronRight,
@@ -179,7 +179,7 @@ export default function SellerOrders() {
           .eq("seller_id", user.id);
         productsData = pDataFallback || [];
       }
-      
+
       const sProducts = (productsData || []) as Product[];
       setSellerProducts(sProducts);
       const sellerProductIdSet = new Set(sProducts.map(p => String(p.id)));
@@ -234,7 +234,7 @@ export default function SellerOrders() {
           .order("created_at", { ascending: false })
           .limit(100);
         if (rOrders) recentFallbackOrders = rOrders;
-      } catch (_) {}
+      } catch (_) { }
 
       // Merge and deduplicate by order id
       const orderMap = new Map<string, any>();
@@ -247,8 +247,8 @@ export default function SellerOrders() {
       const filteredOrders: any[] = [];
       allOrders.forEach(order => {
         try {
-          const isDirectSellerOrder = 
-            order.seller_id === user.id || 
+          const isDirectSellerOrder =
+            order.seller_id === user.id ||
             (sProfile?.id && order.seller_id === sProfile.id) ||
             linkedParentOrderIds.has(String(order.id)) ||
             (order.order_number && linkedParentOrderIds.has(String(order.order_number)));
@@ -273,20 +273,20 @@ export default function SellerOrders() {
             sellerItems = rawItems.filter((item: any) => {
               const pId = String(item.product_id || item.id || "");
               const itSeller = item.seller_id;
-              return sellerProductIdSet.has(pId) || 
-                itSeller === user.id || 
+              return sellerProductIdSet.has(pId) ||
+                itSeller === user.id ||
                 (sProfile?.id && itSeller === sProfile.id);
             });
           }
-          
+
           // Only include orders that belong to this seller or contain this seller's products
-          const finalItems = sellerItems.length > 0 
-            ? sellerItems 
+          const finalItems = sellerItems.length > 0
+            ? sellerItems
             : (isDirectSellerOrder ? rawItems : (sellerProductIdSet.size === 0 ? rawItems : []));
 
           if (finalItems.length === 0) return;
 
-          const rawGross = finalItems.reduce((sum: number, item: any) => 
+          const rawGross = finalItems.reduce((sum: number, item: any) =>
             sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
           const orderTotalAmt = Number(order.total_amount) || 0;
           const explicitDiscount = Number((order as any).discount_amount) || 0;
@@ -340,15 +340,15 @@ export default function SellerOrders() {
 
         // Generate root order key by stripping any -S0, -SO1 suborder suffixes
         const rootOrderNum = ordNum.replace(/-S\d+$/i, "").replace(/-SO\d+$/i, "");
-        const dedupeKey = ord.razorpay_payment_id 
-          ? `rzp:${ord.razorpay_payment_id}` 
-          : ord.razorpay_order_id 
-          ? `rzpo:${ord.razorpay_order_id}`
-          : (ord.parent_order_id && ord.parent_order_id !== ord.id)
-          ? `parent:${ord.parent_order_id}`
-          : rootOrderNum 
-          ? `num:${rootOrderNum}` 
-          : `id:${ordId}`;
+        const dedupeKey = ord.razorpay_payment_id
+          ? `rzp:${ord.razorpay_payment_id}`
+          : ord.razorpay_order_id
+            ? `rzpo:${ord.razorpay_order_id}`
+            : (ord.parent_order_id && ord.parent_order_id !== ord.id)
+              ? `parent:${ord.parent_order_id}`
+              : rootOrderNum
+                ? `num:${rootOrderNum}`
+                : `id:${ordId}`;
 
         if (seenOrderKeys.has(dedupeKey) || (ordId && seenOrderKeys.has(`id:${ordId}`))) {
           continue;
@@ -451,7 +451,7 @@ export default function SellerOrders() {
       }
     }
 
-    setStatusMessage("Connecting to Shiprocket & Generating AWB...");
+    setStatusMessage("Connecting to ZebAlpha Logistics & Generating AWB...");
     try {
       const { data: { session } } = await supabase.auth.getSession();
       let resData: any = null;
@@ -485,8 +485,8 @@ export default function SellerOrders() {
           shipping_label_url: resData.labelUrl || target.shipping_label_url,
         });
       } else {
-        alert(`⚠️ Shiprocket Push Failed:\n\n${resData?.message || "Could not push order to Shiprocket. Please check your SHIPROCKET_EMAIL & SHIPROCKET_PASSWORD environment variables."}`);
-        setStatusMessage(`⚠️ Shiprocket Push Error: ${resData?.message || "Failed"}`);
+        alert(`⚠️ ZebAlpha Logistics Push Failed:\n\n${resData?.message || "Could not schedule shipment. Please try again or contact support@zebalpha.shop."}`);
+        setStatusMessage(`⚠️ Logistics Push Error: ${resData?.message || "Failed"}`);
       }
     } catch (err: any) {
       setStatusMessage(`Error: ${err.message}`);
@@ -579,7 +579,7 @@ export default function SellerOrders() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -624,20 +624,18 @@ export default function SellerOrders() {
                 setActiveTab(tab.key);
                 setSelectedOrderIds([]);
               }}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-black uppercase tracking-wider border-b-2 transition whitespace-nowrap cursor-pointer ${
-                isActive
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-black uppercase tracking-wider border-b-2 transition whitespace-nowrap cursor-pointer ${isActive
                   ? "border-purple-500 text-white bg-purple-500/10 rounded-t-xl"
                   : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-900/40 rounded-t-xl"
-              }`}
+                }`}
             >
               <span>{tab.label}</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                isActive 
-                  ? "bg-purple-600 text-white" 
-                  : count > 0 
-                  ? "bg-zinc-800 text-zinc-300"
-                  : "bg-zinc-900 text-zinc-600"
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isActive
+                  ? "bg-purple-600 text-white"
+                  : count > 0
+                    ? "bg-zinc-800 text-zinc-300"
+                    : "bg-zinc-900 text-zinc-600"
+                }`}>
                 {count}
               </span>
             </button>
@@ -723,21 +721,21 @@ export default function SellerOrders() {
             let settlementBadge = { text: "Pending Delivery", bg: "bg-zinc-800 text-zinc-400 border-zinc-700" };
             if (orderStatus === "delivered") {
               const deliveryDate = order.delivered_at ? new Date(order.delivered_at).getTime() : Date.now();
-              const returnWindowEnd = deliveryDate + (7 * 24 * 60 * 60 * 1000);
+              const returnWindowEnd = deliveryDate + (5 * 24 * 60 * 60 * 1000);
               const isEligible = Date.now() >= returnWindowEnd;
               if (order.settlement_status === "SETTLED") {
                 settlementBadge = { text: "✓ Paid & Settled", bg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
               } else if (isEligible) {
                 settlementBadge = { text: "Settlement Eligible", bg: "bg-purple-500/20 text-purple-300 border-purple-500/40" };
               } else {
-                settlementBadge = { text: "In 7-Day Escrow", bg: "bg-amber-500/20 text-amber-300 border-amber-500/40" };
+                settlementBadge = { text: "In 5-Day Settlement", bg: "bg-amber-500/20 text-amber-300 border-amber-500/40" };
               }
             } else if (orderStatus === "cancelled") {
               settlementBadge = { text: "Cancelled - Zero Payout", bg: "bg-red-500/20 text-red-300 border-red-500/40" };
             }
 
             return (
-              <div 
+              <div
                 key={order.id}
                 className="bg-zinc-900/40 rounded-3xl border border-zinc-800/80 overflow-hidden hover:border-zinc-700 transition"
               >
@@ -754,12 +752,11 @@ export default function SellerOrders() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs sm:text-sm font-black text-white">#{orderNum}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                          orderStatus === "delivered" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
-                          orderStatus === "cancelled" ? "bg-red-500/10 text-red-400 border-red-500/30" :
-                          orderStatus.startsWith("return") ? "bg-amber-500/10 text-amber-400 border-amber-500/30" :
-                          "bg-purple-500/10 text-purple-400 border-purple-500/30"
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${orderStatus === "delivered" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                            orderStatus === "cancelled" ? "bg-red-500/10 text-red-400 border-red-500/30" :
+                              orderStatus.startsWith("return") ? "bg-amber-500/10 text-amber-400 border-amber-500/30" :
+                                "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                          }`}>
                           {orderStatus.replace(/_/g, " ")}
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${settlementBadge.bg}`}>
@@ -781,9 +778,8 @@ export default function SellerOrders() {
                       <p className="text-sm sm:text-base font-black text-white">
                         ₹{Number(order.seller_total || order.total_amount || 0).toLocaleString("en-IN")}
                       </p>
-                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
-                        isCOD ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"
-                      }`}>
+                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${isCOD ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"
+                        }`}>
                         {isCOD ? "Cash on Delivery" : "Prepaid"}
                       </span>
                     </div>
@@ -821,7 +817,7 @@ export default function SellerOrders() {
                     const itemName = item.name || item.title || prodFallback?.name || "Apparel Product";
 
                     return (
-                      <div 
+                      <div
                         key={idx}
                         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-2xl bg-zinc-950/40 border border-zinc-800/60"
                       >
@@ -903,11 +899,10 @@ export default function SellerOrders() {
                       return (
                         <button
                           onClick={() => handleCreateShipment(order.id)}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg cursor-pointer ${
-                            isLocked 
-                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30" 
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg cursor-pointer ${isLocked
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
                               : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/20"
-                          }`}
+                            }`}
                         >
                           {isLocked ? <Clock className="h-3.5 w-3.5 text-amber-400 animate-pulse" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                           {isLocked ? `⏱️ Locked (${remaining}m Left)` : "Accept & Confirm"}
@@ -1004,8 +999,8 @@ export default function SellerOrders() {
                 const catalogGross = items.reduce((sum: number, it: any) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
                 const orderTotAmt = Number(selectedOrder.seller_total || selectedOrder.total_amount || 0);
                 const explicitDiscount = Number(selectedOrder.discount_amount || 0);
-                const discount = explicitDiscount > 0 
-                  ? explicitDiscount 
+                const discount = explicitDiscount > 0
+                  ? explicitDiscount
                   : (orderTotAmt > 0 && catalogGross > orderTotAmt ? (catalogGross - orderTotAmt) : 0);
                 const netGross = Math.max(0, catalogGross - discount);
                 const effectiveGross = netGross > 0 ? netGross : (orderTotAmt > 0 ? orderTotAmt : catalogGross);

@@ -337,7 +337,7 @@ export default function SellerAddressesPage() {
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">ZEBALPHA MULTI-VENDOR LOGISTICS</span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase">
-              ● Shiprocket Integrated
+              ● ZebAlpha Logistics Integrated
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">Pickup Warehouses & Hubs</h1>
@@ -383,7 +383,7 @@ export default function SellerAddressesPage() {
           <div className="text-xs">
             <h4 className="font-black text-white">Doorstep Courier Pickup Enabled</h4>
             <p className="text-zinc-400 text-[11px] font-medium mt-0.5">
-              When orders are packed and manifests generated, Delhivery, Shadowfax, or BlueDart riders collect parcels directly from your default pickup address.
+              When orders are packed and manifests generated, ZebAlpha verified courier partners collect parcels directly from your default pickup address.
             </p>
           </div>
         </div>
@@ -491,7 +491,7 @@ export default function SellerAddressesPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-zinc-400 flex items-center gap-1">
                       <CheckCircle2 size={12} className="text-emerald-400" />
-                      <span>Shiprocket Ready</span>
+                      <span>ZebAlpha Dispatch Ready</span>
                     </span>
                   </div>
 

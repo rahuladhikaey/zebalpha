@@ -1,39 +1,39 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { 
-  IndianRupee, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle, 
-  Download, 
-  Filter, 
-  RefreshCw, 
-  ChevronRight, 
-  Sparkles, 
-  Receipt, 
-  Search, 
-  X, 
-  Scale, 
-  SlidersHorizontal, 
-  ChevronDown, 
-  Info, 
-  Wallet, 
-  Smartphone, 
+import {
+  IndianRupee,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  Filter,
+  RefreshCw,
+  ChevronRight,
+  Sparkles,
+  Receipt,
+  Search,
+  X,
+  Scale,
+  SlidersHorizontal,
+  ChevronDown,
+  Info,
+  Wallet,
+  Smartphone,
   AlertTriangle,
   ShieldCheck,
   ShieldAlert,
   Lock,
   CheckCircle,
 } from "lucide-react";
-import { 
-  LedgerTransaction, 
-  SellerLedgerBalances, 
-  DetailedSettlementRecord, 
-  SellerSettlementMethod, 
-  SellerPayoutRequest 
+import {
+  LedgerTransaction,
+  SellerLedgerBalances,
+  DetailedSettlementRecord,
+  SellerSettlementMethod,
+  SellerPayoutRequest
 } from "@/shared/types";
 
 type PaymentTab = "settlements" | "ledger" | "reconciliation" | "upi";
@@ -151,14 +151,14 @@ export default function SellerPaymentsPage() {
   // Filtered Ledger Transactions
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => {
-      const matchesSearch = 
-        !ledgerSearch || 
+      const matchesSearch =
+        !ledgerSearch ||
         tx.description.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
         (tx.reference_id && tx.reference_id.toLowerCase().includes(ledgerSearch.toLowerCase())) ||
         tx.id.toLowerCase().includes(ledgerSearch.toLowerCase());
 
-      const matchesType = 
-        ledgerTypeFilter === "ALL" || 
+      const matchesType =
+        ledgerTypeFilter === "ALL" ||
         tx.transaction_type === ledgerTypeFilter;
 
       return matchesSearch && matchesType;
@@ -224,7 +224,7 @@ export default function SellerPaymentsPage() {
 
     const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9.\-_]{2,64}$/;
     if (!upiRegex.test(cleanVpa)) {
-      setMethodError("Invalid UPI format. Format must be username@bank (e.g. seller@oksbi, 9883637054@ybl, name@paytm).");
+      setMethodError("Invalid UPI format. Format must be username@upi (e.g. yourname@upi or 9876543210@upi).");
       return;
     }
 
@@ -294,7 +294,7 @@ export default function SellerPaymentsPage() {
       const res = await fetch("/api/payments/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           amount: num,
           idempotencyKey: `withdraw_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
         })
@@ -345,7 +345,7 @@ export default function SellerPaymentsPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto py-6 px-2 sm:px-4 md:px-6">
-      
+
       {/* ── TOP HEADER & QUICK STATS ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
         <div>
@@ -393,25 +393,23 @@ export default function SellerPaymentsPage() {
       {/* ── RAZORPAY ROUTE AUTOMATED SETTLEMENT STATUS BANNER ─────────────────── */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-5 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className={`p-3 rounded-2xl border ${
-            sellerConfig?.route_onboarding_status === 'ACTIVE' 
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
-              : sellerConfig?.route_onboarding_status === 'PENDING_VERIFICATION' 
-              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' 
-              : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-          }`}>
+          <div className={`p-3 rounded-2xl border ${sellerConfig?.route_onboarding_status === 'ACTIVE'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : sellerConfig?.route_onboarding_status === 'PENDING_VERIFICATION'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+            }`}>
             <ShieldCheck size={24} />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-black text-white">Razorpay Route Marketplace Settlement</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                sellerConfig?.route_onboarding_status === 'ACTIVE'
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${sellerConfig?.route_onboarding_status === 'ACTIVE'
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                   : sellerConfig?.route_onboarding_status === 'PENDING_VERIFICATION'
-                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                  : 'bg-zinc-800 border-zinc-700 text-zinc-300'
-              }`}>
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    : 'bg-zinc-800 border-zinc-700 text-zinc-300'
+                }`}>
                 {sellerConfig?.route_onboarding_status || 'NOT_STARTED'}
               </span>
             </div>
@@ -434,7 +432,7 @@ export default function SellerPaymentsPage() {
 
       {/* ── REVENUE & SETTLEMENT KPI CARDS ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        
+
         {/* Available to Withdraw with Instant Withdraw Action */}
         <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-b from-emerald-950/30 via-zinc-950 to-zinc-950 p-4 sm:p-5 relative overflow-hidden group flex flex-col justify-between">
           <div>
@@ -545,15 +543,14 @@ export default function SellerPaymentsPage() {
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
-                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border ${
-                  status === "verified"
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border ${status === "verified"
                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                     : status === "name_mismatch" || status === "inactive" || status === "failed"
-                    ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
-                    : status === "manual_review"
-                    ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-400"
-                }`}>
+                      ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                      : status === "manual_review"
+                        ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                  }`}>
                   <Smartphone size={24} />
                 </div>
                 <div>
@@ -663,11 +660,10 @@ export default function SellerPaymentsPage() {
       <div className="flex items-center gap-2 border-b border-zinc-800 overflow-x-auto pb-1 scrollbar-none">
         <button
           onClick={() => setActiveTab("settlements")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${
-            activeTab === "settlements"
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${activeTab === "settlements"
               ? "bg-white text-black shadow-lg"
               : "text-zinc-400 hover:text-white hover:bg-zinc-900"
-          }`}
+            }`}
         >
           <Receipt size={14} />
           <span>Settlements & Payouts</span>
@@ -678,11 +674,10 @@ export default function SellerPaymentsPage() {
 
         <button
           onClick={() => setActiveTab("ledger")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${
-            activeTab === "ledger"
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${activeTab === "ledger"
               ? "bg-white text-black shadow-lg"
               : "text-zinc-400 hover:text-white hover:bg-zinc-900"
-          }`}
+            }`}
         >
           <Scale size={14} />
           <span>Transactions Ledger</span>
@@ -693,11 +688,10 @@ export default function SellerPaymentsPage() {
 
         <button
           onClick={() => setActiveTab("reconciliation")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${
-            activeTab === "reconciliation"
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${activeTab === "reconciliation"
               ? "bg-white text-black shadow-lg"
               : "text-zinc-400 hover:text-white hover:bg-zinc-900"
-          }`}
+            }`}
         >
           <SlidersHorizontal size={14} />
           <span>Reconciliation & Fees</span>
@@ -705,11 +699,10 @@ export default function SellerPaymentsPage() {
 
         <button
           onClick={() => setActiveTab("upi")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${
-            activeTab === "upi"
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition ${activeTab === "upi"
               ? "bg-white text-black shadow-lg"
               : "text-zinc-400 hover:text-white hover:bg-zinc-900"
-          }`}
+            }`}
         >
           <Smartphone size={14} />
           <span>Settlement Account</span>
@@ -719,7 +712,7 @@ export default function SellerPaymentsPage() {
       {/* ── TAB 1: SETTLEMENTS & PAYOUT HISTORY ────────────────────────────────────── */}
       {activeTab === "settlements" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          
+
           {/* Filter Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -728,11 +721,10 @@ export default function SellerPaymentsPage() {
                 <button
                   key={filterVal}
                   onClick={() => setSettlementFilter(filterVal)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${
-                    settlementFilter === filterVal
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${settlementFilter === filterVal
                       ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20"
                       : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
-                  }`}
+                    }`}
                 >
                   {filterVal}
                 </button>
@@ -815,13 +807,12 @@ export default function SellerPaymentsPage() {
                           </td>
 
                           <td className="py-4 px-4">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                              isSuccess
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${isSuccess
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                                 : isFailed
-                                ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                                : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                            }`}>
+                                  ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                  : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                              }`}>
                               {isSuccess ? <CheckCircle2 size={10} /> : isFailed ? <AlertCircle size={10} /> : <Clock size={10} />}
                               {item.status}
                             </span>
@@ -849,7 +840,7 @@ export default function SellerPaymentsPage() {
       {/* ── TAB 2: TRANSACTIONS LEDGER (IMMUTABLE AUDIT TRAIL) ────────────────────── */}
       {activeTab === "ledger" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          
+
           {/* Search & Filters */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
@@ -913,9 +904,8 @@ export default function SellerPaymentsPage() {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                            isCredit ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-300"
-                          }`}>
+                          <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isCredit ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-300"
+                            }`}>
                             {tx.transaction_type}
                           </span>
                         </td>
@@ -992,15 +982,14 @@ export default function SellerPaymentsPage() {
             <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 md:p-8 space-y-6 relative overflow-hidden">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`h-11 w-11 rounded-2xl flex items-center justify-center border ${
-                    status === "verified"
+                  <div className={`h-11 w-11 rounded-2xl flex items-center justify-center border ${status === "verified"
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                       : status === "name_mismatch" || status === "inactive" || status === "failed"
-                      ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
-                      : status === "manual_review"
-                      ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
-                      : "bg-zinc-900 border-zinc-800 text-zinc-400"
-                  }`}>
+                        ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                        : status === "manual_review"
+                          ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                    }`}>
                     <Smartphone size={22} />
                   </div>
                   <div>
@@ -1069,9 +1058,8 @@ export default function SellerPaymentsPage() {
 
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-zinc-500 font-bold uppercase tracking-wider">Verification Status</span>
-                    <span className={`font-bold uppercase ${
-                      status === 'verified' ? 'text-emerald-400' : status === 'name_mismatch' ? 'text-rose-400' : 'text-amber-400'
-                    }`}>
+                    <span className={`font-bold uppercase ${status === 'verified' ? 'text-emerald-400' : status === 'name_mismatch' ? 'text-rose-400' : 'text-amber-400'
+                      }`}>
                       {status.replace('_', ' ')}
                     </span>
                   </div>
@@ -1123,7 +1111,7 @@ export default function SellerPaymentsPage() {
       {showEditSettlementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 space-y-5 shadow-2xl">
-            
+
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
@@ -1167,7 +1155,7 @@ export default function SellerPaymentsPage() {
 
             {/* Form */}
             <form onSubmit={handleSaveSettlementMethod} className="space-y-4">
-              
+
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
@@ -1182,17 +1170,17 @@ export default function SellerPaymentsPage() {
                       setAccountHolderName(e.target.value);
                       setMethodError("");
                     }}
-                    placeholder="e.g. As shown in Bank / PhonePe / GPay"
+                    placeholder="e.g. Full Name linked to your UPI ID"
                     className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-medium focus:outline-none focus:border-rose-500 transition"
                   />
                   <p className="text-[11px] text-zinc-500">
-                    Enter the exact name of the account holder registered with your bank/UPI app.
+                    Enter your verified name registered with your UPI ID. No Bank Account No., PAN, or Aadhaar needed.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
-                    <span>UPI ID (VPA)</span>
+                    <span>UPI ID / UPI Number</span>
                     <span className="text-rose-400 text-[10px] uppercase font-bold tracking-wider">* Required</span>
                   </label>
                   <input
@@ -1203,11 +1191,11 @@ export default function SellerPaymentsPage() {
                       setUpiId(e.target.value);
                       setMethodError("");
                     }}
-                    placeholder="e.g. 9883637054@ybl, name@okhdfcbank, seller@paytm"
+                    placeholder="e.g. yourname@upi or 9876543210@upi"
                     className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-rose-500 transition"
                   />
                   <p className="text-[11px] text-zinc-500">
-                    Open your UPI app (PhonePe, Google Pay, Paytm, BHIM) to confirm your exact UPI ID before saving.
+                    Confirm your active UPI ID before saving. All ZebAlpha seller payouts are credited safely within 5 days of delivery.
                   </p>
                 </div>
               </div>
@@ -1395,13 +1383,12 @@ export default function SellerPaymentsPage() {
 
               <div className="flex justify-between py-2 border-b border-zinc-900">
                 <span className="text-zinc-400">Status:</span>
-                <span className={`font-black uppercase tracking-wider ${
-                  selectedPayoutDetail.status === "COMPLETED" || selectedPayoutDetail.status === "PAID" || selectedPayoutDetail.status === "SUCCESS"
+                <span className={`font-black uppercase tracking-wider ${selectedPayoutDetail.status === "COMPLETED" || selectedPayoutDetail.status === "PAID" || selectedPayoutDetail.status === "SUCCESS"
                     ? "text-emerald-400"
                     : selectedPayoutDetail.status === "FAILED"
-                    ? "text-rose-400"
-                    : "text-amber-400"
-                }`}>
+                      ? "text-rose-400"
+                      : "text-amber-400"
+                  }`}>
                   {selectedPayoutDetail.status}
                 </span>
               </div>

@@ -208,8 +208,8 @@ function LoginContent() {
               className="h-10 w-10 rounded-full object-cover border-2 border-[#DFBE6F] shadow-sm"
             />
             <div className="leading-tight">
-              <span className="block text-base sm:text-lg font-black tracking-tight text-[#14120F]">
-                ZEB<span className="text-[#F03A46]">ALPHA</span>
+              <span className="block text-base sm:text-lg font-black tracking-tight text-[#000000]">
+                ZEBALPHA
               </span>
               <span className="block text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#9A6503]">
                 Seller Hub
@@ -256,12 +256,11 @@ function LoginContent() {
                 <span>Verified Merchant Access</span>
               </div>
 
-              <h2 className="mt-5 text-3xl font-black tracking-tight text-[#14120F] leading-[1.15]">
-                Welcome back to{" "}
-                <span className="text-[#F03A46]">ZebAlpha</span> Seller Panel
+              <h2 className="mt-5 text-3xl font-black tracking-tight text-[#000000] leading-[1.15]">
+                Welcome back to ZebAlpha Seller Panel
               </h2>
               <p className="mt-3 text-sm font-medium text-[#5C4E35] leading-relaxed">
-                Manage your live catalogs, accept Pan-India customer orders, print shipping labels, and track 7-day bank payouts from one secure hub.
+                Manage your live catalogs, accept Pan-India customer orders, print shipping labels, and receive fast 5-day UPI payouts safely—without sharing Bank Account No., PAN, or Aadhaar.
               </p>
 
               <div className="mt-7 space-y-3.5">
@@ -274,12 +273,12 @@ function LoginContent() {
                   {
                     icon: Truck,
                     title: "28,000+ Serviceable Pincodes",
-                    desc: "Automated doorstep pickup and nationwide courier tracking.",
+                    desc: "Automated doorstep pickup and nationwide ZebAlpha courier tracking.",
                   },
                   {
                     icon: Wallet,
-                    title: "Transparent 7-Day Payouts",
-                    desc: "Direct UPI / Bank settlements directly after order delivery.",
+                    title: "Fast 5-Day Safe UPI Payouts",
+                    desc: "No Bank Account No., PAN, or Aadhaar needed — direct UPI ID / UPI Number payouts within 5 days.",
                   },
                 ].map((item) => {
                   const Icon = item.icon;

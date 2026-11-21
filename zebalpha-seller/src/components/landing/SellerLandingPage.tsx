@@ -54,7 +54,7 @@ const SELLER_STORIES: SellerStory[] = [
       "Our apparel business scaled far beyond local wholesale. Keeping 100% of our margin at 0% commission helped us launch fresh oversized tee drops every week.",
     highlight: "3.8x Monthly Order Growth",
     fullStory:
-      "Starting from a small cotton knitting unit in Tiruppur, Aarav and Rohan listed 40 core oversized T-shirts on ZebAlpha Seller Hub. With zero marketplace commission, automated Shiprocket pickups, and transparent 7-day settlements, they reinvested margins directly into new colorways and now ship across 18 Indian states.",
+      "Starting from a small cotton knitting unit in Tiruppur, Aarav and Rohan listed 40 core oversized T-shirts on ZebAlpha Seller Hub. With zero marketplace commission, automated ZebAlpha courier pickups, and fast 5-day UPI settlements, they reinvested margins directly into new colorways and now ship across 18 Indian states.",
   },
   {
     id: "story-2",
@@ -63,8 +63,8 @@ const SELLER_STORIES: SellerStory[] = [
     city: "Jaipur",
     image: "/images/seller-story-2.jpg",
     quote:
-      "I started selling on ZebAlpha with 4-5 daily boutique orders in my very first week. Easy listing and zero cancellation penalties made going online completely stress-free.",
-    highlight: "Zero Commission • 7-Day Payouts",
+      "I started selling on ZebAlpha with 4-5 daily boutique orders in my very first week. Easy listing, zero bank/PAN paperwork, and fast 5-day UPI payouts made going online completely stress-free.",
+    highlight: "Zero Commission • 5-Day UPI Payouts",
     fullStory:
       "Meera ran a neighbourhood kurti & ethnic wear studio before joining ZebAlpha with her Enrolment ID. She prints thermal shipping labels straight from the Seller Dashboard and manages stock variants in minutes—turning her local studio into a pan-India direct-to-consumer brand.",
     featured: true,
@@ -132,10 +132,10 @@ const LEARNING_HUB_GUIDES = [
   },
   {
     step: "04",
-    title: "Selling Without Regular GSTIN",
+    title: "Zero Sensitive Paperwork & Safe UPI Payouts",
     points: [
-      "Eligible small sellers can apply for a free GST Enrolment ID / UIN on the official GST portal.",
-      "Use your Enrolment ID + Bank/UPI account to onboard smoothly for intra-state orders.",
+      "No Bank Account Number, No PAN Card, and No Aadhaar Number needed to start selling on ZebAlpha.",
+      "Receive 100% safe, direct payouts to your UPI ID / UPI Number within 5 days of order delivery.",
     ],
   },
 ];
@@ -186,7 +186,7 @@ export function SellerLandingPage() {
         <div className="h-1 w-full bg-gradient-to-r from-[#F03A46] via-[#F5B922] to-[#F03A46]" />
 
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 h-[70px]">
-          {/* Left: Official ZebAlpha Brand */}
+          {/* Left: Official ZebAlpha Brand (Full Black Wordmark) */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0">
             <img
               src="/official-logo.png"
@@ -194,8 +194,8 @@ export function SellerLandingPage() {
               className="h-10 w-10 rounded-full object-cover border-2 border-[#DFBE6F] shadow-sm"
             />
             <div className="leading-tight">
-              <span className="block text-xl font-black tracking-tight text-[#14120F]">
-                zeb<span className="text-[#F03A46]">alpha</span>
+              <span className="block text-xl font-black tracking-tight text-[#000000]">
+                zebalpha
               </span>
               <span className="block text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#9A6503]">
                 Seller Hub
@@ -307,7 +307,7 @@ export function SellerLandingPage() {
       </header>
 
       {/* ===================================================================== */}
-      {/* 2. HERO BANNER (MEESHO LAYOUT + ZEBALPHA YELLOW/GOLD/WHITE/CORAL)     */}
+      {/* 2. HERO BANNER (ZEBALPHA YELLOW + GOLD + WHITE + BRIGHT CORAL)        */}
       {/* ===================================================================== */}
       <section
         id="sell-online"
@@ -326,7 +326,7 @@ export function SellerLandingPage() {
           }}
         />
 
-        {/* Soft Sweeping Coral-Golden Arch Background on Right Half (like Meesho pink arch) */}
+        {/* Soft Sweeping Coral-Golden Arch Background on Right Half */}
         <div
           aria-hidden="true"
           className="pointer-events-none hidden lg:block absolute right-0 top-6 bottom-0 w-[56%] rounded-tl-[260px] bg-gradient-to-br from-[#FFE8E4]/85 via-[#FFF2D4]/75 to-[#FFE5DE]/70"
@@ -349,16 +349,18 @@ export function SellerLandingPage() {
               </h1>
 
               <p className="mt-4 text-base sm:text-lg font-medium text-[#5C4E35] max-w-xl leading-relaxed">
-                Become a ZebAlpha seller and grow your apparel, fashion &amp; lifestyle business across India with transparent 7-day payouts.
+                Become a ZebAlpha seller and grow your business across India with a fast{" "}
+                <strong className="text-[#14120F]">5-day payment cycle</strong> directly to your{" "}
+                <strong className="text-[#14120F]">UPI ID / UPI Number</strong> — no Bank Account No., PAN, or Aadhaar required.
               </p>
 
               {/* Bright Coral NEW Ribbon Notice */}
               <div className="mt-5 flex flex-wrap items-center gap-2.5 text-sm font-medium text-[#3D3322]">
                 <span className="inline-flex items-center rounded-md bg-gradient-to-r from-[#F03A46] to-[#FF6B6B] px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-sm">
-                  NEW
+                  SAFE &amp; EASY
                 </span>
                 <span>
-                  Don&apos;t have a GSTIN? You can still sell on ZebAlpha.{" "}
+                  No Bank Account, PAN, Aadhaar or GSTIN required! Take your earnings directly via UPI ID.{" "}
                   <a
                     href="#no-gst"
                     className="font-extrabold text-[#F03A46] underline decoration-[#F03A46]/50 underline-offset-4 hover:text-[#C82333]"
@@ -475,7 +477,7 @@ export function SellerLandingPage() {
       </section>
 
       {/* ===================================================================== */}
-      {/* 3. FOUR IMPACT METRIC CARDS (MEESHO 4-COLUMN STAT ROW)                */}
+      {/* 3. FOUR IMPACT METRIC CARDS                                           */}
       {/* ===================================================================== */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -485,16 +487,16 @@ export function SellerLandingPage() {
               title: "Commission fee — sellers keep 100% of their product margin",
             },
             {
-              highlight: "Pan-India",
-              title: "Customers shopping on ZebAlpha Website & Android App",
+              highlight: "5-Day",
+              title: "Fast direct UPI ID payouts — no Bank A/C, PAN or Aadhaar needed",
             },
             {
               highlight: "28,000+",
               title: "Serviceable pincodes across India — we deliver everywhere",
             },
             {
-              highlight: "100+",
-              title: "Apparel, streetwear & lifestyle categories to sell online",
+              highlight: "100%",
+              title: "Safe & private seller details with encrypted ZebAlpha onboarding",
             },
           ].map((stat) => (
             <div
@@ -577,7 +579,7 @@ export function SellerLandingPage() {
                 <Handshake size={24} />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-black text-[#14120F]">Ease of Doing Business</h3>
+                <h3 className="text-lg font-black text-[#14120F]">Ease of Doing Business &amp; 100% Privacy</h3>
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm font-semibold text-[#3D3322]">
                   <span className="inline-flex items-center gap-2">
                     <Check size={16} strokeWidth={3} className="text-[#F03A46] shrink-0" />
@@ -589,7 +591,11 @@ export function SellerLandingPage() {
                   </span>
                   <span className="inline-flex items-center gap-2 sm:col-span-2">
                     <Check size={16} strokeWidth={3} className="text-[#F03A46] shrink-0" />
-                    7-Day Payment Cycle directly from the delivery date
+                    5-Day Payment Cycle directly to your UPI ID / UPI Number
+                  </span>
+                  <span className="inline-flex items-center gap-2 sm:col-span-2">
+                    <Check size={16} strokeWidth={3} className="text-[#F03A46] shrink-0" />
+                    No Bank Account No., PAN, or Aadhaar required — all details stay 100% safe
                   </span>
                 </div>
               </div>
@@ -688,7 +694,7 @@ export function SellerLandingPage() {
                     className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
-                {/* Play / Story Spotlight Circle Badge (matches Meesho pink circle) */}
+                {/* Story Spotlight Circle Badge */}
                 <span className="absolute -bottom-5 left-4 flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#F03A46] to-[#FF5757] text-white ring-4 ring-white shadow-lg group-hover:scale-110 transition-transform">
                   <Play size={16} className="fill-white ml-0.5" />
                 </span>
@@ -728,10 +734,11 @@ export function SellerLandingPage() {
               {
                 num: 1,
                 title: "Create Account",
-                desc: "All you need is:",
+                desc: "No Bank Account No., PAN, or Aadhaar required. All you need is:",
                 bullets: [
-                  "GSTIN (for GST sellers) or Enrolment ID / UIN (for non-GST sellers)",
-                  "Bank Account / UPI ID",
+                  "Verified Email & Pickup Address",
+                  "UPI ID / UPI Number (100% safe direct payouts)",
+                  "GSTIN or Enrolment ID (optional for eligible sellers)",
                 ],
               },
               {
@@ -752,7 +759,7 @@ export function SellerLandingPage() {
               {
                 num: 5,
                 title: "Receive Payments",
-                desc: "Payments are deposited directly to your bank/UPI following a 7-day cycle from delivery.",
+                desc: "Your income is sent directly and safely to your UPI ID / UPI Number on a fast 5-day payment cycle from delivery.",
               },
             ].map((step, index) => (
               <div key={step.num} className="relative">
@@ -808,7 +815,7 @@ export function SellerLandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="text-2xl font-black tracking-tight text-[#F03A46]">zebalpha</span>
+              <span className="text-2xl font-black tracking-tight text-[#000000]">zebalpha</span>
               <span className="h-6 w-[1.5px] bg-[#DFBE6F]" />
               <span className="text-sm font-extrabold text-[#14120F] leading-tight">
                 Seller
@@ -913,7 +920,7 @@ export function SellerLandingPage() {
       </section>
 
       {/* ===================================================================== */}
-      {/* 10. DON'T HAVE GST? EXPLAINER SECTION (#no-gst)                       */}
+      {/* 10. ZERO SENSITIVE DOCUMENTS + SAFE 5-DAY UPI PAYOUTS (#no-gst)       */}
       {/* ===================================================================== */}
       <section id="no-gst" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
         <div className="rounded-[2rem] bg-gradient-to-br from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE] border-[1.5px] border-[#DFBE6F] p-7 sm:p-10 shadow-[0_14px_36px_rgba(166,124,28,0.12)]">
@@ -921,26 +928,28 @@ export function SellerLandingPage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-[#F03A46] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
                 <FileCheck2 size={13} />
-                <span>Sell Without Regular GSTIN</span>
+                <span>100% Safe • Zero Sensitive Paperwork</span>
               </div>
               <h2 className="mt-4 text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
-                Don&apos;t have a Regular GSTIN? You can still sell on ZebAlpha!
+                No Bank Account No., No PAN, No Aadhaar Needed — Receive Payouts Directly via UPI!
               </h2>
               <p className="mt-3 text-sm sm:text-base text-[#4A3F2B] leading-relaxed">
-                Eligible small businesses, college startups, and local boutiques can onboard using a free{" "}
-                <strong className="text-[#14120F]">GST Enrolment ID / UIN</strong> where permitted under Indian e-commerce &amp; intra-state tax guidelines.
+                Your privacy and safety come first on <strong className="text-[#000000]">ZebAlpha</strong>. You do{" "}
+                <strong className="text-[#14120F]">not need to share your Bank Account Number, PAN Card, or Aadhaar Number</strong> to start selling. Simply connect your{" "}
+                <strong className="text-[#14120F]">UPI ID / UPI Number</strong> and receive your full earnings safely within a fast{" "}
+                <strong className="text-[#F03A46]">5-day payment cycle</strong>. Even without a Regular GSTIN, eligible small sellers can onboard effortlessly.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/register?gst=none"
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)] hover:brightness-105 transition"
                 >
-                  <span>Register with Enrolment ID</span>
+                  <span>Start Selling Safely with UPI</span>
                   <ArrowRight size={16} />
                 </Link>
               </div>
               <p className="mt-4 text-[11px] text-[#7A6847] leading-relaxed">
-                Note: Non-GST eligibility depends on Indian GST council regulations, turnover thresholds, and intra-state supply rules.
+                All seller contact &amp; UPI details are strictly protected and encrypted on ZebAlpha. Non-GST eligibility applies as per standard Indian e-commerce &amp; intra-state guidelines.
               </p>
             </div>
 
@@ -948,18 +957,18 @@ export function SellerLandingPage() {
               {[
                 {
                   step: "1",
-                  title: "Generate Free Enrolment ID",
-                  desc: "Apply on the official GST portal (gst.gov.in) using PAN & address details in minutes.",
+                  title: "No Bank A/C, PAN or Aadhaar Required",
+                  desc: "Keep your sensitive personal and banking documents completely private — never asked at signup.",
                 },
                 {
                   step: "2",
-                  title: "Sign Up on ZebAlpha Seller Hub",
-                  desc: "Create your account with your mobile number, verified email, pickup address & UPI/Bank.",
+                  title: "Connect Only Your UPI ID / UPI Number",
+                  desc: "Receive 100% safe, automated earnings straight to your UPI ID / UPI Number within 5 days of delivery.",
                 },
                 {
                   step: "3",
-                  title: "Start Selling Immediately",
-                  desc: "Upload your catalog and start receiving orders at 0% commission.",
+                  title: "Sell With or Without Regular GSTIN",
+                  desc: "Eligible small boutiques & creators can onboard seamlessly with optional Enrolment ID / UIN at 0% commission.",
                 },
               ].map((row) => (
                 <div
@@ -1065,12 +1074,12 @@ export function SellerLandingPage() {
                   alt="ZebAlpha Logo"
                   className="h-11 w-11 rounded-full object-cover border-2 border-[#DFBE6F]"
                 />
-                <span className="text-2xl font-black tracking-tight text-[#14120F]">
-                  zeb<span className="text-[#F03A46]">alpha</span>
+                <span className="text-2xl font-black tracking-tight text-[#000000]">
+                  zebalpha
                 </span>
               </Link>
               <p className="mt-4 text-sm text-[#5C4E35] max-w-xs leading-relaxed">
-                Sell your products to customers across India on ZebAlpha at 0% commission with transparent 7-day payouts.
+                Sell your products to customers across India on ZebAlpha at 0% commission with fast, safe 5-day direct UPI payouts.
               </p>
               <div className="mt-6 flex items-center gap-3">
                 <Link

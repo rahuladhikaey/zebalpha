@@ -509,7 +509,7 @@ export default function Step2BasicDetails({ formData, onChange, sellerOriginInfo
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-white font-semibold text-xs">
               <Box className="w-4 h-4 text-emerald-400" />
-              <span>Package Dimensions & Volumetric Weight (Shiprocket Standard)</span>
+              <span>Package Dimensions &amp; Volumetric Weight (ZebAlpha Standard)</span>
             </div>
             <span className="text-[10px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-md font-mono self-start sm:self-auto">
               Volumetric: (L × W × H) ÷ 5000 kg

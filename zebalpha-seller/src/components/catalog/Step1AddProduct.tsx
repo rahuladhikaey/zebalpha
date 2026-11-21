@@ -978,7 +978,7 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
             Upload product photos (Front, Back, Detail) — <strong className="text-emerald-400">Auto-compressed strictly ≤ 49.7 KB WebP</strong>.
           </p>
           <span className="text-[11px] font-semibold text-zinc-400 inline-flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Flipkart-Grade Auto-Optimization
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" /> ZebAlpha Auto-Optimization
           </span>
         </div>
 

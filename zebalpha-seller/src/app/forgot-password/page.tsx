@@ -148,8 +148,8 @@ export default function ForgotPasswordPage() {
               className="h-10 w-10 rounded-full object-cover border-2 border-[#DFBE6F] shadow-sm"
             />
             <div className="leading-tight">
-              <span className="block text-base sm:text-lg font-black tracking-tight text-[#14120F]">
-                ZEB<span className="text-[#F03A46]">ALPHA</span>
+              <span className="block text-base sm:text-lg font-black tracking-tight text-[#000000]">
+                ZEBALPHA
               </span>
               <span className="block text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#9A6503]">
                 Seller Hub

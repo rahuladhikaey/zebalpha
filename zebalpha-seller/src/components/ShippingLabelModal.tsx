@@ -24,7 +24,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
 
   const hasRealAwb = Boolean(order.tracking_number || order.shipment_id || order.shiprocket_shipment_id);
   const awb = order.tracking_number || order.shipment_id || order.shiprocket_shipment_id || "AWB-PENDING-DISPATCH";
-  const courier = order.courier_name || (hasRealAwb ? "Shiprocket Partner" : "Awaiting Dispatch");
+  const courier = order.courier_name || (hasRealAwb ? "ZebAlpha Logistics" : "Awaiting Dispatch");
   
   const destinationCode = order.routing_hub || order.destination_code || "HUB-PENDING";
   const orderNumber = order.order_number || String(order.id).slice(0, 16).replace(/[^0-9A-Z]/gi, "").toUpperCase();
@@ -286,7 +286,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
             visibility: hidden !important;
             background: #ffffff !important;
           }
-          #printable-meesho-label {
+          #printable-zebalpha-label {
             visibility: visible !important;
             position: absolute !important;
             left: 0 !important;
@@ -298,7 +298,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
             background: #fff !important;
             color: #000 !important;
           }
-          #printable-meesho-label * {
+          #printable-zebalpha-label * {
             visibility: visible !important;
           }
         }
@@ -365,7 +365,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
           {!hasRealAwb && (
             <div className="mt-2.5 p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs font-bold flex items-center gap-2">
               <span className="text-amber-400 text-base">⚠️</span>
-              <span>Live Shiprocket AWB is pending. Once the 1-hour cancellation window expires, click <strong>Accept Order</strong> to push directly to Shiprocket and schedule courier pickup.</span>
+              <span>Live ZebAlpha Logistics AWB is pending. Once the 1-hour cancellation window expires, click <strong>Accept Order</strong> to generate your dispatch label and schedule courier pickup.</span>
             </div>
           )}
         </div>
@@ -375,12 +375,12 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
           
           <div
             ref={printRef}
-            id="printable-meesho-label"
+            id="printable-zebalpha-label"
             className="w-full max-w-[420px] bg-white text-black border-2 border-black font-sans print:border-2 print:border-black print:w-[380px] print:max-w-[380px] shadow-2xl print:shadow-none select-text text-left leading-tight"
             style={{ fontSize: "10px" }}
           >
             {/* ════════════════════════════════════════════════════════════════════════
-                TOP SECTION: LOGISTICS & COURIER ROUTING (SHADOWFAX / MEESHO STANDARD)
+                TOP SECTION: ZEBALPHA LOGISTICS & COURIER ROUTING STANDARD
             ════════════════════════════════════════════════════════════════════════ */}
             <div className="grid grid-cols-[1.1fr_0.9fr] border-b-2 border-black">
               
@@ -605,7 +605,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
         <div className="p-4 bg-zinc-900/60 border-t border-zinc-800 flex items-center justify-between print:hidden">
           <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            Standard 4x6" Thermal Label Format Ready for TSC/Zebra/Rollo Printers
+            Standard 4x6&quot; Thermal Dispatch Label Format • ZebAlpha Logistics
           </span>
           <div className="flex items-center gap-2">
             <button

@@ -435,28 +435,28 @@ export default function SellerSettings() {
                 <CreditCard size={24} />
               </div>
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Direct Payout Routing</span>
-                <h3 className="text-lg font-black text-white mt-0.5">Payout UPI ID / PhonePe Settlement</h3>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Direct 5-Day Safe UPI Payouts</span>
+                <h3 className="text-lg font-black text-white mt-0.5">Payout UPI ID / UPI Number Settlement</h3>
               </div>
             </div>
 
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase">
-              <CheckCircle2 size={14} /> Instant Revenue Transfer
+              <CheckCircle2 size={14} /> 5-Day Direct UPI Payout
             </span>
           </div>
 
           <div className="space-y-4">
             <div>
               <label className="text-xs font-black uppercase tracking-wider text-zinc-300 mb-2 flex items-center justify-between">
-                <span>Merchant Payout UPI ID / PhonePe Number *</span>
-                <span className="text-[11px] text-zinc-500 font-normal">e.g. yourname@phonepe, 9876543210@paytm</span>
+                <span>Merchant Payout UPI ID / UPI Number *</span>
+                <span className="text-[11px] text-zinc-500 font-normal">e.g. yourname@upi, 9876543210@upi</span>
               </label>
               
               <div className="relative flex items-center">
                 <input
                   type="text"
                   required
-                  placeholder="e.g. rahuladhikary@phonepe or 9876543210@paytm"
+                  placeholder="e.g. yourshop@upi or 9876543210@upi"
                   value={form.upi_id}
                   onChange={(e) => setForm({ ...form, upi_id: e.target.value, phonepay_number: e.target.value })}
                   className="w-full bg-zinc-900 border border-zinc-700/80 rounded-2xl px-5 py-4 text-sm font-mono font-bold text-white outline-none focus:border-white pr-28 transition-all"
@@ -478,10 +478,10 @@ export default function SellerSettings() {
             <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl text-xs text-zinc-400 space-y-1.5">
               <p className="text-white font-bold flex items-center gap-1.5">
                 <Sparkles size={14} className="text-emerald-400" />
-                <span>Automated Merchant Settlement</span>
+                <span>Automated 5-Day Merchant Settlement (No Bank A/C, PAN or Aadhaar Required)</span>
               </p>
               <p className="leading-relaxed">
-                When customers purchase your clothing items on ZEBALPHA, earnings and payouts are automatically calculated and transferred directly to this UPI ID or PhonePe account without manual paper delays.
+                When customers purchase your products on ZEBALPHA, your earnings are automatically calculated and safely transferred directly to your UPI ID / UPI Number within 5 days of order delivery.
               </p>
             </div>
           </div>
