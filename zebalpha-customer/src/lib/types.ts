@@ -39,6 +39,7 @@ export type Product = {
   description: string;
   image_url: string;
   images?: string[];
+  video_proof_url?: string;
   category_id?: number | string;
   category_name?: string;
   category?: string;
@@ -58,9 +59,18 @@ export type Product = {
   seller_id?: string;
   seller_name?: string;
   business_name?: string;
-  seller?: { business_name?: string; city?: string; state?: string; business_logo_url?: string };
+  seller?: {
+    business_name?: string;
+    city?: string;
+    state?: string;
+    business_logo_url?: string;
+    social_page_url?: string;
+    social_platform?: string;
+  };
   seller_city?: string;
   seller_logo?: string;
+  seller_social_url?: string;
+  seller_social_platform?: string;
   virtual_tryon_image?: string;
   virtual_tryon_category?: 'upper_body' | 'lower_body' | 'dresses' | 'outerwear' | string;
   is_vto_enabled?: boolean;

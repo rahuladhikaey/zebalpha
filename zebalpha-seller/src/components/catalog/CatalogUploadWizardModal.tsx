@@ -15,6 +15,7 @@ import type { Category } from "@shared/types";
 import { resolveProductTypeConfig } from "@shared/constants/productAttributeEngine";
 import { supabase } from "@shared/utils/supabaseClient";
 import { uploadToCloudinary } from "@shared/services";
+import { validateProductVideoUrl } from "@/shared/utils/socialVideoUtils";
 
 export interface CatalogUploadWizardModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export interface MasterCatalogFormState {
   subcategory_name: string;
   images: string[];
   front_image_index: number;
+  video_proof_url: string;
   name: string;
   description: string;
 
@@ -106,6 +108,7 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
   subcategory_name: "",
   images: [],
   front_image_index: 0,
+  video_proof_url: "",
   name: "",
   description: "",
 
@@ -539,6 +542,7 @@ export default function CatalogUploadWizardModal({
         subcategory_name: subcatCandidate,
         images: imgList,
         front_image_index: 0,
+        video_proof_url: (editingProduct as any).video_proof_url || specs.video_proof_url || "",
         name: editingProduct.name || "",
         description: editingProduct.description || "",
 
@@ -1147,9 +1151,22 @@ export default function CatalogUploadWizardModal({
           combinedCatText
         );
 
+      // Validate optional Real Product & Packaging Video Proof URL before publishing
+      let normalizedVideoProofUrl = "";
+      if (form.video_proof_url && form.video_proof_url.trim()) {
+        const videoCheck = validateProductVideoUrl(form.video_proof_url);
+        if (!videoCheck.valid) {
+          throw new Error(
+            videoCheck.error || "Invalid Real Product Video Proof link. Please paste a public Instagram Reel, Facebook Reel/Video, or YouTube Shorts link."
+          );
+        }
+        normalizedVideoProofUrl = videoCheck.normalizedUrl;
+      }
+
       // Specifications JSON payload
       const baseSpecs: Record<string, any> = {
         ...(form.custom_attributes || {}),
+        ...(normalizedVideoProofUrl ? { video_proof_url: normalizedVideoProofUrl } : { video_proof_url: "" }),
         pattern: form.pattern,
         target_gender: form.target_gender,
         weight_grams: form.weight_grams,
@@ -1479,6 +1496,7 @@ export default function CatalogUploadWizardModal({
         subcategory_id: resolvedSubcatId,
         image_url: finalProductCover,
         images: form.is_new_drop ? finalImagesList : (defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList),
+        video_proof_url: normalizedVideoProofUrl || null,
         default_color: activeDefaultCol,
         main_color: activeDefaultCol,
         mainColorId: activeDefaultCol,

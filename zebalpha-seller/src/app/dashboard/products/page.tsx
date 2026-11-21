@@ -1016,6 +1016,20 @@ export default function SellerProducts() {
                                 🏷️ {product.collection || (product.specifications as any)?.collection}
                               </span>
                             )}
+                            {((product as any).video_proof_url || (product.specifications as any)?.video_proof_url) ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                                🎥 Video Proof
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditWizard(product)}
+                                className="inline-flex items-center gap-1 text-[10px] font-black text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-2 py-0.5 rounded-md cursor-pointer transition"
+                                title="Red Alert: Add Real Product & Packaging Video Proof to protect against RTO & fake returns"
+                              >
+                                ⚠ Add Video Proof
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

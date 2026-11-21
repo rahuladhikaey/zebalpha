@@ -9,6 +9,7 @@ import {
   DUPLICATE_IDENTITY_SUPPORT_MESSAGE,
   validateEnrolmentIdFormat,
 } from "@/shared/utils/indianGstCompliance";
+import { validateSellerSocialPageUrl } from "@/shared/utils/socialVideoUtils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
       pincode,
       category,
       enrolmentId,
+      socialPageUrl,
       signupToken,
     } = body;
 
@@ -143,6 +145,22 @@ export async function POST(request: NextRequest) {
     }
     const validatedEnrolmentId = fmt.normalized;
 
+    // Mandatory Official Shop Social Page URL validation (Instagram / Facebook / YouTube)
+    const rawSocialUrl = String(socialPageUrl || "").trim();
+    if (!rawSocialUrl) {
+      return NextResponse.json(
+        { success: false, error: "Please submit your official shop Instagram, Facebook, or YouTube page link to register." },
+        { status: 400 }
+      );
+    }
+    const socialCheck = validateSellerSocialPageUrl(rawSocialUrl);
+    if (!socialCheck.valid) {
+      return NextResponse.json(
+        { success: false, error: socialCheck.error || "Invalid official social page URL." },
+        { status: 400 }
+      );
+    }
+
     // 2. Create user in Supabase Auth via Admin API
     const { data: authData, error: createError } = await supabaseServer.auth.admin.createUser({
       email: normalizedEmail,
@@ -152,6 +170,8 @@ export async function POST(request: NextRequest) {
         full_name: sellerName,
         role: "seller",
         phone: sellerPhone,
+        social_page_url: socialCheck.normalizedUrl,
+        social_platform: socialCheck.platform || "instagram",
       },
     });
 
@@ -189,35 +209,41 @@ export async function POST(request: NextRequest) {
     // 4. Create public.sellers record linked to the verified user.id
     try {
       const generatedCode = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
-      await supabaseServer
-        .from("sellers")
-        .insert([{
-          id: newUser.id,
-          user_id: newUser.id,
-          seller_id: generatedCode,
-          full_name: sellerName,
-          owner_name: sellerName,
-          business_name: sellerShopName,
-          mobile_number: sellerPhone,
-          phone_number: sellerPhone,
-          email: normalizedEmail,
-          phonepay_no: finalUpi,
-          phonepay_number: finalUpi,
-          pickup_address: pickupAddress || "",
-          warehouse_address: pickupAddress || "",
-          pickup_location: city || "Warehouse",
-          city: city || "",
-          state: state || "",
-          pincode: pincode || "",
-          category: category || "Clothing & Apparel",
-          business_category: category || "Clothing & Apparel",
-          gstin: validatedEnrolmentId,
-          status: "pending", // New sellers start in pending approval status
-          account_status: "Active",
-          email_verified: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }]);
+      const sellerRow: Record<string, any> = {
+        id: newUser.id,
+        user_id: newUser.id,
+        seller_id: generatedCode,
+        full_name: sellerName,
+        owner_name: sellerName,
+        business_name: sellerShopName,
+        mobile_number: sellerPhone,
+        phone_number: sellerPhone,
+        email: normalizedEmail,
+        phonepay_no: finalUpi,
+        phonepay_number: finalUpi,
+        pickup_address: pickupAddress || "",
+        warehouse_address: pickupAddress || "",
+        pickup_location: city || "Warehouse",
+        city: city || "",
+        state: state || "",
+        pincode: pincode || "",
+        category: category || "Clothing & Apparel",
+        business_category: category || "Clothing & Apparel",
+        gstin: validatedEnrolmentId,
+        social_page_url: socialCheck.normalizedUrl,
+        social_platform: socialCheck.platform || "instagram",
+        status: "pending", // New sellers start in pending approval status
+        account_status: "Active",
+        email_verified: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: insertErr } = await supabaseServer.from("sellers").insert([sellerRow]);
+      if (insertErr && (insertErr.message?.includes("social_page_url") || insertErr.message?.includes("social_platform") || insertErr.message?.includes("column"))) {
+        const { social_page_url, social_platform, ...fallbackRow } = sellerRow;
+        await supabaseServer.from("sellers").insert([fallbackRow]);
+      }
     } catch (selErr) {
       console.warn("Sellers insert notice:", selErr);
     }

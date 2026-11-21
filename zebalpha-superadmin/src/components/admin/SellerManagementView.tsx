@@ -41,9 +41,11 @@ import {
   DollarSign,
   ArrowUpRight,
   Boxes,
-  Store
+  Store,
+  Globe
 } from "lucide-react";
 import { exportCustomDataExcel } from "@/utils/excelExport";
+import { validateSellerSocialPageUrl } from "@/shared/utils/socialVideoUtils";
 
 const APPAREL_CATEGORIES = [
   { key: "all", label: "All Clothing" },
@@ -648,6 +650,12 @@ export default function SellerManagementView({
         phonepay_no: editingSellerData.upi_id,
         phonepay_number: editingSellerData.upi_id,
         gstin: (editingSellerData.gstin || "").trim().toUpperCase() || null,
+        social_page_url: editingSellerData.social_page_url?.trim()
+          ? (validateSellerSocialPageUrl(editingSellerData.social_page_url).normalizedUrl || editingSellerData.social_page_url.trim())
+          : null,
+        social_platform: editingSellerData.social_page_url?.trim()
+          ? (validateSellerSocialPageUrl(editingSellerData.social_page_url).platform || null)
+          : null,
         category: editingSellerData.category,
         business_category: editingSellerData.category,
         city: editingSellerData.city,
@@ -660,10 +668,19 @@ export default function SellerManagementView({
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      let { error } = await supabase
         .from("sellers")
         .update(updates)
         .eq("id", editingSellerData.id);
+
+      if (error && (error.message?.includes("social_page_url") || error.message?.includes("social_platform") || error.message?.includes("column"))) {
+        const { social_page_url, social_platform, ...fallbackUpdates } = updates as any;
+        const retry = await supabase
+          .from("sellers")
+          .update(fallbackUpdates)
+          .eq("id", editingSellerData.id);
+        error = retry.error;
+      }
 
       if (error) throw error;
 
@@ -688,6 +705,7 @@ export default function SellerManagementView({
       "Phone Number": s.phone_number || s.mobile_number || "N/A",
       "Email": s.email || "N/A",
       "Enrolment ID": s.gstin || "Not Provided",
+      "Official Social Page": s.social_page_url || "Not Provided",
       "Payout UPI / PhonePe": s.upi_id || s.phonepay_no || "N/A",
       "Fulfillment Hub / City": s.pickup_location || s.city || "Kolkata, WB",
       "Gross Revenue (₹)": s.grossRevenue,
@@ -992,6 +1010,20 @@ export default function SellerManagementView({
                                   </div>
                                 ) : null;
                               })()}
+                              {seller.social_page_url && (
+                                <a
+                                  href={seller.social_page_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-500/10 border border-pink-500/30 text-pink-300 hover:bg-pink-500/20 text-[9px] font-black ml-1 transition"
+                                  title="Open Seller's Official Social Page"
+                                >
+                                  <Globe size={9} />
+                                  <span className="capitalize">{seller.social_platform || "Social Page"}</span>
+                                  <ExternalLink size={8} />
+                                </a>
+                              )}
                               <div className="text-zinc-500 font-mono text-[9px] truncate">
                                 Hub: {seller.primaryLoc?.location_name || seller.primaryLoc?.name || seller.pickup_location || "Main Warehouse"}
                               </div>
@@ -1096,6 +1128,7 @@ export default function SellerManagementView({
                               phone_number: seller.phone_number || seller.mobile_number || "",
                               upi_id: seller.upi_id || seller.phonepay_no || seller.phonepay_number || "",
                               gstin: seller.gstin || "",
+                              social_page_url: seller.social_page_url || "",
                               category: cleanCategory(seller.category || seller.business_category),
                               city: seller.city || seller.pickup_location || "",
                               pickup_location: seller.pickup_location || seller.city || "",
@@ -1388,6 +1421,23 @@ export default function SellerManagementView({
                           </button>
                         )}
                       </div>
+                    </div>
+                    <div className="col-span-2 pt-1 border-t border-zinc-800/60">
+                      <span className="text-[10px] text-zinc-400 font-normal uppercase block">Official Shop Social Page</span>
+                      {selectedSeller.social_page_url ? (
+                        <a
+                          href={selectedSeller.social_page_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-pink-300 hover:text-pink-200 font-mono text-xs font-bold underline underline-offset-2 mt-0.5 break-all"
+                        >
+                          <Globe size={12} className="shrink-0" />
+                          <span>{selectedSeller.social_page_url}</span>
+                          <ExternalLink size={11} className="shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="text-zinc-500 text-xs font-medium">Not Provided</span>
+                      )}
                     </div>
                     <div className="col-span-2 pt-1 border-t border-zinc-800/60">
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">Verified Payout UPI / PhonePe</span>
@@ -1710,6 +1760,25 @@ export default function SellerManagementView({
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-white"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-zinc-300 flex items-center gap-1.5 text-pink-300">
+                  <Globe size={14} />
+                  <span>Official Shop Social Page (Instagram / Facebook / YouTube)</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://www.instagram.com/yourshopname"
+                  value={editingSellerData.social_page_url || ""}
+                  onChange={(e) =>
+                    setEditingSellerData({
+                      ...editingSellerData,
+                      social_page_url: e.target.value,
+                    })
+                  }
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-pink-400"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -20,8 +20,11 @@ import {
   User,
   Tag,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Globe,
+  ExternalLink
 } from "lucide-react";
+import { validateSellerSocialPageUrl } from "@/shared/utils/socialVideoUtils";
 
 const APPAREL_CATEGORIES = [
   "Clothing & Apparel",
@@ -69,6 +72,8 @@ export default function SellerSettings() {
     upi_id: "",
     phonepay_number: "",
     gstin: "",
+    social_page_url: "",
+    social_platform: "",
     pickup_address: "",
     warehouse_address: "",
     city: "",
@@ -109,6 +114,8 @@ export default function SellerSettings() {
           upi_id: resolvedUpi,
           phonepay_number: resolvedUpi,
           gstin: seller.gstin || "",
+          social_page_url: seller.social_page_url || user.user_metadata?.social_page_url || "",
+          social_platform: seller.social_platform || user.user_metadata?.social_platform || "",
           pickup_address: seller.pickup_address || seller.warehouse_address || "",
           warehouse_address: seller.warehouse_address || seller.pickup_address || "",
           city: seller.city || seller.pickup_location || "",
@@ -273,7 +280,20 @@ export default function SellerSettings() {
 
       const finalUpi = form.upi_id.trim() || `${form.mobile_number.trim()}@phonepe`;
 
-      const payload = {
+      let normalizedSocialUrl: string | null = null;
+      let detectedSocialPlatform: string | null = null;
+      if (form.social_page_url.trim()) {
+        const sv = validateSellerSocialPageUrl(form.social_page_url);
+        if (!sv.valid) {
+          alert(sv.error || "Please enter a valid Instagram, Facebook, or YouTube shop page URL.");
+          setSaving(false);
+          return;
+        }
+        normalizedSocialUrl = sv.normalizedUrl;
+        detectedSocialPlatform = sv.platform || null;
+      }
+
+      const payload: Record<string, any> = {
         business_name: form.business_name.trim(),
         owner_name: (form.owner_name || "").trim() || (form.business_name || "").trim() || "Store Owner",
         full_name: (form.owner_name || "").trim() || (form.business_name || "").trim() || "Store Owner",
@@ -287,6 +307,8 @@ export default function SellerSettings() {
         phonepay_no: finalUpi,
         phonepay_number: finalUpi,
         gstin: form.gstin.trim().toUpperCase() || null,
+        social_page_url: normalizedSocialUrl,
+        social_platform: detectedSocialPlatform,
         pickup_address: form.pickup_address.trim(),
         warehouse_address: form.pickup_address.trim(),
         pickup_location: form.city.trim() || form.pickup_address.trim(),
@@ -319,7 +341,7 @@ export default function SellerSettings() {
         } catch (_) {}
 
         if (!updateSuccess) {
-          const { upi_id, ...safePayload } = payload;
+          const { upi_id, social_page_url, social_platform, ...safePayload } = payload;
           const { error } = await supabase
             .from("sellers")
             .update(safePayload)
@@ -327,7 +349,7 @@ export default function SellerSettings() {
           if (error) throw error;
         }
       } else {
-        const insertPayload = {
+        const insertPayload: Record<string, any> = {
           ...payload,
           id: user.id,
           user_id: user.id,
@@ -341,7 +363,7 @@ export default function SellerSettings() {
         } catch (_) {}
 
         if (!insertSuccess) {
-          const { upi_id, ...safeInsert } = insertPayload;
+          const { upi_id, social_page_url, social_platform, ...safeInsert } = insertPayload;
           const { error } = await supabase.from("sellers").insert([safeInsert]);
           if (error) throw error;
         }
@@ -650,6 +672,48 @@ export default function SellerSettings() {
             >
               <span>Don&apos;t have an Enrolment ID? Generate Free on Official Portal →</span>
             </a>
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="text-xs font-bold text-zinc-300 flex items-center justify-between gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <Globe size={14} className="text-rose-400" />
+                <span>Official Shop Social Page (Instagram / Facebook / YouTube)</span>
+              </span>
+              {form.social_page_url.trim() && validateSellerSocialPageUrl(form.social_page_url).valid && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  ✓ {validateSellerSocialPageUrl(form.social_page_url).platformLabel}
+                </span>
+              )}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                placeholder="https://www.instagram.com/yourshopname or https://www.facebook.com/yourshopname"
+                value={form.social_page_url}
+                onChange={(e) => setForm({ ...form, social_page_url: e.target.value })}
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-rose-400 transition-all"
+              />
+              {form.social_page_url.trim() && validateSellerSocialPageUrl(form.social_page_url).valid && (
+                <a
+                  href={validateSellerSocialPageUrl(form.social_page_url).normalizedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shrink-0 transition"
+                >
+                  <span>Open</span>
+                  <ExternalLink size={12} />
+                </a>
+              )}
+            </div>
+            {form.social_page_url.trim() && !validateSellerSocialPageUrl(form.social_page_url).valid && (
+              <p className="text-[11px] font-bold text-rose-400">
+                {validateSellerSocialPageUrl(form.social_page_url).error}
+              </p>
+            )}
+            <p className="text-[11px] text-zinc-400">
+              Your official shop social page where you publish real product &amp; packaging proof videos for customer trust and RTO dispute protection.
+            </p>
           </div>
         </div>
 

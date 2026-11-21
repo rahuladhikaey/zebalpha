@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer, createSupabaseServerClient } from "@/shared/utils/supabaseServer";
 import { triggerCacheInvalidation } from "@/shared/utils/cacheInvalidator";
+import { validateProductVideoUrl } from "@/shared/utils/socialVideoUtils";
 
 // Helper to authenticate user from cookies or Authorization Bearer header
 async function getAuthenticatedUser(req: NextRequest) {
@@ -172,6 +173,7 @@ export async function POST(req: NextRequest) {
       category_id,
       image_url,
       images = [],
+      video_proof_url,
       brand = "ZEBALPHA",
       stock = 20,
       low_stock_limit = 5,
@@ -273,9 +275,28 @@ export async function POST(req: NextRequest) {
       uniqueSlug = `${baseSlug}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
     }
 
+    // Validate optional Real Product & Packaging Video Proof URL strictly
+    const rawVideoUrl = String(
+      video_proof_url ||
+        (typeof specifications === "object" && specifications !== null ? (specifications as any).video_proof_url : "") ||
+        ""
+    ).trim();
+    let normalizedVideoProofUrl: string | null = null;
+    if (rawVideoUrl) {
+      const videoCheck = validateProductVideoUrl(rawVideoUrl);
+      if (!videoCheck.valid) {
+        return NextResponse.json(
+          { success: false, message: videoCheck.error || "Invalid product video proof URL." },
+          { status: 400 }
+        );
+      }
+      normalizedVideoProofUrl = videoCheck.normalizedUrl;
+    }
+
     // 4. Merge all specifications, tags, sizes, and drop details into specifications JSONB
     const mergedSpecs = {
       ...(typeof specifications === "object" && specifications !== null ? specifications : {}),
+      video_proof_url: normalizedVideoProofUrl || "",
       is_premium: Boolean(is_premium),
       is_new_drop: Boolean(is_new_drop),
       collection: collection || "",
@@ -301,6 +322,7 @@ export async function POST(req: NextRequest) {
       category_id: validCategoryId,
       image_url: finalCoverImage,
       images: finalImagesList,
+      ...(normalizedVideoProofUrl ? { video_proof_url: normalizedVideoProofUrl } : {}),
       brand: String(brand || "ZEBALPHA").trim().slice(0, 100),
       stock: calculatedStock,
       stock_count: calculatedStock,
@@ -343,6 +365,11 @@ export async function POST(req: NextRequest) {
       // If seller foreign key failed, verify with user.id
       if (errMsg.includes("seller_id")) {
         safePayload.seller_id = user.id;
+      }
+
+      // If remote DB has not added video_proof_url column yet, keep it in specifications JSONB safely
+      if (errMsg.includes("video_proof_url") || errMsg.includes("column")) {
+        delete safePayload.video_proof_url;
       }
 
       // Retry
@@ -503,12 +530,39 @@ export async function PUT(req: NextRequest) {
       if (catCheck?.id) updatePayload.category_id = catCheck.id;
     }
 
+    // Validate optional Real Product & Packaging Video Proof URL on update
+    const hasVideoUpdate =
+      updates.video_proof_url !== undefined ||
+      (updates.specifications && updates.specifications.video_proof_url !== undefined);
+    let normalizedUpdateVideoUrl: string | null | undefined = undefined;
+    if (hasVideoUpdate) {
+      const rawUpdVideo = String(
+        updates.video_proof_url !== undefined
+          ? updates.video_proof_url || ""
+          : updates.specifications?.video_proof_url || ""
+      ).trim();
+      if (rawUpdVideo) {
+        const videoCheck = validateProductVideoUrl(rawUpdVideo);
+        if (!videoCheck.valid) {
+          return NextResponse.json(
+            { success: false, message: videoCheck.error || "Invalid product video proof URL." },
+            { status: 400 }
+          );
+        }
+        normalizedUpdateVideoUrl = videoCheck.normalizedUrl;
+      } else {
+        normalizedUpdateVideoUrl = null;
+      }
+      updatePayload.video_proof_url = normalizedUpdateVideoUrl;
+    }
+
     // Merge specifications
-    if (updates.specifications || updates.is_premium !== undefined || updates.is_new_drop !== undefined) {
+    if (updates.specifications || updates.is_premium !== undefined || updates.is_new_drop !== undefined || hasVideoUpdate) {
       const currentSpecs = existingProduct.specifications || {};
       updatePayload.specifications = {
         ...currentSpecs,
         ...(updates.specifications || {}),
+        ...(hasVideoUpdate ? { video_proof_url: normalizedUpdateVideoUrl || "" } : {}),
         ...(updates.is_premium !== undefined ? { is_premium: Boolean(updates.is_premium) } : {}),
         ...(updates.is_new_drop !== undefined ? { is_new_drop: Boolean(updates.is_new_drop) } : {}),
         ...(updates.collection !== undefined ? { collection: updates.collection } : {}),
@@ -521,12 +575,24 @@ export async function PUT(req: NextRequest) {
       updatePayload.packages = sanitizeProductPackages(updates.packages);
     }
 
-    const { data: updatedProduct, error: updateError } = await supabaseServer
+    let { data: updatedProduct, error: updateError } = await supabaseServer
       .from("products")
       .update(updatePayload)
       .eq("id", targetId)
       .select("*")
       .single();
+
+    if (updateError && (updateError.message?.includes("video_proof_url") || updateError.message?.includes("column"))) {
+      const { video_proof_url: _drop, ...safeUpdatePayload } = updatePayload;
+      const retryRes = await supabaseServer
+        .from("products")
+        .update(safeUpdatePayload)
+        .eq("id", targetId)
+        .select("*")
+        .single();
+      updatedProduct = retryRes.data;
+      updateError = retryRes.error;
+    }
 
     if (updateError) {
       return NextResponse.json(

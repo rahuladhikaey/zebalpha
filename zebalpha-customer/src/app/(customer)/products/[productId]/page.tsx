@@ -44,21 +44,31 @@ const getProduct = cache(async (productId: string) => {
       try {
         const { data, error } = await supabaseServer
           .from("products")
-          .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
+          .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url, social_page_url, social_platform)`)
           .eq("id", productId)
           .maybeSingle();
 
         if (data && !error) {
           productData = data;
         } else if (error) {
-          const fallbackServer = await supabaseServer
+          const fallbackJoin = await supabaseServer
             .from("products")
-            .select(SLIM_PDP_FIELDS)
+            .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
             .eq("id", productId)
             .maybeSingle();
 
-          if (fallbackServer.data) {
-            productData = fallbackServer.data;
+          if (fallbackJoin.data && !fallbackJoin.error) {
+            productData = fallbackJoin.data;
+          } else {
+            const fallbackServer = await supabaseServer
+              .from("products")
+              .select(SLIM_PDP_FIELDS)
+              .eq("id", productId)
+              .maybeSingle();
+
+            if (fallbackServer.data) {
+              productData = fallbackServer.data;
+            }
           }
         }
       } catch (serverErr) {
@@ -107,6 +117,8 @@ const getProduct = cache(async (productId: string) => {
           productData.business_name = s.business_name;
           productData.seller_city = s.city;
           productData.seller_logo = s.business_logo_url;
+          if (s.social_page_url) productData.seller_social_url = s.social_page_url;
+          if (s.social_platform) productData.seller_social_platform = s.social_platform;
         }
         delete productData.seller;
       }
@@ -131,6 +143,7 @@ const getProduct = cache(async (productId: string) => {
       const specs = productData.specifications || {};
       const sanitized = sanitizeProductMedia(productData);
       sanitized.thumbnail_url = sanitized.thumbnail_url || sanitized.image_url || (Array.isArray(sanitized.images) && sanitized.images[0]) || "";
+      sanitized.video_proof_url = sanitized.video_proof_url || specs.video_proof_url || "";
       sanitized.category_name = sanitized.category_name || specs.category || "Apparel";
       sanitized.is_premium = sanitized.is_premium ?? (sanitized.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true");
       sanitized.is_new_drop = sanitized.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || sanitized.status === "COMING_SOON");

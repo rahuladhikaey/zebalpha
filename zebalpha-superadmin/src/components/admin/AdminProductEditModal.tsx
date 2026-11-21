@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { X, Save, Edit3, Image as ImageIcon, Upload, CheckCircle2, AlertCircle, Building2, Tag, Calculator, Sliders, Layers } from "lucide-react";
+import { X, Save, Edit3, Image as ImageIcon, Upload, CheckCircle2, AlertCircle, Building2, Tag, Calculator, Sliders, Layers, Video } from "lucide-react";
 import { supabaseA as supabase } from "@shared/utils/supabaseClient";
 import { DYNAMIC_CATEGORY_CATALOG, resolveProductTypeConfig, ProductTypeConfig } from "@shared/constants/productAttributeEngine";
 import { compressImageTo100KB } from "@shared/services";
+import { validateProductVideoUrl } from "@/shared/utils/socialVideoUtils";
 
 
 export interface AdminProductEditModalProps {
@@ -71,6 +72,7 @@ export default function AdminProductEditModal({
     
     images: [] as string[],
     front_image_index: 0,
+    video_proof_url: "",
   });
 
 
@@ -133,6 +135,7 @@ export default function AdminProductEditModal({
         
         images: imgList,
         front_image_index: 0,
+        video_proof_url: product.video_proof_url || specs.video_proof_url || "",
       });
     }
   }, [product]);
@@ -211,6 +214,16 @@ export default function AdminProductEditModal({
       return;
     }
 
+    let normalizedVideoUrl = "";
+    if (form.video_proof_url.trim()) {
+      const vc = validateProductVideoUrl(form.video_proof_url);
+      if (!vc.valid) {
+        setErrorMsg(vc.error || "Invalid Real Product Video Proof URL.");
+        return;
+      }
+      normalizedVideoUrl = vc.normalizedUrl;
+    }
+
     setSaving(true);
     setErrorMsg("");
 
@@ -248,6 +261,7 @@ export default function AdminProductEditModal({
         defective_returns_price: form.defective_returns_price,
         style_code: form.style_code,
         volumetric_weight: form.volumetric_weight,
+        video_proof_url: normalizedVideoUrl,
         ...form.custom_attributes,
       };
 
@@ -286,6 +300,7 @@ export default function AdminProductEditModal({
         sku: form.sku || product.sku,
         image_url: coverImageUrl,
         images: orderedImages,
+        video_proof_url: normalizedVideoUrl || null,
         specifications: updatedSpecifications,
         is_premium: form.is_premium,
         is_new_drop: form.is_new_drop,
@@ -444,6 +459,21 @@ export default function AdminProductEditModal({
                   </label>
                 )}
               </div>
+            </div>
+
+            {/* Real Product & Packaging Video Proof URL */}
+            <div>
+              <label className="text-xs font-medium text-emerald-300 mb-1 flex items-center gap-1.5">
+                <Video className="w-3.5 h-3.5" />
+                <span>Real Product &amp; Packaging Video Proof URL (Instagram Reel / Facebook Reel / YouTube Shorts)</span>
+              </label>
+              <input
+                type="url"
+                placeholder="https://www.instagram.com/reel/... or https://youtube.com/shorts/..."
+                value={form.video_proof_url}
+                onChange={(e) => setForm({ ...form, video_proof_url: e.target.value })}
+                className="w-full p-2.5 rounded-lg bg-[#0d0d11] border border-[#27272a] text-white text-xs font-mono focus:border-emerald-400"
+              />
             </div>
           </div>
 

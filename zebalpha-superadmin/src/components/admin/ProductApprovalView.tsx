@@ -18,9 +18,15 @@ import {
   Sparkles,
   Store,
   UserCheck,
-  Edit3
+  Edit3,
+  Video,
+  Play,
+  ExternalLink,
+  X,
+  ShieldCheck
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { parseProductVideoProof, type ProductVideoValidationResult } from "@/shared/utils/socialVideoUtils";
 
 const AdminProductEditModal = dynamic(
   () => import("./AdminProductEditModal"),
@@ -61,6 +67,11 @@ export default function ProductApprovalView({
   const [editingCollectionId, setEditingCollectionId] = useState<string | number | null>(null);
   const [collectionInput, setCollectionInput] = useState<string>("");
   const [editingProductForAdmin, setEditingProductForAdmin] = useState<any | null>(null);
+  const [previewVideoModal, setPreviewVideoModal] = useState<{
+    videoInfo: ProductVideoValidationResult;
+    productName: string;
+    shopName: string;
+  } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 24;
 
@@ -415,6 +426,32 @@ export default function ProductApprovalView({
                       <Flame size={11} className={isNewDrop ? "text-orange-400" : "text-zinc-500"} />
                       <span>{isNewDrop ? "⚡ New Drop" : "+ Set Drop"}</span>
                     </button>
+
+                    {(() => {
+                      const vidInfo = parseProductVideoProof(prod.video_proof_url || (prod.specifications as any)?.video_proof_url);
+                      return vidInfo ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewVideoModal({
+                              videoInfo: vidInfo,
+                              productName: prod.name,
+                              shopName,
+                            })
+                          }
+                          className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25 cursor-pointer transition"
+                          title="Watch Real Product & Packaging Video Proof (Anti-RTO / Dispute Check)"
+                        >
+                          <Play size={10} className="fill-emerald-300" />
+                          <span>Video Proof</span>
+                        </button>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 border bg-rose-950/40 text-rose-400/90 border-rose-500/25">
+                          <Video size={10} />
+                          <span>No Video</span>
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {/* Collection Tag / Inline Edit */}
@@ -543,6 +580,69 @@ export default function ProductApprovalView({
         onClose={() => setEditingProductForAdmin(null)}
         onSuccess={() => loadProducts()}
       />
+
+      {/* Super Admin Real Product & Packaging Video Proof Modal */}
+      {previewVideoModal && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
+          onClick={() => setPreviewVideoModal(null)}
+        >
+          <div
+            className="w-full max-w-[400px] rounded-3xl bg-zinc-950 border border-zinc-800 overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-zinc-800 bg-zinc-900">
+              <div className="flex items-center gap-2 min-w-0">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                    {previewVideoModal.videoInfo.platformLabel} • Dispute &amp; Quality Proof
+                  </p>
+                  <p className="text-xs font-bold text-white truncate">
+                    {previewVideoModal.shopName} — {previewVideoModal.productName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewVideoModal(null)}
+                className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="relative w-full aspect-[9/15] max-h-[65vh] bg-black">
+              <iframe
+                src={previewVideoModal.videoInfo.embedUrl}
+                title={previewVideoModal.productName}
+                className="w-full h-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
+            <div className="px-4 py-3 border-t border-zinc-800 flex items-center justify-between gap-2 text-xs">
+              <a
+                href={previewVideoModal.videoInfo.normalizedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold underline"
+              >
+                <span>Open Original Link</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewVideoModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-white text-black font-black text-xs cursor-pointer hover:bg-zinc-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

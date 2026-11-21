@@ -20,7 +20,10 @@ import {
   MapPin,
   FileBadge2,
   AlertCircle,
+  Globe,
+  ExternalLink,
 } from "lucide-react";
+import { validateSellerSocialPageUrl } from "@/shared/utils/socialVideoUtils";
 
 const BUSINESS_CATEGORIES = [
   "Clothing & Apparel",
@@ -83,6 +86,7 @@ function SellerRegisterContent() {
   const [shopName, setShopName] = useState("");
   const [businessCategory, setBusinessCategory] = useState("Clothing & Apparel");
   const [enrolmentId, setEnrolmentId] = useState("");
+  const [socialPageUrl, setSocialPageUrl] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [upiId, setUpiId] = useState("");
   const [email, setEmail] = useState("");
@@ -205,11 +209,13 @@ function SellerRegisterContent() {
     setError("");
 
     const cleanEnrolmentId = enrolmentId.trim().toUpperCase();
+    const socialValidation = validateSellerSocialPageUrl(socialPageUrl);
 
     if (
       !sellerName.trim() ||
       !shopName.trim() ||
       !cleanEnrolmentId ||
+      !socialPageUrl.trim() ||
       !mobileNumber.trim() ||
       !email.trim() ||
       !pickupAddress.trim() ||
@@ -217,12 +223,17 @@ function SellerRegisterContent() {
       !pincode.trim() ||
       !password
     ) {
-      setError("Please fill in all required fields including your Enrolment ID, Pickup Address, and 6-digit Pincode.");
+      setError("Please fill in all required fields including your Enrolment ID, Official Shop Social Page link, Pickup Address, and 6-digit Pincode.");
       return;
     }
 
     if (cleanEnrolmentId.length !== 15) {
       setError("Please enter your valid 15-character Enrolment ID (you can generate one free using the link below).");
+      return;
+    }
+
+    if (!socialValidation.valid) {
+      setError(socialValidation.error || "Please enter your official Instagram, Facebook, or YouTube shop page URL.");
       return;
     }
 
@@ -357,6 +368,7 @@ function SellerRegisterContent() {
           pincode: pincode.trim(),
           category: businessCategory,
           enrolmentId: cleanEnrolmentId,
+          socialPageUrl: validateSellerSocialPageUrl(socialPageUrl).normalizedUrl || socialPageUrl.trim(),
           signupToken: verifiedSignupToken,
         }),
       });
@@ -596,6 +608,69 @@ function SellerRegisterContent() {
                     <span>Don&apos;t have an Enrolment ID? Generate Free on Official Portal</span>
                     <ArrowRight size={12} />
                   </a>
+                </div>
+
+                {/* Official Shop Instagram / Facebook / YouTube Page (Required for Real Product Video Proof) */}
+                <div>
+                  <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#4A3F2B] mb-1.5 flex items-center justify-between gap-2 flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                      <Globe size={13} className="text-[#F03A46]" />
+                      <span>Official Shop Social Page (Instagram / Facebook / YouTube) *</span>
+                    </span>
+                    {(() => {
+                      const sv = socialPageUrl.trim() ? validateSellerSocialPageUrl(socialPageUrl) : null;
+                      if (!sv) return null;
+                      return sv.valid ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-black text-emerald-800 normal-case">
+                          <CheckCircle2 size={11} />
+                          {sv.platformLabel} Verified Format
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-300 px-2 py-0.5 text-[10px] font-black text-rose-700 normal-case">
+                          <AlertCircle size={11} />
+                          Invalid Social Link
+                        </span>
+                      );
+                    })()}
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://www.instagram.com/yourshopname or https://www.facebook.com/yourshopname"
+                    value={socialPageUrl}
+                    onChange={(e) => setSocialPageUrl(e.target.value)}
+                    className="w-full rounded-2xl border-[1.5px] border-[#EAD296] bg-[#FFFDF8] px-4 py-3 text-xs sm:text-sm font-semibold text-[#14120F] placeholder:text-[#9C8B6B] outline-none focus:border-[#F03A46] focus:bg-white transition-all"
+                  />
+                  {socialPageUrl.trim() && !validateSellerSocialPageUrl(socialPageUrl).valid && (
+                    <p className="mt-1 text-[11px] font-bold text-rose-600">
+                      {validateSellerSocialPageUrl(socialPageUrl).error}
+                    </p>
+                  )}
+                  <div className="mt-1.5 text-[11px] font-medium text-[#6E5C3D] bg-[#FFF8F6] border border-[#F03A46]/20 rounded-xl px-3.5 py-2 space-y-1">
+                    <p>
+                      Create or link an official <strong>Instagram / Facebook / YouTube</strong> page matching your <strong>Shop Name</strong>. When adding products, you&apos;ll post short real product &amp; packaging videos there as <strong>seller protection proof</strong> against fake returns &amp; RTO disputes.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 pt-0.5">
+                      <a
+                        href="https://www.instagram.com/accounts/emailsignup/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-extrabold text-[#F03A46] hover:underline"
+                      >
+                        <span>Create Free Instagram Page</span>
+                        <ExternalLink size={11} />
+                      </a>
+                      <a
+                        href="https://www.facebook.com/pages/create"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-extrabold text-[#9A6503] hover:underline"
+                      >
+                        <span>Create Free Facebook Page</span>
+                        <ExternalLink size={11} />
+                      </a>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Phone & Email */}

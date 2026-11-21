@@ -7,7 +7,9 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
 import { useCart } from "@/context/CartContext";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt, Gift } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt, Gift, Play, Video } from "lucide-react";
+import { parseProductVideoProof } from "@/lib/socialVideoUtils";
+import { RealVideoProofModal } from "@/components/RealVideoProofModal";
 import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
 import Link from "next/link";
 import ProductImageCarousel from "@/components/ProductImageCarousel";
@@ -299,6 +301,7 @@ export default function ProductDetailTemplate({
     "dimensions",
     "unit",
     "gsm",
+    "video_proof_url",
   ]), []);
 
   const CUSTOMER_FRIENDLY_SPEC_LABELS: Record<string, string> = useMemo(() => ({
@@ -875,6 +878,15 @@ export default function ProductDetailTemplate({
 
   const [isDropNotified, setIsDropNotified] = useState(false);
   const [dropToast, setDropToast] = useState("");
+  const [videoProofOpen, setVideoProofOpen] = useState(false);
+
+  const videoProofInfo = useMemo(
+    () =>
+      parseProductVideoProof(
+        product.video_proof_url || (product.specifications as any)?.video_proof_url
+      ),
+    [product.video_proof_url, product.specifications]
+  );
 
   const isNewDrop = useMemo(() => isProductNewDrop(product), [product]);
   const isLive = useMemo(() => isDropLive(product), [product]);
@@ -939,6 +951,82 @@ export default function ProductDetailTemplate({
                     </button>
                   </div>
                 }
+              />
+
+              {/* Real Product & Packaging Video Proof Card (In-App Zero-Egress Popup) */}
+              {videoProofInfo && (
+                <button
+                  type="button"
+                  onClick={() => setVideoProofOpen(true)}
+                  className={`group w-full flex items-center justify-between gap-3 rounded-2xl border p-3 sm:p-3.5 text-left transition-all active:scale-[0.99] cursor-pointer shadow-sm ${
+                    isNativeApp
+                      ? "border-[#DFBE6F] bg-gradient-to-r from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE] hover:border-[#F03A46]"
+                      : "border-emerald-500/35 bg-gradient-to-r from-emerald-950/50 via-zinc-900/90 to-zinc-950 hover:border-emerald-400/70"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      data-photo-overlay="true"
+                      className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-md transition-transform group-hover:scale-105 ${
+                        isNativeApp
+                          ? "bg-gradient-to-br from-[#F03A46] to-[#FF5757]"
+                          : "bg-gradient-to-br from-emerald-500 to-emerald-600"
+                      }`}
+                    >
+                      <Play className="h-5 w-5 fill-white ml-0.5" />
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400 border border-white" />
+                      </span>
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`text-xs sm:text-sm font-black tracking-tight ${
+                            isNativeApp ? "text-[#14120F]" : "text-white"
+                          }`}
+                        >
+                          Watch Real Product &amp; Packaging Video
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wider ${
+                            isNativeApp
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                          }`}
+                        >
+                          <Video className="h-2.5 w-2.5" />
+                          {videoProofInfo.platformLabel}
+                        </span>
+                      </div>
+                      <p
+                        className={`text-[11px] font-medium mt-0.5 truncate ${
+                          isNativeApp ? "text-[#5C4E35]" : "text-zinc-400"
+                        }`}
+                      >
+                        Verified quality &amp; intact packaging proof • Plays right here
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${
+                      isNativeApp
+                        ? "bg-[#14120F] text-[#FCE08A]"
+                        : "bg-white text-black group-hover:bg-emerald-400 transition-colors"
+                    }`}
+                  >
+                    Play ▶
+                  </span>
+                </button>
+              )}
+
+              <RealVideoProofModal
+                isOpen={videoProofOpen}
+                onClose={() => setVideoProofOpen(false)}
+                videoInfo={videoProofInfo}
+                productName={product.name}
+                sellerName={product.seller_name || product.business_name || product.brand}
+                isNativeApp={isNativeApp}
               />
             </div>
           </div>
