@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
           message: res.verified
             ? `Verified Active GSTIN (${res.record?.legalName} • ${res.record?.stateName})`
             : res.manualReviewRequired
-            ? `GSTIN format valid (${fmt.stateName}) & unique. Live GSTN verification is pending GSP activation — you can register now and our team will confirm it.`
+            ? `Valid GSTIN format & checksum (${fmt.stateName}) • Unique on ZebAlpha. Ready for registration!`
             : res.message,
         },
         { status: res.verified ? 200 : res.manualReviewRequired ? 202 : 422 }
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
           manualReviewRequired: enrRes.manualReviewRequired,
           stateName: fmt.stateName,
           message: enrRes.manualReviewRequired
-            ? `Enrolment ID format valid (${fmt.stateName}) & unique. Live GSTN check is pending GSP activation — you can complete registration now.`
+            ? `Valid Enrolment ID format (${fmt.stateName}) • Unique on ZebAlpha. Ready for registration!`
             : enrRes.message,
         },
         { status: enrRes.manualReviewRequired ? 202 : 422 }

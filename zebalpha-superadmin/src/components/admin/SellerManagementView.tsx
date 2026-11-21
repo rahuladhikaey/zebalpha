@@ -1353,9 +1353,25 @@ export default function SellerManagementView({
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">
                         {getSellerTaxIdBadge(selectedSeller.gstin)?.type || "GSTIN / Enrolment ID"}
                       </span>
-                      <span className="text-emerald-300 font-mono text-[11px] font-bold">
-                        {selectedSeller.gstin || "Not Provided"}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                        <span className="text-emerald-300 font-mono text-[11px] font-bold">
+                          {selectedSeller.gstin || "Not Provided"}
+                        </span>
+                        {selectedSeller.gstin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(String(selectedSeller.gstin));
+                              window.open("https://services.gst.gov.in/services/searchtp", "_blank", "noopener,noreferrer");
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[9px] font-black uppercase cursor-pointer transition"
+                            title="Copy ID and open official GST Portal"
+                          >
+                            <span>Check on GST.gov.in</span>
+                            <ExternalLink size={9} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="col-span-2 pt-1 border-t border-zinc-800/60">
                       <span className="text-[10px] text-zinc-400 font-normal uppercase block">Verified Payout UPI / PhonePe</span>

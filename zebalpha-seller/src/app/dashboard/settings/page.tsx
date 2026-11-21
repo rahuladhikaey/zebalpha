@@ -649,6 +649,14 @@ export default function SellerSettings() {
                 {taxVerifyMsg.text}
               </p>
             )}
+            <a
+              href="https://reg.gst.gov.in/registration/generateuid"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-2 mt-1"
+            >
+              <span>Don&apos;t have an Enrolment ID? Generate Free on GST Portal →</span>
+            </a>
           </div>
         </div>
 

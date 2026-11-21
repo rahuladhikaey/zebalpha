@@ -610,9 +610,20 @@ function SellerRegisterContent() {
                 )}
 
                 {taxMode === "enrolment" && (
-                  <p className="text-[11px] font-medium text-[#6E5C3D] bg-[#FFFBF0] border border-[#EAD296]/80 rounded-xl px-3.5 py-2">
-                    <strong>No GSTIN?</strong> Verify with your <strong>GST Enrolment ID</strong> directly (no PAN input needed — verified automatically against your registered Mobile &amp; Email via GSTN). Enrolment ID sellers deliver goods intra-state within their registered State.
-                  </p>
+                  <div className="text-[11px] font-medium text-[#6E5C3D] bg-[#FFFBF0] border border-[#EAD296]/80 rounded-xl px-3.5 py-2.5 space-y-1.5">
+                    <p>
+                      <strong>No GSTIN?</strong> Enter your 15-character <strong>GST Enrolment ID</strong> directly (no PAN, Bank A/C, or Aadhaar needed).
+                    </p>
+                    <a
+                      href="https://reg.gst.gov.in/registration/generateuid"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-black text-[#F03A46] hover:text-[#C82333] underline underline-offset-2 transition-colors"
+                    >
+                      <span>Don&apos;t have an Enrolment ID? Generate Free on GST Portal</span>
+                      <ArrowRight size={12} />
+                    </a>
+                  </div>
                 )}
 
                 {/* Phone & Email */}
