@@ -176,7 +176,7 @@ export function validateProductVideoUrl(rawUrl: string): ProductVideoValidationR
     return {
       valid: true,
       normalizedUrl: `https://www.instagram.com/${canonicalKind}/${code}/`,
-      embedUrl: `https://www.instagram.com/${canonicalKind}/${code}/embed/captioned/`,
+      embedUrl: `https://www.instagram.com/${canonicalKind}/${code}/embed/`,
       platform: "instagram",
       platformLabel: VIDEO_PLATFORM_LABELS.instagram,
       videoId: code,
@@ -196,7 +196,7 @@ export function validateProductVideoUrl(rawUrl: string): ProductVideoValidationR
     return {
       valid: true,
       normalizedUrl: isShorts ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`,
-      embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&fs=0&iv_load_policy=3&disablekb=1`,
       platform: "youtube",
       platformLabel: isShorts ? "YouTube Shorts" : "YouTube Video",
       videoId,

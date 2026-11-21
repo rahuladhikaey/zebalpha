@@ -232,7 +232,7 @@ export function validateProductVideoUrl(rawUrl: string): ProductVideoValidationR
 
     const canonicalKind = kind === "p" ? "p" : "reel";
     const normalizedUrl = `https://www.instagram.com/${canonicalKind}/${code}/`;
-    const embedUrl = `https://www.instagram.com/${canonicalKind}/${code}/embed/captioned/`;
+    const embedUrl = `https://www.instagram.com/${canonicalKind}/${code}/embed/`;
     return {
       valid: true,
       normalizedUrl,
@@ -268,7 +268,7 @@ export function validateProductVideoUrl(rawUrl: string): ProductVideoValidationR
     const normalizedUrl = isShorts
       ? `https://www.youtube.com/shorts/${videoId}`
       : `https://www.youtube.com/watch?v=${videoId}`;
-    const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`;
+    const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&fs=0&iv_load_policy=3&disablekb=1`;
     return {
       valid: true,
       normalizedUrl,

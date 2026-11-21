@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { X, ShieldCheck, ExternalLink, PlayCircle, CheckCircle2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, ShieldCheck, PlayCircle, CheckCircle2, RotateCw, Lock } from "lucide-react";
 import type { ProductVideoValidationResult } from "@/lib/socialVideoUtils";
 
 interface RealVideoProofModalProps {
@@ -14,9 +14,12 @@ interface RealVideoProofModalProps {
 }
 
 /**
- * Zero-Egress In-App 9:16 Vertical Popup Video Player.
- * Lazy-mounts the official Instagram / YouTube Shorts / Facebook iframe ONLY when opened,
- * streaming directly from Meta/Google CDNs with 0 MB server egress on ZebAlpha.
+ * Strictly Sandboxed, Zero-Egress In-App 9:16 Popup Video Player.
+ * - Uses sandbox="allow-scripts allow-same-origin allow-presentation" (NO allow-popups,
+ *   NO allow-top-navigation) so tapping logos, handles, or CTAs inside Instagram / YouTube /
+ *   Facebook embeds CANNOT redirect or open external social media apps or new tabs.
+ * - Crops/shields external header & footer chrome bars so buyers watch purely inside ZebAlpha.
+ * - Streams directly from Meta/Google CDNs (0 MB Supabase/Vercel video egress).
  */
 export function RealVideoProofModal({
   isOpen,
@@ -26,6 +29,8 @@ export function RealVideoProofModal({
   sellerName,
   isNativeApp = false,
 }: RealVideoProofModalProps) {
+  const [reloadNonce, setReloadNonce] = useState(0);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -41,6 +46,10 @@ export function RealVideoProofModal({
   }, [isOpen, onClose]);
 
   if (!isOpen || !videoInfo?.embedUrl) return null;
+
+  const isInstagram = videoInfo.platform === "instagram";
+  const isYoutube = videoInfo.platform === "youtube";
+  const isFacebook = videoInfo.platform === "facebook";
 
   return (
     <div
@@ -75,7 +84,7 @@ export function RealVideoProofModal({
                 }`}
               >
                 <CheckCircle2 size={11} />
-                <span>Real Product &amp; Packaging Proof</span>
+                <span>ZebAlpha Real Video Proof</span>
               </p>
               <p
                 className={`text-xs font-extrabold truncate ${
@@ -83,7 +92,7 @@ export function RealVideoProofModal({
                 }`}
               >
                 {sellerName ? `${sellerName} • ` : ""}
-                {videoInfo.platformLabel}
+                In-App Verified Player
               </p>
             </div>
           </div>
@@ -102,20 +111,65 @@ export function RealVideoProofModal({
           </button>
         </div>
 
-        {/* 9:16 Vertical Embed Stage (0 MB Server Egress) */}
-        <div className="relative w-full aspect-[9/15] max-h-[66vh] bg-black overflow-hidden">
+        {/* Sandboxed 9:16 Vertical Stage — Strictly Stays Inside ZebAlpha (Zero External App Redirects!) */}
+        <div className="relative w-full aspect-[9/15] max-h-[66vh] bg-black overflow-hidden select-none">
           <iframe
+            key={`${videoInfo.embedUrl}-${reloadNonce}`}
             src={videoInfo.embedUrl}
             title={`Real product video proof for ${productName}`}
-            className="h-full w-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-presentation"
+            className={
+              isInstagram
+                ? "absolute left-0 right-0 -top-[56px] w-full h-[calc(100%+162px)] border-0"
+                : "h-full w-full border-0"
+            }
+            allow="autoplay; encrypted-media; picture-in-picture"
             loading="lazy"
             referrerPolicy="strict-origin-when-cross-origin"
           />
+
+          {/* Top Click-Shield Over External Channel / Profile Header Chrome (Keeps Center Video Playable) */}
+          {(isYoutube || isFacebook) && (
+            <div
+              aria-hidden="true"
+              className="absolute top-0 inset-x-0 h-14 z-20 bg-gradient-to-b from-black/85 via-black/45 to-transparent pointer-events-auto flex items-start justify-between px-3 pt-2.5"
+            >
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/75 border border-white/15 px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-wider text-emerald-300 backdrop-blur-sm">
+                <Lock size={9} />
+                ZebAlpha Verified Proof
+              </span>
+            </div>
+          )}
+
+          {/* For Instagram: Subtle ZebAlpha Pill + Bottom Click-Shield Over Any Residual Footer Bar */}
+          {isInstagram && (
+            <>
+              <div
+                aria-hidden="true"
+                className="absolute top-2.5 left-3 z-20 pointer-events-none"
+              >
+                <span className="inline-flex items-center gap-1 rounded-full bg-black/70 border border-white/15 px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-wider text-emerald-300 backdrop-blur-sm">
+                  <Lock size={9} />
+                  ZebAlpha Verified Proof
+                </span>
+              </div>
+              <div
+                aria-hidden="true"
+                className="absolute bottom-0 inset-x-0 h-8 z-20 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-auto"
+              />
+            </>
+          )}
+
+          {/* YouTube Bottom-Right YouTube Logo Click-Shield (Keeps Play/Mute/Seek Left & Center Usable) */}
+          {isYoutube && (
+            <div
+              aria-hidden="true"
+              className="absolute bottom-0 right-0 h-12 w-28 z-20 pointer-events-auto"
+            />
+          )}
         </div>
 
-        {/* Sticky Bottom Bar — Keeps Buyer on ZebAlpha for Checkout */}
+        {/* Sticky Bottom Bar — 100% Stays Inside ZebAlpha (ZERO External Social Redirect Links!) */}
         <div
           className={`px-4 py-3 border-t space-y-2 ${
             isNativeApp ? "border-[#EFE1BC] bg-[#FFFDF8]" : "border-zinc-800 bg-zinc-950"
@@ -143,20 +197,24 @@ export function RealVideoProofModal({
           </button>
 
           <div className="flex items-center justify-between text-[10px] pt-0.5">
-            <span className={isNativeApp ? "text-[#7A6847]" : "text-zinc-500"}>
-              Unedited quality &amp; intact packaging check
+            <span
+              className={`inline-flex items-center gap-1 font-semibold ${
+                isNativeApp ? "text-[#7A6847]" : "text-zinc-500"
+              }`}
+            >
+              <Lock size={10} />
+              Playing securely inside ZebAlpha
             </span>
-            <a
-              href={videoInfo.normalizedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-1 font-bold underline underline-offset-2 ${
+            <button
+              type="button"
+              onClick={() => setReloadNonce((n) => n + 1)}
+              className={`inline-flex items-center gap-1 font-bold underline underline-offset-2 cursor-pointer ${
                 isNativeApp ? "text-[#9A6503] hover:text-[#F03A46]" : "text-zinc-400 hover:text-white"
               }`}
             >
-              <span>Not loading? Open Video</span>
-              <ExternalLink size={10} />
-            </a>
+              <RotateCw size={10} />
+              <span>Reload Player</span>
+            </button>
           </div>
         </div>
       </div>
