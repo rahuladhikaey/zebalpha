@@ -374,11 +374,11 @@ export function SellerLandingPage() {
             {isLoggedIn ? (
               <>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard/home"
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#F03A46] via-[#FF5757] to-[#E63946] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)] hover:brightness-105 active:scale-[0.98] transition-all"
                 >
                   <LayoutDashboard size={16} />
-                  <span>Go to Dashboard</span>
+                  <span>Go to Seller Home</span>
                 </Link>
               </>
             ) : (
@@ -402,10 +402,10 @@ export function SellerLandingPage() {
           {/* Mobile Actions + Menu Toggle */}
           <div className="flex sm:hidden items-center gap-2">
             <Link
-              href={isLoggedIn ? "/dashboard" : "/login"}
+              href={isLoggedIn ? "/dashboard/home" : "/login"}
               className="rounded-lg border border-[#DFBE6F] bg-[#FFFDF8] px-3 py-1.5 text-xs font-extrabold text-[#14120F]"
             >
-              {isLoggedIn ? "Dashboard" : "Login"}
+              {isLoggedIn ? "Home" : "Login"}
             </Link>
             <Link
               href="/register"

@@ -18,11 +18,11 @@ import {
 } from "lucide-react";
 
 function getSafeDashboardRedirect(raw: string | null): string {
-  if (!raw) return "/dashboard";
+  if (!raw) return "/dashboard/home";
   if ((raw === "/dashboard" || raw.startsWith("/dashboard/")) && !raw.startsWith("//")) {
     return raw;
   }
-  return "/dashboard";
+  return "/dashboard/home";
 }
 
 function LoginContent() {

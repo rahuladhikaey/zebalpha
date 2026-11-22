@@ -936,10 +936,10 @@ function SellerRegisterContent() {
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                   <Link
-                    href="/dashboard"
+                    href="/dashboard/home"
                     className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F03A46] to-[#E63946] px-7 py-3.5 text-sm font-black uppercase tracking-wider text-white shadow-lg"
                   >
-                    <span>Open Seller Dashboard</span>
+                    <span>Open Seller Hub</span>
                     <ArrowRight size={16} />
                   </Link>
                   <Link

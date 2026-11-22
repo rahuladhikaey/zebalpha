@@ -124,7 +124,7 @@ export async function proxy(request: NextRequest) {
       typeof redirectParam === "string" &&
       (redirectParam === "/dashboard" || redirectParam.startsWith("/dashboard/")) &&
       !redirectParam.startsWith("//");
-    const targetPath = isSafeDashboardRedirect ? redirectParam : "/dashboard";
+    const targetPath = isSafeDashboardRedirect ? redirectParam : "/dashboard/home";
     const redirectResponse = NextResponse.redirect(new URL(targetPath, request.url));
     return redirectResponse;
   }

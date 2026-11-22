@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@shared/utils/supabaseClient";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { 
+  Home,
   LayoutDashboard, 
   ShoppingBag, 
   Receipt, 
@@ -166,6 +167,7 @@ export default function DashboardLayout({
   };
 
   const navItems: Array<{ name: string; href: string; icon: any; badge?: string }> = [
+    { name: "Home",          href: "/dashboard/home",          icon: Home },
     { name: "Dashboard",     href: "/dashboard",               icon: LayoutDashboard },
     { name: "Products",      href: "/dashboard/products",      icon: ShoppingBag },
     { name: "Collections",   href: "/dashboard/collections",   icon: Sparkles },
@@ -203,7 +205,9 @@ export default function DashboardLayout({
   }, [isSidebarOpen]);
 
   const activeNavItem = navItems.find(
-    (item) => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+    (item) =>
+      pathname === item.href ||
+      (item.href !== "/dashboard" && item.href !== "/dashboard/home" && pathname.startsWith(item.href))
   );
 
   // FULL-SCREEN SECURITY SHIELD WHILE VERIFYING CREDENTIALS
@@ -284,7 +288,7 @@ export default function DashboardLayout({
             isExpanded ? "justify-between px-5" : "justify-center px-0"
           }`}
         >
-          <Link href="/dashboard" className={`flex items-center min-w-0 ${isExpanded ? "gap-3" : "justify-center"}`}>
+          <Link href="/dashboard/home" className={`flex items-center min-w-0 ${isExpanded ? "gap-3" : "justify-center"}`}>
             <div className="w-10 h-10 min-w-10 min-h-10 rounded-full flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#DFBE6F] shadow-sm bg-white">
               <img
                 src="/official-logo.png"
@@ -319,7 +323,9 @@ export default function DashboardLayout({
         {/* Navigation Links */}
         <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto no-scrollbar">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/dashboard" && item.href !== "/dashboard/home" && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (
               <div key={item.name} className="relative group/item">
