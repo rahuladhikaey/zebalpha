@@ -202,6 +202,7 @@ CREATE TABLE IF NOT EXISTS public.stock_history (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+
 -- INVENTORY METADATA TABLE
 CREATE TABLE IF NOT EXISTS public.inventory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

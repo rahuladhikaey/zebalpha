@@ -7,7 +7,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
 import { useCart } from "@/context/CartContext";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt, Gift, Play, Video } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt, Gift, Play } from "lucide-react";
 import { parseProductVideoProof } from "@/lib/socialVideoUtils";
 import { RealVideoProofModal } from "@/components/RealVideoProofModal";
 import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
@@ -960,63 +960,182 @@ export default function ProductDetailTemplate({
                 }
               />
 
-              {/* Real Product & Packaging Video Proof Card (In-App Zero-Egress Popup) */}
+              {/* Real Product & Packaging Video Proof Pill Banner (Bright Coral Signature Edition) */}
               {videoProofInfo && (
                 <button
                   type="button"
                   onClick={() => setVideoProofOpen(true)}
-                  className={`group w-full flex items-center justify-between gap-3 rounded-2xl border p-3 sm:p-3.5 text-left transition-all active:scale-[0.99] cursor-pointer shadow-sm ${isNativeApp
-                      ? "border-[#DFBE6F] bg-gradient-to-r from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE] hover:border-[#F03A46]"
-                      : "border-emerald-500/35 bg-gradient-to-r from-emerald-950/50 via-zinc-900/90 to-zinc-950 hover:border-emerald-400/70"
-                    }`}
+                  aria-label="Watch product video and quality proof in ZebAlpha"
+                  style={{
+                    boxShadow:
+                      "0 8px 26px -6px rgba(255, 95, 86, 0.44), 0 2px 10px -2px rgba(255, 111, 97, 0.26), inset 0 1px 1px rgba(255, 255, 255, 0.96)",
+                  }}
+                  className="group relative mt-1 w-full overflow-hidden rounded-full border-[1.5px] border-[#FF6F61]/85 bg-[#FFFFFF] px-2.5 py-2.5 sm:px-3.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-3 transition-all duration-200 hover:-translate-y-[1px] hover:border-[#FF5252] active:scale-[0.985] cursor-pointer"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  {/* Left Bright Coral Organic Ribbon Waves & Motion Accents */}
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 150 76"
+                    preserveAspectRatio="none"
+                    className="pointer-events-none select-none absolute left-0 inset-y-0 h-full w-28 sm:w-36"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="zaCoralWaveL1" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#FF8E7F" stopOpacity="0.48" />
+                        <stop offset="100%" stopColor="#FF6B5B" stopOpacity="0.12" />
+                      </linearGradient>
+                      <linearGradient id="zaCoralWaveL2" x1="0%" y1="100%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#FF4F5A" stopOpacity="0.92" />
+                        <stop offset="60%" stopColor="#FF6F61" stopOpacity="0.58" />
+                        <stop offset="100%" stopColor="#FFA094" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M0 30C22 34 38 52 72 58C104 64 128 62 150 76H0V30Z"
+                      fill="url(#zaCoralWaveL1)"
+                    />
+                    <path
+                      d="M0 44C18 46 34 60 64 66C92 71 114 70 132 76H0V44Z"
+                      fill="url(#zaCoralWaveL2)"
+                    />
+                    {/* Playful coral motion accents top-left */}
+                    <path
+                      d="M21 15L26 22"
+                      stroke="#FF5252"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M14 23L21 26"
+                      stroke="#FF6F61"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M11 33L12.6 36.4L16 38L12.6 39.6L11 43L9.4 39.6L6 38L9.4 36.4L11 33Z"
+                      fill="#FF7A68"
+                      fillOpacity="0.72"
+                    />
+                  </svg>
+
+                  {/* Right Bright Coral Organic Ribbon Waves */}
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 150 76"
+                    preserveAspectRatio="none"
+                    className="pointer-events-none select-none absolute right-0 inset-y-0 h-full w-28 sm:w-36"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="zaCoralWaveR1" x1="100%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#FF8E7F" stopOpacity="0.48" />
+                        <stop offset="100%" stopColor="#FF6B5B" stopOpacity="0.1" />
+                      </linearGradient>
+                      <linearGradient id="zaCoralWaveR2" x1="100%" y1="100%" x2="0%" y2="0%">
+                        <stop offset="0%" stopColor="#FF4F5A" stopOpacity="0.9" />
+                        <stop offset="60%" stopColor="#FF6F61" stopOpacity="0.55" />
+                        <stop offset="100%" stopColor="#FFA094" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M150 28C124 38 104 42 74 54C46 65 26 66 4 76H150V28Z"
+                      fill="url(#zaCoralWaveR1)"
+                    />
+                    <path
+                      d="M150 42C130 50 110 54 84 62C60 69 40 70 22 76H150V42Z"
+                      fill="url(#zaCoralWaveR2)"
+                    />
+                    <path
+                      d="M90 14L91.8 18.2L96 20L91.8 21.8L90 26L88.2 21.8L84 20L88.2 18.2L90 14Z"
+                      fill="#FF7A68"
+                      fillOpacity="0.75"
+                    />
+                    <path
+                      d="M78 30L79.1 32.4L81.5 33.5L79.1 34.6L78 37L76.9 34.6L74.5 33.5L76.9 32.4L78 30Z"
+                      fill="#FF9B8C"
+                      fillOpacity="0.7"
+                    />
+                  </svg>
+
+                  {/* Left: Rounded-Square Bright Coral Play Icon + Pulsing Gold Badge (2nd Pic Style) + Divider */}
+                  <div className="relative z-10 flex items-center gap-2 sm:gap-3 shrink-0 pl-0.5 sm:pl-1">
                     <span
                       data-photo-overlay="true"
-                      className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-md transition-transform group-hover:scale-105 ${isNativeApp
-                          ? "bg-gradient-to-br from-[#F03A46] to-[#FF5757]"
-                          : "bg-gradient-to-br from-emerald-500 to-emerald-600"
-                        }`}
+                      className="relative flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-[13px] bg-gradient-to-br from-[#FF7E6B] via-[#FF5E57] to-[#FF4252] text-white shadow-[0_5px_14px_rgba(255,82,82,0.45)] transition-transform duration-200 group-hover:scale-105"
                     >
-                      <Play className="h-5 w-5 fill-white ml-0.5" />
-                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400 border border-white" />
+                      <Play className="h-[18px] w-[18px] sm:h-5 sm:w-5 fill-white text-white ml-0.5" />
+                      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FFD23F] opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#FFB800] border-[1.75px] border-white shadow-sm" />
                       </span>
                     </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span
-                          className={`text-xs sm:text-sm font-black tracking-tight ${isNativeApp ? "text-[#14120F]" : "text-white"
-                            }`}
-                        >
-                          Watch Real Product &amp; Packaging Video
+                    <span
+                      aria-hidden="true"
+                      className="h-7 sm:h-8 w-[1.5px] shrink-0 rounded-full bg-[#14120F]/75"
+                    />
+                  </div>
+
+                  {/* Center: Signature Typography + Bright Coral Verified Shield */}
+                  <div className="relative z-10 flex-1 min-w-0 flex flex-col items-center justify-center text-center px-0.5 sm:px-1">
+                    <div className="flex items-center justify-center flex-wrap gap-x-1 gap-y-0.5 leading-tight">
+                      <span className="text-[11px] sm:text-[14px] md:text-[15px] font-extrabold tracking-tight text-[#14120F]">
+                        watch products video &amp;
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-[11.5px] sm:text-[14.5px] md:text-[15.5px] font-black italic tracking-tight text-[#FF5252]">
+                          qualityproof
                         </span>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wider ${isNativeApp
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                              : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                            }`}
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4 sm:h-[18px] sm:w-[18px] shrink-0 drop-shadow-[0_2px_4px_rgba(255,82,82,0.38)]"
+                          fill="none"
                         >
-                          <Video className="h-2.5 w-2.5" />
-                          Verified Video
-                        </span>
-                      </div>
-                      <p
-                        className={`text-[11px] font-medium mt-0.5 truncate ${isNativeApp ? "text-[#5C4E35]" : "text-zinc-400"
-                          }`}
-                      >
-                        Real quality &amp; intact packaging proof • Plays in ZebAlpha
-                      </p>
+                          <defs>
+                            <linearGradient id="zaCoralShield" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#FF7E6B" />
+                              <stop offset="100%" stopColor="#FF4252" />
+                            </linearGradient>
+                          </defs>
+                          <path
+                            d="M12 2L4.5 5.2V11.3C4.5 16.3 7.7 20.8 12 22C16.3 20.8 19.5 16.3 19.5 11.3V5.2L12 2Z"
+                            fill="url(#zaCoralShield)"
+                          />
+                          <path
+                            d="M8.8 12.1L11 14.3L15.4 9.7"
+                            stroke="#FFFFFF"
+                            strokeWidth="2.3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-center gap-2 w-full">
+                      <span
+                        aria-hidden="true"
+                        className="h-[1px] w-4 sm:w-8 bg-[#14120F]/50 rounded-full"
+                      />
+                      <span className="text-[10px] sm:text-[11.5px] font-semibold tracking-wide text-[#3D332E] whitespace-nowrap">
+                        just in ZebAlpha
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="h-[1px] w-4 sm:w-8 bg-[#14120F]/50 rounded-full"
+                      />
                     </div>
                   </div>
+
+                  {/* Right: Circular Jet-Black Chevron Action Button */}
                   <span
-                    className={`shrink-0 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${isNativeApp
-                        ? "bg-[#14120F] text-[#FCE08A]"
-                        : "bg-white text-black group-hover:bg-emerald-400 transition-colors"
-                      }`}
+                    data-photo-overlay="true"
+                    className="relative z-10 flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-[#14120F] text-white ring-[2.5px] ring-white shadow-[0_4px_12px_rgba(20,18,15,0.24)] transition-transform duration-200 group-hover:scale-105"
                   >
-                    Play ▶
+                    <ChevronRight
+                      className="h-4 w-4 sm:h-5 sm:w-5 text-white transition-transform duration-200 group-hover:translate-x-0.5"
+                      strokeWidth={2.75}
+                    />
                   </span>
                 </button>
               )}
