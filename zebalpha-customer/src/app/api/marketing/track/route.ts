@@ -19,40 +19,84 @@ export async function POST(req: Request) {
     if (eventType === "influencer_click" && refCode) {
       const { data: link } = await supabaseServer
         .from("influencer_creator_links")
-        .select("id, enrollment_id, seller_id, product_id, clicks")
+        .select("id, enrollment_id, seller_id, product_id, status, clicks, missed_clicks_after_expiry, expires_at")
         .eq("ref_code", refCode)
-        .eq("status", "active")
         .maybeSingle();
 
       if (link) {
-        await Promise.allSettled([
-          supabaseServer
-            .from("influencer_creator_links")
-            .update({ clicks: Number(link.clicks || 0) + 1 })
-            .eq("id", link.id),
-          link.enrollment_id
-            ? (async () => {
-                const { data: enr } = await supabaseServer
-                  .from("seller_influencer_enrollments")
-                  .select("total_clicks")
-                  .eq("id", link.enrollment_id)
-                  .maybeSingle();
-                if (enr) {
-                  await supabaseServer
+        const nowMs = Date.now();
+        const expiresMs = link.expires_at ? new Date(link.expires_at).getTime() : null;
+        const isActive =
+          link.status === "active" &&
+          (expiresMs === null || Number.isNaN(expiresMs) || expiresMs > nowMs);
+
+        if (isActive) {
+          await Promise.allSettled([
+            supabaseServer
+              .from("influencer_creator_links")
+              .update({ clicks: Number(link.clicks || 0) + 1 })
+              .eq("id", link.id),
+            link.enrollment_id
+              ? (async () => {
+                  const { data: enr } = await supabaseServer
                     .from("seller_influencer_enrollments")
-                    .update({ total_clicks: Number(enr.total_clicks || 0) + 1 })
-                    .eq("id", link.enrollment_id);
-                }
-              })()
-            : Promise.resolve(),
-          supabaseServer.from("seller_marketing_events").insert({
-            event_type: "influencer_click",
-            ref_code: refCode,
-            seller_id: link.seller_id,
-            product_id: productId || link.product_id,
-            session_id: sessionId,
-          }),
-        ]);
+                    .select("total_clicks")
+                    .eq("id", link.enrollment_id)
+                    .maybeSingle();
+                  if (enr) {
+                    await supabaseServer
+                      .from("seller_influencer_enrollments")
+                      .update({ total_clicks: Number(enr.total_clicks || 0) + 1 })
+                      .eq("id", link.enrollment_id);
+                  }
+                })()
+              : Promise.resolve(),
+            supabaseServer.from("seller_marketing_events").insert({
+              event_type: "influencer_click",
+              ref_code: refCode,
+              seller_id: link.seller_id,
+              product_id: productId || link.product_id,
+              session_id: sessionId,
+            }),
+          ]);
+        } else {
+          // Link expired / deactivated: record missed click for Seller Panel renewal cue
+          await Promise.allSettled([
+            supabaseServer
+              .from("influencer_creator_links")
+              .update({
+                status: link.status === "active" ? "expired" : link.status,
+                missed_clicks_after_expiry: Number(link.missed_clicks_after_expiry || 0) + 1,
+              })
+              .eq("id", link.id),
+            link.enrollment_id
+              ? (async () => {
+                  const { data: enr } = await supabaseServer
+                    .from("seller_influencer_enrollments")
+                    .select("missed_clicks_after_expiry, status, workflow_status")
+                    .eq("id", link.enrollment_id)
+                    .maybeSingle();
+                  if (enr) {
+                    await supabaseServer
+                      .from("seller_influencer_enrollments")
+                      .update({
+                        status: enr.status === "active" ? "expired" : enr.status,
+                        workflow_status: enr.workflow_status === "live" ? "expired" : enr.workflow_status,
+                        missed_clicks_after_expiry: Number(enr.missed_clicks_after_expiry || 0) + 1,
+                      })
+                      .eq("id", link.enrollment_id);
+                  }
+                })()
+              : Promise.resolve(),
+            supabaseServer.from("seller_marketing_events").insert({
+              event_type: "influencer_expired_click",
+              ref_code: refCode,
+              seller_id: link.seller_id,
+              product_id: productId || link.product_id,
+              session_id: sessionId,
+            }),
+          ]);
+        }
       }
       return NextResponse.json({ success: true });
     }

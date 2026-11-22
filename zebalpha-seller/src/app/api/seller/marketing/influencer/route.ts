@@ -52,15 +52,48 @@ async function resolveSellerContext(user: { id: string; email?: string | null })
   return { primarySellerId, sellerIds, storeName, phone, hasUpi, hasEnrolment };
 }
 
-function isMissingTableError(err: unknown): boolean {
+function isMissingSchemaError(err: unknown): boolean {
   const msg = String((err as { message?: string })?.message || "").toLowerCase();
   const code = String((err as { code?: string })?.code || "");
   return (
     code === "42P01" ||
+    code === "42703" ||
+    code === "PGRST204" ||
     code === "PGRST205" ||
     msg.includes("does not exist") ||
-    msg.includes("could not find the table")
+    msg.includes("could not find the")
   );
+}
+
+function computeEffectiveState(row: Record<string, unknown>): Record<string, unknown> {
+  const nowMs = Date.now();
+  const rawStatus = String(row.status || "pending");
+  const rawWorkflow = String(row.workflow_status || (rawStatus === "active" ? "live" : rawStatus));
+  const expiresAt = row.expires_at ? String(row.expires_at) : null;
+  const expiresMs = expiresAt ? new Date(expiresAt).getTime() : null;
+  const isTimeExpired =
+    expiresMs !== null && !Number.isNaN(expiresMs) && expiresMs <= nowMs;
+
+  const isExpired =
+    rawStatus === "expired" ||
+    rawWorkflow === "expired" ||
+    (rawStatus === "active" && isTimeExpired);
+
+  const effectiveStatus = isExpired ? "expired" : rawStatus;
+  const effectiveWorkflow = isExpired ? "expired" : rawWorkflow;
+
+  return {
+    ...row,
+    plan_type: String(row.plan_type || "without_product_1pct"),
+    fixed_fee_inr: Number(row.fixed_fee_inr || 0),
+    sample_status: String(row.sample_status || "not_required"),
+    payment_status: String(row.payment_status || "not_required"),
+    missed_clicks_after_expiry: Number(row.missed_clicks_after_expiry || 0),
+    renewal_count: Number(row.renewal_count || 0),
+    effective_status: effectiveStatus,
+    effective_workflow: effectiveWorkflow,
+    is_expired: isExpired,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -72,7 +105,7 @@ export async function GET(req: NextRequest) {
 
     const ctx = await resolveSellerContext(user);
 
-    const [prodRes, enrollRes, linksRes, callbackRes] = await Promise.all([
+    const [prodRes, enrollRes, linksRes, callbackRes, auditRes] = await Promise.all([
       supabaseServer
         .from("products")
         .select("*")
@@ -96,12 +129,20 @@ export async function GET(req: NextRequest) {
         .eq("topic", "influencer_marketing")
         .order("created_at", { ascending: false })
         .limit(10),
+      supabaseServer
+        .from("influencer_campaign_audit_logs")
+        .select("*")
+        .in("seller_id", ctx.sellerIds)
+        .order("created_at", { ascending: false })
+        .limit(60),
     ]);
 
     const migrationRequired =
-      isMissingTableError(enrollRes.error) ||
-      isMissingTableError(linksRes.error) ||
-      isMissingTableError(callbackRes.error);
+      isMissingSchemaError(enrollRes.error) ||
+      isMissingSchemaError(linksRes.error) ||
+      isMissingSchemaError(callbackRes.error);
+
+    const upgradeMigrationRequired = isMissingSchemaError(auditRes.error);
 
     const products = (Array.isArray(prodRes.data) ? prodRes.data : [])
       .filter((p: Record<string, unknown>) => {
@@ -122,24 +163,58 @@ export async function GET(req: NextRequest) {
           (Array.isArray(p.images) && typeof p.images[0] === "string" ? p.images[0] : null),
       }));
 
-    const enrollments: Array<Record<string, unknown>> =
+    const rawEnrollments: Array<Record<string, unknown>> =
       !enrollRes.error && Array.isArray(enrollRes.data)
         ? (enrollRes.data as Array<Record<string, unknown>>)
         : [];
-    const creatorLinks: Array<Record<string, unknown>> =
+    const enrollments = rawEnrollments.map(computeEffectiveState);
+
+    const rawLinks: Array<Record<string, unknown>> =
       !linksRes.error && Array.isArray(linksRes.data)
         ? (linksRes.data as Array<Record<string, unknown>>)
         : [];
+    const creatorLinks: Array<Record<string, unknown>> = rawLinks.map((lnk): Record<string, unknown> => {
+      const expiresAt = lnk.expires_at ? String(lnk.expires_at) : null;
+      const expiresMs = expiresAt ? new Date(expiresAt).getTime() : null;
+      const isExpired =
+        lnk.status === "expired" ||
+        (lnk.status === "active" &&
+          expiresMs !== null &&
+          !Number.isNaN(expiresMs) &&
+          expiresMs <= Date.now());
+      return {
+        ...lnk,
+        effective_status: isExpired ? "expired" : String(lnk.status || "pending"),
+        is_expired: isExpired,
+        missed_clicks_after_expiry: Number(lnk.missed_clicks_after_expiry || 0),
+        renewal_count: Number(lnk.renewal_count || 0),
+      };
+    });
+
     const callbacks: Array<Record<string, unknown>> =
       !callbackRes.error && Array.isArray(callbackRes.data)
         ? (callbackRes.data as Array<Record<string, unknown>>)
         : [];
 
+    const auditLogs: Array<Record<string, unknown>> =
+      !auditRes.error && Array.isArray(auditRes.data)
+        ? (auditRes.data as Array<Record<string, unknown>>)
+        : [];
+
     const summary = {
-      activeCatalogs: enrollments.filter((e) => e.status === "active").length,
-      pausedCatalogs: enrollments.filter((e) => e.status === "paused").length,
-      liveVideos: creatorLinks.filter((l) => l.status === "active" && Boolean(l.video_url)).length,
+      activeCatalogs: enrollments.filter((e) => e.effective_status === "active").length,
+      inQueueCatalogs: enrollments.filter(
+        (e) =>
+          e.effective_status === "pending" ||
+          ["awaiting_payment", "awaiting_review", "accepted", "assigned", "in_production", "submitted_for_review", "revision_needed"].includes(
+            String(e.effective_workflow)
+          )
+      ).length,
+      expiredCatalogs: enrollments.filter((e) => e.effective_status === "expired").length,
+      pausedCatalogs: enrollments.filter((e) => e.effective_status === "paused").length,
+      liveVideos: creatorLinks.filter((l) => l.effective_status === "active" && Boolean(l.video_url)).length,
       totalClicks: enrollments.reduce((s: number, e) => s + Number(e.total_clicks || 0), 0),
+      missedClicks: enrollments.reduce((s: number, e) => s + Number(e.missed_clicks_after_expiry || 0), 0),
       totalOrders: enrollments.reduce((s: number, e) => s + Number(e.total_orders || 0), 0),
       deliveredOrders: enrollments.reduce((s: number, e) => s + Number(e.delivered_orders || 0), 0),
       deliveredGmv: enrollments.reduce((s: number, e) => s + Number(e.delivered_gmv || 0), 0),
@@ -149,6 +224,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       migrationRequired,
+      upgradeMigrationRequired,
       seller: {
         id: ctx.primarySellerId,
         storeName: ctx.storeName,
@@ -161,6 +237,7 @@ export async function GET(req: NextRequest) {
       enrollments,
       creatorLinks,
       callbacks,
+      auditLogs,
     });
   } catch (err) {
     console.error("[API /seller/marketing/influencer GET] Error:", err);
@@ -186,15 +263,44 @@ export async function POST(req: NextRequest) {
       const productIds: string[] = Array.isArray(body.productIds)
         ? body.productIds.map((x: unknown) => String(x || "").trim()).filter(Boolean)
         : [];
-      const commissionRate = Math.min(15, Math.max(0.5, Number(body.commissionRate ?? 0.5)));
+
+      const planType =
+        body.planType === "with_product_150" ? "with_product_150" : "without_product_1pct";
+      const isWithProduct = planType === "with_product_150";
+      const commissionRate = isWithProduct ? 0 : 1;
+      const fixedFeeInr = isWithProduct ? 150 : 0;
+      const paymentMethod = isWithProduct
+        ? body.paymentMethod === "upi_manual"
+          ? "upi_manual"
+          : "seller_balance"
+        : "commission_only";
+      const paymentRef = isWithProduct ? String(body.paymentRef || "").trim().slice(0, 80) : null;
+      const sampleReturnPreference =
+        body.sampleReturnPreference === "keep_for_future_shoots"
+          ? "keep_for_future_shoots"
+          : "return_after_shoot";
+
       const maxBudgetCap =
-        body.maxBudgetCap !== undefined && body.maxBudgetCap !== null && String(body.maxBudgetCap).trim() !== ""
+        !isWithProduct &&
+        body.maxBudgetCap !== undefined &&
+        body.maxBudgetCap !== null &&
+        String(body.maxBudgetCap).trim() !== ""
           ? Math.max(100, Number(body.maxBudgetCap))
           : null;
 
       if (productIds.length === 0) {
         return NextResponse.json(
           { success: false, error: "Please select at least 1 catalog to enroll." },
+          { status: 400 }
+        );
+      }
+
+      if (isWithProduct && paymentMethod === "upi_manual" && (!paymentRef || paymentRef.length < 6)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Please enter a valid UPI UTR / Transaction Reference (min 6 chars) or choose Payout Auto-Deduct.",
+          },
           { status: 400 }
         );
       }
@@ -213,18 +319,36 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const nowIso = new Date().toISOString();
       const rows = validProducts.map((p: Record<string, unknown>) => ({
         seller_id: ctx.primarySellerId,
+        seller_store_name: ctx.storeName,
         product_id: String(p.id),
         product_name: String(p.name || "Catalog"),
         product_image:
           (typeof p.image_url === "string" && p.image_url.trim()) ||
           (Array.isArray(p.images) && typeof p.images[0] === "string" ? p.images[0] : null),
         product_price: Number(p.price || 0),
+        campaign_source: "seller",
+        plan_type: planType,
         commission_rate: commissionRate,
+        fixed_fee_inr: fixedFeeInr,
+        payment_method: paymentMethod,
+        payment_status: !isWithProduct
+          ? "not_required"
+          : paymentMethod === "seller_balance"
+          ? "deducted"
+          : "pending",
+        payment_ref: paymentRef,
+        sample_status: isWithProduct ? "awaiting_sample" : "not_required",
+        sample_return_preference: isWithProduct ? sampleReturnPreference : null,
         max_budget_cap: maxBudgetCap,
-        status: "active",
-        updated_at: new Date().toISOString(),
+        status: "pending",
+        workflow_status:
+          isWithProduct && paymentMethod === "upi_manual" ? "awaiting_payment" : "awaiting_review",
+        link_duration_days: 7,
+        auto_attach_video_proof: isWithProduct,
+        updated_at: nowIso,
       }));
 
       const { data: upserted, error: upErr } = await supabaseServer
@@ -233,13 +357,13 @@ export async function POST(req: NextRequest) {
         .select("*");
 
       if (upErr) {
-        if (isMissingTableError(upErr)) {
+        if (isMissingSchemaError(upErr)) {
           return NextResponse.json(
             {
               success: false,
-              migrationRequired: true,
+              upgradeMigrationRequired: true,
               error:
-                "Marketing database tables are not initialized yet. Please run supabase/add_seller_marketing_and_branding_system.sql in Supabase SQL Editor.",
+                "Please run supabase/upgrade_alpha_media_influencer_ecosystem.sql in Supabase SQL Editor to enable the 2-Plan 7-Day Alpha Media system.",
             },
             { status: 503 }
           );
@@ -247,34 +371,70 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: upErr.message }, { status: 500 });
       }
 
-      // Auto-create a default Alpha Media shareable creator link if none exists for this product
       const createdEnrollments = Array.isArray(upserted) ? upserted : [];
       for (const enr of createdEnrollments) {
         try {
           const { data: existingLink } = await supabaseServer
             .from("influencer_creator_links")
-            .select("id")
+            .select("id, ref_code")
             .eq("seller_id", ctx.primarySellerId)
             .eq("product_id", enr.product_id)
             .limit(1)
             .maybeSingle();
 
+          let linkId = existingLink?.id || null;
           if (!existingLink) {
-            const refCode = `INF-${String(enr.product_id).slice(0, 4).toUpperCase()}-${Math.floor(
-              1000 + Math.random() * 9000
-            )}`;
-            await supabaseServer.from("influencer_creator_links").insert({
-              enrollment_id: enr.id,
-              seller_id: ctx.primarySellerId,
-              product_id: enr.product_id,
-              creator_name: "Alpha Media Creator Pool",
-              creator_handle: "@zebalpha_official",
-              platform: "instagram",
-              ref_code: refCode,
-              commission_rate: commissionRate,
-              status: "active",
-            });
+            const refCode = `INF-${String(enr.product_id)
+              .replace(/[^a-zA-Z0-9]/g, "")
+              .slice(0, 4)
+              .toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            const { data: insertedLink } = await supabaseServer
+              .from("influencer_creator_links")
+              .insert({
+                enrollment_id: enr.id,
+                seller_id: ctx.primarySellerId,
+                product_id: enr.product_id,
+                campaign_source: "seller",
+                plan_type: planType,
+                creator_name: "Alpha Media Studio Queue",
+                creator_handle: "@zebalpha_official",
+                platform: "instagram",
+                ref_code: refCode,
+                commission_rate: commissionRate,
+                status: "pending",
+              })
+              .select("id")
+              .maybeSingle();
+            linkId = insertedLink?.id || null;
+          } else {
+            await supabaseServer
+              .from("influencer_creator_links")
+              .update({
+                enrollment_id: enr.id,
+                plan_type: planType,
+                commission_rate: commissionRate,
+                updated_at: nowIso,
+              })
+              .eq("id", existingLink.id);
           }
+
+          await supabaseServer.from("influencer_campaign_audit_logs").insert({
+            enrollment_id: enr.id,
+            link_id: linkId,
+            seller_id: ctx.primarySellerId,
+            product_id: enr.product_id,
+            product_name: enr.product_name,
+            event_type: "created",
+            to_plan: planType,
+            fee_charged_inr: fixedFeeInr,
+            duration_days: 7,
+            actor_user_id: user.id,
+            actor_role: "SELLER",
+            actor_name: ctx.storeName,
+            notes: isWithProduct
+              ? `Enrolled in With Product + ₹150 (7 Days) via ${paymentMethod}`
+              : "Enrolled in Without Product + 1% (7 Days) — sent to Alpha Media Leader queue",
+          });
         } catch {
           // Non-fatal
         }
@@ -283,7 +443,162 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         enrolledCount: createdEnrollments.length,
-        message: `${createdEnrollments.length} catalog(s) enrolled in Influencer Marketing at ${commissionRate}% commission!`,
+        message: isWithProduct
+          ? `${createdEnrollments.length} catalog(s) submitted for With Product + ₹150 (7-Day Alpha Studio Shoot)! 7-day timer starts once Media Leader publishes your reel.`
+          : `${createdEnrollments.length} catalog(s) sent to Alpha Media Leader queue under Without Product + 1% (7 Days)!`,
+      });
+    }
+
+    if (action === "renew_or_upgrade") {
+      const enrollmentId = String(body.enrollmentId || "").trim();
+      const mode =
+        body.mode === "upgrade_with_product_150" ? "upgrade_with_product_150" : "renew";
+      const durationDays = Math.min(30, Math.max(7, Number(body.durationDays || 7)));
+      const paymentMethod =
+        body.paymentMethod === "upi_manual" ? "upi_manual" : "seller_balance";
+      const paymentRef = String(body.paymentRef || "").trim().slice(0, 80) || null;
+      const sampleReturnPreference =
+        body.sampleReturnPreference === "keep_for_future_shoots"
+          ? "keep_for_future_shoots"
+          : "return_after_shoot";
+
+      if (!enrollmentId) {
+        return NextResponse.json({ success: false, error: "Enrollment ID required" }, { status: 400 });
+      }
+
+      const { data: enr, error: fetchErr } = await supabaseServer
+        .from("seller_influencer_enrollments")
+        .select("*")
+        .eq("id", enrollmentId)
+        .in("seller_id", ctx.sellerIds)
+        .maybeSingle();
+
+      if (fetchErr || !enr) {
+        return NextResponse.json({ success: false, error: "Campaign not found." }, { status: 404 });
+      }
+
+      const isUpgrade = mode === "upgrade_with_product_150";
+      const targetPlan = isUpgrade ? "with_product_150" : String(enr.plan_type || "without_product_1pct");
+      const feeDelta = targetPlan === "with_product_150" ? 150 : 0;
+
+      if (feeDelta > 0 && paymentMethod === "upi_manual" && (!paymentRef || paymentRef.length < 6)) {
+        return NextResponse.json(
+          { success: false, error: "Enter valid UPI UTR reference (min 6 chars) or choose Payout Auto-Deduct." },
+          { status: 400 }
+        );
+      }
+
+      const now = new Date();
+      const existingExpMs = enr.expires_at ? new Date(String(enr.expires_at)).getTime() : 0;
+      const baseMs = existingExpMs > now.getTime() ? existingExpMs : now.getTime();
+      const newExpiresAt = new Date(baseMs + durationDays * 86_400_000).toISOString();
+      const nowIso = now.toISOString();
+      const nextRenewalCount = Number(enr.renewal_count || 0) + 1;
+
+      const updatePayload: Record<string, unknown> = {
+        plan_type: targetPlan,
+        commission_rate: targetPlan === "with_product_150" ? 0 : 1,
+        fixed_fee_inr: Number(enr.fixed_fee_inr || 0) + feeDelta,
+        payment_method: feeDelta > 0 ? paymentMethod : "commission_only",
+        payment_status:
+          feeDelta === 0
+            ? "not_required"
+            : paymentMethod === "seller_balance"
+            ? "deducted"
+            : "pending",
+        payment_ref: paymentRef || enr.payment_ref,
+        status: "active",
+        workflow_status: isUpgrade && enr.sample_status === "not_required" ? "awaiting_review" : "live",
+        starts_at: enr.starts_at || nowIso,
+        expires_at: newExpiresAt,
+        link_duration_days: durationDays,
+        renewal_count: nextRenewalCount,
+        updated_at: nowIso,
+      };
+
+      if (isUpgrade) {
+        updatePayload.sample_status =
+          enr.sample_status === "kept_at_studio" || enr.sample_status === "sample_received"
+            ? "sample_received"
+            : "awaiting_sample";
+        updatePayload.sample_return_preference = sampleReturnPreference;
+        updatePayload.auto_attach_video_proof = true;
+      }
+
+      const { error: updErr } = await supabaseServer
+        .from("seller_influencer_enrollments")
+        .update(updatePayload)
+        .eq("id", enrollmentId);
+
+      if (updErr) {
+        return NextResponse.json({ success: false, error: updErr.message }, { status: 500 });
+      }
+
+      // Immediately reactivate the EXACT SAME creator tracking link so existing reels resume working!
+      const { data: links } = await supabaseServer
+        .from("influencer_creator_links")
+        .select("id, ref_code, renewal_count")
+        .eq("enrollment_id", enrollmentId);
+
+      let firstLinkId: string | null = null;
+      let firstRefCode: string | null = null;
+
+      if (Array.isArray(links) && links.length > 0) {
+        firstLinkId = String(links[0].id);
+        firstRefCode = String(links[0].ref_code);
+        for (const l of links) {
+          await supabaseServer
+            .from("influencer_creator_links")
+            .update({
+              status: "active",
+              plan_type: targetPlan,
+              commission_rate: targetPlan === "with_product_150" ? 0 : 1,
+              starts_at: enr.starts_at || nowIso,
+              expires_at: newExpiresAt,
+              renewal_count: Number(l.renewal_count || 0) + 1,
+              last_reactivated_at: nowIso,
+              updated_at: nowIso,
+            })
+            .eq("id", l.id);
+        }
+      }
+
+      try {
+        await supabaseServer.from("influencer_campaign_audit_logs").insert({
+          enrollment_id: enr.id,
+          link_id: firstLinkId,
+          seller_id: ctx.primarySellerId,
+          product_id: enr.product_id,
+          product_name: enr.product_name,
+          event_type: isUpgrade ? "upgraded" : "renewed",
+          from_plan: String(enr.plan_type || "without_product_1pct"),
+          to_plan: targetPlan,
+          fee_charged_inr: feeDelta,
+          duration_days: durationDays,
+          actor_user_id: user.id,
+          actor_role: "SELLER",
+          actor_name: ctx.storeName,
+          notes: isUpgrade
+            ? `Upgraded to With Product + ₹150 and reactivated link ${firstRefCode || ""} for ${durationDays} days`
+            : `Renewed campaign link ${firstRefCode || ""} for +${durationDays} days (cycle #${nextRenewalCount})`,
+          metadata: {
+            ref_code: firstRefCode,
+            new_expires_at: newExpiresAt,
+            payment_method: paymentMethod,
+            payment_ref: paymentRef,
+          },
+        });
+      } catch {
+        // Non-fatal
+      }
+
+      return NextResponse.json({
+        success: true,
+        newExpiresAt,
+        refCode: firstRefCode,
+        message: isUpgrade
+          ? `Upgraded to With Product + ₹150! Your existing link (${firstRefCode || "INF"}) is ACTIVE immediately for +${durationDays} days & Alpha Studio has been notified for your shoot.`
+          : `Link reactivated instantly for +${durationDays} days! All existing Instagram/YouTube captions are live again.`,
       });
     }
 
@@ -293,17 +608,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Enrollment ID required" }, { status: 400 });
       }
 
-      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-      if (body.status && ["active", "paused", "ended"].includes(String(body.status))) {
-        updates.status = String(body.status);
-      }
-      if (body.commissionRate !== undefined) {
-        updates.commission_rate = Math.min(15, Math.max(0.5, Number(body.commissionRate)));
+      const nextStatus = ["active", "paused", "ended"].includes(String(body.status))
+        ? String(body.status)
+        : null;
+      if (!nextStatus) {
+        return NextResponse.json({ success: false, error: "Invalid status" }, { status: 400 });
       }
 
+      const nowIso = new Date().toISOString();
       const { error: updErr } = await supabaseServer
         .from("seller_influencer_enrollments")
-        .update(updates)
+        .update({
+          status: nextStatus,
+          workflow_status: nextStatus === "paused" ? "paused" : "live",
+          updated_at: nowIso,
+        })
         .eq("id", enrollmentId)
         .in("seller_id", ctx.sellerIds);
 
@@ -311,7 +630,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: updErr.message }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true, message: "Influencer campaign updated." });
+      await supabaseServer
+        .from("influencer_creator_links")
+        .update({ status: nextStatus, updated_at: nowIso })
+        .eq("enrollment_id", enrollmentId)
+        .in("seller_id", ctx.sellerIds);
+
+      return NextResponse.json({
+        success: true,
+        message: `Influencer campaign ${nextStatus === "active" ? "resumed" : "paused"}.`,
+      });
     }
 
     if (action === "request_callback") {
@@ -329,22 +657,11 @@ export async function POST(req: NextRequest) {
         seller_name: ctx.storeName,
         phone,
         topic: "influencer_marketing",
-        notes: notes || "Seller requested Influencer Marketing callback",
+        notes: notes || "Seller requested Alpha Media Influencer Marketing callback",
         status: "pending",
       });
 
       if (cbErr) {
-        if (isMissingTableError(cbErr)) {
-          return NextResponse.json(
-            {
-              success: false,
-              migrationRequired: true,
-              error:
-                "Marketing tables not initialized yet. Run supabase/add_seller_marketing_and_branding_system.sql first.",
-            },
-            { status: 503 }
-          );
-        }
         return NextResponse.json({ success: false, error: cbErr.message }, { status: 500 });
       }
 

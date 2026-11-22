@@ -4,9 +4,10 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public routes that bypass server guard
+  // Public routes that bypass server guard (including Creator / Influencer self-apply)
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/apply") ||
     pathname.startsWith("/unauthorized") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
@@ -42,7 +43,10 @@ export async function middleware(request: NextRequest) {
   });
 
   // Verify Supabase Auth session server-side
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
   if (userError || !user) {
     const loginUrl = new URL("/login", request.url);
@@ -59,7 +63,9 @@ export async function middleware(request: NextRequest) {
 
   if (membershipError) {
     console.error(
-      `[MediaMiddleware] Database query error for membership lookup: code=${membershipError.code || 'UNKNOWN'} msg=${membershipError.message || ''}`
+      `[MediaMiddleware] Database query error for membership lookup: code=${
+        membershipError.code || "UNKNOWN"
+      } msg=${membershipError.message || ""}`
     );
     const errUrl = new URL("/unauthorized", request.url);
     errUrl.searchParams.set("reason", "query_error");

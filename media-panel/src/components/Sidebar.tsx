@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Megaphone, 
-  Image as ImageIcon, 
-  Share2, 
-  Bell, 
-  CheckSquare, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Megaphone,
+  Image as ImageIcon,
+  Share2,
+  Bell,
+  CheckSquare,
+  LogOut,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  Clapperboard,
+  Users,
+  Film,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { isMediaLeaderRole } from "@/lib/authGuard";
 
 interface SidebarProps {
   userRole?: string | null;
@@ -23,20 +27,32 @@ interface SidebarProps {
 export default function Sidebar({ userRole, userEmail }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const isLeader = isMediaLeaderRole(userRole);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
-  const navItems = [
+  const leaderNavItems = [
     { name: "Overview", href: "/", icon: LayoutDashboard },
-    { name: "Campaigns", href: "/campaigns", icon: Megaphone },
+    { name: "Influencer Queue", href: "/influencer-queue", icon: Clapperboard },
+    { name: "Alpha Media Team", href: "/team", icon: Users },
+    { name: "My Assigned Shoots", href: "/my-shoots", icon: Film },
+    { name: "Brand Campaigns", href: "/campaigns", icon: Megaphone },
     { name: "Creative Assets", href: "/assets", icon: ImageIcon },
     { name: "Social Content", href: "/social", icon: Share2 },
     { name: "Push Campaigns", href: "/notifications", icon: Bell },
     { name: "Media Tasks", href: "/tasks", icon: CheckSquare },
   ];
+
+  // Strict privacy isolation: Creators / Influencers only see their own shoots & creative assets
+  const creatorNavItems = [
+    { name: "My Assigned Shoots", href: "/my-shoots", icon: Film },
+    { name: "Creative Assets", href: "/assets", icon: ImageIcon },
+  ];
+
+  const navItems = isLeader ? leaderNavItems : creatorNavItems;
 
   return (
     <aside className="w-64 bg-dark-900 border-r border-dark-800 flex flex-col h-screen fixed left-0 top-0 select-none z-30">
@@ -48,9 +64,14 @@ export default function Sidebar({ userRole, userEmail }: SidebarProps) {
           </div>
           <div>
             <div className="font-bold text-white tracking-wide text-sm flex items-center gap-1.5">
-              ZEBALPHA <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-500 font-semibold border border-brand-500/20">Media</span>
+              ZEBALPHA{" "}
+              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-500 font-semibold border border-brand-500/20">
+                Media
+              </span>
             </div>
-            <div className="text-[11px] text-zinc-400">media.zebalpha.shop</div>
+            <div className="text-[11px] text-zinc-400">
+              {isLeader ? "Alpha Media Leader Hub" : "Alpha Creator Studio"}
+            </div>
           </div>
         </div>
       </div>
@@ -58,7 +79,7 @@ export default function Sidebar({ userRole, userEmail }: SidebarProps) {
       {/* Navigation Links */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         <div className="px-3 py-2 text-[10px] font-semibold tracking-wider uppercase text-zinc-300">
-          Marketing Operations
+          {isLeader ? "Alpha Media Operations" : "Creator Workspace"}
         </div>
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -98,17 +119,19 @@ export default function Sidebar({ userRole, userEmail }: SidebarProps) {
 
       {/* User Session Footer */}
       <div className="p-4 border-t border-dark-800 bg-dark-950/40">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-1">
           <div className="overflow-hidden pr-2">
-            <div className="text-xs font-semibold text-white truncate">{userEmail || "Marketing Member"}</div>
+            <div className="text-xs font-semibold text-white truncate">
+              {userEmail || "Alpha Media Member"}
+            </div>
             <div className="text-[10px] text-brand-500 font-mono tracking-tight font-medium">
-              {userRole || "Media Team"}
+              {userRole || "MEDIA_CREATOR"}
             </div>
           </div>
           <button
             onClick={handleLogout}
             title="Sign out"
-            className="p-1.5 rounded-md hover:bg-red-500/10 text-zinc-400 hover:text-red-400 transition-colors"
+            className="p-1.5 rounded-md hover:bg-red-500/10 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -117,4 +140,3 @@ export default function Sidebar({ userRole, userEmail }: SidebarProps) {
     </aside>
   );
 }
-

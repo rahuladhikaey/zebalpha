@@ -4,14 +4,16 @@ import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
-function isMissingTable(err: unknown): boolean {
+function isMissingSchema(err: unknown): boolean {
   const msg = String((err as { message?: string })?.message || "").toLowerCase();
   const code = String((err as { code?: string })?.code || "");
   return (
     code === "42P01" ||
+    code === "42703" ||
+    code === "PGRST204" ||
     code === "PGRST205" ||
     msg.includes("does not exist") ||
-    msg.includes("could not find the table")
+    msg.includes("could not find the")
   );
 }
 
@@ -19,7 +21,7 @@ export async function GET(req: Request) {
   try {
     await requireSuperAdmin(req);
 
-    const [brandRes, enrollRes, linksRes, cbRes] = await Promise.all([
+    const [brandRes, enrollRes, linksRes, cbRes, auditRes, creatorsRes] = await Promise.all([
       supabaseServer
         .from("seller_branding_campaigns")
         .select("*")
@@ -28,39 +30,101 @@ export async function GET(req: Request) {
       supabaseServer
         .from("seller_influencer_enrollments")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(150),
+        .order("updated_at", { ascending: false })
+        .limit(200),
       supabaseServer
         .from("influencer_creator_links")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(150),
+        .limit(250),
       supabaseServer
         .from("seller_marketing_callbacks")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(100),
+      supabaseServer
+        .from("influencer_campaign_audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(250),
+      supabaseServer
+        .from("media_creator_profiles")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(150),
     ]);
 
     const migrationRequired =
-      isMissingTable(brandRes.error) ||
-      isMissingTable(enrollRes.error) ||
-      isMissingTable(linksRes.error) ||
-      isMissingTable(cbRes.error);
+      isMissingSchema(brandRes.error) ||
+      isMissingSchema(enrollRes.error) ||
+      isMissingSchema(linksRes.error) ||
+      isMissingSchema(cbRes.error);
+
+    const upgradeMigrationRequired =
+      isMissingSchema(auditRes.error) || isMissingSchema(creatorsRes.error);
+
+    const influencerEnrollments: Array<Record<string, unknown>> =
+      !enrollRes.error && Array.isArray(enrollRes.data)
+        ? (enrollRes.data as Array<Record<string, unknown>>)
+        : [];
+    const creatorLinks: Array<Record<string, unknown>> =
+      !linksRes.error && Array.isArray(linksRes.data)
+        ? (linksRes.data as Array<Record<string, unknown>>)
+        : [];
+    const mediaCreators: Array<Record<string, unknown>> =
+      !creatorsRes.error && Array.isArray(creatorsRes.data)
+        ? (creatorsRes.data as Array<Record<string, unknown>>)
+        : [];
+
+    const nowMs = Date.now();
+    const activeLinks = creatorLinks.filter((l) => {
+      const exp = l.expires_at ? new Date(String(l.expires_at)).getTime() : null;
+      return l.status === "active" && (exp === null || Number.isNaN(exp) || exp > nowMs);
+    }).length;
+    const expiredLinks = creatorLinks.filter((l) => {
+      const exp = l.expires_at ? new Date(String(l.expires_at)).getTime() : null;
+      return (
+        l.status === "expired" ||
+        (l.status === "active" && exp !== null && !Number.isNaN(exp) && exp <= nowMs)
+      );
+    }).length;
+
+    const summary = {
+      totalFixedFeesInr: influencerEnrollments.reduce(
+        (s, e) => s + Number(e.fixed_fee_inr || 0),
+        0
+      ),
+      totalCommissionAccrued: influencerEnrollments.reduce(
+        (s, e) => s + Number(e.commission_accrued || 0),
+        0
+      ),
+      activeLinks,
+      expiredLinks,
+      totalMissedClicks: influencerEnrollments.reduce(
+        (s, e) => s + Number(e.missed_clicks_after_expiry || 0),
+        0
+      ),
+      pendingCreatorApps: mediaCreators.filter((c) => c.approval_status === "pending").length,
+    };
 
     return NextResponse.json({
       success: true,
       migrationRequired,
+      upgradeMigrationRequired,
+      summary,
       brandingCampaigns: !brandRes.error && Array.isArray(brandRes.data) ? brandRes.data : [],
-      influencerEnrollments: !enrollRes.error && Array.isArray(enrollRes.data) ? enrollRes.data : [],
-      creatorLinks: !linksRes.error && Array.isArray(linksRes.data) ? linksRes.data : [],
+      influencerEnrollments,
+      creatorLinks,
       callbacks: !cbRes.error && Array.isArray(cbRes.data) ? cbRes.data : [],
+      auditLogs: !auditRes.error && Array.isArray(auditRes.data) ? auditRes.data : [],
+      mediaCreators,
     });
-  } catch (error: any) {
-    if (error?.name === "AuthError") return authErrorResponse(error);
+  } catch (error: unknown) {
+    const err = error as { name?: string; message?: string };
+    if (err?.name === "AuthError") return authErrorResponse(error);
     console.error("[Admin Seller Marketing GET] Error:", error);
     return NextResponse.json(
-      { success: false, message: error?.message || "Failed to load seller marketing data" },
+      { success: false, message: err?.message || "Failed to load seller marketing data" },
       { status: 500 }
     );
   }
@@ -68,10 +132,421 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    await requireSuperAdmin(req);
+    const adminSession = await requireSuperAdmin(req);
+    const adminUserId: string | null = null;
+    const adminEmail = String(adminSession?.user || "SuperAdmin");
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "").trim();
+    const nowIso = new Date().toISOString();
 
+    // 1. DIRECT INVITE-ONLY MEDIA ACCOUNT CREATION (Leader / In-House Creator / Influencer)
+    if (action === "create_media_account") {
+      const fullName = String(body.fullName || "").trim();
+      const email = String(body.email || "").trim().toLowerCase();
+      const password = String(body.password || "").trim();
+      const phone = String(body.phone || "").replace(/\D/g, "").slice(-10) || null;
+      const city = String(body.city || "").trim() || null;
+      const instagramHandle = String(body.instagramHandle || "").trim() || null;
+      const youtubeHandle = String(body.youtubeHandle || "").trim() || null;
+      const niche = String(body.niche || "Fashion & Streetwear").trim();
+      const roleType = ["MEDIA_LEADER", "MEDIA_CREATOR", "INFLUENCER"].includes(String(body.roleType))
+        ? String(body.roleType)
+        : "MEDIA_CREATOR";
+
+      if (!fullName || !email || password.length < 6) {
+        return NextResponse.json(
+          { success: false, message: "Full Name, Email, and Password (min 6 chars) are required." },
+          { status: 400 }
+        );
+      }
+
+      let targetUserId: string | null = null;
+      const { data: createdAuth, error: authErr } = await supabaseServer.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName,
+          role: roleType,
+        },
+      });
+
+      if (authErr) {
+        // If user already exists in auth.users, look them up and grant/update membership
+        const { data: listed } = await supabaseServer.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const existing = (listed?.users || []).find(
+          (u: { email?: string; id: string }) => (u.email || "").toLowerCase() === email
+        );
+        if (!existing) {
+          return NextResponse.json({ success: false, message: authErr.message }, { status: 400 });
+        }
+        targetUserId = existing.id;
+        // Also update password to the newly provisioned one so admin credentials work immediately
+        await supabaseServer.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
+      } else {
+        targetUserId = createdAuth.user?.id || null;
+      }
+
+      if (!targetUserId) {
+        return NextResponse.json(
+          { success: false, message: "Unable to resolve created auth user ID." },
+          { status: 500 }
+        );
+      }
+
+      const { error: memErr } = await supabaseServer.from("user_app_memberships").upsert(
+        {
+          user_id: targetUserId,
+          app_name: "media",
+          role: roleType,
+          is_active: true,
+          granted_by: adminUserId,
+          updated_at: nowIso,
+        },
+        { onConflict: "user_id,app_name" }
+      );
+      if (memErr) {
+        return NextResponse.json({ success: false, message: memErr.message }, { status: 500 });
+      }
+
+      const { error: profErr } = await supabaseServer.from("media_creator_profiles").upsert(
+        {
+          user_id: targetUserId,
+          full_name: fullName,
+          email,
+          phone,
+          city,
+          instagram_handle: instagramHandle,
+          youtube_handle: youtubeHandle,
+          niche,
+          role_type: roleType,
+          onboarding_source: "admin_invite",
+          approval_status: "approved",
+          approved_by: adminUserId,
+          approved_at: nowIso,
+          is_active: true,
+          updated_at: nowIso,
+        },
+        { onConflict: "email" }
+      );
+      if (profErr) {
+        return NextResponse.json({ success: false, message: profErr.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `${roleType} account created for ${fullName}! Ready to log into media.zebalpha.shop/login.`,
+        credentials: {
+          fullName,
+          email,
+          password,
+          roleType,
+          loginUrl: "https://media.zebalpha.shop/login",
+        },
+      });
+    }
+
+    // 2. APPROVE / CHANGE ROLE / SUSPEND CREATOR PROFILE
+    if (action === "manage_creator") {
+      const profileId = String(body.profileId || "").trim();
+      const operation = String(body.operation || "").trim(); // approve | reject | set_role | toggle_active
+      if (!profileId) {
+        return NextResponse.json({ success: false, message: "Profile ID required" }, { status: 400 });
+      }
+
+      const { data: profile } = await supabaseServer
+        .from("media_creator_profiles")
+        .select("*")
+        .eq("id", profileId)
+        .maybeSingle();
+
+      if (!profile) {
+        return NextResponse.json({ success: false, message: "Creator profile not found" }, { status: 404 });
+      }
+
+      if (operation === "approve") {
+        const nextRole = ["MEDIA_LEADER", "MEDIA_CREATOR", "INFLUENCER"].includes(String(body.roleType))
+          ? String(body.roleType)
+          : String(profile.role_type || "INFLUENCER");
+
+        await supabaseServer
+          .from("media_creator_profiles")
+          .update({
+            role_type: nextRole,
+            approval_status: "approved",
+            rejection_reason: null,
+            approved_by: adminUserId,
+            approved_at: nowIso,
+            is_active: true,
+            updated_at: nowIso,
+          })
+          .eq("id", profileId);
+
+        if (profile.user_id) {
+          await supabaseServer.from("user_app_memberships").upsert(
+            {
+              user_id: profile.user_id,
+              app_name: "media",
+              role: nextRole,
+              is_active: true,
+              granted_by: adminUserId,
+              updated_at: nowIso,
+            },
+            { onConflict: "user_id,app_name" }
+          );
+        }
+        return NextResponse.json({
+          success: true,
+          message: `${profile.full_name} approved as ${nextRole}!`,
+        });
+      }
+
+      if (operation === "reject") {
+        await supabaseServer
+          .from("media_creator_profiles")
+          .update({
+            approval_status: "rejected",
+            rejection_reason: String(body.reason || "Rejected by SuperAdmin"),
+            is_active: false,
+            updated_at: nowIso,
+          })
+          .eq("id", profileId);
+        return NextResponse.json({ success: true, message: "Creator application rejected." });
+      }
+
+      if (operation === "set_role") {
+        const nextRole = ["MEDIA_LEADER", "MEDIA_CREATOR", "INFLUENCER"].includes(String(body.roleType))
+          ? String(body.roleType)
+          : "INFLUENCER";
+        await supabaseServer
+          .from("media_creator_profiles")
+          .update({ role_type: nextRole, updated_at: nowIso })
+          .eq("id", profileId);
+        if (profile.user_id) {
+          await supabaseServer
+            .from("user_app_memberships")
+            .update({ role: nextRole, updated_at: nowIso })
+            .eq("user_id", profile.user_id)
+            .eq("app_name", "media");
+        }
+        return NextResponse.json({
+          success: true,
+          message: `Updated ${profile.full_name}'s role to ${nextRole}.`,
+        });
+      }
+
+      if (operation === "toggle_active") {
+        const nextActive = !Boolean(profile.is_active);
+        await supabaseServer
+          .from("media_creator_profiles")
+          .update({
+            is_active: nextActive,
+            approval_status: nextActive ? "approved" : "suspended",
+            updated_at: nowIso,
+          })
+          .eq("id", profileId);
+        if (profile.user_id) {
+          await supabaseServer
+            .from("user_app_memberships")
+            .update({ is_active: nextActive, updated_at: nowIso })
+            .eq("user_id", profile.user_id)
+            .eq("app_name", "media");
+        }
+        return NextResponse.json({
+          success: true,
+          message: nextActive ? "Creator access restored." : "Creator access suspended.",
+        });
+      }
+    }
+
+    // 3. VERIFY PLAN 2 (₹150) PAYMENT
+    if (action === "verify_plan_payment") {
+      const enrollmentId = String(body.enrollmentId || "").trim();
+      if (!enrollmentId) {
+        return NextResponse.json({ success: false, message: "Enrollment ID required" }, { status: 400 });
+      }
+      const { data: enr } = await supabaseServer
+        .from("seller_influencer_enrollments")
+        .select("*")
+        .eq("id", enrollmentId)
+        .maybeSingle();
+
+      if (!enr) {
+        return NextResponse.json({ success: false, message: "Campaign not found" }, { status: 404 });
+      }
+
+      await supabaseServer
+        .from("seller_influencer_enrollments")
+        .update({
+          payment_status: "paid",
+          workflow_status: enr.workflow_status === "awaiting_payment" ? "awaiting_review" : enr.workflow_status,
+          updated_at: nowIso,
+        })
+        .eq("id", enrollmentId);
+
+      await supabaseServer.from("influencer_campaign_audit_logs").insert({
+        enrollment_id: enr.id,
+        seller_id: enr.seller_id,
+        product_id: enr.product_id,
+        product_name: enr.product_name,
+        event_type: "payment_verified",
+        to_plan: enr.plan_type,
+        fee_charged_inr: Number(enr.fixed_fee_inr || 150),
+        actor_user_id: adminUserId,
+        actor_role: "SUPER_ADMIN",
+        actor_name: adminEmail,
+        notes: `Verified ₹${Number(enr.fixed_fee_inr || 150)} shoot fee (${enr.payment_ref || enr.payment_method})`,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "₹150 payment verified & moved into Media Leader Awaiting Queue!",
+      });
+    }
+
+    // 4. SUPERADMIN MASTER OVERRIDE ON ANY CAMPAIGN
+    if (action === "admin_override_campaign") {
+      const enrollmentId = String(body.enrollmentId || "").trim();
+      const overrideAction = String(body.overrideAction || "").trim();
+      const durationDays = Math.min(60, Math.max(1, Number(body.durationDays || 7)));
+
+      const { data: enr } = await supabaseServer
+        .from("seller_influencer_enrollments")
+        .select("*")
+        .eq("id", enrollmentId)
+        .maybeSingle();
+
+      if (!enr) {
+        return NextResponse.json({ success: false, message: "Campaign not found" }, { status: 404 });
+      }
+
+      if (overrideAction === "accept") {
+        const sampleReceived = Boolean(body.sampleReceived);
+        await supabaseServer
+          .from("seller_influencer_enrollments")
+          .update({
+            workflow_status: "accepted",
+            sample_status:
+              enr.plan_type === "with_product_150" && sampleReceived
+                ? "sample_received"
+                : enr.sample_status,
+            accepted_by: adminUserId,
+            accepted_by_name: `${adminEmail} (SuperAdmin)`,
+            accepted_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", enrollmentId);
+
+        await supabaseServer.from("influencer_campaign_audit_logs").insert({
+          enrollment_id: enr.id,
+          seller_id: enr.seller_id,
+          product_id: enr.product_id,
+          product_name: enr.product_name,
+          event_type: sampleReceived ? "sample_received" : "accepted",
+          to_plan: enr.plan_type,
+          actor_user_id: adminUserId,
+          actor_role: "SUPER_ADMIN",
+          actor_name: adminEmail,
+          notes: sampleReceived
+            ? "SuperAdmin accepted campaign & confirmed sample receipt"
+            : "SuperAdmin accepted campaign into Alpha Media queue",
+        });
+
+        return NextResponse.json({ success: true, message: "Campaign accepted by SuperAdmin override." });
+      }
+
+      if (overrideAction === "activate_extend_7d") {
+        const now = new Date();
+        const existingExpMs = enr.expires_at ? new Date(String(enr.expires_at)).getTime() : 0;
+        const baseMs = existingExpMs > now.getTime() ? existingExpMs : now.getTime();
+        const newExpiresAt = new Date(baseMs + durationDays * 86_400_000).toISOString();
+
+        await supabaseServer
+          .from("seller_influencer_enrollments")
+          .update({
+            status: "active",
+            workflow_status: "live",
+            starts_at: enr.starts_at || nowIso,
+            expires_at: newExpiresAt,
+            approved_by: adminUserId,
+            approved_by_name: `${adminEmail} (SuperAdmin)`,
+            approved_at: enr.approved_at || nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", enrollmentId);
+
+        await supabaseServer
+          .from("influencer_creator_links")
+          .update({
+            status: "active",
+            starts_at: enr.starts_at || nowIso,
+            expires_at: newExpiresAt,
+            last_reactivated_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("enrollment_id", enrollmentId);
+
+        await supabaseServer.from("influencer_campaign_audit_logs").insert({
+          enrollment_id: enr.id,
+          seller_id: enr.seller_id,
+          product_id: enr.product_id,
+          product_name: enr.product_name,
+          event_type: "admin_override",
+          to_plan: enr.plan_type,
+          duration_days: durationDays,
+          actor_user_id: adminUserId,
+          actor_role: "SUPER_ADMIN",
+          actor_name: adminEmail,
+          notes: `SuperAdmin force-activated / extended campaign link by +${durationDays} days`,
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: `Campaign link is LIVE for +${durationDays} days!`,
+        });
+      }
+
+      if (overrideAction === "force_deactivate") {
+        await supabaseServer
+          .from("seller_influencer_enrollments")
+          .update({
+            status: "expired",
+            workflow_status: "expired",
+            expires_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", enrollmentId);
+
+        await supabaseServer
+          .from("influencer_creator_links")
+          .update({
+            status: "expired",
+            expires_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("enrollment_id", enrollmentId);
+
+        await supabaseServer.from("influencer_campaign_audit_logs").insert({
+          enrollment_id: enr.id,
+          seller_id: enr.seller_id,
+          product_id: enr.product_id,
+          product_name: enr.product_name,
+          event_type: "expired",
+          to_plan: enr.plan_type,
+          actor_user_id: adminUserId,
+          actor_role: "SUPER_ADMIN",
+          actor_name: adminEmail,
+          notes: "SuperAdmin force-deactivated / expired campaign link",
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: "Campaign link deactivated (marked expired). Seller can renew/upgrade anytime to reactivate.",
+        });
+      }
+    }
+
+    // 5. EXISTING BRANDING & CALLBACK ACTIONS (Preserved)
     if (action === "approve_branding") {
       const campaignId = String(body.campaignId || "").trim();
       const durationDays = Math.max(1, Number(body.durationDays || 7));
@@ -88,7 +563,7 @@ export async function POST(req: Request) {
           starts_at: startsAt.toISOString(),
           ends_at: endsAt.toISOString(),
           rejection_reason: null,
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
         })
         .eq("id", campaignId);
 
@@ -110,7 +585,7 @@ export async function POST(req: Request) {
         .update({
           approval_status: "rejected",
           rejection_reason: reason,
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
         })
         .eq("id", campaignId);
 
@@ -126,11 +601,14 @@ export async function POST(req: Request) {
       const productId = String(body.productId || "").trim();
       const creatorName = String(body.creatorName || "Alpha Media Creator").trim();
       const creatorHandle = String(body.creatorHandle || "").trim();
+      const assignedCreatorId = body.assignedCreatorId ? String(body.assignedCreatorId).trim() : null;
       const platform = ["instagram", "youtube", "facebook", "zebalpha_app"].includes(String(body.platform))
         ? String(body.platform)
         : "instagram";
       const videoUrl = String(body.videoUrl || "").trim();
-      const commissionRate = Number(body.commissionRate || 0.5);
+      const commissionRate = Number(body.commissionRate ?? 1);
+      const startsAt = new Date();
+      const expiresAt = new Date(startsAt.getTime() + 7 * 86_400_000);
 
       if (!sellerId || !productId) {
         return NextResponse.json(
@@ -139,10 +617,11 @@ export async function POST(req: Request) {
         );
       }
 
-      const cleanPrefix = creatorName
-        .replace(/[^a-zA-Z0-9]/g, "")
-        .slice(0, 4)
-        .toUpperCase() || "CREA";
+      const cleanPrefix =
+        creatorName
+          .replace(/[^a-zA-Z0-9]/g, "")
+          .slice(0, 4)
+          .toUpperCase() || "CREA";
       const refCode = `INF-${cleanPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 
       const { data, error } = await supabaseServer
@@ -151,6 +630,7 @@ export async function POST(req: Request) {
           enrollment_id: enrollmentId || null,
           seller_id: sellerId,
           product_id: productId,
+          assigned_creator_id: assignedCreatorId,
           creator_name: creatorName,
           creator_handle: creatorHandle || null,
           platform,
@@ -158,6 +638,10 @@ export async function POST(req: Request) {
           ref_code: refCode,
           commission_rate: commissionRate,
           status: "active",
+          starts_at: startsAt.toISOString(),
+          expires_at: expiresAt.toISOString(),
+          published_by: adminUserId,
+          published_by_name: `${adminEmail} (SuperAdmin)`,
         })
         .select("*")
         .single();
@@ -165,10 +649,40 @@ export async function POST(req: Request) {
       if (error) {
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });
       }
+
+      if (enrollmentId) {
+        await supabaseServer
+          .from("seller_influencer_enrollments")
+          .update({
+            status: "active",
+            workflow_status: "live",
+            assigned_creator_id: assignedCreatorId,
+            assigned_creator_name: creatorName,
+            assigned_creator_handle: creatorHandle || null,
+            starts_at: startsAt.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            updated_at: nowIso,
+          })
+          .eq("id", enrollmentId);
+
+        await supabaseServer.from("influencer_campaign_audit_logs").insert({
+          enrollment_id: enrollmentId,
+          link_id: data.id,
+          seller_id: sellerId,
+          product_id: productId,
+          event_type: "published_live",
+          duration_days: 7,
+          actor_user_id: adminUserId,
+          actor_role: "SUPER_ADMIN",
+          actor_name: adminEmail,
+          notes: `SuperAdmin assigned ${creatorName} & activated 7-day link ${refCode}`,
+        });
+      }
+
       return NextResponse.json({
         success: true,
         link: data,
-        message: `Creator tracking link created (${refCode})!`,
+        message: `7-Day Creator tracking link live (/go/${refCode})!`,
       });
     }
 
@@ -180,7 +694,7 @@ export async function POST(req: Request) {
 
       const { error } = await supabaseServer
         .from("seller_marketing_callbacks")
-        .update({ status, updated_at: new Date().toISOString() })
+        .update({ status, updated_at: nowIso })
         .eq("id", callbackId);
 
       if (error) {
@@ -190,11 +704,12 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: false, message: "Unknown action" }, { status: 400 });
-  } catch (error: any) {
-    if (error?.name === "AuthError") return authErrorResponse(error);
+  } catch (error: unknown) {
+    const err = error as { name?: string; message?: string };
+    if (err?.name === "AuthError") return authErrorResponse(error);
     console.error("[Admin Seller Marketing POST] Error:", error);
     return NextResponse.json(
-      { success: false, message: error?.message || "Failed to update seller marketing" },
+      { success: false, message: err?.message || "Failed to update seller marketing" },
       { status: 500 }
     );
   }

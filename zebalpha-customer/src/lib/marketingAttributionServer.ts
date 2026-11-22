@@ -22,11 +22,24 @@ export async function recordOrderMarketingAttribution(params: {
         (async () => {
           const { data: link } = await supabaseServer
             .from("influencer_creator_links")
-            .select("id, enrollment_id, seller_id, product_id, orders, gmv, commission_rate, commission_earned")
+            .select(
+              "id, enrollment_id, seller_id, product_id, status, expires_at, orders, gmv, commission_rate, commission_earned"
+            )
             .eq("ref_code", refCode)
             .maybeSingle();
 
           if (!link) return;
+
+          // Strictly enforce 7-day active link window
+          const expiresMs = link.expires_at ? new Date(link.expires_at).getTime() : null;
+          const isActive =
+            link.status === "active" &&
+            (expiresMs === null || Number.isNaN(expiresMs) || expiresMs > Date.now());
+
+          if (!isActive) return;
+
+          const rate = Number(link.commission_rate || 0);
+          const commissionDelta = Math.round(orderAmount * (rate / 100) * 100) / 100;
 
           await Promise.allSettled([
             supabaseServer
@@ -34,19 +47,23 @@ export async function recordOrderMarketingAttribution(params: {
               .update({
                 orders: Number(link.orders || 0) + 1,
                 gmv: Number(link.gmv || 0) + orderAmount,
+                commission_earned: Number(link.commission_earned || 0) + commissionDelta,
               })
               .eq("id", link.id),
             link.enrollment_id
               ? (async () => {
                   const { data: enr } = await supabaseServer
                     .from("seller_influencer_enrollments")
-                    .select("total_orders")
+                    .select("total_orders, commission_accrued")
                     .eq("id", link.enrollment_id)
                     .maybeSingle();
                   if (enr) {
                     await supabaseServer
                       .from("seller_influencer_enrollments")
-                      .update({ total_orders: Number(enr.total_orders || 0) + 1 })
+                      .update({
+                        total_orders: Number(enr.total_orders || 0) + 1,
+                        commission_accrued: Number(enr.commission_accrued || 0) + commissionDelta,
+                      })
                       .eq("id", link.enrollment_id);
                   }
                 })()

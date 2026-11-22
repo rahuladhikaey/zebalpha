@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Lock, Mail, ArrowRight, AlertCircle } from "lucide-react";
+import { Sparkles, Lock, Mail, ArrowRight, AlertCircle, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
@@ -32,8 +33,8 @@ export default function LoginPage() {
       if (data.session) {
         router.push("/");
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
@@ -48,8 +49,12 @@ export default function LoginPage() {
             <Sparkles className="w-6 h-6" />
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight">ZEBALPHA</h1>
-          <p className="text-xs text-brand-500 font-semibold tracking-wider uppercase mt-0.5">Media & Marketing Panel</p>
-          <p className="text-xs text-zinc-400 mt-2">Sign in with your authorized marketing employee credentials</p>
+          <p className="text-xs text-brand-500 font-semibold tracking-wider uppercase mt-0.5">
+            Alpha Media &amp; Creator Panel
+          </p>
+          <p className="text-xs text-zinc-400 mt-2">
+            Sign in as Media Leader, Alpha Media Team Member, or Verified Creator
+          </p>
         </div>
 
         {/* Login Form */}
@@ -63,7 +68,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Employee Email</label>
+              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Email Address</label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
                 <input
@@ -71,7 +76,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@zebalpha.shop"
+                  placeholder="creator@zebalpha.shop"
                   className="w-full pl-9 pr-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
                 />
               </div>
@@ -95,22 +100,29 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-brand-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-brand-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 "Authenticating..."
               ) : (
                 <>
-                  <span>Sign In to Media Panel</span>
+                  <span>Sign In to Alpha Media Panel</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-dark-800 text-center">
+          <div className="mt-6 pt-4 border-t border-dark-800 text-center space-y-3">
+            <Link
+              href="/apply"
+              className="w-full py-2.5 px-4 bg-dark-800 hover:bg-dark-700 text-zinc-200 rounded-lg text-xs font-semibold border border-dark-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <UserPlus className="w-4 h-4 text-brand-400" />
+              <span>New Creator / Influencer? Apply to Join</span>
+            </Link>
             <p className="text-[11px] text-zinc-400">
-              Access is restricted to authorized marketing personnel. Employee accounts are provisioned via HR invitations.
+              In-house Alpha Media staff are provisioned directly by SuperAdmin. External creators require Media Leader approval.
             </p>
           </div>
         </div>
@@ -118,4 +130,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

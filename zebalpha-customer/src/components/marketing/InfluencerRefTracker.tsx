@@ -56,6 +56,7 @@ export function InfluencerRefTracker() {
       const params = new URLSearchParams(window.location.search);
       const ref = (params.get("ref") || params.get("inf") || "").trim();
       const brandCamp = (params.get("brand_campaign") || "").trim();
+      const alreadyTrackedByGo = params.get("go_tracked") === "1";
 
       if (!ref && !brandCamp) return;
 
@@ -68,7 +69,10 @@ export function InfluencerRefTracker() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
       const sessionKey = `zeb_mkt_tracked_${ref || brandCamp}`;
-      if (sessionStorage.getItem(sessionKey)) return;
+      if (alreadyTrackedByGo || sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, "1");
+        return;
+      }
       sessionStorage.setItem(sessionKey, "1");
 
       if (ref) {

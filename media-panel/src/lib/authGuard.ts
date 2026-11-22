@@ -3,9 +3,25 @@ import { supabase } from "./supabaseClient";
 export interface MediaAuthSession {
   authorized: boolean;
   role: string | null;
+  isLeader: boolean;
   userId: string | null;
   email: string | null;
+  displayName?: string | null;
+  handle?: string | null;
   errorMessage?: string;
+}
+
+const LEADER_ROLES = new Set([
+  "OWNER",
+  "SUPER_ADMIN",
+  "MEDIA_LEADER",
+  "Media Admin",
+  "MEDIA_ADMIN",
+]);
+
+export function isMediaLeaderRole(role?: string | null): boolean {
+  if (!role) return false;
+  return LEADER_ROLES.has(role) || LEADER_ROLES.has(role.toUpperCase());
 }
 
 /**
@@ -14,14 +30,18 @@ export interface MediaAuthSession {
  */
 export async function checkMediaAccess(): Promise<MediaAuthSession> {
   try {
-    const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error: sessionErr,
+    } = await supabase.auth.getSession();
     if (sessionErr || !session?.user) {
       return {
         authorized: false,
         role: null,
+        isLeader: false,
         userId: null,
         email: null,
-        errorMessage: "No active authenticated session."
+        errorMessage: "No active authenticated session.",
       };
     }
 
@@ -39,41 +59,65 @@ export async function checkMediaAccess(): Promise<MediaAuthSession> {
       return {
         authorized: false,
         role: null,
+        isLeader: false,
         userId,
         email: userEmail,
-        errorMessage: "Unable to verify application access permissions."
+        errorMessage: "Unable to verify application access permissions.",
       };
     }
 
-    // Determine if user has media or global OWNER access
-    const mediaMembership = (memberships || []).find(
-      (m) => m.app_name === "media" || (m.app_name === "all" && m.role === "OWNER")
-    );
+    // Prefer explicit media membership or global OWNER access
+    const mediaMembership =
+      (memberships || []).find((m) => m.app_name === "media") ||
+      (memberships || []).find((m) => m.app_name === "all" && m.role === "OWNER");
 
     if (!mediaMembership) {
       return {
         authorized: false,
         role: null,
+        isLeader: false,
         userId,
         email: userEmail,
-        errorMessage: "Unauthorized. Your account does not have access permissions for the Media & Marketing Panel."
+        errorMessage:
+          "Unauthorized. Your account does not have active permissions for the Alpha Media Panel.",
       };
+    }
+
+    // Optional profile enrichment (non-fatal if table not yet migrated)
+    let displayName: string | null = null;
+    let handle: string | null = null;
+    try {
+      const { data: profile } = await supabase
+        .from("media_creator_profiles")
+        .select("full_name, instagram_handle, youtube_handle")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (profile) {
+        displayName = profile.full_name || null;
+        handle = profile.instagram_handle || profile.youtube_handle || null;
+      }
+    } catch {
+      // Non-fatal
     }
 
     return {
       authorized: true,
       role: mediaMembership.role,
+      isLeader: isMediaLeaderRole(mediaMembership.role),
       userId,
-      email: userEmail
+      email: userEmail,
+      displayName,
+      handle,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Authentication verification error.";
     return {
       authorized: false,
       role: null,
+      isLeader: false,
       userId: null,
       email: null,
-      errorMessage: err.message || "Authentication verification error."
+      errorMessage: message,
     };
   }
 }
-
