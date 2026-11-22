@@ -87,8 +87,8 @@ export default function ProductDetailTemplate({
         rawGallery.length > 0
           ? rawGallery
           : cleanImgUrl && !isDeadLegacySupabaseImage(cleanImgUrl)
-          ? [cleanImgUrl]
-          : parentImages;
+            ? [cleanImgUrl]
+            : parentImages;
 
       return {
         ...pkg,
@@ -143,8 +143,8 @@ export default function ProductDetailTemplate({
       const pkgGallery = Array.isArray(pkg.gallery) && pkg.gallery.length > 0
         ? pkg.gallery.filter(Boolean)
         : pkg.image_url
-        ? [pkg.image_url]
-        : [];
+          ? [pkg.image_url]
+          : [];
 
       // A photoshoot gallery belongs to the color group, not to individual sizes.
       // We adopt the gallery from the variant that provides it, and if another variant
@@ -222,8 +222,8 @@ export default function ProductDetailTemplate({
 
   // Find all variants of this product currently in customer's cart
   const inCartVariants = useMemo(() => {
-    return cart.filter((item) => 
-      String(item.id) === String(product.id) || 
+    return cart.filter((item) =>
+      String(item.id) === String(product.id) ||
       (item.cart_item_key && item.cart_item_key.startsWith(`${product.id}_`))
     );
   }, [cart, product.id]);
@@ -562,7 +562,7 @@ export default function ProductDetailTemplate({
 
     // A. If an item for this product is already in the cart, prioritize that variant!
     if (inCartVariants.length > 0 && !selectedSize) {
-      const matchInColor = inCartVariants.find(it => 
+      const matchInColor = inCartVariants.find(it =>
         (it.selected_color || "").toLowerCase() === currentColorGroup.colorName.toLowerCase()
       ) || inCartVariants[0];
 
@@ -662,14 +662,14 @@ export default function ProductDetailTemplate({
   const displayPrice = selectedVariant
     ? selectedVariant.price
     : currentColorGroup
-    ? currentColorGroup.basePrice
-    : product.price;
+      ? currentColorGroup.basePrice
+      : product.price;
 
   const displayMrp = selectedVariant && selectedVariant.mrp
     ? selectedVariant.mrp
     : currentColorGroup
-    ? currentColorGroup.baseMrp
-    : product.mrp;
+      ? currentColorGroup.baseMrp
+      : product.mrp;
 
   const hasDiscount = displayMrp && displayMrp > displayPrice;
   const discountPercent = hasDiscount ? Math.round(((displayMrp! - displayPrice) / displayMrp!) * 100) : 0;
@@ -845,7 +845,7 @@ export default function ProductDetailTemplate({
         eventType: "product_viewed",
         productId: product.id,
         categoryId: product.category_id,
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [product?.id, product?.category_id]);
 
@@ -901,6 +901,14 @@ export default function ProductDetailTemplate({
 
   return (
     <div className="bg-black text-white relative">
+      <RealVideoProofModal
+        isOpen={videoProofOpen}
+        onClose={() => setVideoProofOpen(false)}
+        videoInfo={videoProofInfo}
+        productName={product.name}
+        isNativeApp={isNativeApp}
+      />
+
       {dropToast && (
         <div className="sticky top-[68px] z-50 bg-emerald-950/90 border-b border-emerald-500/50 backdrop-blur-xl px-4 py-3 text-center text-xs font-black text-emerald-200 animate-in fade-in slide-in-from-top-2 duration-300">
           {dropToast}
@@ -941,11 +949,10 @@ export default function ProductDetailTemplate({
                       }}
                       aria-label="Share this product"
                       title="Share product"
-                      className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border backdrop-blur-md shadow-md transition-all active:scale-90 cursor-pointer ${
-                        isNativeApp
+                      className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border backdrop-blur-md shadow-md transition-all active:scale-90 cursor-pointer ${isNativeApp
                           ? "bg-[#FFFDF8]/95 border-[#DFBE6F] text-[#14120F] hover:bg-[#FAF2DE]"
                           : "bg-black/65 border-white/20 text-white hover:bg-black/85"
-                      }`}
+                        }`}
                     >
                       <Share2 className="h-4 w-4" strokeWidth={2.25} />
                     </button>
@@ -958,20 +965,18 @@ export default function ProductDetailTemplate({
                 <button
                   type="button"
                   onClick={() => setVideoProofOpen(true)}
-                  className={`group w-full flex items-center justify-between gap-3 rounded-2xl border p-3 sm:p-3.5 text-left transition-all active:scale-[0.99] cursor-pointer shadow-sm ${
-                    isNativeApp
+                  className={`group w-full flex items-center justify-between gap-3 rounded-2xl border p-3 sm:p-3.5 text-left transition-all active:scale-[0.99] cursor-pointer shadow-sm ${isNativeApp
                       ? "border-[#DFBE6F] bg-gradient-to-r from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE] hover:border-[#F03A46]"
                       : "border-emerald-500/35 bg-gradient-to-r from-emerald-950/50 via-zinc-900/90 to-zinc-950 hover:border-emerald-400/70"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span
                       data-photo-overlay="true"
-                      className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-md transition-transform group-hover:scale-105 ${
-                        isNativeApp
+                      className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-md transition-transform group-hover:scale-105 ${isNativeApp
                           ? "bg-gradient-to-br from-[#F03A46] to-[#FF5757]"
                           : "bg-gradient-to-br from-emerald-500 to-emerald-600"
-                      }`}
+                        }`}
                     >
                       <Play className="h-5 w-5 fill-white ml-0.5" />
                       <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -982,52 +987,39 @@ export default function ProductDetailTemplate({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
-                          className={`text-xs sm:text-sm font-black tracking-tight ${
-                            isNativeApp ? "text-[#14120F]" : "text-white"
-                          }`}
+                          className={`text-xs sm:text-sm font-black tracking-tight ${isNativeApp ? "text-[#14120F]" : "text-white"
+                            }`}
                         >
                           Watch Real Product &amp; Packaging Video
                         </span>
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wider ${
-                            isNativeApp
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wider ${isNativeApp
                               ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                               : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                          }`}
+                            }`}
                         >
                           <Video className="h-2.5 w-2.5" />
-                          {videoProofInfo.platformLabel}
+                          Verified Video
                         </span>
                       </div>
                       <p
-                        className={`text-[11px] font-medium mt-0.5 truncate ${
-                          isNativeApp ? "text-[#5C4E35]" : "text-zinc-400"
-                        }`}
+                        className={`text-[11px] font-medium mt-0.5 truncate ${isNativeApp ? "text-[#5C4E35]" : "text-zinc-400"
+                          }`}
                       >
-                        Verified quality &amp; intact packaging proof • Plays right here
+                        Real quality &amp; intact packaging proof • Plays in ZebAlpha
                       </p>
                     </div>
                   </div>
                   <span
-                    className={`shrink-0 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${
-                      isNativeApp
+                    className={`shrink-0 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${isNativeApp
                         ? "bg-[#14120F] text-[#FCE08A]"
                         : "bg-white text-black group-hover:bg-emerald-400 transition-colors"
-                    }`}
+                      }`}
                   >
                     Play ▶
                   </span>
                 </button>
               )}
-
-              <RealVideoProofModal
-                isOpen={videoProofOpen}
-                onClose={() => setVideoProofOpen(false)}
-                videoInfo={videoProofInfo}
-                productName={product.name}
-                sellerName={product.seller_name || product.business_name || product.brand}
-                isNativeApp={isNativeApp}
-              />
             </div>
           </div>
 
@@ -1043,11 +1035,10 @@ export default function ProductDetailTemplate({
             <div className="space-y-1.5 sm:space-y-2.5">
               {isNewDrop && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                    isLive 
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${isLive
                       ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                       : "border border-amber-500/30 bg-amber-500/10 text-amber-400"
-                  }`}>
+                    }`}>
                     {isLive && <Flame className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400" />}
                     {dropStatusInfo.badgeLabel}
                   </span>
@@ -1065,11 +1056,10 @@ export default function ProductDetailTemplate({
               </h1>
               <a
                 href="#reviews"
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black transition cursor-pointer ${
-                  isNativeApp
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black transition cursor-pointer ${isNativeApp
                     ? "border-[#DFC78E] bg-[#FFFDF7] text-[#111111] hover:bg-[#FAF0D1]"
                     : "border-zinc-800 bg-zinc-950 text-white hover:border-zinc-600"
-                }`}
+                  }`}
               >
                 <span className="inline-flex items-center gap-1 text-amber-400">
                   <Star size={13} className="fill-amber-400 text-amber-400" aria-hidden="true" />
@@ -1117,20 +1107,18 @@ export default function ProductDetailTemplate({
                 isFirstOrderEligible &&
                 firstOrderConfig.discountAmount > 0 && (
                   <div
-                    className={`mt-2.5 flex items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 ${
-                      isNativeApp
+                    className={`mt-2.5 flex items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 ${isNativeApp
                         ? "border-[#D4A017]/60 bg-gradient-to-r from-[#FFF9E3] via-[#FFF3C4] to-[#FCE89C]/70"
                         : "border-emerald-500/35 bg-gradient-to-r from-emerald-950/55 via-zinc-900/90 to-zinc-950"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span
                         data-photo-overlay="true"
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${
-                          isNativeApp
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${isNativeApp
                             ? "bg-gradient-to-br from-[#EAB308] to-[#B45309]"
                             : "bg-emerald-600"
-                        }`}
+                          }`}
                       >
                         <Gift size={15} strokeWidth={2.4} />
                       </span>
@@ -1138,23 +1126,20 @@ export default function ProductDetailTemplate({
                         {displayPrice >= firstOrderConfig.minOrderAmount ? (
                           <>
                             <p
-                              className={`text-xs sm:text-sm font-black leading-tight ${
-                                isNativeApp ? "text-[#14120F]" : "text-emerald-300"
-                              }`}
+                              className={`text-xs sm:text-sm font-black leading-tight ${isNativeApp ? "text-[#14120F]" : "text-emerald-300"
+                                }`}
                             >
                               ₹{Math.max(0, displayPrice - firstOrderConfig.discountAmount).toLocaleString("en-IN")}{" "}
                               <span
-                                className={`font-bold text-[11px] ${
-                                  isNativeApp ? "text-[#7A4F00]" : "text-white"
-                                }`}
+                                className={`font-bold text-[11px] ${isNativeApp ? "text-[#7A4F00]" : "text-white"
+                                  }`}
                               >
                                 with {firstOrderConfig.badgeText}
                               </span>
                             </p>
                             <p
-                              className={`text-[10px] sm:text-[11px] font-semibold mt-0.5 ${
-                                isNativeApp ? "text-[#5C4924]" : "text-zinc-400"
-                              }`}
+                              className={`text-[10px] sm:text-[11px] font-semibold mt-0.5 ${isNativeApp ? "text-[#5C4924]" : "text-zinc-400"
+                                }`}
                             >
                               Flat ₹{firstOrderConfig.discountAmount} OFF auto-applied at checkout
                             </p>
@@ -1162,16 +1147,14 @@ export default function ProductDetailTemplate({
                         ) : (
                           <>
                             <p
-                              className={`text-xs sm:text-sm font-black leading-tight ${
-                                isNativeApp ? "text-[#14120F]" : "text-emerald-300"
-                              }`}
+                              className={`text-xs sm:text-sm font-black leading-tight ${isNativeApp ? "text-[#14120F]" : "text-emerald-300"
+                                }`}
                             >
                               {firstOrderConfig.badgeText}: Flat ₹{firstOrderConfig.discountAmount} OFF
                             </p>
                             <p
-                              className={`text-[10px] sm:text-[11px] font-semibold mt-0.5 ${
-                                isNativeApp ? "text-[#5C4924]" : "text-zinc-400"
-                              }`}
+                              className={`text-[10px] sm:text-[11px] font-semibold mt-0.5 ${isNativeApp ? "text-[#5C4924]" : "text-zinc-400"
+                                }`}
                             >
                               Add ₹{(firstOrderConfig.minOrderAmount - displayPrice).toLocaleString("en-IN")} more in cart (Min ₹{firstOrderConfig.minOrderAmount}) to unlock
                             </p>
@@ -1180,11 +1163,10 @@ export default function ProductDetailTemplate({
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 rounded-lg border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-wider ${
-                        isNativeApp
+                      className={`shrink-0 rounded-lg border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-wider ${isNativeApp
                           ? "border-[#C68A12]/60 bg-[#FFFDF7] text-[#8A5A00]"
                           : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                      }`}
+                        }`}
                     >
                       {firstOrderConfig.code}
                     </span>
@@ -1193,8 +1175,8 @@ export default function ProductDetailTemplate({
             </div>
 
             {hasVariants && (
-              <PackageSelection 
-                packages={normalizedPackages} 
+              <PackageSelection
+                packages={normalizedPackages}
                 selectedColor={selectedColor}
                 selectedSize={selectedSize}
                 selectedVariant={selectedVariant}
@@ -1227,11 +1209,10 @@ export default function ProductDetailTemplate({
                 <button
                   type="button"
                   onClick={handleNotifyDrop}
-                  className={`flex h-14 sm:h-16 w-full items-center justify-center gap-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer shadow-xl ${
-                    isDropNotified
+                  className={`flex h-14 sm:h-16 w-full items-center justify-center gap-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer shadow-xl ${isDropNotified
                       ? "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
                       : "bg-white text-black hover:bg-neutral-200 shadow-white/10"
-                  }`}
+                    }`}
                 >
                   {isDropNotified ? (
                     <>
@@ -1296,11 +1277,10 @@ export default function ProductDetailTemplate({
                   <button
                     type="button"
                     onClick={() => setActiveDetailTab("specifications")}
-                    className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${
-                      activeDetailTab === "specifications"
+                    className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${activeDetailTab === "specifications"
                         ? "bg-zinc-900 border border-zinc-600 text-white shadow-md"
                         : "bg-zinc-950/80 border border-zinc-800/80 text-zinc-400 hover:text-white hover:border-zinc-750"
-                    }`}
+                      }`}
                   >
                     Specifications
                   </button>
@@ -1309,11 +1289,10 @@ export default function ProductDetailTemplate({
                 <button
                   type="button"
                   onClick={() => setActiveDetailTab("description")}
-                  className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${
-                    activeDetailTab === "description"
+                  className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${activeDetailTab === "description"
                       ? "bg-zinc-900 border border-zinc-600 text-white shadow-md"
                       : "bg-zinc-950/80 border border-zinc-800/80 text-zinc-400 hover:text-white hover:border-zinc-750"
-                  }`}
+                    }`}
                 >
                   Description
                 </button>
@@ -1321,11 +1300,10 @@ export default function ProductDetailTemplate({
                 <button
                   type="button"
                   onClick={() => setActiveDetailTab("highlights")}
-                  className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${
-                    activeDetailTab === "highlights"
+                  className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 select-none ${activeDetailTab === "highlights"
                       ? "bg-zinc-900 border border-zinc-600 text-white shadow-md"
                       : "bg-zinc-950/80 border border-zinc-800/80 text-zinc-400 hover:text-white hover:border-zinc-750"
-                  }`}
+                    }`}
                 >
                   Highlights
                 </button>
@@ -1493,11 +1471,10 @@ export default function ProductDetailTemplate({
                   </h3>
                 </div>
                 <span
-                  className={`text-xs font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full flex items-center gap-1 ${
-                    isNativeApp
+                  className={`text-xs font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full flex items-center gap-1 ${isNativeApp
                       ? "bg-[#FAF0D1] text-[#111111] border border-[#DFC78E]"
                       : "text-black bg-white shadow-xl shadow-white/10"
-                  }`}
+                    }`}
                 >
                   ★ {totalReviewCount > 0 ? `${averageRating.toFixed(1)} / 5` : "0 / 5"}
                 </span>
@@ -1505,16 +1482,14 @@ export default function ProductDetailTemplate({
 
               {/* Rating Card & Breakdown Grid */}
               <div
-                className={`grid grid-cols-1 md:grid-cols-12 gap-6 items-center p-6 rounded-[2rem] border shadow-xl ${
-                  isNativeApp
+                className={`grid grid-cols-1 md:grid-cols-12 gap-6 items-center p-6 rounded-[2rem] border shadow-xl ${isNativeApp
                     ? "bg-[#FFFDF7] border-[#E8D5A8]"
                     : "bg-zinc-950 border-zinc-800"
-                }`}
+                  }`}
               >
                 <div
-                  className={`md:col-span-4 text-center md:border-r md:pr-6 space-y-2 ${
-                    isNativeApp ? "border-[#E8D5A8]" : "border-zinc-800"
-                  }`}
+                  className={`md:col-span-4 text-center md:border-r md:pr-6 space-y-2 ${isNativeApp ? "border-[#E8D5A8]" : "border-zinc-800"
+                    }`}
                 >
                   <p className={`text-5xl font-black leading-none ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
                     {averageRating > 0 ? averageRating.toFixed(1) : "0.0"}
@@ -1529,9 +1504,8 @@ export default function ProductDetailTemplate({
                     ))}
                   </div>
                   <p
-                    className={`text-[10px] font-extrabold uppercase tracking-wider ${
-                      isNativeApp ? "text-[#7A6C52]" : "text-zinc-400"
-                    }`}
+                    className={`text-[10px] font-extrabold uppercase tracking-wider ${isNativeApp ? "text-[#7A6C52]" : "text-zinc-400"
+                      }`}
                   >
                     Based on {totalReviewCount} review{totalReviewCount === 1 ? "" : "s"}
                   </p>
@@ -1545,14 +1519,12 @@ export default function ProductDetailTemplate({
                       </span>
                       <Star size={10} className="text-amber-400 shrink-0 fill-amber-400" aria-hidden="true" />
                       <div
-                        className={`flex-1 h-2.5 rounded-full overflow-hidden border ${
-                          isNativeApp ? "bg-[#F3E9D2] border-[#E8D5A8]" : "bg-zinc-900 border-zinc-800"
-                        }`}
+                        className={`flex-1 h-2.5 rounded-full overflow-hidden border ${isNativeApp ? "bg-[#F3E9D2] border-[#E8D5A8]" : "bg-zinc-900 border-zinc-800"
+                          }`}
                       >
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            isNativeApp ? "bg-amber-400" : "bg-white"
-                          }`}
+                          className={`h-full rounded-full transition-all duration-500 ${isNativeApp ? "bg-amber-400" : "bg-white"
+                            }`}
                           style={{ width: `${starCounts[star]}%` }}
                         />
                       </div>
@@ -1580,20 +1552,18 @@ export default function ProductDetailTemplate({
                   reviews.map((r, i) => (
                     <div
                       key={r.id || i}
-                      className={`p-5 rounded-[1.75rem] border shadow-xl space-y-2.5 transition ${
-                        isNativeApp
+                      className={`p-5 rounded-[1.75rem] border shadow-xl space-y-2.5 transition ${isNativeApp
                           ? "bg-[#FFFDF7] border-[#E8D5A8] hover:border-[#D6BC82]"
                           : "bg-zinc-950 border-zinc-800 hover:border-zinc-700"
-                      }`}
+                        }`}
                     >
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex items-center gap-3">
                           <div
-                            className={`h-9 w-9 rounded-full flex items-center justify-center font-black text-sm border ${
-                              isNativeApp
+                            className={`h-9 w-9 rounded-full flex items-center justify-center font-black text-sm border ${isNativeApp
                                 ? "bg-[#FAF0D1] text-[#111111] border-[#DFC78E]"
                                 : "bg-zinc-900 text-white border-zinc-800"
-                            }`}
+                              }`}
                           >
                             {r.user_name?.[0]?.toUpperCase() || "C"}
                           </div>
@@ -1604,11 +1574,10 @@ export default function ProductDetailTemplate({
                               </h4>
                               {r.is_verified_buyer && (
                                 <span
-                                  className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-0.5 ${
-                                    isNativeApp
+                                  className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-0.5 ${isNativeApp
                                       ? "text-emerald-800 bg-emerald-50 border-emerald-200"
                                       : "text-emerald-300 bg-emerald-950/60 border-emerald-700/50"
-                                  }`}
+                                    }`}
                                 >
                                   Verified Buyer ✓
                                 </span>
@@ -1645,9 +1614,8 @@ export default function ProductDetailTemplate({
                   ))
                 ) : (
                   <div
-                    className={`text-center py-8 border-2 border-dashed rounded-[2rem] space-y-2 ${
-                      isNativeApp ? "border-[#E4C988] bg-[#FFFDF7]" : "border-zinc-800 bg-zinc-950"
-                    }`}
+                    className={`text-center py-8 border-2 border-dashed rounded-[2rem] space-y-2 ${isNativeApp ? "border-[#E4C988] bg-[#FFFDF7]" : "border-zinc-800 bg-zinc-950"
+                      }`}
                   >
                     <p className={`text-sm font-black ${isNativeApp ? "text-[#111111]" : "text-zinc-400"}`}>
                       No reviews yet
@@ -1692,36 +1660,33 @@ export default function ProductDetailTemplate({
 
       {/* STICKY BOTTOM BAR FOR MOBILE */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-[60] flex w-full items-center border-t lg:hidden px-3 gap-2 ${
-          isNativeApp
+        className={`fixed bottom-0 left-0 right-0 z-[60] flex w-full items-center border-t lg:hidden px-3 gap-2 ${isNativeApp
             ? "min-h-[68px] py-2.5 pb-[max(env(safe-area-inset-bottom,10px),12px)] bg-[#FFFFFF] border-[#DFBE6F] shadow-[0_-10px_28px_rgba(160,115,20,0.14)]"
             : "h-16 bg-black/95 backdrop-blur-md border-zinc-800 shadow-2xl"
-        }`}
+          }`}
       >
         {isUpcomingDrop ? (
           <div className="flex-1 flex gap-2 h-11">
             <button
               type="button"
               onClick={handleNotifyDrop}
-              className={`flex-1 flex items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                isDropNotified
+              className={`flex-1 flex items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${isDropNotified
                   ? isNativeApp
                     ? "bg-[#FFF6D6] text-[#8A5800] border border-[#D49A18]/60 cursor-default"
                     : "bg-emerald-950 text-emerald-400 border border-emerald-800 cursor-default"
                   : isNativeApp
-                  ? "bg-gradient-to-b from-[#FCE89C] via-[#F5B922] to-[#D49014] text-[#111111] border border-[#B4780C]/55 shadow-sm"
-                  : "bg-white text-black"
-              }`}
+                    ? "bg-gradient-to-b from-[#FCE89C] via-[#F5B922] to-[#D49014] text-[#111111] border border-[#B4780C]/55 shadow-sm"
+                    : "bg-white text-black"
+                }`}
             >
               {isDropNotified ? "Registered 🔔" : "Notify Me on Drop ⚡"}
             </button>
             <Link
               href="/new-drops"
-              className={`px-3 flex items-center justify-center rounded-xl border text-[10px] font-black ${
-                isNativeApp
+              className={`px-3 flex items-center justify-center rounded-xl border text-[10px] font-black ${isNativeApp
                   ? "bg-[#FFF4CC] border-[#C68A12]/70 text-[#111111]"
                   : "bg-zinc-900 border-zinc-800 text-white"
-              }`}
+                }`}
             >
               Drops ⚡
             </Link>
@@ -1731,11 +1696,10 @@ export default function ProductDetailTemplate({
             {tryOnEligibility.isEligible && (
               <Link
                 href={tryOnUrl}
-                className={`flex flex-col items-center justify-center px-2.5 h-full rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0 ${
-                  isNativeApp
+                className={`flex flex-col items-center justify-center px-2.5 h-full rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0 ${isNativeApp
                     ? "bg-[#FFF4CC] border-[#C68A12]/70 text-[#111111] hover:bg-[#FCE89C]"
                     : "bg-gradient-to-r from-zinc-900 to-zinc-850 border-zinc-700/80 text-white hover:border-white"
-                }`}
+                  }`}
                 aria-label="Virtual Try-On"
               >
                 <Shirt size={13} className={isNativeApp ? "text-[#9A6503]" : "text-amber-400"} />
@@ -1747,20 +1711,18 @@ export default function ProductDetailTemplate({
                 product={computedProduct}
                 variant="outline"
                 onBeforeAdd={handleValidateAndProceed}
-                className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border cursor-pointer ${
-                  isNativeApp
+                className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border cursor-pointer ${isNativeApp
                     ? "bg-[#FFF4CC] text-[#111111] border-[#C68A12]/80 hover:bg-[#FCE89C]"
                     : "bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-800"
-                }`}
+                  }`}
               />
               <BuyNowButton
                 product={computedProduct}
                 onBeforeBuy={handleValidateAndProceed}
-                className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer ${
-                  isNativeApp
+                className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer ${isNativeApp
                     ? "bg-gradient-to-b from-[#FCE89C] via-[#F5B922] to-[#D49014] text-[#111111] shadow-sm"
                     : "bg-white text-black hover:bg-zinc-200"
-                }`}
+                  }`}
               />
             </div>
           </div>
@@ -1768,11 +1730,10 @@ export default function ProductDetailTemplate({
           <div className="flex-1 h-11">
             <button
               disabled
-              className={`flex h-full w-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest border cursor-not-allowed ${
-                isNativeApp
+              className={`flex h-full w-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest border cursor-not-allowed ${isNativeApp
                   ? "bg-[#FFF6D6] text-[#6B5A3C] border-[#E4C988]"
                   : "bg-zinc-900 text-zinc-500 border-zinc-800"
-              }`}
+                }`}
             >
               Out of Stock
             </button>
