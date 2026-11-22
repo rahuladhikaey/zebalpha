@@ -1568,11 +1568,11 @@ export const BLOG_POSTS: BlogPost[] = [
   },
   {
     slug: "why-zebalpha-vision-target-customers-sellers-and-marketplace-difference",
-    title: "Why ZebAlpha? Our Vision, Target Customers, Target Sellers & How We Differ from Other Indian E-Commerce Marketplaces",
-    headline: "Discover. Support. Grow. — Inside ZebAlpha's Bharat-First Strategy, Primary Customer & Seller Segments, Company vs Brand Commitment, and What Sets Us Apart from Traditional Marketplaces",
-    metaTitle: "Why Choose ZebAlpha? Vision, Target Customers, Sellers & Marketplace Difference",
+    title: "Why ZebAlpha? Hybrid E-Commerce Model, Vision, Alpha Media & Seller Support, Target Audience & How We Differ",
+    headline: "Own Brand (D2C) + Multi-Vendor Marketplace — Inside ZebAlpha's Hybrid Business Model, In-House Alpha Media & Seller Support Teams, Bharat-First Vision, Target Customers & Sellers",
+    metaTitle: "Why ZebAlpha? Hybrid E-Commerce Model, Alpha Media Team, Vision & Difference",
     metaDescription:
-      "Explore ZebAlpha's main vision (Discover. Support. Grow.), Bharat-first Tier-2 & Tier-3 strategy, primary target customers (18–45), 6 target seller segments, Company vs Brand model, and why shoppers & emerging Indian brands choose ZebAlpha over legacy marketplaces.",
+      "ZebAlpha is a technology-driven Indian hybrid e-commerce company combining its D2C own brand (~65–70% strategic focus) with a multi-vendor marketplace (~30–35% strategic focus), powered by the in-house Alpha Media Team and Alpha Seller Support Team.",
     category: "Founder Story",
     categoryBadgeColor: "bg-amber-500/20 text-amber-300 border-amber-400/35",
     author: {
@@ -1586,89 +1586,144 @@ export const BLOG_POSTS: BlogPost[] = [
       avatar: "/official-logo-sm.png",
     },
     publishedAt: "2026-11-22T10:00:00+05:30",
-    modifiedAt: "2026-11-22T18:00:00+05:30",
-    readTime: "9 min read",
+    modifiedAt: "2026-11-22T18:30:00+05:30",
+    readTime: "10 min read",
     coverImage: "/official-logo.png",
-    coverImageAlt: "ZebAlpha Vision, Target Customers, Target Sellers & Discovery-Led Indian E-Commerce Marketplace Strategy",
+    coverImageAlt: "ZebAlpha Hybrid E-Commerce Business Model, Alpha Media Team, Alpha Seller Support Team & Bharat-First Vision",
     tags: [
+      "ZebAlpha Hybrid E-Commerce",
+      "ZebAlpha Business Model",
+      "Alpha Media Team",
+      "Alpha Seller Support Team",
       "Why Choose ZebAlpha",
       "ZebAlpha Vision",
+      "D2C Own Brand India",
+      "Multi-Vendor Marketplace India",
       "Bharat First E-Commerce",
-      "ZebAlpha Target Customers",
-      "ZebAlpha Target Sellers",
       "Emerging Indian Brands",
-      "ZebAlpha vs Flipkart Meesho",
-      "Discovery Led Marketplace India",
       "Rahul Adhikary",
       "Alakesh Biswas",
-      "Kolkata E-Commerce Startup",
       "Discover Support Grow",
     ],
     excerpt:
-      "Access to products is not the same as access to growth. Discover ZebAlpha's Bharat-first vision, who we serve across India's customers and small sellers, our Company vs Brand philosophy, and the concrete advantages shoppers and emerging brands get on ZebAlpha.",
+      "ZebAlpha is a technology-driven hybrid e-commerce company in India combining its own D2C brand business (~65–70% strategic focus) with a multi-vendor online marketplace (~30–35% strategic focus) — backed by our in-house Alpha Media Team and Alpha Seller Support Team.",
     isFeatured: true,
     keyTakeaways: [
-      "Main Vision — Discover. Support. Grow.: ZebAlpha is India's discovery-led e-commerce marketplace making online discovery and brand-building accessible across Tier 2, Tier 3, and smaller cities.",
-      "Company vs Brand Commitment: As a Company, ZebAlpha focuses on disciplined business growth and sustainable economics; as a Brand, ZebAlpha focuses on deep customer trust, loyalty, and becoming a trusted Indian household name.",
-      "Primary Target Customers: Built for College Students (18–24), Young Professionals (22–35), and Middle-Class Families (25–45) across six shopping missions — from Value Seekers and Trend Discoverers to Custom Gift Buyers and Emerging-Brand Fans.",
-      "Six Priority Target Seller Segments: Home-Based Businesses, Instagram/WhatsApp Social Sellers, Makers & Artisans, Local Boutiques, Small Manufacturers, and Emerging Indian D2C Brands.",
-      "Why ZebAlpha Stands Apart: Combines 0% core commission with Brand Storefronts, Creator-Led Micro-Influencer Discovery, Real Product Video Proof, Zero-MOQ Custom Print Studio, and Alpha AI Multilingual Voice Shopping (বাংলা, हिन्दी & English).",
+      "Hybrid E-Commerce Identity: ZebAlpha combines Direct-to-Consumer (D2C) own-brand sales (~65–70% strategic focus) with a Third-Party Seller Marketplace (~30–35% strategic focus) — strategic priorities, not verified current revenue.",
+      "In-House Alpha Media Team: Proactively creates and publishes daily branding, reels, and promotional posts across Instagram, Facebook, and social media for ZebAlpha products and partner brands.",
+      "Dedicated Alpha Seller Support Team: Provides full end-to-end human assistance for seller registration, Enrolment ID onboarding, catalog uploads, variant management, order dispatch, and store growth.",
+      "Revenue & 0% Commission Transparency: Generates revenue through Direct Own-Brand Sales and permitted marketplace/platform services — NOT seller product commissions under the stated 0% product commission policy.",
+      "Bharat-First Customer & Seller Focus: Serves College Students (18–24), Young Professionals (22–35), and Middle-Class Families (25–45) alongside six priority seller groups, powered by Real Product Video Proof, Zero-MOQ Custom Studio, and Alpha AI.",
     ],
     tableOfContents: [
-      { id: "main-vision-bharat-first", title: "1. Main Vision: Discover. Support. Grow. (Bharat-First Strategy)" },
-      { id: "company-vs-brand", title: "2. Company vs Brand — How ZebAlpha Builds Both Growth and Trust" },
-      { id: "target-customers", title: "3. Primary Target Customers & Six Shopping Missions" },
-      { id: "target-sellers-emerging-brands", title: "4. Target Sellers & The Emerging Brands Programme" },
-      { id: "why-customers-choose-zebalpha", title: "5. Why Customers Choose ZebAlpha (What Others Rarely Combine)" },
-      { id: "why-sellers-choose-zebalpha", title: "6. Why Sellers Choose ZebAlpha Beyond 0% Commission" },
-      { id: "marketplace-comparison", title: "7. Objective Comparison: ZebAlpha vs Broad & Value Marketplaces" },
-      { id: "creator-growth-and-rollout", title: "8. Creator-Led Discovery & Phased Cluster Expansion" },
+      { id: "hybrid-business-model", title: "1. ZebAlpha's Hybrid E-Commerce Model (D2C Own Brand + Marketplace)" },
+      { id: "alpha-media-and-seller-support", title: "2. Dedicated In-House Teams: Alpha Media Team & Alpha Seller Support Team" },
+      { id: "main-vision-bharat-first", title: "3. Main Vision, Mission & Bharat-First Strategy" },
+      { id: "company-vs-brand", title: "4. Company vs Brand & Transparent Revenue Model" },
+      { id: "target-customers", title: "5. Primary Target Customers & Six Shopping Missions" },
+      { id: "target-sellers-emerging-brands", title: "6. Target Sellers & The Emerging Brands Programme" },
+      { id: "why-customers-choose-zebalpha", title: "7. Why Customers Choose ZebAlpha (What Others Rarely Combine)" },
+      { id: "why-sellers-choose-zebalpha", title: "8. Why Sellers Choose ZebAlpha Beyond 0% Commission" },
+      { id: "marketplace-comparison", title: "9. Industry Positioning & Objective Marketplace Comparison" },
+      { id: "creator-growth-and-rollout", title: "10. Creator-Led Discovery & Phased Cluster Expansion" },
     ],
     faqs: [
       {
-        question: "What is ZebAlpha's main vision?",
+        question: "What is ZebAlpha's business model?",
         answer:
-          "ZebAlpha's main vision is 'Discover. Support. Grow.' — creating India's discovery-led e-commerce marketplace where shoppers discover credible emerging brands and quality products, small sellers build stronger digital businesses, and emerging Indian labels grow beyond metro cities into Tier 2, Tier 3, and smaller towns.",
+          "ZebAlpha is a technology-driven hybrid e-commerce company in India combining Direct-to-Consumer (D2C) own-brand sales (~65–70% intended strategic focus) with a third-party multi-vendor marketplace (~30–35% intended strategic focus). Note: these percentages represent strategic business priorities, not verified current revenue or market-share figures.",
       },
       {
-        question: "Who are ZebAlpha's primary target customers?",
+        question: "What do ZebAlpha's Alpha Media Team and Alpha Seller Support Team do?",
         answer:
-          "ZebAlpha primarily serves College Students (Age 18–24) looking for affordable fashion and streetwear, Young Professionals (Age 22–35) seeking verified quality and convenience, and Middle-Class Families (Age 25–45) buying reliable household, ethnic, and lifestyle products.",
+          "ZebAlpha's in-house Alpha Media Team proactively creates and posts daily branding, reels, and product promotions across Instagram, Facebook, and social media for ZebAlpha's own catalog and partner brands. The dedicated Alpha Seller Support Team helps sellers end-to-end with onboarding, Enrolment ID setup, catalog creation, variant management, dispatch, and store growth.",
       },
       {
-        question: "Who are ZebAlpha's target sellers?",
+        question: "How does ZebAlpha generate revenue if it has a 0% seller commission policy?",
         answer:
-          "ZebAlpha serves six core seller communities: Home-Based Businesses, Instagram & WhatsApp Social Sellers, Handmade Makers & Artisans, Local Boutiques, Small Manufacturers, and Emerging Indian D2C Brands.",
+          "ZebAlpha's hybrid model generates Own Brand Revenue directly from selling ZebAlpha-branded products to customers (D2C) and Marketplace Revenue through applicable marketplace services, seller-related commercial arrangements, and permitted platform services — without charging product commissions on eligible seller listings unless officially changed.",
+      },
+      {
+        question: "Is ZebAlpha affiliated with Flipkart, Amazon, Myntra, or Meesho?",
+        answer:
+          "No. ZebAlpha is a completely independent Indian hybrid e-commerce company founded in Kolkata, West Bengal by Rahul Adhikary (Founder & CEO) and Alakesh Biswas (Co-Founder & COO). It is not owned by, affiliated with, or partnered with Flipkart, Amazon, Myntra, or Meesho.",
+      },
+      {
+        question: "Who are ZebAlpha's primary target customers and target sellers?",
+        answer:
+          "Primary customers include College Students (18–24), Young Professionals (22–35), and Middle-Class Families (25–45). Target sellers include small business owners, home-based businesses, Instagram/WhatsApp social sellers, handmade makers & artisans, local boutiques, small manufacturers, new e-commerce entrepreneurs, and emerging Indian brands.",
       },
       {
         question: "What does ZebAlpha offer customers that most other Indian e-commerce platforms don't bundle together?",
         answer:
-          "ZebAlpha combines curated emerging-brand discovery, Real Product Video Proof before purchase, strict per-color and per-size independent SKU accuracy, a built-in Zero-MOQ Custom Print Studio with 1-click Background Removal, and Alpha AI multilingual voice and chat shopping in Bengali, Hindi, and English — alongside UPI/COD and 5-day easy returns.",
-      },
-      {
-        question: "Why should a seller choose ZebAlpha if other platforms like Meesho also advertise 0% commission?",
-        answer:
-          "Because 0% commission alone is not enough to build a lasting business when sellers are forced into anonymous price wars. ZebAlpha combines 0% core commission for eligible sellers with dedicated brand storefronts, founder storytelling, measurable micro-influencer creator campaigns, fair visibility for new quality sellers, Enrolment ID onboarding, and actionable performance analytics.",
-      },
-      {
-        question: "How is ZebAlpha expanding across India?",
-        answer:
-          "ZebAlpha follows a disciplined cluster-by-cluster rollout: Phase 1 builds dense supply, creator networks, and reliable delivery in Kolkata; Phase 2 expands across West Bengal; Phase 3 scales into East India Tier-2 and Tier-3+ clusters; and Phase 4 grows nationwide across 28,000+ Pan-India PIN codes.",
+          "ZebAlpha combines its own D2C quality brand with curated emerging-brand discovery, Real Product Video Proof before purchase, strict per-color and per-size independent SKU accuracy, a built-in Zero-MOQ Custom Print Studio with 1-click Background Removal, and Alpha AI multilingual voice and chat shopping in Bengali, Hindi, and English — alongside UPI/COD and 5-day easy returns.",
       },
     ],
     contentHtml: `
-      <section id="main-vision-bharat-first" class="scroll-mt-24 space-y-4">
+      <section id="hybrid-business-model" class="scroll-mt-24 space-y-4">
         <div class="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-400/30 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-amber-400">
-          Vision • Bharat-First Marketplace
+          Corporate Identity • Hybrid E-Commerce Company
         </div>
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          1. Main Vision: Discover. Support. Grow.
+          1. ZebAlpha's Hybrid E-Commerce Model (D2C Own Brand + Marketplace)
         </h2>
         <p class="text-neutral-300 leading-relaxed">
-          India's online retail market has grown massively, yet <strong>access to products is not the same as access to growth</strong>. Customers struggle to judge true product quality or discover credible new Indian labels behind endless paid ads. Meanwhile, small sellers and emerging brands face high customer acquisition costs, limited catalogue tooling, and price-war marketplaces that erase their brand identity.
+          <strong>ZebAlpha</strong> is a technology-driven <strong>hybrid e-commerce company</strong> based in India (headquartered in <strong>Kolkata, West Bengal</strong>), combining its own <strong>Direct-to-Consumer (D2C) brand business</strong> with a <strong>multi-vendor online marketplace</strong>. Unlike a conventional platform that only connects third-party sellers, ZebAlpha unites two complementary business segments in one shopping destination:
+        </p>
+        <div class="grid gap-4 sm:grid-cols-2 my-4">
+          <div class="rounded-2xl border border-amber-400/30 bg-neutral-900/90 p-5 space-y-2">
+            <p class="text-xs font-black uppercase tracking-widest text-amber-400">A. ZebAlpha Own Brand Business (~65–70% Strategic Focus)</p>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              ZebAlpha develops, sources, markets, and sells its own branded products directly to customers (D2C) — centering on fabric/product quality, affordability, customer experience, and long-term brand loyalty.
+            </p>
+          </div>
+          <div class="rounded-2xl border border-emerald-400/30 bg-neutral-900/90 p-5 space-y-2">
+            <p class="text-xs font-black uppercase tracking-widest text-emerald-400">B. Third-Party Seller Marketplace (~30–35% Strategic Focus)</p>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Independent sellers, small businesses, and emerging brands register via a dedicated Seller Panel to showcase catalogs, manage inventory and orders, and reach customers nationwide under ZebAlpha's 0% product commission policy for eligible sellers.
+            </p>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 italic">
+          Transparency Note: The 65–70% and 30–35% figures represent ZebAlpha's intended strategic business priorities — not verified current revenue, sales, or market-share figures.
+        </p>
+      </section>
+
+      <section id="alpha-media-and-seller-support" class="scroll-mt-24 space-y-4 pt-6">
+        <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
+          2. Dedicated In-House Teams: Alpha Media Team &amp; Alpha Seller Support Team
+        </h2>
+        <p class="text-neutral-300 leading-relaxed">
+          Two in-house teams give ZebAlpha's own catalog and third-party sellers a practical edge that conventional marketplaces rarely provide:
+        </p>
+        <div class="grid gap-4 sm:grid-cols-2 my-4">
+          <div class="rounded-2xl border border-neutral-800 bg-neutral-950 p-5 space-y-2">
+            <h3 class="text-base font-black text-amber-400 uppercase">Alpha Media Team (Daily Social Media Branding)</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              ZebAlpha has its own dedicated <strong>Alpha Media Team</strong> that proactively creates and publishes daily branding, product showcase reels, and promotional posts across <strong>Instagram, Facebook, and social media</strong> for ZebAlpha's own products and partner brands — driving organic awareness and real product discovery without forcing small sellers to hire costly agencies.
+            </p>
+          </div>
+          <div class="rounded-2xl border border-neutral-800 bg-neutral-950 p-5 space-y-2">
+            <h3 class="text-base font-black text-emerald-400 uppercase">Alpha Seller Support Team (Full Seller Help)</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Our dedicated <strong>Alpha Seller Support Team</strong> actively assists sellers end-to-end — helping with registration, 15-character Enrolment ID setup, catalog uploads, color/size variant matrix, order dispatch, packaging standards, and ongoing store growth.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="main-vision-bharat-first" class="scroll-mt-24 space-y-4 pt-6">
+        <div class="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-400/30 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-amber-400">
+          Vision &amp; Mission • Bharat-First
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
+          3. Main Vision, Mission &amp; Bharat-First Strategy
+        </h2>
+        <p class="text-neutral-300 leading-relaxed">
+          <strong>Company Vision:</strong> To build a trusted and inclusive e-commerce ecosystem where customers discover quality products, emerging brands gain recognition, and independent sellers receive opportunities to grow (<em>Discover. Support. Grow.</em>).
         </p>
         <p class="text-neutral-300 leading-relaxed">
-          <strong>ZebAlpha</strong> — founded in <strong>Kolkata, West Bengal</strong> by <strong>Rahul Adhikary (Founder &amp; CEO)</strong> and <strong>Alakesh Biswas (Co-Founder &amp; COO)</strong> — exists to bridge that exact gap. Our vision is summed up in three words: <strong>Discover. Support. Grow.</strong>
+          <strong>Company Mission:</strong> To make online shopping and digital entrepreneurship more accessible through technology, customer-focused experiences, quality products, and an inclusive marketplace — led by <strong>Rahul Adhikary (Founder &amp; CEO)</strong> and <strong>Alakesh Biswas (Co-Founder &amp; COO)</strong>.
         </p>
         <div class="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-6 space-y-3">
           <h3 class="text-base font-black text-amber-400 uppercase tracking-wider">Why Bharat-First (Tier 2, Tier 3 &amp; Smaller Cities)?</h3>
@@ -1680,10 +1735,10 @@ export const BLOG_POSTS: BlogPost[] = [
 
       <section id="company-vs-brand" class="scroll-mt-24 space-y-4 pt-6">
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          2. Company vs Brand — How ZebAlpha Builds Both Growth and Trust
+          4. Company vs Brand &amp; Transparent Revenue Model
         </h2>
         <p class="text-neutral-300 leading-relaxed">
-          Great e-commerce ecosystems never confuse short-term GMV hype with long-term customer love. At ZebAlpha, we hold ourselves accountable to two clear dimensions — building a resilient <strong>Company</strong> and an unforgettable <strong>Brand</strong>:
+          ZebAlpha balances disciplined business fundamentals as a <strong>Company</strong> with lasting customer love as a <strong>Brand</strong>, supported by a clear hybrid revenue structure: <strong>Own Brand Revenue</strong> (direct sales of ZebAlpha-branded products) and <strong>Marketplace Revenue</strong> (applicable marketplace services, seller-related commercial arrangements, and permitted platform services — without seller product commissions under our 0% commission policy).
         </p>
         <div class="overflow-x-auto rounded-2xl border border-neutral-800 bg-neutral-950 my-4">
           <table class="w-full text-left text-sm border-collapse">
@@ -1707,7 +1762,7 @@ export const BLOG_POSTS: BlogPost[] = [
 
       <section id="target-customers" class="scroll-mt-24 space-y-4 pt-6">
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          3. Primary Target Customers &amp; Six Shopping Missions
+          5. Primary Target Customers &amp; Six Shopping Missions
         </h2>
         <p class="text-neutral-300 leading-relaxed">
           ZebAlpha designs for real everyday Indian shopping needs — uniting three core age demographics with six high-intent shopping missions:
@@ -1740,7 +1795,7 @@ export const BLOG_POSTS: BlogPost[] = [
 
       <section id="target-sellers-emerging-brands" class="scroll-mt-24 space-y-4 pt-6">
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          4. Target Sellers &amp; The Emerging Brands Programme
+          6. Target Sellers &amp; The Emerging Brands Programme
         </h2>
         <p class="text-neutral-300 leading-relaxed">
           On the supply side, ZebAlpha prioritises differentiated makers and growing businesses who deserve better digital distribution across six core groups:
@@ -1763,7 +1818,7 @@ export const BLOG_POSTS: BlogPost[] = [
 
       <section id="why-customers-choose-zebalpha" class="scroll-mt-24 space-y-4 pt-6">
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          5. Why Customers Choose ZebAlpha (What Others Rarely Combine)
+          7. Why Customers Choose ZebAlpha (What Others Rarely Combine)
         </h2>
         <ol class="list-decimal pl-5 space-y-3 text-neutral-300">
           <li><strong>Discovery-Led Curation Over Ad Clutter:</strong> Surface authentic emerging Indian brands and regional crafts instead of getting trapped in endless duplicate listings.</li>
@@ -1777,27 +1832,27 @@ export const BLOG_POSTS: BlogPost[] = [
 
       <section id="why-sellers-choose-zebalpha" class="scroll-mt-24 space-y-4 pt-6">
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          6. Why Sellers Choose ZebAlpha Beyond 0% Commission
+          8. Why Sellers Choose ZebAlpha Beyond 0% Commission
         </h2>
         <p class="text-neutral-300 leading-relaxed">
-          We are completely honest about the market: value platforms like Meesho already advertise 0% commission. That means <strong>0% commission alone is never enough to help a small seller build a lasting brand</strong>. ZebAlpha wins for sellers by combining fair economics with true brand growth:
+          We are completely honest about the market: value platforms like Meesho already advertise 0% commission. That means <strong>0% commission alone is never enough to help a small seller build a lasting brand</strong>. ZebAlpha wins for sellers by combining fair economics with dedicated in-house promotion and hands-on support:
         </p>
         <ol class="list-decimal pl-5 space-y-3 text-neutral-300">
+          <li><strong>In-House Alpha Media Team (Daily Instagram &amp; Facebook Promotion):</strong> Our dedicated internal media team creates and posts daily product branding, reels, and campaigns across social media so partner brands gain real organic exposure.</li>
+          <li><strong>Dedicated Alpha Seller Support Team:</strong> Real human guidance through onboarding, Enrolment ID registration, catalog setup, variants, dispatch, and store growth.</li>
           <li><strong>Dedicated Brand Storefront &amp; Story:</strong> Present your shop identity, collections, and story instead of fighting anonymous lowest-price battles.</li>
           <li><strong>Creator-Led Micro-Influencer Access:</strong> Run trackable product demos and try-ons with relevant local creators measured against verified delivered orders.</li>
-          <li><strong>0% Core Commission + Zero Hidden Deductions:</strong> Eligible sellers retain 100% of product selling value with fast 5-day direct UPI settlements.</li>
-          <li><strong>Low-Friction Enrolment ID Onboarding:</strong> Start selling smoothly using a free 15-character Enrolment ID, verified email, pickup address, and UPI ID.</li>
-          <li><strong>Fair Discovery for Quality New Sellers:</strong> Visibility rewards catalogue quality, accurate variants, and customer trust rather than ad-spend dominance alone.</li>
-          <li><strong>Actionable Seller Analytics &amp; Education:</strong> Track views, add-to-cart, conversions, and returns with practical guidance on photography, packaging, and repeat buyers.</li>
+          <li><strong>0% Product Commission Policy + Zero Hidden Deductions:</strong> Eligible sellers retain 100% of product selling value with fast 5-day direct UPI settlements.</li>
+          <li><strong>Low-Friction Enrolment ID Onboarding &amp; Actionable Analytics:</strong> Start quickly with a free 15-character Enrolment ID and UPI ID while tracking views, add-to-cart, conversions, and returns.</li>
         </ol>
       </section>
 
       <section id="marketplace-comparison" class="scroll-mt-24 space-y-4 pt-6">
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          7. Objective Comparison: ZebAlpha vs Broad &amp; Value Marketplaces
+          9. Industry Positioning &amp; Objective Marketplace Comparison
         </h2>
         <p class="text-neutral-400 text-sm">
-          An objective strategic comparison highlighting ZebAlpha's distinct focus — not a claim that large incumbents lack every feature.
+          ZebAlpha operates within India's e-commerce industry alongside industry references such as Flipkart, Amazon, Myntra, Meesho, and Indian D2C brands. These references are for industry context only — ZebAlpha is completely independent with zero ownership, affiliation, or partnership with any of them.
         </p>
         <div class="overflow-x-auto rounded-2xl border border-neutral-800 bg-neutral-950 my-4">
           <table class="w-full text-left text-xs sm:text-sm border-collapse">
@@ -1823,7 +1878,7 @@ export const BLOG_POSTS: BlogPost[] = [
 
       <section id="creator-growth-and-rollout" class="scroll-mt-24 space-y-4 pt-6">
         <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-          8. Creator-Led Discovery &amp; Phased Cluster Expansion
+          10. Creator-Led Discovery &amp; Phased Cluster Expansion
         </h2>
         <p class="text-neutral-300 leading-relaxed">
           ZebAlpha turns micro-influencers into a measurable product discovery engine via a 5-step loop: <strong>1. Match</strong> creators by category and city → <strong>2. Create</strong> honest video demos &amp; try-ons → <strong>3. Track</strong> clicks, delivered orders &amp; returns via unique links → <strong>4. Reward</strong> verified outcomes transparently → <strong>5. Optimise</strong> repeat buyers.

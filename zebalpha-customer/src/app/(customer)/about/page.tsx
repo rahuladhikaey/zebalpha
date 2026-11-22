@@ -6,19 +6,23 @@ import {
   buildBreadcrumbSchema,
   buildFaqSchema,
 } from "@/lib/aeo-geo/schemaGenerator";
-import { ZEBALPHA_LEADERSHIP, ZEBALPHA_STRATEGY } from "@/lib/aeo-geo/brandEntity";
+import {
+  ZEBALPHA_LEADERSHIP,
+  ZEBALPHA_STRATEGY,
+  ZEBALPHA_HYBRID_MODEL,
+} from "@/lib/aeo-geo/brandEntity";
 
 export const metadata: Metadata = {
-  title: "About ZebAlpha | Vision, Leadership, Target Customers, Sellers & What Sets Us Apart",
+  title: "About ZebAlpha | Hybrid E-Commerce Model, Leadership, Alpha Media & Vision",
   description:
-    "Discover ZebAlpha — India's discovery-led, Bharat-first e-commerce marketplace led by CEO Rahul Adhikary & COO Alakesh Biswas. Explore our vision (Discover. Support. Grow.), target customers & sellers, Company vs Brand identity, and how ZebAlpha stands apart from traditional marketplaces.",
+    "ZebAlpha is a technology-driven Indian hybrid e-commerce company combining its D2C own brand (~65–70% strategic focus) with a multi-vendor marketplace (~30–35% strategic focus), backed by the Alpha Media Team and Alpha Seller Support Team.",
   alternates: {
     canonical: "https://zebalpha.shop/about",
   },
   openGraph: {
-    title: "About ZebAlpha | Vision, Leadership & Why Customers and Sellers Choose Us",
+    title: "About ZebAlpha | Hybrid E-Commerce Model, Leadership & Why Choose Us",
     description:
-      "Meet ZebAlpha's leadership (CEO Rahul Adhikary & COO Alakesh Biswas), our Bharat-first vision, target customers & sellers, Emerging Brands programme, and what makes ZebAlpha different.",
+      "Meet ZebAlpha — India's hybrid e-commerce company (Own Brand D2C + Multi-Vendor Marketplace) led by CEO Rahul Adhikary & COO Alakesh Biswas, powered by Alpha Media Team and Alpha Seller Support Team.",
     url: "https://zebalpha.shop/about",
     siteName: "ZebAlpha",
     locale: "en_IN",
@@ -28,20 +32,30 @@ export const metadata: Metadata = {
         url: "/official-logo.png",
         width: 1200,
         height: 630,
-        alt: "About & Leadership at ZebAlpha - Discovery-Led Indian E-Commerce Marketplace",
+        alt: "About ZebAlpha - Hybrid Indian E-Commerce Company",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "About ZebAlpha | Vision, Leadership & Why Choose ZebAlpha",
+    title: "About ZebAlpha | Hybrid E-Commerce Model, Leadership & Vision",
     description:
-      "Discover. Support. Grow. — India's discovery-led marketplace for customers, small sellers & emerging brands. Built Together. Growing Together.",
+      "Own Brand (D2C) + Multi-Vendor Marketplace — Discover. Support. Grow. Built Together. Growing Together.",
     images: ["/official-logo.png"],
   },
 };
 
 const ABOUT_FAQS = [
+  {
+    question: "What is ZebAlpha's hybrid e-commerce business model?",
+    answer:
+      "ZebAlpha is a technology-driven hybrid e-commerce company in India combining Direct-to-Consumer (D2C) own-brand sales (~65–70% intended strategic focus) with a third-party multi-vendor marketplace (~30–35% intended strategic focus). These percentages represent strategic business priorities, not verified current revenue, sales, or market-share figures.",
+  },
+  {
+    question: "What are ZebAlpha's Alpha Media Team and Alpha Seller Support Team?",
+    answer:
+      "ZebAlpha operates two dedicated in-house teams: the Alpha Media Team creates and publishes daily social media branding, reels, and product promotion across Instagram, Facebook, and digital channels for ZebAlpha's products and partner brands, while the Alpha Seller Support Team provides full hands-on assistance for seller registration, Enrolment ID onboarding, cataloging, variant setup, order dispatch, and store growth.",
+  },
   {
     question: "Who is the Founder and CEO of ZebAlpha?",
     answer:
@@ -159,25 +173,25 @@ export default function AboutPage() {
                 <div>
                   <div className="inline-flex items-center gap-2 rounded-full bg-neutral-800 border border-neutral-700 px-4 py-1.5 text-xs font-bold text-neutral-300">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Official Brand &amp; Leadership Identity
+                    Hybrid E-Commerce Company • Own Brand + Marketplace
                   </div>
 
                   <h1 className="mt-6 text-3xl sm:text-5xl font-black tracking-tight text-white">
-                    ZebAlpha — Building a Smarter, More Inclusive E-Commerce Future
+                    ZebAlpha — India&apos;s Hybrid E-Commerce Company: Own Brand (D2C) + Multi-Vendor Marketplace
                   </h1>
 
                   <p className="mt-6 max-w-2xl text-base leading-8 text-neutral-300 font-normal sm:text-lg">
-                    <strong>ZebAlpha</strong> was founded in <strong>Kolkata, West Bengal</strong> with a clear vision: to create a modern Indian e-commerce platform where customers, independent sellers, emerging brands, and businesses can grow together.
+                    {ZEBALPHA_HYBRID_MODEL.standardDescription}
                   </p>
 
                   <div className="mt-8 grid gap-4 sm:grid-cols-2">
                     <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-5">
-                      <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-400">Primary Market</p>
-                      <p className="mt-2 text-sm text-neutral-200 font-semibold">India (28,000+ Pan-India PIN codes)</p>
+                      <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-400">Business Model</p>
+                      <p className="mt-2 text-sm text-neutral-200 font-semibold">D2C Own Brand + Multi-Vendor Marketplace</p>
                     </div>
                     <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-5">
-                      <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-400">Headquarters Origin</p>
-                      <p className="mt-2 text-sm text-neutral-200 font-semibold">Kolkata, West Bengal, India</p>
+                      <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-400">Headquarters &amp; Market</p>
+                      <p className="mt-2 text-sm text-neutral-200 font-semibold">Kolkata, West Bengal • Pan-India (28,000+ PINs)</p>
                     </div>
                   </div>
                 </div>
@@ -185,10 +199,11 @@ export default function AboutPage() {
                 <div className="rounded-[2rem] bg-neutral-950 border border-neutral-800 p-8 text-white shadow-2xl sm:p-10">
                   <p className="text-xs font-black uppercase tracking-[0.3em] text-neutral-400">At a Glance</p>
                   <h2 className="mt-4 text-2xl font-black text-white">The ZebAlpha Entity</h2>
-                  <div className="mt-6 space-y-3.5 text-sm text-neutral-300">
+                  <div className="mt-6 space-y-3 text-sm text-neutral-300">
                     <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
-                      <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block">Brand Name</span>
-                      <span className="text-white font-black text-base">ZebAlpha</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block">Business Category</span>
+                      <span className="text-white font-black text-base">{ZEBALPHA_HYBRID_MODEL.businessCategory}</span>
+                      <span className="block text-xs text-amber-400 mt-0.5">{ZEBALPHA_HYBRID_MODEL.brandPositioning}</span>
                     </div>
                     <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
                       <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block">Founder &amp; CEO</span>
@@ -201,9 +216,163 @@ export default function AboutPage() {
                       <span className="block text-xs text-neutral-400 mt-0.5">Chief Operating Officer</span>
                     </div>
                     <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
-                      <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block">Core Philosophy</span>
-                      <span className="text-white font-medium">Built Together. Growing Together.</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block">In-House Growth Teams</span>
+                      <span className="text-white font-medium">Alpha Media Team &amp; Alpha Seller Support Team</span>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* HYBRID E-COMMERCE BUSINESS MODEL & DEDICATED IN-HOUSE TEAMS */}
+            <section
+              id="business-model"
+              className="scroll-mt-24 rounded-[2rem] bg-neutral-900 border border-neutral-800 p-8 shadow-2xl sm:p-12"
+            >
+              <div className="max-w-3xl">
+                <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-400">
+                  Hybrid Business Model • Corporate Identity
+                </span>
+                <h2 className="mt-3 text-3xl font-black text-white tracking-tight sm:text-4xl">
+                  Two Strategic Business Segments Under One E-Commerce Ecosystem
+                </h2>
+                <p className="mt-4 text-base leading-8 text-neutral-300">
+                  Unlike conventional marketplaces that only list third-party goods, ZebAlpha follows a dual-business hybrid approach — balancing strong brand ownership with an open, inclusive multi-vendor marketplace.
+                </p>
+              </div>
+
+              <div className="mt-8 grid gap-6 lg:grid-cols-2">
+                {/* Segment A: Own Brand D2C */}
+                <div className="rounded-[1.75rem] border border-amber-400/25 bg-neutral-950 p-7">
+                  <span className="inline-flex rounded-full bg-amber-500/15 border border-amber-400/30 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-amber-400">
+                    {ZEBALPHA_HYBRID_MODEL.strategicSegments.ownBrand.focusShare}
+                  </span>
+                  <h3 className="mt-3 text-xl sm:text-2xl font-black text-white">
+                    A. {ZEBALPHA_HYBRID_MODEL.strategicSegments.ownBrand.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-neutral-300">
+                    {ZEBALPHA_HYBRID_MODEL.strategicSegments.ownBrand.summary}
+                  </p>
+                  <ul className="mt-5 space-y-2.5 text-xs sm:text-sm text-neutral-200">
+                    {ZEBALPHA_HYBRID_MODEL.strategicSegments.ownBrand.points.map((pt) => (
+                      <li key={pt} className="flex items-start gap-2.5">
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Segment B: Third-Party Seller Marketplace */}
+                <div className="rounded-[1.75rem] border border-emerald-400/25 bg-neutral-950 p-7">
+                  <span className="inline-flex rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-400">
+                    {ZEBALPHA_HYBRID_MODEL.strategicSegments.marketplace.focusShare}
+                  </span>
+                  <h3 className="mt-3 text-xl sm:text-2xl font-black text-white">
+                    B. {ZEBALPHA_HYBRID_MODEL.strategicSegments.marketplace.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-neutral-300">
+                    {ZEBALPHA_HYBRID_MODEL.strategicSegments.marketplace.summary}
+                  </p>
+                  <ul className="mt-5 space-y-2.5 text-xs sm:text-sm text-neutral-200">
+                    {ZEBALPHA_HYBRID_MODEL.strategicSegments.marketplace.points.map((pt) => (
+                      <li key={pt} className="flex items-start gap-2.5">
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-neutral-800 bg-neutral-950/90 px-5 py-4 text-xs leading-6 text-neutral-400">
+                <strong className="text-neutral-200">Transparency Disclosure:</strong> {ZEBALPHA_HYBRID_MODEL.strategicSegments.disclaimer}
+              </div>
+
+              {/* IN-HOUSE TEAMS: ALPHA MEDIA TEAM & ALPHA SELLER SUPPORT TEAM */}
+              <div id="in-house-teams" className="scroll-mt-24 mt-10 border-t border-neutral-800 pt-10">
+                <div className="max-w-3xl">
+                  <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-400">
+                    Dedicated In-House Teams
+                  </span>
+                  <h3 className="mt-2 text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    Alpha Media Team &amp; Alpha Seller Support Team
+                  </h3>
+                  <p className="mt-2 text-sm leading-7 text-neutral-300">
+                    Unlike passive platforms that leave sellers and brands without marketing or operational help, ZebAlpha runs two dedicated internal teams every single day:
+                  </p>
+                </div>
+
+                <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                  {ZEBALPHA_HYBRID_MODEL.inHouseTeams.map((team, idx) => (
+                    <article
+                      key={team.id}
+                      id={team.id}
+                      className="scroll-mt-24 rounded-[1.75rem] border border-neutral-800 bg-neutral-950 p-7"
+                    >
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-widest ${
+                          idx === 0
+                            ? "bg-amber-500/15 border border-amber-400/30 text-amber-400"
+                            : "bg-emerald-500/15 border border-emerald-400/30 text-emerald-400"
+                        }`}
+                      >
+                        {team.badge}
+                      </span>
+                      <h4 className="mt-3 text-xl font-black text-white">{team.name}</h4>
+                      <p className="mt-3 text-sm leading-7 text-neutral-300">{team.summary}</p>
+                      <ul className="mt-5 space-y-2.5 text-xs sm:text-sm text-neutral-200">
+                        {team.points.map((pt) => (
+                          <li key={pt} className="flex items-start gap-2.5">
+                            <span
+                              className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${
+                                idx === 0 ? "bg-amber-400" : "bg-emerald-400"
+                              }`}
+                            />
+                            <span>{pt}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </article>
+                  ))}
+                </div>
+              </div>
+
+              {/* REVENUE MODEL + VISION & MISSION */}
+              <div className="mt-10 border-t border-neutral-800 pt-10 grid gap-6 lg:grid-cols-2">
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 space-y-4">
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-400">
+                    Transparent Revenue Model
+                  </p>
+                  <div>
+                    <h4 className="text-sm font-black text-white">1. Own Brand Revenue (D2C)</h4>
+                    <p className="mt-1 text-xs leading-6 text-neutral-400">
+                      {ZEBALPHA_HYBRID_MODEL.revenueModel.ownBrandRevenue}
+                    </p>
+                  </div>
+                  <div className="border-t border-neutral-900 pt-4">
+                    <h4 className="text-sm font-black text-white">2. Marketplace Services Revenue</h4>
+                    <p className="mt-1 text-xs leading-6 text-neutral-400">
+                      {ZEBALPHA_HYBRID_MODEL.revenueModel.marketplaceRevenue}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 space-y-4">
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-400">
+                    Company Vision &amp; Mission
+                  </p>
+                  <div>
+                    <h4 className="text-sm font-black text-white">Company Vision</h4>
+                    <p className="mt-1 text-xs leading-6 text-neutral-300">
+                      {ZEBALPHA_HYBRID_MODEL.vision}
+                    </p>
+                  </div>
+                  <div className="border-t border-neutral-900 pt-4">
+                    <h4 className="text-sm font-black text-white">Company Mission</h4>
+                    <p className="mt-1 text-xs leading-6 text-neutral-300">
+                      {ZEBALPHA_HYBRID_MODEL.mission}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -824,10 +993,10 @@ export default function AboutPage() {
                     Official Entity Disambiguation Notice
                   </h2>
                   <p className="mt-2 text-sm leading-7 text-neutral-300">
-                    <strong>ZebAlpha</strong> is an independent Indian online e-commerce marketplace originated in <strong>Kolkata, West Bengal, India</strong>, operating officially at <code className="text-white bg-neutral-900 px-2 py-0.5 rounded">https://zebalpha.shop</code>.
+                    <strong>ZebAlpha</strong> is an independent Indian <strong>hybrid e-commerce company</strong> (D2C Own Brand + Multi-Vendor Marketplace) founded in <strong>Kolkata, West Bengal, India</strong>, operating officially at <code className="text-white bg-neutral-900 px-2 py-0.5 rounded">https://zebalpha.shop</code>.
                   </p>
                   <p className="mt-2 text-xs leading-6 text-neutral-400">
-                    ZebAlpha is <strong>not affiliated with</strong>, related to, or connected with any similarly named business entities, including &ldquo;Zone Alpha&rdquo; (an electronics retail brand or physical shop in Navi Mumbai), &ldquo;Z Alpha&rdquo; (a regional brand or agency in Bangladesh), &ldquo;getzalpha&rdquo; (a beauty brand), or any other unrelated tech gadget shops or overseas entities. ZebAlpha maintains its own distinctive identity, founders, catalog, policies, and official digital platform.
+                    {ZEBALPHA_HYBRID_MODEL.industryReferencesNote} ZebAlpha is also <strong>not affiliated with</strong>, related to, or connected with any similarly named business entities, including &ldquo;Zone Alpha&rdquo; (a physical shop in Navi Mumbai), &ldquo;Z Alpha&rdquo; (a regional agency in Bangladesh), &ldquo;getzalpha&rdquo; (a beauty brand), or any unrelated retail or overseas entities.
                   </p>
                 </div>
               </div>

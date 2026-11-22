@@ -10,7 +10,7 @@ export function buildOrganizationSchema() {
     "@type": ["Organization", "OnlineStore"],
     "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization`,
     "name": "ZebAlpha",
-    "alternateName": ["ZebAlpha E-Commerce", "ZebAlpha Marketplace", "ZEBALPHA Clothing", "ZebAlpha Custom Studio"],
+    "alternateName": ["ZebAlpha Hybrid E-Commerce", "ZebAlpha E-Commerce", "ZebAlpha Marketplace", "ZEBALPHA Clothing", "ZebAlpha Custom Studio"],
     "legalName": "ZebAlpha",
     "url": ZEBALPHA_BRAND_ENTITY.url,
     "logo": {
@@ -81,6 +81,18 @@ export function buildOrganizationSchema() {
       }
     ],
     "slogan": "Built Together. Growing Together.",
+    "department": [
+      {
+        "@type": "Organization",
+        "name": "Alpha Media Team",
+        "description": "ZebAlpha's dedicated in-house social media and branding team creating daily promotional posts, reels, and product campaigns across Instagram, Facebook, and digital channels for ZebAlpha and partner brands."
+      },
+      {
+        "@type": "Organization",
+        "name": "Alpha Seller Support Team",
+        "description": "ZebAlpha's dedicated in-house seller support team assisting independent sellers, small businesses, and emerging brands end-to-end with onboarding, cataloging, variant setup, order fulfillment, and growth."
+      }
+    ],
     "sameAs": ZEBALPHA_BRAND_ENTITY.sameAs,
     "contactPoint": [
       {

@@ -17,7 +17,7 @@ import {
   buildBreadcrumbSchema,
   buildFaqSchema,
 } from "@/lib/aeo-geo/schemaGenerator";
-import { ZEBALPHA_STRATEGY } from "@/lib/aeo-geo/brandEntity";
+import { ZEBALPHA_STRATEGY, ZEBALPHA_HYBRID_MODEL } from "@/lib/aeo-geo/brandEntity";
 
 export const metadata: Metadata = {
   title: "Sell on ZebAlpha | 0% Commission, Brand Storefront & Creator-Led Growth",
@@ -72,6 +72,11 @@ const SELLER_FAQS = [
     question: "What documents are needed to start selling on ZebAlpha?",
     answer:
       "Eligible small sellers can get started quickly with their free 15-character Enrolment ID, verified email address, pickup address, and UPI ID — with fast 5-day direct UPI payouts and zero hidden marketplace deductions.",
+  },
+  {
+    question: "How do ZebAlpha's Alpha Media Team and Alpha Seller Support Team help sellers?",
+    answer:
+      "ZebAlpha has two dedicated in-house teams supporting sellers: the Alpha Media Team proactively promotes products and partner brands daily across Instagram, Facebook, and social media, while the Alpha Seller Support Team gives full hands-on assistance with registration, Enrolment ID setup, product listing, variant management, dispatch, and store growth.",
   },
 ];
 
@@ -183,6 +188,54 @@ export default function SellerPage() {
                     </li>
                   </ul>
                 </div>
+              </div>
+            </section>
+
+            {/* DEDICATED IN-HOUSE TEAMS: ALPHA MEDIA TEAM & ALPHA SELLER SUPPORT TEAM */}
+            <section id="in-house-teams" className="scroll-mt-24 rounded-[2rem] bg-neutral-900 border border-neutral-800 p-8 shadow-xl sm:p-12">
+              <div className="max-w-3xl">
+                <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-400">
+                  Dedicated In-House Support &amp; Promotion
+                </span>
+                <h2 className="mt-3 text-3xl font-black text-white tracking-tight sm:text-4xl">
+                  Backed by ZebAlpha&apos;s Own Alpha Media Team &amp; Alpha Seller Support Team
+                </h2>
+                <p className="mt-4 text-base leading-8 text-neutral-300">
+                  Most marketplaces leave small sellers completely on their own after signup. ZebAlpha backs every partner brand and seller with two dedicated in-house teams built to drive visibility and smooth operations.
+                </p>
+              </div>
+
+              <div className="mt-8 grid gap-6 lg:grid-cols-2">
+                {ZEBALPHA_HYBRID_MODEL.inHouseTeams.map((team, idx) => (
+                  <div
+                    key={team.id}
+                    className="rounded-[1.75rem] border border-neutral-800 bg-neutral-950 p-7"
+                  >
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-widest ${
+                        idx === 0
+                          ? "bg-amber-500/15 border border-amber-400/30 text-amber-400"
+                          : "bg-emerald-500/15 border border-emerald-400/30 text-emerald-400"
+                      }`}
+                    >
+                      {team.badge}
+                    </span>
+                    <h3 className="mt-3 text-xl font-black text-white">{team.name}</h3>
+                    <p className="mt-3 text-sm leading-7 text-neutral-300">{team.summary}</p>
+                    <ul className="mt-5 space-y-2.5 text-xs sm:text-sm text-neutral-200">
+                      {team.points.map((pt) => (
+                        <li key={pt} className="flex items-start gap-2.5">
+                          <span
+                            className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${
+                              idx === 0 ? "bg-amber-400" : "bg-emerald-400"
+                            }`}
+                          />
+                          <span>{pt}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
             </section>
 
