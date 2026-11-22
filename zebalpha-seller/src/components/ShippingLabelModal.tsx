@@ -305,19 +305,19 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
       `}</style>
       
       {/* Modal Card */}
-      <div className="relative w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl print:border-none print:shadow-none print:bg-white print:max-w-none print:w-full print:rounded-none">
+      <div className="relative w-full max-w-lg bg-[#FFFDF8] border border-[#DFBE6F] rounded-3xl overflow-hidden shadow-2xl print:border-none print:shadow-none print:bg-white print:max-w-none print:w-full print:rounded-none">
         
         {/* Top Action Bar (Hidden on Print) */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800 bg-zinc-900/80 print:hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#EAD296] bg-[#FFF8DB] print:hidden">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-purple-600/20 text-purple-400 flex items-center justify-center border border-purple-500/30">
+            <div className="h-8 w-8 rounded-xl bg-white text-[#F03A46] flex items-center justify-center border border-[#DFBE6F]">
               <Truck className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+              <h3 className="text-xs sm:text-sm font-black text-[#14120F] uppercase tracking-wider">
                 Official ZEBALPHA 2-in-1 Dispatch Label
               </h3>
-              <p className="text-[10px] font-mono font-bold text-zinc-400">
+              <p className="text-[10px] font-mono font-bold text-[#5C4E35]">
                 AWB: {awb} • {courier}
               </p>
             </div>
@@ -328,9 +328,10 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
             <button
               onClick={handleDownloadLabel}
               disabled={downloading}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-wider transition shadow-lg shadow-purple-600/20 cursor-pointer active:scale-95 disabled:opacity-60"
+              data-photo-overlay="true"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] hover:brightness-105 text-white text-xs font-black uppercase tracking-wider transition shadow-[0_6px_16px_rgba(240,58,70,0.28)] cursor-pointer active:scale-95 disabled:opacity-60"
             >
-              <Download className={`h-3.5 w-3.5 ${downloading ? "animate-bounce" : ""}`} />
+              <Download className={`h-3.5 w-3.5 text-white ${downloading ? "animate-bounce" : ""}`} />
               <span>{downloading ? "Downloading..." : "Download Label (PDF)"}</span>
             </button>
 
@@ -338,7 +339,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
             <button
               onClick={handlePrint}
               title="Print Label"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition border border-zinc-700 cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#FAF2DC] text-[#14120F] text-xs font-extrabold transition border border-[#DFBE6F] cursor-pointer"
             >
               <Printer className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Print</span>
@@ -347,7 +348,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800 transition cursor-pointer"
+              className="p-2 text-[#5C4E35] hover:text-[#F03A46] rounded-xl bg-white border border-[#EAD296] hover:bg-[#FFF4F2] transition cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
@@ -355,7 +356,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
         </div>
 
         {/* Mandatory Yellow Cancellation Alert Banner (Hidden on Print) */}
-        <div className="p-4 print:hidden border-b border-zinc-800/80">
+        <div className="p-4 print:hidden border-b border-[#F0E2BE] bg-[#FFFDF8]">
           <CancellationAlertCard
             createdAt={order.created_at || Date.now()}
             orderStatus={order.order_status || order.status || ""}

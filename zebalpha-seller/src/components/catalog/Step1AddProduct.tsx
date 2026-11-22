@@ -304,38 +304,41 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
   }, [formData.video_proof_url]);
 
   const renderVideoProofSection = () => (
-    <div className="space-y-3 rounded-2xl border-2 border-rose-500/75 bg-gradient-to-br from-rose-950/65 via-[#180d12] to-[#111115] p-4 sm:p-5 shadow-lg shadow-rose-950/30">
+    <div className="space-y-3 rounded-2xl border-2 border-[#F03A46]/70 bg-gradient-to-br from-[#FFF4F2] via-[#FFFDF8] to-[#FFF8DB] p-4 sm:p-5 shadow-[0_12px_28px_rgba(240,58,70,0.12)]">
       {/* HIGH-VISIBILITY RED ALERT BANNER (ANTI-RTO & FAKE RETURN SHIELD) */}
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-600/25 border border-rose-500/60 text-rose-400">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-[#F03A46]/35 text-[#F03A46] shadow-sm">
           <ShieldAlert className="w-5 h-5" />
         </div>
         <div className="space-y-1 flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm">
+            <span
+              data-photo-overlay="true"
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
               RED ALERT • SELLER PROTECTION PROOF
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300">
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#DC2626]">
               Anti-RTO &amp; Fake Return Shield
             </span>
           </div>
-          <h4 className="text-xs sm:text-sm font-black text-white leading-snug">
+          <h4 className="text-xs sm:text-sm font-black text-[#14120F] leading-snug">
             Upload Real Product &amp; Intact Packaging Video Proof (Do Not Skip!)
           </h4>
-          <p className="text-[11px] text-rose-100/90 leading-relaxed">
-            This short <strong>15–30 sec real video</strong> is your official proof that the product you sell is{" "}
-            <strong className="text-white">100% genuine, unbroken, undamaged, and properly packed</strong> — NOT a broken, wrong, or dead/defective product. If any buyer raises a{" "}
-            <strong className="text-rose-200">Fake Return, Wrong Item, Broken/Dead Product, or RTO Dispute</strong>, ZebAlpha uses this video proof to protect your seller payout.
+          <p className="text-[11px] text-[#5C4E35] leading-relaxed">
+            This short <strong className="text-[#14120F]">15–30 sec real video</strong> is your official proof that the product you sell is{" "}
+            <strong className="text-[#14120F]">100% genuine, unbroken, undamaged, and properly packed</strong> — NOT a broken, wrong, or dead/defective product. If any buyer raises a{" "}
+            <strong className="text-[#DC2626]">Fake Return, Wrong Item, Broken/Dead Product, or RTO Dispute</strong>, ZebAlpha uses this video proof to protect your seller payout.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 pt-1.5 text-[10px] font-bold text-rose-200/95">
-            <div className="rounded-lg bg-black/40 border border-rose-500/25 px-2.5 py-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 pt-1.5 text-[10px] font-bold text-[#7F1D1D]">
+            <div className="rounded-xl bg-white border border-[#F03A46]/25 px-2.5 py-1.5 shadow-sm">
               1. Record actual item close-up (no heavy filter)
             </div>
-            <div className="rounded-lg bg-black/40 border border-rose-500/25 px-2.5 py-1.5">
+            <div className="rounded-xl bg-white border border-[#F03A46]/25 px-2.5 py-1.5 shadow-sm">
               2. Show clean, unbroken packaging before sealing
             </div>
-            <div className="rounded-lg bg-black/40 border border-rose-500/25 px-2.5 py-1.5">
+            <div className="rounded-xl bg-white border border-[#F03A46]/25 px-2.5 py-1.5 shadow-sm">
               3. Post Public Reel/Short &amp; paste link below
             </div>
           </div>
@@ -343,19 +346,19 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
       </div>
 
       {/* Video Link Input + Instant Zero-Egress Preview */}
-      <div className="pt-2 border-t border-rose-500/25 space-y-2">
+      <div className="pt-2.5 border-t border-[#F03A46]/20 space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <label className="text-xs font-bold text-white flex items-center gap-1.5">
-            <Video className="w-4 h-4 text-rose-400" />
+          <label className="text-xs font-extrabold text-[#14120F] flex items-center gap-1.5">
+            <Video className="w-4 h-4 text-[#F03A46]" />
             <span>Real Product &amp; Packaging Video Link (Instagram Reel / Facebook Reel / YouTube Shorts)</span>
           </label>
           {videoValidation?.valid ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 text-[10px] font-black text-emerald-300">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 text-[10px] font-black text-emerald-700">
               <CheckCircle2 className="w-3 h-3" />
               {videoValidation.platformLabel} Verified
             </span>
           ) : (
-            <span className="text-[10px] font-bold text-rose-300/90">
+            <span className="text-[10px] font-bold text-[#9A6503]">
               Zero server load • Plays in-app popup
             </span>
           )}
@@ -367,21 +370,22 @@ export default function Step1AddProduct({ formData, categories, onChange }: Step
             value={formData.video_proof_url || ""}
             onChange={(e) => onChange({ video_proof_url: e.target.value })}
             placeholder="Paste public Instagram Reel, Facebook Reel, or YouTube Shorts link..."
-            className={`flex-1 rounded-xl bg-[#0d0d11] border px-3.5 py-2.5 text-xs font-semibold text-white placeholder:text-zinc-500 outline-none transition-colors ${
+            className={`flex-1 rounded-xl bg-white border px-3.5 py-2.5 text-xs font-semibold text-[#14120F] placeholder:text-[#8C7B5B] outline-none transition-colors ${
               videoValidation && !videoValidation.valid
-                ? "border-rose-500 focus:border-rose-400"
+                ? "border-[#F03A46] focus:border-[#F03A46]"
                 : videoValidation?.valid
-                ? "border-emerald-500/70 focus:border-emerald-400"
-                : "border-rose-500/40 focus:border-white"
+                ? "border-emerald-500 focus:border-emerald-600"
+                : "border-[#DFBE6F] focus:border-[#F03A46]"
             }`}
           />
           {videoValidation?.valid && (
             <button
               type="button"
               onClick={() => setShowVideoPreview(true)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2.5 text-xs font-black uppercase tracking-wider shrink-0 cursor-pointer transition"
+              data-photo-overlay="true"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-xs font-black uppercase tracking-wider shrink-0 cursor-pointer transition shadow-sm"
             >
-              <Play className="w-3.5 h-3.5 fill-black" />
+              <Play className="w-3.5 h-3.5 fill-white text-white" />
               <span>Preview Video</span>
             </button>
           )}

@@ -1743,27 +1743,30 @@ export default function CatalogUploadWizardModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-[#0d0d10] border border-[#27272a] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/65 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-4xl bg-[#FFFDF8] border border-[#DFBE6F] rounded-3xl shadow-[0_24px_60px_rgba(20,18,15,0.28)] flex flex-col max-h-[92vh] overflow-hidden text-[#14120F]">
+        {/* Top Signature Brand Accent Strip */}
+        <div className="h-1 w-full bg-gradient-to-r from-[#F03A46] via-[#F5B922] to-[#F03A46] shrink-0" />
+
         {/* Header */}
-        <div className="p-4 md:p-5 border-b border-[#27272a] flex items-center justify-between bg-[#141418]">
+        <div className="p-4 md:p-5 border-b border-[#EAD296] flex items-center justify-between bg-gradient-to-r from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE]">
           <div>
-            <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+            <h2 className="text-lg md:text-xl font-black text-[#14120F] flex items-center gap-2">
               {form.is_new_drop ? (
                 <>
-                  <span className="w-6 h-6 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center text-sm font-black">
+                  <span className="w-7 h-7 rounded-xl bg-[#FFF4F2] border border-[#F03A46]/30 text-[#F03A46] flex items-center justify-center text-sm font-black">
                     ⚡
                   </span>
                   Add New Drop (Teaser Launch)
                 </>
               ) : (
                 <>
-                  <UploadCloud className="w-5 h-5 text-emerald-400" />
+                  <UploadCloud className="w-5 h-5 text-[#F03A46]" />
                   {editingProduct ? "Edit Product Catalog" : "Upload Product Catalog"}
                 </>
               )}
             </h2>
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs font-semibold text-[#5C4E35] mt-0.5">
               {form.is_new_drop
                 ? "Fast Drop Studio: 2 photos, title & launch date only. No sizes, price, or complex fields required."
                 : `Step ${currentStep} of 4: ${STEPS[currentStep - 1].desc}`}
@@ -1772,7 +1775,7 @@ export default function CatalogUploadWizardModal({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-[#18181b] text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            className="p-2 rounded-xl bg-white text-[#5C4E35] hover:text-[#F03A46] hover:bg-[#FFF4F2] border border-[#EAD296] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -1780,22 +1783,22 @@ export default function CatalogUploadWizardModal({
 
         {/* Stepper Progress Indicator */}
         {form.is_new_drop ? (
-          <div className="px-5 py-3 border-b border-[#27272a] bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-[#EAD296] bg-[#FFF9EB] flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-black bg-[#FFF4F2] text-[#F03A46] border border-[#F03A46]/30">
                 ⚡ 1-Step Teaser Upload
               </span>
-              <span className="text-xs text-zinc-300 font-medium hidden sm:inline">
+              <span className="text-xs text-[#5C4E35] font-semibold hidden sm:inline">
                 Price, MRP, Sizes, Categories &amp; Variants are automatically skipped.
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+            <div className="flex items-center gap-2 text-[11px] font-bold text-[#9A6503]">
+              <span className="w-2 h-2 rounded-full bg-[#F03A46] animate-pulse" />
               <span>Status: COMING SOON</span>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-4 border-b border-[#27272a] bg-[#050505]">
+          <div className="grid grid-cols-4 border-b border-[#EAD296] bg-[#FFF9EB]">
             {STEPS.map((s) => {
               const isActive = currentStep === s.id;
               const isCompleted = currentStep > s.id;
@@ -1805,25 +1808,32 @@ export default function CatalogUploadWizardModal({
                   onClick={() => isCompleted && setCurrentStep(s.id)}
                   className={`p-3 md:p-4 text-center cursor-pointer transition-all border-b-2 ${
                     isActive
-                      ? "border-white bg-[#141418]"
+                      ? "border-[#F03A46] bg-white"
                       : isCompleted
-                      ? "border-emerald-500 bg-[#0d0d10]"
-                      : "border-transparent opacity-50"
+                      ? "border-emerald-600 bg-[#FFFDF8]"
+                      : "border-transparent opacity-60"
                   }`}
                 >
                   <div className="flex items-center justify-center gap-2">
                     <span
-                      className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
+                      data-photo-overlay={isActive || isCompleted ? "true" : undefined}
+                      className={`w-6 h-6 rounded-full text-xs font-black flex items-center justify-center ${
                         isCompleted
-                          ? "bg-emerald-500 text-black"
+                          ? "bg-emerald-600 text-white"
                           : isActive
-                          ? "bg-white text-black"
-                          : "bg-[#27272a] text-zinc-400"
+                          ? "bg-gradient-to-br from-[#F03A46] to-[#FF5757] text-white shadow-sm"
+                          : "bg-[#FAF2DC] border border-[#DFBE6F] text-[#7A6847]"
                       }`}
                     >
-                      {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : s.id}
+                      {isCompleted ? <CheckCircle2 className="w-4 h-4 text-white" /> : s.id}
                     </span>
-                    <span className="hidden md:inline text-xs font-bold text-zinc-200">{s.title}</span>
+                    <span
+                      className={`hidden md:inline text-xs font-extrabold ${
+                        isActive ? "text-[#14120F]" : isCompleted ? "text-[#047857]" : "text-[#7A6847]"
+                      }`}
+                    >
+                      {s.title}
+                    </span>
                   </div>
                 </div>
               );
@@ -1832,9 +1842,9 @@ export default function CatalogUploadWizardModal({
         )}
 
         {/* Modal Body / Active Step */}
-        <div ref={modalBodyRef} className="p-4 md:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-4">
+        <div ref={modalBodyRef} className="p-4 md:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-4 bg-[#FFFDF8]">
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-[#FFF4F2] border border-[#F03A46]/35 text-[#DC2626] text-xs font-bold flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               {errorMsg}
             </div>
@@ -1858,22 +1868,22 @@ export default function CatalogUploadWizardModal({
         </div>
 
         {/* Navigation Footer */}
-        <div className="p-4 border-t border-[#27272a] bg-[#141418] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="p-4 border-t border-[#EAD296] bg-[#FFF9EB] flex flex-col sm:flex-row items-center justify-between gap-3">
           {form.is_new_drop ? (
             <>
               <button
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="py-2.5 px-4 rounded-xl text-xs font-semibold bg-[#18181b] text-zinc-300 hover:text-white hover:bg-zinc-800 border border-[#27272a] transition-all cursor-pointer w-full sm:w-auto"
+                className="py-2.5 px-4 rounded-xl text-xs font-extrabold bg-white text-[#5C4E35] hover:text-[#14120F] hover:bg-[#FAF2DC] border border-[#DFBE6F] transition-all cursor-pointer w-full sm:w-auto"
               >
                 Cancel
               </button>
 
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                 {errorMsg && (
-                  <div className="text-xs text-red-400 font-medium flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg max-w-sm truncate">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400" />
+                  <div className="text-xs text-[#DC2626] font-bold flex items-center gap-1.5 bg-[#FFF4F2] border border-[#F03A46]/30 px-3 py-1.5 rounded-lg max-w-sm truncate">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#DC2626]" />
                     <span className="truncate">{errorMsg}</span>
                   </div>
                 )}
@@ -1882,11 +1892,12 @@ export default function CatalogUploadWizardModal({
                   type="button"
                   onClick={handleSubmitCatalog}
                   disabled={submitting}
-                  className="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-orange-500 text-black hover:bg-orange-400 text-xs font-bold shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  data-photo-overlay="true"
+                  className="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white hover:brightness-105 text-xs font-black shadow-[0_8px_20px_rgba(240,58,70,0.28)] flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
-                      <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       {uploadStatus || "Publishing Drop..."}
                     </>
                   ) : (
@@ -1904,18 +1915,18 @@ export default function CatalogUploadWizardModal({
                   type="button"
                   onClick={handleBack}
                   disabled={currentStep === 1 || submitting}
-                  className={`py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  className={`py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all border ${
                     currentStep === 1
-                      ? "opacity-30 cursor-not-allowed text-zinc-500 bg-[#18181b]"
-                      : "bg-[#18181b] text-white hover:bg-zinc-800 border border-[#27272a] cursor-pointer"
+                      ? "opacity-40 cursor-not-allowed text-[#7A6847] bg-[#FAF2DC] border-[#EAD296]"
+                      : "bg-white text-[#14120F] hover:bg-[#FAF2DC] border-[#DFBE6F] cursor-pointer"
                   }`}
                 >
                   <ChevronLeft className="w-4 h-4" /> Back
                 </button>
 
                 {errorMsg && (
-                  <div className="sm:hidden text-xs text-red-400 font-medium flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-2.5 py-1.5 rounded-lg max-w-[200px] truncate">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400" />
+                  <div className="sm:hidden text-xs text-[#DC2626] font-bold flex items-center gap-1 bg-[#FFF4F2] border border-[#F03A46]/30 px-2.5 py-1.5 rounded-lg max-w-[200px] truncate">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#DC2626]" />
                     <span className="truncate">{errorMsg}</span>
                   </div>
                 )}
@@ -1923,8 +1934,8 @@ export default function CatalogUploadWizardModal({
 
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                 {errorMsg && (
-                  <div className="hidden sm:flex text-xs text-red-400 font-medium items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg max-w-sm truncate">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400" />
+                  <div className="hidden sm:flex text-xs text-[#DC2626] font-bold items-center gap-1.5 bg-[#FFF4F2] border border-[#F03A46]/30 px-3 py-1.5 rounded-lg max-w-sm truncate">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#DC2626]" />
                     <span className="truncate">{errorMsg}</span>
                   </div>
                 )}
@@ -1933,20 +1944,22 @@ export default function CatalogUploadWizardModal({
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="py-2.5 px-6 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-bold shadow-lg shadow-white/10 flex items-center gap-1.5 transition-all cursor-pointer"
+                    data-photo-overlay="true"
+                    className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white hover:brightness-105 text-xs font-black shadow-[0_8px_20px_rgba(240,58,70,0.28)] flex items-center gap-1.5 transition-all cursor-pointer"
                   >
-                    Next <ChevronRight className="w-4 h-4" />
+                    Next <ChevronRight className="w-4 h-4 text-white" />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={handleSubmitCatalog}
                     disabled={submitting}
-                    className="py-2.5 px-6 rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                    data-photo-overlay="true"
+                    className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white hover:brightness-105 text-xs font-black shadow-[0_8px_22px_rgba(240,58,70,0.3)] flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {submitting ? (
                       <>
-                        <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         {uploadStatus || "Uploading Catalog..."}
                       </>
                     ) : (

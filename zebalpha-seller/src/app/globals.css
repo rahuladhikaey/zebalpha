@@ -19,22 +19,23 @@
 	--royal-border: #ead296;
 }
 
-.seller-dashboard-dark {
-	--background: #050505;
-	--foreground: #ffffff;
-	--primary: #ffffff;
-	--secondary: #18181b;
-	--accent: #ffffff;
-	--background-fresh: #121216;
-	--text-primary: #ffffff;
-	--text-secondary: #a1a1aa;
-	--text-muted: #71717a;
-	--text-disabled: #3f3f46;
-	--royal-black: #000000;
-	--royal-surface: #0a0a0c;
-	--royal-surface-elevated: #141418;
-	--royal-border: #27272a;
-	color-scheme: dark;
+/* Official ZebAlpha Seller Hub Dashboard Theme (Matches Seller Home Landing Page) */
+.seller-dashboard-official {
+	--background: #fffdf8;
+	--foreground: #14120f;
+	--primary: #f03a46;
+	--secondary: #fff9eb;
+	--accent: #f5b922;
+	--background-fresh: #ffffff;
+	--text-primary: #14120f;
+	--text-secondary: #5c4e35;
+	--text-muted: #7a6847;
+	--text-disabled: #a89878;
+	--royal-black: #14120f;
+	--royal-surface: #ffffff;
+	--royal-surface-elevated: #fff9eb;
+	--royal-border: #ead296;
+	color-scheme: light;
 }
 
 @layer base {
@@ -70,19 +71,19 @@
 	}
 
 	.royal-card {
-		background: #fffdf8;
+		background: #ffffff;
 		border: 1px solid #ead296;
-		box-shadow: 0 12px 32px -10px rgba(166, 124, 28, 0.14);
+		box-shadow: 0 12px 32px -12px rgba(166, 124, 28, 0.12);
 	}
 
 	.royal-card-elevated {
-		background: #ffffff;
+		background: #fffdf8;
 		border: 1px solid #dfbe6f;
-		box-shadow: 0 16px 36px -12px rgba(166, 124, 28, 0.18);
+		box-shadow: 0 16px 36px -12px rgba(166, 124, 28, 0.16);
 	}
 
 	.royal-btn-primary {
-		background: linear-gradient(135deg, #f03a46 0%, #ff5858 100%);
+		background: linear-gradient(135deg, #f03a46 0%, #ff5757 100%);
 		color: #ffffff;
 		font-weight: 800;
 		transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -117,61 +118,336 @@
 	}
 }
 
-/* Scoped dark inputs ONLY inside the authenticated Seller Dashboard */
-.seller-dashboard-dark .bg-page {
-	background-color: #050505;
-	background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+/* ========================================================================== */
+/* UNIFIED SELLER PANEL OFFICIAL THEME ENGINE (Pure White + Ivory + Gold + Coral)
+   Harmonizes all dashboard pages & modals with SellerLandingPage while strictly
+   protecting [data-keep-dark], [data-photo-overlay], [data-print-surface],
+   #printable-zebalpha-label, and fixed modal backdrop scrims.                 */
+/* ========================================================================== */
+
+.seller-dashboard-official .bg-page {
+	background-color: #fffdf8;
+	background-image: linear-gradient(180deg, #ffffff 0%, #fffdf8 48%, #fff9eb 100%);
+	color: #14120f;
 }
 
-.seller-dashboard-dark .royal-card {
-	background: #0d0d10;
-	border: 1px solid #222228;
-	box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.7);
+/* 1. Primary dark card/panel containers -> crisp Pure White with soft gold elevation */
+.seller-dashboard-official :is(
+	.bg-black,
+	.bg-black\/60,
+	.bg-black\/50,
+	.bg-black\/40,
+	.bg-black\/30,
+	.bg-black\/20,
+	.bg-zinc-950,
+	.bg-zinc-950\/95,
+	.bg-zinc-950\/90,
+	.bg-zinc-950\/80,
+	.bg-zinc-950\/60,
+	.bg-zinc-950\/50,
+	.bg-zinc-950\/40,
+	.bg-neutral-950,
+	.bg-slate-900,
+	.bg-\[\#050505\],
+	.bg-\[\#050508\],
+	.bg-\[\#09090c\],
+	.bg-\[\#0a0a0d\],
+	.bg-\[\#0d0d10\],
+	.bg-\[\#0d0d11\],
+	.bg-\[\#0f0f13\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([data-print-surface]):not([data-print-surface] *):not(#printable-zebalpha-label):not(#printable-zebalpha-label *):not([class*="inset-0"]):not(.fixed) {
+	background-color: #ffffff;
+	color: #14120f;
 }
 
-.seller-dashboard-dark .royal-card-elevated {
-	background: #141418;
-	border: 1px solid #27272a;
+/* 2. Secondary/nested dark panels, table headers, tabs & chips -> Warm Ivory / Champagne tint */
+.seller-dashboard-official :is(
+	.bg-zinc-900,
+	.bg-zinc-900\/90,
+	.bg-zinc-900\/80,
+	.bg-zinc-900\/70,
+	.bg-zinc-900\/60,
+	.bg-zinc-900\/50,
+	.bg-zinc-900\/40,
+	.bg-zinc-900\/30,
+	.bg-zinc-900\/20,
+	.bg-zinc-850,
+	.bg-zinc-800,
+	.bg-zinc-800\/80,
+	.bg-zinc-800\/60,
+	.bg-zinc-800\/50,
+	.bg-zinc-800\/40,
+	.bg-zinc-700,
+	.bg-neutral-900,
+	.bg-neutral-800,
+	.bg-slate-800,
+	.bg-white\/5,
+	.bg-white\/10,
+	.bg-\[\#121216\],
+	.bg-\[\#121217\],
+	.bg-\[\#141418\],
+	.bg-\[\#141418\]\/60,
+	.bg-\[\#18181b\],
+	.bg-\[\#18181c\],
+	.bg-\[\#1a1a20\],
+	.bg-\[\#1a1a22\],
+	.bg-\[\#27272a\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([data-print-surface]):not([data-print-surface] *):not(#printable-zebalpha-label):not(#printable-zebalpha-label *):not([class*="inset-0"]) {
+	background-color: #fff9eb;
+	color: #14120f;
 }
 
-.seller-dashboard-dark .royal-btn-primary {
-	background: #ffffff;
-	color: #000000;
-	box-shadow: 0 4px 15px rgba(255, 255, 255, 0.15);
+/* Hover feedback on warm ivory interactive controls & legacy hover states */
+.seller-dashboard-official :is(
+	.hover\:bg-zinc-900,
+	.hover\:bg-zinc-900\/60,
+	.hover\:bg-zinc-900\/50,
+	.hover\:bg-zinc-900\/40,
+	.hover\:bg-zinc-850,
+	.hover\:bg-zinc-800,
+	.hover\:bg-zinc-800\/60,
+	.hover\:bg-zinc-700,
+	.hover\:bg-slate-800,
+	.hover\:bg-white\/10,
+	.hover\:bg-\[\#141418\],
+	.hover\:bg-\[\#141418\]\/60,
+	.hover\:bg-\[\#18181b\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):hover {
+	background-color: #faf2dc;
+	color: #14120f;
 }
 
-.seller-dashboard-dark .royal-btn-primary:hover {
-	background: #e4e4e7;
-	box-shadow: 0 8px 25px rgba(255, 255, 255, 0.25);
+.seller-dashboard-official .hover\:text-white:not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([class*="bg-[#F03A46]"]):not([class*="from-[#F03A46]"]):not([class*="hover:bg-[#F03A46]"]):not([class*="bg-rose-6"]):not([class*="bg-red-6"]):not([class*="bg-emerald-6"]):not([class*="bg-blue-6"]):not([class*="bg-purple-6"]):not([class*="bg-indigo-6"]):not([class*="hover:bg-rose-"]):not([class*="hover:bg-red-"]):not([class*="hover:bg-emerald-"]):not([class*="hover:bg-blue-"]):not([class*="hover:bg-purple-"]):hover {
+	color: #14120f;
 }
 
-.seller-dashboard-dark .royal-btn-secondary {
-	background: #18181b;
+.seller-dashboard-official :is(
+	.hover\:border-zinc-700,
+	.hover\:border-zinc-600,
+	.hover\:border-zinc-500,
+	.hover\:border-zinc-400,
+	.hover\:border-slate-700
+):not([data-keep-dark]):not([data-keep-dark] *):hover {
+	border-color: #c68a12;
+}
+
+/* Protect visible Coral+Gold loading spinners that previously used border-white */
+.seller-dashboard-official .animate-spin:is(.border-white, .border-t-white):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+	border-color: #f0e2be;
+	border-top-color: #f03a46;
+}
+
+/* Soft subtle card elevation on converted primary cards */
+.seller-dashboard-official :is(.rounded-2xl, .rounded-3xl, .rounded-\[2\.5rem\]):is(.bg-zinc-950, .bg-black, .bg-\[\#0d0d10\], .bg-\[\#141418\]):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-print-surface]) {
+	box-shadow: 0 10px 28px -12px rgba(166, 124, 28, 0.14);
+}
+
+/* 3. Legacy dark gradients -> Warm Ivory & Champagne Gold Landing Gradients */
+.seller-dashboard-official :is(
+	[class*="from-zinc-9"],
+	[class*="from-black"],
+	[class*="from-neutral-9"]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([class*="inset-0"]) {
+	background-color: #fffdf8;
+	background-image: linear-gradient(135deg, #fff8db 0%, #fffdf8 55%, #fff4f2 100%);
+	color: #14120f;
+}
+
+.seller-dashboard-official :is(.bg-emerald-950, .bg-emerald-950\/60, .bg-emerald-950\/40, .bg-emerald-950\/30, [class*="from-emerald-950"]):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	background-color: #ecfdf5;
+	background-image: linear-gradient(135deg, #ecfdf5 0%, #fffdf8 100%);
+	color: #065f46;
+}
+
+.seller-dashboard-official :is(.bg-rose-950, .bg-rose-950\/80, .bg-rose-950\/65, .bg-rose-950\/50, .bg-rose-950\/40, .bg-red-950, .bg-red-950\/40, [class*="from-rose-950"]):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	background-color: #fff4f2;
+	background-image: linear-gradient(135deg, #fff4f2 0%, #fffdf8 100%);
+	color: #991b1b;
+}
+
+.seller-dashboard-official :is(.bg-amber-950, .bg-amber-950\/40, .bg-amber-950\/30):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	background-color: #fff8db;
+	color: #78350f;
+}
+
+.seller-dashboard-official :is(.bg-blue-950, .bg-blue-950\/40, .bg-indigo-950, .bg-indigo-950\/40, .bg-purple-950, .bg-purple-950\/40):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	background-color: #f8fafc;
+	color: #1e293b;
+}
+
+/* 4. Borders & Dividers -> Signature Champagne Gold rules */
+.seller-dashboard-official :is(
+	.border-zinc-900,
+	.border-zinc-850,
+	.border-zinc-800,
+	.border-zinc-800\/80,
+	.border-zinc-800\/60,
+	.border-zinc-700,
+	.border-zinc-700\/80,
+	.border-zinc-600,
+	.border-neutral-800,
+	.border-neutral-700,
+	.border-slate-800,
+	.border-slate-700,
+	.border-white\/10,
+	.border-white\/15,
+	.border-white\/20,
+	.border-\[\#1e1e24\],
+	.border-\[\#202026\],
+	.border-\[\#222228\],
+	.border-\[\#27272a\],
+	.border-\[\#2c2c36\],
+	.border-\[\#2f2f38\],
+	.border-\[\#2f2f3c\],
+	.border-\[\#3f3f46\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([data-print-surface]):not([data-print-surface] *):not(#printable-zebalpha-label):not(#printable-zebalpha-label *) {
+	border-color: #ead296;
+}
+
+.seller-dashboard-official :is(
+	.divide-zinc-900,
+	.divide-zinc-800,
+	.divide-neutral-800,
+	.divide-\[\#1e1e24\],
+	.divide-\[\#27272a\]
+):not([data-keep-dark]):not([data-keep-dark] *):not(#printable-zebalpha-label):not(#printable-zebalpha-label *) > :not([hidden]) ~ :not([hidden]) {
+	border-color: #f0e2be;
+}
+
+/* 5. Primary & Secondary Typography -> Crisp Espresso/Black Ink (Protecting Solid Colored CTAs & Badges) */
+.seller-dashboard-official :is(
+	.text-white,
+	.text-zinc-50,
+	.text-zinc-100,
+	.text-zinc-200,
+	.text-neutral-100,
+	.text-neutral-200,
+	.text-slate-100,
+	.text-slate-200
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([data-print-surface]):not([data-print-surface] *):not(#printable-zebalpha-label):not(#printable-zebalpha-label *):not([class*="bg-[#F03A46]"]):not([class*="from-[#F03A46]"]):not([class*="bg-rose-6"]):not([class*="bg-rose-5"]):not([class*="bg-red-6"]):not([class*="bg-red-5"]):not([class*="bg-emerald-6"]):not([class*="bg-emerald-5"]):not([class*="bg-green-6"]):not([class*="bg-blue-6"]):not([class*="bg-indigo-6"]):not([class*="bg-purple-6"]):not([class*="bg-violet-6"]):not([class*="bg-orange-6"]) {
+	color: #14120f;
+}
+
+.seller-dashboard-official :is(
+	.text-zinc-300,
+	.text-zinc-400,
+	.text-neutral-300,
+	.text-neutral-400,
+	.text-slate-300,
+	.text-slate-400
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not(#printable-zebalpha-label):not(#printable-zebalpha-label *) {
+	color: #5c4e35;
+}
+
+.seller-dashboard-official :is(
+	.text-zinc-500,
+	.text-neutral-500,
+	.text-slate-500
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not(#printable-zebalpha-label):not(#printable-zebalpha-label *) {
+	color: #7a6847;
+}
+
+/* 6. Semantic Status Inks (High-Contrast WCAG AA on White & Warm Ivory) */
+.seller-dashboard-official :is(.text-emerald-200, .text-emerald-300, .text-emerald-400, .text-green-300, .text-green-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	color: #047857;
+}
+
+.seller-dashboard-official :is(.text-amber-100, .text-amber-200, .text-amber-300, .text-amber-300\/90, .text-amber-400, .text-amber-400\/90, .text-yellow-300, .text-yellow-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	color: #9a6503;
+}
+
+.seller-dashboard-official :is(.text-rose-100\/90, .text-rose-200, .text-rose-200\/95, .text-rose-300, .text-rose-300\/90, .text-rose-400, .text-rose-400\/80, .text-red-200, .text-red-300, .text-red-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	color: #dc2626;
+}
+
+.seller-dashboard-official :is(.text-orange-300, .text-orange-400, .text-orange-400\/90):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	color: #c2410c;
+}
+
+.seller-dashboard-official :is(.text-blue-300, .text-blue-400, .text-sky-300, .text-sky-400, .text-sky-500\/80, .text-cyan-300, .text-cyan-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	color: #1d4ed8;
+}
+
+.seller-dashboard-official :is(.text-purple-300, .text-purple-400, .text-violet-300, .text-violet-400, .text-indigo-300, .text-indigo-400):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]) {
+	color: #6d28d9;
+}
+
+/* Preserve crisp white icons/text inside solid dark/accent buttons */
+.seller-dashboard-official :is(
+	[class*="bg-[#F03A46]"],
+	[class*="from-[#F03A46]"],
+	.bg-rose-600,
+	.bg-red-600,
+	.bg-emerald-600,
+	.bg-blue-600,
+	.bg-indigo-600,
+	.bg-purple-600,
+	.bg-violet-600
+) :is(.text-white, svg) {
 	color: #ffffff;
-	border: 1px solid #27272a;
 }
 
-.seller-dashboard-dark input,
-.seller-dashboard-dark textarea,
-.seller-dashboard-dark select {
-	color: #ffffff !important;
-	background-color: #0d0d11 !important;
-	border-color: #27272a !important;
+/* 7. Primary White-on-Black Legacy CTAs -> Signature Bright Coral Landing CTAs */
+.seller-dashboard-official :is(button, a).bg-white.text-black:not([data-keep-dark]):not([data-photo-overlay]):not([data-print-surface]) {
+	background: linear-gradient(135deg, #f03a46 0%, #ff5757 100%);
+	color: #ffffff;
+	border: 1px solid #f03a46;
+	box-shadow: 0 8px 20px rgba(240, 58, 70, 0.26);
 }
 
-.seller-dashboard-dark select option {
-	background-color: #121216 !important;
-	color: #ffffff !important;
+.seller-dashboard-official :is(button, a).bg-white.text-black:not([data-keep-dark]):not([data-photo-overlay]):not([data-print-surface]):hover {
+	filter: brightness(1.05);
+	box-shadow: 0 10px 24px rgba(240, 58, 70, 0.34);
 }
 
-.seller-dashboard-dark input:focus,
-.seller-dashboard-dark textarea:focus,
-.seller-dashboard-dark select:focus {
-	border-color: #ffffff !important;
+/* Ensure child icons/spans inside converted Bright Coral CTAs remain crisp white */
+.seller-dashboard-official :is(button, a).bg-white.text-black:not([data-keep-dark]):not([data-photo-overlay]) * {
+	color: #ffffff;
+}
+
+/* 8. Form Controls (Inputs, Textareas, Selects) -> Clean White + Champagne Gold Border + Coral Focus */
+.seller-dashboard-official input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([data-keep-dark]),
+.seller-dashboard-official textarea:not([data-keep-dark]),
+.seller-dashboard-official select:not([data-keep-dark]) {
+	color: #14120f !important;
+	background-color: #ffffff !important;
+	border-color: #dfbe6f !important;
+}
+
+.seller-dashboard-official select option {
+	background-color: #ffffff !important;
+	color: #14120f !important;
+}
+
+.seller-dashboard-official input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([data-keep-dark]):focus,
+.seller-dashboard-official textarea:not([data-keep-dark]):focus,
+.seller-dashboard-official select:not([data-keep-dark]):focus {
+	border-color: #f03a46 !important;
+	box-shadow: 0 0 0 3px rgba(240, 58, 70, 0.14) !important;
 	outline: none !important;
 }
 
-.seller-dashboard-dark input::placeholder,
-.seller-dashboard-dark textarea::placeholder {
-	color: #71717a !important;
+.seller-dashboard-official input::placeholder,
+.seller-dashboard-official textarea::placeholder {
+	color: #8c7b5b !important;
+	opacity: 1 !important;
+}
+
+/* 9. Subtle Warm Custom Scrollbar inside Dashboard & Modals */
+.seller-dashboard-official .custom-scrollbar::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+
+.seller-dashboard-official .custom-scrollbar::-webkit-scrollbar-track {
+	background: #fff9eb;
+}
+
+.seller-dashboard-official .custom-scrollbar::-webkit-scrollbar-thumb {
+	background: #dfbe6f;
+	border-radius: 9999px;
+}
+
+.seller-dashboard-official .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: #c68a12;
 }

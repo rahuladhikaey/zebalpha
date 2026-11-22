@@ -655,8 +655,8 @@ export default function SellerDashboard() {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-white" />
-          <span className="text-xs text-zinc-400 font-bold">Loading seller revenue metrics...</span>
+          <div className="animate-spin rounded-full h-9 w-9 border-2 border-[#F0E2BE] border-t-[#F03A46]" />
+          <span className="text-xs text-[#5C4E35] font-bold">Loading seller revenue metrics...</span>
         </div>
       </div>
     );
@@ -664,36 +664,37 @@ export default function SellerDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Welcome Banner */}
-      <div className="rounded-[2.5rem] bg-gradient-to-r from-zinc-900 via-black to-zinc-950 p-8 text-white shadow-2xl border border-zinc-800 relative overflow-hidden">
-        <div className="absolute -top-8 -right-8 h-40 w-40 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+      {/* Welcome Hero Banner (Official Landing Page Warm Ivory + Champagne Gold + Bright Coral) */}
+      <div className="rounded-[2rem] bg-gradient-to-br from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE] p-6 sm:p-8 text-[#14120F] shadow-[0_14px_36px_rgba(166,124,28,0.12)] border-[1.5px] border-[#DFBE6F] relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 h-44 w-44 rounded-full bg-[#F5B922]/20 blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Overview & Ledger</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 text-[9px] font-black uppercase">
-                <Crown size={10} /> 💎 Premium Revenue Engine
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#9A6503]">Overview &amp; Ledger</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white text-[#9A6503] border border-[#DFBE6F] px-2.5 py-0.5 text-[9.5px] font-black uppercase shadow-sm">
+                <Crown size={10} className="text-[#D49014]" /> Premium Revenue Engine
               </span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight mt-1 text-white">Merchant Performance</h1>
-            <p className="mt-2 text-xs font-bold text-zinc-400 max-w-xl">
-              Track real-time earnings with separated calculations for Premium Store vs. Standard collections.
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1.5 text-[#14120F]">Merchant Performance</h1>
+            <p className="mt-2 text-xs sm:text-sm font-medium text-[#5C4E35] max-w-xl">
+              Track real-time earnings with separated calculations for Premium Store vs. Standard collections at 0% commission.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <Link
               href="/dashboard/collections"
-              className="px-4 py-2.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-black uppercase text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all flex items-center gap-2"
+              className="px-4 py-2.5 rounded-2xl bg-white border-[1.5px] border-[#DFBE6F] text-xs font-extrabold uppercase text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46] transition-all flex items-center gap-2 shadow-sm"
             >
-              <Sparkles size={14} className="text-amber-400" />
-              <span>Collections & Drops</span>
+              <Sparkles size={14} className="text-[#D49014]" />
+              <span>Collections &amp; Drops</span>
             </Link>
             <Link
               href="/dashboard/reports"
-              className="px-4 py-2.5 rounded-2xl bg-white text-black text-xs font-black uppercase hover:bg-zinc-200 transition-all shadow-md flex items-center gap-2"
+              data-photo-overlay="true"
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white text-xs font-black uppercase hover:brightness-105 transition-all shadow-[0_8px_20px_rgba(240,58,70,0.28)] flex items-center gap-2"
             >
-              <Receipt size={14} />
+              <Receipt size={14} className="text-white" />
               <span>Export Ledger</span>
             </Link>
           </div>

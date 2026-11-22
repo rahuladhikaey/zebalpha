@@ -202,29 +202,33 @@ export default function DashboardLayout({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isSidebarOpen]);
 
+  const activeNavItem = navItems.find(
+    (item) => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+  );
+
   // FULL-SCREEN SECURITY SHIELD WHILE VERIFYING CREDENTIALS
   if (authStatus === "checking") {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-white select-none">
-        <div className="flex flex-col items-center gap-6 text-center max-w-sm">
+      <div className="min-h-screen bg-gradient-to-b from-[#FFF8DB] via-[#FFFDF8] to-white flex flex-col items-center justify-center p-6 text-[#14120F] select-none">
+        <div className="flex flex-col items-center gap-6 text-center max-w-sm rounded-[2rem] bg-white border border-[#EAD296] p-8 shadow-[0_18px_48px_rgba(166,124,28,0.14)]">
           <div className="relative flex items-center justify-center">
-            <div className="w-20 h-20 rounded-full border-2 border-zinc-800 border-t-white animate-spin" />
+            <div className="w-20 h-20 rounded-full border-[3px] border-[#F0E2BE] border-t-[#F03A46] animate-spin" />
             <img
               src="/official-logo.png"
               alt="ZEBALPHA Logo"
-              className="w-10 h-10 rounded-full absolute object-cover border border-zinc-700 shadow-xl"
+              className="w-11 h-11 rounded-full absolute object-cover border-2 border-[#DFBE6F] shadow-md"
             />
           </div>
 
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-              <Lock size={12} className="text-emerald-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFF8DB] border border-[#DFBE6F] text-[10px] font-black uppercase tracking-widest text-[#9A6503]">
+              <Lock size={12} className="text-[#F03A46]" />
               <span>Merchant Security Shield</span>
             </div>
-            <h3 className="text-base font-black tracking-tight text-white">
+            <h3 className="text-base font-black tracking-tight text-[#14120F]">
               Verifying Authorization
             </h3>
-            <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+            <p className="text-xs text-[#5C4E35] font-medium leading-relaxed">
               Validating seller session credentials and encrypting channel access...
             </p>
           </div>
@@ -236,13 +240,13 @@ export default function DashboardLayout({
   // IF UNAUTHORIZED, DO NOT RENDER SENSITIVE DASHBOARD CHILDREN
   if (authStatus === "unauthorized") {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-white">
-        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
-          <div className="h-16 w-16 rounded-3xl bg-rose-950/80 border border-rose-800 flex items-center justify-center text-rose-400 shadow-xl">
+      <div className="min-h-screen bg-gradient-to-b from-[#FFF8DB] via-[#FFFDF8] to-white flex flex-col items-center justify-center p-6 text-[#14120F]">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm rounded-[2rem] bg-white border border-[#EAD296] p-8 shadow-[0_18px_48px_rgba(166,124,28,0.14)]">
+          <div className="h-16 w-16 rounded-3xl bg-[#FFF4F2] border border-[#F03A46]/30 flex items-center justify-center text-[#F03A46] shadow-sm">
             <Lock size={28} />
           </div>
-          <h2 className="text-xl font-black text-white">Access Denied</h2>
-          <p className="text-xs text-zinc-400">
+          <h2 className="text-xl font-black text-[#14120F]">Access Denied</h2>
+          <p className="text-xs text-[#5C4E35] leading-relaxed">
             A valid, authenticated merchant account is required to view this page. Redirecting to login...
           </p>
         </div>
@@ -251,50 +255,61 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="seller-dashboard-dark flex h-screen bg-black text-white overflow-hidden font-sans select-none relative">
+    <div className="seller-dashboard-official flex h-screen bg-[#FFFDF8] text-[#14120F] overflow-hidden font-sans select-none relative">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden"
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Hover-to-Expand Sidebar Component */}
-      <aside 
+      {/* Hover-to-Expand Official Ivory & Gold Sidebar */}
+      <aside
         role="navigation"
         aria-label="Seller Main Navigation"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-zinc-950 border-r border-zinc-800/80 backdrop-blur-2xl transition-all duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-[#EAD296] transition-all duration-300 ease-in-out ${
           isSidebarOpen ? "translate-x-0 w-72" : "-translate-x-full lg:translate-x-0"
-        } ${isExpanded ? "w-72 shadow-2xl shadow-black/80" : "w-20"}`}
+        } ${isExpanded ? "w-72 shadow-[12px_0_40px_rgba(166,124,28,0.16)]" : "w-20 shadow-[4px_0_20px_rgba(166,124,28,0.06)]"}`}
       >
+        {/* Signature ZebAlpha Bright Coral + Champagne Gold Top Accent Strip */}
+        <div className="h-1 w-full bg-gradient-to-r from-[#F03A46] via-[#F5B922] to-[#F03A46] shrink-0" />
+
         {/* Brand Logo Header */}
-        <div className={`flex h-20 items-center border-b border-zinc-800 shrink-0 transition-all duration-300 ${
-          isExpanded ? "justify-between px-5" : "justify-center px-0"
-        }`}>
-          <Link href="/dashboard" className={`flex items-center min-w-0 ${isExpanded ? "gap-3.5" : "justify-center"}`}>
-            <div className="w-10 h-10 min-w-10 min-h-10 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-zinc-700 shadow-md bg-zinc-900">
+        <div
+          className={`flex h-[74px] items-center border-b border-[#F0E2BE] bg-gradient-to-b from-[#FFFDF8] to-white shrink-0 transition-all duration-300 ${
+            isExpanded ? "justify-between px-5" : "justify-center px-0"
+          }`}
+        >
+          <Link href="/dashboard" className={`flex items-center min-w-0 ${isExpanded ? "gap-3" : "justify-center"}`}>
+            <div className="w-10 h-10 min-w-10 min-h-10 rounded-full flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#DFBE6F] shadow-sm bg-white">
               <img
                 src="/official-logo.png"
                 alt="ZEBALPHA Logo"
                 className="w-full h-full object-cover rounded-full"
               />
             </div>
-            <div className={`flex flex-col transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden"}`}>
-              <span className="text-base font-black tracking-tight text-white leading-none whitespace-nowrap">ZEB-ALPHA</span>
-              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 mt-1 flex items-center gap-1 whitespace-nowrap">
-                <ShieldCheck size={10} /> Verified Seller
+            <div
+              className={`flex flex-col transition-all duration-300 ${
+                isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden"
+              }`}
+            >
+              <span className="text-lg font-black tracking-tight text-[#000000] leading-none whitespace-nowrap">
+                zebalpha
+              </span>
+              <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[#047857] mt-1 flex items-center gap-1 whitespace-nowrap">
+                <ShieldCheck size={10} className="text-[#047857]" /> Verified Seller Hub
               </span>
             </div>
           </Link>
 
           {isSidebarOpen && (
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+              className="lg:hidden text-[#5C4E35] hover:text-[#F03A46] p-1.5 rounded-xl hover:bg-[#FFF8DB] transition cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -311,29 +326,34 @@ export default function DashboardLayout({
                 <Link
                   href={item.href}
                   onClick={() => setIsSidebarOpen(false)}
-                  className={`flex items-center rounded-2xl px-3.5 py-3 text-sm font-black transition-all ${
+                  data-photo-overlay={isActive ? "true" : undefined}
+                  className={`flex items-center rounded-2xl px-3.5 py-3 text-sm font-extrabold transition-all ${
                     isExpanded ? "justify-between" : "justify-center"
                   } ${
-                    isActive 
-                      ? "bg-white text-black shadow-lg shadow-white/10" 
-                      : "text-zinc-400 hover:bg-white/10 hover:text-white"
+                    isActive
+                      ? "bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)]"
+                      : "text-[#5C4E35] hover:bg-[#FFF8DB] hover:text-[#14120F]"
                   }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <Icon size={20} className="shrink-0" />
-                    <span className={`transition-all duration-300 whitespace-nowrap ${
-                      isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
-                    }`}>
+                    <Icon size={20} className={`shrink-0 ${isActive ? "text-white" : "text-[#9A6503]"}`} />
+                    <span
+                      className={`transition-all duration-300 whitespace-nowrap ${
+                        isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
+                      } ${isActive ? "text-white" : ""}`}
+                    >
                       {item.name}
                     </span>
                   </div>
 
                   {item.badge && isExpanded && (
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 ${
-                      isActive 
-                        ? "bg-black/10 text-black border-black/20" 
-                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                    }`}>
+                    <span
+                      className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 ${
+                        isActive
+                          ? "bg-white/20 text-white border-white/30"
+                          : "bg-[#FFF8DB] text-[#9A6503] border-[#DFBE6F]"
+                      }`}
+                    >
                       {item.badge}
                     </span>
                   )}
@@ -341,10 +361,13 @@ export default function DashboardLayout({
 
                 {/* Flyout Label Tooltip on Hover in Slim Collapsed Mode */}
                 {!isExpanded && (
-                  <div className="fixed left-20 ml-2 hidden lg:group-hover/item:flex items-center gap-2 z-50 bg-zinc-900 border border-zinc-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-left-2 pointer-events-none">
+                  <div
+                    data-keep-dark="true"
+                    className="fixed left-20 ml-2 hidden lg:group-hover/item:flex items-center gap-2 z-50 bg-[#14120F] border border-[#DFBE6F] text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xl animate-in fade-in slide-in-from-left-2 pointer-events-none"
+                  >
                     <span>{item.name}</span>
                     {item.badge && (
-                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-[#F5B922]/25 text-[#FCE89C] border border-[#F5B922]/40">
                         {item.badge}
                       </span>
                     )}
@@ -356,28 +379,34 @@ export default function DashboardLayout({
         </nav>
 
         {/* User Card & Logout */}
-        <div className="border-t border-zinc-800 p-3 flex flex-col gap-3 bg-zinc-950/80 shrink-0">
+        <div className="border-t border-[#F0E2BE] p-3 flex flex-col gap-2.5 bg-[#FFF9EB] shrink-0">
           <div className={`flex items-center gap-3 px-2 py-1 ${isExpanded ? "" : "justify-center"}`}>
-            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white border border-white/10 shrink-0">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#FCE89C] to-[#EAB308] flex items-center justify-center text-[#14120F] border border-[#DFBE6F] shadow-sm shrink-0">
               <User size={18} />
             </div>
-            <div className={`flex-1 min-w-0 transition-all duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"}`}>
-              <p className="text-xs font-black truncate text-white whitespace-nowrap">{sellerName}</p>
-              <p className="text-[10px] font-bold text-zinc-400 truncate whitespace-nowrap">{sellerEmail}</p>
+            <div
+              className={`flex-1 min-w-0 transition-all duration-300 ${
+                isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
+              }`}
+            >
+              <p className="text-xs font-black truncate text-[#14120F] whitespace-nowrap">{sellerName}</p>
+              <p className="text-[10px] font-bold text-[#7A6847] truncate whitespace-nowrap">{sellerEmail}</p>
             </div>
           </div>
 
           <button
             onClick={handleLogout}
-            className={`flex items-center gap-3.5 rounded-2xl border border-rose-500/20 px-3.5 py-3 text-xs font-black text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer ${
+            className={`flex items-center gap-3.5 rounded-2xl border border-[#F03A46]/30 bg-[#FFF4F2] px-3.5 py-2.5 text-xs font-black text-[#F03A46] hover:bg-[#F03A46] hover:text-white transition-all cursor-pointer group ${
               isExpanded ? "" : "justify-center"
             }`}
             title="Logout Portal"
           >
-            <LogOut size={18} className="shrink-0" />
-            <span className={`transition-all duration-300 whitespace-nowrap ${
-              isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
-            }`}>
+            <LogOut size={17} className="shrink-0" />
+            <span
+              className={`transition-all duration-300 whitespace-nowrap ${
+                isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
+              }`}
+            >
               Logout Portal
             </span>
           </button>
@@ -386,34 +415,54 @@ export default function DashboardLayout({
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden lg:pl-20 transition-all duration-300">
+        {/* Top Accent Strip for Main Pane */}
+        <div className="h-1 w-full bg-gradient-to-r from-[#F03A46] via-[#F5B922] to-[#F03A46] shrink-0" />
+
         {/* Top Header */}
-        <header className="flex h-20 items-center justify-between border-b border-foreground/[0.06] bg-background/50 px-6 backdrop-blur-md">
-          <div className="flex items-center gap-4">
+        <header className="flex h-[74px] items-center justify-between border-b border-[#F0E2BE] bg-white/95 px-5 sm:px-6 backdrop-blur-xl shadow-[0_4px_18px_rgba(166,124,28,0.06)] shrink-0">
+          <div className="flex items-center gap-3.5 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="rounded-xl border border-foreground/[0.08] p-2 text-text-secondary hover:bg-foreground/[0.04] lg:hidden"
+              className="rounded-xl border border-[#EAD296] bg-[#FFFDF8] p-2 text-[#14120F] hover:bg-[#FFF8DB] lg:hidden cursor-pointer"
+              aria-label="Open Navigation Menu"
             >
               <Menu size={20} />
             </button>
-            <h2 className="text-xl font-black tracking-tight">Seller Dashboard</h2>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-black tracking-tight text-[#14120F] truncate">
+                {activeNavItem?.name || "Seller Dashboard"}
+              </h2>
+              <p className="hidden sm:block text-[10.5px] font-bold text-[#7A6847]">
+                ZebAlpha Official Seller Hub • 0% Commission
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-[#FFF8DB] border border-[#DFBE6F] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#9A6503]">
+              <ShieldCheck size={12} className="text-[#047857]" />
+              0% Commission • 5-Day UPI Payouts
+            </span>
             <DarkModeToggle />
           </div>
         </header>
 
         {isSuspended && (
-          <div className="bg-rose-600 text-white px-6 py-2.5 text-xs font-black flex items-center justify-between shadow-md shrink-0">
+          <div
+            data-photo-overlay="true"
+            className="bg-[#F03A46] text-white px-6 py-2.5 text-xs font-black flex items-center justify-between shadow-md shrink-0"
+          >
             <div className="flex items-center gap-2">
               <span className="text-base">🚫</span>
-              <span>ACCOUNT SUSPENDED: Your seller account has been suspended by Admin. Adding products, updating catalog, and store publishing are fully disabled.</span>
+              <span>
+                ACCOUNT SUSPENDED: Your seller account has been suspended by Admin. Adding products, updating catalog, and store publishing are fully disabled.
+              </span>
             </div>
           </div>
         )}
 
         {/* Page Children */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-foreground/[0.01]">
+        <main className="flex-1 overflow-y-auto p-5 md:p-8 bg-gradient-to-b from-[#FFFFFF] via-[#FFFDF8] to-[#FFF9EB] custom-scrollbar">
           {children}
         </main>
       </div>
