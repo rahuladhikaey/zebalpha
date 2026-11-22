@@ -21,11 +21,19 @@ import {
   Wrench,
   Store,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 
 type QualityZone = "none" | "green" | "yellow" | "red" | "blocked";
-type QualityTab = "blocking_soon" | "action_pending" | "fixed";
-type SortOption = "relevance" | "highest_risk" | "lowest_rating" | "most_ratings" | "recent";
+type QualityTab = "blocking_soon" | "action_pending" | "fixed" | "all";
+type SortOption =
+  | "relevance"
+  | "highest_risk"
+  | "lowest_rating"
+  | "highest_rating"
+  | "most_ratings"
+  | "most_improvements"
+  | "recent";
 
 interface QualitySummary {
   lowRatingsCount: number;
@@ -39,9 +47,20 @@ interface QualitySummary {
     actionPending: number;
     fixed: number;
     blocked: number;
+    all?: number;
   };
   updatedAt: string;
 }
+
+const SORT_LABELS: Record<SortOption, string> = {
+  relevance: "Relevance",
+  highest_risk: "Highest Defect %",
+  lowest_rating: "Lowest Star Rating",
+  highest_rating: "Highest Star Rating",
+  most_ratings: "Most Ratings",
+  most_improvements: "Most Improvements Needed",
+  recent: "Recently Updated / Fixed",
+};
 
 interface FeedbackItem {
   theme: string;
@@ -126,6 +145,7 @@ function formatDateShort(iso?: string | null): string {
 export default function SellerQualityPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [summary, setSummary] = useState<QualitySummary>({
     lowRatingsCount: 0,
     totalRatingsCount: 0,
@@ -133,7 +153,7 @@ export default function SellerQualityPage() {
     qualityScorePct: null,
     zone: "none",
     totalProducts: 0,
-    counts: { blockingSoon: 0, actionPending: 0, fixed: 0, blocked: 0 },
+    counts: { blockingSoon: 0, actionPending: 0, fixed: 0, blocked: 0, all: 0 },
     updatedAt: "",
   });
   const [topFeedback, setTopFeedback] = useState<FeedbackItem[]>([]);
@@ -150,6 +170,7 @@ export default function SellerQualityPage() {
   const loadQualityData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
+    setLoadError(null);
     try {
       const {
         data: { session },
@@ -163,15 +184,17 @@ export default function SellerQualityPage() {
         headers,
         cache: "no-store",
       });
-      if (!res.ok) return;
-      const json = await res.json();
-      if (json.success) {
-        if (json.summary) setSummary(json.summary);
-        if (Array.isArray(json.topFeedback)) setTopFeedback(json.topFeedback);
-        if (Array.isArray(json.products)) setProducts(json.products);
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        setLoadError(json?.error || `Failed to load product quality data (HTTP ${res.status})`);
+        return;
       }
+      if (json.summary) setSummary(json.summary);
+      if (Array.isArray(json.topFeedback)) setTopFeedback(json.topFeedback);
+      if (Array.isArray(json.products)) setProducts(json.products);
     } catch (err) {
       console.error("[Seller Quality] Failed to load quality data:", err);
+      setLoadError("Network error while loading quality score. Please click Refresh.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -228,7 +251,7 @@ export default function SellerQualityPage() {
   const visibleRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const filtered = products.filter((p) => {
-      if (p.bucket !== activeTab) return false;
+      if (activeTab !== "all" && p.bucket !== activeTab) return false;
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
@@ -239,18 +262,68 @@ export default function SellerQualityPage() {
 
     const sorted = [...filtered];
     if (sortBy === "highest_risk") {
-      sorted.sort((a, b) => (b.qualityScorePct ?? -1) - (a.qualityScorePct ?? -1));
+      sorted.sort((a, b) => {
+        const diff = (b.qualityScorePct ?? -1) - (a.qualityScorePct ?? -1);
+        if (diff !== 0) return diff;
+        if (b.lowRatings !== a.lowRatings) return b.lowRatings - a.lowRatings;
+        if (b.listingImprovements.length !== a.listingImprovements.length)
+          return b.listingImprovements.length - a.listingImprovements.length;
+        return a.name.localeCompare(b.name);
+      });
     } else if (sortBy === "lowest_rating") {
-      sorted.sort((a, b) => (a.avgRating ?? 99) - (b.avgRating ?? 99));
+      sorted.sort((a, b) => {
+        // Rated products come first from lowest star (1.0) to highest (5.0), then unrated sorted by most improvements
+        const aRated = a.avgRating !== null ? 0 : 1;
+        const bRated = b.avgRating !== null ? 0 : 1;
+        if (aRated !== bRated) return aRated - bRated;
+        if (a.avgRating !== null && b.avgRating !== null && a.avgRating !== b.avgRating) {
+          return a.avgRating - b.avgRating;
+        }
+        if (b.lowRatings !== a.lowRatings) return b.lowRatings - a.lowRatings;
+        if (b.listingImprovements.length !== a.listingImprovements.length)
+          return b.listingImprovements.length - a.listingImprovements.length;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortBy === "highest_rating") {
+      sorted.sort((a, b) => {
+        const aRated = a.avgRating !== null ? 0 : 1;
+        const bRated = b.avgRating !== null ? 0 : 1;
+        if (aRated !== bRated) return aRated - bRated;
+        if (a.avgRating !== null && b.avgRating !== null && a.avgRating !== b.avgRating) {
+          return b.avgRating - a.avgRating;
+        }
+        if (b.totalRatings !== a.totalRatings) return b.totalRatings - a.totalRatings;
+        return a.name.localeCompare(b.name);
+      });
     } else if (sortBy === "most_ratings") {
-      sorted.sort((a, b) => b.totalRatings - a.totalRatings);
+      sorted.sort((a, b) => {
+        if (b.totalRatings !== a.totalRatings) return b.totalRatings - a.totalRatings;
+        if (b.lowRatings !== a.lowRatings) return b.lowRatings - a.lowRatings;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortBy === "most_improvements") {
+      sorted.sort((a, b) => {
+        if (b.listingImprovements.length !== a.listingImprovements.length)
+          return b.listingImprovements.length - a.listingImprovements.length;
+        if (b.lowRatings !== a.lowRatings) return b.lowRatings - a.lowRatings;
+        return a.name.localeCompare(b.name);
+      });
     } else if (sortBy === "recent") {
-      sorted.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+      sorted.sort((a, b) => {
+        const ta = new Date(a.fixedAt || a.updatedAt || 0).getTime();
+        const tb = new Date(b.fixedAt || b.updatedAt || 0).getTime();
+        if (tb !== ta) return tb - ta;
+        return a.name.localeCompare(b.name);
+      });
     } else {
-      // Relevance: items with actual low ratings first, then most listing improvements
+      // Relevance: items with actual low ratings first, then highest defect %, then most improvements
       sorted.sort((a, b) => {
         if (b.lowRatings !== a.lowRatings) return b.lowRatings - a.lowRatings;
-        return b.listingImprovements.length - a.listingImprovements.length;
+        const scoreDiff = (b.qualityScorePct ?? -1) - (a.qualityScorePct ?? -1);
+        if (scoreDiff !== 0) return scoreDiff;
+        if (b.listingImprovements.length !== a.listingImprovements.length)
+          return b.listingImprovements.length - a.listingImprovements.length;
+        return a.name.localeCompare(b.name);
       });
     }
     return sorted;
@@ -314,6 +387,23 @@ export default function SellerQualityPage() {
           </button>
         </div>
       </div>
+
+      {/* Error Alert if API failed */}
+      {loadError && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-300 bg-[#FFF4F2] px-4 py-3 text-xs font-bold text-[#991B1B]">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-[#F03A46] shrink-0" />
+            <span>{loadError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadQualityData(true)}
+            className="rounded-lg border border-[#F03A46] bg-white px-3 py-1.5 text-[11px] font-black text-[#F03A46] hover:bg-[#F03A46] hover:text-white transition-all cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* 2. TRUSTED & VERIFIED CUSTOMERS STATUS BANNER */}
       <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-emerald-300 bg-emerald-50/80 px-4 py-3 text-xs font-bold text-emerald-950 shadow-sm">
@@ -525,6 +615,10 @@ export default function SellerQualityPage() {
                 key: "fixed" as const,
                 label: `Fixed (${summary.counts.fixed})`,
               },
+              {
+                key: "all" as const,
+                label: `All Catalogs (${summary.counts.all ?? summary.totalProducts})`,
+              },
             ].map((tab) => {
               const isActive = activeTab === tab.key;
               return (
@@ -557,21 +651,34 @@ export default function SellerQualityPage() {
         {/* Sort Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-[#FFFDF8]/60">
           <div className="flex items-center gap-2.5">
-            <span className="text-xs font-bold text-[#6E5C3D]">Sort by :</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="rounded-xl border border-[#EAD296] bg-white px-3.5 py-2 text-xs font-extrabold text-[#14120F] outline-none focus:border-[#F03A46] cursor-pointer"
-            >
-              <option value="relevance">Relevance</option>
-              <option value="highest_risk">Highest Defect %</option>
-              <option value="lowest_rating">Lowest Star Rating</option>
-              <option value="most_ratings">Most Ratings</option>
-              <option value="recent">Recently Updated</option>
-            </select>
+            <label htmlFor="quality-sort-select" className="text-xs font-bold text-[#6E5C3D]">
+              Sort by :
+            </label>
+            <div className="relative inline-flex items-center">
+              <select
+                id="quality-sort-select"
+                value={sortBy}
+                disabled={visibleRows.length === 0}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="appearance-none rounded-xl border border-[#EAD296] bg-white py-2 pl-3.5 pr-9 text-xs font-extrabold text-[#14120F] outline-none focus:border-[#F03A46] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="relevance">Relevance</option>
+                <option value="highest_risk">Highest Defect %</option>
+                <option value="lowest_rating">Lowest Star Rating</option>
+                <option value="highest_rating">Highest Star Rating</option>
+                <option value="most_ratings">Most Ratings</option>
+                <option value="most_improvements">Most Improvements Needed</option>
+                <option value="recent">Recently Updated / Fixed</option>
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-3 text-[#9A6503]"
+              />
+            </div>
           </div>
           <span className="text-[11px] font-bold text-[#7A6847]">
             Showing {visibleRows.length} {visibleRows.length === 1 ? "catalog" : "catalogs"}
+            {visibleRows.length > 0 ? ` • Sorted by ${SORT_LABELS[sortBy]}` : ""}
           </span>
         </div>
 
@@ -704,17 +811,24 @@ export default function SellerQualityPage() {
                       ) : (
                         <>
                           <td className="px-5 py-4">
-                            <ul className="space-y-1.5">
-                              {item.listingImprovements.slice(0, 3).map((tip) => (
-                                <li
-                                  key={tip}
-                                  className="flex items-start gap-1.5 text-[11px] font-semibold text-[#4A3F2B]"
-                                >
-                                  <Wrench size={12} className="mt-0.5 shrink-0 text-[#9A6503]" />
-                                  <span>{tip}</span>
-                                </li>
-                              ))}
-                            </ul>
+                            {item.listingImprovements.length === 0 ? (
+                              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
+                                <CheckCircle2 size={13} />
+                                All listing quality checks passed
+                              </span>
+                            ) : (
+                              <ul className="space-y-1.5">
+                                {item.listingImprovements.slice(0, 3).map((tip) => (
+                                  <li
+                                    key={tip}
+                                    className="flex items-start gap-1.5 text-[11px] font-semibold text-[#4A3F2B]"
+                                  >
+                                    <Wrench size={12} className="mt-0.5 shrink-0 text-[#9A6503]" />
+                                    <span>{tip}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </td>
                           <td className="px-5 py-4 text-right">
                             <div className="flex flex-col items-end gap-2">
@@ -723,18 +837,25 @@ export default function SellerQualityPage() {
                                 data-photo-overlay="true"
                                 className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-3.5 py-2 text-[11px] font-black text-white shadow-sm hover:brightness-105 transition-all"
                               >
-                                <span>Fix Listing</span>
+                                <span>{item.listingImprovements.length === 0 ? "Edit Listing" : "Fix Listing"}</span>
                                 <ArrowUpRight size={13} />
                               </Link>
-                              <button
-                                type="button"
-                                disabled={markingId === item.id}
-                                onClick={() => handleMarkFixed(item)}
-                                className="inline-flex items-center gap-1 rounded-xl border border-[#DFBE6F] bg-[#FFFDF8] px-3 py-1.5 text-[11px] font-extrabold text-[#5C4E35] hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-800 transition-all cursor-pointer disabled:opacity-50"
-                              >
-                                <CheckCircle2 size={12} />
-                                <span>{markingId === item.id ? "Saving..." : "Mark Fixed"}</span>
-                              </button>
+                              {item.bucket === "fixed" ? (
+                                <span className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-700">
+                                  <CheckCircle2 size={12} />
+                                  <span>Fixed</span>
+                                </span>
+                              ) : item.listingImprovements.length > 0 || item.lowRatings > 0 ? (
+                                <button
+                                  type="button"
+                                  disabled={markingId === item.id}
+                                  onClick={() => handleMarkFixed(item)}
+                                  className="inline-flex items-center gap-1 rounded-xl border border-[#DFBE6F] bg-[#FFFDF8] px-3 py-1.5 text-[11px] font-extrabold text-[#5C4E35] hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-800 transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                  <CheckCircle2 size={12} />
+                                  <span>{markingId === item.id ? "Saving..." : "Mark Fixed"}</span>
+                                </button>
+                              ) : null}
                             </div>
                           </td>
                         </>
@@ -792,6 +913,22 @@ export default function SellerQualityPage() {
                   </h3>
                   <p className="mt-1 text-xs font-semibold text-[#6E5C3D]">
                     But keep checking this section from time to time.
+                  </p>
+                </>
+              )}
+
+              {activeTab === "all" && (
+                <>
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFF8DB] border border-[#EAD296] text-[#9A6503]">
+                    <Store size={30} />
+                  </div>
+                  <h3 className="mt-4 text-base font-black text-[#14120F]">
+                    {searchQuery ? "No matching catalogs found" : "No catalogs uploaded yet"}
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-[#6E5C3D]">
+                    {searchQuery
+                      ? "Try clearing your search filter to see all catalogs."
+                      : "Upload your first product in Products to start tracking Quality Score."}
                   </p>
                 </>
               )}

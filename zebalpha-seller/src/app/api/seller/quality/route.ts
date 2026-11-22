@@ -74,7 +74,23 @@ function detectListingImprovements(product: Record<string, unknown>): string[] {
     ? (product.images as string[]).filter((u) => typeof u === "string" && u.trim().length > 0)
     : [];
   const primaryImg = typeof product.image_url === "string" ? product.image_url.trim() : "";
-  const totalUniqueImgs = new Set([...imgs, ...(primaryImg ? [primaryImg] : [])]).size;
+  const pkgImgs = Array.isArray(product.packages)
+    ? (product.packages as Array<Record<string, unknown>>).flatMap((pkg) => {
+        const list: string[] = [];
+        if (typeof pkg?.image_url === "string" && pkg.image_url.trim()) list.push(pkg.image_url.trim());
+        if (Array.isArray(pkg?.gallery)) {
+          for (const g of pkg.gallery) {
+            if (typeof g === "string" && g.trim()) list.push(g.trim());
+          }
+        }
+        return list;
+      })
+    : [];
+  const totalUniqueImgs = new Set([
+    ...imgs,
+    ...pkgImgs,
+    ...(primaryImg ? [primaryImg] : []),
+  ]).size;
 
   if (totalUniqueImgs < 2) {
     tips.push("Add at least 2–4 high-resolution product photos (front, back & fabric close-up)");
@@ -93,7 +109,15 @@ function detectListingImprovements(product: Record<string, unknown>): string[] {
   }
 
   const hasMaterialOrSpecs = Boolean(
-    specs.fabric || specs.material || specs.fit_type || specs.gsm || specs.pattern
+    specs.fabric ||
+      specs.material ||
+      specs.fit_type ||
+      specs.gsm ||
+      specs.pattern ||
+      specs.neck_type ||
+      specs.sleeve_type ||
+      specs.occasion ||
+      specs.sole_material
   );
   if (!hasMaterialOrSpecs) {
     tips.push("Add fabric, fit & key product specifications to prevent buyer expectation gaps");
@@ -111,47 +135,79 @@ export async function GET(req: NextRequest) {
 
     const sellerIds = await resolveSellerIds(user);
 
-    // 1. Fetch all non-deleted products for this seller
+    // 1. Fetch all non-deleted products using select("*") so optional schema columns never cause 500s
     const { data: rawProducts, error: prodErr } = await supabaseServer
       .from("products")
-      .select(
-        "id, seller_id, name, sku, price, image_url, images, description, specifications, packages, video_proof_url, status, is_active, is_approved, approval_status, created_at, updated_at"
-      )
+      .select("*")
       .in("seller_id", sellerIds)
       .order("created_at", { ascending: false })
       .limit(300);
 
     if (prodErr) {
       console.error("[API /seller/quality] products query failed:", prodErr);
-      return NextResponse.json({ success: false, error: "Failed to load products" }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: prodErr.message || "Failed to load products" },
+        { status: 500 }
+      );
     }
 
     const products = (Array.isArray(rawProducts) ? rawProducts : []).filter(
-      (p) => String(p.status || "").toUpperCase() !== "DELETED"
+      (p: Record<string, unknown>) => String(p.status || "").toUpperCase() !== "DELETED"
     );
-    const productIds = products.map((p) => String(p.id));
+    const productIds = products.map((p: Record<string, unknown>) => String(p.id));
 
-    // 2. Fetch approved reviews & return records in parallel
+    // 2. Fetch reviews & returns safely with graceful fallbacks
     const [reviewsRes, returnsRes] = await Promise.all([
-      productIds.length > 0
-        ? supabaseServer
+      (async () => {
+        if (productIds.length === 0) return { data: [], error: null };
+        try {
+          const primary = await supabaseServer
             .from("reviews")
-            .select("id, product_id, rating, comment, is_approved, created_at")
+            .select("*")
             .in("product_id", productIds)
             .order("created_at", { ascending: false })
-            .limit(2000)
-        : Promise.resolve({ data: [], error: null }),
-      (async () => {
-        try {
-          return await supabaseServer
-            .from("order_returns")
-            .select("id, order_id, reason, comments, status, created_at")
-            .in("seller_id", sellerIds)
-            .order("created_at", { ascending: false })
-            .limit(500);
+            .limit(2000);
+          if (!primary.error) return primary;
+          return { data: [], error: primary.error };
         } catch {
           return { data: [], error: null };
         }
+      })(),
+      (async () => {
+        try {
+          const r1 = await supabaseServer
+            .from("order_returns")
+            .select("*")
+            .in("seller_id", sellerIds)
+            .order("created_at", { ascending: false })
+            .limit(500);
+          if (!r1.error && Array.isArray(r1.data)) return r1;
+        } catch {
+          // Fallback to orders.return_reason below
+        }
+        try {
+          const r2 = await supabaseServer
+            .from("orders")
+            .select("id, return_reason, order_status, created_at")
+            .in("seller_id", sellerIds)
+            .not("return_reason", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(300);
+          if (!r2.error && Array.isArray(r2.data)) {
+            return {
+              data: r2.data.map((o: Record<string, unknown>) => ({
+                id: o.id,
+                reason: o.return_reason,
+                comments: "",
+                created_at: o.created_at,
+              })),
+              error: null,
+            };
+          }
+        } catch {
+          // Non-fatal
+        }
+        return { data: [], error: null };
       })(),
     ]);
 
@@ -173,7 +229,7 @@ export async function GET(req: NextRequest) {
     let ratingSum = 0;
 
     for (const r of reviews as Array<Record<string, unknown>>) {
-      const pid = String(r.product_id || "");
+      const pid = String(r.product_id ?? "").trim();
       const ratingVal = Number(r.rating || 0);
       if (!pid || ratingVal < 1 || ratingVal > 5) continue;
 
@@ -194,7 +250,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Include return reasons in global feedback themes when available
     for (const ret of returnsList as Array<Record<string, unknown>>) {
       const text = [ret.reason, ret.comments].filter(Boolean).join(" ").trim();
       if (text) {
@@ -222,9 +277,9 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // 4. Build per-product quality recommendation records
-    const productItems = products.map((p) => {
-      const pid = String(p.id);
+    // 4. Build per-product quality records
+    const productItems = products.map((p: Record<string, unknown>) => {
+      const pid = String(p.id ?? "").trim();
       const pReviews = productReviewsMap.get(pid) || [];
       const pTotal = pReviews.length;
       const pLowList = pReviews.filter((r) => r.rating <= 2);
@@ -239,7 +294,6 @@ export async function GET(req: NextRequest) {
       const isHardBlocked = statusUpper === "BLOCKED";
       const zone = classifyZone(pScorePct, pTotal, isHardBlocked);
 
-      // Per-product negative feedback themes
       const pThemeMap = new Map<string, number>();
       for (const lr of pLowList) {
         const th = classifyFeedbackTheme(lr.comment);
@@ -270,14 +324,13 @@ export async function GET(req: NextRequest) {
       const fixedAtTs = fixedAt ? new Date(fixedAt).getTime() : 0;
       const isCurrentlyFixed = Boolean(fixedAt && fixedAtTs >= latestLowReviewTs);
 
-      const listingImprovements = detectListingImprovements(p as Record<string, unknown>);
+      const listingImprovements = detectListingImprovements(p);
       if (pLow > 0 && !isCurrentlyFixed) {
         listingImprovements.unshift(
           `Address ${pLow} negative (1–2★) customer ${pLow === 1 ? "rating" : "ratings"} & verify product quality before dispatch`
         );
       }
 
-      // Determine tab bucket
       let bucket: "blocked" | "blocking_soon" | "action_pending" | "fixed" | "healthy" = "healthy";
 
       if (isHardBlocked || (pTotal >= 3 && pScorePct !== null && pScorePct > 25)) {
@@ -336,6 +389,7 @@ export async function GET(req: NextRequest) {
         actionPending: productItems.filter((i) => i.bucket === "action_pending").length,
         fixed: productItems.filter((i) => i.bucket === "fixed").length,
         blocked: productItems.filter((i) => i.bucket === "blocked").length,
+        all: productItems.length,
       },
       updatedAt: new Date().toISOString(),
     };
@@ -406,18 +460,16 @@ export async function POST(req: NextRequest) {
           : ["Product photos, specs & quality verified by seller"],
     };
 
+    // Update specifications safely (do not depend on optional updated_at column existing)
     const { error: updErr } = await supabaseServer
       .from("products")
-      .update({
-        specifications: updatedSpecs,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ specifications: updatedSpecs })
       .eq("id", productId);
 
     if (updErr) {
       console.error("[API /seller/quality POST] update failed:", updErr);
       return NextResponse.json(
-        { success: false, error: "Failed to mark product as fixed" },
+        { success: false, error: updErr.message || "Failed to mark product as fixed" },
         { status: 500 }
       );
     }
