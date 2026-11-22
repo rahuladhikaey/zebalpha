@@ -31,8 +31,8 @@ export default function CollectionsPage() {
         const [pRes, cRes, catRes] = await Promise.all([
           supabase
             .from("products")
-            .select("id, name, category_id, is_active, status, image_url, images, specifications")
-            .eq("is_active", true)
+            .select("id, name, description, brand, collection, category_id, subcategory_id, is_active, status, is_approved, approval_status, image_url, images, specifications")
+            .or("is_active.is.null,is_active.eq.true")
             .order("created_at", { ascending: false }),
           supabase
             .from("curated_collections")
@@ -41,8 +41,8 @@ export default function CollectionsPage() {
             .order("display_order", { ascending: true }),
           supabase
             .from("categories")
-            .select("id, name, slug, description, main_category, image_url")
-            .eq("is_active", true)
+            .select("id, name, slug, description, image_url, parent_id")
+            .or("is_active.is.null,is_active.eq.true")
             .order("name", { ascending: true })
         ]);
 
@@ -51,22 +51,38 @@ export default function CollectionsPage() {
           const fallback = await supabase
             .from("products")
             .select("*")
-            .eq("is_active", true)
+            .or("is_active.is.null,is_active.eq.true")
             .order("created_at", { ascending: false });
           rawProducts = fallback.data;
         }
 
-        const loadedProducts = (rawProducts || []).map((p: any) => {
-          const specs = p.specifications || {};
-          return {
-            ...p,
-            is_premium: p.is_premium ?? (p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true"),
-            is_new_drop: p.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON"),
-            tier: p.tier || specs.tier || "STANDARD",
-            category: p.category || specs.category || "Apparel",
-            thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
-          };
-        }) as Product[];
+        const catMap = new Map<string, string>();
+        for (const cat of (catRes.data || []) as Array<{ id?: string; name?: string | null }>) {
+          if (cat.id && cat.name) catMap.set(String(cat.id), String(cat.name));
+        }
+
+        const loadedProducts = (rawProducts || [])
+          .filter((p: any) => {
+            const st = String(p.status || "").toUpperCase();
+            const appr = String(p.approval_status || "").toLowerCase();
+            if (p.is_active === false || p.is_approved === false) return false;
+            if (["DELETED", "ARCHIVED", "BLOCKED", "SUSPENDED", "REJECTED", "DRAFT"].includes(st)) return false;
+            if (["rejected", "pending", "suspended"].includes(appr)) return false;
+            return true;
+          })
+          .map((p: any) => {
+            const specs = p.specifications || {};
+            const resolvedCatName = (p.category_id ? catMap.get(String(p.category_id)) : "") || p.category || specs.category || "Apparel";
+            return {
+              ...p,
+              is_premium: p.is_premium ?? (p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true"),
+              is_new_drop: p.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON"),
+              tier: p.tier || specs.tier || "STANDARD",
+              category: resolvedCatName,
+              category_name: resolvedCatName,
+              thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
+            };
+          }) as Product[];
         setProducts(loadedProducts);
 
         if (cRes.data && cRes.data.length > 0) {
@@ -87,7 +103,7 @@ export default function CollectionsPage() {
             .map((cat) => ({
               id: cat.id,
               title: cat.name,
-              subtitle: cat.main_category || "Apparel Collection",
+              subtitle: "Apparel Collection",
               description: cat.description || `Signature ${cat.name} edit crafted for the culture.`,
               badge: "Official",
               categoryFilter: cat.name,

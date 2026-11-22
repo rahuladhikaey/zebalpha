@@ -517,7 +517,7 @@ export function doesProductMatchCategory(product: any, categoryNameOrId: string 
     ""
   ).toLowerCase();
   const pBrand = (product.brand || "").toLowerCase();
-  const pCategory = (product.category || "").toLowerCase();
+  const pCategory = (product.category || product.category_name || "").toLowerCase();
 
   const combined = `${pName} ${pDesc} ${pColl} ${pSubcat} ${pCategory} ${pBrand}`;
 
@@ -622,9 +622,26 @@ export function doesProductMatchCategory(product: any, categoryNameOrId: string 
     return combined.includes("polo");
   }
 
-  // 6. Tees / T-Shirts / Oversized
-  if (target.includes("tee") || target.includes("t-shirt") || target.includes("tshirt") || target.includes("oversized")) {
-    return combined.includes("tee") || combined.includes("t-shirt") || combined.includes("tshirt") || combined.includes("oversized");
+  // 5b. Crocs & Clogs
+  if (target.includes("croc") || target.includes("clog")) {
+    return combined.includes("croc") || combined.includes("clog");
+  }
+
+  // 6. Tees / T-Shirts / Oversized (handles hyphen-normalized "t shirt" as well as "t-shirt" & "tshirt")
+  if (
+    target.includes("tee") ||
+    target.includes("t-shirt") ||
+    target.includes("t shirt") ||
+    target.includes("tshirt") ||
+    target.includes("oversized")
+  ) {
+    return (
+      combined.includes("tee") ||
+      combined.includes("t-shirt") ||
+      combined.includes("t shirt") ||
+      combined.includes("tshirt") ||
+      combined.includes("oversized")
+    );
   }
 
   // 7. Hoodies & Sweatshirts & Jackets
@@ -647,8 +664,18 @@ export function doesProductMatchCategory(product: any, categoryNameOrId: string 
   }
 
   // 8. Shirts (Exclude T-shirts)
-  if (target.includes("shirt") && !target.includes("t-shirt") && !target.includes("tshirt")) {
-    return pName.includes("shirt") && !pName.includes("t-shirt") && !pName.includes("tshirt");
+  if (
+    target.includes("shirt") &&
+    !target.includes("t-shirt") &&
+    !target.includes("t shirt") &&
+    !target.includes("tshirt")
+  ) {
+    return (
+      pName.includes("shirt") &&
+      !pName.includes("t-shirt") &&
+      !pName.includes("t shirt") &&
+      !pName.includes("tshirt")
+    );
   }
 
   // 9. Bottoms / Cargos / Jeans / Pants
@@ -686,7 +713,9 @@ export function doesProductMatchCategory(product: any, categoryNameOrId: string 
     target.includes("boot") ||
     target.includes("slipper") ||
     target.includes("slide") ||
-    target.includes("heel");
+    target.includes("heel") ||
+    target.includes("clog") ||
+    target.includes("croc");
 
   if (isFootwearCategory) {
     return (
@@ -697,7 +726,9 @@ export function doesProductMatchCategory(product: any, categoryNameOrId: string 
       combined.includes("boot") ||
       combined.includes("slide") ||
       combined.includes("slipper") ||
-      combined.includes("heel")
+      combined.includes("heel") ||
+      combined.includes("clog") ||
+      combined.includes("croc")
     );
   }
 
