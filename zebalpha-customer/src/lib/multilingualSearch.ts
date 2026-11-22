@@ -346,11 +346,74 @@ const MULTILINGUAL_CONCEPTS: ConceptDef[] = [
   },
   {
     canonical: "dress",
-    synonyms: ["dress", "dresses", "gown", "one piece", "top"],
+    synonyms: ["dress", "dresses", "gown", "one piece", "frock"],
     aliases: [
       "dress", "dresses", "gown", "one piece", "frock",
-      "ড্রেস", "গাউন", "ফ্রক", "জামা",
+      "ড্রেস", "গাউন", "ফ্রক",
       "ड्रेस", "गाउन", "फ्रॉक", "वन पीस",
+    ],
+  },
+  {
+    canonical: "top",
+    synonyms: ["top", "tops", "crop top", "tunic", "blouse"],
+    aliases: [
+      "top", "tops", "crop top", "tunic", "blouse",
+      "টপ", "টপস", "ক্রপ টপ", "ব্লাউজ",
+      "टॉप", "टॉप्स", "क्रॉप टॉप", "ब्लाउज",
+    ],
+  },
+  {
+    canonical: "jewellery",
+    synonyms: ["jewellery", "jewelry", "earring", "earrings", "necklace", "bracelet", "ring", "bangle", "pendant", "jhumka"],
+    aliases: [
+      "jewellery", "jewelry", "earring", "earrings", "necklace", "bracelet", "bangle", "pendant", "jhumka", "jhumkas", "goyna", "gehna",
+      "গয়না", "গহনা", "কানের দুল", "দুল", "নেকলেস", "হার", "চুড়ি", "ব্রেসলেট", "আংটি", "ঝুমকা",
+      "ज्वेलरी", "गहने", "झुमका", "झुमके", "कान के झुमके", "नेकलेस", "हार", "चूड़ी", "ब्रेसलेट",
+    ],
+  },
+  {
+    canonical: "watch",
+    synonyms: ["watch", "watches", "wristwatch", "timepiece"],
+    aliases: [
+      "watch", "watches", "ghori", "ghadi",
+      "ঘড়ি", "হাতঘড়ি", "ওয়াচ",
+      "घड़ी", "वॉच",
+    ],
+  },
+  {
+    canonical: "socks",
+    synonyms: ["socks", "sock"],
+    aliases: [
+      "socks", "sock", "moja", "moze",
+      "মোজা", "সক্স",
+      "मोजे", "जुराब", "सॉक्स",
+    ],
+  },
+  {
+    canonical: "decor",
+    synonyms: ["decor", "home decor", "wall art", "lamp", "candle", "vase", "showpiece", "cushion"],
+    aliases: [
+      "decor", "home decor", "wall art", "lamp", "candle", "vase", "showpiece", "cushion",
+      "হোম ডেকর", "ঘর সাজানো", "ডেকর", "ল্যাম্প", "মোমবাতি",
+      "होम डेकोर", "डेकोर", "सजावट", "लैंप",
+    ],
+  },
+  {
+    canonical: "gift",
+    synonyms: ["gift", "gifts", "hamper", "combo", "personalised", "personalized", "custom", "customised", "customized"],
+    aliases: [
+      "gift", "gifts", "hamper", "personalised", "personalized", "custom", "customised", "customized", "upohar", "tohfa",
+      "গিফট", "উপহার", "কাস্টম", "পার্সোনালাইজড",
+      "गिफ्ट", "तोहफा", "कस्टम", "पर्सनलाइज्ड",
+    ],
+  },
+  {
+    canonical: "ethnic",
+    synonyms: ["ethnic", "traditional", "festive", "lehenga", "dupatta", "salwar", "suit"],
+    aliases: [
+      "ethnic", "traditional", "festive", "lehenga", "dupatta", "salwar", "churidar",
+      "এথনিক", "ট্রেডিশনাল", "উৎসবের", "পুজোর", "লেহেঙ্গা", "সালোয়ার", "দোপাট্টা",
+      "एथनिक", "ट्रेडिशनल", "फेस्टिव", "लहंगा", "सलवार", "दुपट्टा",
     ],
   },
 
@@ -434,6 +497,16 @@ const MULTILINGUAL_CONCEPTS: ConceptDef[] = [
     synonyms: ["summer", "breathable", "lightweight"],
     aliases: ["summer", "গরমের", "गर्मियों", "समर"],
   },
+  {
+    canonical: "college",
+    synonyms: ["college", "campus", "streetwear", "oversized", "casual", "trendy"],
+    aliases: ["college", "campus", "কলেজ", "কলেজের", "कॉलेज", "कैंपस"],
+  },
+  {
+    canonical: "party",
+    synonyms: ["party", "evening", "date", "wedding", "festive"],
+    aliases: ["party", "wedding", "biye", "shaadi", "পার্টি", "বিয়ে", "বিয়ের", "पार्टी", "शादी"],
+  },
 ];
 
 // Spoken helper / conversational filler words across Indian languages to strip before search
@@ -442,23 +515,25 @@ const STOP_WORDS = new Set([
   "show", "me", "find", "search", "looking", "for", "want", "need", "buy", "get", "give",
   "please", "pls", "some", "any", "the", "a", "an", "of", "in", "on", "to", "with", "and",
   "or", "best", "good", "nice", "cheap", "cheapest", "affordable", "latest", "new", "top",
-  "items", "item", "product", "products", "clothes", "clothing", "wear", "zebalpha",
-  "under", "below", "less", "than", "within", "upto", "up", "max", "price", "rs", "inr", "rupees",
+  "rated", "popular", "trending", "bestseller", "bestsellers", "suggest", "suggestion", "recommend",
+  "items", "item", "product", "products", "clothes", "clothing", "wear", "zebalpha", "alpha",
+  "under", "below", "less", "than", "within", "upto", "up", "max", "price", "budget", "rs", "inr", "rupees",
   // Bengali & Banglish
-  "দেখাও", "দেখান", "দাও", "দিন", "খোঁজো", "খুঁজে", "খুজুন", "চাই", "লাগবে", "দরকার",
-  "আছে", "নাকি", "কি", "একটা", "একটি", "কিছু", "আমার", "জন্য", "ভালো", "ভাল", "সুন্দর",
-  "কম", "দাম", "দামে", "দামের", "সস্তা", "এর", "মধ্যে", "ভিতরে", "নিচে", "নীচে", "তলায়",
-  "টাকার", "টাকা", "রুপি", "সব", "নতুন", "দেখতে", "কিনতে",
-  "dekhao", "dakhao", "dekhau", "dekhun", "dao", "din", "khojo", "khujo", "chai", "lagbe",
-  "ache", "naki", "ekta", "ekti", "amar", "jonno", "jonyo", "bhalo", "valo", "sundor",
-  "kom", "dam", "damer", "sasta", "shosta", "moddhe", "modhe", "niche", "takar", "taka",
+  "দেখাও", "দেখান", "দাও", "দিন", "খোঁজো", "খুঁজে", "খুজুন", "চাই", "লাগবে", "দরকার", "বলো", "বলুন", "করো",
+  "আছে", "নাকি", "কি", "কী", "একটা", "একটি", "কিছু", "আমার", "জন্য", "ভালো", "ভাল", "সেরা", "সুন্দর",
+  "কম", "দাম", "দামে", "দামের", "সস্তা", "এর", "মধ্যে", "ভিতরে", "ভেতরে", "নিচে", "নীচে", "তলায়",
+  "টাকার", "টাকা", "রুপি", "সব", "নতুন", "দেখতে", "কিনতে", "রেটেড", "বেস্ট",
+  "dekhao", "dakhao", "dekhau", "dekhun", "dekhabe", "dao", "din", "khojo", "khujo", "chai", "lagbe", "dorkar",
+  "ache", "achhe", "naki", "ki", "ekta", "ekti", "kichu", "amar", "jonno", "jonyo", "bhalo", "valo", "sera", "sundor",
+  "kom", "dam", "dame", "damer", "sasta", "shosta", "er", "r", "moddhe", "modhe", "vitore", "bhitore", "niche", "takar", "taka", "koro", "bolo",
   // Hindi & Hinglish
-  "दिखाओ", "दिखाइए", "दिखाना", "चाहिए", "दो", "दीजिए", "खोजो", "ढूंढो", "बताना", "बताओ",
-  "सस्ता", "सस्ते", "अच्छा", "अच्छे", "अच्छी", "बढ़िया", "नया", "नये", "नई",
-  "के", "लिए", "में", "का", "की", "को", "से", "पर", "और", "या", "एक", "कोई", "कुछ",
-  "वाला", "वाले", "वाली", "नीचे", "तक", "अंदर", "कम", "रुपये", "रुपए", "रुपया", "पैसे",
-  "dikhao", "dikhaiye", "chahiye", "chahie", "do", "dijiye", "khojo", "dhundo",
-  "sasta", "saste", "accha", "achha", "achhe", "badiya", "naya", "ke", "liye", "wala", "wali",
+  "दिखाओ", "दिखाइए", "दिखाना", "चाहिए", "दो", "दीजिए", "खोजो", "ढूंढो", "बताना", "बताओ", "करो",
+  "सस्ता", "सस्ते", "अच्छा", "अच्छे", "अच्छी", "बढ़िया", "बेस्ट", "नया", "नये", "नई", "टॉप",
+  "के", "लिए", "में", "का", "की", "को", "से", "पर", "और", "या", "एक", "कोई", "कुछ", "है", "हैं", "क्या",
+  "वाला", "वाले", "वाली", "नीचे", "तक", "अंदर", "कम", "रुपये", "रुपए", "रुपया", "पैसे", "बजट",
+  "dikhao", "dikhaiye", "dikha", "chahiye", "chahie", "do", "dijiye", "khojo", "dhundo", "batao", "karo",
+  "sasta", "saste", "accha", "achha", "achhe", "achhi", "badiya", "badhiya", "naya", "naye", "ke", "k", "liye", "wala", "wali", "wale",
+  "andar", "niche", "tak", "mein", "me", "rupaye", "rupees", "paisa", "hai", "kya", "koi", "kuch", "mera", "mere",
   // Marathi / Tamil / Telugu / Gujarati / Kannada / Malayalam / Punjabi fillers
   "दाखवा", "पाहिजे", "सांगा", "स्वस्त", "चांगले",
   "காட்டு", "வேண்டும்", "குறைந்த", "நல்ல",
@@ -567,13 +642,14 @@ export function parseMultilingualSearchQuery(
     normalized = normalized.replace(pattern, ` ${numStr} `);
   }
 
-  // Extract budget cap phrases like "under 500", "500 টাকার নিচে", "500 के नीचे"
+  // Extract budget cap phrases across English, Bengali, Banglish, Hindi & Hinglish
+  // e.g. "under 500", "500 টাকার মধ্যে", "500 takar moddhe", "500 ke andar", "500 रुपये में"
   let maxPrice: number | null = null;
   const budgetBefore = normalized.match(
-    /(?:under|below|less\s+than|within|upto|up\s+to|max|কম|নিচে|নীচে|মধ্যে|नीचे|तक|अंदर)\s*(?:rs\.?|inr|₹|টাকা|টাকার|रुपये|रुपए)?\s*(\d{2,5})/i
+    /(?:under|below|less\s+than|within|upto|up\s+to|max|budget|কম|নিচে|নীচে|মধ্যে|ভেতরে|ভিতরে|नीचे|तक|अंदर)\s*(?:rs\.?|inr|₹|টাকা|টাকার|taka|takar|रुपये|रुपए|rupaye|rupees)?\s*(\d{2,5})/i
   );
   const budgetAfter = normalized.match(
-    /(?:rs\.?|inr|₹)?\s*(\d{2,5})\s*(?:টাকার\s*(?:নিচে|নীচে|মধ্যে)|টাকা\s*(?:নিচে|মধ্যে)|er\s*(?:niche|moddhe)|के\s*(?:नीचे|अंदर|तक)|रुपये?\s*(?:के\s*)?(?:नीचे|तक)|tak|ke\s*niche)/i
+    /(?:rs\.?|inr|₹)?\s*(\d{2,5})\s*(?:টাকার\s*(?:নিচে|নীচে|মধ্যে|ভেতরে|ভিতরে)|টাকা\s*(?:নিচে|নীচে|মধ্যে|ভেতরে|ভিতরে)|takar\s*(?:niche|moddhe|modhe|vitore|bhitore)|taka\s*(?:niche|moddhe|modhe|vitore|bhitore)|(?:er|r)\s*(?:niche|moddhe|modhe|vitore|bhitore)|(?:रुपये|रुपए|रुपया|rupaye|rupees|rs\.?)?\s*(?:के\s*)?(?:नीचे|अंदर|तक|में)|(?:ke|k)\s*(?:andar|niche|under|tak)|mein|me|tak)(?=$|[\s,।.?!])/i
   );
   const matchedBudget = budgetBefore?.[1] || budgetAfter?.[1];
   if (matchedBudget) {
