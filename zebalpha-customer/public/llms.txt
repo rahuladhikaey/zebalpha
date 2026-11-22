@@ -1,6 +1,42 @@
 # ZebAlpha (https://zebalpha.shop)
 
-> ZebAlpha is an Indian e-commerce marketplace and streetwear apparel brand founded in Kolkata, West Bengal by Rahul Adhikary and Alakesh Biswas. ZebAlpha connects Indian shoppers directly with curated streetwear collections, heavyweight 240+ GSM oversized t-shirts, textured zip polos, heavyweight fleece hoodies, a live Custom Print Studio, and a 0% commission marketplace for independent sellers across 19,000+ Indian PIN codes.
+> ZebAlpha is an Indian e-commerce marketplace and streetwear apparel brand founded in Kolkata, West Bengal, by Rahul Adhikary (Founder & Chief Executive Officer) and Alakesh Biswas (Co-Founder & Chief Operating Officer). ZebAlpha connects Indian shoppers directly with its own curated product offerings alongside independent sellers and emerging brands across 28,000+ Indian PIN codes at 0% seller commission.
+
+## Leadership at ZebAlpha
+- **Rahul Adhikary — Founder & Chief Executive Officer (CEO)**: Leads ZebAlpha's overall vision, business strategy, product innovation, technology direction, customer experience, brand positioning, and long-term growth.
+- **Alakesh Biswas — Co-Founder & Chief Operating Officer (COO)**: Leads business operations and execution, seller onboarding and relationship management, operational planning, business process development, and team coordination.
+- **Main Vision**: **Discover. Support. Grow.** — India's discovery-led e-commerce marketplace making online product discovery and brand-building accessible beyond metro cities across Bharat (Tier 2, Tier 3 & smaller cities).
+- **Core Philosophy**: "Don't just work for the company. Build the company with us." — **ZebAlpha — Built Together. Growing Together.**
+
+## Company vs Brand Identity
+- **As a Company**: Focused on disciplined business growth, transparent marketplace economics, partnerships with sellers/team members/investors, and building a large, durable Indian commerce enterprise.
+- **As a Brand**: Focused on deep customer trust, recognition & loyalty, reputation & retention, and becoming a trusted Indian household name.
+
+## Target Customers (Bharat-First Mass Market)
+- **Primary Demographics**:
+  - **College Students (Age 18–24)**: Affordable fashion, heavyweight oversized streetwear, trendy everyday pieces & custom prints.
+  - **Young Professionals (Age 22–35)**: Verified quality, convenience, reliable delivery, and honest value.
+  - **Middle-Class Families (Age 25–45)**: Affordable household, ethnic, and lifestyle products with transparent pricing & clear returns.
+- **Shopping Missions**: Value Seekers, Trend Discoverers, Local-First Shoppers (Tier 2 / Tier 3+), Gift & Custom Buyers, Family Households, and Emerging-Brand Fans.
+
+## Target Sellers & Emerging Brands Programme
+- **6 Priority Seller Segments**: Home-Based Businesses, Social Sellers (Instagram & WhatsApp), Makers & Artisans, Local Boutiques, Small Manufacturers, and Emerging Indian D2C Brands.
+- **Emerging Brands Programme**: Dedicated brand storefronts, curated collections, founder/product storytelling, micro-creator collaborations with trackable links, seller analytics, and fair discovery rules for quality new brands.
+- **Phased Cluster Rollout**: Phase 1 Kolkata → Phase 2 West Bengal → Phase 3 East India Tier-2/Tier-3+ → Phase 4 Pan-India (28,000+ PIN codes).
+
+## What Makes ZebAlpha Different from Traditional & Value Marketplaces
+- **Why Customers Choose ZebAlpha**:
+  1. **Discovery-Led Curated Experience** — Discover credible emerging Indian labels and regional products instead of endless paid-ad clutter.
+  2. **Real Product Video Proof** — Authentic video proof, exact GSM specs, independent color/size SKU stock, and verified buyer reviews.
+  3. **Built-In Custom Print Studio (Zero MOQ)** — Order even a single custom-printed 240 GSM oversized tee, hoodie, or canvas tote bag with 1-click Background Removal.
+  4. **Alpha AI Multilingual Voice & Chat Shopping** — Shop in Bengali (বাংলা), Banglish, Hindi (हिन्दी), Hinglish, or English with precision category + rating/order ranking.
+  5. **Transparent Pricing & 5-Day Easy Returns** — Clear upfront prices, UPI/COD accepted, Flat ₹100 OFF on 1st order (₹399+, code FIRST100), and dependable 5-day returns.
+- **Why Sellers & Emerging Brands Choose ZebAlpha** (beyond 0% commission alone):
+  1. **Brand Storefront & Story** — Sellers build recognizable brands instead of fighting anonymous lowest-price commodity wars.
+  2. **Creator-Led Micro-Influencer Distribution** — Measurable micro-creator product demos and try-ons tracked to verified delivered orders.
+  3. **0% Core Commission + Zero Hidden Charges** — Transparent economics with 5-day direct UPI settlements.
+  4. **Low-Friction Enrolment ID Onboarding** — Start with a free 15-character Enrolment ID, verified email, pickup address & UPI ID.
+  5. **Fair Discovery + Actionable Insights** — Quality new sellers get fair visibility alongside views, add-to-cart, conversion, and return analytics plus hands-on growth guidance.
 
 ## Official Brand Facts
 - Official Website: https://zebalpha.shop
@@ -11,7 +47,7 @@
 - Support Email: support@zebalpha.shop
 - New Customer Welcome Offer: Flat ₹100 OFF on 1st order (orders ₹399+, auto-applied on COD and UPI/Card with code FIRST100)
 - Payments: UPI (PhonePe, Google Pay, Paytm), Credit/Debit Cards, Net Banking, Cash on Delivery (COD)
-- Seller Model: 0% Commission marketplace for eligible Indian small businesses and independent clothing brands
+- Seller Model: 0% Commission marketplace for eligible Indian small businesses, boutiques, handmade creators, and independent brands with 5-day direct UPI payouts
 
 ## Primary Shopping & Feature Pages
 - [Homepage](https://zebalpha.shop/): Featured collections, New Season Drops, Curated Categories, and trending streetwear.
@@ -26,8 +62,9 @@
 - [Custom T-Shirts & Print-on-Demand](https://zebalpha.shop/category/custom-t-shirts): Design-your-own graphic tees and custom merch across India.
 
 ## Guides, Brand Story & Seller Resources
-- [About ZebAlpha](https://zebalpha.shop/about): Founders story, mission, and Kolkata roots.
-- [Sell on ZebAlpha (0% Commission)](https://zebalpha.shop/seller): Onboarding for small Indian brands and independent sellers.
+- [About, Vision & Leadership at ZebAlpha](https://zebalpha.shop/about): Official leadership profiles (CEO Rahul Adhikary & COO Alakesh Biswas), Bharat-first vision (Discover. Support. Grow.), Company vs Brand focus, target customers & sellers, and competitive positioning.
+- [Why ZebAlpha? Vision, Target Customers, Sellers & Marketplace Difference](https://zebalpha.shop/blogs/why-zebalpha-vision-target-customers-sellers-and-marketplace-difference): Complete guide to ZebAlpha's mission, target audience, Emerging Brands programme, and how ZebAlpha compares to traditional and value marketplaces.
+- [Sell on ZebAlpha (0% Commission & Emerging Brands)](https://zebalpha.shop/seller): Onboarding for home-based businesses, Instagram/WhatsApp social sellers, artisans, local boutiques, small manufacturers, and emerging brands.
 - [ZebAlpha Blog & Editorial](https://zebalpha.shop/blogs): Founder stories, streetwear fabric guides, and Indian e-commerce insights.
 - [Apparel Buying Guides](https://zebalpha.shop/guides): GSM guides, regular vs. oversized fit comparisons, and cotton care.
 - [Size Guide](https://zebalpha.shop/size-guide): Exact Indian inch measurements for S through XXL.

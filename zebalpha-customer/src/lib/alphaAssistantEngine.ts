@@ -31,6 +31,7 @@ export interface AssistantAnalysis {
   language: AssistantLanguage;
   voiceLang: "bn-IN" | "hi-IN" | "en-IN";
   isSupportOnly: boolean;
+  isCompanyInfoQuery: boolean;
   isGreeting: boolean;
   isShoppingIntent: boolean;
   itemTypes: string[];
@@ -267,6 +268,9 @@ const HINGLISH_MARKERS =
 const PURE_SUPPORT_REGEX =
   /(refund|money\s*back|cancel|cancellation|payment\s*fail|debited|double\s*charged|deducted|track\s*(my\s*)?order|where\s+is\s+my\s+order|order\s*status|return\s*policy|how\s+to\s+return|replace|exchange|customer\s*care|support\s*(team|agent|number)|account\s*deletion|invoice|অর্ডার\s*ট্র্যাক|রিটার্ন|রিফান্ড|ক্যান্সেল|ডেলিভারি\s*কবে|পেমেন্ট\s*ফেল|কাস্টমার\s*কেয়ার|ऑर्डर\s*ट्रैक|रिटर्न|रिफंड|कैंसल|पेमेंट\s*फेल|कस्टमर\s*केयर|order\s*kothay|order\s*kahan|return\s*korbo|return\s*kaise)/i;
 
+const COMPANY_INFO_REGEX =
+  /(who\s+is\s+(the\s+)?(ceo|coo|founder|co[\s-]?founder|owner|leader|head)|name\s+of\s+(the\s+)?(ceo|coo|founder|owner)|(ceo|coo|founder|co[\s-]?founder|owner|leadership)\s+(of\s+)?zebalpha|zebalpha\s*(ceo|coo|founder|co[\s-]?founder|owner|leadership|vision|philosophy|about|mission|target|vs|versus)|why\s+(choose\s+|accept\s+|use\s+|buy\s+from\s+|sell\s+on\s+)?zebalpha|how\s+is\s+zebalpha\s+different|zebalpha\s+(vs|versus|compared\s+to)\s+(flipkart|meesho|amazon|myntra)|who\s+can\s+sell\s+on\s+zebalpha|emerging\s+brands?\s+(on\s+)?zebalpha|rahul\s+adhikary|alakesh\s+biswas|malik\s*ke|ke\s*(baniyeche|banieche|founder|ceo|coo|owner)|কে\s*(বানিয়েছে|বানিয়েছে|প্রতিষ্ঠাতা|মালিক|সিইও)|সিইও\s*কে|কেন\s*জেবআলফা|কেন\s*zebalpha|किसने\s*बनाया|मालिक\s*कौन|फाउंडर\s*कौन|सीईओ\s*कौन|क्यों\s*zebalpha)/i;
+
 const GREETING_REGEX =
   /^(hi|hii+|hello|hey+|good\s*(morning|afternoon|evening)|namaste|namaskar|nomoshkar|নমস্কার|হ্যালো|হাই|नमस्ते|हेलो|हाय)[\s!.,?]*$/i;
 
@@ -381,6 +385,7 @@ export function analyzeShoppingQuery(
   }
 
   const isGreeting = GREETING_REGEX.test(rawPrompt.trim());
+  const isCompanyInfoQuery = COMPANY_INFO_REGEX.test(normalizedDigits);
   const hasShoppingSignal =
     itemTypes.length > 0 ||
     colors.length > 0 ||
@@ -388,8 +393,8 @@ export function analyzeShoppingQuery(
     maxPrice !== null ||
     GENERAL_SHOPPING_REGEX.test(normalizedDigits);
 
-  const isSupportOnly = !hasShoppingSignal && PURE_SUPPORT_REGEX.test(normalizedDigits);
-  const isShoppingIntent = !isGreeting && !isSupportOnly && hasShoppingSignal;
+  const isSupportOnly = !hasShoppingSignal && !isCompanyInfoQuery && PURE_SUPPORT_REGEX.test(normalizedDigits);
+  const isShoppingIntent = !isGreeting && !isSupportOnly && !isCompanyInfoQuery && hasShoppingSignal;
 
   const rawTokens = parsed.flatTerms.filter((t) => t.length >= 2);
 
@@ -397,6 +402,7 @@ export function analyzeShoppingQuery(
     language,
     voiceLang,
     isSupportOnly,
+    isCompanyInfoQuery,
     isGreeting,
     isShoppingIntent,
     itemTypes,
@@ -1030,6 +1036,27 @@ function getRequestedItemLabel(analysis: AssistantAnalysis): string {
 
 export function getMultilingualQuickLinks(analysis: AssistantAnalysis): AssistantQuickLink[] {
   const lang = analysis.language;
+  if (analysis.isCompanyInfoQuery) {
+    if (lang === "bn" || lang === "bn_latin") {
+      return [
+        { label: "আমাদের ভিশন ও লিডারশিপ", href: "/about#why-zebalpha" },
+        { label: "কেন ZebAlpha সেরা?", href: "/blogs/why-zebalpha-vision-target-customers-sellers-and-marketplace-difference" },
+        { label: "ZebAlpha-তে সেল করুন", href: "/seller" },
+      ];
+    }
+    if (lang === "hi" || lang === "hi_latin") {
+      return [
+        { label: "विज़न और लीडरशिप", href: "/about#why-zebalpha" },
+        { label: "ZebAlpha क्यों चुनें?", href: "/blogs/why-zebalpha-vision-target-customers-sellers-and-marketplace-difference" },
+        { label: "ZebAlpha पर सेल करें", href: "/seller" },
+      ];
+    }
+    return [
+      { label: "Vision & Leadership", href: "/about#why-zebalpha" },
+      { label: "Why Choose ZebAlpha", href: "/blogs/why-zebalpha-vision-target-customers-sellers-and-marketplace-difference" },
+      { label: "Sell on ZebAlpha", href: "/seller" },
+    ];
+  }
   if (analysis.isSupportOnly) {
     if (lang === "bn") {
       return [
@@ -1099,6 +1126,44 @@ export function buildMultilingualAssistantReply(
       return `Namaste! **ZEBALPHA** mein aapka swagat hai! 👋\n\nMain **Alpha AI** hoon, aapka 24/7 Smart Shopping Assistant. Hindi, Hinglish, Bengali ya English mein type karke ya mic se bolkar best rated & high-order products dhundh sakte hain!\n\nJaise puchein:\n• *"500 ke andar black hoodie dikhao"*\n• *"Best rated kurti dikhao"*\n• *"Mera order track karo"*`;
     }
     return `Hi! Welcome to **ZEBALPHA**. 👋\n\nI’m **Alpha AI**, your 24/7 Smart Multilingual Shopping Assistant. Ask me in **English, বাংলা, or हिन्दी** (type or tap the Mic!) to discover top-rated & high-order picks.\n\nTry asking:\n• *"College wear oversized tee under 600"*\n• *"৫০০ টাকার মধ্যে ভালো টি-শার্ট দেখাও"*\n• *"500 ke andar black hoodie dikhao"*`;
+  }
+
+  // 1.5 Company, Vision, Differentiators & Leadership Queries
+  if (analysis.isCompanyInfoQuery) {
+    const isWhyOrStrategyQuery =
+      /(why|vision|mission|target|different|flipkart|meesho|amazon|myntra|emerging\s+brand|sell\s+on|কেন|क्यों)/i.test(
+        normalized
+      );
+
+    if (isWhyOrStrategyQuery) {
+      if (language === "bn") {
+        return `✨ **কেন ZebAlpha অন্য ই-কমার্সের থেকে আলাদা?**\n\n**আমাদের ভিশন:** *Discover. Support. Grow.* — কলকাতা থেকে শুরু করে ভারতের Tier 2, Tier 3 ও ছোট শহরের কাস্টমার এবং ছোট সেলার/নতুন ব্র্যান্ডদের জন্য একটি **Discovery-Led Marketplace**।\n\n**কাস্টমারদের জন্য বিশেষ সুবিধা:**\n• কেনার আগে **Real Product Video Proof** ও সঠিক Color/Size SKU ভেরিফিকেশন\n• **ZebAlpha Custom Studio (Zero MOQ)** — মাত্র ১ পিস কাস্টম ২৪০ GSM টি-শার্ট/হুডি/টোট ব্যাগ প্রিন্ট\n• **Alpha AI** — বাংলা, হিন্দি ও ইংরেজিতে ভয়েস ও চ্যাট শপিং\n• ১ম অর্ডারে ₹১০০ ছাড় (₹৩৯৯+), UPI/COD এবং ৫ দিনের সহজ রিটার্ন\n\n**সেলার ও নতুন ব্র্যান্ডদের জন্য সুবিধা:**\n• **0% Core Commission** + কোনো লুকানো চার্জ নেই + ৫ দিনে সরাসরি UPI পেআউট\n• অজ্ঞাত লিস্টিং নয় — নিজস্ব **Brand Storefront** ও ফাউন্ডার স্টোরি\n• **Creator-Led Micro-Influencer Discovery** ও সহজ ১৫-অক্ষরের Enrolment ID অনবোর্ডিং`;
+      }
+      if (language === "bn_latin") {
+        return `✨ **Keno ZebAlpha onno e-commerce theke alada?**\n\n**Main Vision:** *Discover. Support. Grow.* — Kolkata theke Bharat-er Tier 2/Tier 3 cities, small sellers & emerging brands-er jonno discovery-led marketplace.\n\n**Customer-der jonno unique subidha:**\n• Kenar age **Real Product Video Proof** & exact Color/Size SKU accuracy\n• **ZebAlpha Custom Studio (Zero MOQ)** — matro 1 piece custom 240 GSM tee/hoodie/tote\n• **Alpha AI** — Bangla, Banglish, Hindi & English-e voice + chat shopping\n• 1st order-e Flat ₹100 OFF (₹399+), UPI/COD & 5-day easy return\n\n**Seller & Emerging Brands-er jonno:**\n• **0% Core Commission**, zero hidden deductions & 5-day UPI payouts\n• Nijer **Brand Storefront & Story** (anonymous price war noy!)\n• **Micro-Influencer Creator Discovery** & easy 15-character Enrolment ID onboarding`;
+      }
+      if (language === "hi") {
+        return `✨ **ZebAlpha अन्य ई-कॉमर्स प्लेटफ़ॉर्म से अलग क्यों है?**\n\n**मुख्य विज़न:** *Discover. Support. Grow.* — भारत के Tier 2, Tier 3 शहरों के ग्राहकों, छोटे सेलर्स और उभरते ब्रांड्स के लिए Discovery-Led मार्केटप्लेस।\n\n**ग्राहकों के लिए खास फायदे:**\n• खरीदने से पहले **Real Product Video Proof** और सटीक Color/Size SKU\n• **ZebAlpha Custom Studio (Zero MOQ)** — सिर्फ़ 1 पीस कस्टम 240 GSM टी-शर्ट/हुडी/टोट बैग\n• **Alpha AI** — हिन्दी, बांग्ला और अंग्रेजी में वॉइस और चैट शॉपिंग\n• पहले ऑर्डर पर ₹100 की छूट (₹399+), UPI/COD और 5-दिन आसान रिटर्न\n\n**सेलर्स और नए ब्रांड्स के लिए:**\n• **0% Core Commission**, कोई छुपा चार्ज नहीं और 5-दिन में सीधा UPI पेआउट\n• अपना **Brand Storefront**, **Micro-Creator Campaigns** और आसान Enrolment ID ऑनबोर्डिंग`;
+      }
+      if (language === "hi_latin") {
+        return `✨ **ZebAlpha baaki e-commerce platforms se alag kyun hai?**\n\n**Main Vision:** *Discover. Support. Grow.* — Bharat ke Tier 2/Tier 3 cities ke customers, small sellers aur emerging Indian brands ke liye discovery-led marketplace.\n\n**Customers ke liye unique benefits:**\n• Kharidne se pehle **Real Product Video Proof** & exact Color/Size SKU accuracy\n• **ZebAlpha Custom Studio (Zero MOQ)** — sirf 1 piece custom 240 GSM tee/hoodie/tote\n• **Alpha AI** — Hindi, Hinglish, Bengali & English mein voice + chat shopping\n• 1st order par Flat ₹100 OFF (₹399+), UPI/COD & 5-day easy returns\n\n**Sellers & Emerging Brands ke liye:**\n• **0% Core Commission**, zero hidden charges & 5-day direct UPI payouts\n• Dedicated **Brand Storefront**, **Micro-Creator Campaigns** & easy Enrolment ID onboarding`;
+      }
+      return `✨ **Why Choose ZebAlpha? (Discover. Support. Grow.)**\n\nZebAlpha is India's **discovery-led, Bharat-first marketplace** built for **College Students (18–24), Young Professionals (22–35), Middle-Class Families (25–45)**, small sellers, and emerging Indian brands.\n\n**What Customers Get That Others Rarely Combine:**\n• **Real Product Video Proof** + strict per-color/size SKU accuracy\n• **Built-in Custom Print Studio (Zero MOQ)** with 1-click Remove BG\n• **Alpha AI Multilingual Voice & Chat Shopping** in Bengali, Hindi & English\n• Curated emerging brands, UPI/COD, Flat ₹100 OFF 1st order (₹399+), and 5-day easy returns\n\n**What Sellers Get Beyond 0% Commission:**\n• **Dedicated Brand Storefront & Story** (no anonymous commodity price wars)\n• **Creator-Led Micro-Influencer Distribution** tracked to delivered orders\n• **0% Core Commission**, simple Enrolment ID onboarding, fair visibility & 5-day UPI payouts`;
+    }
+
+    if (language === "bn") {
+      return `🏢 **ZebAlpha লিডারশিপ টিম (কলকাতা, ভারত):**\n\n• **Rahul Adhikary** — **Founder & Chief Executive Officer (CEO)** (ভিশন, বিজনেস স্ট্র্যাটেজি, প্রোডাক্ট ইনোভেশন ও টেকনোলজি ডিরেকশন)\n• **Alakesh Biswas** — **Co-Founder & Chief Operating Officer (COO)** (বিজনেস অপারেশনস, সেলার অনবোর্ডিং, অপারেশনাল প্ল্যানিং ও এক্সিকিউশন)\n\nআমাদের দর্শন: *"Don't just work for the company. Build the company with us."* — **ZebAlpha — Built Together. Growing Together.**`;
+    }
+    if (language === "bn_latin") {
+      return `🏢 **ZebAlpha Leadership Team (Kolkata, India):**\n\n• **Rahul Adhikary** — **Founder & Chief Executive Officer (CEO)** (company vision, strategy, product innovation & technology direction)\n• **Alakesh Biswas** — **Co-Founder & Chief Operating Officer (COO)** (business operations, seller onboarding & operational execution)\n\nAmader philosophy: *"Don't just work for the company. Build the company with us."* — **ZebAlpha — Built Together. Growing Together.**`;
+    }
+    if (language === "hi") {
+      return `🏢 **ZebAlpha लीडरशिप टीम (कोलकाता, भारत):**\n\n• **Rahul Adhikary** — **Founder & Chief Executive Officer (CEO)** (कंपनी का विज़न, बिज़नेस स्ट्रैटेजी, प्रोडक्ट इनोवेशन और टेक्नोलॉजी डायरेक्शन)\n• **Alakesh Biswas** — **Co-Founder & Chief Operating Officer (COO)** (बिज़नेस ऑपरेशंस, सेलर ऑनबोर्डिंग, प्लानिंग और एक्ज़ीक्यूशन)\n\nहमारा सिद्धांत: *"Don't just work for the company. Build the company with us."* — **ZebAlpha — Built Together. Growing Together.**`;
+    }
+    if (language === "hi_latin") {
+      return `🏢 **ZebAlpha Leadership Team (Kolkata, India):**\n\n• **Rahul Adhikary** — **Founder & Chief Executive Officer (CEO)** (company vision, business strategy, product innovation aur technology direction)\n• **Alakesh Biswas** — **Co-Founder & Chief Operating Officer (COO)** (business operations, seller onboarding aur execution)\n\nHamari philosophy: *"Don't just work for the company. Build the company with us."* — **ZebAlpha — Built Together. Growing Together.**`;
+    }
+    return `🏢 **Leadership at ZebAlpha (Kolkata, India):**\n\n• **Rahul Adhikary** — **Founder & Chief Executive Officer (CEO)**: Leads ZebAlpha's overall vision, business strategy, product innovation, technology direction, and long-term growth.\n• **Alakesh Biswas** — **Co-Founder & Chief Operating Officer (COO)**: Leads business operations, seller onboarding & relationships, operational planning, and execution.\n\n**Our Philosophy:** *"Don't just work for the company. Build the company with us."* — **ZebAlpha — Built Together. Growing Together.**`;
   }
 
   // 2. Support Queries (Localized!)
@@ -1249,6 +1314,7 @@ export async function generateOptionalGroundedAiReply(params: {
   matchMode: AssistantMatchMode;
 }): Promise<{ reply: string; provider: "gemini" | "openai" } | null> {
   const { prompt, history, analysis, products, matchMode } = params;
+  if (analysis.isCompanyInfoQuery || analysis.isGreeting) return null;
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
   if (!geminiKey && !openAiKey) return null;
@@ -1273,6 +1339,7 @@ export async function generateOptionalGroundedAiReply(params: {
 
   const systemPrompt = `You are Alpha AI, ZEBALPHA's 24/7 Smart Multilingual Shopping Assistant.
 LANGUAGE RULE: ${langRule[analysis.language]}
+COMPANY FACTS: ZebAlpha is an Indian e-commerce marketplace founded in Kolkata, West Bengal, India by Rahul Adhikary (Founder & Chief Executive Officer / CEO) and Alakesh Biswas (Co-Founder & Chief Operating Officer / COO). Philosophy: "Don't just work for the company. Build the company with us." — ZebAlpha — Built Together. Growing Together.
 STORE RULES: 5-day easy returns/exchanges, 2-5 day Pan-India delivery, UPI & COD accepted, never ask for OTP/PIN.
 STRICT GROUNDING RULES:
 - Match Mode: ${matchMode}.

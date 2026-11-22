@@ -51,15 +51,36 @@ export function buildOrganizationSchema() {
     "founder": [
       {
         "@type": "Person",
+        "@id": `${ZEBALPHA_BRAND_ENTITY.url}/about#rahul-adhikary`,
         "name": "Rahul Adhikary",
-        "jobTitle": "Founder"
+        "jobTitle": "Founder & Chief Executive Officer (CEO)",
+        "description": "Founder and Chief Executive Officer (CEO) of ZebAlpha, leading overall company vision, business strategy, product innovation, technology direction, and long-term growth.",
+        "worksFor": { "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization` }
       },
       {
         "@type": "Person",
+        "@id": `${ZEBALPHA_BRAND_ENTITY.url}/about#alakesh-biswas`,
         "name": "Alakesh Biswas",
-        "jobTitle": "Co-founder / Partner"
+        "jobTitle": "Co-Founder & Chief Operating Officer (COO)",
+        "description": "Co-Founder and Chief Operating Officer (COO) of ZebAlpha, leading business operations, seller onboarding and relationship management, operational planning, and execution.",
+        "worksFor": { "@id": `${ZEBALPHA_BRAND_ENTITY.url}/#organization` }
       }
     ],
+    "employee": [
+      {
+        "@type": "Person",
+        "@id": `${ZEBALPHA_BRAND_ENTITY.url}/about#rahul-adhikary`,
+        "name": "Rahul Adhikary",
+        "jobTitle": "Chief Executive Officer (CEO)"
+      },
+      {
+        "@type": "Person",
+        "@id": `${ZEBALPHA_BRAND_ENTITY.url}/about#alakesh-biswas`,
+        "name": "Alakesh Biswas",
+        "jobTitle": "Chief Operating Officer (COO)"
+      }
+    ],
+    "slogan": "Built Together. Growing Together.",
     "sameAs": ZEBALPHA_BRAND_ENTITY.sameAs,
     "contactPoint": [
       {

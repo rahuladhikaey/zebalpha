@@ -283,7 +283,7 @@ export function BlogPostClient({ post, relatedPosts }: BlogPostClientProps) {
 
             <p className="text-xs text-neutral-300 pt-2 leading-relaxed border-t border-neutral-900">
               {post.coAuthor
-                ? "Rahul Adhikary & Alakesh Biswas are reimagining Indian e-commerce with 0% commission, transparent economics, dedicated seller tools, and uncompromising customer trust under the vision: Built Together. Growing Together."
+                ? "Rahul Adhikary (Founder & CEO) and Alakesh Biswas (Co-Founder & COO) are building a smarter, more inclusive Indian e-commerce ecosystem with 0% seller commission, transparent economics, dedicated seller tools, and uncompromising customer trust under the philosophy: Built Together. Growing Together."
                 : "Dedicated to helping small apparel brands compete with global giants through zero-fee platforms, transparent economics, and cutting-edge streetwear craftsmanship."}
             </p>
           </div>

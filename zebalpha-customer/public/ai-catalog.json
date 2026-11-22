@@ -1,13 +1,62 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "ZEBALPHA Apparel Catalog",
-  "description": "Premium Streetwear, Combed Cotton Zip Polos & Zero-Commission Marketplace",
+  "description": "Indian E-Commerce Marketplace, Streetwear Apparel & Zero-Commission Seller Ecosystem",
   "url": "https://zebalpha.shop",
   "currency": "INR",
   "brand": {
-    "name": "ZEBALPHA",
+    "name": "ZebAlpha",
     "url": "https://zebalpha.shop",
-    "logo": "https://zebalpha.shop/official-logo.png"
+    "logo": "https://zebalpha.shop/official-logo.png",
+    "headquarters": "Kolkata, West Bengal, India",
+    "slogan": "Built Together. Growing Together.",
+    "philosophy": "Don't just work for the company. Build the company with us.",
+    "leadership": {
+      "ceo": {
+        "name": "Rahul Adhikary",
+        "title": "Founder & Chief Executive Officer (CEO)"
+      },
+      "coo": {
+        "name": "Alakesh Biswas",
+        "title": "Co-Founder & Chief Operating Officer (COO)"
+      }
+    },
+    "strategy": {
+      "positioning": "India's discovery-led e-commerce marketplace for customers, small sellers, and emerging Indian brands.",
+      "vision_tagline": "Discover. Support. Grow.",
+      "geographic_focus": "Bharat-First (Tier 2, Tier 3 & smaller Indian cities) expanding cluster-by-cluster: Kolkata -> West Bengal -> East India -> Pan-India (28,000+ PIN codes).",
+      "company_vs_brand": {
+        "company_focus": "Sustainable business growth, transparent marketplace economics, investor/seller/team partnerships, building a large durable enterprise.",
+        "brand_focus": "Deep customer trust, recognition & loyalty, reputation & retention, becoming an Indian household name."
+      },
+      "target_customers": [
+        { "segment": "College Students", "age_group": "18-24", "needs": "Affordable fashion, trendy streetwear, custom prints" },
+        { "segment": "Young Professionals", "age_group": "22-35", "needs": "Verified quality, convenience, honest value" },
+        { "segment": "Middle-Class Families", "age_group": "25-45", "needs": "Affordable household, ethnic & lifestyle products with reliable delivery" }
+      ],
+      "target_sellers": [
+        "Home-Based Businesses",
+        "Social Sellers (Instagram & WhatsApp)",
+        "Makers & Artisans",
+        "Local Boutiques",
+        "Small Manufacturers",
+        "Emerging Indian Brands"
+      ],
+      "key_customer_differentiators": [
+        "Discovery-led curated marketplace for emerging Indian brands",
+        "Real Product Video Proof and strict per-color/size SKU accuracy",
+        "Built-in ZebAlpha Custom Print Studio with Zero MOQ and 1-click Remove BG",
+        "Alpha AI multilingual voice & chat shopping in Bengali, Banglish, Hindi, Hinglish & English",
+        "Transparent pricing, UPI/COD support, Flat ₹100 OFF 1st order (₹399+), and 5-day easy returns"
+      ],
+      "key_seller_differentiators": [
+        "Dedicated Brand Storefront & storytelling (not anonymous commodity price wars)",
+        "Creator-led micro-influencer marketing with trackable links & verified delivered orders",
+        "0% core commission for eligible sellers with zero hidden charges and 5-day direct UPI payouts",
+        "Low-friction 15-character Enrolment ID onboarding",
+        "Fair new-seller discovery, performance insights, and hands-on growth enablement"
+      ]
+    }
   },
   "categories": [
     {
@@ -36,7 +85,7 @@
     }
   ],
   "seller_hub": {
-    "name": "Zebalpha Supplier Hub",
+    "name": "ZebAlpha Seller Hub",
     "commission_rate": "0%",
     "url": "https://seller.zebalpha.shop/register"
   }
