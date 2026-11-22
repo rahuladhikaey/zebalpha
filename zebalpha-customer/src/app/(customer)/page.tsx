@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { HomeHero } from "@/components/HomeHero";
 import { CuratedCollectionsSection } from "@/components/CuratedCollectionsSection";
 import { ZebalphaEditorial } from "@/components/home/ZebalphaEditorial";
+import { BrandSpotlightSection } from "@/components/home/BrandSpotlightSection";
 import { OurProductsBanner } from "@/components/home/OurProductsBanner";
 import { Footer } from "@/components/Footer";
 import { InfiniteProductFeed } from "@/components/InfiniteProductFeed";
@@ -161,6 +162,9 @@ export default async function HomePage(props: {
           <Suspense fallback={<EditorialSkeleton />}>
             <EditorialContainer brandParam={brandParam} />
           </Suspense>
+
+          {/* Approved Seller App Branding Spotlights (Renders only when live campaigns exist) */}
+          <BrandSpotlightSection />
 
           {/* Featured Marketplace Products Grid */}
           <section className="mt-14 mb-16">

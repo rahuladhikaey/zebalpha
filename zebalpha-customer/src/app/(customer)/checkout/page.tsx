@@ -18,6 +18,7 @@ import {
   getOrCreateRecommendationSessionId,
   getRecommendationPlatform,
 } from "@/lib/recommendationClient";
+import { getActiveMarketingAttribution } from "@/components/marketing/InfluencerRefTracker";
 
 const normalizeAddressFromRecord = (record: any) => {
   const addressLine = record?.address_line || record?.address_line1 || record?.address_line2 || "";
@@ -690,6 +691,7 @@ function CheckoutContent() {
           discount: totalDiscount,
           sessionId: getOrCreateRecommendationSessionId(),
           platform: getRecommendationPlatform(),
+          ...getActiveMarketingAttribution(),
         };
 
         let responseData: any = null;
@@ -871,6 +873,7 @@ function CheckoutContent() {
                 discount: totalDiscount,
                 sessionId: getOrCreateRecommendationSessionId(),
                 platform: getRecommendationPlatform(),
+                ...getActiveMarketingAttribution(),
               };
 
               let verifyData: any = null;

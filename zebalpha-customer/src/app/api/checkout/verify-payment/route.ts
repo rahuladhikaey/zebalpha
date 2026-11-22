@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { sendWhatsAppOrderConfirmation } from "@/lib/whatsapp";
 import { createMasterOrder } from "@/lib/orderRouter";
 import { recordOrderPurchaseEvents } from "@/lib/recommendationEngine";
+import { recordOrderMarketingAttribution } from "@/lib/marketingAttributionServer";
 import { verifyCheckoutPricingServer } from "@/lib/firstOrderOfferServer";
 import { sendFcmPushServer } from "@/lib/fcmPushServer";
 import crypto from "crypto";
@@ -314,6 +315,14 @@ export async function POST(req: Request) {
       platform:
         body?.platform ||
         (req.headers.get("user-agent")?.includes("ZEBALPHA_ANDROID_APP") ? "android" : "website"),
+    }).catch(() => {});
+
+    recordOrderMarketingAttribution({
+      influencerRef: body?.influencerRef,
+      brandingCampaignId: body?.brandingCampaignId,
+      orderId: orderIdToReturn,
+      orderAmount: authoritativeTotal,
+      items: items || [],
     }).catch(() => {});
 
     if (user_id) {

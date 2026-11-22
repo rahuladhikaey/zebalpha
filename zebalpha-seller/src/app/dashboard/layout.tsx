@@ -25,7 +25,11 @@ import {
   MapPin,
   ShieldCheck,
   Lock,
-  RotateCcw
+  RotateCcw,
+  Megaphone,
+  ChevronDown,
+  Users,
+  Star
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -37,6 +41,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isMarketingOpen, setIsMarketingOpen] = useState(true);
   const isExpanded = isHovered || isSidebarOpen;
 
   const [sellerName, setSellerName] = useState("Seller");
@@ -167,7 +172,15 @@ export default function DashboardLayout({
     router.replace("/login?logged_out=1");
   };
 
-  const navItems: Array<{ name: string; href: string; icon: any; badge?: string }> = [
+  type NavItem = {
+    name: string;
+    href: string;
+    icon: any;
+    badge?: string;
+    children?: Array<{ name: string; href: string; icon: any; badge?: string }>;
+  };
+
+  const navItems: NavItem[] = [
     { name: "Home",          href: "/dashboard/home",          icon: Home },
     { name: "Dashboard",     href: "/dashboard",               icon: LayoutDashboard },
     { name: "Products",      href: "/dashboard/products",      icon: ShoppingBag },
@@ -179,6 +192,16 @@ export default function DashboardLayout({
     { name: "Pickup Hubs",   href: "/dashboard/addresses",     icon: MapPin },
     { name: "Payments & Ledger", href: "/dashboard/payments",  icon: IndianRupee },
     { name: "Reports",       href: "/dashboard/reports",       icon: BarChart3 },
+    {
+      name: "Marketing",
+      href: "/dashboard/marketing/influencer",
+      icon: Megaphone,
+      badge: "NEW",
+      children: [
+        { name: "Influencer Marketing", href: "/dashboard/marketing/influencer", icon: Users },
+        { name: "App Branding",         href: "/dashboard/marketing/branding",   icon: Star },
+      ],
+    },
     { name: "Notifications", href: "/dashboard/notifications", icon: Bell },
     { name: "Settings",      href: "/dashboard/settings",      icon: Settings },
     { name: "Support",       href: "/dashboard/support",       icon: HelpCircle },
@@ -206,11 +229,14 @@ export default function DashboardLayout({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isSidebarOpen]);
 
-  const activeNavItem = navItems.find(
-    (item) =>
-      pathname === item.href ||
-      (item.href !== "/dashboard" && item.href !== "/dashboard/home" && pathname.startsWith(item.href))
-  );
+  const activeNavItem =
+    navItems
+      .flatMap((item) => (item.children ? item.children : [item]))
+      .find(
+        (item) =>
+          pathname === item.href ||
+          (item.href !== "/dashboard" && item.href !== "/dashboard/home" && pathname.startsWith(item.href))
+      ) || navItems[0];
 
   // FULL-SCREEN SECURITY SHIELD WHILE VERIFYING CREDENTIALS
   if (authStatus === "checking") {
@@ -325,10 +351,113 @@ export default function DashboardLayout({
         {/* Navigation Links */}
         <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto no-scrollbar">
           {navItems.map((item) => {
+            const Icon = item.icon;
+            if (item.children && item.children.length > 0) {
+              const isGroupActive = item.children.some((c) => pathname.startsWith(c.href));
+              return (
+                <div key={item.name} className="relative group/item space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isExpanded) {
+                        router.push(item.href);
+                        setIsSidebarOpen(false);
+                      } else {
+                        setIsMarketingOpen((prev) => !prev);
+                      }
+                    }}
+                    className={`w-full flex items-center rounded-2xl px-3.5 py-3 text-sm font-extrabold transition-all cursor-pointer ${
+                      isExpanded ? "justify-between" : "justify-center"
+                    } ${
+                      isGroupActive && !isExpanded
+                        ? "bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)]"
+                        : isGroupActive
+                          ? "bg-[#FFF4F2] text-[#F03A46] border border-[#F03A46]/25"
+                          : "text-[#5C4E35] hover:bg-[#FFF8DB] hover:text-[#14120F]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <Icon
+                        size={20}
+                        className={`shrink-0 ${
+                          isGroupActive && !isExpanded
+                            ? "text-white"
+                            : isGroupActive
+                              ? "text-[#F03A46]"
+                              : "text-[#9A6503]"
+                        }`}
+                      />
+                      <span
+                        className={`transition-all duration-300 whitespace-nowrap ${
+                          isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
+                        }`}
+                      >
+                        {item.name}
+                      </span>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.badge && (
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border bg-[#FFF8DB] text-[#9A6503] border-[#DFBE6F]">
+                            {item.badge}
+                          </span>
+                        )}
+                        <ChevronDown
+                          size={15}
+                          className={`transition-transform duration-200 ${
+                            isMarketingOpen ? "rotate-180" : ""
+                          } ${isGroupActive ? "text-[#F03A46]" : "text-[#9A6503]"}`}
+                        />
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Sub-items (Visible when expanded & toggled open) */}
+                  {isExpanded && isMarketingOpen && (
+                    <div className="pl-4 space-y-1">
+                      {item.children.map((sub) => {
+                        const SubIcon = sub.icon;
+                        const subActive = pathname === sub.href || pathname.startsWith(sub.href);
+                        return (
+                          <Link
+                            key={sub.href}
+                            href={sub.href}
+                            onClick={() => setIsSidebarOpen(false)}
+                            data-photo-overlay={subActive ? "true" : undefined}
+                            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-extrabold transition-all ${
+                              subActive
+                                ? "bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white shadow-[0_6px_16px_rgba(240,58,70,0.25)]"
+                                : "text-[#5C4E35] hover:bg-[#FFF8DB] hover:text-[#14120F]"
+                            }`}
+                          >
+                            <SubIcon
+                              size={15}
+                              className={`shrink-0 ${subActive ? "text-white" : "text-[#9A6503]"}`}
+                            />
+                            <span className="truncate">{sub.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Collapsed flyout tooltip */}
+                  {!isExpanded && (
+                    <div
+                      data-keep-dark="true"
+                      className="fixed left-20 ml-2 hidden lg:group-hover/item:flex items-center gap-2 z-50 bg-[#14120F] border border-[#DFBE6F] text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xl pointer-events-none"
+                    >
+                      <span>{item.name} (Influencer &amp; Branding)</span>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && item.href !== "/dashboard/home" && pathname.startsWith(item.href));
-            const Icon = item.icon;
             return (
               <div key={item.name} className="relative group/item">
                 <Link

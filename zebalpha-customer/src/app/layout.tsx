@@ -48,6 +48,7 @@ export const metadata = {
 
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AppLaunchSplashController } from "@/components/AppLaunchSplashController";
+import { InfluencerRefTracker } from "@/components/marketing/InfluencerRefTracker";
 
 export default function RootLayout({
   children,
@@ -135,6 +136,7 @@ export default function RootLayout({
         {/* End Google Tag Manager (noscript) */}
 
         <QueryProvider>
+          <InfluencerRefTracker />
           <AppLaunchSplashController />
           {children}
         </QueryProvider>

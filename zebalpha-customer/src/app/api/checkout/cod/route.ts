@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { sendWhatsAppOrderConfirmation } from "@/lib/whatsapp";
 import { createMasterOrder } from "@/lib/orderRouter";
 import { recordOrderPurchaseEvents } from "@/lib/recommendationEngine";
+import { recordOrderMarketingAttribution } from "@/lib/marketingAttributionServer";
 import { verifyCheckoutPricingServer } from "@/lib/firstOrderOfferServer";
 import { sendFcmPushServer } from "@/lib/fcmPushServer";
 
@@ -30,6 +31,8 @@ export async function POST(req: Request) {
       subtotal,
       sessionId: bodySessionId,
       platform: bodyPlatform,
+      influencerRef,
+      brandingCampaignId,
     } = await req.json();
 
     // Verify product prices against database before creating order
@@ -224,6 +227,14 @@ export async function POST(req: Request) {
       platform:
         bodyPlatform ||
         (req.headers.get("user-agent")?.includes("ZEBALPHA_ANDROID_APP") ? "android" : "website"),
+    }).catch(() => {});
+
+    recordOrderMarketingAttribution({
+      influencerRef,
+      brandingCampaignId,
+      orderId: parentOrder.id,
+      orderAmount: authoritativeTotal,
+      items,
     }).catch(() => {});
 
     // Send phone push notification for order confirmation (non-blocking)
