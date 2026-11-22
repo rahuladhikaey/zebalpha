@@ -8,11 +8,13 @@ import {
   BadgePercent,
   BarChart3,
   BookOpen,
+  Building2,
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   FileCheck2,
+  Globe2,
   Handshake,
   LayoutDashboard,
   Mail,
@@ -20,13 +22,16 @@ import {
   Megaphone,
   Menu,
   PackageCheck,
+  Palette,
   Play,
   Rocket,
   ShieldCheck,
+  ShoppingBag,
   Flame,
   Store,
   TrendingUp,
   Truck,
+  Users,
   X,
   Ban,
 } from "lucide-react";
@@ -83,26 +88,174 @@ const SELLER_STORIES: SellerStory[] = [
   },
 ];
 
-const POPULAR_CATEGORIES_PRIMARY = [
-  { label: "Sell Sarees Online", query: "Sarees & Ethnic Wear" },
-  { label: "Sell Jewellery Online", query: "Jewellery & Accessories" },
-  { label: "Sell T-Shirts Online", query: "T-Shirts & Streetwear" },
-  { label: "Sell Shirts Online", query: "Men's Shirts & Polos" },
-  { label: "Sell Kurtis Online", query: "Kurtis & Women's Fashion" },
-  { label: "Sell Hoodies Online", query: "Hoodies & Winterwear" },
-  { label: "Sell Clothes Online", query: "Clothing & Apparel" },
-  { label: "Sell Socks & Accessories", query: "Footwear & Socks" },
+type MarketCategoryItem = {
+  title: string;
+  demandTag: string;
+  insight: string;
+};
+
+const POPULAR_CATEGORIES_PRIMARY: MarketCategoryItem[] = [
+  {
+    title: "Trendy & Oversized T-Shirts",
+    demandTag: "Top Demand",
+    insight: "Fastest-moving streetwear & graphic tees among 18–30 social media shoppers.",
+  },
+  {
+    title: "Kurtis & Women's Fashion",
+    demandTag: "High Repeat",
+    insight: "Year-round daily wear & festive orders across metro, Tier 2 & Tier 3 cities.",
+  },
+  {
+    title: "Handmade Jewellery & Accessories",
+    demandTag: "High Margin",
+    insight: "Strong buyer appetite for unique, handcrafted designs not found in local stores.",
+  },
+  {
+    title: "Custom & Personalised Gifts",
+    demandTag: "Trending",
+    insight: "High conversion on custom-printed tees, gift combos & personalised accessories.",
+  },
+  {
+    title: "Sarees & Ethnic Sets",
+    demandTag: "Festive Leader",
+    insight: "Consistent nationwide demand for boutique ethnic wear at value-friendly prices.",
+  },
+  {
+    title: "Men's Shirts & Casual Polos",
+    demandTag: "Steady Volume",
+    insight: "Reliable everyday & office-wear category for value-conscious 20–40 buyers.",
+  },
+  {
+    title: "Hoodies & Streetwear Drops",
+    demandTag: "Youth Favourite",
+    insight: "High average order value for emerging small clothing labels & limited drops.",
+  },
+  {
+    title: "Handmade Home Decor",
+    demandTag: "Growing Fast",
+    insight: "Artisanal room decor & aesthetic lifestyle pieces discovered via short videos.",
+  },
 ];
 
-const POPULAR_CATEGORIES_EXTRA = [
-  { label: "Sell Polos Online", query: "Men's Shirts & Polos" },
-  { label: "Sell Streetwear Online", query: "T-Shirts & Streetwear" },
-  { label: "Sell Watches Online", query: "Watches & Lifestyle" },
-  { label: "Sell Ethnic Sets Online", query: "Sarees & Ethnic Wear" },
-  { label: "Sell Footwear Online", query: "Footwear & Socks" },
-  { label: "Sell Winterwear Online", query: "Hoodies & Winterwear" },
-  { label: "Sell Tote Bags Online", query: "Jewellery & Accessories" },
-  { label: "Sell Home Decor Online", query: "Home & Kitchen" },
+const POPULAR_CATEGORIES_EXTRA: MarketCategoryItem[] = [
+  {
+    title: "Footwear & Everyday Socks",
+    demandTag: "Daily Essential",
+    insight: "High-volume casual sneakers, sliders, ethnic footwear & combo sock packs.",
+  },
+  {
+    title: "Personalised Accessories",
+    demandTag: "High Margin",
+    insight: "Custom phone cases, keychains, wallets & name-engraved lifestyle add-ons.",
+  },
+  {
+    title: "Tote Bags & Carry Essentials",
+    demandTag: "College Trend",
+    insight: "Printed canvas totes & compact slings popular with college & young shoppers.",
+  },
+  {
+    title: "Watches & Style Essentials",
+    demandTag: "Gift Pick",
+    insight: "Affordable fashion watches & combo sets with strong COD conversion.",
+  },
+  {
+    title: "Boutique & Regional Fashion",
+    demandTag: "Tier 2 & 3 Hit",
+    insight: "Local craft & boutique silhouettes that shoppers cannot easily find nearby.",
+  },
+  {
+    title: "Winterwear & Layering",
+    demandTag: "Seasonal Peak",
+    insight: "Sweatshirts, jackets & fleece pullovers driving high-margin seasonal surges.",
+  },
+  {
+    title: "Daily-Use Value Apparel",
+    demandTag: "High Volume",
+    insight: "Comfortable cotton basics & co-ord sets offering better quality for the price.",
+  },
+  {
+    title: "Small-Brand Capsule Collections",
+    demandTag: "Brand Growth",
+    insight: "Direct-to-consumer launches for new labels scaling from wholesale to retail.",
+  },
+];
+
+const TARGET_AUDIENCE_SEGMENTS = [
+  {
+    code: "Audience 01",
+    ageTag: "Ages 18–30",
+    title: "Young Fashion & Lifestyle Shoppers",
+    icon: ShoppingBag,
+    points: [
+      "Actively shop for trendy T-shirts, oversized shirts, streetwear, and modern accessories.",
+      "Look for fresh, unique designs and stylish fashion at affordable prices.",
+      "Discover new products and emerging labels through social media and short-form video.",
+      "Strongly prefer personalised and customised products that reflect their individuality.",
+    ],
+  },
+  {
+    code: "Audience 02",
+    ageTag: "Ages 20–40",
+    title: "Value-Conscious Everyday Shoppers",
+    icon: Users,
+    points: [
+      "Shop regularly for affordable fashion and reliable daily-use lifestyle products.",
+      "Prioritize dependable fabric and build quality at fair, reasonable prices.",
+      "Expect Cash on Delivery (COD), easy returns, and trustworthy doorstep delivery.",
+      "Always look for better product quality and lasting value within the same budget.",
+    ],
+  },
+  {
+    code: "Audience 03",
+    ageTag: "Pan-India Reach",
+    title: "Tier 2 & Tier 3 City Shoppers",
+    icon: Globe2,
+    points: [
+      "High demand for curated and trendy products not easily available in local markets.",
+      "Strong interest in affordable lifestyle upgrades, festive wear, and everyday fashion.",
+      "Keen to explore authentic regional brands and emerging independent sellers.",
+      "Value a dependable, transparent, and hassle-free online shopping experience.",
+    ],
+  },
+];
+
+const IDEAL_SELLER_PROFILES = [
+  {
+    tag: "High Priority",
+    featured: true,
+    title: "Handmade & Customised Product Sellers",
+    icon: Palette,
+    points: [
+      "Handmade jewellery artisans and independent craft creators.",
+      "Custom gift makers and personalised hamper brands.",
+      "Printed T-shirt designers and made-to-order apparel creators.",
+      "Handmade home decor studios and personalised accessory sellers.",
+    ],
+  },
+  {
+    tag: "Direct-to-Consumer",
+    featured: false,
+    title: "Local Manufacturers & Small Boutiques",
+    icon: Building2,
+    points: [
+      "Local clothing and textile manufacturers scaling beyond regional trade.",
+      "Small fashion houses and independent studio labels.",
+      "Boutique owners expanding their collections to Pan-India buyers.",
+      "Wholesale businesses transitioning smoothly into direct retail at 0% commission.",
+    ],
+  },
+  {
+    tag: "Launch Ready",
+    featured: false,
+    title: "Emerging Small Brands",
+    icon: Rocket,
+    points: [
+      "Newly launched clothing and streetwear brands building loyal audiences.",
+      "Growing D2C lifestyle and accessories labels.",
+      "Local fashion brands expanding into digital commerce.",
+      "Founders ready to launch fresh collections and new product drops nationwide.",
+    ],
+  },
 ];
 
 const LEARNING_HUB_GUIDES = [
@@ -1010,26 +1163,173 @@ export function SellerLandingPage() {
       </section>
 
       {/* ===================================================================== */}
-      {/* 11. POPULAR CATEGORIES TO SELL ONLINE                                 */}
+      {/* 11. TARGET AUDIENCE & IDEAL SELLERS ON ZEBALPHA                       */}
       {/* ===================================================================== */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14 border-t border-[#F3E7C8]">
-        <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
-          Popular Categories to Sell Online
-        </h2>
+      <section
+        id="target-audience"
+        className="bg-gradient-to-b from-[#FFFDF8] via-[#FFF9EB] to-white border-t border-[#F3E7C8] py-14 sm:py-18"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-14">
+          {/* Block A: Who Shops on ZebAlpha (Target Audience) */}
+          <div>
+            <div className="max-w-3xl">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#EAD296] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#9A6503]">
+                Buyer Market Insights
+              </span>
+              <h2 className="mt-3.5 text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
+                Target Audience Shopping on ZebAlpha
+              </h2>
+              <p className="mt-2.5 text-sm sm:text-base text-[#5C4E35] leading-relaxed">
+                Understand the high-intent Indian buyer segments actively discovering fashion, customised goods, and everyday lifestyle products on ZebAlpha.
+              </p>
+            </div>
 
-        <div className="mt-7 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4">
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              {TARGET_AUDIENCE_SEGMENTS.map((segment) => {
+                const Icon = segment.icon;
+                return (
+                  <div
+                    key={segment.title}
+                    className="rounded-3xl bg-white border border-[#EAD296] p-6 sm:p-7 shadow-[0_12px_30px_rgba(166,124,28,0.08)] flex flex-col"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFF8DB] border border-[#DFBE6F] text-[#9A6503]">
+                        <Icon size={21} />
+                      </span>
+                      <span className="rounded-full bg-[#FFF4F2] border border-[#F03A46]/25 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#F03A46]">
+                        {segment.ageTag}
+                      </span>
+                    </div>
+
+                    <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-[#9A6503]">
+                      {segment.code}
+                    </p>
+                    <h3 className="mt-1 text-lg font-black text-[#14120F] leading-snug">
+                      {segment.title}
+                    </h3>
+
+                    <ul className="mt-4 space-y-2.5 text-sm text-[#4A3F2B] leading-relaxed flex-1">
+                      {segment.points.map((pt) => (
+                        <li key={pt} className="flex items-start gap-2.5">
+                          <CheckCircle2
+                            size={15}
+                            className="mt-0.5 shrink-0 text-[#F03A46]"
+                          />
+                          <span>{pt}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Block B: Ideal Sellers Who Succeed on ZebAlpha */}
+          <div className="pt-2 border-t border-[#F3E7C8]">
+            <div className="max-w-3xl pt-8">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF4F2] border border-[#F03A46]/25 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#F03A46]">
+                Who Should Sell on ZebAlpha
+              </span>
+              <h2 className="mt-3.5 text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
+                Built for Creators, Boutiques &amp; Emerging Brands
+              </h2>
+              <p className="mt-2.5 text-sm sm:text-base text-[#5C4E35] leading-relaxed">
+                Whether you craft personalised pieces, run a local manufacturing unit, or are launching a fresh brand, ZebAlpha gives you 0% commission growth from Day 1.
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              {IDEAL_SELLER_PROFILES.map((profile) => {
+                const Icon = profile.icon;
+                return (
+                  <div
+                    key={profile.title}
+                    className={`rounded-3xl p-6 sm:p-7 flex flex-col border ${
+                      profile.featured
+                        ? "bg-gradient-to-br from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE] border-[1.5px] border-[#F03A46]/55 shadow-[0_14px_34px_rgba(240,58,70,0.12)]"
+                        : "bg-white border-[#EAD296] shadow-[0_12px_30px_rgba(166,124,28,0.08)]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
+                          profile.featured
+                            ? "bg-gradient-to-br from-[#F03A46] to-[#FF5757] border-[#F03A46] text-white shadow-sm"
+                            : "bg-[#FFF8DB] border-[#DFBE6F] text-[#9A6503]"
+                        }`}
+                      >
+                        <Icon size={21} />
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${
+                          profile.featured
+                            ? "bg-[#F03A46] text-white shadow-sm"
+                            : "bg-[#FFF8DB] border border-[#DFBE6F] text-[#9A6503]"
+                        }`}
+                      >
+                        {profile.tag}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-5 text-lg font-black text-[#14120F] leading-snug">
+                      {profile.title}
+                    </h3>
+
+                    <ul className="mt-4 space-y-2.5 text-sm text-[#4A3F2B] leading-relaxed flex-1">
+                      {profile.points.map((pt) => (
+                        <li key={pt} className="flex items-start gap-2.5">
+                          <Check
+                            size={15}
+                            strokeWidth={2.75}
+                            className="mt-0.5 shrink-0 text-[#9A6503]"
+                          />
+                          <span>{pt}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================================== */}
+      {/* 12. POPULAR CATEGORIES TO SELL ONLINE (MARKET DEMAND GUIDE — NO LINKS)*/}
+      {/* ===================================================================== */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-t border-[#F3E7C8]">
+        <div className="max-w-3xl">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF8DB] border border-[#EAD296] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#9A6503]">
+            Market Demand Guide
+          </span>
+          <h2 className="mt-3 text-2xl sm:text-3xl font-black tracking-tight text-[#14120F]">
+            Popular Categories to Sell Online
+          </h2>
+          <p className="mt-2 text-sm sm:text-base text-[#5C4E35] leading-relaxed">
+            High-performing categories across the Indian e-commerce market with strong buyer demand, healthy seller margins, and repeat purchase potential.
+          </p>
+        </div>
+
+        <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {visibleCategories.map((cat) => (
-            <Link
-              key={cat.label}
-              href={`/register?category=${encodeURIComponent(cat.query)}`}
-              className="text-sm font-bold text-[#3A3122] hover:text-[#F03A46] transition-colors inline-flex items-center gap-1.5 group"
+            <div
+              key={cat.title}
+              className="rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-4 space-y-1.5"
             >
-              <span>{cat.label}</span>
-              <ArrowRight
-                size={13}
-                className="opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 text-[#F03A46] transition-all"
-              />
-            </Link>
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-block rounded-full bg-[#FFF4F2] border border-[#F03A46]/20 px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-wider text-[#F03A46]">
+                  {cat.demandTag}
+                </span>
+              </div>
+              <h3 className="text-sm font-black text-[#14120F] leading-snug pt-0.5">
+                {cat.title}
+              </h3>
+              <p className="text-xs text-[#5C4E35] leading-relaxed">
+                {cat.insight}
+              </p>
+            </div>
           ))}
         </div>
 
@@ -1039,7 +1339,7 @@ export function SellerLandingPage() {
             onClick={() => setShowMoreCategories((prev) => !prev)}
             className="inline-flex items-center gap-1.5 rounded-full border border-[#EAD296] bg-[#FFFDF8] px-5 py-2 text-xs font-black text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46] transition cursor-pointer"
           >
-            <span>{showMoreCategories ? "View Less" : "View More"}</span>
+            <span>{showMoreCategories ? "View Less" : "View More Categories"}</span>
             {showMoreCategories ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
         </div>

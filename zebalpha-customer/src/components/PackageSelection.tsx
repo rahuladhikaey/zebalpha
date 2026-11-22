@@ -23,6 +23,7 @@ interface PackageSelectionProps {
   displayMrp?: number;
   defaultColorName?: string;
   inCartVariants?: any[];
+  isFootwear?: boolean;
 }
 
 const COLOR_HEX_MAP: Record<string, string> = {
@@ -64,6 +65,7 @@ export function PackageSelection({
   displayMrp,
   defaultColorName,
   inCartVariants = [],
+  isFootwear = false,
 }: PackageSelectionProps) {
   const [showChartModal, setShowChartModal] = useState(false);
   const [activeUnit, setActiveUnit] = useState<"inches" | "cm">(
@@ -177,9 +179,74 @@ export function PackageSelection({
     return allDistinctSizes;
   }, [selectedColor, colorMap, allDistinctSizes]);
 
-  // Size chart extraction
+  // Size chart extraction — only consider valid if real measurements or a chart image exist
   const chartRows = Array.isArray(sizeChart?.rows) ? sizeChart.rows : [];
-  const hasValidChart = chartRows.length > 0;
+  const hasChartImage = Boolean(
+    typeof sizeChart?.chart_image === "string" && sizeChart.chart_image.trim().length > 0
+  );
+
+  const isMeaningfulMeasurement = (val: unknown): boolean => {
+    if (val === null || val === undefined) return false;
+    const str = String(val).trim();
+    if (!str) return false;
+    const lower = str.toLowerCase();
+    return (
+      lower !== "-" &&
+      lower !== "—" &&
+      lower !== "–" &&
+      lower !== "n/a" &&
+      lower !== "na" &&
+      lower !== "null" &&
+      lower !== "undefined" &&
+      lower !== "none" &&
+      lower !== "refer guide"
+    );
+  };
+
+  const hasValidChart = useMemo(() => {
+    if (hasChartImage) return true;
+    if (!chartRows.length) return false;
+
+    const GARMENT_ONLY_KEYS = new Set([
+      "chest",
+      "bust",
+      "bust_chest",
+      "waist",
+      "shoulder",
+      "sleeve",
+      "sleeve_length",
+      "hip",
+      "inseam",
+      "thigh",
+      "neck",
+      "collar",
+    ]);
+
+    const populatedKeys = new Set<string>();
+    for (const row of chartRows) {
+      if (!row || typeof row !== "object") continue;
+      for (const [k, v] of Object.entries(row)) {
+        const lowerKey = k.toLowerCase().trim();
+        if (lowerKey === "size" || lowerKey === "id") continue;
+        if (isMeaningfulMeasurement(v)) {
+          populatedKeys.add(lowerKey);
+        }
+      }
+    }
+
+    if (populatedKeys.size === 0) return false;
+
+    // For footwear/shoes, ignore accidental legacy garment-only measurement defaults (Chest/Shoulder/Sleeve etc.)
+    if (isFootwear) {
+      const hasNonGarmentKey = Array.from(populatedKeys).some(
+        (k) => !GARMENT_ONLY_KEYS.has(k)
+      );
+      if (!hasNonGarmentKey) return false;
+    }
+
+    return true;
+  }, [chartRows, hasChartImage, isFootwear]);
+
   const baseChartUnit = sizeChart?.unit || "inches";
 
   // Filter size chart rows relevant to the currently selected color's available sizes (Req #13)
@@ -592,79 +659,86 @@ export function PackageSelection({
       </div>
       )}
 
-      {/* 3. CLEAN SELECTED VARIANT SUMMARY (NO TECHNICAL SKU / DEBUG INFO) */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/90 p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
-              Selected:
+      {/* 3. CLEAN SELECTED VARIANT SUMMARY (SINGLE-LINE ALIGNED — NO UNEVEN STAGGER) */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/90 px-3.5 py-3 space-y-2.5">
+        {/* Row 1: Selected label + Color & Size pills strictly aligned on ONE horizontal line */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <span className="text-[10.5px] sm:text-[11px] font-extrabold text-zinc-400 uppercase tracking-wider shrink-0 whitespace-nowrap">
+            Selected:
+          </span>
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-x-auto no-scrollbar">
+            <span
+              className={`inline-flex items-center text-[11px] sm:text-xs font-black px-2.5 py-1 rounded-lg border whitespace-nowrap truncate max-w-[165px] sm:max-w-none leading-none ${
+                selectedColor
+                  ? "text-white bg-zinc-900 border-zinc-800"
+                  : "text-amber-400 bg-amber-500/10 border-amber-500/30"
+              }`}
+              title={`Color: ${selectedColor || "Select a color"}`}
+            >
+              Color: {selectedColor || "Select"}
             </span>
-            <div className="flex items-center gap-2">
+            {(allDistinctSizes.length > 1 || (allDistinctSizes.length === 1 && !["Free Size", "Standard", "Default"].includes(allDistinctSizes[0]))) && (
               <span
-                className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
-                  selectedColor
+                className={`inline-flex items-center text-[11px] sm:text-xs font-black px-2.5 py-1 rounded-lg border whitespace-nowrap shrink-0 leading-none ${
+                  selectedSize
                     ? "text-white bg-zinc-900 border-zinc-800"
                     : "text-amber-400 bg-amber-500/10 border-amber-500/30"
                 }`}
               >
-                Color: {selectedColor || "Select a color"}
-              </span>
-              {(allDistinctSizes.length > 1 || (allDistinctSizes.length === 1 && !["Free Size", "Standard", "Default"].includes(allDistinctSizes[0]))) && (
-                <span
-                  className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
-                    selectedSize
-                      ? "text-white bg-zinc-900 border-zinc-800"
-                      : "text-amber-400 bg-amber-500/10 border-amber-500/30"
-                  }`}
-                >
-                  Size: {selectedSize || "Select a size"}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Dynamic Stock & In-Cart Indicator */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {selectedVariantInCartQty > 0 && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full shadow-sm">
-                🛒 {selectedVariantInCartQty} in cart
-              </span>
-            )}
-            {selectedVariant ? (
-              selectedVariant.stock !== undefined && Number(selectedVariant.stock) <= 0 ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 rounded-full">
-                  ✕ Out of Stock
-                </span>
-              ) : selectedVariant.stock !== undefined && Number(selectedVariant.stock) <= 5 ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-full animate-pulse">
-                  ⚡ Only {selectedVariant.stock} left in stock!
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
-                  ✓ In Stock
-                </span>
-              )
-            ) : (
-              <span className="text-[11px] font-bold text-zinc-500">
-                Select size to view stock
+                Size: {selectedSize || "Select"}
               </span>
             )}
           </div>
         </div>
 
-        {/* Dynamic Variant Price Display */}
-        {displayPrice !== undefined && (
-          <div className="pt-2 border-t border-zinc-850 flex items-baseline gap-2.5">
-            <span className="text-2xl font-black text-white">₹{displayPrice}</span>
-            {displayMrp && displayMrp > displayPrice && (
-              <span className="text-xs font-bold text-zinc-500 line-through">₹{displayMrp}</span>
+        {/* Row 2: Dynamic Price (left) + Stock & In-Cart Status (right) cleanly aligned on ONE line */}
+        <div className="pt-2.5 border-t border-zinc-850 flex items-center justify-between gap-2">
+          <div className="flex items-baseline gap-2 min-w-0">
+            {displayPrice !== undefined && (
+              <>
+                <span className="text-xl sm:text-2xl font-black text-white leading-none">
+                  ₹{displayPrice}
+                </span>
+                {displayMrp && displayMrp > displayPrice && (
+                  <span className="text-xs font-bold text-zinc-500 line-through leading-none">
+                    ₹{displayMrp}
+                  </span>
+                )}
+              </>
             )}
           </div>
-        )}
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {selectedVariantInCartQty > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10.5px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                🛒 {selectedVariantInCartQty} in cart
+              </span>
+            )}
+            {selectedVariant ? (
+              selectedVariant.stock !== undefined && Number(selectedVariant.stock) <= 0 ? (
+                <span className="inline-flex items-center gap-1 text-[10.5px] sm:text-[11px] font-black uppercase tracking-wider text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                  ✕ Out of Stock
+                </span>
+              ) : selectedVariant.stock !== undefined && Number(selectedVariant.stock) <= 5 ? (
+                <span className="inline-flex items-center gap-1 text-[10.5px] sm:text-[11px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-full animate-pulse whitespace-nowrap">
+                  ⚡ Only {selectedVariant.stock} left
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10.5px] sm:text-[11px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                  ✓ In Stock
+                </span>
+              )
+            ) : (
+              <span className="text-[11px] font-bold text-zinc-500 whitespace-nowrap">
+                Select size
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 4. SIZE CHART MODAL & RESPONSIVE BOTTOM SHEET */}
-      {showChartModal && (
+      {hasValidChart && showChartModal && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
           <div
             className="fixed inset-0"

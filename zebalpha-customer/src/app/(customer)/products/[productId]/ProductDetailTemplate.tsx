@@ -1307,6 +1307,7 @@ export default function ProductDetailTemplate({
                 displayPrice={displayPrice}
                 displayMrp={displayMrp}
                 inCartVariants={inCartVariants}
+                isFootwear={isFootwear}
               />
             )}
 
