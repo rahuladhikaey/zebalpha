@@ -485,7 +485,7 @@ export function CategoryNavigationBar({
                     : "text-amber-400 font-bold group-hover:text-amber-300"
               }`}
             >
-              {isNativeApp ? "Drops" : "⚡ Drops"}
+              {isNativeApp ? "New Drop" : "⚡ New Drop"}
             </span>
 
             {/* Active Indicator Underline */}

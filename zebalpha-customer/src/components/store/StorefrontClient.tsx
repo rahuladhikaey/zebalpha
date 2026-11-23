@@ -85,11 +85,13 @@ export function StorefrontClient({
     ? `https://zebalpha.shop/store/${seller.store_slug}`
     : "https://zebalpha.shop/products";
 
-  // Avoid showing redundant tagline if it simply duplicates the store name
+  // Avoid showing redundant tagline if it simply duplicates the store name or slug
   const displayTagline = useMemo(() => {
     const t = String(seller?.store_tagline || "").trim();
     const name = String(seller?.business_name || "").trim();
-    if (!t || t.toLowerCase() === name.toLowerCase()) return null;
+    if (!t) return null;
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (norm(t) === norm(name)) return null;
     return t;
   }, [seller?.store_tagline, seller?.business_name]);
 
@@ -318,15 +320,15 @@ export function StorefrontClient({
             </div>
           </div>
 
-          {/* Store Identity Row — Properly Positioned Below Cover Strip (Never Clipped!) */}
-          <div className="px-4 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
-            <div className="flex items-start gap-3.5 sm:gap-4">
-              {/* Store Avatar with Controlled Negative Margin Only on the Icon Tile */}
+          {/* Store Identity Row — Clean Side-by-Side Layout Below Cover Strip (Zero Overlap!) */}
+          <div className="px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex items-center gap-3.5 sm:gap-4">
+              {/* Store Avatar — Clean Contained Tile */}
               <div
-                className={`-mt-10 sm:-mt-12 h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-2xl border-[3px] shadow-md flex items-center justify-center ${
+                className={`h-14 w-14 sm:h-16 sm:w-16 shrink-0 overflow-hidden rounded-2xl border-2 shadow-sm flex items-center justify-center ${
                   isNativeApp
-                    ? "border-white bg-[#FFF8DB] text-[#9A6503] ring-1 ring-[#E4C988]"
-                    : "border-zinc-950 bg-zinc-900 text-amber-400 ring-1 ring-zinc-700"
+                    ? "border-[#E4C988] bg-[#FFF8DB] text-[#9A6503]"
+                    : "border-zinc-700 bg-zinc-900 text-amber-400"
                 }`}
               >
                 {seller.business_logo_url ? (
@@ -336,7 +338,7 @@ export function StorefrontClient({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <Store size={28} />
+                  <Store size={26} />
                 )}
               </div>
 

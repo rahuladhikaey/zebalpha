@@ -43,6 +43,47 @@ interface CampaignOption {
   name: string;
 }
 
+const CLOUDINARY_CLOUD_NAME = "vtweyirx";
+const CLOUDINARY_UPLOAD_PRESET = "zebalpha_preset";
+
+async function uploadAssetToCloudinaryCDN(file: File): Promise<{ url: string; bytes: number }> {
+  const isVideo = file.type.startsWith("video/");
+  const isRaw = !file.type.startsWith("image/") && !isVideo;
+  const resourceType = isVideo ? "video" : isRaw ? "raw" : "image";
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  formData.append("folder", "creative-assets");
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Cloudinary CDN upload failed (${res.status}): ${errText.slice(0, 140)}`);
+  }
+
+  const data = await res.json();
+  if (!data?.secure_url) {
+    throw new Error("Cloudinary CDN did not return a secure delivery URL.");
+  }
+
+  const rawUrl = String(data.secure_url);
+  const optimizedUrl =
+    resourceType === "image" ? rawUrl.replace("/upload/", "/upload/f_auto,q_auto/") : rawUrl;
+
+  return {
+    url: optimizedUrl,
+    bytes: Number(data.bytes || file.size || 0),
+  };
+}
+
 export default function AssetsPage() {
   const router = useRouter();
   const [session, setSession] = useState<MediaAuthSession | null>(() => getCachedMediaSession());
@@ -137,32 +178,19 @@ export default function AssetsPage() {
         fileSize = selectedFile.size;
         mimeType = selectedFile.type || "application/octet-stream";
 
-        // Generate sanitized unique storage path
-        const fileExt = selectedFile.name.split(".").pop() || "bin";
-        const sanitizedName = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const storagePath = `creative-assets/${Date.now()}_${sanitizedName}`;
-
-        // Attempt upload to Supabase 'editorial' bucket
-        const { error: uploadError } = await supabase.storage
-          .from("editorial")
-          .upload(storagePath, selectedFile, {
-            contentType: mimeType,
-            upsert: true,
-          });
-
-        if (uploadError) {
-          // If storage bucket isn't configured, check if direct URL fallback is available
-          console.warn("Storage upload notice:", uploadError.message);
-          setFormError(`Storage error: ${uploadError.message}. You can switch to 'Direct URL' mode to catalog external assets.`);
+        try {
+          const uploaded = await uploadAssetToCloudinaryCDN(selectedFile);
+          finalUrl = uploaded.url;
+          if (uploaded.bytes > 0) {
+            fileSize = uploaded.bytes;
+          }
+        } catch (uploadError: unknown) {
+          const msg = uploadError instanceof Error ? uploadError.message : "Cloudinary upload failed";
+          console.warn("Cloudinary CDN upload notice:", msg);
+          setFormError(`${msg}. You can also switch to 'Direct URL / CDN' mode.`);
           setSubmitting(false);
           return;
         }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("editorial")
-          .getPublicUrl(storagePath);
-
-        finalUrl = publicUrlData?.publicUrl || "";
       } else {
         if (!finalUrl) {
           setFormError("Please provide an asset URL.");
@@ -414,7 +442,7 @@ export default function AssetsPage() {
 
                 {uploadMode === "file" ? (
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">Upload File (Supabase Storage)</label>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">Upload File (Cloudinary CDN)</label>
                     <div className="border border-dashed border-dark-700 hover:border-brand-500 rounded-xl p-4 text-center bg-dark-950/60 transition-colors">
                       <input
                         type="file"

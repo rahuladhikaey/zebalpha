@@ -197,27 +197,6 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               )}
             </div>
 
-            {isOfficialTheme && (
-              <div>
-                <Link
-                  href="/assistant"
-                  onClick={onClose}
-                  className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-[#FFF3C4] via-[#FDE68A]/70 to-[#FAF0D1] border border-[#DCAA30]/60 text-[#14120F] shadow-sm active:scale-[0.98] transition-all"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white p-0.5 border border-[#DCAA30] overflow-hidden shrink-0">
-                      <img src="/official-logo-sm.png" alt="Alpha AI" className="h-full w-full rounded-full object-contain" />
-                    </span>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-wider text-[#14120F]">Alpha AI Stylist</p>
-                      <p className="text-[10px] text-[#5C4E35] font-medium">Outfits, sizing & instant product picks</p>
-                    </div>
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 text-[#8E6208]" />
-                </Link>
-              </div>
-            )}
-
             {/* Quick Access Section */}
             <div>
               <h3 className={`text-[10px] font-black uppercase tracking-[0.25em] mb-4 ${isOfficialTheme ? "text-[#8A7548]" : "text-neutral-400"}`}>Collections</h3>
