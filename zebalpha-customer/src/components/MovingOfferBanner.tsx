@@ -1,16 +1,15 @@
 "use client";
 
 import { Crown, Flame, Truck, ShieldCheck, Tag } from "lucide-react";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { useOfficialTheme } from "@/lib/platform";
+import type { SduiMarqueeItem } from "@/lib/types";
 
-const DEFAULT_ITEMS = [
+const DEFAULT_ITEMS: SduiMarqueeItem[] = [
   { icon: "crown", text: "ZEBALPHA • CLOTHING FOR THE CULTURE" },
   { icon: "flame", text: "NEW SEASON DROP • AUTHENTIC STREETWEAR" },
-  { icon: "sparkles", text: "100% PREMIUM COMBED COTTON" },
-  { icon: "truck", text: "FREE EXPRESS SHIPPING ON ORDERS OVER ₹999" },
-  { icon: "shield", text: "QUALITY EMBROIDERY & RELAXED FIT" },
+  { icon: "shield", text: "100% PREMIUM COMBED COTTON" },
+  { icon: "truck", text: "FREE EXPRESS SHIPPING ON ORDERS OVER ₹499" },
+  { icon: "tag", text: "FLAT ₹100 OFF ON 1ST ORDER (CODE: FIRST100)" },
 ];
 
 function getOfferIcon(icon: string, isNativeApp: boolean) {
@@ -31,28 +30,18 @@ function getOfferIcon(icon: string, isNativeApp: boolean) {
   }
 }
 
-export function MovingOfferBanner() {
+interface MovingOfferBannerProps {
+  initialItems?: SduiMarqueeItem[];
+}
+
+/**
+ * Scrolling Champagne-Gold Marquee Banner
+ * Hydrated directly from server-cached SDUI blueprint (zero client-side Supabase queries!).
+ */
+export function MovingOfferBanner({ initialItems }: MovingOfferBannerProps = {}) {
   const isNativeApp = useOfficialTheme();
-  const [items, setItems] = useState(DEFAULT_ITEMS);
-
-  useEffect(() => {
-    const fetchMarquee = async () => {
-      try {
-        const { data } = await supabase
-          .from("store_settings")
-          .select("value")
-          .eq("key", "marquee_banner")
-          .maybeSingle();
-
-        if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
-          setItems(data.value);
-        }
-      } catch {
-        // Fallback silently
-      }
-    };
-    fetchMarquee();
-  }, []);
+  const items =
+    Array.isArray(initialItems) && initialItems.length > 0 ? initialItems : DEFAULT_ITEMS;
 
   const BannerContent = () => (
     <div className="flex items-center justify-around w-full shrink-0 gap-10 px-4">

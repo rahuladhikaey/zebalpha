@@ -11,10 +11,16 @@ import { AndroidNewSeasonDropBanner } from "@/components/home/AndroidHomeTrustAn
 
 interface CuratedCollectionsSectionProps {
   initialCollections?: CuratedCollection[];
+  title?: string;
+  subtitle?: string;
+  hidePromoDropBanner?: boolean;
 }
 
 export function CuratedCollectionsSection({
   initialCollections = [],
+  title = "Curated Collections",
+  subtitle,
+  hidePromoDropBanner = false,
 }: CuratedCollectionsSectionProps) {
   const isNativeApp = useOfficialTheme();
   const [collections, setCollections] = useState<CuratedCollection[]>(initialCollections);
@@ -100,16 +106,23 @@ export function CuratedCollectionsSection({
     <section className={isNativeApp ? "mt-6 relative select-none" : "mt-10 sm:mt-14 relative select-none"} id="curated-collections-section">
       {/* 1. Section Header */}
       <div className="flex items-center justify-between gap-4 mb-4 sm:mb-5">
-        <div className="flex items-center gap-2">
-          {isNativeApp ? (
-            <h2 className="text-base sm:text-lg font-black text-[#14120F] tracking-tight uppercase">
-              Curated Collections
-            </h2>
-          ) : (
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
-              <span>Curated Collections</span>
-              <CheckCircle2 className="w-5 h-5 text-violet-400 fill-violet-500/20" />
-            </h2>
+        <div>
+          <div className="flex items-center gap-2">
+            {isNativeApp ? (
+              <h2 className="text-base sm:text-lg font-black text-[#14120F] tracking-tight uppercase">
+                {title}
+              </h2>
+            ) : (
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
+                <span>{title}</span>
+                <CheckCircle2 className="w-5 h-5 text-violet-400 fill-violet-500/20" />
+              </h2>
+            )}
+          </div>
+          {subtitle && (
+            <p className={`text-xs font-medium mt-0.5 ${isNativeApp ? "text-[#5C4E35]" : "text-neutral-400"}`}>
+              {subtitle}
+            </p>
           )}
         </div>
       </div>
@@ -210,8 +223,8 @@ export function CuratedCollectionsSection({
         ))}
       </div>
 
-      {/* Auto-Scrolling Promo Carousel (Slide 1: 1st Order ₹100 OFF -> Slide 2: New Season Drop) */}
-      <AndroidNewSeasonDropBanner />
+      {/* Auto-Scrolling Promo Carousel (when not rendered as standalone SDUI widget) */}
+      {!hidePromoDropBanner && <AndroidNewSeasonDropBanner />}
     </section>
   );
 }

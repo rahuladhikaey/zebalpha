@@ -87,11 +87,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (target === "category" || target === "homepage" || target === "custom_studio" || target === "all") {
+    if (target === "category" || target === "homepage" || target === "sdui" || target === "custom_studio" || target === "all") {
       tasks.push(
         invalidateCachePattern("navigation:*"),
         invalidateCachePattern("api:categories:*"),
         invalidateCachePattern("homepage:section:*"),
+        invalidateCachePattern("homepage:sdui:*"),
+        invalidateCacheKey("homepage:sdui:layout:v1"),
         invalidateCacheKey("custom:studio:config:v1"),
         invalidateCacheKey("notifications:broadcast:latest:v1")
       );

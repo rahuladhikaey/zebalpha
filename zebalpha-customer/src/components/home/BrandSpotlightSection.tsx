@@ -25,7 +25,15 @@ interface SpotlightCampaign {
   products: SpotlightProduct[];
 }
 
-export function BrandSpotlightSection() {
+interface BrandSpotlightSectionProps {
+  title?: string;
+  subtitle?: string;
+}
+
+export function BrandSpotlightSection({
+  title = "Featured Brand Showcase",
+  subtitle = "Spotlight • Emerging Indian Brands",
+}: BrandSpotlightSectionProps = {}) {
   const [spotlights, setSpotlights] = useState<SpotlightCampaign[]>([]);
 
   useEffect(() => {
@@ -83,10 +91,10 @@ export function BrandSpotlightSection() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <span className="text-[11px] font-black uppercase tracking-[0.22em] text-[#9A6503]">
-            Spotlight • Emerging Indian Brands
+            {subtitle}
           </span>
           <h2 className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-[#14120F]">
-            Featured Brand Showcase
+            {title}
           </h2>
         </div>
         <span className="rounded-full border border-[#DFBE6F] bg-[#FFF8DB] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#9A6503]">

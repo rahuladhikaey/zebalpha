@@ -9,10 +9,18 @@ import { useOfficialTheme } from "@/lib/platform";
 
 interface ZebalphaEditorialProps {
   initialEditorialCards?: EditorialCard[];
+  eyebrow?: string;
+  titleLine1?: string;
+  titleLine2?: string;
+  subtitle?: string;
 }
 
 export function ZebalphaEditorial({
   initialEditorialCards = [],
+  eyebrow = "ZEBALPHA CUSTOM STUDIO",
+  titleLine1 = "Customize &",
+  titleLine2 = "Wear Your Art",
+  subtitle = "Tap any artwork below to open Custom Studio with that exact design ready on tees, hoodies & totes.",
 }: ZebalphaEditorialProps) {
   const isNativeApp = useOfficialTheme();
 
@@ -69,10 +77,10 @@ export function ZebalphaEditorial({
     >
       {/* 1. UNIFIED CUSTOMIZE DESIGN SHOWCASE HEADER */}
       <EditorialHeading
-        eyebrow="ZEBALPHA CUSTOM STUDIO"
-        titleLine1="Customize &"
-        titleLine2="Wear Your Art"
-        subtitle="Tap any artwork below to open Custom Studio with that exact design ready on tees, hoodies & totes."
+        eyebrow={eyebrow}
+        titleLine1={titleLine1}
+        titleLine2={titleLine2}
+        subtitle={subtitle}
       />
 
       {/* 2. CURVED AUTO-SCROLLING CUSTOM DESIGN CAROUSEL */}

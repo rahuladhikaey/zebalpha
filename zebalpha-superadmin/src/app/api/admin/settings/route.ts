@@ -156,6 +156,10 @@ export async function POST(req: Request) {
             updatedAt: new Date().toISOString()
           });
         }
+      } else if (key === "sdui_homepage_layout_v1" && value) {
+        if (value.global_theme && Array.isArray(value.global_theme.marquee_items)) {
+          await upsertSetting("marquee_banner", value.global_theme.marquee_items);
+        }
       }
     };
 

@@ -162,3 +162,68 @@ export interface PromotionalCampaign {
   slots: PromotionalSlot[];
 }
 
+export type SduiWidgetType =
+  | "HERO_CAROUSEL"
+  | "TRUST_BADGE_STRIP"
+  | "MARQUEE_TICKER"
+  | "CURATED_COLLECTIONS"
+  | "PROMO_DROP_CAROUSEL"
+  | "FLASH_DEAL_STRIP"
+  | "FESTIVE_16_SLOT_GRID"
+  | "CUSTOM_STUDIO_EDITORIAL"
+  | "SELLER_BRAND_SPOTLIGHT"
+  | "FEATURED_PRODUCT_FEED"
+  | "RECENTLY_VIEWED";
+
+export interface SduiTrustBadgeItem {
+  icon: "truck" | "shield" | "badge" | string;
+  title: string;
+  subtitle: string;
+}
+
+export interface SduiMarqueeItem {
+  icon: "crown" | "flame" | "shield" | "truck" | "tag" | "sparkles" | string;
+  text: string;
+}
+
+export interface SduiWidgetConfig {
+  id: string;
+  widget_type: SduiWidgetType;
+  title: string;
+  subtitle?: string;
+  enabled: boolean;
+  web_enabled: boolean;
+  app_enabled: boolean;
+  display_order: number;
+  config?: {
+    show_first_order_slide?: boolean;
+    show_new_drop_slide?: boolean;
+    badge_text?: string;
+    ends_at?: string;
+    product_ids?: string[];
+    max_items?: number;
+    cta_label?: string;
+    cta_href?: string;
+    campaign_slug?: string;
+    eyebrow?: string;
+    title_line_1?: string;
+    title_line_2?: string;
+    [key: string]: any;
+  };
+}
+
+export interface SduiHomepageBlueprint {
+  version: number;
+  updated_at: string;
+  global_theme: {
+    header_backdrop?: string;
+    announcement_bar_enabled?: boolean;
+    trust_bar_enabled?: boolean;
+    free_shipping_threshold?: number;
+    trust_badges: SduiTrustBadgeItem[];
+    marquee_items: SduiMarqueeItem[];
+  };
+  widgets: SduiWidgetConfig[];
+}
+
+

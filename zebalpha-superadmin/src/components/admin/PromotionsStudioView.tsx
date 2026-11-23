@@ -14,8 +14,10 @@ import {
   Eye,
   EyeOff,
   Flame,
-  Check
+  Check,
+  Upload,
 } from "lucide-react";
+import { uploadDirectToCloudinary } from "@shared/services/uploadService";
 
 interface SlotData {
   id?: string;
@@ -74,6 +76,23 @@ export default function PromotionsStudioView() {
   const [slotPriceLabel, setSlotPriceLabel] = useState("");
   const [slotImageUrl, setSlotImageUrl] = useState("");
   const [slotDestinationUrl, setSlotDestinationUrl] = useState("");
+  const [uploadingSlotImage, setUploadingSlotImage] = useState(false);
+
+  const handleSlotFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingSlotImage(true);
+    setErrorMessage("");
+    try {
+      const cdnUrl = await uploadDirectToCloudinary(file, "promotions-slots");
+      setSlotImageUrl(cdnUrl);
+      showStatus("✅ Image uploaded directly to Cloudinary CDN!");
+    } catch (err: any) {
+      showError(err?.message || "Cloudinary CDN upload failed");
+    } finally {
+      setUploadingSlotImage(false);
+    }
+  };
 
   // Storefront URL calculation
   const getStorefrontUrl = () => {
@@ -257,15 +276,14 @@ export default function PromotionsStudioView() {
     if (!campaign?.id) return;
     const targetStatus = explicitStatus !== undefined ? explicitStatus : status;
 
-    // Client-side pre-validation for publishing
+    // Client-side pre-validation for publishing (allow 4+ configured slots)
     if (targetStatus === "published") {
-      const incompleteSlots = slots.filter(
-        (s) => !s.title?.trim() || !s.price_label?.trim() || !s.image_url?.trim() || !s.destination_url?.trim()
-      );
-      if (incompleteSlots.length > 0) {
-        const slotNums = incompleteSlots.map((s) => `#${s.slot_number}`).join(", ");
+      const readyCount = slots.filter(
+        (s) => s.title?.trim() && s.price_label?.trim() && s.image_url?.trim() && s.destination_url?.trim()
+      ).length;
+      if (readyCount < 4) {
         showError(
-          `Cannot publish: All 16 slots must be configured. Missing data in slot(s): ${slotNums}`
+          `Cannot publish: Please configure at least 4 slots first (currently ${readyCount} configured).`
         );
         return;
       }
@@ -416,7 +434,8 @@ export default function PromotionsStudioView() {
                 onChange={(e) => setThemePreset(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-sm font-bold text-white focus:outline-none focus:border-amber-500 cursor-pointer"
               >
-                <option value="diwali_silver_ornate">Diwali Silver Ornate (Black & Silver)</option>
+                <option value="champagne_gold_luxury">Official Champagne Gold &amp; Warm Cream</option>
+                <option value="diwali_silver_ornate">Diwali Silver Ornate (Black &amp; Silver)</option>
                 <option value="brand_spotlight">Brand Spotlight (Golden Glow)</option>
                 <option value="default_clean">Clean Modern Luxury</option>
               </select>
@@ -456,7 +475,7 @@ export default function PromotionsStudioView() {
                 <button
                   type="button"
                   onClick={() => handleSaveCampaign(status === "published" ? "paused" : "published")}
-                  disabled={savingCampaign || (status !== "published" && completedSlotCount < 16)}
+                  disabled={savingCampaign || (status !== "published" && completedSlotCount < 4)}
                   title={status === "published" ? "Click to Hide from Storefront" : "Click to Make Live on Storefront"}
                   className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border cursor-pointer active:scale-95 ${
                     status === "published"
@@ -508,15 +527,15 @@ export default function PromotionsStudioView() {
               <button
                 type="button"
                 onClick={() => handleSaveCampaign("published")}
-                disabled={savingCampaign || completedSlotCount < 16}
+                disabled={savingCampaign || completedSlotCount < 4}
                 className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg transition active:scale-95 ${
-                  completedSlotCount === 16
+                  completedSlotCount >= 4
                     ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black shadow-emerald-500/20 cursor-pointer"
                     : "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed"
                 }`}
               >
                 <Flame className="w-4 h-4 fill-current" />
-                <span>Make Live on Store (16/16)</span>
+                <span>Make Live on Store ({completedSlotCount}/16)</span>
               </button>
             )}
 
@@ -747,15 +766,28 @@ export default function PromotionsStudioView() {
               </div>
 
               <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Card Image URL <span className="text-rose-400">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-black uppercase tracking-wider text-zinc-400">
+                    Card Image (Cloudinary CDN) <span className="text-rose-400">*</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase cursor-pointer hover:bg-amber-500/25">
+                    <Upload className="w-3 h-3" />
+                    <span>{uploadingSlotImage ? "Uploading to CDN..." : "Upload File to Cloudinary"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleSlotFileUpload}
+                      disabled={uploadingSlotImage}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
                 <input
                   type="url"
                   value={slotImageUrl}
                   onChange={(e) => setSlotImageUrl(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-mono text-zinc-300 focus:outline-none focus:border-amber-500 mb-2"
-                  placeholder="https://images.unsplash.com/... or Supabase storage URL"
+                  placeholder="https://res.cloudinary.com/... (or click Upload File to Cloudinary above)"
                   required
                 />
                 {/* Image Live Preview */}

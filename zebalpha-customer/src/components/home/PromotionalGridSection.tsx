@@ -159,14 +159,81 @@ function OrnateCardFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- MAIN PROMOTIONAL SHOWCASE SECTION (Strictly 16 Slots, Flipkart/Meesho Pattern) ---
-export function PromotionalGridSection({ campaign }: { campaign: PromotionalCampaign }) {
+// --- MAIN PROMOTIONAL SHOWCASE SECTION (Flipkart/Meesho 16-Slot Merchandising Grid) ---
+export function PromotionalGridSection({
+  campaign,
+  overrideTitle,
+  overrideSubtitle,
+}: {
+  campaign: PromotionalCampaign;
+  overrideTitle?: string;
+  overrideSubtitle?: string;
+}) {
   if (!campaign || !campaign.slots || campaign.slots.length === 0) {
     return null;
   }
 
-  // Strictly enforce 16 slots
-  const displaySlots = campaign.slots.slice(0, 16);
+  // Filter to slots with valid title & image
+  const displaySlots = campaign.slots
+    .filter((s) => s && s.title && s.image_url)
+    .slice(0, 16);
+
+  if (displaySlots.length === 0) {
+    return null;
+  }
+
+  const isGoldTheme =
+    campaign.theme_preset === "champagne_gold_luxury" ||
+    campaign.theme_preset === "brand_spotlight" ||
+    campaign.theme_preset === "default_clean";
+
+  if (isGoldTheme) {
+    return (
+      <section className="relative w-full my-8 sm:my-12 overflow-hidden rounded-3xl bg-gradient-to-b from-[#FFFDF8] via-[#FFF8E6] to-[#FFFDF8] border border-[#E4C988] shadow-[0_14px_38px_-12px_rgba(166,124,28,0.18)] p-4 sm:p-7">
+        <div className="text-center max-w-3xl mx-auto pb-5 sm:pb-6">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF3C4] border border-[#DFBE6F] px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.25em] text-[#9A6503]">
+            ZEBALPHA FESTIVE SHOWCASE
+          </span>
+          <h2 className="mt-2 text-2xl sm:text-4xl font-black uppercase tracking-tight text-[#14120F]">
+            {overrideTitle || campaign.title || "TOP DEALS"}
+          </h2>
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-[#5C4E35]">
+            {overrideSubtitle ||
+              campaign.subtitle ||
+              "Festive Picks • Unbeatable Prices • Shop More, Celebrate Bigger"}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          {displaySlots.map((slot: PromotionalSlot) => (
+            <Link
+              key={slot.slot_number}
+              href={slot.destination_url || "/products"}
+              prefetch={false}
+              className="group relative flex flex-col overflow-hidden rounded-2xl bg-white border border-[#E4C988] p-2 sm:p-2.5 shadow-[0_6px_18px_-8px_rgba(166,124,28,0.18)] hover:-translate-y-0.5 hover:border-[#B4780C] transition-all"
+            >
+              <div className="relative w-full aspect-[4/3] sm:aspect-square overflow-hidden rounded-xl bg-[#FAF3E1]">
+                <img
+                  src={slot.image_url}
+                  alt={slot.title}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+              <div className="mt-2 text-center px-1">
+                <div className="text-xs sm:text-sm font-bold text-[#14120F] truncate">
+                  {slot.title}
+                </div>
+                <div className="mt-0.5 inline-block rounded-full bg-[#FFF4D4] border border-[#E5C675] px-2.5 py-0.5 text-[11px] sm:text-xs font-black text-[#9A6503]">
+                  {slot.price_label}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="relative w-full my-10 sm:my-14 overflow-hidden rounded-3xl bg-black border border-zinc-800 shadow-[0_0_50px_rgba(0,0,0,0.9)]">

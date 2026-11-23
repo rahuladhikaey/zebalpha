@@ -12,8 +12,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug") || "top-deals";
 
-    // 1. Fetch Campaign
-    const { data: campaign, error: campaignError } = await supabaseServer
+    // 1. Fetch Campaign (auto-seed default 'top-deals' campaign if table exists and row is missing)
+    let { data: campaign, error: campaignError } = await supabaseServer
       .from("promotional_campaigns")
       .select("*")
       .eq("slug", slug)
@@ -25,7 +25,30 @@ export async function GET(req: Request) {
     }
 
     if (!campaign) {
-      return NextResponse.json({ success: false, message: `Campaign '${slug}' not found` }, { status: 404 });
+      const { data: created, error: createErr } = await supabaseServer
+        .from("promotional_campaigns")
+        .insert({
+          title: "TOP DEALS",
+          subtitle: "Festive Picks • Unbeatable Prices • Shop More, Celebrate Bigger",
+          slug,
+          theme_preset: "champagne_gold_luxury",
+          status: "draft",
+          total_slots: 16,
+          grid_columns: 4,
+          website_enabled: true,
+          android_enabled: true,
+          display_order: 1,
+        })
+        .select("*")
+        .single();
+
+      if (createErr || !created) {
+        return NextResponse.json(
+          { success: false, message: createErr?.message || `Campaign '${slug}' not found` },
+          { status: 404 }
+        );
+      }
+      campaign = created;
     }
 
     // 2. Fetch all 16 slots
@@ -84,30 +107,20 @@ export async function PUT(req: Request) {
         return NextResponse.json({ success: false, message: slotCheckErr.message }, { status: 500 });
       }
 
-      if (!slots || slots.length !== 16) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: `Cannot publish: Campaign has ${slots?.length || 0}/16 slots. Exactly 16 slots are required.`
-          },
-          { status: 400 }
-        );
-      }
-
-      const invalidSlots = slots.filter(
+      // Allow publishing as soon as at least 4 valid slots are configured
+      const validSlots = (slots || []).filter(
         (s: any) =>
-          !s.title?.trim() ||
-          !s.price_label?.trim() ||
-          !s.image_url?.trim() ||
-          !s.destination_url?.trim()
+          s.title?.trim() &&
+          s.price_label?.trim() &&
+          s.image_url?.trim() &&
+          s.destination_url?.trim()
       );
 
-      if (invalidSlots.length > 0) {
-        const slotNumbers = invalidSlots.map((s: any) => `#${s.slot_number}`).join(", ");
+      if (validSlots.length < 4) {
         return NextResponse.json(
           {
             success: false,
-            message: `Cannot publish: Slot(s) ${slotNumbers} have incomplete data (title, price label, image, or link missing).`
+            message: `Cannot publish: Please configure at least 4 slots (currently ${validSlots.length} ready).`,
           },
           { status: 400 }
         );

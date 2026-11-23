@@ -5,11 +5,23 @@ import { useId } from "react";
 import { ArrowRight } from "lucide-react";
 import { useOfficialTheme } from "@/lib/platform";
 
+interface OurProductsBannerProps {
+  title?: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+}
+
 /**
  * Luxury Metallic Gold & Obsidian "OUR PRODUCTS" section banner (Web)
  * and Warm Ivory Cream & Champagne Gold banner (Android App).
  */
-export function OurProductsBanner() {
+export function OurProductsBanner({
+  title = "Our Products",
+  subtitle = "Streetwear, polos, hoodies & curated culture drops",
+  ctaLabel = "Create",
+  ctaHref = "/customize",
+}: OurProductsBannerProps = {}) {
   const isNativeApp = useOfficialTheme();
   const uid = useId().replace(/:/g, "");
   const ribbonGoldId = `opRibbonGold-${uid}`;
@@ -20,6 +32,10 @@ export function OurProductsBanner() {
   const teeShadowId = `opTeeShadow-${uid}`;
   const orbitGradId = `opOrbit-${uid}`;
   const orbitGlowId = `opOrbitGlow-${uid}`;
+
+  const titleWords = String(title || "Our Products").trim().split(/\s+/);
+  const firstWord = titleWords[0] || "Our";
+  const restWords = titleWords.slice(1).join(" ") || "Products";
 
   if (isNativeApp) {
     return (
@@ -35,20 +51,20 @@ export function OurProductsBanner() {
             </span>
             <div className="min-w-0">
               <h2 className="text-base font-black uppercase tracking-tight leading-none text-[#14120F]">
-                Our <span className="text-[#9A6503]">Products</span>
+                {firstWord} <span className="text-[#9A6503]">{restWords}</span>
               </h2>
               <p className="mt-1 text-[11px] font-medium text-[#5C4E35] truncate">
-                Streetwear, polos, hoodies &amp; curated culture drops
+                {subtitle}
               </p>
             </div>
           </div>
 
           <Link
-            href="/customize"
-            aria-label="Create Custom Apparel Design"
+            href={ctaHref || "/customize"}
+            aria-label={ctaLabel || "Create Custom Apparel Design"}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-b from-[#FCE89C] via-[#EAB308] to-[#C68A12] border border-[#FFF5C8] px-3.5 py-2 text-[11px] font-black text-[#111111] shadow-sm active:scale-95 transition-transform"
           >
-            <span>Create</span>
+            <span>{ctaLabel || "Create"}</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>

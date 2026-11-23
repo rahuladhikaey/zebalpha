@@ -15,72 +15,56 @@ import { supabase } from "@/lib/supabaseClient";
 import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
 import { useCart } from "@/context/CartContext";
 import { useOfficialTheme } from "@/lib/platform";
+import type { SduiTrustBadgeItem } from "@/lib/types";
+
+interface AndroidHomeTrustBarProps {
+  badges?: SduiTrustBadgeItem[];
+  freeShippingThreshold?: number;
+}
 
 /**
- * 3-Column Android Service Trust Bar matching Luxury Cream & Gold UI:
- * Free Delivery (reads store_settings threshold), Easy Returns (5-Day Policy), Secure Shopping.
+ * 3-Column Service Trust Bar matching Luxury Cream & Gold UI.
+ * Uses server-cached SDUI props directly (zero client-side Supabase queries!).
  */
-export function AndroidHomeTrustBar() {
-  const [freeThreshold, setFreeThreshold] = useState<number>(499);
+export function AndroidHomeTrustBar({
+  badges,
+  freeShippingThreshold = 499,
+}: AndroidHomeTrustBarProps) {
+  const defaultDeliverySub =
+    freeShippingThreshold > 0 ? `on ₹${freeShippingThreshold}+` : "Pan-India Free";
 
-  useEffect(() => {
-    let active = true;
-    const loadRules = async () => {
-      try {
-        const { data } = await supabase
-          .from("store_settings")
-          .select("key, value")
-          .in("key", ["billing", "marketplace_rules"]);
+  const resolvedBadges: SduiTrustBadgeItem[] =
+    Array.isArray(badges) && badges.length >= 3
+      ? badges.slice(0, 3)
+      : [
+          { icon: "truck", title: "Free Delivery", subtitle: defaultDeliverySub },
+          { icon: "shield", title: "Easy Returns", subtitle: "5-Day Policy" },
+          { icon: "badge", title: "Secure Shopping", subtitle: "100% Safe" },
+        ];
 
-        if (!active || !data) return;
-        const map: Record<string, Record<string, unknown>> = {};
-        data.forEach((row: { key: string; value: Record<string, unknown> }) => {
-          map[row.key] = row.value;
-        });
-        const m = map.marketplace_rules || {};
-        const b = map.billing || {};
-        const raw = m.freeShippingThreshold ?? b.freeDeliveryThreshold;
-        if (raw !== undefined && raw !== null && raw !== "" && !isNaN(Number(raw))) {
-          setFreeThreshold(Number(raw));
-        }
-      } catch {
-        // Keep safe default
-      }
-    };
-    loadRules();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const deliverySub = freeThreshold > 0 ? `on ₹${freeThreshold}+` : "Pan-India Free";
+  const renderBadgeIcon = (iconName: string, idx: number) => {
+    const cls = `h-4 w-4 ${idx === 1 ? "text-[#B8800C]" : "text-[#9A6503]"} shrink-0 stroke-[2.2]`;
+    if (iconName === "truck") return <Truck className={cls} />;
+    if (iconName === "shield") return <ShieldCheck className={cls} />;
+    return <BadgeCheck className={cls} />;
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-3.5 mt-3">
       <div className="grid grid-cols-3 divide-x divide-[#EFE1BE] rounded-2xl bg-[#FFFDF8] border border-[#E5C983]/80 shadow-[0_6px_18px_rgba(166,124,28,0.08)] py-2.5 px-1">
-        <div className="flex items-center justify-center gap-1.5 px-1.5 min-w-0">
-          <Truck className="h-4 w-4 text-[#9A6503] shrink-0 stroke-[2.2]" />
-          <div className="min-w-0">
-            <p className="text-[10px] font-extrabold text-[#14120F] leading-tight truncate">Free Delivery</p>
-            <p className="text-[9px] font-semibold text-[#6B5D44] leading-tight truncate">{deliverySub}</p>
+        {resolvedBadges.map((b, idx) => (
+          <div key={idx} className="flex items-center justify-center gap-1.5 px-1.5 min-w-0">
+            {renderBadgeIcon(b.icon, idx)}
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold text-[#14120F] leading-tight truncate">
+                {b.title}
+              </p>
+              <p className="text-[9px] font-semibold text-[#6B5D44] leading-tight truncate">
+                {b.subtitle}
+              </p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-center justify-center gap-1.5 px-1.5 min-w-0">
-          <ShieldCheck className="h-4 w-4 text-[#B8800C] shrink-0 stroke-[2.2]" />
-          <div className="min-w-0">
-            <p className="text-[10px] font-extrabold text-[#14120F] leading-tight truncate">Easy Returns</p>
-            <p className="text-[9px] font-semibold text-[#6B5D44] leading-tight truncate">5-Day Policy</p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center gap-1.5 px-1.5 min-w-0">
-          <BadgeCheck className="h-4 w-4 text-[#9A6503] shrink-0 stroke-[2.2]" />
-          <div className="min-w-0">
-            <p className="text-[10px] font-extrabold text-[#14120F] leading-tight truncate">Secure Shopping</p>
-            <p className="text-[9px] font-semibold text-[#6B5D44] leading-tight truncate">100% Safe</p>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
@@ -94,13 +78,23 @@ const AUTO_SLIDE_INTERVAL_MS = 4200;
  * - Slide 2: New Season Drop ("Fresh Culture Arrivals")
  * Supports smooth GPU transform transitions, touch swipe, hover pause, and indicator pills.
  */
-export function AndroidNewSeasonDropBanner() {
+interface AndroidNewSeasonDropBannerProps {
+  showFirstOrderSlideConfig?: boolean;
+  showNewDropSlideConfig?: boolean;
+  initialDropThumbs?: string[];
+}
+
+export function AndroidNewSeasonDropBanner({
+  showFirstOrderSlideConfig = true,
+  showNewDropSlideConfig = true,
+  initialDropThumbs = [],
+}: AndroidNewSeasonDropBannerProps = {}) {
   const isNativeApp = useOfficialTheme();
   const { config: firstOrderConfig, eligible: isFirstOrderEligible, loading: firstOrderLoading } =
     useFirstOrderOffer();
   const { cart } = useCart();
 
-  const [dropThumbs, setDropThumbs] = useState<string[]>([]);
+  const [dropThumbs, setDropThumbs] = useState<string[]>(initialDropThumbs);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -109,25 +103,33 @@ export function AndroidNewSeasonDropBanner() {
   const didSwipeRef = useRef<boolean>(false);
 
   const showFirstOrderSlide =
+    showFirstOrderSlideConfig !== false &&
     !firstOrderLoading &&
     firstOrderConfig.isActive &&
     isFirstOrderEligible &&
     firstOrderConfig.discountAmount > 0;
 
-  const slideKeys: Array<"first-order" | "new-drop"> = showFirstOrderSlide
-    ? ["first-order", "new-drop"]
-    : ["new-drop"];
+  const showNewDropSlide = showNewDropSlideConfig !== false;
+
+  const slideKeys: Array<"first-order" | "new-drop"> = [
+    ...(showFirstOrderSlide ? (["first-order"] as const) : []),
+    ...(showNewDropSlide ? (["new-drop"] as const) : []),
+  ];
 
   const totalSlides = slideKeys.length;
-  const safeActiveIndex = activeIndex >= totalSlides ? 0 : activeIndex;
+  const safeActiveIndex = totalSlides > 0 && activeIndex >= totalSlides ? 0 : activeIndex;
 
   // Keep index in bounds when eligibility resolves
   useEffect(() => {
     setActiveIndex(0);
-  }, [showFirstOrderSlide]);
+  }, [showFirstOrderSlide, showNewDropSlide]);
 
-  // Fetch latest drop thumbnails for Slide 2
+  // Only query Supabase on client if initialDropThumbs were not hydrated by SSR
   useEffect(() => {
+    if (initialDropThumbs && initialDropThumbs.length > 0) {
+      setDropThumbs(initialDropThumbs);
+      return;
+    }
     let active = true;
     const fetchDropThumbs = async () => {
       try {
@@ -152,7 +154,9 @@ export function AndroidNewSeasonDropBanner() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialDropThumbs]);
+
+  if (totalSlides === 0) return null;
 
   // Auto-advance timer when multiple slides are active
   useEffect(() => {
@@ -333,6 +337,7 @@ export function AndroidNewSeasonDropBanner() {
           )}
 
           {/* SLIDE 2: NEW SEASON DROP */}
+          {showNewDropSlide && (
           <div className="w-full shrink-0">
             <Link
               href="/new-drops"
@@ -417,6 +422,7 @@ export function AndroidNewSeasonDropBanner() {
               </div>
             </Link>
           </div>
+          )}
         </div>
       </div>
 

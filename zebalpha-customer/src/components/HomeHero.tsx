@@ -10,6 +10,7 @@ import { Suspense } from "react";
 
 interface HomeHeroProps {
   initialCategories?: NavigationCategory[];
+  stickyNavOnly?: boolean;
 }
 
 function LuxuryGoldCurvesBackdrop() {
@@ -140,7 +141,7 @@ function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiv
   );
 }
 
-export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
+export function HomeHero({ initialCategories = [], stickyNavOnly = false }: HomeHeroProps) {
   const isNativeApp = useIsNativeApp();
 
   // When in Android App:
@@ -177,21 +178,22 @@ export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
           />
         </div>
 
-        {/* =================================================================== */}
-        {/* SCROLLABLE HOMEPAGE CONTENT                                         */}
-        {/* =================================================================== */}
-        {/* 1. Hero Banner: Starts with clean separation below category bar */}
-        <div className="mx-auto w-full max-w-[1400px] px-3.5 md:px-8 pt-3">
-          <BannerCarousel />
-        </div>
+        {!stickyNavOnly && (
+          <>
+            {/* 1. Hero Banner: Starts with clean separation below category bar */}
+            <div className="mx-auto w-full max-w-[1400px] px-3.5 md:px-8 pt-3">
+              <BannerCarousel />
+            </div>
 
-        {/* 2. 3-Column Trust & Free Delivery Strip */}
-        <AndroidHomeTrustBar />
+            {/* 2. 3-Column Trust & Free Delivery Strip */}
+            <AndroidHomeTrustBar />
 
-        {/* 3. Promotional Announcement / Marquee Banner */}
-        <div className="mt-3">
-          <MovingOfferBanner />
-        </div>
+            {/* 3. Promotional Announcement / Marquee Banner */}
+            <div className="mt-3">
+              <MovingOfferBanner />
+            </div>
+          </>
+        )}
       </>
     );
   }
@@ -220,18 +222,22 @@ export function HomeHero({ initialCategories = [] }: HomeHeroProps) {
         </div>
       </div>
 
-      {/* 1. Hero Banner Carousel */}
-      <div className="mx-auto w-full max-w-[1400px] px-3.5 md:px-8 pt-3">
-        <BannerCarousel />
-      </div>
+      {!stickyNavOnly && (
+        <>
+          {/* 1. Hero Banner Carousel */}
+          <div className="mx-auto w-full max-w-[1400px] px-3.5 md:px-8 pt-3">
+            <BannerCarousel />
+          </div>
 
-      {/* 2. Official 3-Column Trust & Free Delivery Strip */}
-      <AndroidHomeTrustBar />
+          {/* 2. Official 3-Column Trust & Free Delivery Strip */}
+          <AndroidHomeTrustBar />
 
-      {/* 3. Official Champagne-Gold Marquee Banner */}
-      <div className="mt-3">
-        <MovingOfferBanner />
-      </div>
+          {/* 3. Official Champagne-Gold Marquee Banner */}
+          <div className="mt-3">
+            <MovingOfferBanner />
+          </div>
+        </>
+      )}
     </>
   );
 }

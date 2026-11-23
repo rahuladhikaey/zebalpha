@@ -1,7 +1,15 @@
 import { getCachedOrFetch, invalidateCacheKey, invalidateCachePattern } from './cacheHelper';
 import { supabaseServer } from './supabaseServer';
 export { supabaseServer } from './supabaseServer';
-import { Product, Category, CuratedCollection, EditorialCard, PromotionalCampaign } from './types';
+import {
+  Product,
+  Category,
+  CuratedCollection,
+  EditorialCard,
+  PromotionalCampaign,
+  SduiHomepageBlueprint,
+  SduiWidgetConfig,
+} from './types';
 import { fetchProductRatingSummaries, attachRatingsToProducts } from './productRatings';
 import { resolveCategoryIcon } from '../../../shared/constants/categoryIcons';
 
@@ -490,7 +498,261 @@ export async function invalidateHomepageEditorialCache() {
   await invalidateCacheKey('homepage:section:editorial_cards');
   await invalidateCacheKey('homepage:section:hero_banners');
   await invalidateCacheKey('homepage:section:promotional_campaigns');
+  await invalidateCacheKey('homepage:sdui:layout:v1');
   await invalidateCachePattern('homepage:section:*');
+  await invalidateCachePattern('homepage:sdui:*');
+}
+
+export const DEFAULT_SDUI_HOMEPAGE_BLUEPRINT: SduiHomepageBlueprint = {
+  version: 1,
+  updated_at: '2026-11-24T00:00:00.000Z',
+  global_theme: {
+    header_backdrop: 'festive_coral_gold',
+    announcement_bar_enabled: true,
+    trust_bar_enabled: true,
+    free_shipping_threshold: 499,
+    trust_badges: [
+      { icon: 'truck', title: 'Free Delivery', subtitle: 'on ₹499+' },
+      { icon: 'shield', title: 'Easy Returns', subtitle: '5-Day Policy' },
+      { icon: 'badge', title: 'Secure Shopping', subtitle: '100% Safe' },
+    ],
+    marquee_items: [
+      { icon: 'crown', text: 'ZEBALPHA • CLOTHING FOR THE CULTURE' },
+      { icon: 'flame', text: 'NEW SEASON DROP • AUTHENTIC STREETWEAR' },
+      { icon: 'shield', text: '100% PREMIUM COMBED COTTON' },
+      { icon: 'truck', text: 'FREE EXPRESS SHIPPING ON ORDERS OVER ₹499' },
+      { icon: 'tag', text: 'FLAT ₹100 OFF ON 1ST ORDER (CODE: FIRST100)' },
+    ],
+  },
+  widgets: [
+    {
+      id: 'hero_carousel',
+      widget_type: 'HERO_CAROUSEL',
+      title: 'Main Hero Banners',
+      subtitle: 'Top sliding promotional banners',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 1,
+      config: {},
+    },
+    {
+      id: 'trust_badge_strip',
+      widget_type: 'TRUST_BADGE_STRIP',
+      title: '3-Column Trust & Delivery Strip',
+      subtitle: 'Free Delivery, Easy Returns, Secure Shopping',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 2,
+      config: {},
+    },
+    {
+      id: 'marquee_ticker',
+      widget_type: 'MARQUEE_TICKER',
+      title: 'Scrolling Champagne-Gold Offer Marquee',
+      subtitle: 'Continuous promotional announcement ticker',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 3,
+      config: {},
+    },
+    {
+      id: 'curated_collections',
+      widget_type: 'CURATED_COLLECTIONS',
+      title: 'Curated Collections',
+      subtitle: 'Handpicked styles for the culture',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 4,
+      config: {},
+    },
+    {
+      id: 'promo_drop_carousel',
+      widget_type: 'PROMO_DROP_CAROUSEL',
+      title: '1st Order ₹100 OFF & New Season Drop Slider',
+      subtitle: 'Auto-sliding conversion cards',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 5,
+      config: { show_first_order_slide: true, show_new_drop_slide: true },
+    },
+    {
+      id: 'flash_deal_strip',
+      widget_type: 'FLASH_DEAL_STRIP',
+      title: 'Flash Culture Deals',
+      subtitle: 'Limited-time price drops — grab before timer ends',
+      enabled: false,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 6,
+      config: {
+        badge_text: 'LIVE FLASH SALE',
+        ends_at: '',
+        product_ids: [],
+        max_items: 8,
+        cta_label: 'View All Deals',
+        cta_href: '/products',
+      },
+    },
+    {
+      id: 'festive_16_slot_grid',
+      widget_type: 'FESTIVE_16_SLOT_GRID',
+      title: 'TOP DEALS',
+      subtitle: 'Festive Picks • Unbeatable Prices • Shop More, Celebrate Bigger',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 7,
+      config: { campaign_slug: 'top-deals' },
+    },
+    {
+      id: 'custom_studio_editorial',
+      widget_type: 'CUSTOM_STUDIO_EDITORIAL',
+      title: 'Customize & Wear Your Art',
+      subtitle:
+        'Tap any artwork below to open Custom Studio with that exact design ready on tees, hoodies & totes.',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 8,
+      config: {
+        eyebrow: 'ZEBALPHA CUSTOM STUDIO',
+        title_line_1: 'Customize &',
+        title_line_2: 'Wear Your Art',
+      },
+    },
+    {
+      id: 'seller_brand_spotlight',
+      widget_type: 'SELLER_BRAND_SPOTLIGHT',
+      title: 'Featured Brand Showcase',
+      subtitle: 'Spotlight • Emerging Indian Brands',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 9,
+      config: {},
+    },
+    {
+      id: 'featured_product_feed',
+      widget_type: 'FEATURED_PRODUCT_FEED',
+      title: 'Our Products',
+      subtitle: 'Streetwear, polos, hoodies & curated culture drops',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 10,
+      config: { cta_label: 'Create', cta_href: '/customize' },
+    },
+    {
+      id: 'recently_viewed',
+      widget_type: 'RECENTLY_VIEWED',
+      title: 'Recently Viewed',
+      subtitle: 'Pick up right where you left off',
+      enabled: true,
+      web_enabled: true,
+      app_enabled: true,
+      display_order: 11,
+      config: {},
+    },
+  ],
+};
+
+/**
+ * Single-Key Cached SDUI Homepage Layout Blueprint Fetcher (~1.8 KB payload)
+ * Consolidates sdui_homepage_layout_v1, marquee_banner, and billing threshold into ONE cached read
+ * so browser clients NEVER query store_settings directly on homepage visits.
+ * Cache TTL: 10 minutes (600s) — purged instantaneously on SuperAdmin publish.
+ */
+export async function getCachedHomepageLayout(): Promise<SduiHomepageBlueprint> {
+  return getCachedOrFetch<SduiHomepageBlueprint>(
+    'homepage:sdui:layout:v1',
+    async () => {
+      try {
+        const { data: rows, error } = await supabaseServer
+          .from('store_settings')
+          .select('key, value')
+          .in('key', ['sdui_homepage_layout_v1', 'marquee_banner', 'marketplace_rules', 'billing']);
+
+        if (error || !rows || rows.length === 0) {
+          return DEFAULT_SDUI_HOMEPAGE_BLUEPRINT;
+        }
+
+        const map: Record<string, any> = {};
+        rows.forEach((r: any) => {
+          map[r.key] = r.value;
+        });
+
+        const rawLayout =
+          typeof map.sdui_homepage_layout_v1 === 'string'
+            ? JSON.parse(map.sdui_homepage_layout_v1)
+            : map.sdui_homepage_layout_v1;
+
+        const mRules = map.marketplace_rules || {};
+        const bRules = map.billing || {};
+        const freeThresholdRaw = mRules.freeShippingThreshold ?? bRules.freeDeliveryThreshold;
+        const resolvedFreeThreshold =
+          freeThresholdRaw !== undefined && freeThresholdRaw !== null && !isNaN(Number(freeThresholdRaw))
+            ? Number(freeThresholdRaw)
+            : DEFAULT_SDUI_HOMEPAGE_BLUEPRINT.global_theme.free_shipping_threshold || 499;
+
+        const baseTheme = {
+          ...DEFAULT_SDUI_HOMEPAGE_BLUEPRINT.global_theme,
+          ...(rawLayout?.global_theme || {}),
+          free_shipping_threshold: resolvedFreeThreshold,
+        };
+
+        // Sync standalone marquee_banner if present and global_theme.marquee_items wasn't customized
+        if (
+          (!rawLayout?.global_theme?.marquee_items || rawLayout.global_theme.marquee_items.length === 0) &&
+          Array.isArray(map.marquee_banner) &&
+          map.marquee_banner.length > 0
+        ) {
+          baseTheme.marquee_items = map.marquee_banner;
+        }
+
+        // Merge saved widgets with default widget registry so new widgets never go missing
+        const savedWidgets: SduiWidgetConfig[] = Array.isArray(rawLayout?.widgets)
+          ? rawLayout.widgets
+          : [];
+        const savedByType = new Map<string, SduiWidgetConfig>();
+        savedWidgets.forEach((w) => {
+          if (w && w.widget_type) savedByType.set(w.widget_type, w);
+        });
+
+        const mergedWidgets: SduiWidgetConfig[] = DEFAULT_SDUI_HOMEPAGE_BLUEPRINT.widgets.map(
+          (defW) => {
+            const existing = savedByType.get(defW.widget_type);
+            if (!existing) return defW;
+            return {
+              ...defW,
+              ...existing,
+              config: {
+                ...(defW.config || {}),
+                ...(existing.config || {}),
+              },
+            };
+          }
+        );
+
+        mergedWidgets.sort((a, b) => (a.display_order ?? 99) - (b.display_order ?? 99));
+
+        return {
+          version: Number(rawLayout?.version || 1),
+          updated_at: String(rawLayout?.updated_at || new Date().toISOString()),
+          global_theme: baseTheme,
+          widgets: mergedWidgets,
+        };
+      } catch (e) {
+        console.error('[SDUI Blueprint Fetch Fallback]:', e);
+        return DEFAULT_SDUI_HOMEPAGE_BLUEPRINT;
+      }
+    },
+    600 // 10 min TTL in L1 RAM + Upstash Redis
+  );
 }
 
 /**
