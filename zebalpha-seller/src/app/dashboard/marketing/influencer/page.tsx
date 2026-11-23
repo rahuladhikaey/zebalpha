@@ -234,6 +234,9 @@ export default function InfluencerMarketingPage() {
   const [selectedPlan, setSelectedPlan] = useState<"without_product_1pct" | "with_product_150">(
     "without_product_1pct"
   );
+  const [lockedPlanModal, setLockedPlanModal] = useState<
+    "without_product_1pct" | "with_product_150" | null
+  >(null);
   const [enrollPayTiming, setEnrollPayTiming] = useState<"pay_now" | "pay_within_3_days">("pay_now");
   const [sampleReturnPref, setSampleReturnPref] = useState<"return_after_shoot" | "keep_for_future_shoots">(
     "return_after_shoot"
@@ -243,11 +246,9 @@ export default function InfluencerMarketingPage() {
   const [maxBudgetCap, setMaxBudgetCap] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Renew / Upgrade Modal State (₹50 Flat via Razorpay!)
+  // Renew / Upgrade Modal State (₹50 Instant Online Payment)
   const [renewMode, setRenewMode] = useState<"renew" | "upgrade_with_product_150">("renew");
   const [renewDays, setRenewDays] = useState(7);
-  const [renewPayTiming, setRenewPayTiming] = useState<"pay_now" | "pay_within_3_days">("pay_now");
-  const [renewSubmitting, setRenewSubmitting] = useState(false);
 
   // Callback Form State
   const [cbPhone, setCbPhone] = useState("");
@@ -385,7 +386,9 @@ export default function InfluencerMarketingPage() {
           ondismiss: () => {
             setPayingId(null);
             notify(
-              "Payment window closed — campaign is safely saved as Payment Pending (complete within 3 days).",
+              opts.purpose === "upgrade_50"
+                ? "Payment cancelled — complete ₹50 online payment to reactivate your link."
+                : "Payment window closed — campaign is safely saved as Payment Pending (complete within 3 days).",
               "error"
             );
             loadData();
@@ -395,7 +398,12 @@ export default function InfluencerMarketingPage() {
 
       rzp.on("payment.failed", () => {
         setPayingId(null);
-        notify("Payment failed. Campaign remains saved under Payment Pending (3-day window).", "error");
+        notify(
+          opts.purpose === "upgrade_50"
+            ? "Payment failed. Please retry ₹50 online payment to reactivate your link."
+            : "Payment failed. Campaign remains saved under Payment Pending (3-day window).",
+          "error"
+        );
         loadData();
       });
 
@@ -406,8 +414,12 @@ export default function InfluencerMarketingPage() {
     }
   };
 
-  const openEnrollWithPlan = (plan: "without_product_1pct" | "with_product_150") => {
+  const openEnrollWithPlan = (
+    plan: "without_product_1pct" | "with_product_150",
+    lockToPlan = false
+  ) => {
     setSelectedPlan(plan);
+    setLockedPlanModal(lockToPlan ? plan : null);
     setEnrollPayTiming("pay_now");
     setShowSelectModal(true);
   };
@@ -416,7 +428,6 @@ export default function InfluencerMarketingPage() {
     setRenewTarget(row);
     setRenewMode(defaultMode || "renew");
     setRenewDays(7);
-    setRenewPayTiming("pay_now");
   };
 
   const enrolledMap = useMemo(() => {
@@ -486,46 +497,14 @@ export default function InfluencerMarketingPage() {
 
   const handleRenewUpgradeSubmit = async () => {
     if (!renewTarget) return;
-
-    // Option 1: Pay ₹50 Now via Razorpay (Instant reactivation on verify!)
-    if (renewPayTiming === "pay_now") {
-      await launchRazorpayCheckout({
-        enrollmentIds: [renewTarget.id],
-        purpose: "upgrade_50",
-        durationDays: renewDays,
-        upgradeMode: renewMode,
-        busyKey: renewTarget.id,
-      });
-      return;
-    }
-
-    // Option 2: Pay ₹50 Within 3 Days (Saved as Payment Pending — activates once paid!)
-    setRenewSubmitting(true);
-    try {
-      const headers = await getAuthHeaders();
-      const res = await fetch("/api/seller/marketing/influencer", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          action: "schedule_upgrade_pay_later",
-          enrollmentId: renewTarget.id,
-          mode: renewMode,
-          durationDays: renewDays,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        notify(json?.error || "Failed to save ₹50 upgrade request.", "error");
-        return;
-      }
-      notify(json.message || "Saved as Payment Pending (Pay ₹50 online within 3 days).");
-      setRenewTarget(null);
-      await loadData();
-    } catch {
-      notify("Network error saving upgrade.", "error");
-    } finally {
-      setRenewSubmitting(false);
-    }
+    // Strictly instant ₹50 online payment to renew / reactivate link immediately
+    await launchRazorpayCheckout({
+      enrollmentIds: [renewTarget.id],
+      purpose: "upgrade_50",
+      durationDays: renewDays,
+      upgradeMode: renewMode,
+      busyKey: renewTarget.id,
+    });
   };
 
   const handlePayPendingRow = async (row: EnrollmentRow) => {
@@ -668,7 +647,10 @@ export default function InfluencerMarketingPage() {
               <p className="text-sm font-black text-[#92400E]">
                 {summary.paymentPendingCount} campaign{summary.paymentPendingCount > 1 ? "s have" : " has"} Payment Pending
                 {summary.paymentOverdueCount > 0 && (
-                  <span className="ml-2 rounded-full bg-[#F03A46] px-2 py-0.5 text-[10px] text-white">
+                  <span
+                    data-photo-overlay="true"
+                    className="ml-2 rounded-full bg-[#F03A46] px-2 py-0.5 text-[10px] text-white"
+                  >
                     {summary.paymentOverdueCount} Overdue (&gt;3 Days)
                   </span>
                 )}
@@ -799,8 +781,8 @@ export default function InfluencerMarketingPage() {
             </div>
             <button
               type="button"
-              onClick={() => openEnrollWithPlan("without_product_1pct")}
-              className="rounded-xl border-2 border-[#14120F] bg-[#14120F] px-5 py-2.5 text-xs font-black text-white hover:bg-[#2C241B] transition-all cursor-pointer"
+              onClick={() => openEnrollWithPlan("without_product_1pct", true)}
+              className="rounded-xl border-2 border-[#D8B254] bg-gradient-to-r from-[#FFF6CC] to-[#F7DC88] px-5 py-2.5 text-xs font-black text-[#14120F] shadow-[0_6px_16px_rgba(180,132,24,0.18)] hover:border-[#F03A46] hover:from-[#FFF0AD] hover:to-[#F4CF62] active:scale-[0.98] transition-all cursor-pointer"
             >
               Start Without Product →
             </button>
@@ -858,7 +840,7 @@ export default function InfluencerMarketingPage() {
             </div>
             <button
               type="button"
-              onClick={() => openEnrollWithPlan("with_product_150")}
+              onClick={() => openEnrollWithPlan("with_product_150", true)}
               data-photo-overlay="true"
               className="rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-5 py-2.5 text-xs font-black text-white shadow-[0_8px_20px_rgba(240,58,70,0.3)] hover:brightness-105 transition-all cursor-pointer"
             >
@@ -1265,7 +1247,7 @@ export default function InfluencerMarketingPage() {
                                 <button
                                   type="button"
                                   onClick={() => openRenewModal(row, "upgrade_with_product_150")}
-                                  className="inline-flex items-center gap-1 rounded-xl border border-[#F03A46]/40 bg-[#FFF4F2] px-3 py-1.5 text-[11px] font-black text-[#F03A46] hover:bg-[#F03A46] hover:text-white transition-all cursor-pointer"
+                                  className="inline-flex items-center gap-1 rounded-xl border border-[#F03A46]/40 bg-[#FFF4F2] px-3 py-1.5 text-[11px] font-black text-[#F03A46] hover:bg-[#FFE2E5] hover:border-[#F03A46] transition-all cursor-pointer"
                                 >
                                   <ArrowUpRight size={12} /> Studio ₹50
                                 </button>
@@ -1307,20 +1289,42 @@ export default function InfluencerMarketingPage() {
       {/* ENROLL CATALOGS MODAL (2 PLANS + DUAL PAYMENT TIMING FOR PLAN 2) */}
       {showSelectModal && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-3 sm:p-4 backdrop-blur-sm"
           onClick={() => setShowSelectModal(false)}
         >
           <div
-            className="w-full max-w-2xl rounded-[2rem] border border-[#EAD296] bg-white p-6 sm:p-8 shadow-2xl max-h-[90vh] flex flex-col"
+            className="w-full max-w-2xl rounded-[2rem] border border-[#EAD296] bg-white p-5 sm:p-7 shadow-2xl max-h-[92vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-[#F0E2BE] pb-4">
+            {/* Sticky Header */}
+            <div className="shrink-0 flex items-start justify-between gap-4 border-b border-[#F0E2BE] pb-3.5">
               <div>
-                <h3 className="text-xl font-black text-[#14120F]">
-                  Launch 7-Day Alpha Media Influencer Campaign
+                {lockedPlanModal && (
+                  <span
+                    className={`mb-1.5 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                      lockedPlanModal === "without_product_1pct"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "border-rose-200 bg-[#FFF4F2] text-[#F03A46]"
+                    }`}
+                  >
+                    {lockedPlanModal === "without_product_1pct"
+                      ? "Plan 1 • Without Product + 1%"
+                      : "Plan 2 • With Product + ₹150"}
+                  </span>
+                )}
+                <h3 className="text-lg sm:text-xl font-black text-[#14120F]">
+                  {lockedPlanModal === "without_product_1pct"
+                    ? "Start Without Product + 1% (7 Days)"
+                    : lockedPlanModal === "with_product_150"
+                    ? "Book Alpha Studio Shoot — ₹150 (7 Days)"
+                    : "Launch 7-Day Alpha Media Influencer Campaign"}
                 </h3>
                 <p className="mt-0.5 text-xs font-semibold text-[#6E5C3D]">
-                  Choose your plan &amp; payment timing. For ₹150 studio shoots, Alpha Media proceeds once Product Delivery + Payment are both complete.
+                  {lockedPlanModal === "without_product_1pct"
+                    ? "₹0 upfront • No sample shipping needed • Pay 1% strictly on verified delivered orders."
+                    : lockedPlanModal === "with_product_150"
+                    ? "Choose Pay Now or Pay Within 3 Days. Alpha Media proceeds once Product Delivery + Payment are both complete."
+                    : "Choose your plan & select live catalogs to launch your 7-day Alpha Media campaign."}
                 </p>
               </div>
               <button
@@ -1332,180 +1336,198 @@ export default function InfluencerMarketingPage() {
               </button>
             </div>
 
-            {/* Plan Toggle */}
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setSelectedPlan("without_product_1pct")}
-                className={`rounded-2xl border-2 p-3.5 text-left transition-all cursor-pointer ${
-                  selectedPlan === "without_product_1pct"
-                    ? "border-[#F03A46] bg-[#FFF4F2]/60"
-                    : "border-[#EAD296] bg-[#FFFDF8]"
-                }`}
-              >
-                <p className="text-xs font-black text-[#14120F]">Plan 1: Without Product + 1%</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-[#6E5C3D]">
-                  ₹0 upfront • No sample needed • 7-day active link
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedPlan("with_product_150")}
-                className={`rounded-2xl border-2 p-3.5 text-left transition-all cursor-pointer ${
-                  selectedPlan === "with_product_150"
-                    ? "border-[#F03A46] bg-[#FFF4F2]/60"
-                    : "border-[#EAD296] bg-[#FFFDF8]"
-                }`}
-              >
-                <p className="text-xs font-black text-[#14120F]">Plan 2: With Product + ₹150</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-[#6E5C3D]">
-                  Real Alpha Studio shoot + PDP Video Proof • 0% comm
-                </p>
-              </button>
-            </div>
+            {/* Smoothly Scrollable Middle Body — guarantees full product list visibility on every screen */}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 py-4 space-y-3.5">
+              {/* Show Plan Toggle ONLY when opened from generic + Enroll Catalogs button */}
+              {!lockedPlanModal && (
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlan("without_product_1pct")}
+                    className={`rounded-2xl border-2 p-3 text-left transition-all cursor-pointer ${
+                      selectedPlan === "without_product_1pct"
+                        ? "border-[#F03A46] bg-[#FFF4F2]/60"
+                        : "border-[#EAD296] bg-[#FFFDF8]"
+                    }`}
+                  >
+                    <p className="text-xs font-black text-[#14120F]">Plan 1: Without Product + 1%</p>
+                    <p className="mt-0.5 text-[11px] font-semibold text-[#6E5C3D]">
+                      ₹0 upfront • No sample needed • 7-day active link
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlan("with_product_150")}
+                    className={`rounded-2xl border-2 p-3 text-left transition-all cursor-pointer ${
+                      selectedPlan === "with_product_150"
+                        ? "border-[#F03A46] bg-[#FFF4F2]/60"
+                        : "border-[#EAD296] bg-[#FFFDF8]"
+                    }`}
+                  >
+                    <p className="text-xs font-black text-[#14120F]">Plan 2: With Product + ₹150</p>
+                    <p className="mt-0.5 text-[11px] font-semibold text-[#6E5C3D]">
+                      Real Alpha Studio shoot + PDP Video Proof • 0% comm
+                    </p>
+                  </button>
+                </div>
+              )}
 
-            {/* Plan-specific options */}
-            {selectedPlan === "with_product_150" ? (
-              <div className="mt-4 space-y-3 rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-4">
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-2">
-                    Choose ₹150 Payment Option (per catalog)
-                  </label>
-                  <div className="grid gap-2.5 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => setEnrollPayTiming("pay_now")}
-                      className={`rounded-xl border-2 p-3 text-left transition-all cursor-pointer ${
-                        enrollPayTiming === "pay_now"
-                          ? "border-[#F03A46] bg-white shadow-sm"
-                          : "border-[#EAD296] bg-[#FFFDF8]"
-                      }`}
-                    >
-                      <p className="text-xs font-black text-[#14120F] flex items-center gap-1.5">
-                        <CreditCard size={13} className="text-[#F03A46]" /> Pay Now (Online)
-                      </p>
-                      <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
-                        UPI / GPay / PhonePe / Card — instant verification
-                      </p>
-                    </button>
+              {/* Plan-specific options */}
+              {selectedPlan === "with_product_150" ? (
+                <div className="space-y-2.5 rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-3.5">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-1.5">
+                      Choose ₹150 Payment Option (per catalog)
+                    </label>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setEnrollPayTiming("pay_now")}
+                        className={`rounded-xl border-2 p-2.5 text-left transition-all cursor-pointer ${
+                          enrollPayTiming === "pay_now"
+                            ? "border-[#F03A46] bg-white shadow-sm"
+                            : "border-[#EAD296] bg-[#FFFDF8]"
+                        }`}
+                      >
+                        <p className="text-xs font-black text-[#14120F] flex items-center gap-1.5">
+                          <CreditCard size={13} className="text-[#F03A46]" /> Pay Now (Online)
+                        </p>
+                        <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
+                          UPI / GPay / PhonePe / Card — instant verification
+                        </p>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setEnrollPayTiming("pay_within_3_days")}
-                      className={`rounded-xl border-2 p-3 text-left transition-all cursor-pointer ${
-                        enrollPayTiming === "pay_within_3_days"
-                          ? "border-[#F03A46] bg-white shadow-sm"
-                          : "border-[#EAD296] bg-[#FFFDF8]"
-                      }`}
+                      <button
+                        type="button"
+                        onClick={() => setEnrollPayTiming("pay_within_3_days")}
+                        className={`rounded-xl border-2 p-2.5 text-left transition-all cursor-pointer ${
+                          enrollPayTiming === "pay_within_3_days"
+                            ? "border-[#F03A46] bg-white shadow-sm"
+                            : "border-[#EAD296] bg-[#FFFDF8]"
+                        }`}
+                      >
+                        <p className="text-xs font-black text-[#14120F] flex items-center gap-1.5">
+                          <Clock size={13} className="text-[#9A6503]" /> Pay Within 3 Days
+                        </p>
+                        <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
+                          Payment Pending until paid; Media starts after Payment + Delivery
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-1">
+                      Sample Product Handling
+                    </label>
+                    <select
+                      value={sampleReturnPref}
+                      onChange={(e) =>
+                        setSampleReturnPref(e.target.value as "return_after_shoot" | "keep_for_future_shoots")
+                      }
+                      className="w-full rounded-xl border border-[#EAD296] bg-white px-3 py-2 text-xs font-bold"
                     >
-                      <p className="text-xs font-black text-[#14120F] flex items-center gap-1.5">
-                        <Clock size={13} className="text-[#9A6503]" /> Pay Within 3 Days
-                      </p>
-                      <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
-                        Shows Payment Pending until paid; Media starts after Payment + Delivery
-                      </p>
-                    </button>
+                      <option value="return_after_shoot">Return Sample to Seller after Shoot</option>
+                      <option value="keep_for_future_shoots">Keep at Alpha Studio for Future Reels</option>
+                    </select>
                   </div>
                 </div>
-
+              ) : (
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-1">
-                    Sample Product Handling
+                    Optional Commission Cap (₹) — Fixed 1% on Verified Delivered Orders
                   </label>
-                  <select
-                    value={sampleReturnPref}
-                    onChange={(e) =>
-                      setSampleReturnPref(e.target.value as "return_after_shoot" | "keep_for_future_shoots")
-                    }
-                    className="w-full rounded-xl border border-[#EAD296] bg-white px-3 py-2 text-xs font-bold"
-                  >
-                    <option value="return_after_shoot">Return Sample to Seller after Shoot</option>
-                    <option value="keep_for_future_shoots">Keep at Alpha Studio for Future Reels</option>
-                  </select>
+                  <input
+                    type="number"
+                    min="100"
+                    placeholder="No limit (e.g. 2000)"
+                    value={maxBudgetCap}
+                    onChange={(e) => setMaxBudgetCap(e.target.value)}
+                    className="w-full rounded-xl border border-[#EAD296] px-3.5 py-2 text-xs font-bold"
+                  />
                 </div>
-              </div>
-            ) : (
-              <div className="mt-4">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-1">
-                  Optional Commission Cap (₹) — Fixed 1% on Verified Delivered Orders
-                </label>
-                <input
-                  type="number"
-                  min="100"
-                  placeholder="No limit (e.g. 2000)"
-                  value={maxBudgetCap}
-                  onChange={(e) => setMaxBudgetCap(e.target.value)}
-                  className="w-full rounded-xl border border-[#EAD296] px-3.5 py-2 text-xs font-bold"
-                />
-              </div>
-            )}
-
-            {/* Search Catalogs */}
-            <div className="relative mt-4">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9A6503]" />
-              <input
-                type="text"
-                value={catalogSearch}
-                onChange={(e) => setCatalogSearch(e.target.value)}
-                placeholder="Search your live products by title or SKU..."
-                className="w-full rounded-xl border border-[#EAD296] py-2.5 pl-10 pr-4 text-xs font-bold"
-              />
-            </div>
-
-            {/* Product List */}
-            <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
-              {filteredModalProducts.length === 0 ? (
-                <div className="py-10 text-center text-xs font-bold text-[#6E5C3D]">
-                  No live products found. Upload products under Products first.
-                </div>
-              ) : (
-                filteredModalProducts.map((p) => {
-                  const isChecked = selectedIds.includes(p.id);
-                  const existing = enrolledMap.get(p.id);
-                  return (
-                    <label
-                      key={p.id}
-                      className={`flex items-center justify-between gap-3 rounded-2xl border p-3 transition-all cursor-pointer ${
-                        isChecked
-                          ? "border-[#F03A46] bg-[#FFF4F2]/60"
-                          : "border-[#F0E2BE] bg-[#FFFDF8] hover:border-[#DFBE6F]"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleProductSelect(p.id)}
-                          className="h-4 w-4 accent-[#F03A46] rounded cursor-pointer"
-                        />
-                        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-[#EAD296] bg-white">
-                          {p.image_url ? (
-                            <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[#9A6503]">
-                              <Store size={16} />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-[#14120F] truncate">{p.name}</p>
-                          <p className="text-[11px] font-bold text-[#7A6847]">
-                            ₹{p.price.toLocaleString("en-IN")} • SKU: {p.sku}
-                          </p>
-                        </div>
-                      </div>
-                      {existing && (
-                        <span className="shrink-0 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-black text-amber-800">
-                          {existing.effective_status}
-                        </span>
-                      )}
-                    </label>
-                  );
-                })
               )}
+
+              {/* Search Catalogs */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[#5C4E35]">
+                    Select Live Catalogs ({filteredModalProducts.length} available)
+                  </label>
+                  {selectedIds.length > 0 && (
+                    <span className="text-[11px] font-black text-[#F03A46]">
+                      {selectedIds.length} selected
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9A6503]" />
+                  <input
+                    type="text"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    placeholder="Search your live products by title or SKU..."
+                    className="w-full rounded-xl border border-[#EAD296] py-2.5 pl-10 pr-4 text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Product List (Full-height cards — never clipped!) */}
+              <div className="space-y-2 pb-1">
+                {filteredModalProducts.length === 0 ? (
+                  <div className="py-8 text-center text-xs font-bold text-[#6E5C3D] rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8]">
+                    No live products found. Upload products under Products first.
+                  </div>
+                ) : (
+                  filteredModalProducts.map((p) => {
+                    const isChecked = selectedIds.includes(p.id);
+                    const existing = enrolledMap.get(p.id);
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-center justify-between gap-3 rounded-2xl border p-3 transition-all cursor-pointer ${
+                          isChecked
+                            ? "border-[#F03A46] bg-[#FFF4F2]/60"
+                            : "border-[#F0E2BE] bg-[#FFFDF8] hover:border-[#DFBE6F]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleProductSelect(p.id)}
+                            className="h-4 w-4 shrink-0 accent-[#F03A46] rounded cursor-pointer"
+                          />
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-[#EAD296] bg-white">
+                            {p.image_url ? (
+                              <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[#9A6503]">
+                                <Store size={16} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-[#14120F] line-clamp-1">{p.name}</p>
+                            <p className="text-[11px] font-bold text-[#7A6847]">
+                              ₹{p.price.toLocaleString("en-IN")} • SKU: {p.sku}
+                            </p>
+                          </div>
+                        </div>
+                        {existing && (
+                          <span className="shrink-0 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-black text-amber-800">
+                            {existing.effective_status}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#F0E2BE] pt-4">
+            {/* Sticky Footer */}
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-t border-[#F0E2BE] pt-3.5">
               <span className="text-xs font-extrabold text-[#5C4E35]">
                 {selectedIds.length} catalog(s) •{" "}
                 {selectedPlan === "with_product_150"
@@ -1545,14 +1567,14 @@ export default function InfluencerMarketingPage() {
         </div>
       )}
 
-      {/* REACTIVATE / UPGRADE MODAL (₹50 FLAT VIA RAZORPAY — PAY NOW OR WITHIN 3 DAYS!) */}
+      {/* REACTIVATE / UPGRADE MODAL (₹50 INSTANT ONLINE PAYMENT ONLY — NO 3-DAY DELAY) */}
       {renewTarget && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
           onClick={() => setRenewTarget(null)}
         >
           <div
-            className="w-full max-w-lg rounded-[2rem] border border-[#EAD296] bg-white p-6 sm:p-8 shadow-2xl space-y-4"
+            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[2rem] border border-[#EAD296] bg-white p-6 sm:p-8 shadow-2xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
@@ -1628,45 +1650,16 @@ export default function InfluencerMarketingPage() {
               </div>
             </div>
 
-            {/* 2 Payment Options for ₹50 Upgrade */}
-            <div className="rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-3.5 space-y-2">
-              <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35]">
-                ₹50 Payment Option
-              </label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setRenewPayTiming("pay_now")}
-                  className={`rounded-xl border-2 p-2.5 text-left cursor-pointer ${
-                    renewPayTiming === "pay_now"
-                      ? "border-[#F03A46] bg-white"
-                      : "border-[#EAD296] bg-[#FFFDF8]"
-                  }`}
-                >
-                  <p className="text-xs font-black text-[#14120F] flex items-center gap-1">
-                    <CreditCard size={12} className="text-[#F03A46]" /> Pay ₹50 Now
-                  </p>
-                  <p className="text-[10px] font-semibold text-[#6E5C3D] mt-0.5">
-                    Link reactivates instantly after payment
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRenewPayTiming("pay_within_3_days")}
-                  className={`rounded-xl border-2 p-2.5 text-left cursor-pointer ${
-                    renewPayTiming === "pay_within_3_days"
-                      ? "border-[#F03A46] bg-white"
-                      : "border-[#EAD296] bg-[#FFFDF8]"
-                  }`}
-                >
-                  <p className="text-xs font-black text-[#14120F] flex items-center gap-1">
-                    <Clock size={12} className="text-[#9A6503]" /> Pay Within 3 Days
-                  </p>
-                  <p className="text-[10px] font-semibold text-[#6E5C3D] mt-0.5">
-                    Marked Payment Pending; unlocks once ₹50 paid
-                  </p>
-                </button>
+            {/* Instant Payment Summary (No 3-day pay-later option on ₹50 upgrade) */}
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3.5 flex items-start gap-2.5">
+              <CreditCard size={16} className="mt-0.5 shrink-0 text-emerald-700" />
+              <div className="text-xs">
+                <p className="font-black text-[#14120F]">
+                  Instant Online Payment — ₹50
+                </p>
+                <p className="text-[11px] font-semibold text-[#5C4E35] mt-0.5">
+                  Pay via UPI / GPay / PhonePe / Card now — your deactivated link immediately becomes <strong>ACTIVE</strong> for <strong>+{renewDays} days</strong>!
+                </p>
               </div>
             </div>
 
@@ -1680,16 +1673,14 @@ export default function InfluencerMarketingPage() {
               </button>
               <button
                 type="button"
-                disabled={renewSubmitting || payingId === renewTarget.id}
+                disabled={payingId === renewTarget.id}
                 onClick={handleRenewUpgradeSubmit}
                 data-photo-overlay="true"
                 className="rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-2.5 text-xs font-black text-white shadow-md disabled:opacity-50 cursor-pointer"
               >
-                {renewSubmitting || payingId === renewTarget.id
+                {payingId === renewTarget.id
                   ? "Opening Checkout..."
-                  : renewPayTiming === "pay_now"
-                  ? `Pay ₹50 Now (+${renewDays}d)`
-                  : `Save Pending (Pay ₹50 in 3 Days)`}
+                  : `Pay ₹50 Now & Activate (+${renewDays}d)`}
               </button>
             </div>
           </div>
@@ -1735,7 +1726,7 @@ export default function InfluencerMarketingPage() {
                 <strong>3. Full 7-Day Smart Link:</strong> Your 7-day countdown starts <em>only</em> when Media Leader publishes your reel — zero wasted days!
               </li>
               <li>
-                <strong>4. Future Upgrades Just ₹50:</strong> After 7 days, renew or upgrade anytime for just <strong>₹50</strong> (Pay Now or within 3 days) to reactivate the exact same <code className="font-mono">/go/INF-...</code> link!
+                <strong>4. Future Upgrades Just ₹50:</strong> After 7 days, pay just <strong>₹50 online</strong> anytime to instantly reactivate the exact same <code className="font-mono">/go/INF-...</code> link!
               </li>
             </ol>
 
@@ -1744,7 +1735,7 @@ export default function InfluencerMarketingPage() {
                 type="button"
                 onClick={() => {
                   setShowHowItWorks(false);
-                  openEnrollWithPlan("with_product_150");
+                  openEnrollWithPlan("with_product_150", true);
                 }}
                 data-photo-overlay="true"
                 className="rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-2.5 text-xs font-black text-white shadow-md cursor-pointer"

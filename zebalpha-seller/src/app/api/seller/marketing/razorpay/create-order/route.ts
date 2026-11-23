@@ -180,20 +180,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Link razorpay_order_id and ensure 3-day payment deadline is saved if checkout is dismissed
+    // Link razorpay_order_id. Only new_shoot_150 uses the 3-day payment pending window;
+    // upgrade_50 is strictly instant pay-now to reactivate/renew immediately.
     for (const enr of ownedEnrollments as Array<Record<string, unknown>>) {
+      const updatePayload: Record<string, unknown> = {
+        razorpay_order_id: razorpayOrderId,
+        updated_at: nowIso,
+      };
+      if (purpose === "new_shoot_150") {
+        updatePayload.payment_method = "razorpay";
+        updatePayload.pending_payment_amount_inr = 150;
+        updatePayload.pending_payment_purpose = "new_shoot_150";
+        updatePayload.payment_due_at = enr.payment_due_at
+          ? String(enr.payment_due_at)
+          : defaultDueIso;
+      }
       await supabaseServer
         .from("seller_influencer_enrollments")
-        .update({
-          payment_method: "razorpay",
-          razorpay_order_id: razorpayOrderId,
-          pending_payment_amount_inr: purpose === "upgrade_50" ? 50 : 150,
-          pending_payment_purpose: purpose,
-          pending_extension_days: durationDays,
-          pending_upgrade_mode: purpose === "upgrade_50" ? upgradeMode : null,
-          payment_due_at: enr.payment_due_at ? String(enr.payment_due_at) : defaultDueIso,
-          updated_at: nowIso,
-        })
+        .update(updatePayload)
         .eq("id", String(enr.id));
     }
 
