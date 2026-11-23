@@ -449,8 +449,8 @@ export async function POST(req: NextRequest) {
             actor_name: ctx.storeName,
             notes: isWithProduct
               ? paymentTiming === "pay_now"
-                ? "Enrolled in With Product + ₹150 — launching Razorpay checkout (3-day deadline fallback active)"
-                : "Enrolled in With Product + ₹150 — Pay Within 3 Days selected (Payment Pending until paid via Razorpay)"
+                ? "Enrolled in With Product + ₹150 — launching secure online checkout (3-day deadline fallback active)"
+                : "Enrolled in With Product + ₹150 — Pay Within 3 Days selected (Payment Pending until paid online)"
               : "Enrolled in Without Product + 1% (7 Days) — sent to Alpha Media Leader queue",
           });
         } catch {
@@ -465,8 +465,8 @@ export async function POST(req: NextRequest) {
         requiresRazorpayNow: isWithProduct && paymentTiming === "pay_now",
         message: isWithProduct
           ? paymentTiming === "pay_now"
-            ? "Opening Razorpay checkout for ₹150 studio shoot..."
-            : `${createdEnrollments.length} catalog(s) saved! Complete ₹150 Razorpay payment within 3 days + deliver your product sample so Alpha Media can proceed.`
+            ? "Opening secure checkout for ₹150 studio shoot..."
+            : `${createdEnrollments.length} catalog(s) saved! Complete ₹150 online payment within 3 days + deliver your product sample so Alpha Media can proceed.`
           : `${createdEnrollments.length} catalog(s) sent to Alpha Media Leader queue under Without Product + 1% (7 Days)!`,
       });
     }
@@ -542,7 +542,7 @@ export async function POST(req: NextRequest) {
           actor_user_id: user.id,
           actor_role: "SELLER",
           actor_name: ctx.storeName,
-          notes: `₹50 Upgrade / Reactivation (+${durationDays}d) saved with Pay Within 3 Days — link stays deactivated until ₹50 Razorpay payment completes`,
+          notes: `₹50 Upgrade / Reactivation (+${durationDays}d) saved with Pay Within 3 Days — link stays deactivated until ₹50 online payment completes`,
           metadata: { payment_due_at: dueIso, pending_amount_inr: 50 },
         });
       } catch {
@@ -552,7 +552,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         paymentDueAt: dueIso,
-        message: `₹50 upgrade request saved (Payment Pending — Pay via Razorpay within 3 days to reactivate your link for +${durationDays} days).`,
+        message: `₹50 upgrade request saved (Payment Pending — Pay online within 3 days to reactivate your link for +${durationDays} days).`,
       });
     }
 

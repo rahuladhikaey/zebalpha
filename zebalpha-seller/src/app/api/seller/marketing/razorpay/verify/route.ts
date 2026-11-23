@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     const secret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
     if (!secret) {
       return NextResponse.json(
-        { success: false, error: "Razorpay secret key is not configured on server." },
+        { success: false, error: "Payment verification service is temporarily unavailable." },
         { status: 503 }
       );
     }
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json(
-        { success: false, error: "Missing Razorpay payment verification parameters." },
+        { success: false, error: "Missing payment verification parameters." },
         { status: 400 }
       );
     }
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     );
     if (!validSig) {
       return NextResponse.json(
-        { success: false, error: "Invalid Razorpay payment signature." },
+        { success: false, error: "Invalid payment signature." },
         { status: 400 }
       );
     }
@@ -209,8 +209,8 @@ export async function POST(req: NextRequest) {
           actor_role: "SELLER",
           actor_name: ctx.storeName,
           notes: sampleReady
-            ? `₹150 paid via Razorpay (${razorpay_payment_id}) + Product already delivered — unlocked for Alpha Media shoot!`
-            : `₹150 paid via Razorpay (${razorpay_payment_id}) — waiting for physical product delivery to Alpha Studio`,
+            ? `₹150 paid online (${razorpay_payment_id}) + Product already delivered — unlocked for Alpha Media shoot!`
+            : `₹150 paid online (${razorpay_payment_id}) — waiting for physical product delivery to Alpha Studio`,
           metadata: { razorpay_order_id, razorpay_payment_id, sample_ready: sampleReady },
         });
       } else {
@@ -299,7 +299,7 @@ export async function POST(req: NextRequest) {
           actor_user_id: user.id,
           actor_role: "SELLER",
           actor_name: ctx.storeName,
-          notes: `₹50 paid via Razorpay (${razorpay_payment_id}) — link ${
+          notes: `₹50 paid online (${razorpay_payment_id}) — link ${
             reactivatedRefCode || ""
           } reactivated immediately for +${durationDays} days`,
           metadata: {
@@ -319,8 +319,8 @@ export async function POST(req: NextRequest) {
       refCode: reactivatedRefCode,
       message:
         purpose === "upgrade_50"
-          ? `₹50 Razorpay payment verified! Link (${reactivatedRefCode || "INF"}) is ACTIVE immediately for +${durationDays} days.`
-          : `₹150 Razorpay payment verified (${razorpay_payment_id})! Once your product sample is delivered to Alpha Studio, our Media Team will proceed immediately.`,
+          ? `₹50 payment verified! Link (${reactivatedRefCode || "INF"}) is ACTIVE immediately for +${durationDays} days.`
+          : `₹150 payment verified (${razorpay_payment_id})! Once your product sample is delivered to Alpha Studio, our Media Team will proceed immediately.`,
     });
   } catch (err) {
     console.error("[API /seller/marketing/razorpay/verify] Error:", err);

@@ -220,7 +220,7 @@ export default function SellerMarketingView() {
             Alpha Media, Influencer &amp; Seller Branding Command
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Razorpay ₹150 New Studio Shoot + ₹50 Upgrade tracking, 3-day Payment Pending alerts, Dual-Gate delivery verification &amp; permanent audit data.
+            ₹150 New Studio Shoot + ₹50 Upgrade tracking, 3-day Payment Pending alerts, Dual-Gate delivery verification &amp; permanent audit data.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -263,7 +263,7 @@ export default function SellerMarketingView() {
           <code className="bg-black px-1.5 py-0.5 rounded">
             supabase/upgrade_alpha_media_razorpay_and_dualgate.sql
           </code>{" "}
-          in Supabase SQL Editor to enable Razorpay payment ledger &amp; Dual-Gate hard locks.
+          in Supabase SQL Editor to enable online payment ledger &amp; Dual-Gate hard locks.
         </div>
       )}
 
@@ -408,7 +408,7 @@ export default function SellerMarketingView() {
                           >
                             <CreditCard size={11} />
                             {enr.payment_status === "paid"
-                              ? `Razorpay Paid${enr.razorpay_payment_id ? ` (${enr.razorpay_payment_id})` : ""}`
+                              ? `Online Paid${enr.razorpay_payment_id ? ` (${enr.razorpay_payment_id})` : ""}`
                               : `Payment Pending ₹${pendingAmt} • ${dueRemaining(enr.payment_due_at)}`}
                           </span>
 
@@ -732,7 +732,7 @@ export default function SellerMarketingView() {
               type="text"
               value={auditSearch}
               onChange={(e) => setAuditSearch(e.target.value)}
-              placeholder="Search audit logs by product, event, actor, or Razorpay ID..."
+              placeholder="Search audit logs by product, event, actor, or Payment ID..."
               className="w-full sm:w-96 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs text-white"
             />
             <button

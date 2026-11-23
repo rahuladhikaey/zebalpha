@@ -548,14 +548,14 @@ export async function POST(req: Request) {
           notes: sampleReceived
             ? paidOk
               ? "SuperAdmin confirmed product delivery + payment verified — ready for shoot"
-              : "SuperAdmin confirmed product delivery — still awaiting ₹150 Razorpay payment"
+              : "SuperAdmin confirmed product delivery — still awaiting ₹150 online payment"
             : "SuperAdmin accepted campaign into Alpha Media queue",
         });
 
         return NextResponse.json({
           success: true,
           message: sampleReceived && !paidOk
-            ? "Product delivery confirmed! Still waiting for seller's ₹150 Razorpay payment."
+            ? "Product delivery confirmed! Still waiting for seller's ₹150 online payment."
             : "Campaign updated by SuperAdmin override.",
         });
       }
@@ -646,7 +646,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
           success: true,
-          message: "Campaign link deactivated (marked expired). Seller can reactivate anytime for ₹50 via Razorpay.",
+          message: "Campaign link deactivated (marked expired). Seller can reactivate anytime for ₹50 online.",
         });
       }
     }

@@ -313,7 +313,7 @@ export default function InfluencerMarketingPage() {
     try {
       const sdkLoaded = await loadRazorpayScript();
       if (!sdkLoaded || !window.Razorpay) {
-        notify("Could not load Razorpay Checkout SDK. Check your internet and try again.", "error");
+        notify("Could not load secure payment checkout. Check your internet and try again.", "error");
         setPayingId(null);
         return;
       }
@@ -331,7 +331,7 @@ export default function InfluencerMarketingPage() {
       });
       const orderJson = await orderRes.json().catch(() => null);
       if (!orderRes.ok || !orderJson?.success) {
-        notify(orderJson?.error || "Failed to create Razorpay order.", "error");
+        notify(orderJson?.error || "Failed to initiate payment order.", "error");
         setPayingId(null);
         return;
       }
@@ -367,16 +367,16 @@ export default function InfluencerMarketingPage() {
             });
             const verifyJson = await verifyRes.json().catch(() => null);
             if (!verifyRes.ok || !verifyJson?.success) {
-              notify(verifyJson?.error || "Payment signature verification failed.", "error");
+              notify(verifyJson?.error || "Payment verification failed.", "error");
             } else {
-              notify(verifyJson.message || "Razorpay payment verified successfully!");
+              notify(verifyJson.message || "Payment verified successfully!");
               setShowSelectModal(false);
               setRenewTarget(null);
               setSelectedIds([]);
               await loadData();
             }
           } catch {
-            notify("Network error verifying Razorpay payment.", "error");
+            notify("Network error verifying payment.", "error");
           } finally {
             setPayingId(null);
           }
@@ -385,7 +385,7 @@ export default function InfluencerMarketingPage() {
           ondismiss: () => {
             setPayingId(null);
             notify(
-              "Razorpay popup closed — campaign is safely saved as Payment Pending (complete within 3 days).",
+              "Payment window closed — campaign is safely saved as Payment Pending (complete within 3 days).",
               "error"
             );
             loadData();
@@ -395,14 +395,14 @@ export default function InfluencerMarketingPage() {
 
       rzp.on("payment.failed", () => {
         setPayingId(null);
-        notify("Razorpay payment failed. Campaign remains saved under Payment Pending (3-day window).", "error");
+        notify("Payment failed. Campaign remains saved under Payment Pending (3-day window).", "error");
         loadData();
       });
 
       rzp.open();
     } catch {
       setPayingId(null);
-      notify("Error initializing Razorpay Checkout.", "error");
+      notify("Error initializing secure payment checkout.", "error");
     }
   };
 
@@ -518,7 +518,7 @@ export default function InfluencerMarketingPage() {
         notify(json?.error || "Failed to save ₹50 upgrade request.", "error");
         return;
       }
-      notify(json.message || "Saved as Payment Pending (Pay ₹50 via Razorpay within 3 days).");
+      notify(json.message || "Saved as Payment Pending (Pay ₹50 online within 3 days).");
       setRenewTarget(null);
       await loadData();
     } catch {
@@ -654,7 +654,7 @@ export default function InfluencerMarketingPage() {
             <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px]">
               supabase/upgrade_alpha_media_razorpay_and_dualgate.sql
             </code>{" "}
-            in Supabase SQL Editor to enable Razorpay ₹150/₹50 checkout, 3-day payment deadlines, and Dual-Gate Media locking.
+            in Supabase SQL Editor to enable online ₹150/₹50 checkout, 3-day payment deadlines, and Dual-Gate Media locking.
           </span>
         </div>
       )}
@@ -674,7 +674,7 @@ export default function InfluencerMarketingPage() {
                 )}
               </p>
               <p className="text-xs font-semibold text-[#5C4E35] mt-0.5">
-                Complete your Razorpay payment within 3 days (plus product delivery for ₹150 studio shoots) so Alpha Media can proceed!
+                Complete your online payment within 3 days (plus product delivery for ₹150 studio shoots) so Alpha Media can proceed!
               </p>
             </div>
           </div>
@@ -699,7 +699,7 @@ export default function InfluencerMarketingPage() {
                 {summary.missedClicks} customer click{summary.missedClicks > 1 ? "s" : ""} arrived after your 7-day link expired!
               </p>
               <p className="text-xs font-semibold text-[#5C4E35]">
-                Reactivate / Upgrade for just <strong>₹50 via Razorpay</strong> — your exact same <code className="font-mono font-black">/go/INF-...</code> link becomes live immediately!
+                Reactivate / Upgrade for just <strong>₹50 online</strong> — your exact same <code className="font-mono font-black">/go/INF-...</code> link becomes live immediately!
               </p>
             </div>
           </div>
@@ -724,7 +724,7 @@ export default function InfluencerMarketingPage() {
             Alpha Media Influencer Marketing
           </h1>
           <p className="mt-1 text-xs sm:text-sm font-semibold text-[#6E5C3D]">
-            Guaranteed in-house reels with 7-day smart links — new studio shoot ₹150, future reactivations/upgrades just ₹50 via Razorpay!
+            Guaranteed in-house reels with 7-day smart links — new studio shoot ₹150, future reactivations/upgrades just ₹50!
           </p>
         </div>
 
@@ -786,7 +786,7 @@ export default function InfluencerMarketingPage() {
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
                 <span>
-                  <strong>Just ₹50 to Reactivate / Upgrade Anytime:</strong> Pay ₹50 via Razorpay after 7 days to instantly unlock the same link!
+                  <strong>Just ₹50 to Reactivate / Upgrade Anytime:</strong> Pay ₹50 online after 7 days to instantly unlock the same link!
                 </span>
               </li>
             </ul>
@@ -833,7 +833,7 @@ export default function InfluencerMarketingPage() {
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#F03A46]" />
                 <span>
-                  <strong>Pay ₹150 via Razorpay:</strong> Choose <em>Pay Now</em> or <em>Pay Within 3 Days</em> — Media Team proceeds once <strong>Product Delivered + Payment Complete</strong>.
+                  <strong>Pay ₹150 Online:</strong> Choose <em>Pay Now</em> or <em>Pay Within 3 Days</em> — Media Team proceeds once <strong>Product Delivered + Payment Complete</strong>.
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
@@ -853,7 +853,7 @@ export default function InfluencerMarketingPage() {
 
           <div className="mt-6 pt-4 border-t border-[#F0E2BE] flex items-center justify-between gap-3">
             <div>
-              <p className="text-lg font-black text-[#14120F]">₹150 flat (Razorpay)</p>
+              <p className="text-lg font-black text-[#14120F]">₹150 flat</p>
               <p className="text-[11px] font-bold text-emerald-700">Pay Now or within 3 days • ₹50 renewals</p>
             </div>
             <button
@@ -1060,7 +1060,7 @@ export default function InfluencerMarketingPage() {
               <div className="py-12 text-center px-6">
                 <p className="text-sm font-black text-[#14120F]">No campaign timeline events yet</p>
                 <p className="mt-1 text-xs font-semibold text-[#6E5C3D]">
-                  Every enrollment, Razorpay payment ID, sample delivery, publish, and ₹50 upgrade is permanently saved here.
+                  Every enrollment, payment receipt ID, sample delivery, publish, and ₹50 upgrade is permanently saved here.
                 </p>
               </div>
             ) : (
@@ -1100,13 +1100,13 @@ export default function InfluencerMarketingPage() {
             <div className="py-12 text-center px-6">
               <p className="text-sm font-black text-[#14120F]">
                 {activeTab === "pending_pay"
-                  ? "No pending Razorpay payments!"
+                  ? "No pending payments!"
                   : activeTab === "expired"
                   ? "No expired influencer links right now!"
                   : "No catalogs enrolled in Alpha Media Influencer Marketing yet"}
               </p>
               <p className="mt-1 text-xs font-semibold text-[#6E5C3D]">
-                Pick Plan 1 (Without Product + 1%) or Plan 2 (With Product + ₹150 via Razorpay) above.
+                Pick Plan 1 (Without Product + 1%) or Plan 2 (With Product + ₹150) above.
               </p>
             </div>
           ) : (
@@ -1185,7 +1185,7 @@ export default function InfluencerMarketingPage() {
                           </span>
                         ) : row.payment_status === "paid" ? (
                           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-black text-emerald-800">
-                            <CheckCircle2 size={10} /> Razorpay Paid
+                            <CheckCircle2 size={10} /> Online Paid
                             {row.razorpay_payment_id ? ` (${row.razorpay_payment_id.slice(-6)})` : ""}
                           </span>
                         ) : (
@@ -1243,7 +1243,7 @@ export default function InfluencerMarketingPage() {
                               className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-3.5 py-2 text-[11px] font-black text-white shadow-md hover:brightness-105 disabled:opacity-60 cursor-pointer"
                             >
                               <CreditCard size={12} />
-                              {payingId === row.id ? "Opening..." : `Pay ₹${pendingAmt} (Razorpay)`}
+                              {payingId === row.id ? "Opening..." : `Pay ₹${pendingAmt} Now`}
                             </button>
                           ) : (
                             <>
@@ -1320,7 +1320,7 @@ export default function InfluencerMarketingPage() {
                   Launch 7-Day Alpha Media Influencer Campaign
                 </h3>
                 <p className="mt-0.5 text-xs font-semibold text-[#6E5C3D]">
-                  Choose your plan &amp; payment timing. For ₹150 studio shoots, Alpha Media proceeds once Product Delivery + Razorpay Payment are both complete.
+                  Choose your plan &amp; payment timing. For ₹150 studio shoots, Alpha Media proceeds once Product Delivery + Payment are both complete.
                 </p>
               </div>
               <button
@@ -1357,7 +1357,7 @@ export default function InfluencerMarketingPage() {
                     : "border-[#EAD296] bg-[#FFFDF8]"
                 }`}
               >
-                <p className="text-xs font-black text-[#14120F]">Plan 2: With Product + ₹150 (Razorpay)</p>
+                <p className="text-xs font-black text-[#14120F]">Plan 2: With Product + ₹150</p>
                 <p className="mt-0.5 text-[11px] font-semibold text-[#6E5C3D]">
                   Real Alpha Studio shoot + PDP Video Proof • 0% comm
                 </p>
@@ -1369,7 +1369,7 @@ export default function InfluencerMarketingPage() {
               <div className="mt-4 space-y-3 rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-4">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-2">
-                    Choose ₹150 Razorpay Payment Option (per catalog)
+                    Choose ₹150 Payment Option (per catalog)
                   </label>
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     <button
@@ -1382,7 +1382,7 @@ export default function InfluencerMarketingPage() {
                       }`}
                     >
                       <p className="text-xs font-black text-[#14120F] flex items-center gap-1.5">
-                        <CreditCard size={13} className="text-[#F03A46]" /> Pay Now via Razorpay
+                        <CreditCard size={13} className="text-[#F03A46]" /> Pay Now (Online)
                       </p>
                       <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
                         UPI / GPay / PhonePe / Card — instant verification
@@ -1399,7 +1399,7 @@ export default function InfluencerMarketingPage() {
                       }`}
                     >
                       <p className="text-xs font-black text-[#14120F] flex items-center gap-1.5">
-                        <Clock size={13} className="text-[#9A6503]" /> Pay Within 3 Days (Razorpay)
+                        <Clock size={13} className="text-[#9A6503]" /> Pay Within 3 Days
                       </p>
                       <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
                         Shows Payment Pending until paid; Media starts after Payment + Delivery
@@ -1509,7 +1509,9 @@ export default function InfluencerMarketingPage() {
               <span className="text-xs font-extrabold text-[#5C4E35]">
                 {selectedIds.length} catalog(s) •{" "}
                 {selectedPlan === "with_product_150"
-                  ? `₹${selectedIds.length * 150} via Razorpay (${enrollPayTiming === "pay_now" ? "Pay Now" : "Within 3 Days"})`
+                  ? selectedIds.length > 0
+                    ? `₹${selectedIds.length * 150} (${enrollPayTiming === "pay_now" ? "Pay Now" : "Within 3 Days"})`
+                    : "₹150 per catalog"
                   : "₹0 upfront + 1% delivered commission"}
               </span>
               <div className="flex items-center gap-2.5">
@@ -1529,8 +1531,10 @@ export default function InfluencerMarketingPage() {
                 >
                   {submitting || payingId === "enroll-now"
                     ? "Processing..."
+                    : selectedIds.length === 0
+                    ? "Select Catalogs First"
                     : selectedPlan === "with_product_150" && enrollPayTiming === "pay_now"
-                    ? `Pay ₹${selectedIds.length * 150} via Razorpay`
+                    ? `Pay ₹${selectedIds.length * 150} Now`
                     : selectedPlan === "with_product_150"
                     ? "Book Now (Pay Within 3 Days)"
                     : "Submit to Alpha Media"}
@@ -1580,7 +1584,7 @@ export default function InfluencerMarketingPage() {
               >
                 <p className="text-xs font-black text-[#14120F]">Renew Current Plan — ₹50</p>
                 <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
-                  Reactivate the exact same /go/INF link via Razorpay
+                  Reactivate the exact same /go/INF link online
                 </p>
               </button>
 
@@ -1627,7 +1631,7 @@ export default function InfluencerMarketingPage() {
             {/* 2 Payment Options for ₹50 Upgrade */}
             <div className="rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-3.5 space-y-2">
               <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35]">
-                ₹50 Razorpay Payment Option
+                ₹50 Payment Option
               </label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <button
@@ -1640,7 +1644,7 @@ export default function InfluencerMarketingPage() {
                   }`}
                 >
                   <p className="text-xs font-black text-[#14120F] flex items-center gap-1">
-                    <CreditCard size={12} className="text-[#F03A46]" /> Pay ₹50 Now (Razorpay)
+                    <CreditCard size={12} className="text-[#F03A46]" /> Pay ₹50 Now
                   </p>
                   <p className="text-[10px] font-semibold text-[#6E5C3D] mt-0.5">
                     Link reactivates instantly after payment
@@ -1682,9 +1686,9 @@ export default function InfluencerMarketingPage() {
                 className="rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-2.5 text-xs font-black text-white shadow-md disabled:opacity-50 cursor-pointer"
               >
                 {renewSubmitting || payingId === renewTarget.id
-                  ? "Opening Razorpay..."
+                  ? "Opening Checkout..."
                   : renewPayTiming === "pay_now"
-                  ? `Pay ₹50 via Razorpay (+${renewDays}d)`
+                  ? `Pay ₹50 Now (+${renewDays}d)`
                   : `Save Pending (Pay ₹50 in 3 Days)`}
               </button>
             </div>
@@ -1705,7 +1709,7 @@ export default function InfluencerMarketingPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF8DB] border border-[#DFBE6F] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#9A6503]">
-                  <ShieldCheck size={11} className="text-emerald-600" /> Razorpay Verified + Dual Gate
+                  <ShieldCheck size={11} className="text-emerald-600" /> Verified Online Payment + Dual Gate
                 </span>
                 <h3 className="mt-3 text-xl font-black text-[#14120F]">
                   How ZebAlpha&apos;s Alpha Media System Works
@@ -1722,16 +1726,16 @@ export default function InfluencerMarketingPage() {
 
             <ol className="mt-5 space-y-3 rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-5 text-xs sm:text-sm font-semibold text-[#14120F]">
               <li>
-                <strong>1. New Apply (Plan 1 or Plan 2):</strong> Start free with <strong>Without Product + 1%</strong> OR book a real studio reel under <strong>With Product + ₹150 via Razorpay</strong> (Pay Now or within 3 days).
+                <strong>1. New Apply (Plan 1 or Plan 2):</strong> Start free with <strong>Without Product + 1%</strong> OR book a real studio reel under <strong>With Product + ₹150</strong> (Pay Now online or within 3 days).
               </li>
               <li>
-                <strong>2. Dual-Gate Verification (Plan 2):</strong> Alpha Media proceeds as soon as BOTH <strong>₹150 Razorpay Payment</strong> AND <strong>Physical Product Delivery</strong> to Alpha Studio are complete.
+                <strong>2. Dual-Gate Verification (Plan 2):</strong> Alpha Media proceeds as soon as BOTH <strong>₹150 Payment</strong> AND <strong>Physical Product Delivery</strong> to Alpha Studio are complete.
               </li>
               <li>
                 <strong>3. Full 7-Day Smart Link:</strong> Your 7-day countdown starts <em>only</em> when Media Leader publishes your reel — zero wasted days!
               </li>
               <li>
-                <strong>4. Future Upgrades Just ₹50:</strong> After 7 days, renew or upgrade anytime for just <strong>₹50 via Razorpay</strong> (Pay Now or within 3 days) to reactivate the exact same <code className="font-mono">/go/INF-...</code> link!
+                <strong>4. Future Upgrades Just ₹50:</strong> After 7 days, renew or upgrade anytime for just <strong>₹50</strong> (Pay Now or within 3 days) to reactivate the exact same <code className="font-mono">/go/INF-...</code> link!
               </li>
             </ol>
 

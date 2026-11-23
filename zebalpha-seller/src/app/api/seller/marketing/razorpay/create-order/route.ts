@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error:
-            "Razorpay is not configured on seller server yet. Add RAZORPAY_KEY_ID, NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in zebalpha-seller environment variables.",
+            "Online payment gateway is temporarily unavailable. Please choose Pay Within 3 Days or contact ZebAlpha Seller Support.",
         },
         { status: 503 }
       );
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error:
-            rzpJson?.error?.description || "Unable to create Razorpay payment order right now.",
+            rzpJson?.error?.description || "Unable to initialize online payment right now.",
         },
         { status: 502 }
       );
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[API /seller/marketing/razorpay/create-order] Error:", err);
     return NextResponse.json(
-      { success: false, error: "Failed to initiate Razorpay checkout." },
+      { success: false, error: "Failed to initiate online checkout." },
       { status: 500 }
     );
   }

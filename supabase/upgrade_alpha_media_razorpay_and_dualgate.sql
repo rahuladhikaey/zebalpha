@@ -163,8 +163,8 @@ BEGIN
     COALESCE(
       NULLIF(trim(p_notes), ''),
       CASE
-        WHEN p_sample_received AND NOT v_paid_ok THEN 'Product delivered to Alpha Studio — still locked awaiting ₹150 Razorpay payment'
-        WHEN p_sample_received AND v_paid_ok THEN 'Product delivered + ₹150 Razorpay payment verified — ready for Alpha Media shoot'
+        WHEN p_sample_received AND NOT v_paid_ok THEN 'Product delivered to Alpha Studio — still locked awaiting ₹150 online payment'
+        WHEN p_sample_received AND v_paid_ok THEN 'Product delivered + ₹150 payment verified — ready for Alpha Media shoot'
         ELSE 'Campaign accepted into Alpha Media production queue'
       END
     )
@@ -210,7 +210,7 @@ BEGIN
   -- HARD DUAL-GATE ENFORCEMENT FOR PLAN 2 (With Product + ₹150)
   IF v_enr.plan_type = 'with_product_150' AND COALESCE(v_enr.campaign_source, 'seller') = 'seller' THEN
     IF v_enr.payment_status NOT IN ('paid', 'waived') THEN
-      RAISE EXCEPTION 'Blocked: ₹150 Razorpay payment is still pending. Media cannot proceed until payment is complete.';
+      RAISE EXCEPTION 'Blocked: ₹150 payment is still pending. Media cannot proceed until payment is complete.';
     END IF;
     IF v_enr.sample_status NOT IN ('sample_received', 'in_shoot', 'shoot_completed', 'kept_at_studio') THEN
       RAISE EXCEPTION 'Blocked: Physical product delivery to Alpha Studio is not confirmed yet. Confirm product delivery first.';
@@ -296,7 +296,7 @@ BEGIN
 
   IF p_approve AND v_enr.plan_type = 'with_product_150' AND COALESCE(v_enr.campaign_source, 'seller') = 'seller' THEN
     IF v_enr.payment_status NOT IN ('paid', 'waived') THEN
-      RAISE EXCEPTION 'Blocked: ₹150 Razorpay payment must be completed before publishing this campaign.';
+      RAISE EXCEPTION 'Blocked: ₹150 payment must be completed before publishing this campaign.';
     END IF;
     IF v_enr.sample_status NOT IN ('sample_received', 'in_shoot', 'shoot_completed', 'kept_at_studio') THEN
       RAISE EXCEPTION 'Blocked: Product sample delivery must be confirmed before publishing.';

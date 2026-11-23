@@ -313,7 +313,7 @@ export default function InfluencerQueuePage() {
       const result = data as { dual_gate_ready?: boolean } | null;
       if (sampleReceived && result && result.dual_gate_ready === false) {
         notify(
-          `Product delivery confirmed for "${c.product_name}"! Shoot stays locked until seller completes ₹150 Razorpay payment.`
+          `Product delivery confirmed for "${c.product_name}"! Shoot stays locked until seller completes ₹150 online payment.`
         );
       } else if (sampleReceived) {
         notify(`Product delivered + ₹150 paid for "${c.product_name}" — ready to assign creator!`);
@@ -449,7 +449,7 @@ export default function InfluencerQueuePage() {
       <Sidebar userRole={session?.role} userEmail={session?.email} />
       <Header
         title="Influencer & Alpha Studio Queue"
-        description="Dual-Gate Enforced: For Plan 2 (₹150), Media proceeds only when BOTH Product Delivery and Razorpay Payment are complete"
+        description="Dual-Gate Enforced: For Plan 2 (₹150), Media proceeds only when BOTH Product Delivery and Payment are complete"
       />
 
       <main className="p-8 space-y-6">
@@ -617,7 +617,7 @@ export default function InfluencerQueuePage() {
                           >
                             <CreditCard className="w-3 h-3" />
                             {gates.paymentPaid
-                              ? `Gate 1: ₹${c.fixed_fee_inr || 150} Paid (Razorpay)`
+                              ? `Gate 1: ₹${c.fixed_fee_inr || 150} Paid Online`
                               : gates.paymentOverdue
                               ? `Gate 1: Payment Pending ₹${pendingAmt} • OVERDUE (>3d)`
                               : `Gate 1: Payment Pending ₹${pendingAmt} • ${countdownText(
@@ -741,7 +741,7 @@ export default function InfluencerQueuePage() {
                     {/* HARD DUAL-GATE LOCK INDICATOR */}
                     {!gates.canProceed && !expired && c.workflow_status !== "rejected" && (
                       <span
-                        title="Media Team cannot assign a creator until BOTH Razorpay ₹150 Payment AND Product Delivery are completed"
+                        title="Media Team cannot assign a creator until BOTH ₹150 Payment AND Product Delivery are completed"
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-400 text-[11px] font-semibold"
                       >
                         <Lock className="w-3.5 h-3.5 text-amber-400" />
