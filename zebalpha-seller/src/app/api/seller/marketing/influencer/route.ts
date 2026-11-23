@@ -307,10 +307,7 @@ export async function POST(req: NextRequest) {
       const paymentTiming = body.paymentTiming === "pay_now" ? "pay_now" : "pay_within_3_days";
       const commissionRate = isWithProduct ? 0 : 1;
       const fixedFeeInr = isWithProduct ? 150 : 0;
-      const sampleReturnPreference =
-        body.sampleReturnPreference === "keep_for_future_shoots"
-          ? "keep_for_future_shoots"
-          : "return_after_shoot";
+      const sampleReturnPreference = "non_returnable";
 
       const maxBudgetCap =
         !isWithProduct &&

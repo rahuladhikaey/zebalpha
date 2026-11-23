@@ -238,9 +238,6 @@ export default function InfluencerMarketingPage() {
     "without_product_1pct" | "with_product_150" | null
   >(null);
   const [enrollPayTiming, setEnrollPayTiming] = useState<"pay_now" | "pay_within_3_days">("pay_now");
-  const [sampleReturnPref, setSampleReturnPref] = useState<"return_after_shoot" | "keep_for_future_shoots">(
-    "return_after_shoot"
-  );
   const [catalogSearch, setCatalogSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [maxBudgetCap, setMaxBudgetCap] = useState("");
@@ -463,7 +460,7 @@ export default function InfluencerMarketingPage() {
           productIds: selectedIds,
           planType: selectedPlan,
           paymentTiming: enrollPayTiming,
-          sampleReturnPreference: sampleReturnPref,
+          sampleReturnPreference: "non_returnable",
           maxBudgetCap: maxBudgetCap.trim() ? Number(maxBudgetCap) : null,
         }),
       });
@@ -808,7 +805,7 @@ export default function InfluencerMarketingPage() {
               With Product + <span className="text-[#F03A46]">₹150 Flat</span>
             </h2>
             <p className="mt-1.5 text-xs font-semibold text-[#6E5C3D]">
-              Send your physical product sample to Alpha Studio — our in-house creators shoot a real try-on / unboxing reel &amp; attach it directly to your product page!
+              Send your physical product sample to Alpha Studio (non-returnable) — our in-house creators shoot a real try-on / unboxing reel &amp; attach it directly to your product page!
             </p>
 
             <ul className="mt-5 space-y-2.5 text-xs font-bold text-[#14120F]">
@@ -1416,20 +1413,11 @@ export default function InfluencerMarketingPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-1">
-                      Sample Product Handling
-                    </label>
-                    <select
-                      value={sampleReturnPref}
-                      onChange={(e) =>
-                        setSampleReturnPref(e.target.value as "return_after_shoot" | "keep_for_future_shoots")
-                      }
-                      className="w-full rounded-xl border border-[#EAD296] bg-white px-3 py-2 text-xs font-bold"
-                    >
-                      <option value="return_after_shoot">Return Sample to Seller after Shoot</option>
-                      <option value="keep_for_future_shoots">Keep at Alpha Studio for Future Reels</option>
-                    </select>
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-[#FFF8DB] px-3 py-2 text-[11px] font-bold text-[#7C4A03]">
+                    <Info size={14} className="mt-0.5 shrink-0 text-[#B45309]" />
+                    <span>
+                      <strong>Sample Policy (No Return):</strong> Sample products sent to Alpha Studio are non-returnable and remain with the studio for shooting &amp; promotional reels.
+                    </span>
                   </div>
                 </div>
               ) : (
