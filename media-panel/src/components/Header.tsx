@@ -1,7 +1,5 @@
 "use client";
 
-import { Bell, Sparkles } from "lucide-react";
-
 interface HeaderProps {
   title: string;
   description?: string;

@@ -4,6 +4,11 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "ZebAlpha Media & Marketing Panel",
   description: "Enterprise Media, Content Strategy, and Marketing Campaigns",
+  icons: {
+    icon: "/official-logo.png",
+    shortcut: "/official-logo.png",
+    apple: "/official-logo.png",
+  },
 };
 
 export default function RootLayout({

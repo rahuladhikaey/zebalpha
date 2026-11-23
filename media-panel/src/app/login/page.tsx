@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Lock, Mail, ArrowRight, AlertCircle, UserPlus } from "lucide-react";
+import { Lock, Mail, ArrowRight, AlertCircle, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
@@ -45,8 +45,12 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Brand Banner */}
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-500 mx-auto flex items-center justify-center text-white shadow-xl shadow-brand-500/20 mb-3">
-            <Sparkles className="w-6 h-6" />
+          <div className="w-14 h-14 rounded-full bg-white mx-auto flex items-center justify-center overflow-hidden border border-dark-700 shadow-xl shadow-brand-500/20 mb-3">
+            <img
+              src="/official-logo.png"
+              alt="ZebAlpha Official Logo"
+              className="w-full h-full object-cover rounded-full"
+            />
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight">ZEBALPHA</h1>
           <p className="text-xs text-brand-500 font-semibold tracking-wider uppercase mt-0.5">

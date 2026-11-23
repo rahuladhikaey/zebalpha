@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
@@ -165,8 +164,12 @@ export default function CreatorApplyPage() {
 
         <div className="bg-dark-900 border border-dark-800 rounded-2xl p-6 sm:p-8 shadow-2xl">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-12 h-12 min-w-12 min-h-12 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border border-dark-700 shadow-lg shadow-brand-500/20">
+              <img
+                src="/official-logo.png"
+                alt="ZebAlpha Official Logo"
+                className="w-full h-full object-cover rounded-full"
+              />
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">Join ZebAlpha Alpha Creator Network</h1>

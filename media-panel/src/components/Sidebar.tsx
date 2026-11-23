@@ -11,7 +11,6 @@ import {
   CheckSquare,
   LogOut,
   ExternalLink,
-  Sparkles,
   Clapperboard,
   Users,
   Film,
@@ -59,8 +58,12 @@ export default function Sidebar({ userRole, userEmail }: SidebarProps) {
       {/* Brand Header */}
       <div className="p-5 border-b border-dark-800 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-brand-600 to-brand-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
-            <Sparkles className="w-5 h-5" />
+          <div className="w-10 h-10 min-w-10 min-h-10 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border border-dark-700 shadow-lg shadow-brand-500/20">
+            <img
+              src="/official-logo.png"
+              alt="ZebAlpha Official Logo"
+              className="w-full h-full object-cover rounded-full"
+            />
           </div>
           <div>
             <div className="font-bold text-white tracking-wide text-sm flex items-center gap-1.5">
