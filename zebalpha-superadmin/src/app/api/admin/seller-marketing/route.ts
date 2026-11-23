@@ -61,7 +61,7 @@ export async function GET(req: Request) {
         supabaseServer
           .from("sellers")
           .select(
-            "id, business_name, email, phone, city, state, store_slug, store_tagline, store_pass_plan, store_pass_status, store_pass_starts_at, store_pass_expires_at, store_pass_renewal_count, store_search_count, store_visit_count, missed_store_searches, missed_store_visits, store_slug_blocked, store_slug_block_reason"
+            "id, business_name, email, phone, city, state, store_slug, store_tagline, store_pass_plan, store_pass_status, store_pass_starts_at, store_pass_expires_at, store_pass_trial_used, store_pass_renewal_count, store_search_count, store_visit_count, missed_store_searches, missed_store_visits, store_slug_blocked, store_slug_block_reason"
           )
           .order("store_pass_expires_at", { ascending: false, nullsFirst: false })
           .limit(250),

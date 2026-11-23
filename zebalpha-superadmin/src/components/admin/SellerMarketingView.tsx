@@ -1103,9 +1103,11 @@ export default function SellerMarketingView() {
                         </span>
                         {s.store_pass_plan && (
                           <span className="rounded-full bg-zinc-900 border border-zinc-700 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">
-                            {s.store_pass_plan === "store_search_59_28d"
-                              ? "₹59 / 28d Pro"
-                              : "₹49 / 18d Pass"}
+                            {s.store_pass_plan === "store_search_free_60d"
+                              ? "60d Free Trial (₹0)"
+                              : s.store_pass_plan === "store_search_59_28d"
+                                ? "₹59 / 28d Pro"
+                                : "₹49 / 18d Pass"}
                           </span>
                         )}
                         {Number(s.store_pass_renewal_count || 0) > 0 && (

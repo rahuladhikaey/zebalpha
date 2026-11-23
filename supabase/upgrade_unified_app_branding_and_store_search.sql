@@ -12,6 +12,57 @@
 -- Preserves all legacy App Branding campaigns & history cleanly.
 -- =============================================================================
 
+-- 0. REPAIR EXISTING BROKEN fn_guard_seller_status_changes() TRIGGER FUNCTION
+-- Previously referenced optional fields (e.g. OLD.is_approved) directly on record OLD,
+-- causing ERROR 42703 on UPDATE to public.sellers when invoked from SQL Editor or non-admin contexts.
+-- Rewritten safely with to_jsonb() while preserving 100% of admin/service_role security & guarding Store Pass fields!
+CREATE OR REPLACE FUNCTION public.fn_guard_seller_status_changes()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_jwt_role TEXT := COALESCE(auth.jwt() ->> 'role', '');
+  v_is_admin BOOLEAN := FALSE;
+  old_j JSONB := to_jsonb(OLD);
+  new_j JSONB := to_jsonb(NEW);
+BEGIN
+  -- Allow privileged SQL Editor roles and backend service_role
+  IF v_jwt_role = 'service_role' OR current_user IN ('postgres', 'supabase_admin', 'service_role') THEN
+    RETURN NEW;
+  END IF;
+
+  -- Preserve original check: allow verified platform admins in public.profiles
+  IF auth.uid() IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid()
+        AND (role = 'super_admin' OR role = 'admin')
+    ) INTO v_is_admin;
+  END IF;
+
+  -- If caller is NOT a verified platform admin, reject administrative or Store Pass tampering
+  -- Uses to_jsonb() so missing optional columns never throw ERROR 42703
+  IF NOT v_is_admin THEN
+    IF (old_j->'status' IS DISTINCT FROM new_j->'status')
+       OR (old_j->'account_status' IS DISTINCT FROM new_j->'account_status')
+       OR (old_j->'is_suspended' IS DISTINCT FROM new_j->'is_suspended')
+       OR (old_j->'is_approved' IS DISTINCT FROM new_j->'is_approved')
+       OR (old_j->'seller_id' IS DISTINCT FROM new_j->'seller_id')
+       OR (old_j->'store_pass_status' IS DISTINCT FROM new_j->'store_pass_status')
+       OR (old_j->'store_pass_expires_at' IS DISTINCT FROM new_j->'store_pass_expires_at')
+       OR (old_j->'store_pass_trial_used' IS DISTINCT FROM new_j->'store_pass_trial_used')
+       OR (old_j->'store_slug_blocked' IS DISTINCT FROM new_j->'store_slug_blocked')
+    THEN
+      RAISE EXCEPTION 'Access Denied: Modifications to seller status, approval, suspension, or Store Pass are restricted to platform administrators.';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
 -- 1. EXTEND public.sellers WITH MINI-STOREFRONT & STORE SEARCH PASS COLUMNS
 ALTER TABLE public.sellers
   ADD COLUMN IF NOT EXISTS store_slug TEXT,
@@ -21,6 +72,8 @@ ALTER TABLE public.sellers
   ADD COLUMN IF NOT EXISTS store_pass_status TEXT NOT NULL DEFAULT 'inactive',
   ADD COLUMN IF NOT EXISTS store_pass_starts_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS store_pass_expires_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS store_pass_trial_used BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS store_pass_trial_activated_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS store_pass_renewal_count INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS store_search_count INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS store_visit_count INTEGER NOT NULL DEFAULT 0,
@@ -155,6 +208,7 @@ ALTER TABLE public.seller_branding_campaigns
   CHECK (package_key IN (
     'app_offer_99_28d',
     'festival_mega_139_45d',
+    'store_search_free_60d',
     'store_search_49_18d',
     'store_search_59_28d',
     -- Legacy keys kept strictly for backward compatibility with historical rows
@@ -178,6 +232,7 @@ ALTER TABLE public.seller_branding_campaigns
   CHECK (payment_method IN (
     'online_checkout',
     'seller_balance',
+    'free_trial',
     -- Legacy methods kept for backward compatibility
     'launch_pilot',
     'razorpay_upi',

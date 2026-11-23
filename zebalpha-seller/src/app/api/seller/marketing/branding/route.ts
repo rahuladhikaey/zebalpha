@@ -272,6 +272,10 @@ async function resolveSellerContext(user: { id: string; email?: string | null })
     availableBalance = 0;
   }
 
+  const trialUsed = Boolean(sellerRow.store_pass_trial_used);
+  const renewalCount = Number(sellerRow.store_pass_renewal_count || 0);
+  const freeTrialEligible = !trialUsed && renewalCount === 0 && !isBlocked && !isPassActive;
+
   return {
     primarySellerId,
     sellerIds,
@@ -287,7 +291,9 @@ async function resolveSellerContext(user: { id: string; email?: string | null })
     storePassStatus: effectivePassStatus,
     storePassStartsAt: sellerRow.store_pass_starts_at ? String(sellerRow.store_pass_starts_at) : null,
     storePassExpiresAt: expiresAtIso,
-    storePassRenewalCount: Number(sellerRow.store_pass_renewal_count || 0),
+    storePassTrialUsed: trialUsed,
+    storePassFreeTrialEligible: freeTrialEligible,
+    storePassRenewalCount: renewalCount,
     storeSearchCount: Number(sellerRow.store_search_count || 0),
     storeVisitCount: Number(sellerRow.store_visit_count || 0),
     missedStoreSearches: Number(sellerRow.missed_store_searches || 0),
@@ -373,11 +379,11 @@ async function recordBrandingTransaction(params: {
   sellerId: string;
   storeName: string;
   campaignId?: string | null;
-  packageKey: PackageKey;
+  packageKey: string;
   trackType: BrandingTrack;
   amountInr: number;
   durationDays: number;
-  paymentMethod: "online_checkout" | "seller_balance";
+  paymentMethod: "online_checkout" | "seller_balance" | "free_trial";
   gatewayOrderId?: string | null;
   gatewayPaymentId?: string | null;
   notes?: string;
@@ -465,6 +471,7 @@ export async function GET(req: NextRequest) {
     const appAdCampaigns = campaigns.filter(
       (c) =>
         c.placement_type !== "store_search" &&
+        c.package_key !== "store_search_free_60d" &&
         c.package_key !== "store_search_49_18d" &&
         c.package_key !== "store_search_59_28d"
     );
@@ -497,6 +504,8 @@ export async function GET(req: NextRequest) {
         storePassStatus: ctx.storePassStatus,
         storePassStartsAt: ctx.storePassStartsAt,
         storePassExpiresAt: ctx.storePassExpiresAt,
+        storePassTrialUsed: ctx.storePassTrialUsed,
+        storePassFreeTrialEligible: ctx.storePassFreeTrialEligible,
         storePassRenewalCount: ctx.storePassRenewalCount,
         storeSearchCount: ctx.storeSearchCount,
         storeVisitCount: ctx.storeVisitCount,
@@ -616,6 +625,160 @@ export async function POST(req: NextRequest) {
         success: true,
         storeSlug: validated.slug,
         message: `Storefront link saved: zebalpha.shop/store/${validated.slug}`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 1B. NEW SELLER 60-DAY FREE STORE SEARCH & MINI-STOREFRONT TRIAL (ONE-TIME)
+    //     Auto-expires after 60 days; paid plans (₹49/18d or ₹59/28d) apply thereafter!
+    // -------------------------------------------------------------------------
+    if (action === "activate_free_60d_trial") {
+      if (ctx.storeSlugBlocked) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              ctx.storeSlugBlockReason ||
+              "Your storefront link is restricted by ZebAlpha Admin. Please contact Seller Support.",
+          },
+          { status: 403 }
+        );
+      }
+
+      if (!ctx.storePassFreeTrialEligible) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Your 60-day Free New Seller Trial has already been claimed. Please renew with ₹49 (18 days) or ₹59 (28 days).",
+          },
+          { status: 400 }
+        );
+      }
+
+      let desiredSlug = ctx.storeSlug;
+      if (typeof body.storeSlug === "string" && body.storeSlug.trim()) {
+        const validated = validateCustomSlug(body.storeSlug);
+        if (!validated.ok) {
+          return NextResponse.json({ success: false, error: validated.error }, { status: 400 });
+        }
+        const { data: conflict } = await supabaseServer
+          .from("sellers")
+          .select("id")
+          .ilike("store_slug", validated.slug)
+          .neq("id", ctx.primarySellerId)
+          .maybeSingle();
+        if (conflict?.id) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `zebalpha.shop/store/${validated.slug} is already taken. Please pick a unique shop slug.`,
+            },
+            { status: 409 }
+          );
+        }
+        desiredSlug = validated.slug;
+      }
+
+      const customTagline =
+        typeof body.storeTagline === "string" ? body.storeTagline.trim().slice(0, 140) : ctx.storeTagline;
+      const trialDays = 60;
+      const now = new Date();
+      const trialExpiresIso = new Date(now.getTime() + trialDays * 86_400_000).toISOString();
+
+      // Atomic one-time guard: only updates if store_pass_trial_used is still false!
+      const { data: updatedSeller, error: trialErr } = await supabaseServer
+        .from("sellers")
+        .update({
+          store_slug: desiredSlug,
+          store_tagline: customTagline || null,
+          store_pass_plan: "store_search_free_60d",
+          store_pass_status: "active",
+          store_pass_starts_at: nowIso,
+          store_pass_expires_at: trialExpiresIso,
+          store_pass_trial_used: true,
+          store_pass_trial_activated_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", ctx.primarySellerId)
+        .eq("store_pass_trial_used", false)
+        .select("id")
+        .maybeSingle();
+
+      if (trialErr) {
+        return NextResponse.json(
+          {
+            success: false,
+            upgradeMigrationRequired: isMissingSchemaError(trialErr),
+            error: isMissingSchemaError(trialErr)
+              ? "Please run the updated supabase/upgrade_unified_app_branding_and_store_search.sql in Supabase SQL Editor."
+              : trialErr.message,
+          },
+          { status: isMissingSchemaError(trialErr) ? 503 : 500 }
+        );
+      }
+
+      if (!updatedSeller?.id) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "60-day Free New Seller Trial has already been activated for this store.",
+          },
+          { status: 409 }
+        );
+      }
+
+      // Audit campaign & transaction records
+      let trialCampaignId: string | null = null;
+      try {
+        const { data: camp } = await supabaseServer
+          .from("seller_branding_campaigns")
+          .insert({
+            seller_id: ctx.primarySellerId,
+            store_name: ctx.storeName,
+            campaign_name: `${ctx.storeName} — 60-Day Free Store Search & Mini-Storefront Trial`,
+            package_key: "store_search_free_60d",
+            placement_type: "store_search",
+            product_ids: [],
+            headline: `${ctx.storeName} 60-Day Free New Seller Storefront`,
+            tagline: customTagline || `Direct Shop Search + zebalpha.shop/store/${desiredSlug}`,
+            banner_image_url: ctx.storeBannerUrl || ctx.sellerLogo || null,
+            cta_url: `/store/${desiredSlug}`,
+            duration_days: trialDays,
+            amount_inr: 0,
+            payment_method: "free_trial",
+            payment_status: "free_pilot",
+            payment_ref: "NEW_SELLER_60D_FREE",
+            paid_at: nowIso,
+            approval_status: "live",
+            starts_at: nowIso,
+            ends_at: trialExpiresIso,
+          })
+          .select("id")
+          .single();
+        trialCampaignId = camp?.id ? String(camp.id) : null;
+      } catch {
+        // Non-blocking audit insert
+      }
+
+      await recordBrandingTransaction({
+        sellerId: ctx.primarySellerId,
+        storeName: ctx.storeName,
+        campaignId: trialCampaignId,
+        packageKey: "store_search_free_60d",
+        trackType: "store_pass",
+        amountInr: 0,
+        durationDays: trialDays,
+        paymentMethod: "free_trial",
+        notes: "New Seller 60-Day Free Store Search + Mini-Storefront + PDP Link Trial",
+      });
+
+      return NextResponse.json({
+        success: true,
+        activated: true,
+        storeSlug: desiredSlug,
+        expiresAt: trialExpiresIso,
+        message: `60 Days FREE activated! Your Shop Search, Mini-Storefront (zebalpha.shop/store/${desiredSlug}) & PDP Store Link are LIVE now. Paid renewals (₹49/₹59) start only after 60 days.`,
       });
     }
 

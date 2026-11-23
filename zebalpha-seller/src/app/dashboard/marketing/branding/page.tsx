@@ -32,6 +32,7 @@ import {
   Flame,
   Link2,
   Sparkles,
+  Gift,
 } from "lucide-react";
 
 interface BrandingPackage {
@@ -108,6 +109,8 @@ interface SellerProfileState {
   storePassStatus: "active" | "expired" | "inactive";
   storePassStartsAt: string | null;
   storePassExpiresAt: string | null;
+  storePassTrialUsed?: boolean;
+  storePassFreeTrialEligible?: boolean;
   storePassRenewalCount: number;
   storeSearchCount: number;
   storeVisitCount: number;
@@ -172,7 +175,7 @@ function daysRemainingLabel(expiresIso?: string | null): string {
 function formatPaymentMethodLabel(method: string): string {
   const m = String(method || "").toLowerCase();
   if (m === "seller_balance") return "Payout Balance";
-  if (m === "launch_pilot") return "Free Trial";
+  if (m === "free_trial" || m === "launch_pilot") return "60-Day Free Trial";
   return "Online Paid";
 }
 
@@ -221,6 +224,8 @@ export default function AppBrandingPage() {
     storePassStatus: "inactive",
     storePassStartsAt: null,
     storePassExpiresAt: null,
+    storePassTrialUsed: false,
+    storePassFreeTrialEligible: false,
     storePassRenewalCount: 0,
     storeSearchCount: 0,
     storeVisitCount: 0,
@@ -273,8 +278,9 @@ export default function AppBrandingPage() {
   );
   const [submitting, setSubmitting] = useState(false);
 
-  // Locked Modal B: Store Search & Mini-Storefront Pass (₹49 / ₹59)
+  // Locked Modal B: Store Search & Mini-Storefront Pass (₹49 / ₹59 OR 60-Day New Seller Free Trial)
   const [activeStorePassPkg, setActiveStorePassPkg] = useState<BrandingPackage | null>(null);
+  const [showFreeTrialModal, setShowFreeTrialModal] = useState(false);
   const [passSlugInput, setPassSlugInput] = useState("");
   const [passTaglineInput, setPassTaglineInput] = useState("");
   const [passPaymentMethod, setPassPaymentMethod] = useState<"online_checkout" | "seller_balance">(
@@ -355,6 +361,7 @@ export default function AppBrandingPage() {
       campaigns.filter(
         (c) =>
           c.placement_type !== "store_search" &&
+          c.package_key !== "store_search_free_60d" &&
           c.package_key !== "store_search_49_18d" &&
           c.package_key !== "store_search_59_28d"
       ),
@@ -442,7 +449,16 @@ export default function AppBrandingPage() {
   };
 
   // Open Locked Package Modals (zero cross-plan mixing!)
+  const openFreeTrialModal = () => {
+    setActiveAppAdPkg(null);
+    setActiveStorePassPkg(null);
+    setPassSlugInput(seller.storeSlug || "");
+    setPassTaglineInput(seller.storeTagline || "");
+    setShowFreeTrialModal(true);
+  };
+
   const openPackageModal = (pkg: BrandingPackage) => {
+    setShowFreeTrialModal(false);
     if (pkg.track === "app_ad") {
       setActiveStorePassPkg(null);
       setActiveAppAdPkg(pkg);
@@ -463,6 +479,11 @@ export default function AppBrandingPage() {
             : "online_checkout"
       );
     } else {
+      // New sellers with unused 60-day free trial activate FREE first — payment unlocks after 60 days!
+      if (seller.storePassFreeTrialEligible) {
+        openFreeTrialModal();
+        return;
+      }
       setActiveAppAdPkg(null);
       setActiveStorePassPkg(pkg);
       setPassSlugInput(seller.storeSlug || "");
@@ -474,6 +495,34 @@ export default function AppBrandingPage() {
             ? "seller_balance"
             : "online_checkout"
       );
+    }
+  };
+
+  const handleActivateFree60dTrial = async () => {
+    setSubmitting(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/seller/marketing/branding", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action: "activate_free_60d_trial",
+          storeSlug: passSlugInput.trim(),
+          storeTagline: passTaglineInput.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        notify(json?.error || "Could not activate 60-day Free Trial.", "error");
+        return;
+      }
+      notify(json.message || "60 Days FREE Store Search & Mini-Storefront activated!");
+      setShowFreeTrialModal(false);
+      await loadData();
+    } catch {
+      notify("Network error activating 60-day Free Trial.", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -748,16 +797,60 @@ export default function AppBrandingPage() {
         <button
           type="button"
           onClick={() => {
+            if (seller.storePassFreeTrialEligible) {
+              openFreeTrialModal();
+              return;
+            }
             const proPass = storePassPackages.find((p) => p.key === "store_search_59_28d") || packages[0];
             if (proPass) openPackageModal(proPass);
           }}
           data-photo-overlay="true"
           className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-5 py-3 text-xs font-black text-white shadow-[0_8px_20px_rgba(240,58,70,0.28)] hover:brightness-105 cursor-pointer"
         >
-          <Store size={15} />
-          <span>{isPassActive ? "Extend Store Search Pass" : "Unlock Store Search (₹49 / ₹59)"}</span>
+          {seller.storePassFreeTrialEligible ? <Gift size={15} /> : <Store size={15} />}
+          <span>
+            {seller.storePassFreeTrialEligible
+              ? "Activate 60 Days FREE (₹0)"
+              : isPassActive
+                ? "Extend Store Search Pass"
+                : "Unlock Store Search (₹49 / ₹59)"}
+          </span>
         </button>
       </div>
+
+      {/* 1B. NEW SELLER 60-DAY FREE WELCOME OFFER BANNER */}
+      {seller.storePassFreeTrialEligible && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-[#FFFDF8] to-[#FFF8DB] p-4 sm:p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div
+              data-photo-overlay="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white"
+            >
+              <Gift size={18} />
+            </div>
+            <div>
+              <span className="inline-flex rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                New Seller Welcome Offer • ₹0 For 60 Full Days
+              </span>
+              <p className="mt-1 text-sm font-black text-[#14120F]">
+                Activate Store Search + Branded Mini-Storefront + PDP Store Link FREE for 60 Days!
+              </p>
+              <p className="mt-0.5 text-xs font-semibold text-[#5C4E35]">
+                Grow your brand on Instagram &amp; WhatsApp with <strong>zebalpha.shop/store/{seller.storeSlug}</strong> at ₹0. After 60 free days end, paid renewals start at just ₹49 (18d) or ₹59 (28d).
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openFreeTrialModal}
+            data-photo-overlay="true"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black text-white shadow-md hover:bg-emerald-700 cursor-pointer"
+          >
+            <Gift size={14} />
+            <span>Activate 60 Days FREE</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. MISSED TRAFFIC FOMO BANNER (When Store Pass Inactive/Expired & Missed Searches/Visits > 0) */}
       {!isPassActive && totalMissedTraffic > 0 && (
@@ -811,17 +904,23 @@ export default function AppBrandingPage() {
           </div>
           <p className="mt-2 text-xl font-black text-[#14120F]">
             {isPassActive
-              ? "ACTIVE"
+              ? seller.storePassPlan === "store_search_free_60d"
+                ? "60d FREE LIVE"
+                : "ACTIVE"
               : seller.storePassStatus === "expired"
                 ? "EXPIRED"
-                : "NOT ACTIVE"}
+                : seller.storePassFreeTrialEligible
+                  ? "60 DAYS FREE"
+                  : "NOT ACTIVE"}
           </p>
           <p className="text-[11px] font-semibold text-[#6E5C3D]">
             {isPassActive
               ? `${daysRemainingLabel(seller.storePassExpiresAt)} • Ends ${formatDate(
                   seller.storePassExpiresAt
                 )}`
-              : "Activate ₹49 (18d) or ₹59 (28d)"}
+              : seller.storePassFreeTrialEligible
+                ? "New Seller Offer: Activate ₹0 now!"
+                : "Activate ₹49 (18d) or ₹59 (28d)"}
           </p>
         </div>
 
@@ -925,10 +1024,22 @@ export default function AppBrandingPage() {
                   <h3 className="mt-3 text-base font-black text-[#14120F] leading-snug">{pkg.name}</h3>
                   <div className="mt-2 flex items-baseline gap-1.5">
                     <span className="text-3xl font-black text-[#14120F]">
-                      ₹{pkg.amount_inr.toLocaleString("en-IN")}
+                      {isStorePass && seller.storePassFreeTrialEligible
+                        ? "₹0"
+                        : `₹${pkg.amount_inr.toLocaleString("en-IN")}`}
                     </span>
-                    <span className="text-xs font-bold text-[#6E5C3D]">/ {pkg.duration_days} days</span>
+                    <span className="text-xs font-bold text-[#6E5C3D]">
+                      {isStorePass && seller.storePassFreeTrialEligible
+                        ? "/ 60 days FREE"
+                        : `/ ${pkg.duration_days} days`}
+                    </span>
                   </div>
+                  {isStorePass && seller.storePassFreeTrialEligible && (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-black text-emerald-800">
+                      <Gift size={10} />
+                      Then ₹{pkg.amount_inr}/{pkg.duration_days}d after 60 days
+                    </p>
+                  )}
                   <p className="mt-2 text-xs font-medium text-[#5C4E35] leading-relaxed">
                     {pkg.summary}
                   </p>
@@ -954,9 +1065,11 @@ export default function AppBrandingPage() {
                   }`}
                 >
                   {isStorePass
-                    ? isPassActive
-                      ? `Extend +${pkg.duration_days}d (₹${pkg.amount_inr})`
-                      : `Activate ₹${pkg.amount_inr} Pass`
+                    ? seller.storePassFreeTrialEligible
+                      ? "Activate 60 Days FREE (₹0)"
+                      : isPassActive
+                        ? `Extend +${pkg.duration_days}d (₹${pkg.amount_inr})`
+                        : `Activate ₹${pkg.amount_inr} Pass`
                     : `Select ₹${pkg.amount_inr} Pack`}
                 </button>
               </div>
@@ -1622,6 +1735,146 @@ export default function AppBrandingPage() {
                         ? "Processing..."
                         : `Pay ₹${activeAppAdPkg.amount_inr} & Submit`}
                   </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL B0 (NEW SELLER): 60-DAY FREE STORE SEARCH & MINI-STOREFRONT     */}
+      {/* ===================================================================== */}
+      {showFreeTrialModal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setShowFreeTrialModal(false)}
+        >
+          <div
+            className="w-full max-w-xl rounded-[2rem] border border-emerald-300 bg-white p-5 sm:p-7 shadow-2xl max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Sticky Header */}
+            <div className="shrink-0 flex items-start justify-between gap-4 border-b border-[#F0E2BE] pb-4">
+              <div>
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                  <Gift size={11} /> New Seller Welcome Offer • 60 Days Free (₹0)
+                </span>
+                <h3 className="mt-1.5 text-xl font-black text-[#14120F]">
+                  Activate Store Search &amp; Mini-Storefront — ₹0
+                </h3>
+                <p className="text-xs font-semibold text-[#6E5C3D]">
+                  Full access FREE for 60 days! After 60 days, paid renewal applies (₹49 for 18 days
+                  or ₹59 for 28 days).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFreeTrialModal(false)}
+                className="rounded-xl border border-[#EAD296] p-2 text-[#5C4E35] cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="mt-4 flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-wider text-emerald-900">
+                  Unlocked Immediately For 60 Full Days (₹0 Upfront)
+                </p>
+                <ul className="space-y-1.5 text-xs font-semibold text-[#14120F]">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+                    <span>
+                      <strong>Shop Name &amp; Shop+Product Search:</strong> Customers searching{" "}
+                      <em>&ldquo;{seller.storeName}&rdquo;</em> see your verified store card #1 with
+                      zero competitor hijacking.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+                    <span>
+                      <strong>Dedicated Mini-Storefront + Printable QR:</strong> Live showroom at{" "}
+                      <code>zebalpha.shop/store/{passSlugInput || seller.storeSlug}</code>.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+                    <span>
+                      <strong>Clickable PDP Store Link:</strong> &ldquo;Visit {seller.storeName}{" "}
+                      Store →&rdquo; unlocked on every product page.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+                    <span>
+                      <strong>Auto-Pauses After Day 60:</strong> Zero auto-debit! Renew anytime for
+                      ₹49 (18d) or ₹59 (28d) to keep the exact same link live.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#5C4E35] mb-1">
+                    Choose Your Mini-Storefront URL Slug
+                  </label>
+                  <div className="flex items-center rounded-xl border border-[#EAD296] bg-[#FFFDF8] overflow-hidden">
+                    <span className="bg-[#FFF8DB] px-3 py-2.5 text-[11px] font-black text-[#7A6847] border-r border-[#EAD296] shrink-0">
+                      zebalpha.shop/store/
+                    </span>
+                    <input
+                      type="text"
+                      value={passSlugInput}
+                      onChange={(e) =>
+                        setPassSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                      }
+                      placeholder="your-shop-name"
+                      className="w-full bg-transparent px-3 py-2.5 text-xs font-black text-[#14120F] outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#5C4E35] mb-1">
+                    Short Storefront Tagline (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={140}
+                    value={passTaglineInput}
+                    onChange={(e) => setPassTaglineInput(e.target.value)}
+                    placeholder="e.g. Authentic Ethnic & Streetwear • Shipped Pan-India"
+                    className="w-full rounded-xl border border-[#EAD296] bg-[#FFFDF8] px-3.5 py-2.5 text-xs font-semibold text-[#14120F]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sticky Footer */}
+            <div className="mt-4 shrink-0 flex items-center justify-between gap-3 border-t border-[#F0E2BE] pt-4">
+              <div className="text-xs font-black text-emerald-800">
+                ₹0 Today • 60 Days Free Trial
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowFreeTrialModal(false)}
+                  className="rounded-xl border border-[#EAD296] bg-white px-4 py-2.5 text-xs font-extrabold text-[#5C4E35] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={handleActivateFree60dTrial}
+                  data-photo-overlay="true"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-black text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                >
+                  <Gift size={14} />
+                  <span>{submitting ? "Activating..." : "Activate 60 Days FREE Now"}</span>
                 </button>
               </div>
             </div>
