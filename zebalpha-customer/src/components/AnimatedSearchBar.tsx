@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, Store, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchProducts } from "@/hooks/useCatalogQueries";
+import { useSearchProducts, useStoreSearch } from "@/hooks/useCatalogQueries";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 
 const searchItems = [
@@ -36,6 +36,11 @@ function AnimatedSearchBarContent() {
 
   // TanStack Query L1 + Redis L2 debounced live search hook (300ms debounce)
   const { data: searchResults = [], isLoading } = useSearchProducts(inputValue);
+  const { data: storeSearchData } = useStoreSearch(inputValue, {
+    includeProducts: false,
+    logSearch: false,
+  });
+  const matchedStores = storeSearchData?.matchedStores || [];
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -141,7 +146,48 @@ function AnimatedSearchBarContent() {
             {isLoading && <span className="text-[#9A6503] font-semibold animate-pulse">Searching...</span>}
           </div>
 
-          <div className="max-h-72 overflow-y-auto divide-y divide-[#EDE0BF]/80">
+          <div className="max-h-80 overflow-y-auto divide-y divide-[#EDE0BF]/80">
+            {matchedStores.length > 0 && (
+              <div className="bg-[#FFF9E6]/85 p-2 space-y-1.5">
+                <p className="px-1.5 text-[10px] font-black uppercase tracking-wider text-[#9A6503] flex items-center gap-1">
+                  <Store className="w-3 h-3" /> Verified Official Stores
+                </p>
+                {matchedStores.map((st) => (
+                  <Link
+                    key={st.id}
+                    href={`/store/${st.store_slug}`}
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-2.5 rounded-xl border border-[#E4C988] bg-white p-2.5 hover:border-[#C68A12] hover:bg-[#FFFDF8] transition-all group"
+                  >
+                    <div className="h-9 w-9 rounded-lg overflow-hidden bg-[#FFF8DB] border border-[#E4C988] flex items-center justify-center shrink-0 text-[#9A6503]">
+                      {st.business_logo_url ? (
+                        <img
+                          src={st.business_logo_url}
+                          alt={st.business_name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Store className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-black text-[#14120F] truncate group-hover:text-[#9A6503]">
+                          {st.business_name}
+                        </p>
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      </div>
+                      <p className="text-[10px] font-semibold text-[#6E624D] truncate">
+                        {st.city ? `${st.city} • ` : ""}Visit Official Mini-Storefront
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-[#FAF2DC] border border-[#DFBE6F] px-2.5 py-1 text-[10px] font-black text-[#14120F]">
+                      Visit Store →
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
             {hasResults ? (
               searchResults.slice(0, 5).map((prod: any) => (
                 <Link
@@ -169,7 +215,7 @@ function AnimatedSearchBarContent() {
                   <ArrowRight className="w-4 h-4 text-[#9A6503] group-hover:translate-x-0.5 transition-all" />
                 </Link>
               ))
-            ) : !isLoading ? (
+            ) : !isLoading && matchedStores.length === 0 ? (
               <div className="p-4 text-center text-xs text-[#6E624D] font-medium">
                 No products found for &quot;{inputValue}&quot;
               </div>

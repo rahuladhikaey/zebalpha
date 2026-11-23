@@ -71,6 +71,9 @@ export type Product = {
   seller_logo?: string;
   seller_social_url?: string;
   seller_social_platform?: string;
+  seller_store_slug?: string | null;
+  seller_store_active?: boolean;
+  seller_store_tagline?: string | null;
   virtual_tryon_image?: string;
   virtual_tryon_category?: 'upper_body' | 'lower_body' | 'dresses' | 'outerwear' | string;
   is_vto_enabled?: boolean;

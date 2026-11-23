@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-import { Search, ArrowRight, Mic } from "lucide-react";
+import { Search, ArrowRight, Mic, Store, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchProducts } from "@/hooks/useCatalogQueries";
+import { useSearchProducts, useStoreSearch } from "@/hooks/useCatalogQueries";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { useOfficialTheme } from "@/lib/platform";
 import { useVoiceSearch, VoiceSearchSheet } from "@/components/VoiceSearchSheet";
@@ -51,6 +51,11 @@ export function MobileSearch({ className }: { className?: string } = {}) {
 
   // TanStack Query L1 + Redis L2 debounced live search hook (300ms debounce)
   const { data: searchResults = [], isLoading } = useSearchProducts(inputValue);
+  const { data: storeSearchData } = useStoreSearch(inputValue, {
+    includeProducts: false,
+    logSearch: false,
+  });
+  const matchedStores = storeSearchData?.matchedStores || [];
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -160,7 +165,40 @@ export function MobileSearch({ className }: { className?: string } = {}) {
               {isLoading && <span className="text-[#8E6208] animate-pulse">Loading...</span>}
             </div>
 
-            <div className="max-h-60 overflow-y-auto divide-y divide-[#F3E8CB]">
+            <div className="max-h-72 overflow-y-auto divide-y divide-[#F3E8CB]">
+              {matchedStores.length > 0 && (
+                <div className="bg-[#FFF9E6]/90 p-2 space-y-1.5">
+                  <p className="px-1 text-[10px] font-black uppercase tracking-wider text-[#9A6503] flex items-center gap-1">
+                    <Store className="w-3 h-3" /> Verified Official Stores
+                  </p>
+                  {matchedStores.map((st) => (
+                    <Link
+                      key={st.id}
+                      href={`/store/${st.store_slug}`}
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl border border-[#E4C988] bg-white p-2 hover:bg-[#FFFDF8] transition-colors"
+                    >
+                      <div className="h-8 w-8 rounded-lg overflow-hidden bg-[#FFF8DB] border border-[#E4C988] flex items-center justify-center shrink-0 text-[#9A6503]">
+                        {st.business_logo_url ? (
+                          <img src={st.business_logo_url} alt={st.business_name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Store className="w-3.5 h-3.5" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-[#14120F] truncate flex items-center gap-1">
+                          <span className="truncate">{st.business_name}</span>
+                          <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                        </p>
+                        <p className="text-[10px] font-semibold text-[#7A673E] truncate">
+                          Visit Official Mini-Storefront
+                        </p>
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#8E6208] shrink-0" />
+                    </Link>
+                  ))}
+                </div>
+              )}
               {hasResults ? (
                 searchResults.slice(0, 4).map((prod: { id: string; name: string; price: number; image_url?: string; thumbnail_url?: string }) => (
                   <Link
@@ -184,7 +222,7 @@ export function MobileSearch({ className }: { className?: string } = {}) {
                     <ArrowRight className="w-3.5 h-3.5 text-[#8E6208]" />
                   </Link>
                 ))
-              ) : !isLoading ? (
+              ) : !isLoading && matchedStores.length === 0 ? (
                 <div className="p-3 text-center text-xs text-[#6B5D44]">No items matching &quot;{inputValue}&quot;</div>
               ) : null}
             </div>
@@ -283,7 +321,40 @@ export function MobileSearch({ className }: { className?: string } = {}) {
             {isLoading && <span className="text-neutral-500 animate-pulse">Loading...</span>}
           </div>
 
-          <div className="max-h-60 overflow-y-auto divide-y divide-neutral-800/50">
+          <div className="max-h-72 overflow-y-auto divide-y divide-neutral-800/50">
+            {matchedStores.length > 0 && (
+              <div className="bg-zinc-950 p-2 space-y-1.5">
+                <p className="px-1 text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                  <Store className="w-3 h-3" /> Verified Official Stores
+                </p>
+                {matchedStores.map((st) => (
+                  <Link
+                    key={st.id}
+                    href={`/store/${st.store_slug}`}
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-2.5 rounded-xl border border-amber-400/30 bg-zinc-900 p-2 hover:bg-zinc-800 transition-colors"
+                  >
+                    <div className="h-8 w-8 rounded-lg overflow-hidden bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-amber-400">
+                      {st.business_logo_url ? (
+                        <img src={st.business_logo_url} alt={st.business_name} className="h-full w-full object-cover" />
+                      ) : (
+                        <Store className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white truncate flex items-center gap-1">
+                        <span className="truncate">{st.business_name}</span>
+                        <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                      </p>
+                      <p className="text-[10px] text-amber-300/90 font-medium truncate">
+                        Visit Official Mini-Storefront
+                      </p>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            )}
             {hasResults ? (
               searchResults.slice(0, 4).map((prod: any) => (
                 <Link
@@ -311,7 +382,7 @@ export function MobileSearch({ className }: { className?: string } = {}) {
                   <ArrowRight className="w-3.5 h-3.5 text-neutral-500 group-hover:text-white" />
                 </Link>
               ))
-            ) : !isLoading ? (
+            ) : !isLoading && matchedStores.length === 0 ? (
               <div className="p-3 text-center text-xs text-neutral-500">
                 No items matching "{inputValue}"
               </div>

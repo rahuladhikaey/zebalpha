@@ -1345,3 +1345,63 @@ export function useActiveSellers() {
   });
 }
 
+export interface SmartStoreMatchItem {
+  id: string;
+  business_name: string;
+  store_slug: string;
+  city?: string | null;
+  state?: string | null;
+  business_logo_url?: string | null;
+  store_banner_url?: string | null;
+  store_tagline?: string | null;
+  is_pro_pass?: boolean;
+  match_type: 'store_only' | 'store_plus_product';
+  product_query: string;
+}
+
+export interface SmartStoreSearchResponse {
+  success: boolean;
+  matchedStores: SmartStoreMatchItem[];
+  primaryMatch: {
+    store: SmartStoreMatchItem;
+    matchType: 'store_only' | 'store_plus_product';
+    productQuery: string;
+    totalSellerProducts: number;
+    products: Product[];
+  } | null;
+}
+
+/**
+ * Seller-Based Smart Store Search Hook (Active Store Pass Gated)
+ * Used in Desktop SearchBar, Mobile Search, and /products?search=... results page.
+ */
+export function useStoreSearch(
+  rawQuery: string,
+  options?: { includeProducts?: boolean; logSearch?: boolean }
+) {
+  const normalizedQuery = normalizeQueryString(rawQuery);
+  const debouncedQuery = useDebounce(normalizedQuery, 260);
+  const includeProducts = Boolean(options?.includeProducts);
+  const logSearch = Boolean(options?.logSearch);
+
+  return useQuery<SmartStoreSearchResponse>({
+    queryKey: ['storeSearch', debouncedQuery, includeProducts ? 'full' : 'lite'],
+    queryFn: async () => {
+      if (debouncedQuery.length < 2) {
+        return { success: true, matchedStores: [], primaryMatch: null };
+      }
+      const qs = new URLSearchParams({ q: debouncedQuery });
+      if (includeProducts) qs.set('includeProducts', '1');
+      if (logSearch) qs.set('logSearch', '1');
+      const res = await fetch(`/api/search/stores?${qs.toString()}`);
+      if (!res.ok) {
+        return { success: true, matchedStores: [], primaryMatch: null };
+      }
+      return res.json();
+    },
+    enabled: debouncedQuery.length >= 2,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+

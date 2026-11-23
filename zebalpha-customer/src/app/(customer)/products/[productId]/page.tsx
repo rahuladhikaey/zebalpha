@@ -16,6 +16,7 @@ import { ProductNotFoundSignal } from "@/components/ProductDetailsLoadingScreen"
 import { NativePlatformProvider } from "@/lib/platform";
 import { detectNativeAppOnServer } from "@/lib/platformServer";
 import { sanitizeProductMedia } from "@/lib/productImageUtils";
+import { isSellerStorePassActive } from "@/lib/smartStoreSearch";
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_A_URL || "https://placeholder.supabase.co").trim();
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_A_ANON_KEY || "dummy-anon-key-for-build").trim();
@@ -36,7 +37,7 @@ const getProduct = cache(async (productId: string) => {
   if (!productId || typeof productId !== "string") return null;
 
   return getCachedOrFetch<Product | null>(
-    `pdp:product:v3:${productId}`,
+    `pdp:product:v4:${productId}`,
     async () => {
       let productData: any = null;
 
@@ -44,7 +45,7 @@ const getProduct = cache(async (productId: string) => {
       try {
         const { data, error } = await supabaseServer
           .from("products")
-          .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url, social_page_url, social_platform)`)
+          .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url, social_page_url, social_platform, store_slug, store_pass_status, store_pass_expires_at, store_slug_blocked, store_tagline)`)
           .eq("id", productId)
           .maybeSingle();
 
@@ -53,7 +54,7 @@ const getProduct = cache(async (productId: string) => {
         } else if (error) {
           const fallbackJoin = await supabaseServer
             .from("products")
-            .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
+            .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url, social_page_url, social_platform)`)
             .eq("id", productId)
             .maybeSingle();
 
@@ -80,7 +81,7 @@ const getProduct = cache(async (productId: string) => {
         try {
           const { data, error } = await supabase
             .from("products")
-            .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url)`)
+            .select(`${SLIM_PDP_FIELDS}, seller:sellers(business_name, city, state, business_logo_url, store_slug, store_pass_status, store_pass_expires_at, store_slug_blocked, store_tagline)`)
             .eq("id", productId)
             .maybeSingle();
 
@@ -119,6 +120,16 @@ const getProduct = cache(async (productId: string) => {
           productData.seller_logo = s.business_logo_url;
           if (s.social_page_url) productData.seller_social_url = s.social_page_url;
           if (s.social_platform) productData.seller_social_platform = s.social_platform;
+          const storeActive =
+            Boolean(s.store_slug && String(s.store_slug).trim()) &&
+            isSellerStorePassActive({
+              store_pass_status: s.store_pass_status,
+              store_pass_expires_at: s.store_pass_expires_at,
+              store_slug_blocked: s.store_slug_blocked,
+            });
+          productData.seller_store_active = storeActive;
+          productData.seller_store_slug = storeActive ? String(s.store_slug).trim().toLowerCase() : null;
+          productData.seller_store_tagline = storeActive ? s.store_tagline || null : null;
         }
         delete productData.seller;
       }
@@ -128,7 +139,7 @@ const getProduct = cache(async (productId: string) => {
           const client = process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseServer : supabase;
           const { data: s } = await client
             .from("sellers")
-            .select("business_name, city, state, business_logo_url")
+            .select("business_name, city, state, business_logo_url, store_slug, store_pass_status, store_pass_expires_at, store_slug_blocked, store_tagline")
             .eq("id", productData.seller_id)
             .maybeSingle();
           if (s) {
@@ -136,6 +147,16 @@ const getProduct = cache(async (productId: string) => {
             productData.business_name = s.business_name;
             productData.seller_city = s.city;
             productData.seller_logo = s.business_logo_url;
+            const storeActive =
+              Boolean(s.store_slug && String(s.store_slug).trim()) &&
+              isSellerStorePassActive({
+                store_pass_status: s.store_pass_status,
+                store_pass_expires_at: s.store_pass_expires_at,
+                store_slug_blocked: s.store_slug_blocked,
+              });
+            productData.seller_store_active = storeActive;
+            productData.seller_store_slug = storeActive ? String(s.store_slug).trim().toLowerCase() : null;
+            productData.seller_store_tagline = storeActive ? s.store_tagline || null : null;
           }
         } catch (_) {}
       }
@@ -151,7 +172,7 @@ const getProduct = cache(async (productId: string) => {
 
       return sanitized as Product;
     },
-    600 // 10 min L1 RAM + Singleflight + Upstash Redis TTL
+    120 // 2 min L1 RAM + Singleflight + Upstash Redis TTL so Store Pass toggles reflect promptly
   );
 });
 

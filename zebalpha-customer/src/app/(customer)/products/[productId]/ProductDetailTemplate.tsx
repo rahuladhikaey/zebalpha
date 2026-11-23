@@ -7,7 +7,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { BuyNowButton } from "@/components/BuyNowButton";
 import { WishlistButton } from "@/components/WishlistButton";
 import { useCart } from "@/context/CartContext";
-import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt, Gift, Play } from "lucide-react";
+import { ShieldCheck, Truck, RefreshCcw, Tag, ChevronRight, ChevronDown, Star, Bell, CheckCircle2, Flame, Share2, Shirt, Gift, Play, Store, ArrowRight } from "lucide-react";
 import { parseProductVideoProof } from "@/lib/socialVideoUtils";
 import { RealVideoProofModal } from "@/components/RealVideoProofModal";
 import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
@@ -1167,9 +1167,25 @@ export default function ProductDetailTemplate({
                 </div>
               )}
 
-              <span className="block text-[11px] sm:text-xs font-black tracking-widest text-zinc-400 uppercase">
-                {product.brand || "ZEBALPHA"}
-              </span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="block text-[11px] sm:text-xs font-black tracking-widest text-zinc-400 uppercase">
+                  {product.brand || "ZEBALPHA"}
+                </span>
+                {product.seller_store_active && product.seller_store_slug && (
+                  <Link
+                    href={`/store/${product.seller_store_slug}`}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-black transition-all ${
+                      isNativeApp
+                        ? "border-[#DFBE6F] bg-[#FFF8DB] text-[#9A6503] hover:bg-[#FCE89C] hover:text-[#14120F]"
+                        : "border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+                    }`}
+                  >
+                    <Store size={12} />
+                    <span>Visit {cleanSellerName} Store</span>
+                    <ArrowRight size={11} />
+                  </Link>
+                )}
+              </div>
               <h1 className="text-xl sm:text-2xl font-bold text-white md:text-3xl leading-snug">
                 {product.name}
               </h1>
@@ -1531,9 +1547,9 @@ export default function ProductDetailTemplate({
               )}
             </div>
 
-            {/* Seller / Retailer Info (Meesho / Flipkart Clean Style) */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between shadow-xl">
-              <div className="flex items-center gap-4">
+            {/* Seller / Retailer Info (Storefront Link Strictly Gated to Active Store Pass!) */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center gap-4 min-w-0">
                 <div className="h-12 w-12 rounded-full bg-zinc-900 flex items-center justify-center border border-zinc-800 text-white overflow-hidden shrink-0" aria-hidden="true">
                   {product.seller_logo ? (
                     <img src={product.seller_logo} alt={cleanSellerName} className="h-full w-full object-cover" />
@@ -1541,24 +1557,41 @@ export default function ProductDetailTemplate({
                     <ShieldCheck className="h-6 w-6 text-emerald-400" />
                   )}
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-black text-white">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-sm font-black text-white truncate">
                       {cleanSellerName}
                     </h4>
                     <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                       ★ 4.2
                     </span>
                   </div>
-                  <p className="text-xs font-bold text-zinc-400 mt-0.5">
-                    Verified Seller • 100% Genuine Quality • 7-Day Easy Returns
+                  <p className="text-xs font-bold text-zinc-400 mt-0.5 line-clamp-1">
+                    {product.seller_store_active && product.seller_store_tagline
+                      ? product.seller_store_tagline
+                      : "Verified Seller • 100% Genuine Quality • 7-Day Easy Returns"}
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm shrink-0">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                Verified
-              </span>
+              {product.seller_store_active && product.seller_store_slug ? (
+                <Link
+                  href={`/store/${product.seller_store_slug}`}
+                  className={
+                    isNativeApp
+                      ? "inline-flex items-center gap-1.5 rounded-full border border-[#C68A12]/70 bg-gradient-to-r from-[#FCE89C] via-[#F5B922] to-[#D49014] px-4 py-2 text-xs font-black uppercase tracking-wider text-[#14120F] shadow-sm hover:brightness-105 shrink-0"
+                      : "inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-colors shrink-0"
+                  }
+                >
+                  <Store className="h-3.5 w-3.5" />
+                  <span>Visit Store</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              ) : (
+                <span className="text-xs font-black uppercase tracking-wider text-white bg-zinc-900 border border-zinc-700 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm shrink-0">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                  Verified
+                </span>
+              )}
             </div>
 
             {/* Features (Bottom Icons) */}

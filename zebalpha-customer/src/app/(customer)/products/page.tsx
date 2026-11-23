@@ -13,13 +13,14 @@ import { WishlistButton } from "@/components/WishlistButton";
 import { QuickCartButton } from "@/components/QuickCartButton";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
-import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star, Mic } from "lucide-react";
+import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star, Mic, Store, ShieldCheck, ArrowRight, MapPin } from "lucide-react";
 import { VoiceSearchSheet, useVoiceSearch } from "@/components/VoiceSearchSheet";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import {
   useCategories,
   usePaginatedProducts,
   useActiveSellers,
+  useStoreSearch,
   useDebounce,
   DEFAULT_CLOTHING_CATEGORIES,
   getProductDisplayPricing,
@@ -159,6 +160,21 @@ function ProductsContent() {
     page,
     pageSize: 36,
   });
+
+  // Seller-Based Smart Store Search (Active Store Pass Gated)
+  const {
+    data: storeSearchData,
+    isLoading: storeSearchLoading,
+  } = useStoreSearch(debouncedSearch, {
+    includeProducts: true,
+    logSearch: true,
+  });
+  const primaryStoreMatch = debouncedSearch.trim().length >= 2 ? storeSearchData?.primaryMatch || null : null;
+  const [storeScopeMode, setStoreScopeMode] = useState<"store_only" | "all_marketplace">("store_only");
+
+  useEffect(() => {
+    setStoreScopeMode("store_only");
+  }, [debouncedSearch]);
 
   const products = paginatedData?.products || [];
   const totalCount = paginatedData?.totalCount || 0;
@@ -1166,6 +1182,134 @@ function ProductsContent() {
               </div>
             )}
 
+            {/* Seller-Based Smart Store Banner & Competitor-Free Isolation Toggle (Active Store Pass Only) */}
+            {primaryStoreMatch && (
+              <div
+                className={
+                  isNativeApp
+                    ? "mb-5 rounded-3xl border border-[#DFBE6F] bg-gradient-to-br from-[#FFFDF8] via-white to-[#FFF6DA] p-4 sm:p-5 shadow-[0_12px_28px_-10px_rgba(166,124,28,0.2)] space-y-3.5"
+                    : "mb-5 rounded-3xl border border-amber-400/35 bg-gradient-to-br from-zinc-950 via-zinc-950 to-amber-950/25 p-4 sm:p-5 shadow-2xl space-y-3.5"
+                }
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className={
+                        isNativeApp
+                          ? "h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-[#DFBE6F] bg-[#FFF8DB] flex items-center justify-center text-[#9A6503]"
+                          : "h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 flex items-center justify-center text-amber-400"
+                      }
+                    >
+                      {primaryStoreMatch.store.business_logo_url ? (
+                        <img
+                          src={primaryStoreMatch.store.business_logo_url}
+                          alt={primaryStoreMatch.store.business_name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Store size={24} />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2
+                          className={`text-base sm:text-lg font-black truncate ${
+                            isNativeApp ? "text-[#14120F]" : "text-white"
+                          }`}
+                        >
+                          {primaryStoreMatch.store.business_name}
+                        </h2>
+                        <span
+                          className={
+                            isNativeApp
+                              ? "inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-800"
+                              : "inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-300"
+                          }
+                        >
+                          <ShieldCheck size={11} /> Verified Store
+                        </span>
+                      </div>
+                      <p
+                        className={`text-xs font-semibold line-clamp-1 mt-0.5 ${
+                          isNativeApp ? "text-[#5C4E35]" : "text-zinc-300"
+                        }`}
+                      >
+                        {primaryStoreMatch.store.store_tagline ||
+                          `Showing ${
+                            primaryStoreMatch.productQuery
+                              ? `"${primaryStoreMatch.productQuery}" exclusively`
+                              : "all authentic items"
+                          } from ${primaryStoreMatch.store.business_name}`}
+                      </p>
+                      <div
+                        className={`mt-1 flex flex-wrap items-center gap-2.5 text-[11px] font-bold ${
+                          isNativeApp ? "text-[#7A6847]" : "text-zinc-400"
+                        }`}
+                      >
+                        {primaryStoreMatch.store.city && (
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin size={11} />
+                            {[primaryStoreMatch.store.city, primaryStoreMatch.store.state]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </span>
+                        )}
+                        <span>{primaryStoreMatch.totalSellerProducts} total store items</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Link
+                    href={`/store/${primaryStoreMatch.store.store_slug}`}
+                    className={
+                      isNativeApp
+                        ? "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#B4780C]/55 bg-gradient-to-r from-[#FCE89C] via-[#F5B922] to-[#D49014] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[#14120F] shadow-sm hover:brightness-105"
+                        : "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-xs font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-colors"
+                    }
+                  >
+                    <Store size={14} />
+                    <span>Visit Full Storefront</span>
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+
+                {/* Competitor-Free Scope Toggle */}
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-current/10">
+                  <button
+                    type="button"
+                    onClick={() => setStoreScopeMode("store_only")}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-black transition-all cursor-pointer ${
+                      storeScopeMode === "store_only"
+                        ? isNativeApp
+                          ? "bg-[#14120F] text-white"
+                          : "bg-amber-400 text-black"
+                        : isNativeApp
+                          ? "border border-[#DFBE6F] bg-white text-[#5C4E35]"
+                          : "border border-zinc-700 bg-zinc-900 text-zinc-300"
+                    }`}
+                  >
+                    Only from {primaryStoreMatch.store.business_name} (
+                    {primaryStoreMatch.products.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStoreScopeMode("all_marketplace")}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-black transition-all cursor-pointer ${
+                      storeScopeMode === "all_marketplace"
+                        ? isNativeApp
+                          ? "bg-[#14120F] text-white"
+                          : "bg-amber-400 text-black"
+                        : isNativeApp
+                          ? "border border-[#DFBE6F] bg-white text-[#5C4E35]"
+                          : "border border-zinc-700 bg-zinc-900 text-zinc-300"
+                    }`}
+                  >
+                    All ZebAlpha Results ({filtered.length})
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Products Counter */}
             <div
               className={`flex items-center justify-between mb-3 text-xs font-bold ${
@@ -1175,18 +1319,27 @@ function ProductsContent() {
               <div>
                 Showing{" "}
                 <span className={`font-black ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
-                  {filtered.length}
+                  {primaryStoreMatch && storeScopeMode === "store_only"
+                    ? primaryStoreMatch.products.length
+                    : filtered.length}
                 </span>{" "}
-                {filtered.length === 1 ? "product" : "products"}
+                {(primaryStoreMatch && storeScopeMode === "store_only"
+                  ? primaryStoreMatch.products.length
+                  : filtered.length) === 1
+                  ? "product"
+                  : "products"}
               </div>
             </div>
 
             {/* Product Grid / Loading / Empty states */}
-            {loading ? (
+            {loading && !(primaryStoreMatch && primaryStoreMatch.products.length > 0) ? (
               <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-6">
                 <ProductCardSkeleton count={8} />
               </div>
-            ) : filtered.length === 0 ? (
+            ) : (primaryStoreMatch && storeScopeMode === "store_only"
+                ? primaryStoreMatch.products
+                : filtered
+              ).length === 0 && !storeSearchLoading ? (
               <div
                 className={
                   isNativeApp
@@ -1273,7 +1426,10 @@ function ProductsContent() {
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-6">
-                  {filtered.map((product, idx) => {
+                  {(primaryStoreMatch && storeScopeMode === "store_only"
+                    ? primaryStoreMatch.products
+                    : filtered
+                  ).map((product, idx) => {
                     const {
                       price: displayPrice,
                       mrp: displayMrp,

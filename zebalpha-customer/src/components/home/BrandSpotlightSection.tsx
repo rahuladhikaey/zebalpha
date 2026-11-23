@@ -18,6 +18,8 @@ interface SpotlightCampaign {
   store_name: string;
   headline: string;
   tagline?: string | null;
+  offer_badge?: string | null;
+  active_store_slug?: string | null;
   banner_image_url?: string | null;
   cta_url?: string | null;
   products: SpotlightProduct[];
@@ -100,9 +102,27 @@ export function BrandSpotlightSection() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF4F2] border border-[#F03A46]/25 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#F03A46]">
-                  <Store size={11} />
-                  <span>{camp.store_name}</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {camp.active_store_slug ? (
+                    <Link
+                      href={`/store/${camp.active_store_slug}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF4F2] border border-[#F03A46]/30 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#F03A46] hover:bg-[#F03A46] hover:text-white transition-colors"
+                    >
+                      <Store size={11} />
+                      <span>{camp.store_name}</span>
+                      <ArrowRight size={10} />
+                    </Link>
+                  ) : (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF4F2] border border-[#F03A46]/25 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#F03A46]">
+                      <Store size={11} />
+                      <span>{camp.store_name}</span>
+                    </div>
+                  )}
+                  {camp.offer_badge && (
+                    <span className="inline-flex rounded-full bg-[#FFF8DB] border border-[#DFBE6F] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#9A6503]">
+                      {camp.offer_badge}
+                    </span>
+                  )}
                 </div>
                 <h3 className="mt-2 text-lg font-black text-[#14120F] leading-snug">
                   {camp.headline}
@@ -114,11 +134,15 @@ export function BrandSpotlightSection() {
 
               {camp.products[0] && (
                 <Link
-                  href={`/products/${camp.products[0].id}?brand_campaign=${camp.id}`}
+                  href={
+                    camp.active_store_slug
+                      ? `/store/${camp.active_store_slug}`
+                      : `/products/${camp.products[0].id}?brand_campaign=${camp.id}`
+                  }
                   onClick={() => handleProductClick(camp.id, camp.products[0].id)}
                   className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#14120F] px-3.5 py-2 text-[11px] font-black text-white hover:bg-[#F03A46] transition-colors"
                 >
-                  <span>Shop</span>
+                  <span>{camp.active_store_slug ? "Visit Store" : "Shop"}</span>
                   <ArrowRight size={12} />
                 </Link>
               )}

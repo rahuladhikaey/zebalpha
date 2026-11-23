@@ -20,6 +20,8 @@ import {
   Ban,
   X,
   CreditCard,
+  Store,
+  Search,
 } from "lucide-react";
 
 interface ProvisionedCreds {
@@ -43,9 +45,10 @@ export default function SellerMarketingView() {
   const [loading, setLoading] = useState(true);
   const [migrationRequired, setMigrationRequired] = useState(false);
   const [upgradeMigrationRequired, setUpgradeMigrationRequired] = useState(false);
-  const [tab, setTab] = useState<"influencer" | "team" | "audit" | "branding" | "callbacks">(
-    "influencer"
-  );
+  const [brandingUpgradeRequired, setBrandingUpgradeRequired] = useState(false);
+  const [tab, setTab] = useState<
+    "influencer" | "team" | "audit" | "branding" | "store_passes" | "callbacks"
+  >("influencer");
 
   const [summary, setSummary] = useState({
     totalFixedFeesInr: 0,
@@ -57,7 +60,21 @@ export default function SellerMarketingView() {
     totalMissedClicks: 0,
     pendingCreatorApps: 0,
   });
+  const [brandingSummary, setBrandingSummary] = useState({
+    appAdRevenueInr: 0,
+    storePassRevenueInr: 0,
+    activeStorePasses: 0,
+    expiredStorePasses: 0,
+    totalStoreSearches: 0,
+    totalStoreVisits: 0,
+    totalMissedStoreSearches: 0,
+    totalMissedStoreVisits: 0,
+    pendingAppAds: 0,
+  });
   const [brandingCampaigns, setBrandingCampaigns] = useState<Array<Record<string, any>>>([]);
+  const [storePassSellers, setStorePassSellers] = useState<Array<Record<string, any>>>([]);
+  const [brandingTransactions, setBrandingTransactions] = useState<Array<Record<string, any>>>([]);
+  const [storePassSearch, setStorePassSearch] = useState("");
   const [enrollments, setEnrollments] = useState<Array<Record<string, any>>>([]);
   const [creatorLinks, setCreatorLinks] = useState<Array<Record<string, any>>>([]);
   const [callbacks, setCallbacks] = useState<Array<Record<string, any>>>([]);
@@ -107,8 +124,12 @@ export default function SellerMarketingView() {
       if (json?.success) {
         setMigrationRequired(Boolean(json.migrationRequired));
         setUpgradeMigrationRequired(Boolean(json.upgradeMigrationRequired));
+        setBrandingUpgradeRequired(Boolean(json.brandingUpgradeRequired));
         if (json.summary) setSummary(json.summary);
+        if (json.brandingSummary) setBrandingSummary(json.brandingSummary);
         setBrandingCampaigns(json.brandingCampaigns || []);
+        setStorePassSellers(json.storePassSellers || []);
+        setBrandingTransactions(json.brandingTransactions || []);
         setEnrollments(json.influencerEnrollments || []);
         setCreatorLinks(json.creatorLinks || []);
         setCallbacks(json.callbacks || []);
@@ -204,6 +225,55 @@ export default function SellerMarketingView() {
     URL.revokeObjectURL(url);
   };
 
+  const exportBrandingTxCsv = () => {
+    const header = ["Date", "Store", "Track", "Package", "Amount INR", "Days", "Method", "Status", "Payment Ref", "Notes"];
+    const rows = brandingTransactions.map((t) => [
+      new Date(t.created_at).toISOString(),
+      t.store_name || "",
+      t.track_type || "",
+      t.package_key || "",
+      String(t.amount_inr || 0),
+      String(t.duration_days || ""),
+      t.payment_method === "seller_balance" ? "Payout Balance" : "Online Paid",
+      t.status || "",
+      t.gateway_payment_id || "",
+      String(t.notes || "").replace(/"/g, '""'),
+    ]);
+    const csv = [header.join(","), ...rows.map((r) => r.map((v) => `"${v}"`).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `zebalpha-branding-pass-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const filteredStorePassSellers = useMemo(() => {
+    const q = storePassSearch.trim().toLowerCase();
+    const list = storePassSellers.filter(
+      (s) =>
+        s.store_pass_status !== "inactive" ||
+        Number(s.missed_store_searches || 0) > 0 ||
+        Number(s.missed_store_visits || 0) > 0 ||
+        Number(s.store_search_count || 0) > 0 ||
+        Number(s.store_visit_count || 0) > 0 ||
+        Boolean(s.store_slug)
+    );
+    if (!q) return list;
+    return list.filter(
+      (s) =>
+        String(s.business_name || "").toLowerCase().includes(q) ||
+        String(s.store_slug || "").toLowerCase().includes(q) ||
+        String(s.city || "").toLowerCase().includes(q)
+    );
+  }, [storePassSellers, storePassSearch]);
+
+  const appOfferBrandingCampaigns = useMemo(
+    () => brandingCampaigns.filter((c) => c.placement_type !== "store_search"),
+    [brandingCampaigns]
+  );
+
   const copyCredentials = (creds: ProvisionedCreds) => {
     const text = `ZebAlpha Alpha Media Panel Login\nRole: ${creds.roleType}\nLogin URL: ${creds.loginUrl}\nEmail: ${creds.email}\nPassword: ${creds.password}`;
     navigator.clipboard?.writeText(text);
@@ -284,13 +354,30 @@ export default function SellerMarketingView() {
         ))}
       </div>
 
+      {brandingUpgradeRequired && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 px-4 py-3 text-xs font-bold text-amber-300">
+          Run{" "}
+          <code className="bg-black px-1.5 py-0.5 rounded">
+            supabase/upgrade_unified_app_branding_and_store_search.sql
+          </code>{" "}
+          in Supabase SQL Editor to enable Store Search Pass tracking, ₹99/₹139 Offer Ads &amp; unified payment ledger.
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-zinc-800 pb-3">
         {[
           { key: "influencer" as const, label: `Influencer Campaigns (${enrollments.length})` },
           { key: "team" as const, label: `Alpha Media Team & Accounts (${mediaCreators.length})` },
           { key: "audit" as const, label: `Permanent Audit Ledger (${auditLogs.length})` },
-          { key: "branding" as const, label: `App Branding (${brandingCampaigns.length})` },
+          {
+            key: "branding" as const,
+            label: `App Offer & Festival Ads (${appOfferBrandingCampaigns.length})`,
+          },
+          {
+            key: "store_passes" as const,
+            label: `Store Search Passes ₹49/₹59 (${brandingSummary.activeStorePasses} Live)`,
+          },
           { key: "callbacks" as const, label: `Callbacks (${callbacks.length})` },
         ].map((t) => (
           <button
@@ -795,72 +882,342 @@ export default function SellerMarketingView() {
         </div>
       )}
 
-      {/* TAB 4: APP BRANDING APPROVALS */}
+      {/* TAB 4: APP OFFER & FESTIVAL AD APPROVALS (₹99/28d & ₹139/45d) */}
       {tab === "branding" && (
-        <div className="space-y-3">
-          {brandingCampaigns.length === 0 ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              {
+                label: "App Offer/Festival Revenue",
+                value: `₹${brandingSummary.appAdRevenueInr.toLocaleString("en-IN")}`,
+                tone: "text-emerald-400",
+              },
+              {
+                label: "Pending Admin Approval",
+                value: brandingSummary.pendingAppAds,
+                tone: brandingSummary.pendingAppAds > 0 ? "text-amber-400" : "text-zinc-300",
+              },
+              {
+                label: "Total Offer Ads Submitted",
+                value: appOfferBrandingCampaigns.length,
+                tone: "text-white",
+              },
+              {
+                label: "Store Pass Revenue (₹49/₹59)",
+                value: `₹${brandingSummary.storePassRevenueInr.toLocaleString("en-IN")}`,
+                tone: "text-sky-400",
+              },
+            ].map((k) => (
+              <div key={k.label} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">{k.label}</p>
+                <p className={`mt-1.5 text-xl font-black ${k.tone}`}>{k.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {appOfferBrandingCampaigns.length === 0 ? (
             <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-10 text-center text-xs text-zinc-400">
-              No seller App Branding campaigns submitted yet.
+              No seller App Offer or Festival Branding campaigns submitted yet.
             </div>
           ) : (
-            brandingCampaigns.map((c) => (
-              <div
-                key={c.id}
-                className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5"
-              >
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-black text-white">{c.headline}</span>
-                    <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-400">
-                      {c.approval_status}
-                    </span>
-                    <span className="rounded-full bg-zinc-900 border border-zinc-700 px-2.5 py-0.5 text-[10px] font-bold text-zinc-300">
-                      ₹{c.amount_inr} • {c.duration_days}d • {c.payment_status}
-                    </span>
+            appOfferBrandingCampaigns.map((c) => {
+              const payLabel =
+                c.payment_method === "seller_balance"
+                  ? "Payout Balance"
+                  : c.payment_status === "paid"
+                    ? "Online Paid"
+                    : c.payment_status;
+              return (
+                <div
+                  key={c.id}
+                  className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-black text-white">{c.headline}</span>
+                      {c.offer_badge && (
+                        <span className="rounded-full bg-rose-500/20 border border-rose-500/30 px-2.5 py-0.5 text-[10px] font-black uppercase text-rose-300">
+                          {c.offer_badge}
+                        </span>
+                      )}
+                      <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-400">
+                        {String(c.approval_status || "").replace(/_/g, " ")}
+                      </span>
+                      <span
+                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
+                          ["paid", "deducted"].includes(String(c.payment_status || ""))
+                            ? "bg-emerald-950/50 border-emerald-500/30 text-emerald-300"
+                            : "bg-zinc-900 border-zinc-700 text-zinc-300"
+                        }`}
+                      >
+                        ₹{c.amount_inr} • {c.duration_days}d • {payLabel}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-400">
+                      Store: <strong className="text-zinc-200">{c.store_name}</strong> • Package:{" "}
+                      <span className="text-zinc-300">{c.package_key}</span> • Products:{" "}
+                      {c.product_ids?.length || 0} • Views: {c.impressions} • Clicks: {c.clicks}
+                    </p>
                   </div>
-                  <p className="text-xs text-zinc-400">
-                    Store: <strong className="text-zinc-200">{c.store_name}</strong> • Placement:{" "}
-                    {c.placement_type} • Products: {c.product_ids?.length || 0} • Views: {c.impressions} • Clicks:{" "}
-                    {c.clicks}
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {c.approval_status !== "live" && (
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() =>
-                        runAction({
-                          action: "approve_branding",
-                          campaignId: c.id,
-                          durationDays: c.duration_days,
-                        })
-                      }
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400 cursor-pointer"
-                    >
-                      <CheckCircle2 size={14} /> Approve &amp; Go Live
-                    </button>
-                  )}
-                  {c.approval_status !== "rejected" && (
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() =>
-                        runAction({
-                          action: "reject_branding",
-                          campaignId: c.id,
-                          reason: "Please update creative/catalog quality and resubmit.",
-                        })
-                      }
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-950/40 px-4 py-2 text-xs font-black text-rose-300 hover:bg-rose-900/50 cursor-pointer"
-                    >
-                      <XCircle size={14} /> Reject
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {c.approval_status !== "live" && (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          runAction({
+                            action: "approve_branding",
+                            campaignId: c.id,
+                            durationDays: c.duration_days,
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400 cursor-pointer"
+                      >
+                        <CheckCircle2 size={14} /> Approve ({c.duration_days}d Live)
+                      </button>
+                    )}
+                    {c.approval_status !== "rejected" && (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          runAction({
+                            action: "reject_branding",
+                            campaignId: c.id,
+                            reason: "Please update creative/catalog quality and resubmit.",
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-950/40 px-4 py-2 text-xs font-black text-rose-300 hover:bg-rose-900/50 cursor-pointer"
+                      >
+                        <XCircle size={14} /> Reject
+                      </button>
+                    )}
+                  </div>
                 </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* TAB 4B: STORE SEARCH & MINI-STOREFRONT PASSES (₹49/18d & ₹59/28d) */}
+      {tab === "store_passes" && (
+        <div className="space-y-5">
+          {/* Recurring Pass KPI Strip */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              {
+                label: "Store Pass Revenue (₹49/₹59)",
+                value: `₹${brandingSummary.storePassRevenueInr.toLocaleString("en-IN")}`,
+                tone: "text-emerald-400",
+              },
+              {
+                label: "Active / Expired Passes",
+                value: `${brandingSummary.activeStorePasses} / ${brandingSummary.expiredStorePasses}`,
+                tone: "text-amber-400",
+              },
+              {
+                label: "Active Store Searches & Visits",
+                value: `${brandingSummary.totalStoreSearches} / ${brandingSummary.totalStoreVisits}`,
+                tone: "text-white",
+              },
+              {
+                label: "Missed Searches / Visits (FOMO)",
+                value: `${brandingSummary.totalMissedStoreSearches} / ${brandingSummary.totalMissedStoreVisits}`,
+                tone: "text-rose-400",
+              },
+            ].map((k) => (
+              <div key={k.label} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">{k.label}</p>
+                <p className={`mt-1.5 text-xl font-black ${k.tone}`}>{k.value}</p>
               </div>
-            ))
+            ))}
+          </div>
+
+          {/* Search Bar & CSV Export */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 flex-1 max-w-md">
+              <Search size={14} className="text-zinc-400" />
+              <input
+                type="text"
+                value={storePassSearch}
+                onChange={(e) => setStorePassSearch(e.target.value)}
+                placeholder="Search seller store name, slug, or city..."
+                className="w-full bg-transparent text-xs text-white outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={exportBrandingTxCsv}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs font-bold text-white hover:bg-zinc-800 cursor-pointer"
+            >
+              <Download size={14} /> Export Payment Ledger CSV ({brandingTransactions.length})
+            </button>
+          </div>
+
+          {/* Seller Store Pass Directory */}
+          {filteredStorePassSellers.length === 0 ? (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-10 text-center text-xs text-zinc-400">
+              No sellers have Store Search Pass or Mini-Storefront activity yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredStorePassSellers.map((s) => {
+                const expMs = s.store_pass_expires_at
+                  ? new Date(String(s.store_pass_expires_at)).getTime()
+                  : 0;
+                const isLive =
+                  !s.store_slug_blocked &&
+                  String(s.store_pass_status || "") === "active" &&
+                  expMs > Date.now();
+                const statusText = s.store_slug_blocked
+                  ? "SLUG BLOCKED"
+                  : isLive
+                    ? "ACTIVE PASS"
+                    : expMs > 0
+                      ? "EXPIRED"
+                      : "INACTIVE";
+
+                return (
+                  <div
+                    key={s.id}
+                    className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5"
+                  >
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Store size={15} className="text-amber-400 shrink-0" />
+                        <span className="text-sm font-black text-white">
+                          {s.business_name || "Unnamed Seller"}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                            s.store_slug_blocked
+                              ? "bg-rose-500/20 text-rose-300"
+                              : isLive
+                                ? "bg-emerald-500/20 text-emerald-300"
+                                : "bg-zinc-800 text-zinc-400"
+                          }`}
+                        >
+                          {statusText}
+                        </span>
+                        {s.store_pass_plan && (
+                          <span className="rounded-full bg-zinc-900 border border-zinc-700 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">
+                            {s.store_pass_plan === "store_search_59_28d"
+                              ? "₹59 / 28d Pro"
+                              : "₹49 / 18d Pass"}
+                          </span>
+                        )}
+                        {Number(s.store_pass_renewal_count || 0) > 0 && (
+                          <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-300">
+                            Renewals: {s.store_pass_renewal_count}×
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
+                        {s.store_slug && (
+                          <a
+                            href={`https://zebalpha.shop/store/${s.store_slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-amber-300 hover:underline"
+                          >
+                            /store/{s.store_slug} <ExternalLink size={11} />
+                          </a>
+                        )}
+                        {s.store_pass_expires_at && (
+                          <span>
+                            Expires:{" "}
+                            <strong className="text-zinc-200">
+                              {new Date(s.store_pass_expires_at).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </strong>
+                          </span>
+                        )}
+                        <span>
+                          Searches/Visits:{" "}
+                          <strong className="text-emerald-300">
+                            {Number(s.store_search_count || 0)} / {Number(s.store_visit_count || 0)}
+                          </strong>
+                        </span>
+                        <span>
+                          Missed:{" "}
+                          <strong className="text-rose-300">
+                            {Number(s.missed_store_searches || 0)} /{" "}
+                            {Number(s.missed_store_visits || 0)}
+                          </strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          runAction({
+                            action: "manage_store_pass",
+                            sellerId: s.id,
+                            operation: "extend_18d",
+                          })
+                        }
+                        className="inline-flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-1.5 text-[11px] font-black text-black hover:bg-emerald-400 cursor-pointer"
+                      >
+                        <Play size={12} /> +18d
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          runAction({
+                            action: "manage_store_pass",
+                            sellerId: s.id,
+                            operation: "extend_28d",
+                          })
+                        }
+                        className="inline-flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-1.5 text-[11px] font-black text-black hover:bg-amber-300 cursor-pointer"
+                      >
+                        <Play size={12} /> +28d Pro
+                      </button>
+                      {isLive && (
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() =>
+                            runAction({
+                              action: "manage_store_pass",
+                              sellerId: s.id,
+                              operation: "force_expire",
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-950/40 px-3 py-1.5 text-[11px] font-black text-rose-300 hover:bg-rose-900/50 cursor-pointer"
+                        >
+                          <Clock size={12} /> Expire Now
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          runAction({
+                            action: "manage_store_pass",
+                            sellerId: s.id,
+                            operation: s.store_slug_blocked ? "unblock_slug" : "block_slug",
+                          })
+                        }
+                        className="inline-flex items-center gap-1 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-black text-zinc-200 hover:bg-zinc-800 cursor-pointer"
+                      >
+                        <Ban size={12} /> {s.store_slug_blocked ? "Unblock Slug" : "Block Slug"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}

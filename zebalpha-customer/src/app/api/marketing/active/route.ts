@@ -1,21 +1,41 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { isSellerStorePassActive } from "@/lib/smartStoreSearch";
 
 export const revalidate = 60;
 
 export async function GET() {
   try {
     const nowIso = new Date().toISOString();
-    const { data: campaigns, error } = await supabaseServer
+    let campaigns: Array<Record<string, unknown>> = [];
+
+    const primaryRes = await supabaseServer
       .from("seller_branding_campaigns")
       .select(
-        "id, seller_id, store_name, package_key, placement_type, product_ids, headline, tagline, banner_image_url, cta_url, starts_at, ends_at"
+        "id, seller_id, store_name, package_key, placement_type, product_ids, headline, tagline, offer_badge, banner_image_url, cta_url, starts_at, ends_at"
       )
       .in("approval_status", ["approved", "live"])
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(24);
 
-    if (error || !Array.isArray(campaigns) || campaigns.length === 0) {
+    if (!primaryRes.error && Array.isArray(primaryRes.data)) {
+      campaigns = primaryRes.data as Array<Record<string, unknown>>;
+    } else {
+      // Fallback if offer_badge column hasn't been added yet
+      const fallbackRes = await supabaseServer
+        .from("seller_branding_campaigns")
+        .select(
+          "id, seller_id, store_name, package_key, placement_type, product_ids, headline, tagline, banner_image_url, cta_url, starts_at, ends_at"
+        )
+        .in("approval_status", ["approved", "live"])
+        .order("created_at", { ascending: false })
+        .limit(24);
+      if (!fallbackRes.error && Array.isArray(fallbackRes.data)) {
+        campaigns = fallbackRes.data as Array<Record<string, unknown>>;
+      }
+    }
+
+    if (campaigns.length === 0) {
       return NextResponse.json({
         success: true,
         spotlights: [],
@@ -23,12 +43,24 @@ export async function GET() {
       });
     }
 
-    // Filter to active schedule window
-    const activeCampaigns = campaigns.filter((c) => {
-      if (c.starts_at && c.starts_at > nowIso) return false;
-      if (c.ends_at && c.ends_at < nowIso) return false;
-      return true;
-    });
+    // Filter strictly to active schedule window and exclude Store Search Pass records
+    const activeCampaigns = campaigns
+      .filter((c) => {
+        if (String(c.placement_type || "") === "store_search") return false;
+        if (c.starts_at && String(c.starts_at) > nowIso) return false;
+        if (c.ends_at && String(c.ends_at) < nowIso) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        // Priority order: Festival Mega Takeover (₹139/45d) > Offer Ad (₹99/28d) > Legacy
+        const rank = (k: unknown) =>
+          k === "festival_mega_139_45d" || k === "brand_takeover"
+            ? 3
+            : k === "app_offer_99_28d" || k === "homepage_spotlight"
+              ? 2
+              : 1;
+        return rank(b.package_key) - rank(a.package_key);
+      });
 
     if (activeCampaigns.length === 0) {
       return NextResponse.json({
@@ -45,6 +77,40 @@ export async function GET() {
         )
       )
     );
+
+    const sellerIds = Array.from(
+      new Set(activeCampaigns.map((c) => String(c.seller_id || "")).filter(Boolean))
+    );
+
+    const activeStoreSlugBySeller = new Map<string, string>();
+    if (sellerIds.length > 0) {
+      try {
+        const { data: sellerRows } = await supabaseServer
+          .from("sellers")
+          .select("id, store_slug, store_pass_status, store_pass_expires_at, store_slug_blocked")
+          .in("id", sellerIds);
+
+        if (Array.isArray(sellerRows)) {
+          for (const s of sellerRows as Array<Record<string, unknown>>) {
+            if (
+              typeof s.store_slug === "string" &&
+              s.store_slug.trim() &&
+              isSellerStorePassActive({
+                store_pass_status: String(s.store_pass_status || "inactive"),
+                store_pass_expires_at: s.store_pass_expires_at
+                  ? String(s.store_pass_expires_at)
+                  : null,
+                store_slug_blocked: Boolean(s.store_slug_blocked),
+              })
+            ) {
+              activeStoreSlugBySeller.set(String(s.id), s.store_slug.trim().toLowerCase());
+            }
+          }
+        }
+      } catch {
+        // Safe if sellers migration hasn't run yet
+      }
+    }
 
     const productMap = new Map<
       string,
@@ -76,11 +142,14 @@ export async function GET() {
     }
 
     const spotlights = activeCampaigns
-      .filter((c) => c.placement_type === "homepage_spotlight" || c.placement_type === "brand_takeover")
+      .filter(
+        (c) => c.placement_type === "homepage_spotlight" || c.placement_type === "brand_takeover"
+      )
       .map((c) => ({
         ...c,
+        active_store_slug: activeStoreSlugBySeller.get(String(c.seller_id || "")) || null,
         products: (Array.isArray(c.product_ids) ? c.product_ids : [])
-          .map((id: string) => productMap.get(String(id)))
+          .map((id: unknown) => productMap.get(String(id)))
           .filter(Boolean)
           .slice(0, 4),
       }))
@@ -89,7 +158,12 @@ export async function GET() {
     const boostedProductIds = Array.from(
       new Set(
         activeCampaigns
-          .filter((c) => c.placement_type === "top_search" || c.placement_type === "brand_takeover")
+          .filter(
+            (c) =>
+              c.placement_type === "top_search" ||
+              c.placement_type === "homepage_spotlight" ||
+              c.placement_type === "brand_takeover"
+          )
           .flatMap((c) => (Array.isArray(c.product_ids) ? c.product_ids.map(String) : []))
       )
     );

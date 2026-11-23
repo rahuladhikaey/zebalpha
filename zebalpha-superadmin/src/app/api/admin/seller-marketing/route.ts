@@ -21,43 +21,56 @@ export async function GET(req: Request) {
   try {
     await requireSuperAdmin(req);
 
-    const [brandRes, enrollRes, linksRes, cbRes, auditRes, creatorsRes, txRes] = await Promise.all([
-      supabaseServer
-        .from("seller_branding_campaigns")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabaseServer
-        .from("seller_influencer_enrollments")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(200),
-      supabaseServer
-        .from("influencer_creator_links")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(250),
-      supabaseServer
-        .from("seller_marketing_callbacks")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabaseServer
-        .from("influencer_campaign_audit_logs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(250),
-      supabaseServer
-        .from("media_creator_profiles")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(150),
-      supabaseServer
-        .from("influencer_payment_transactions")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(150),
-    ]);
+    const [brandRes, enrollRes, linksRes, cbRes, auditRes, creatorsRes, txRes, storeSellersRes, brandTxRes] =
+      await Promise.all([
+        supabaseServer
+          .from("seller_branding_campaigns")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(120),
+        supabaseServer
+          .from("seller_influencer_enrollments")
+          .select("*")
+          .order("updated_at", { ascending: false })
+          .limit(200),
+        supabaseServer
+          .from("influencer_creator_links")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(250),
+        supabaseServer
+          .from("seller_marketing_callbacks")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabaseServer
+          .from("influencer_campaign_audit_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(250),
+        supabaseServer
+          .from("media_creator_profiles")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(150),
+        supabaseServer
+          .from("influencer_payment_transactions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(150),
+        supabaseServer
+          .from("sellers")
+          .select(
+            "id, business_name, email, phone, city, state, store_slug, store_tagline, store_pass_plan, store_pass_status, store_pass_starts_at, store_pass_expires_at, store_pass_renewal_count, store_search_count, store_visit_count, missed_store_searches, missed_store_visits, store_slug_blocked, store_slug_block_reason"
+          )
+          .order("store_pass_expires_at", { ascending: false, nullsFirst: false })
+          .limit(250),
+        supabaseServer
+          .from("seller_branding_transactions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(200),
+      ]);
 
     const migrationRequired =
       isMissingSchema(brandRes.error) ||
@@ -69,6 +82,22 @@ export async function GET(req: Request) {
       isMissingSchema(auditRes.error) ||
       isMissingSchema(creatorsRes.error) ||
       isMissingSchema(txRes.error);
+
+    const brandingUpgradeRequired =
+      isMissingSchema(storeSellersRes.error) || isMissingSchema(brandTxRes.error);
+
+    const brandingCampaigns: Array<Record<string, unknown>> =
+      !brandRes.error && Array.isArray(brandRes.data)
+        ? (brandRes.data as Array<Record<string, unknown>>)
+        : [];
+    const storePassSellers: Array<Record<string, unknown>> =
+      !storeSellersRes.error && Array.isArray(storeSellersRes.data)
+        ? (storeSellersRes.data as Array<Record<string, unknown>>)
+        : [];
+    const brandingTransactions: Array<Record<string, unknown>> =
+      !brandTxRes.error && Array.isArray(brandTxRes.data)
+        ? (brandTxRes.data as Array<Record<string, unknown>>)
+        : [];
 
     const influencerEnrollments: Array<Record<string, unknown>> =
       !enrollRes.error && Array.isArray(enrollRes.data)
@@ -127,12 +156,56 @@ export async function GET(req: Request) {
       pendingCreatorApps: mediaCreators.filter((c) => c.approval_status === "pending").length,
     };
 
+    const activeStorePasses = storePassSellers.filter((s) => {
+      if (s.store_slug_blocked) return false;
+      const exp = s.store_pass_expires_at ? new Date(String(s.store_pass_expires_at)).getTime() : 0;
+      return String(s.store_pass_status || "") === "active" && exp > nowMs;
+    }).length;
+    const expiredStorePasses = storePassSellers.filter((s) => {
+      const exp = s.store_pass_expires_at ? new Date(String(s.store_pass_expires_at)).getTime() : 0;
+      return (
+        String(s.store_pass_status || "") === "expired" ||
+        (String(s.store_pass_status || "") === "active" && exp > 0 && exp <= nowMs)
+      );
+    }).length;
+
+    const appAdRevenueInr = brandingTransactions
+      .filter((t) => t.track_type === "app_ad" && t.status === "verified")
+      .reduce((sum, t) => sum + Number(t.amount_inr || 0), 0);
+    const storePassRevenueInr = brandingTransactions
+      .filter((t) => t.track_type === "store_pass" && t.status === "verified")
+      .reduce((sum, t) => sum + Number(t.amount_inr || 0), 0);
+
+    const brandingSummary = {
+      appAdRevenueInr,
+      storePassRevenueInr,
+      activeStorePasses,
+      expiredStorePasses,
+      totalStoreSearches: storePassSellers.reduce((s, r) => s + Number(r.store_search_count || 0), 0),
+      totalStoreVisits: storePassSellers.reduce((s, r) => s + Number(r.store_visit_count || 0), 0),
+      totalMissedStoreSearches: storePassSellers.reduce(
+        (s, r) => s + Number(r.missed_store_searches || 0),
+        0
+      ),
+      totalMissedStoreVisits: storePassSellers.reduce(
+        (s, r) => s + Number(r.missed_store_visits || 0),
+        0
+      ),
+      pendingAppAds: brandingCampaigns.filter(
+        (c) => c.placement_type !== "store_search" && c.approval_status === "pending_review"
+      ).length,
+    };
+
     return NextResponse.json({
       success: true,
       migrationRequired,
       upgradeMigrationRequired,
+      brandingUpgradeRequired,
       summary,
-      brandingCampaigns: !brandRes.error && Array.isArray(brandRes.data) ? brandRes.data : [],
+      brandingSummary,
+      brandingCampaigns,
+      storePassSellers,
+      brandingTransactions,
       influencerEnrollments,
       creatorLinks,
       callbacks: !cbRes.error && Array.isArray(cbRes.data) ? cbRes.data : [],
@@ -806,6 +879,124 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });
       }
       return NextResponse.json({ success: true, message: `Callback marked as ${status}.` });
+    }
+
+    // 6. STORE SEARCH & MINI-STOREFRONT PASS MASTER ADMIN CONTROLS
+    if (action === "manage_store_pass") {
+      const sellerId = String(body.sellerId || "").trim();
+      const operation = String(body.operation || "").trim();
+      if (!sellerId) {
+        return NextResponse.json({ success: false, message: "Seller ID required" }, { status: 400 });
+      }
+
+      const { data: sellerRow } = await supabaseServer
+        .from("sellers")
+        .select("id, business_name, store_slug, store_pass_status, store_pass_starts_at, store_pass_expires_at, store_pass_renewal_count")
+        .eq("id", sellerId)
+        .maybeSingle();
+
+      if (!sellerRow) {
+        return NextResponse.json({ success: false, message: "Seller not found" }, { status: 404 });
+      }
+
+      if (operation === "extend_18d" || operation === "extend_28d") {
+        const days = operation === "extend_28d" ? 28 : 18;
+        const pkgKey = days === 28 ? "store_search_59_28d" : "store_search_49_18d";
+        const now = Date.now();
+        const currentExp = sellerRow.store_pass_expires_at
+          ? new Date(String(sellerRow.store_pass_expires_at)).getTime()
+          : 0;
+        const baseMs =
+          sellerRow.store_pass_status === "active" && currentExp > now ? currentExp : now;
+        const nextExpiryIso = new Date(baseMs + days * 86_400_000).toISOString();
+
+        const { error: updErr } = await supabaseServer
+          .from("sellers")
+          .update({
+            store_pass_plan: pkgKey,
+            store_pass_status: "active",
+            store_pass_starts_at: sellerRow.store_pass_starts_at || nowIso,
+            store_pass_expires_at: nextExpiryIso,
+            store_pass_renewal_count: Number(sellerRow.store_pass_renewal_count || 0) + 1,
+            store_slug_blocked: false,
+            updated_at: nowIso,
+          })
+          .eq("id", sellerId);
+
+        if (updErr) {
+          return NextResponse.json({ success: false, message: updErr.message }, { status: 500 });
+        }
+
+        try {
+          await supabaseServer.from("seller_branding_transactions").insert({
+            seller_id: sellerId,
+            store_name: String(sellerRow.business_name || "Seller"),
+            package_key: pkgKey,
+            track_type: "store_pass",
+            amount_inr: 0,
+            duration_days: days,
+            payment_method: "online_checkout",
+            status: "verified",
+            notes: `SuperAdmin (${adminEmail}) extended Store Search Pass by +${days} days`,
+          });
+        } catch {
+          // Ignore if ledger table missing
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Store Search & Mini-Storefront Pass extended by +${days} days for ${sellerRow.business_name || "Seller"}!`,
+        });
+      }
+
+      if (operation === "force_expire") {
+        const { error: updErr } = await supabaseServer
+          .from("sellers")
+          .update({
+            store_pass_status: "expired",
+            store_pass_expires_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", sellerId);
+
+        if (updErr) {
+          return NextResponse.json({ success: false, message: updErr.message }, { status: 500 });
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Store Search Pass deactivated for ${sellerRow.business_name || "Seller"}. PDP store link & Mini-Storefront are now paused.`,
+        });
+      }
+
+      if (operation === "block_slug" || operation === "unblock_slug") {
+        const blocked = operation === "block_slug";
+        const reason = blocked
+          ? String(body.reason || "Restricted by ZebAlpha Admin policy review").trim()
+          : null;
+
+        const { error: updErr } = await supabaseServer
+          .from("sellers")
+          .update({
+            store_slug_blocked: blocked,
+            store_slug_block_reason: reason,
+            updated_at: nowIso,
+          })
+          .eq("id", sellerId);
+
+        if (updErr) {
+          return NextResponse.json({ success: false, message: updErr.message }, { status: 500 });
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: blocked
+            ? `Storefront slug /store/${sellerRow.store_slug} blocked immediately.`
+            : `Storefront slug /store/${sellerRow.store_slug} unblocked.`,
+        });
+      }
+
+      return NextResponse.json({ success: false, message: "Invalid store pass operation" }, { status: 400 });
     }
 
     return NextResponse.json({ success: false, message: "Unknown action" }, { status: 400 });
