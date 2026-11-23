@@ -19,9 +19,57 @@ const LEADER_ROLES = new Set([
   "MEDIA_ADMIN",
 ]);
 
+const SESSION_CACHE_KEY = "zebalpha_media_auth_session_v1";
+let memoryAuthSession: MediaAuthSession | null = null;
+
 export function isMediaLeaderRole(role?: string | null): boolean {
   if (!role) return false;
   return LEADER_ROLES.has(role) || LEADER_ROLES.has(role.toUpperCase());
+}
+
+export function getCachedMediaSession(): MediaAuthSession | null {
+  if (memoryAuthSession && memoryAuthSession.authorized) {
+    return memoryAuthSession;
+  }
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MediaAuthSession;
+    if (parsed && parsed.authorized && parsed.role) {
+      memoryAuthSession = parsed;
+      return parsed;
+    }
+  } catch {
+    // Ignore storage parse error
+  }
+  return null;
+}
+
+export function clearCachedMediaSession(): void {
+  memoryAuthSession = null;
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage.removeItem(SESSION_CACHE_KEY);
+    } catch {
+      // Ignore storage error
+    }
+  }
+}
+
+function setCachedMediaSession(session: MediaAuthSession): void {
+  if (!session.authorized) {
+    clearCachedMediaSession();
+    return;
+  }
+  memoryAuthSession = session;
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(session));
+    } catch {
+      // Ignore storage quota error
+    }
+  }
 }
 
 /**
@@ -35,6 +83,7 @@ export async function checkMediaAccess(): Promise<MediaAuthSession> {
       error: sessionErr,
     } = await supabase.auth.getSession();
     if (sessionErr || !session?.user) {
+      clearCachedMediaSession();
       return {
         authorized: false,
         role: null,
@@ -72,6 +121,7 @@ export async function checkMediaAccess(): Promise<MediaAuthSession> {
       (memberships || []).find((m) => m.app_name === "all" && m.role === "OWNER");
 
     if (!mediaMembership) {
+      clearCachedMediaSession();
       return {
         authorized: false,
         role: null,
@@ -100,7 +150,7 @@ export async function checkMediaAccess(): Promise<MediaAuthSession> {
       // Non-fatal
     }
 
-    return {
+    const resolvedSession: MediaAuthSession = {
       authorized: true,
       role: mediaMembership.role,
       isLeader: isMediaLeaderRole(mediaMembership.role),
@@ -109,6 +159,8 @@ export async function checkMediaAccess(): Promise<MediaAuthSession> {
       displayName,
       handle,
     };
+    setCachedMediaSession(resolvedSession);
+    return resolvedSession;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Authentication verification error.";
     return {

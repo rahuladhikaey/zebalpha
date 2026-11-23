@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import { checkMediaAccess, MediaAuthSession } from "@/lib/authGuard";
+import { checkMediaAccess, getCachedMediaSession, MediaAuthSession } from "@/lib/authGuard";
 import { supabase } from "@/lib/supabaseClient";
 import {
   CheckCircle2,
@@ -49,7 +49,7 @@ interface LinkMetricRow {
 
 export default function MediaTeamPage() {
   const router = useRouter();
-  const [session, setSession] = useState<MediaAuthSession | null>(null);
+  const [session, setSession] = useState<MediaAuthSession | null>(() => getCachedMediaSession());
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [tab, setTab] = useState<"pending" | "active">("pending");

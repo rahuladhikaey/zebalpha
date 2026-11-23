@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -16,7 +17,12 @@ import {
   Film,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { isMediaLeaderRole } from "@/lib/authGuard";
+import {
+  clearCachedMediaSession,
+  getCachedMediaSession,
+  isMediaLeaderRole,
+  MediaAuthSession,
+} from "@/lib/authGuard";
 
 interface SidebarProps {
   userRole?: string | null;
@@ -26,9 +32,24 @@ interface SidebarProps {
 export default function Sidebar({ userRole, userEmail }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const isLeader = isMediaLeaderRole(userRole);
+  const [cachedSession, setCachedSession] = useState<MediaAuthSession | null>(() =>
+    getCachedMediaSession()
+  );
+
+  useEffect(() => {
+    const latest = getCachedMediaSession();
+    if (latest) {
+      setCachedSession(latest);
+    }
+  }, [userRole, userEmail, pathname]);
+
+  const effectiveRole = userRole ?? cachedSession?.role ?? null;
+  const effectiveEmail = userEmail ?? cachedSession?.email ?? null;
+  const isRoleResolved = Boolean(effectiveRole);
+  const isLeader = isMediaLeaderRole(effectiveRole);
 
   const handleLogout = async () => {
+    clearCachedMediaSession();
     await supabase.auth.signOut();
     router.push("/login");
   };
@@ -73,7 +94,11 @@ export default function Sidebar({ userRole, userEmail }: SidebarProps) {
               </span>
             </div>
             <div className="text-[11px] text-zinc-400">
-              {isLeader ? "Alpha Media Leader Hub" : "Alpha Creator Studio"}
+              {!isRoleResolved
+                ? "Verifying Workspace..."
+                : isLeader
+                ? "Alpha Media Leader Hub"
+                : "Alpha Creator Studio"}
             </div>
           </div>
         </div>
@@ -81,27 +106,38 @@ export default function Sidebar({ userRole, userEmail }: SidebarProps) {
 
       {/* Navigation Links */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        <div className="px-3 py-2 text-[10px] font-semibold tracking-wider uppercase text-zinc-300">
-          {isLeader ? "Alpha Media Operations" : "Creator Workspace"}
-        </div>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-brand-600 text-white shadow-md shadow-brand-600/20"
-                  : "text-zinc-400 hover:text-white hover:bg-dark-800"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
+        {!isRoleResolved ? (
+          <div className="space-y-2 p-2">
+            <div className="h-3 w-32 rounded bg-dark-800 animate-pulse mb-3" />
+            {[1, 2, 3, 4, 5, 6].map((idx) => (
+              <div key={idx} className="h-9 w-full rounded-lg bg-dark-800/60 animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="px-3 py-2 text-[10px] font-semibold tracking-wider uppercase text-zinc-300">
+              {isLeader ? "Alpha Media Operations" : "Creator Workspace"}
+            </div>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                    isActive
+                      ? "bg-brand-600 text-white shadow-md shadow-brand-600/20"
+                      : "text-zinc-400 hover:text-white hover:bg-dark-800"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </>
+        )}
 
         <div className="pt-4 px-3 py-2 text-[10px] font-semibold tracking-wider uppercase text-zinc-300">
           Social Channels
@@ -125,10 +161,10 @@ export default function Sidebar({ userRole, userEmail }: SidebarProps) {
         <div className="flex items-center justify-between mb-1">
           <div className="overflow-hidden pr-2">
             <div className="text-xs font-semibold text-white truncate">
-              {userEmail || "Alpha Media Member"}
+              {effectiveEmail || "Alpha Media Member"}
             </div>
             <div className="text-[10px] text-brand-500 font-mono tracking-tight font-medium">
-              {userRole || "MEDIA_CREATOR"}
+              {effectiveRole || "VERIFYING..."}
             </div>
           </div>
           <button

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import { checkMediaAccess, MediaAuthSession } from "@/lib/authGuard";
+import { checkMediaAccess, getCachedMediaSession, MediaAuthSession } from "@/lib/authGuard";
 import { supabase } from "@/lib/supabaseClient";
 import { CheckSquare, Plus, Clock, CheckCircle, AlertCircle, X, Filter } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,7 @@ interface MediaTask {
 
 export default function MediaTasksPage() {
   const router = useRouter();
-  const [session, setSession] = useState<MediaAuthSession | null>(null);
+  const [session, setSession] = useState<MediaAuthSession | null>(() => getCachedMediaSession());
   const [tasks, setTasks] = useState<MediaTask[]>([]);
   const [loading, setLoading] = useState(true);
 

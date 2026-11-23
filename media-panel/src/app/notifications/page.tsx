@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import { checkMediaAccess, MediaAuthSession } from "@/lib/authGuard";
+import { checkMediaAccess, getCachedMediaSession, MediaAuthSession } from "@/lib/authGuard";
 import { supabase } from "@/lib/supabaseClient";
 import { Bell, Plus, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [session, setSession] = useState<MediaAuthSession | null>(null);
+  const [session, setSession] = useState<MediaAuthSession | null>(() => getCachedMediaSession());
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");

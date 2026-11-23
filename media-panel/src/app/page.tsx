@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import { checkMediaAccess, MediaAuthSession } from "@/lib/authGuard";
+import { checkMediaAccess, getCachedMediaSession, MediaAuthSession } from "@/lib/authGuard";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Megaphone,
@@ -21,7 +21,7 @@ import Link from "next/link";
 
 export default function MediaDashboard() {
   const router = useRouter();
-  const [session, setSession] = useState<MediaAuthSession | null>(null);
+  const [session, setSession] = useState<MediaAuthSession | null>(() => getCachedMediaSession());
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     awaitingReview: 0,
