@@ -557,6 +557,17 @@ export async function POST(req: NextRequest) {
     // 1. UPDATE MINI-STOREFRONT PROFILE (SLUG / TAGLINE / BANNER)
     // -------------------------------------------------------------------------
     if (action === "update_storefront_profile") {
+      if (ctx.storePassStatus !== "active") {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Please activate your Store Search & Mini-Storefront Pass first to unlock storefront customization and links.",
+          },
+          { status: 403 }
+        );
+      }
+
       if (ctx.storeSlugBlocked) {
         return NextResponse.json(
           {

@@ -178,7 +178,7 @@ function AnimatedSearchBarContent() {
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       </div>
                       <p className="text-[10px] font-semibold text-[#6E624D] truncate">
-                        {st.city ? `${st.city} • ` : ""}Visit Official Mini-Storefront
+                        Verified Official Storefront
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full bg-[#FAF2DC] border border-[#DFBE6F] px-2.5 py-1 text-[10px] font-black text-[#14120F]">

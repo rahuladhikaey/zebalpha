@@ -13,7 +13,7 @@ import { WishlistButton } from "@/components/WishlistButton";
 import { QuickCartButton } from "@/components/QuickCartButton";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
-import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star, Mic, Store, ShieldCheck, ArrowRight, MapPin } from "lucide-react";
+import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star, Mic, Store, ShieldCheck, ArrowRight } from "lucide-react";
 import { VoiceSearchSheet, useVoiceSearch } from "@/components/VoiceSearchSheet";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import {
@@ -1187,17 +1187,17 @@ function ProductsContent() {
               <div
                 className={
                   isNativeApp
-                    ? "mb-5 rounded-3xl border border-[#DFBE6F] bg-gradient-to-br from-[#FFFDF8] via-white to-[#FFF6DA] p-4 sm:p-5 shadow-[0_12px_28px_-10px_rgba(166,124,28,0.2)] space-y-3.5"
-                    : "mb-5 rounded-3xl border border-amber-400/35 bg-gradient-to-br from-zinc-950 via-zinc-950 to-amber-950/25 p-4 sm:p-5 shadow-2xl space-y-3.5"
+                    ? "mb-4 rounded-2xl sm:rounded-3xl border border-[#E4C988] bg-gradient-to-br from-[#FFFFFF] via-[#FFFDF8] to-[#FFF7DF] p-3.5 sm:p-5 shadow-[0_10px_26px_-10px_rgba(166,124,28,0.18)] space-y-3"
+                    : "mb-4 rounded-2xl sm:rounded-3xl border border-amber-400/35 bg-gradient-to-br from-zinc-950 via-zinc-950 to-amber-950/20 p-3.5 sm:p-5 shadow-2xl space-y-3"
                 }
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-                  <div className="flex items-center gap-3.5 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div
                       className={
                         isNativeApp
-                          ? "h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-[#DFBE6F] bg-[#FFF8DB] flex items-center justify-center text-[#9A6503]"
-                          : "h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 flex items-center justify-center text-amber-400"
+                          ? "h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-[#E4C988] bg-[#FFF8DB] flex items-center justify-center text-[#9A6503] shadow-sm"
+                          : "h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 flex items-center justify-center text-amber-400"
                       }
                     >
                       {primaryStoreMatch.store.business_logo_url ? (
@@ -1207,13 +1207,13 @@ function ProductsContent() {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <Store size={24} />
+                        <Store size={21} />
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <h2
-                          className={`text-base sm:text-lg font-black truncate ${
+                          className={`text-sm sm:text-base font-black truncate leading-tight ${
                             isNativeApp ? "text-[#14120F]" : "text-white"
                           }`}
                         >
@@ -1222,40 +1222,21 @@ function ProductsContent() {
                         <span
                           className={
                             isNativeApp
-                              ? "inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-800"
-                              : "inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-300"
+                              ? "inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-800 shrink-0"
+                              : "inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-950/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-300 shrink-0"
                           }
                         >
-                          <ShieldCheck size={11} /> Verified Store
+                          <ShieldCheck size={10} /> Verified Store
                         </span>
                       </div>
                       <p
-                        className={`text-xs font-semibold line-clamp-1 mt-0.5 ${
-                          isNativeApp ? "text-[#5C4E35]" : "text-zinc-300"
+                        className={`mt-0.5 text-[11px] sm:text-xs font-semibold truncate ${
+                          isNativeApp ? "text-[#6E5C3D]" : "text-zinc-400"
                         }`}
                       >
-                        {primaryStoreMatch.store.store_tagline ||
-                          `Showing ${
-                            primaryStoreMatch.productQuery
-                              ? `"${primaryStoreMatch.productQuery}" exclusively`
-                              : "all authentic items"
-                          } from ${primaryStoreMatch.store.business_name}`}
+                        Official ZebAlpha Store • {primaryStoreMatch.totalSellerProducts}{" "}
+                        {primaryStoreMatch.totalSellerProducts === 1 ? "Product" : "Products"}
                       </p>
-                      <div
-                        className={`mt-1 flex flex-wrap items-center gap-2.5 text-[11px] font-bold ${
-                          isNativeApp ? "text-[#7A6847]" : "text-zinc-400"
-                        }`}
-                      >
-                        {primaryStoreMatch.store.city && (
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin size={11} />
-                            {[primaryStoreMatch.store.city, primaryStoreMatch.store.state]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </span>
-                        )}
-                        <span>{primaryStoreMatch.totalSellerProducts} total store items</span>
-                      </div>
                     </div>
                   </div>
 
@@ -1263,48 +1244,59 @@ function ProductsContent() {
                     href={`/store/${primaryStoreMatch.store.store_slug}`}
                     className={
                       isNativeApp
-                        ? "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#B4780C]/55 bg-gradient-to-r from-[#FCE89C] via-[#F5B922] to-[#D49014] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[#14120F] shadow-sm hover:brightness-105"
-                        : "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-xs font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-colors"
+                        ? "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#C68A12]/60 bg-gradient-to-r from-[#FCE89C] via-[#F5B922] to-[#D49014] px-4 py-2.5 text-[11px] font-black uppercase tracking-wider text-[#14120F] shadow-[0_4px_12px_rgba(217,155,22,0.25)] hover:brightness-105 active:scale-[0.98] transition-all"
+                        : "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-colors"
                     }
                   >
-                    <Store size={14} />
-                    <span>Visit Full Storefront</span>
-                    <ArrowRight size={14} />
+                    <Store size={13} />
+                    <span>Visit Storefront</span>
+                    <ArrowRight size={13} />
                   </Link>
                 </div>
 
-                {/* Competitor-Free Scope Toggle */}
-                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-current/10">
+                {/* Clean High-Contrast Competitor-Free Scope Toggle */}
+                <div
+                  className={`grid grid-cols-2 gap-2 rounded-xl p-1 ${
+                    isNativeApp
+                      ? "bg-[#FAF1D8]/80 border border-[#EAD296]"
+                      : "bg-zinc-900 border border-zinc-800"
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => setStoreScopeMode("store_only")}
-                    className={`rounded-full px-3.5 py-1.5 text-xs font-black transition-all cursor-pointer ${
+                    data-photo-overlay={
+                      storeScopeMode === "store_only" && isNativeApp ? "true" : undefined
+                    }
+                    className={`rounded-lg px-2.5 py-2 text-[11px] sm:text-xs font-black truncate transition-all cursor-pointer ${
                       storeScopeMode === "store_only"
                         ? isNativeApp
-                          ? "bg-[#14120F] text-white"
-                          : "bg-amber-400 text-black"
+                          ? "bg-[#F03A46] text-white shadow-sm"
+                          : "bg-amber-400 text-black shadow-sm"
                         : isNativeApp
-                          ? "border border-[#DFBE6F] bg-white text-[#5C4E35]"
-                          : "border border-zinc-700 bg-zinc-900 text-zinc-300"
+                          ? "bg-transparent text-[#5C4E35] hover:bg-white/70"
+                          : "bg-transparent text-zinc-400 hover:text-white"
                     }`}
                   >
-                    Only from {primaryStoreMatch.store.business_name} (
-                    {primaryStoreMatch.products.length})
+                    Only {primaryStoreMatch.store.business_name} ({primaryStoreMatch.products.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setStoreScopeMode("all_marketplace")}
-                    className={`rounded-full px-3.5 py-1.5 text-xs font-black transition-all cursor-pointer ${
+                    data-photo-overlay={
+                      storeScopeMode === "all_marketplace" && isNativeApp ? "true" : undefined
+                    }
+                    className={`rounded-lg px-2.5 py-2 text-[11px] sm:text-xs font-black truncate transition-all cursor-pointer ${
                       storeScopeMode === "all_marketplace"
                         ? isNativeApp
-                          ? "bg-[#14120F] text-white"
-                          : "bg-amber-400 text-black"
+                          ? "bg-[#F03A46] text-white shadow-sm"
+                          : "bg-amber-400 text-black shadow-sm"
                         : isNativeApp
-                          ? "border border-[#DFBE6F] bg-white text-[#5C4E35]"
-                          : "border border-zinc-700 bg-zinc-900 text-zinc-300"
+                          ? "bg-transparent text-[#5C4E35] hover:bg-white/70"
+                          : "bg-transparent text-zinc-400 hover:text-white"
                     }`}
                   >
-                    All ZebAlpha Results ({filtered.length})
+                    All ZebAlpha ({filtered.length})
                   </button>
                 </div>
               </div>

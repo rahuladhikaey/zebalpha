@@ -242,8 +242,6 @@ export async function GET(req: NextRequest) {
       id: m.seller.id,
       business_name: m.seller.business_name,
       store_slug: m.seller.store_slug,
-      city: m.seller.city,
-      state: m.seller.state,
       business_logo_url: m.seller.business_logo_url,
       store_banner_url: m.seller.store_banner_url,
       store_tagline: m.seller.store_tagline,

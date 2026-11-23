@@ -9,7 +9,6 @@ import { NativePlatformProvider } from "@/lib/platform";
 import { detectNativeAppOnServer } from "@/lib/platformServer";
 import {
   StorefrontClient,
-  type StorefrontReelItem,
   type StorefrontSellerInfo,
 } from "@/components/store/StorefrontClient";
 import type { Product } from "@/lib/types";
@@ -51,10 +50,11 @@ async function fetchSellerBySlug(slug: string) {
   const cleanSlug = decodeURIComponent(slug || "").trim().toLowerCase();
   if (!cleanSlug) return null;
 
+  // Privacy-safe projection: never expose personal address, city, state, phone, or email
   const { data, error } = await supabaseServer
     .from("sellers")
     .select(
-      "id, business_name, store_slug, city, state, business_logo_url, store_banner_url, store_tagline, store_pass_plan, store_pass_status, store_pass_expires_at, store_slug_blocked"
+      "id, business_name, store_slug, business_logo_url, store_banner_url, store_tagline, store_pass_plan, store_pass_status, store_pass_expires_at, store_slug_blocked"
     )
     .ilike("store_slug", cleanSlug)
     .maybeSingle();
@@ -188,29 +188,19 @@ export default async function SellerMiniStorefrontPage({ params }: PageProps) {
     );
   }
 
-  // ACTIVE STORE PASS -> Increment store_visit_count & load full seller catalog + active Alpha Media Reels
+  // ACTIVE STORE PASS -> Increment store_visit_count & load full seller catalog
   void incrementStoreVisitMetric(sellerId, "store_visit");
 
-  const nowIso = new Date().toISOString();
-  const [prodRes, reelsRes] = await Promise.all([
-    supabaseServer
-      .from("products")
-      .select(STORE_PRODUCT_FIELDS)
-      .eq("seller_id", sellerId)
-      .or("is_active.is.null,is_active.eq.true")
-      .order("created_at", { ascending: false })
-      .limit(120),
-    supabaseServer
-      .from("influencer_creator_links")
-      .select("id, product_id, creator_name, creator_handle, platform, video_url, ref_code, expires_at")
-      .eq("seller_id", sellerId)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(10),
-  ]);
+  const { data: prodData } = await supabaseServer
+    .from("products")
+    .select(STORE_PRODUCT_FIELDS)
+    .eq("seller_id", sellerId)
+    .or("is_active.is.null,is_active.eq.true")
+    .order("created_at", { ascending: false })
+    .limit(120);
 
   const normalizedProducts = normalizeProductRows(
-    Array.isArray(prodRes.data) ? (prodRes.data as Array<Record<string, unknown>>) : []
+    Array.isArray(prodData) ? (prodData as Array<Record<string, unknown>>) : []
   );
 
   const ratingsMap = await fetchProductRatingSummaries(
@@ -218,34 +208,11 @@ export default async function SellerMiniStorefrontPage({ params }: PageProps) {
     normalizedProducts.map((p) => p.id)
   );
   const ratedProducts = attachRatingsToProducts(normalizedProducts, ratingsMap);
-  const productById = new Map(ratedProducts.map((p) => [String(p.id), p]));
-
-  const activeReels: StorefrontReelItem[] = (
-    Array.isArray(reelsRes.data) ? (reelsRes.data as Array<Record<string, unknown>>) : []
-  )
-    .filter((r) => !r.expires_at || String(r.expires_at) > nowIso)
-    .map((r) => {
-      const prod = productById.get(String(r.product_id));
-      return {
-        id: String(r.id),
-        product_id: String(r.product_id),
-        creator_name: String(r.creator_name || "Alpha Media"),
-        creator_handle: typeof r.creator_handle === "string" ? r.creator_handle : null,
-        platform: String(r.platform || "instagram"),
-        video_url: typeof r.video_url === "string" ? r.video_url : null,
-        ref_code: String(r.ref_code),
-        product_name: prod?.name,
-        product_image: prod?.thumbnail_url || prod?.image_url || null,
-        product_price: prod?.price,
-      };
-    });
 
   const sellerInfo: StorefrontSellerInfo = {
     id: sellerId,
     business_name: String(sellerRow.business_name || "Verified Store"),
     store_slug: String(sellerRow.store_slug || slug).toLowerCase(),
-    city: typeof sellerRow.city === "string" ? sellerRow.city : null,
-    state: typeof sellerRow.state === "string" ? sellerRow.state : null,
     business_logo_url:
       typeof sellerRow.business_logo_url === "string" ? sellerRow.business_logo_url : null,
     store_banner_url:
@@ -254,7 +221,7 @@ export default async function SellerMiniStorefrontPage({ params }: PageProps) {
     is_pro_pass: sellerRow.store_pass_plan === "store_search_59_28d",
   };
 
-  // Store JSON-LD structured data for SEO rich snippets
+  // Privacy-safe Store JSON-LD structured data (no personal location/address)
   const storeJsonLd = {
     "@context": "https://schema.org",
     "@type": "Store",
@@ -262,15 +229,6 @@ export default async function SellerMiniStorefrontPage({ params }: PageProps) {
     url: `https://zebalpha.shop/store/${sellerInfo.store_slug}`,
     description: sellerInfo.store_tagline || `${sellerInfo.business_name} Official Store on ZebAlpha`,
     image: sellerInfo.store_banner_url || sellerInfo.business_logo_url || undefined,
-    address:
-      sellerInfo.city || sellerInfo.state
-        ? {
-            "@type": "PostalAddress",
-            addressLocality: sellerInfo.city || undefined,
-            addressRegion: sellerInfo.state || undefined,
-            addressCountry: "IN",
-          }
-        : undefined,
   };
 
   return (
@@ -284,7 +242,6 @@ export default async function SellerMiniStorefrontPage({ params }: PageProps) {
         mode="active"
         seller={sellerInfo}
         products={ratedProducts}
-        reels={activeReels}
       />
     </NativePlatformProvider>
   );

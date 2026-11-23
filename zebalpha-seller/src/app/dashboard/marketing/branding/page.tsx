@@ -25,7 +25,6 @@ import {
   Check,
   QrCode,
   ExternalLink,
-  Share2,
   Download,
   SlidersHorizontal,
   Clock,
@@ -33,6 +32,7 @@ import {
   Link2,
   Sparkles,
   Gift,
+  Lock,
 } from "lucide-react";
 
 interface BrandingPackage {
@@ -380,8 +380,12 @@ export default function AppBrandingPage() {
     return campaigns;
   }, [appAdCampaigns, campaigns, activeTab]);
 
-  // Open QR Modal & render high-DPI genuine scannable QR code
+  // Open QR Modal & render high-DPI genuine scannable QR code (Strictly Active Pass Only)
   const openQrModal = async () => {
+    if (seller.storePassStatus !== "active") {
+      notify("Activate your Store Search & Mini-Storefront Pass first to unlock Store QR Code.", "error");
+      return;
+    }
     setShowQrModal(true);
     try {
       const url = await QRCode.toDataURL(storefrontUrl, {
@@ -396,7 +400,7 @@ export default function AppBrandingPage() {
   };
 
   const downloadQrPng = () => {
-    if (!qrDataUrl) return;
+    if (!qrDataUrl || seller.storePassStatus !== "active") return;
     const a = document.createElement("a");
     a.href = qrDataUrl;
     a.download = `zebalpha-store-${seller.storeSlug || "qr"}.png`;
@@ -404,6 +408,10 @@ export default function AppBrandingPage() {
   };
 
   const copyStoreUrl = async () => {
+    if (seller.storePassStatus !== "active") {
+      notify("Activate your Store Search & Mini-Storefront Pass first to unlock your Store Link.", "error");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(storefrontUrl);
       setCopiedLink(true);
@@ -412,11 +420,6 @@ export default function AppBrandingPage() {
     } catch {
       notify("Could not copy link automatically.", "error");
     }
-  };
-
-  const shareOnWhatsApp = () => {
-    const text = `Shop all authentic products from *${seller.storeName}* directly on ZebAlpha!\nVisit our Official Storefront: ${storefrontUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
 
   const handleSaveStorefrontProfile = async () => {
@@ -1107,64 +1110,102 @@ export default function AppBrandingPage() {
               {seller.storeName} Official Storefront
             </h3>
             <p className="text-xs font-semibold text-[#5C4E35]">
-              Share this link on Instagram Bio, WhatsApp Broadcasts, YouTube &amp; Parcel Flyers.{" "}
               {isPassActive
-                ? "Customers searching your shop name or clicking this link see ONLY your store!"
-                : "When paused, this link redirects shoppers to ZebAlpha Trending and PDP Store Links remain hidden."}
+                ? "Your Mini-Storefront, Store QR Code & Shop Name Search are LIVE. Customers searching your shop name see ONLY your store!"
+                : "Store Link, QR Code, Preview & Customization stay locked until you activate the Store Search & Mini-Storefront Pass."}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={copyStoreUrl}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#DFBE6F] bg-white px-3.5 py-2 text-xs font-black text-[#14120F] hover:bg-[#FFF8DB] cursor-pointer"
-            >
-              {copiedLink ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-              <span>{copiedLink ? "Copied!" : "Copy Link"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={shareOnWhatsApp}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-black text-emerald-900 hover:bg-emerald-100 cursor-pointer"
-            >
-              <Share2 size={14} />
-              <span>WhatsApp</span>
-            </button>
-            <button
-              type="button"
-              onClick={openQrModal}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#DFBE6F] bg-gradient-to-r from-[#FFF6CC] to-[#F7DC88] px-3.5 py-2 text-xs font-black text-[#14120F] hover:brightness-105 cursor-pointer"
-            >
-              <QrCode size={14} />
-              <span>Store QR Code</span>
-            </button>
-            <a
-              href={storefrontUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#EAD296] bg-white px-3.5 py-2 text-xs font-black text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46]"
-            >
-              <span>Preview</span>
-              <ExternalLink size={13} />
-            </a>
-            <button
-              type="button"
-              onClick={() => setShowStoreEditor((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#EAD296] bg-[#FFFDF8] px-3.5 py-2 text-xs font-black text-[#5C4E35] hover:text-[#14120F] cursor-pointer"
-            >
-              <SlidersHorizontal size={13} />
-              <span>{showStoreEditor ? "Hide Editor" : "Customize Store"}</span>
-            </button>
-          </div>
+          {isPassActive ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={copyStoreUrl}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#DFBE6F] bg-white px-3.5 py-2 text-xs font-black text-[#14120F] hover:bg-[#FFF8DB] cursor-pointer"
+              >
+                {copiedLink ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                <span>{copiedLink ? "Copied!" : "Copy Link"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={openQrModal}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#DFBE6F] bg-gradient-to-r from-[#FFF6CC] to-[#F7DC88] px-3.5 py-2 text-xs font-black text-[#14120F] hover:brightness-105 cursor-pointer"
+              >
+                <QrCode size={14} />
+                <span>Store QR Code</span>
+              </button>
+              <a
+                href={storefrontUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#EAD296] bg-white px-3.5 py-2 text-xs font-black text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46]"
+              >
+                <span>Preview</span>
+                <ExternalLink size={13} />
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowStoreEditor((v) => !v)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#EAD296] bg-[#FFFDF8] px-3.5 py-2 text-xs font-black text-[#5C4E35] hover:text-[#14120F] cursor-pointer"
+              >
+                <SlidersHorizontal size={13} />
+                <span>{showStoreEditor ? "Hide Editor" : "Customize Store"}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#EAD296] bg-[#FFF8EB] px-3.5 py-2 text-xs font-black text-[#7A6847] select-none opacity-80">
+                <Lock size={13} />
+                <span>Link, QR &amp; Preview Locked</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (seller.storePassFreeTrialEligible) {
+                    openFreeTrialModal();
+                    return;
+                  }
+                  const proPass =
+                    storePassPackages.find((p) => p.key === "store_search_59_28d") ||
+                    storePassPackages[0];
+                  if (proPass) openPackageModal(proPass);
+                }}
+                data-photo-overlay="true"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-4 py-2 text-xs font-black text-white shadow-sm hover:brightness-105 cursor-pointer"
+              >
+                {seller.storePassFreeTrialEligible ? <Gift size={13} /> : <Store size={13} />}
+                <span>
+                  {seller.storePassFreeTrialEligible
+                    ? "Activate 60 Days FREE to Unlock"
+                    : "Activate Pass to Unlock"}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Shareable URL Pill */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#EAD296] bg-white px-4 py-3">
+        {/* Shareable URL Pill (Masked & Locked until Store Pass Active!) */}
+        <div
+          className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${
+            isPassActive
+              ? "border-[#EAD296] bg-white"
+              : "border-dashed border-[#DFBE6F] bg-[#FFFDF6]"
+          }`}
+        >
           <div className="flex items-center gap-2 min-w-0">
-            <Store size={15} className="shrink-0 text-[#9A6503]" />
-            <code className="text-xs sm:text-sm font-black text-[#14120F] truncate">
-              {storefrontUrl}
+            {isPassActive ? (
+              <Store size={15} className="shrink-0 text-[#9A6503]" />
+            ) : (
+              <Lock size={15} className="shrink-0 text-[#9A6503]" />
+            )}
+            <code
+              className={`text-xs sm:text-sm font-black truncate ${
+                isPassActive ? "text-[#14120F]" : "text-[#8A7A5E] select-none"
+              }`}
+            >
+              {isPassActive
+                ? storefrontUrl
+                : "https://zebalpha.shop/store/••••••••  (Activate Pass to unlock your Store Link & QR)"}
             </code>
           </div>
           <div className="flex items-center gap-3 text-[11px] font-bold text-[#6E5C3D]">
@@ -1176,8 +1217,8 @@ export default function AppBrandingPage() {
           </div>
         </div>
 
-        {/* Inline Storefront Customizer */}
-        {showStoreEditor && (
+        {/* Inline Storefront Customizer (Strictly Active Pass Only) */}
+        {isPassActive && showStoreEditor && (
           <div className="rounded-2xl border border-[#DFBE6F] bg-white p-4 sm:p-5 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -1432,7 +1473,7 @@ export default function AppBrandingPage() {
                               )}
                             </button>
                           )}
-                        {isPass && (
+                        {isPass && isPassActive ? (
                           <a
                             href={storefrontUrl}
                             target="_blank"
@@ -1442,7 +1483,11 @@ export default function AppBrandingPage() {
                             <span>Open Store</span>
                             <ExternalLink size={11} />
                           </a>
-                        )}
+                        ) : isPass ? (
+                          <span className="inline-flex items-center gap-1 rounded-xl border border-[#EAD296] bg-[#FFFDF8] px-3 py-1.5 text-[11px] font-bold text-[#8A7A5E]">
+                            <Lock size={11} /> Locked
+                          </span>
+                        ) : null}
                       </td>
                     </tr>
                   );
@@ -2083,9 +2128,9 @@ export default function AppBrandingPage() {
       )}
 
       {/* ===================================================================== */}
-      {/* MODAL C: PRINTABLE MINI-STOREFRONT QR CODE                            */}
+      {/* MODAL C: PRINTABLE MINI-STOREFRONT QR CODE (ACTIVE PASS ONLY)         */}
       {/* ===================================================================== */}
-      {showQrModal && (
+      {showQrModal && isPassActive && (
         <div
           className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           onClick={() => setShowQrModal(false)}
@@ -2141,10 +2186,11 @@ export default function AppBrandingPage() {
               </button>
               <button
                 type="button"
-                onClick={shareOnWhatsApp}
+                onClick={copyStoreUrl}
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#DFBE6F] bg-gradient-to-r from-[#FFF6CC] to-[#F7DC88] px-4 py-2.5 text-xs font-black text-[#14120F] cursor-pointer"
               >
-                <Share2 size={14} /> Share Link
+                {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+                <span>{copiedLink ? "Copied!" : "Copy Link"}</span>
               </button>
             </div>
           </div>
