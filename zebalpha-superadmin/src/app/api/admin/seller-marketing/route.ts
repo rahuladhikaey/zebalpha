@@ -60,11 +60,8 @@ export async function GET(req: Request) {
           .limit(150),
         supabaseServer
           .from("sellers")
-          .select(
-            "id, business_name, email, phone, city, state, store_slug, store_tagline, store_pass_plan, store_pass_status, store_pass_starts_at, store_pass_expires_at, store_pass_trial_used, store_pass_renewal_count, store_search_count, store_visit_count, missed_store_searches, missed_store_visits, store_slug_blocked, store_slug_block_reason"
-          )
-          .order("store_pass_expires_at", { ascending: false, nullsFirst: false })
-          .limit(250),
+          .select("*")
+          .limit(500),
         supabaseServer
           .from("seller_branding_transactions")
           .select("*")
@@ -99,7 +96,7 @@ export async function GET(req: Request) {
         ? (brandTxRes.data as Array<Record<string, unknown>>)
         : [];
 
-    const influencerEnrollments: Array<Record<string, unknown>> =
+    const rawEnrollments: Array<Record<string, unknown>> =
       !enrollRes.error && Array.isArray(enrollRes.data)
         ? (enrollRes.data as Array<Record<string, unknown>>)
         : [];
@@ -115,6 +112,142 @@ export async function GET(req: Request) {
       !txRes.error && Array.isArray(txRes.data)
         ? (txRes.data as Array<Record<string, unknown>>)
         : [];
+
+    // Batch-fetch products referenced by influencer enrollments for guaranteed Product Pic, Price & Video Proof
+    const enrollmentProductIds = Array.from(
+      new Set(rawEnrollments.map((e) => String(e.product_id || "")).filter(Boolean))
+    );
+    const productById = new Map<string, Record<string, unknown>>();
+    if (enrollmentProductIds.length > 0) {
+      const { data: prodRows } = await supabaseServer
+        .from("products")
+        .select("id, name, price, mrp, sku, image_url, images, seller_id, specifications")
+        .in("id", enrollmentProductIds);
+      if (Array.isArray(prodRows)) {
+        for (const p of prodRows as Array<Record<string, unknown>>) {
+          productById.set(String(p.id), p);
+        }
+      }
+    }
+
+    // Build seller lookup map (by id AND user_id) so Store Name & Seller Email always resolve cleanly
+    const sellerById = new Map<string, Record<string, unknown>>();
+    for (const s of storePassSellers) {
+      if (s.id) sellerById.set(String(s.id), s);
+      if (s.user_id) sellerById.set(String(s.user_id), s);
+    }
+
+    // Build creator profile lookup map (by user_id, profile id, and lowercase name)
+    const creatorByKey = new Map<string, Record<string, unknown>>();
+    for (const c of mediaCreators) {
+      if (c.user_id) creatorByKey.set(String(c.user_id), c);
+      if (c.id) creatorByKey.set(String(c.id), c);
+      if (c.full_name) creatorByKey.set(String(c.full_name).trim().toLowerCase(), c);
+    }
+
+    // Enrich every enrollment with Product Photo, Seller Store/Mail Details & Auto-Synced Video Creator Assignment
+    const influencerEnrollments: Array<Record<string, unknown>> = rawEnrollments.map((enr) => {
+      const prod = productById.get(String(enr.product_id || ""));
+      const seller =
+        sellerById.get(String(enr.seller_id || "")) ||
+        (prod?.seller_id ? sellerById.get(String(prod.seller_id)) : undefined);
+
+      const prodImages = Array.isArray(prod?.images) ? (prod?.images as unknown[]) : [];
+      const firstProdImage =
+        (typeof enr.product_image === "string" && enr.product_image.trim()) ||
+        (typeof prod?.image_url === "string" && prod.image_url.trim()) ||
+        (typeof prodImages[0] === "string" && String(prodImages[0]).trim()) ||
+        null;
+
+      const resolvedStoreName =
+        (typeof seller?.business_name === "string" && seller.business_name.trim()) ||
+        (typeof seller?.store_name === "string" && seller.store_name.trim()) ||
+        (typeof seller?.shop_name === "string" && seller.shop_name.trim()) ||
+        (typeof enr.seller_store_name === "string" &&
+          enr.seller_store_name.trim() &&
+          !/^[0-9a-f-]{32,36}$/i.test(enr.seller_store_name.trim()) &&
+          enr.seller_store_name.trim()) ||
+        (typeof seller?.owner_name === "string" && seller.owner_name.trim()) ||
+        (typeof seller?.full_name === "string" && seller.full_name.trim()) ||
+        "Verified Seller";
+
+      const relatedLinks = creatorLinks.filter(
+        (l) => l.enrollment_id === enr.id || l.product_id === enr.product_id
+      );
+      const primaryLink = relatedLinks[0] || null;
+
+      const rawAssignedId =
+        (typeof enr.assigned_creator_id === "string" && enr.assigned_creator_id.trim()) ||
+        (typeof primaryLink?.assigned_creator_id === "string" &&
+          primaryLink.assigned_creator_id.trim()) ||
+        "";
+      const rawAssignedName =
+        (typeof enr.assigned_creator_name === "string" && enr.assigned_creator_name.trim()) ||
+        (typeof primaryLink?.creator_name === "string" && primaryLink.creator_name.trim()) ||
+        "";
+
+      const matchedCreator =
+        (rawAssignedId ? creatorByKey.get(rawAssignedId) : undefined) ||
+        (rawAssignedName ? creatorByKey.get(rawAssignedName.toLowerCase()) : undefined);
+
+      const resolvedCreatorName =
+        (typeof matchedCreator?.full_name === "string" && matchedCreator.full_name) ||
+        rawAssignedName ||
+        "Unassigned";
+      const resolvedCreatorHandle =
+        (typeof enr.assigned_creator_handle === "string" && enr.assigned_creator_handle) ||
+        (typeof matchedCreator?.instagram_handle === "string" && matchedCreator.instagram_handle) ||
+        (typeof primaryLink?.creator_handle === "string" && primaryLink.creator_handle) ||
+        null;
+      const resolvedCreatorEmail =
+        typeof matchedCreator?.email === "string" ? matchedCreator.email : null;
+      const resolvedCreatorPhone =
+        typeof matchedCreator?.phone === "string" ? matchedCreator.phone : null;
+      const resolvedCreatorRole =
+        typeof matchedCreator?.role_type === "string" ? matchedCreator.role_type : null;
+
+      const specs = (prod?.specifications as Record<string, unknown>) || {};
+      const liveVideoUrl =
+        (typeof enr.submitted_video_url === "string" && enr.submitted_video_url.trim()) ||
+        (typeof primaryLink?.video_url === "string" && primaryLink.video_url.trim()) ||
+        (typeof specs.video_proof_url === "string" && specs.video_proof_url.trim()) ||
+        null;
+
+      return {
+        ...enr,
+        product_name: String(enr.product_name || prod?.name || "Untitled Product"),
+        product_image: firstProdImage,
+        product_price: Number(enr.product_price || prod?.price || 0),
+        product_mrp: Number(prod?.mrp || enr.product_price || 0),
+        product_sku: String(prod?.sku || ""),
+        seller_store_name: resolvedStoreName,
+        seller_email: String(seller?.email || ""),
+        seller_phone: String(
+          seller?.phone || seller?.phone_number || seller?.mobile_number || ""
+        ),
+        seller_owner_name: String(seller?.owner_name || seller?.full_name || ""),
+        seller_city: [seller?.city, seller?.state].filter(Boolean).join(", "),
+        seller_pincode: String(seller?.pincode || ""),
+        seller_pickup_address: String(
+          seller?.pickup_address || seller?.warehouse_address || seller?.address || ""
+        ),
+        seller_upi_id: String(seller?.upi_id || ""),
+        seller_store_slug: String(seller?.store_slug || ""),
+        assigned_creator_id: rawAssignedId || null,
+        assigned_creator_name:
+          resolvedCreatorName !== "Unassigned" ? resolvedCreatorName : null,
+        assigned_creator_handle: resolvedCreatorHandle,
+        assigned_creator_email: resolvedCreatorEmail,
+        assigned_creator_phone: resolvedCreatorPhone,
+        assigned_creator_role: resolvedCreatorRole,
+        live_video_url: liveVideoUrl,
+        published_by_name:
+          (typeof primaryLink?.published_by_name === "string" &&
+            primaryLink.published_by_name) ||
+          (typeof enr.accepted_by_name === "string" && enr.accepted_by_name) ||
+          null,
+      };
+    });
 
     const nowMs = Date.now();
     const activeLinks = creatorLinks.filter((l) => {

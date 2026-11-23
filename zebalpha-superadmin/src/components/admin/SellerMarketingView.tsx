@@ -22,6 +22,10 @@ import {
   CreditCard,
   Store,
   Search,
+  Mail,
+  UserCheck,
+  Video,
+  Eye,
 } from "lucide-react";
 
 interface ProvisionedCreds {
@@ -108,8 +112,10 @@ export default function SellerMarketingView() {
   const [provisionedCreds, setProvisionedCreds] = useState<ProvisionedCreds | null>(null);
   const [copiedCreds, setCopiedCreds] = useState(false);
 
-  // Campaign History Drawer Modal
+  // Campaign History Drawer Modal & Seller Details Modal
   const [historyTarget, setHistoryTarget] = useState<Record<string, any> | null>(null);
+  const [sellerDetailTarget, setSellerDetailTarget] = useState<Record<string, any> | null>(null);
+  const [copiedMail, setCopiedMail] = useState<string | null>(null);
 
   const notify = (text: string, type: "success" | "error" = "success") => {
     setStatusMsg({ text, type });
@@ -143,6 +149,29 @@ export default function SellerMarketingView() {
 
   useEffect(() => {
     loadAll();
+    // Auto-sync live video creator assignments, payments & clicks every 12s while page is open
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetch("/api/admin/seller-marketing", { cache: "no-store" })
+          .then((r) => r.json())
+          .then((json) => {
+            if (json?.success) {
+              if (json.summary) setSummary(json.summary);
+              if (json.brandingSummary) setBrandingSummary(json.brandingSummary);
+              setBrandingCampaigns(json.brandingCampaigns || []);
+              setStorePassSellers(json.storePassSellers || []);
+              setBrandingTransactions(json.brandingTransactions || []);
+              setEnrollments(json.influencerEnrollments || []);
+              setCreatorLinks(json.creatorLinks || []);
+              setCallbacks(json.callbacks || []);
+              setAuditLogs(json.auditLogs || []);
+              setMediaCreators(json.mediaCreators || []);
+            }
+          })
+          .catch(() => {});
+      }
+    }, 12000);
+    return () => clearInterval(timer);
   }, [loadAll]);
 
   const runAction = async (payload: Record<string, unknown>) => {
@@ -451,52 +480,111 @@ export default function SellerMarketingView() {
                 "kept_at_studio",
               ].includes(String(enr.sample_status || ""));
 
+              const isPaid = String(enr.payment_status || "") === "paid";
+              const needsPaymentConfirm =
+                isPayPending ||
+                (enr.plan_type === "with_product_150" && !isPaid) ||
+                String(enr.workflow_status || "") === "awaiting_payment" ||
+                Number(enr.pending_payment_amount_inr || 0) > 0;
+              const resolvedCreator =
+                enr.assigned_creator_name ||
+                relatedLinks[0]?.creator_name ||
+                "Unassigned";
+              const isRealCreatorAssigned =
+                Boolean(enr.assigned_creator_id) ||
+                (resolvedCreator !== "Unassigned" &&
+                  !resolvedCreator.toLowerCase().includes("queue") &&
+                  !resolvedCreator.toLowerCase().includes("pool"));
+
               return (
                 <div
                   key={enr.id}
-                  className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-3"
+                  className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-5 space-y-3.5"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-black text-white">{enr.product_name}</p>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black ${
-                            enr.plan_type === "with_product_150"
-                              ? "bg-rose-500/20 text-rose-300"
-                              : "bg-emerald-500/20 text-emerald-300"
-                          }`}
-                        >
-                          {enr.plan_type === "with_product_150"
-                            ? `With Product + ₹${enr.fixed_fee_inr || 150}`
-                            : `Without Product + ${enr.commission_rate}%`}
-                        </span>
-                        <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-400">
-                          {isExpired ? "EXPIRED" : String(enr.workflow_status || enr.status).replace(/_/g, " ")}
-                        </span>
-                        {enr.renewal_count > 0 && (
-                          <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-300">
-                            Renewed {enr.renewal_count}×
+                  <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4">
+                    {/* LEFT: Product Photo Thumbnail + Product, Seller & Video Assignment Details */}
+                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                      {/* Product Photo Thumbnail */}
+                      <a
+                        href={`https://zebalpha.shop/products/${enr.product_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open Product on ZebAlpha Storefront"
+                        className="group relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 flex items-center justify-center"
+                      >
+                        {enr.product_image ? (
+                          <img
+                            src={enr.product_image}
+                            alt={enr.product_name}
+                            className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <Store size={22} className="text-zinc-500" />
+                        )}
+                        {Number(enr.product_price || 0) > 0 && (
+                          <span className="absolute bottom-1 inset-x-1 rounded-md bg-black/80 px-1 py-0.5 text-center text-[9px] font-black text-amber-300">
+                            ₹{Number(enr.product_price).toLocaleString("en-IN")}
                           </span>
                         )}
-                      </div>
+                      </a>
 
-                      {/* Dual-Gate + Razorpay Payment Strip */}
-                      {(enr.plan_type === "with_product_150" || isPayPending || enr.razorpay_payment_id) && (
+                      <div className="space-y-2 min-w-0 flex-1">
+                        {/* Title + Plan + Workflow Status Badges */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a
+                            href={`https://zebalpha.shop/products/${enr.product_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm sm:text-base font-black text-white hover:text-amber-300 transition-colors line-clamp-1"
+                          >
+                            {enr.product_name}
+                          </a>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-black ${
+                              enr.plan_type === "with_product_150"
+                                ? "bg-rose-500/20 text-rose-300"
+                                : "bg-emerald-500/20 text-emerald-300"
+                            }`}
+                          >
+                            {enr.plan_type === "with_product_150"
+                              ? `With Product + ₹${enr.fixed_fee_inr || 150}`
+                              : `Without Product + ${enr.commission_rate}%`}
+                          </span>
+                          <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-400">
+                            {isExpired
+                              ? "EXPIRED"
+                              : String(enr.workflow_status || enr.status).replace(/_/g, " ")}
+                          </span>
+                          {enr.renewal_count > 0 && (
+                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-300">
+                              Renewed {enr.renewal_count}×
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Dual-Gate Payment & Delivery Status Pills */}
                         <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-black ${
-                              enr.payment_status === "paid"
+                              isPaid
                                 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                                : isPayOverdue
-                                ? "border-rose-500/40 bg-rose-500/20 text-rose-300"
-                                : "border-amber-500/30 bg-amber-500/15 text-amber-300"
+                                : enr.plan_type === "without_product_1pct" && !needsPaymentConfirm
+                                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                                  : isPayOverdue
+                                    ? "border-rose-500/40 bg-rose-500/20 text-rose-300"
+                                    : "border-amber-500/30 bg-amber-500/15 text-amber-300"
                             }`}
                           >
                             <CreditCard size={11} />
-                            {enr.payment_status === "paid"
-                              ? `Online Paid${enr.razorpay_payment_id ? ` (${enr.razorpay_payment_id})` : ""}`
-                              : `Payment Pending ₹${pendingAmt} • ${dueRemaining(enr.payment_due_at)}`}
+                            {isPaid
+                              ? `Payment Confirmed${
+                                  enr.razorpay_payment_id ? ` (${enr.razorpay_payment_id})` : ""
+                                }`
+                              : enr.plan_type === "without_product_1pct" && !needsPaymentConfirm
+                                ? "₹0 Upfront (1% on Delivered)"
+                                : `Payment Pending ₹${pendingAmt} • ${dueRemaining(
+                                    enr.payment_due_at
+                                  )}`}
                           </span>
 
                           {enr.plan_type === "with_product_150" && (
@@ -512,40 +600,141 @@ export default function SellerMarketingView() {
                             </span>
                           )}
                         </div>
-                      )}
 
-                      <p className="text-xs text-zinc-400">
-                        Store: <strong className="text-zinc-200">{enr.seller_store_name || enr.seller_id}</strong> •{" "}
-                        Creator: <strong className="text-zinc-200">{enr.assigned_creator_name || "Unassigned"}</strong> •{" "}
-                        Clicks: {enr.total_clicks} • Orders: {enr.total_orders}
-                        {Number(enr.missed_clicks_after_expiry || 0) > 0 && (
-                          <strong className="text-rose-400 ml-2">
-                            • {enr.missed_clicks_after_expiry} Missed Clicks
-                          </strong>
-                        )}
-                      </p>
-                      {enr.expires_at && (
-                        <p className="text-[11px] text-zinc-400 flex items-center gap-1">
-                          <Clock size={12} />
-                          Expires: {new Date(enr.expires_at).toLocaleString("en-IN")}
+                        {/* Seller Store Name + Email + Details Button */}
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/90 px-2.5 py-1 text-zinc-300">
+                            <Store size={12} className="text-amber-400 shrink-0" />
+                            <span>Store:</span>
+                            <strong className="text-white">
+                              {enr.seller_store_name || "Seller Store"}
+                            </strong>
+                          </span>
+
+                          {enr.seller_email && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(String(enr.seller_email));
+                                setCopiedMail(enr.id);
+                                setTimeout(() => setCopiedMail(null), 2000);
+                              }}
+                              title="Click to copy seller email"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/90 px-2.5 py-1 text-zinc-300 hover:border-amber-400/50 hover:text-white cursor-pointer"
+                            >
+                              <Mail size={12} className="text-sky-400 shrink-0" />
+                              <span className="font-mono text-[11px]">{enr.seller_email}</span>
+                              {copiedMail === enr.id ? (
+                                <Check size={11} className="text-emerald-400" />
+                              ) : (
+                                <Copy size={11} className="text-zinc-500" />
+                              )}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setSellerDetailTarget(enr)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-[11px] font-black text-amber-300 hover:bg-amber-400/20 cursor-pointer"
+                          >
+                            <Eye size={12} />
+                            <span>Seller &amp; Product Details</span>
+                          </button>
+                        </div>
+
+                        {/* Automatic Video Creator Assignment & Shoot Status Strip */}
+                        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800/90 bg-zinc-900/60 px-3 py-2 text-xs">
+                          <span className="inline-flex items-center gap-1.5 font-bold text-zinc-300">
+                            <UserCheck
+                              size={13}
+                              className={
+                                isRealCreatorAssigned ? "text-emerald-400" : "text-amber-400"
+                              }
+                            />
+                            <span>Assigned for Video:</span>
+                            <strong
+                              className={
+                                isRealCreatorAssigned ? "text-emerald-300" : "text-amber-300"
+                              }
+                            >
+                              {resolvedCreator}
+                            </strong>
+                            {enr.assigned_creator_handle && (
+                              <span className="text-zinc-400 font-mono text-[11px]">
+                                ({enr.assigned_creator_handle})
+                              </span>
+                            )}
+                            {enr.assigned_creator_role && (
+                              <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] font-black uppercase text-sky-300">
+                                {enr.assigned_creator_role}
+                              </span>
+                            )}
+                          </span>
+
+                          {enr.assigned_creator_email && (
+                            <span className="text-[11px] font-mono text-zinc-400">
+                              • {enr.assigned_creator_email}
+                            </span>
+                          )}
+
+                          {enr.shoot_deadline && (
+                            <span className="text-[11px] text-amber-300 font-semibold">
+                              • Shoot Due: {new Date(enr.shoot_deadline).toLocaleDateString("en-IN")}
+                            </span>
+                          )}
+
+                          {enr.live_video_url && (
+                            <a
+                              href={enr.live_video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-black text-emerald-300 hover:bg-emerald-500/25 ml-auto"
+                            >
+                              <Video size={12} /> Watch Video <ExternalLink size={11} />
+                            </a>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-zinc-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span>
+                            Clicks: <strong className="text-white">{enr.total_clicks}</strong>
+                          </span>
+                          <span>
+                            Orders: <strong className="text-white">{enr.total_orders}</strong>
+                          </span>
+                          {Number(enr.missed_clicks_after_expiry || 0) > 0 && (
+                            <strong className="text-rose-400">
+                              • {enr.missed_clicks_after_expiry} Missed Clicks
+                            </strong>
+                          )}
+                          {enr.expires_at && (
+                            <span className="inline-flex items-center gap-1">
+                              <Clock size={11} />
+                              Expires: {new Date(enr.expires_at).toLocaleString("en-IN")}
+                            </span>
+                          )}
                         </p>
-                      )}
+                      </div>
                     </div>
 
-                    {/* Master Override Buttons */}
+                    {/* RIGHT: Master Action Buttons (Confirm Payment, Confirm Delivery, Assign/Link, +7d, Expire, History) */}
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      {isPayPending && (
+                      {needsPaymentConfirm ? (
                         <button
                           type="button"
                           disabled={saving}
                           onClick={() =>
                             runAction({ action: "verify_plan_payment", enrollmentId: enr.id })
                           }
-                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-1.5 text-[11px] font-black text-black cursor-pointer"
+                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-1.5 text-[11px] font-black text-black hover:bg-emerald-400 cursor-pointer"
                         >
-                          <CheckCircle2 size={12} /> Mark ₹{pendingAmt} Paid
+                          <CheckCircle2 size={12} /> Confirm Payment (₹{pendingAmt})
                         </button>
-                      )}
+                      ) : isPaid ? (
+                        <span className="inline-flex items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-3 py-1.5 text-[11px] font-black text-emerald-300">
+                          <CheckCircle2 size={12} /> Payment Confirmed
+                        </span>
+                      ) : null}
 
                       {enr.plan_type === "with_product_150" && !sampleDelivered && (
                         <button
@@ -559,7 +748,7 @@ export default function SellerMarketingView() {
                               sampleReceived: true,
                             })
                           }
-                          className="inline-flex items-center gap-1 rounded-xl bg-sky-500 px-3 py-1.5 text-[11px] font-black text-black cursor-pointer"
+                          className="inline-flex items-center gap-1 rounded-xl bg-sky-500 px-3 py-1.5 text-[11px] font-black text-black hover:bg-sky-400 cursor-pointer"
                         >
                           <PackageCheck size={12} /> Confirm Delivery
                         </button>
@@ -569,11 +758,21 @@ export default function SellerMarketingView() {
                         type="button"
                         onClick={() => {
                           setAssignTarget(enr);
-                          setAssignedCreatorId(enr.assigned_creator_id || activeTeamCreators[0]?.user_id || "");
-                          setCreatorName(enr.assigned_creator_name || activeTeamCreators[0]?.full_name || "Alpha Media Team");
-                          setCreatorHandle(enr.assigned_creator_handle || activeTeamCreators[0]?.instagram_handle || "@zebalpha_official");
+                          setAssignedCreatorId(
+                            enr.assigned_creator_id || activeTeamCreators[0]?.user_id || ""
+                          );
+                          setCreatorName(
+                            enr.assigned_creator_name ||
+                              activeTeamCreators[0]?.full_name ||
+                              "Alpha Media Team"
+                          );
+                          setCreatorHandle(
+                            enr.assigned_creator_handle ||
+                              activeTeamCreators[0]?.instagram_handle ||
+                              "@zebalpha_official"
+                          );
                         }}
-                        className="inline-flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-1.5 text-[11px] font-black text-black cursor-pointer"
+                        className="inline-flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-1.5 text-[11px] font-black text-black hover:bg-amber-300 cursor-pointer"
                       >
                         <Plus size={12} /> Assign / Link
                       </button>
@@ -1503,6 +1702,196 @@ export default function SellerMarketingView() {
               >
                 {saving ? "Saving..." : "Activate 7-Day Link"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SELLER, PRODUCT & VIDEO ASSIGNMENT FULL DETAILS MODAL */}
+      {sellerDetailTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          onClick={() => setSellerDetailTarget(null)}
+        >
+          <div
+            className="w-full max-w-xl rounded-3xl border border-zinc-800 bg-zinc-950 p-6 space-y-5 max-h-[88vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-800 pb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 flex items-center justify-center">
+                  {sellerDetailTarget.product_image ? (
+                    <img
+                      src={sellerDetailTarget.product_image}
+                      alt={sellerDetailTarget.product_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Store size={22} className="text-amber-400" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                    Seller, Product &amp; Video Shoot Dossier
+                  </p>
+                  <h3 className="text-base font-black text-white truncate">
+                    {sellerDetailTarget.product_name}
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Price: ₹{Number(sellerDetailTarget.product_price || 0).toLocaleString("en-IN")}
+                    {sellerDetailTarget.product_sku ? ` • SKU: ${sellerDetailTarget.product_sku}` : ""}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSellerDetailTarget(null)}
+                className="text-zinc-400 hover:text-white cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+              {/* 1. Seller / Store Identity & Contact */}
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                  Seller &amp; Store Contact Details
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-zinc-300">
+                  <div>
+                    <span className="text-[10px] text-zinc-500 block">Store Name</span>
+                    <strong className="text-white text-sm">
+                      {sellerDetailTarget.seller_store_name || "Seller Store"}
+                    </strong>
+                  </div>
+                  {sellerDetailTarget.seller_owner_name && (
+                    <div>
+                      <span className="text-[10px] text-zinc-500 block">Owner Name</span>
+                      <strong className="text-white">{sellerDetailTarget.seller_owner_name}</strong>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-[10px] text-zinc-500 block">Seller Email</span>
+                    <strong className="text-sky-300 font-mono break-all">
+                      {sellerDetailTarget.seller_email || "Not provided"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-zinc-500 block">Phone / WhatsApp</span>
+                    <strong className="text-white font-mono">
+                      {sellerDetailTarget.seller_phone || "Not provided"}
+                    </strong>
+                  </div>
+                  {(sellerDetailTarget.seller_pickup_address || sellerDetailTarget.seller_city) && (
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] text-zinc-500 block">Pickup Hub Address</span>
+                      <strong className="text-zinc-200">
+                        {[
+                          sellerDetailTarget.seller_pickup_address,
+                          sellerDetailTarget.seller_city,
+                          sellerDetailTarget.seller_pincode,
+                        ]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Video Creator Assignment & Production Status */}
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                  Video Creator &amp; Shoot Assignment
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-zinc-300">
+                  <div>
+                    <span className="text-[10px] text-zinc-500 block">Assigned Creator</span>
+                    <strong className="text-white">
+                      {sellerDetailTarget.assigned_creator_name || "Unassigned (In Media Queue)"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-zinc-500 block">Handle / Role</span>
+                    <strong className="text-amber-300">
+                      {sellerDetailTarget.assigned_creator_handle || "—"}{" "}
+                      {sellerDetailTarget.assigned_creator_role
+                        ? `(${sellerDetailTarget.assigned_creator_role})`
+                        : ""}
+                    </strong>
+                  </div>
+                  {sellerDetailTarget.assigned_creator_email && (
+                    <div>
+                      <span className="text-[10px] text-zinc-500 block">Creator Email</span>
+                      <strong className="text-zinc-200 font-mono">
+                        {sellerDetailTarget.assigned_creator_email}
+                      </strong>
+                    </div>
+                  )}
+                  {sellerDetailTarget.published_by_name && (
+                    <div>
+                      <span className="text-[10px] text-zinc-500 block">Accepted / Managed By</span>
+                      <strong className="text-zinc-200">
+                        {sellerDetailTarget.published_by_name}
+                      </strong>
+                    </div>
+                  )}
+                  {sellerDetailTarget.shoot_brief && (
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] text-zinc-500 block">Shoot Brief</span>
+                      <p className="text-zinc-200">{sellerDetailTarget.shoot_brief}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Payment & Sample Delivery Verification */}
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-wider text-sky-400">
+                  Payment &amp; Sample Verification
+                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-zinc-300">
+                      Plan:{" "}
+                      <strong className="text-white">
+                        {sellerDetailTarget.plan_type === "with_product_150"
+                          ? "Plan 2: With Product + ₹150"
+                          : `Plan 1: Without Product + ${sellerDetailTarget.commission_rate}%`}
+                      </strong>
+                    </p>
+                    <p className="text-zinc-400 mt-0.5">
+                      Payment Status:{" "}
+                      <strong className="text-emerald-300 uppercase">
+                        {sellerDetailTarget.payment_status || "pending"}
+                      </strong>
+                      {sellerDetailTarget.razorpay_payment_id
+                        ? ` • Ref: ${sellerDetailTarget.razorpay_payment_id}`
+                        : ""}
+                    </p>
+                  </div>
+
+                  {sellerDetailTarget.payment_status !== "paid" &&
+                    (sellerDetailTarget.plan_type === "with_product_150" ||
+                      sellerDetailTarget.payment_status === "pending") && (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={async () => {
+                          await runAction({
+                            action: "verify_plan_payment",
+                            enrollmentId: sellerDetailTarget.id,
+                          });
+                          setSellerDetailTarget(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400 cursor-pointer"
+                      >
+                        <CheckCircle2 size={14} /> Confirm Payment Now
+                      </button>
+                    )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
