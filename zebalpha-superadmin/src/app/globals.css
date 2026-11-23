@@ -82,6 +82,15 @@
 		background: #27272a;
 		border-color: #52525b;
 	}
+
+	.no-scrollbar::-webkit-scrollbar {
+		display: none;
+	}
+
+	.no-scrollbar {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
 }
 
 /* High contrast inputs */

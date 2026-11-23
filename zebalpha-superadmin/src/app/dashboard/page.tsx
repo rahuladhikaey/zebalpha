@@ -151,6 +151,7 @@ export default function AdminPage() {
     "settings",
     "settlements",
     "revenue",
+    "seller-marketing",
   ]);
 
   // Restore active tab from localStorage on mount
@@ -393,38 +394,63 @@ export default function AdminPage() {
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1.5 no-scrollbar">
+        <nav
+          className={`flex-1 overflow-y-auto overflow-x-hidden py-5 space-y-1.5 no-scrollbar ${
+            isExpanded ? "px-3" : "px-2"
+          }`}
+        >
           {MENU_ITEMS.map((t: any) => (
-            <div key={t.id} className="relative group/item">
+            <div key={t.id} className="relative group/item flex justify-center">
               <button
                 onClick={() => { setTab(t.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-2 rounded-2xl px-3.5 py-3 text-xs font-bold transition-all cursor-pointer ${
-                  isExpanded ? "justify-between" : "justify-center"
+                title={!isExpanded ? t.label : undefined}
+                className={`flex items-center rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  isExpanded
+                    ? "w-full justify-between gap-2 px-3.5 py-3"
+                    : "h-11 w-11 justify-center p-0"
                 } ${
                   tab === t.id
                     ? 'bg-white text-black shadow-lg shadow-white/10 font-extrabold'
-                    : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+                    : 'text-zinc-400 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
-                  <svg className={`h-5 w-5 shrink-0 ${tab === t.id ? 'text-black' : 'text-zinc-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                {isExpanded ? (
+                  <>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <svg
+                        className={`h-5 w-5 shrink-0 ${tab === t.id ? 'text-black' : 'text-zinc-400'}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d={t.icon} />
+                      </svg>
+                      <span className="truncate">{t.label}</span>
+                    </div>
+
+                    {t.badge && (
+                      <span
+                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 ${
+                          tab === t.id
+                            ? 'bg-black/10 text-black border-black/20'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        }`}
+                      >
+                        {t.badge}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <svg
+                    className={`h-5 w-5 shrink-0 ${tab === t.id ? 'text-black' : 'text-zinc-300'}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d={t.icon} />
                   </svg>
-                  <span className={`transition-all duration-300 truncate ${
-                    isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
-                  }`}>
-                    {t.label}
-                  </span>
-                </div>
-
-                {t.badge && isExpanded && (
-                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 ${
-                    tab === t.id 
-                      ? 'bg-black/10 text-black border-black/20' 
-                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                  }`}>
-                    {t.badge}
-                  </span>
                 )}
               </button>
 
@@ -444,22 +470,18 @@ export default function AdminPage() {
         </nav>
 
         {/* User Card & Logout */}
-        <div className="p-3 border-t border-zinc-800 shrink-0 bg-zinc-950/60">
+        <div className="p-3 border-t border-zinc-800 shrink-0 bg-zinc-950/60 flex justify-center">
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center rounded-2xl px-3.5 py-3 text-xs font-bold text-rose-500 hover:bg-rose-950/40 transition-colors cursor-pointer ${
-              isExpanded ? "gap-3" : "justify-center"
+            className={`flex items-center rounded-2xl text-xs font-bold text-rose-500 hover:bg-rose-950/40 transition-colors cursor-pointer ${
+              isExpanded ? "w-full gap-3 px-3.5 py-3" : "h-11 w-11 justify-center p-0"
             }`}
             title="Sign Out"
           >
             <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7" />
             </svg>
-            <span className={`transition-all duration-300 whitespace-nowrap ${
-              isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden hidden lg:inline"
-            }`}>
-              Sign Out
-            </span>
+            {isExpanded && <span className="whitespace-nowrap">Sign Out</span>}
           </button>
         </div>
       </aside>
