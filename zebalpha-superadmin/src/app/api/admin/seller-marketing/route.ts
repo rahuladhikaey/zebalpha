@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   try {
     await requireSuperAdmin(req);
 
-    const [brandRes, enrollRes, linksRes, cbRes, auditRes, creatorsRes] = await Promise.all([
+    const [brandRes, enrollRes, linksRes, cbRes, auditRes, creatorsRes, txRes] = await Promise.all([
       supabaseServer
         .from("seller_branding_campaigns")
         .select("*")
@@ -52,6 +52,11 @@ export async function GET(req: Request) {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(150),
+      supabaseServer
+        .from("influencer_payment_transactions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(150),
     ]);
 
     const migrationRequired =
@@ -61,7 +66,9 @@ export async function GET(req: Request) {
       isMissingSchema(cbRes.error);
 
     const upgradeMigrationRequired =
-      isMissingSchema(auditRes.error) || isMissingSchema(creatorsRes.error);
+      isMissingSchema(auditRes.error) ||
+      isMissingSchema(creatorsRes.error) ||
+      isMissingSchema(txRes.error);
 
     const influencerEnrollments: Array<Record<string, unknown>> =
       !enrollRes.error && Array.isArray(enrollRes.data)
@@ -74,6 +81,10 @@ export async function GET(req: Request) {
     const mediaCreators: Array<Record<string, unknown>> =
       !creatorsRes.error && Array.isArray(creatorsRes.data)
         ? (creatorsRes.data as Array<Record<string, unknown>>)
+        : [];
+    const paymentTransactions: Array<Record<string, unknown>> =
+      !txRes.error && Array.isArray(txRes.data)
+        ? (txRes.data as Array<Record<string, unknown>>)
         : [];
 
     const nowMs = Date.now();
@@ -89,17 +100,26 @@ export async function GET(req: Request) {
       );
     }).length;
 
+    const paymentPendingCount = influencerEnrollments.filter(
+      (e) => String(e.payment_status || "") === "pending"
+    ).length;
+    const paymentOverdueCount = influencerEnrollments.filter((e) => {
+      if (String(e.payment_status || "") !== "pending" || !e.payment_due_at) return false;
+      return new Date(String(e.payment_due_at)).getTime() <= nowMs;
+    }).length;
+
     const summary = {
-      totalFixedFeesInr: influencerEnrollments.reduce(
-        (s, e) => s + Number(e.fixed_fee_inr || 0),
-        0
-      ),
+      totalFixedFeesInr: influencerEnrollments
+        .filter((e) => ["paid", "deducted"].includes(String(e.payment_status || "")))
+        .reduce((s, e) => s + Number(e.fixed_fee_inr || 0), 0),
       totalCommissionAccrued: influencerEnrollments.reduce(
         (s, e) => s + Number(e.commission_accrued || 0),
         0
       ),
       activeLinks,
       expiredLinks,
+      paymentPendingCount,
+      paymentOverdueCount,
       totalMissedClicks: influencerEnrollments.reduce(
         (s, e) => s + Number(e.missed_clicks_after_expiry || 0),
         0
@@ -118,6 +138,7 @@ export async function GET(req: Request) {
       callbacks: !cbRes.error && Array.isArray(cbRes.data) ? cbRes.data : [],
       auditLogs: !auditRes.error && Array.isArray(auditRes.data) ? auditRes.data : [],
       mediaCreators,
+      paymentTransactions,
     });
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
@@ -139,7 +160,7 @@ export async function POST(req: Request) {
     const action = String(body.action || "").trim();
     const nowIso = new Date().toISOString();
 
-    // 1. DIRECT INVITE-ONLY MEDIA ACCOUNT CREATION (Leader / In-House Creator / Influencer)
+    // 1. DIRECT INVITE-ONLY MEDIA ACCOUNT CREATION
     if (action === "create_media_account") {
       const fullName = String(body.fullName || "").trim();
       const email = String(body.email || "").trim().toLowerCase();
@@ -172,7 +193,6 @@ export async function POST(req: Request) {
       });
 
       if (authErr) {
-        // If user already exists in auth.users, look them up and grant/update membership
         const { data: listed } = await supabaseServer.auth.admin.listUsers({ page: 1, perPage: 1000 });
         const existing = (listed?.users || []).find(
           (u: { email?: string; id: string }) => (u.email || "").toLowerCase() === email
@@ -181,7 +201,6 @@ export async function POST(req: Request) {
           return NextResponse.json({ success: false, message: authErr.message }, { status: 400 });
         }
         targetUserId = existing.id;
-        // Also update password to the newly provisioned one so admin credentials work immediately
         await supabaseServer.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
       } else {
         targetUserId = createdAuth.user?.id || null;
@@ -249,7 +268,7 @@ export async function POST(req: Request) {
     // 2. APPROVE / CHANGE ROLE / SUSPEND CREATOR PROFILE
     if (action === "manage_creator") {
       const profileId = String(body.profileId || "").trim();
-      const operation = String(body.operation || "").trim(); // approve | reject | set_role | toggle_active
+      const operation = String(body.operation || "").trim();
       if (!profileId) {
         return NextResponse.json({ success: false, message: "Profile ID required" }, { status: 400 });
       }
@@ -359,7 +378,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. VERIFY PLAN 2 (₹150) PAYMENT
+    // 3. VERIFY PENDING PAYMENT (₹150 New Shoot OR ₹50 Upgrade Override)
     if (action === "verify_plan_payment") {
       const enrollmentId = String(body.enrollmentId || "").trim();
       if (!enrollmentId) {
@@ -375,11 +394,81 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, message: "Campaign not found" }, { status: 404 });
       }
 
+      const isUpgrade50 =
+        String(enr.pending_payment_purpose || "") === "upgrade_50" ||
+        Number(enr.pending_payment_amount_inr || 0) === 50;
+
+      if (isUpgrade50) {
+        const durationDays = Math.min(30, Math.max(7, Number(enr.pending_extension_days || 7)));
+        const now = new Date();
+        const existingExpMs = enr.expires_at ? new Date(String(enr.expires_at)).getTime() : 0;
+        const baseMs = existingExpMs > now.getTime() ? existingExpMs : now.getTime();
+        const newExpiresAt = new Date(baseMs + durationDays * 86_400_000).toISOString();
+
+        await supabaseServer
+          .from("seller_influencer_enrollments")
+          .update({
+            payment_status: "paid",
+            paid_at: nowIso,
+            payment_due_at: null,
+            pending_payment_amount_inr: 0,
+            pending_payment_purpose: null,
+            fixed_fee_inr: Number(enr.fixed_fee_inr || 0) + 50,
+            status: "active",
+            workflow_status: "live",
+            starts_at: enr.starts_at || nowIso,
+            expires_at: newExpiresAt,
+            renewal_count: Number(enr.renewal_count || 0) + 1,
+            updated_at: nowIso,
+          })
+          .eq("id", enrollmentId);
+
+        await supabaseServer
+          .from("influencer_creator_links")
+          .update({
+            status: "active",
+            starts_at: enr.starts_at || nowIso,
+            expires_at: newExpiresAt,
+            last_reactivated_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("enrollment_id", enrollmentId);
+
+        await supabaseServer.from("influencer_campaign_audit_logs").insert({
+          enrollment_id: enr.id,
+          seller_id: enr.seller_id,
+          product_id: enr.product_id,
+          product_name: enr.product_name,
+          event_type: "payment_verified",
+          to_plan: enr.plan_type,
+          fee_charged_inr: 50,
+          duration_days: durationDays,
+          actor_user_id: adminUserId,
+          actor_role: "SUPER_ADMIN",
+          actor_name: adminEmail,
+          notes: `SuperAdmin verified ₹50 upgrade payment & reactivated link for +${durationDays} days`,
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: `₹50 upgrade payment verified & link reactivated for +${durationDays} days!`,
+        });
+      }
+
+      const sampleReady = ["sample_received", "in_shoot", "shoot_completed", "kept_at_studio"].includes(
+        String(enr.sample_status || "")
+      );
+      const nextWorkflow = sampleReady ? "accepted" : "awaiting_review";
+
       await supabaseServer
         .from("seller_influencer_enrollments")
         .update({
           payment_status: "paid",
-          workflow_status: enr.workflow_status === "awaiting_payment" ? "awaiting_review" : enr.workflow_status,
+          paid_at: nowIso,
+          payment_due_at: null,
+          pending_payment_amount_inr: 0,
+          pending_payment_purpose: null,
+          workflow_status: nextWorkflow,
           updated_at: nowIso,
         })
         .eq("id", enrollmentId);
@@ -395,12 +484,16 @@ export async function POST(req: Request) {
         actor_user_id: adminUserId,
         actor_role: "SUPER_ADMIN",
         actor_name: adminEmail,
-        notes: `Verified ₹${Number(enr.fixed_fee_inr || 150)} shoot fee (${enr.payment_ref || enr.payment_method})`,
+        notes: sampleReady
+          ? "SuperAdmin verified ₹150 payment + Product delivered — unlocked for Alpha Media shoot"
+          : "SuperAdmin verified ₹150 payment — awaiting physical product delivery to Alpha Studio",
       });
 
       return NextResponse.json({
         success: true,
-        message: "₹150 payment verified & moved into Media Leader Awaiting Queue!",
+        message: sampleReady
+          ? "₹150 payment verified & Dual-Gate unlocked for Media Team!"
+          : "₹150 payment verified! Media unlocks once product sample delivery is confirmed.",
       });
     }
 
@@ -422,14 +515,19 @@ export async function POST(req: Request) {
 
       if (overrideAction === "accept") {
         const sampleReceived = Boolean(body.sampleReceived);
+        const nextSample =
+          enr.plan_type === "with_product_150" && sampleReceived
+            ? "sample_received"
+            : enr.sample_status;
+        const paidOk =
+          enr.plan_type !== "with_product_150" || ["paid", "waived"].includes(String(enr.payment_status || ""));
+        const nextWorkflow = paidOk ? "accepted" : "awaiting_payment";
+
         await supabaseServer
           .from("seller_influencer_enrollments")
           .update({
-            workflow_status: "accepted",
-            sample_status:
-              enr.plan_type === "with_product_150" && sampleReceived
-                ? "sample_received"
-                : enr.sample_status,
+            workflow_status: nextWorkflow,
+            sample_status: nextSample,
             accepted_by: adminUserId,
             accepted_by_name: `${adminEmail} (SuperAdmin)`,
             accepted_at: nowIso,
@@ -448,11 +546,18 @@ export async function POST(req: Request) {
           actor_role: "SUPER_ADMIN",
           actor_name: adminEmail,
           notes: sampleReceived
-            ? "SuperAdmin accepted campaign & confirmed sample receipt"
+            ? paidOk
+              ? "SuperAdmin confirmed product delivery + payment verified — ready for shoot"
+              : "SuperAdmin confirmed product delivery — still awaiting ₹150 Razorpay payment"
             : "SuperAdmin accepted campaign into Alpha Media queue",
         });
 
-        return NextResponse.json({ success: true, message: "Campaign accepted by SuperAdmin override." });
+        return NextResponse.json({
+          success: true,
+          message: sampleReceived && !paidOk
+            ? "Product delivery confirmed! Still waiting for seller's ₹150 Razorpay payment."
+            : "Campaign updated by SuperAdmin override.",
+        });
       }
 
       if (overrideAction === "activate_extend_7d") {
@@ -541,12 +646,12 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
           success: true,
-          message: "Campaign link deactivated (marked expired). Seller can renew/upgrade anytime to reactivate.",
+          message: "Campaign link deactivated (marked expired). Seller can reactivate anytime for ₹50 via Razorpay.",
         });
       }
     }
 
-    // 5. EXISTING BRANDING & CALLBACK ACTIONS (Preserved)
+    // 5. EXISTING BRANDING & CALLBACK ACTIONS
     if (action === "approve_branding") {
       const campaignId = String(body.campaignId || "").trim();
       const durationDays = Math.max(1, Number(body.durationDays || 7));

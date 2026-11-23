@@ -82,12 +82,35 @@ function computeEffectiveState(row: Record<string, unknown>): Record<string, unk
   const effectiveStatus = isExpired ? "expired" : rawStatus;
   const effectiveWorkflow = isExpired ? "expired" : rawWorkflow;
 
+  const paymentStatus = String(row.payment_status || "not_required");
+  const paymentDueAt = row.payment_due_at ? String(row.payment_due_at) : null;
+  const paymentDueMs = paymentDueAt ? new Date(paymentDueAt).getTime() : null;
+  const isPaymentPending = paymentStatus === "pending";
+  const isPaymentOverdue =
+    isPaymentPending && paymentDueMs !== null && !Number.isNaN(paymentDueMs) && paymentDueMs <= nowMs;
+
+  const planType = String(row.plan_type || "without_product_1pct");
+  const sampleStatus = String(row.sample_status || "not_required");
+  const sampleDelivered = ["sample_received", "in_shoot", "shoot_completed", "kept_at_studio"].includes(
+    sampleStatus
+  );
+  const paymentComplete = ["paid", "waived"].includes(paymentStatus);
+  const dualGateReady = planType !== "with_product_150" || (paymentComplete && sampleDelivered);
+
   return {
     ...row,
-    plan_type: String(row.plan_type || "without_product_1pct"),
+    plan_type: planType,
     fixed_fee_inr: Number(row.fixed_fee_inr || 0),
-    sample_status: String(row.sample_status || "not_required"),
-    payment_status: String(row.payment_status || "not_required"),
+    pending_payment_amount_inr: Number(row.pending_payment_amount_inr || 0),
+    pending_payment_purpose: row.pending_payment_purpose ? String(row.pending_payment_purpose) : null,
+    pending_extension_days: Number(row.pending_extension_days || 7),
+    pending_upgrade_mode: row.pending_upgrade_mode ? String(row.pending_upgrade_mode) : null,
+    sample_status: sampleStatus,
+    payment_status: paymentStatus,
+    payment_due_at: paymentDueAt,
+    is_payment_pending: isPaymentPending,
+    is_payment_overdue: isPaymentOverdue,
+    dual_gate_ready: dualGateReady,
     missed_clicks_after_expiry: Number(row.missed_clicks_after_expiry || 0),
     renewal_count: Number(row.renewal_count || 0),
     effective_status: effectiveStatus,
@@ -105,7 +128,7 @@ export async function GET(req: NextRequest) {
 
     const ctx = await resolveSellerContext(user);
 
-    const [prodRes, enrollRes, linksRes, callbackRes, auditRes] = await Promise.all([
+    const [prodRes, enrollRes, linksRes, callbackRes, auditRes, txRes] = await Promise.all([
       supabaseServer
         .from("products")
         .select("*")
@@ -135,6 +158,11 @@ export async function GET(req: NextRequest) {
         .in("seller_id", ctx.sellerIds)
         .order("created_at", { ascending: false })
         .limit(60),
+      supabaseServer
+        .from("influencer_payment_transactions")
+        .select("id")
+        .in("seller_id", ctx.sellerIds)
+        .limit(1),
     ]);
 
     const migrationRequired =
@@ -142,7 +170,8 @@ export async function GET(req: NextRequest) {
       isMissingSchemaError(linksRes.error) ||
       isMissingSchemaError(callbackRes.error);
 
-    const upgradeMigrationRequired = isMissingSchemaError(auditRes.error);
+    const upgradeMigrationRequired =
+      isMissingSchemaError(auditRes.error) || isMissingSchemaError(txRes.error);
 
     const products = (Array.isArray(prodRes.data) ? prodRes.data : [])
       .filter((p: Record<string, unknown>) => {
@@ -206,10 +235,18 @@ export async function GET(req: NextRequest) {
       inQueueCatalogs: enrollments.filter(
         (e) =>
           e.effective_status === "pending" ||
-          ["awaiting_payment", "awaiting_review", "accepted", "assigned", "in_production", "submitted_for_review", "revision_needed"].includes(
-            String(e.effective_workflow)
-          )
+          [
+            "awaiting_payment",
+            "awaiting_review",
+            "accepted",
+            "assigned",
+            "in_production",
+            "submitted_for_review",
+            "revision_needed",
+          ].includes(String(e.effective_workflow))
       ).length,
+      paymentPendingCount: enrollments.filter((e) => Boolean(e.is_payment_pending)).length,
+      paymentOverdueCount: enrollments.filter((e) => Boolean(e.is_payment_overdue)).length,
       expiredCatalogs: enrollments.filter((e) => e.effective_status === "expired").length,
       pausedCatalogs: enrollments.filter((e) => e.effective_status === "paused").length,
       liveVideos: creatorLinks.filter((l) => l.effective_status === "active" && Boolean(l.video_url)).length,
@@ -267,14 +304,9 @@ export async function POST(req: NextRequest) {
       const planType =
         body.planType === "with_product_150" ? "with_product_150" : "without_product_1pct";
       const isWithProduct = planType === "with_product_150";
+      const paymentTiming = body.paymentTiming === "pay_now" ? "pay_now" : "pay_within_3_days";
       const commissionRate = isWithProduct ? 0 : 1;
       const fixedFeeInr = isWithProduct ? 150 : 0;
-      const paymentMethod = isWithProduct
-        ? body.paymentMethod === "upi_manual"
-          ? "upi_manual"
-          : "seller_balance"
-        : "commission_only";
-      const paymentRef = isWithProduct ? String(body.paymentRef || "").trim().slice(0, 80) : null;
       const sampleReturnPreference =
         body.sampleReturnPreference === "keep_for_future_shoots"
           ? "keep_for_future_shoots"
@@ -295,16 +327,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (isWithProduct && paymentMethod === "upi_manual" && (!paymentRef || paymentRef.length < 6)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Please enter a valid UPI UTR / Transaction Reference (min 6 chars) or choose Payout Auto-Deduct.",
-          },
-          { status: 400 }
-        );
-      }
-
       const { data: ownedProducts } = await supabaseServer
         .from("products")
         .select("*")
@@ -319,7 +341,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const nowIso = new Date().toISOString();
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const dueIso = new Date(now.getTime() + 3 * 86_400_000).toISOString(); // Exact 3-day payment window
+
       const rows = validProducts.map((p: Record<string, unknown>) => ({
         seller_id: ctx.primarySellerId,
         seller_store_name: ctx.storeName,
@@ -333,19 +358,16 @@ export async function POST(req: NextRequest) {
         plan_type: planType,
         commission_rate: commissionRate,
         fixed_fee_inr: fixedFeeInr,
-        payment_method: paymentMethod,
-        payment_status: !isWithProduct
-          ? "not_required"
-          : paymentMethod === "seller_balance"
-          ? "deducted"
-          : "pending",
-        payment_ref: paymentRef,
+        payment_method: isWithProduct ? "razorpay" : "commission_only",
+        payment_status: isWithProduct ? "pending" : "not_required",
+        payment_due_at: isWithProduct ? dueIso : null,
+        pending_payment_amount_inr: isWithProduct ? 150 : 0,
+        pending_payment_purpose: isWithProduct ? "new_shoot_150" : null,
         sample_status: isWithProduct ? "awaiting_sample" : "not_required",
         sample_return_preference: isWithProduct ? sampleReturnPreference : null,
         max_budget_cap: maxBudgetCap,
         status: "pending",
-        workflow_status:
-          isWithProduct && paymentMethod === "upi_manual" ? "awaiting_payment" : "awaiting_review",
+        workflow_status: isWithProduct ? "awaiting_payment" : "awaiting_review",
         link_duration_days: 7,
         auto_attach_video_proof: isWithProduct,
         updated_at: nowIso,
@@ -363,7 +385,7 @@ export async function POST(req: NextRequest) {
               success: false,
               upgradeMigrationRequired: true,
               error:
-                "Please run supabase/upgrade_alpha_media_influencer_ecosystem.sql in Supabase SQL Editor to enable the 2-Plan 7-Day Alpha Media system.",
+                "Please run supabase/upgrade_alpha_media_razorpay_and_dualgate.sql in Supabase SQL Editor first.",
             },
             { status: 503 }
           );
@@ -371,14 +393,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: upErr.message }, { status: 500 });
       }
 
-      const createdEnrollments = Array.isArray(upserted) ? upserted : [];
+      const createdEnrollments = (Array.isArray(upserted) ? upserted : []) as Array<
+        Record<string, unknown>
+      >;
+      const createdEnrollmentIds = createdEnrollments.map((e) => String(e.id));
+
       for (const enr of createdEnrollments) {
         try {
           const { data: existingLink } = await supabaseServer
             .from("influencer_creator_links")
-            .select("id, ref_code")
+            .select("id")
             .eq("seller_id", ctx.primarySellerId)
-            .eq("product_id", enr.product_id)
+            .eq("product_id", String(enr.product_id))
             .limit(1)
             .maybeSingle();
 
@@ -406,16 +432,6 @@ export async function POST(req: NextRequest) {
               .select("id")
               .maybeSingle();
             linkId = insertedLink?.id || null;
-          } else {
-            await supabaseServer
-              .from("influencer_creator_links")
-              .update({
-                enrollment_id: enr.id,
-                plan_type: planType,
-                commission_rate: commissionRate,
-                updated_at: nowIso,
-              })
-              .eq("id", existingLink.id);
           }
 
           await supabaseServer.from("influencer_campaign_audit_logs").insert({
@@ -426,13 +442,15 @@ export async function POST(req: NextRequest) {
             product_name: enr.product_name,
             event_type: "created",
             to_plan: planType,
-            fee_charged_inr: fixedFeeInr,
+            fee_charged_inr: 0,
             duration_days: 7,
             actor_user_id: user.id,
             actor_role: "SELLER",
             actor_name: ctx.storeName,
             notes: isWithProduct
-              ? `Enrolled in With Product + ₹150 (7 Days) via ${paymentMethod}`
+              ? paymentTiming === "pay_now"
+                ? "Enrolled in With Product + ₹150 — launching Razorpay checkout (3-day deadline fallback active)"
+                : "Enrolled in With Product + ₹150 — Pay Within 3 Days selected (Payment Pending until paid via Razorpay)"
               : "Enrolled in Without Product + 1% (7 Days) — sent to Alpha Media Leader queue",
           });
         } catch {
@@ -443,24 +461,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         enrolledCount: createdEnrollments.length,
+        createdEnrollmentIds,
+        requiresRazorpayNow: isWithProduct && paymentTiming === "pay_now",
         message: isWithProduct
-          ? `${createdEnrollments.length} catalog(s) submitted for With Product + ₹150 (7-Day Alpha Studio Shoot)! 7-day timer starts once Media Leader publishes your reel.`
+          ? paymentTiming === "pay_now"
+            ? "Opening Razorpay checkout for ₹150 studio shoot..."
+            : `${createdEnrollments.length} catalog(s) saved! Complete ₹150 Razorpay payment within 3 days + deliver your product sample so Alpha Media can proceed.`
           : `${createdEnrollments.length} catalog(s) sent to Alpha Media Leader queue under Without Product + 1% (7 Days)!`,
       });
     }
 
-    if (action === "renew_or_upgrade") {
+    // Deferred ₹50 Upgrade / Reactivate ("Pay Within 3 Days") — keeps link locked until Razorpay ₹50 completes!
+    if (action === "schedule_upgrade_pay_later" || action === "renew_or_upgrade") {
       const enrollmentId = String(body.enrollmentId || "").trim();
       const mode =
         body.mode === "upgrade_with_product_150" ? "upgrade_with_product_150" : "renew";
       const durationDays = Math.min(30, Math.max(7, Number(body.durationDays || 7)));
-      const paymentMethod =
-        body.paymentMethod === "upi_manual" ? "upi_manual" : "seller_balance";
-      const paymentRef = String(body.paymentRef || "").trim().slice(0, 80) || null;
-      const sampleReturnPreference =
-        body.sampleReturnPreference === "keep_for_future_shoots"
-          ? "keep_for_future_shoots"
-          : "return_after_shoot";
 
       if (!enrollmentId) {
         return NextResponse.json({ success: false, error: "Enrollment ID required" }, { status: 400 });
@@ -477,116 +493,57 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Campaign not found." }, { status: 404 });
       }
 
-      const isUpgrade = mode === "upgrade_with_product_150";
-      const targetPlan = isUpgrade ? "with_product_150" : String(enr.plan_type || "without_product_1pct");
-      const feeDelta = targetPlan === "with_product_150" ? 150 : 0;
-
-      if (feeDelta > 0 && paymentMethod === "upi_manual" && (!paymentRef || paymentRef.length < 6)) {
-        return NextResponse.json(
-          { success: false, error: "Enter valid UPI UTR reference (min 6 chars) or choose Payout Auto-Deduct." },
-          { status: 400 }
-        );
-      }
-
-      const now = new Date();
-      const existingExpMs = enr.expires_at ? new Date(String(enr.expires_at)).getTime() : 0;
-      const baseMs = existingExpMs > now.getTime() ? existingExpMs : now.getTime();
-      const newExpiresAt = new Date(baseMs + durationDays * 86_400_000).toISOString();
-      const nowIso = now.toISOString();
-      const nextRenewalCount = Number(enr.renewal_count || 0) + 1;
-
-      const updatePayload: Record<string, unknown> = {
-        plan_type: targetPlan,
-        commission_rate: targetPlan === "with_product_150" ? 0 : 1,
-        fixed_fee_inr: Number(enr.fixed_fee_inr || 0) + feeDelta,
-        payment_method: feeDelta > 0 ? paymentMethod : "commission_only",
-        payment_status:
-          feeDelta === 0
-            ? "not_required"
-            : paymentMethod === "seller_balance"
-            ? "deducted"
-            : "pending",
-        payment_ref: paymentRef || enr.payment_ref,
-        status: "active",
-        workflow_status: isUpgrade && enr.sample_status === "not_required" ? "awaiting_review" : "live",
-        starts_at: enr.starts_at || nowIso,
-        expires_at: newExpiresAt,
-        link_duration_days: durationDays,
-        renewal_count: nextRenewalCount,
-        updated_at: nowIso,
-      };
-
-      if (isUpgrade) {
-        updatePayload.sample_status =
-          enr.sample_status === "kept_at_studio" || enr.sample_status === "sample_received"
-            ? "sample_received"
-            : "awaiting_sample";
-        updatePayload.sample_return_preference = sampleReturnPreference;
-        updatePayload.auto_attach_video_proof = true;
-      }
+      const nowIso = new Date().toISOString();
+      const dueIso = new Date(Date.now() + 3 * 86_400_000).toISOString();
 
       const { error: updErr } = await supabaseServer
         .from("seller_influencer_enrollments")
-        .update(updatePayload)
+        .update({
+          payment_method: "razorpay",
+          payment_status: "pending",
+          payment_due_at: dueIso,
+          pending_payment_amount_inr: 50,
+          pending_payment_purpose: "upgrade_50",
+          pending_extension_days: durationDays,
+          pending_upgrade_mode: mode,
+          updated_at: nowIso,
+        })
         .eq("id", enrollmentId);
 
       if (updErr) {
-        return NextResponse.json({ success: false, error: updErr.message }, { status: 500 });
-      }
-
-      // Immediately reactivate the EXACT SAME creator tracking link so existing reels resume working!
-      const { data: links } = await supabaseServer
-        .from("influencer_creator_links")
-        .select("id, ref_code, renewal_count")
-        .eq("enrollment_id", enrollmentId);
-
-      let firstLinkId: string | null = null;
-      let firstRefCode: string | null = null;
-
-      if (Array.isArray(links) && links.length > 0) {
-        firstLinkId = String(links[0].id);
-        firstRefCode = String(links[0].ref_code);
-        for (const l of links) {
-          await supabaseServer
-            .from("influencer_creator_links")
-            .update({
-              status: "active",
-              plan_type: targetPlan,
-              commission_rate: targetPlan === "with_product_150" ? 0 : 1,
-              starts_at: enr.starts_at || nowIso,
-              expires_at: newExpiresAt,
-              renewal_count: Number(l.renewal_count || 0) + 1,
-              last_reactivated_at: nowIso,
-              updated_at: nowIso,
-            })
-            .eq("id", l.id);
+        if (isMissingSchemaError(updErr)) {
+          return NextResponse.json(
+            {
+              success: false,
+              upgradeMigrationRequired: true,
+              error:
+                "Please run supabase/upgrade_alpha_media_razorpay_and_dualgate.sql in Supabase SQL Editor first.",
+            },
+            { status: 503 }
+          );
         }
+        return NextResponse.json({ success: false, error: updErr.message }, { status: 500 });
       }
 
       try {
         await supabaseServer.from("influencer_campaign_audit_logs").insert({
           enrollment_id: enr.id,
-          link_id: firstLinkId,
           seller_id: ctx.primarySellerId,
           product_id: enr.product_id,
           product_name: enr.product_name,
-          event_type: isUpgrade ? "upgraded" : "renewed",
+          event_type: mode === "upgrade_with_product_150" ? "upgraded" : "renewed",
           from_plan: String(enr.plan_type || "without_product_1pct"),
-          to_plan: targetPlan,
-          fee_charged_inr: feeDelta,
+          to_plan:
+            mode === "upgrade_with_product_150"
+              ? "with_product_150"
+              : String(enr.plan_type || "without_product_1pct"),
+          fee_charged_inr: 0,
           duration_days: durationDays,
           actor_user_id: user.id,
           actor_role: "SELLER",
           actor_name: ctx.storeName,
-          notes: isUpgrade
-            ? `Upgraded to With Product + ₹150 and reactivated link ${firstRefCode || ""} for ${durationDays} days`
-            : `Renewed campaign link ${firstRefCode || ""} for +${durationDays} days (cycle #${nextRenewalCount})`,
-          metadata: {
-            ref_code: firstRefCode,
-            new_expires_at: newExpiresAt,
-            payment_method: paymentMethod,
-            payment_ref: paymentRef,
-          },
+          notes: `₹50 Upgrade / Reactivation (+${durationDays}d) saved with Pay Within 3 Days — link stays deactivated until ₹50 Razorpay payment completes`,
+          metadata: { payment_due_at: dueIso, pending_amount_inr: 50 },
         });
       } catch {
         // Non-fatal
@@ -594,11 +551,8 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        newExpiresAt,
-        refCode: firstRefCode,
-        message: isUpgrade
-          ? `Upgraded to With Product + ₹150! Your existing link (${firstRefCode || "INF"}) is ACTIVE immediately for +${durationDays} days & Alpha Studio has been notified for your shoot.`
-          : `Link reactivated instantly for +${durationDays} days! All existing Instagram/YouTube captions are live again.`,
+        paymentDueAt: dueIso,
+        message: `₹50 upgrade request saved (Payment Pending — Pay via Razorpay within 3 days to reactivate your link for +${durationDays} days).`,
       });
     }
 

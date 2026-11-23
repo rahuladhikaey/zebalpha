@@ -23,6 +23,8 @@ import {
   Send,
   Video,
   RotateCcw,
+  Lock,
+  CreditCard,
 } from "lucide-react";
 
 interface CampaignRow {
@@ -38,6 +40,10 @@ interface CampaignRow {
   commission_rate: number;
   fixed_fee_inr: number;
   payment_status: string;
+  payment_due_at?: string | null;
+  pending_payment_amount_inr?: number;
+  pending_payment_purpose?: string | null;
+  razorpay_payment_id?: string | null;
   sample_status: string;
   workflow_status: string;
   status: string;
@@ -87,13 +93,40 @@ interface ProductOption {
   image_url?: string | null;
 }
 
-function countdownText(expiresAt?: string | null): string {
-  if (!expiresAt) return "Not live yet";
-  const diff = new Date(expiresAt).getTime() - Date.now();
-  if (Number.isNaN(diff) || diff <= 0) return "Expired";
+function countdownText(targetIso?: string | null, fallback = "Not live yet", expiredLabel = "Expired"): string {
+  if (!targetIso) return fallback;
+  const diff = new Date(targetIso).getTime() - Date.now();
+  if (Number.isNaN(diff) || diff <= 0) return expiredLabel;
   const d = Math.floor(diff / 86_400_000);
   const h = Math.floor((diff % 86_400_000) / 3_600_000);
   return d > 0 ? `${d}d ${h}h left` : `${h}h left`;
+}
+
+function getDualGateStatus(c: CampaignRow) {
+  const isPlan2Seller =
+    c.plan_type === "with_product_150" && (c.campaign_source || "seller") === "seller";
+  const paymentPaid = ["paid", "waived"].includes(c.payment_status);
+  const paymentPending = c.payment_status === "pending";
+  const paymentOverdue =
+    paymentPending &&
+    Boolean(c.payment_due_at) &&
+    new Date(String(c.payment_due_at)).getTime() <= Date.now();
+  const sampleDelivered = [
+    "sample_received",
+    "in_shoot",
+    "shoot_completed",
+    "kept_at_studio",
+  ].includes(c.sample_status);
+
+  const canProceed = !isPlan2Seller || (paymentPaid && sampleDelivered);
+  return {
+    isPlan2Seller,
+    paymentPaid,
+    paymentPending,
+    paymentOverdue,
+    sampleDelivered,
+    canProceed,
+  };
 }
 
 export default function InfluencerQueuePage() {
@@ -135,7 +168,7 @@ export default function InfluencerQueuePage() {
 
   const notify = (text: string, type: "success" | "error" = "success") => {
     setToast({ text, type });
-    setTimeout(() => setToast(null), 4500);
+    setTimeout(() => setToast(null), 5000);
   };
 
   const fetchAll = useCallback(async () => {
@@ -269,27 +302,37 @@ export default function InfluencerQueuePage() {
   const handleAccept = async (c: CampaignRow, sampleReceived: boolean) => {
     setBusyId(c.id);
     try {
-      const { error } = await supabase.rpc("media_leader_accept_campaign", {
+      const { data, error } = await supabase.rpc("media_leader_accept_campaign", {
         p_enrollment_id: c.id,
         p_sample_received: sampleReceived,
-        p_notes: sampleReceived ? "Physical sample confirmed at Alpha Studio" : "Accepted by Media Leader",
+        p_notes: sampleReceived
+          ? "Physical product sample delivery confirmed at Alpha Studio"
+          : "Accepted by Media Leader",
       });
       if (error) throw error;
-      notify(
-        sampleReceived
-          ? `Sample confirmed & campaign accepted for ${c.product_name}!`
-          : `Accepted "${c.product_name}" — ready to assign creator!`
-      );
+      const result = data as { dual_gate_ready?: boolean } | null;
+      if (sampleReceived && result && result.dual_gate_ready === false) {
+        notify(
+          `Product delivery confirmed for "${c.product_name}"! Shoot stays locked until seller completes ₹150 Razorpay payment.`
+        );
+      } else if (sampleReceived) {
+        notify(`Product delivered + ₹150 paid for "${c.product_name}" — ready to assign creator!`);
+      } else {
+        notify(`Accepted "${c.product_name}"!`);
+      }
       await fetchAll();
     } catch (err: unknown) {
-      notify(err instanceof Error ? err.message : "Failed to accept campaign", "error");
+      notify(err instanceof Error ? err.message : "Failed to update campaign", "error");
     } finally {
       setBusyId(null);
     }
   };
 
   const handleReject = async (c: CampaignRow) => {
-    const reason = window.prompt("Reason for rejecting / sending back to seller:", "Please upload clearer product images");
+    const reason = window.prompt(
+      "Reason for rejecting / sending back to seller:",
+      "Please upload clearer product images"
+    );
     if (reason === null) return;
     setBusyId(c.id);
     try {
@@ -330,7 +373,7 @@ export default function InfluencerQueuePage() {
       setShootBrief("");
       await fetchAll();
     } catch (err: unknown) {
-      notify(err instanceof Error ? err.message : "Assignment failed", "error");
+      notify(err instanceof Error ? err.message : "Assignment blocked by Dual-Gate check", "error");
     } finally {
       setBusyId(null);
     }
@@ -406,7 +449,7 @@ export default function InfluencerQueuePage() {
       <Sidebar userRole={session?.role} userEmail={session?.email} />
       <Header
         title="Influencer & Alpha Studio Queue"
-        description="Accept Seller & Own-Brand campaigns, confirm ₹150 samples, assign creators, and activate 7-day smart links"
+        description="Dual-Gate Enforced: For Plan 2 (₹150), Media proceeds only when BOTH Product Delivery and Razorpay Payment are complete"
       />
 
       <main className="p-8 space-y-6">
@@ -472,8 +515,8 @@ export default function InfluencerQueuePage() {
         <div className="flex flex-wrap gap-2 border-b border-dark-800 pb-3">
           {(
             [
-              { key: "awaiting", label: `Awaiting Accept (${stageCounts.awaiting})` },
-              { key: "production", label: `Accepted / In Shoot (${stageCounts.production})` },
+              { key: "awaiting", label: `Awaiting Gates / Accept (${stageCounts.awaiting})` },
+              { key: "production", label: `Ready / In Shoot (${stageCounts.production})` },
               { key: "review", label: `Review & Go Live (${stageCounts.review})` },
               { key: "live", label: `Live 7-Day Links (${stageCounts.live})` },
               { key: "expired", label: `Expired / Closed (${stageCounts.expired})` },
@@ -509,6 +552,11 @@ export default function InfluencerQueuePage() {
             {visibleCampaigns.map((c) => {
               const link = linkByEnrollment.get(c.id);
               const expired = isRowExpired(c);
+              const gates = getDualGateStatus(c);
+              const pendingAmt =
+                Number(c.pending_payment_amount_inr || 0) ||
+                (c.pending_payment_purpose === "upgrade_50" ? 50 : 150);
+
               return (
                 <div
                   key={c.id}
@@ -555,14 +603,49 @@ export default function InfluencerQueuePage() {
                         </span>
                       </div>
 
+                      {/* DUAL-GATE STATUS STRIP (for Plan 2 or any Pending ₹50 Upgrade) */}
+                      {(gates.isPlan2Seller || gates.paymentPending) && (
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                              gates.paymentPaid
+                                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                : gates.paymentOverdue
+                                ? "bg-red-500/15 border-red-500/40 text-red-300"
+                                : "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                            }`}
+                          >
+                            <CreditCard className="w-3 h-3" />
+                            {gates.paymentPaid
+                              ? `Gate 1: ₹${c.fixed_fee_inr || 150} Paid (Razorpay)`
+                              : gates.paymentOverdue
+                              ? `Gate 1: Payment Pending ₹${pendingAmt} • OVERDUE (>3d)`
+                              : `Gate 1: Payment Pending ₹${pendingAmt} • ${countdownText(
+                                  c.payment_due_at,
+                                  "3d window",
+                                  "OVERDUE"
+                                )}`}
+                          </span>
+
+                          {gates.isPlan2Seller && (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                gates.sampleDelivered
+                                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                  : "bg-zinc-800 border-zinc-700 text-zinc-300"
+                              }`}
+                            >
+                              <PackageCheck className="w-3 h-3" />
+                              {gates.sampleDelivered
+                                ? "Gate 2: Product Delivered"
+                                : "Gate 2: Awaiting Product Delivery"}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-zinc-400">
                         <span>Price: ₹{Number(c.product_price || 0).toLocaleString("en-IN")}</span>
-                        {c.plan_type === "with_product_150" && (
-                          <span className="text-amber-300 inline-flex items-center gap-1">
-                            <PackageCheck className="w-3.5 h-3.5" />
-                            Sample: {c.sample_status.replace(/_/g, " ")} • Fee: {c.payment_status}
-                          </span>
-                        )}
                         <span>
                           Creator: <strong className="text-zinc-200">{c.assigned_creator_name || "Unassigned"}</strong>
                         </span>
@@ -615,91 +698,101 @@ export default function InfluencerQueuePage() {
                     </div>
                   </div>
 
-                  {/* Leader Action Controls */}
+                  {/* Leader Action Controls (Dual-Gate Enforced!) */}
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {["awaiting_review", "awaiting_payment"].includes(c.workflow_status) && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={busyId === c.id}
-                          onClick={() => handleAccept(c, false)}
-                          className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Accept</span>
-                        </button>
-                        {c.plan_type === "with_product_150" && c.sample_status === "awaiting_sample" && (
-                          <button
-                            type="button"
-                            disabled={busyId === c.id}
-                            onClick={() => handleAccept(c, true)}
-                            className="px-3.5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <PackageCheck className="w-3.5 h-3.5" />
-                            <span>Accept + Sample Received</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={busyId === c.id}
-                          onClick={() => handleReject(c)}
-                          className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Reject</span>
-                        </button>
-                      </>
+                    {/* Confirm Product Delivery button (allowed anytime product physically arrives) */}
+                    {gates.isPlan2Seller && !gates.sampleDelivered && (
+                      <button
+                        type="button"
+                        disabled={busyId === c.id}
+                        onClick={() => handleAccept(c, true)}
+                        className="px-3.5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <PackageCheck className="w-3.5 h-3.5" />
+                        <span>Confirm Product Delivered</span>
+                      </button>
                     )}
 
-                    {c.plan_type === "with_product_150" &&
-                      c.sample_status === "awaiting_sample" &&
-                      !["awaiting_review", "awaiting_payment"].includes(c.workflow_status) && (
+                    {/* Plan 1 Accept button */}
+                    {!gates.isPlan2Seller && ["awaiting_review", "awaiting_payment"].includes(c.workflow_status) && (
+                      <button
+                        type="button"
+                        disabled={busyId === c.id}
+                        onClick={() => handleAccept(c, false)}
+                        className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Accept</span>
+                      </button>
+                    )}
+
+                    {["awaiting_review", "awaiting_payment"].includes(c.workflow_status) && (
+                      <button
+                        type="button"
+                        disabled={busyId === c.id}
+                        onClick={() => handleReject(c)}
+                        className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Reject</span>
+                      </button>
+                    )}
+
+                    {/* HARD DUAL-GATE LOCK INDICATOR */}
+                    {!gates.canProceed && !expired && c.workflow_status !== "rejected" && (
+                      <span
+                        title="Media Team cannot assign a creator until BOTH Razorpay ₹150 Payment AND Product Delivery are completed"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-400 text-[11px] font-semibold"
+                      >
+                        <Lock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>
+                          Locked:{" "}
+                          {!gates.paymentPaid && !gates.sampleDelivered
+                            ? "Payment + Delivery"
+                            : !gates.paymentPaid
+                            ? "Payment Pending"
+                            : "Awaiting Delivery"}
+                        </span>
+                      </span>
+                    )}
+
+                    {gates.canProceed &&
+                      ["accepted", "assigned", "in_production", "revision_needed"].includes(c.workflow_status) && (
                         <button
                           type="button"
-                          disabled={busyId === c.id}
-                          onClick={() => handleAccept(c, true)}
-                          className="px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                          onClick={() => {
+                            setAssignTarget(c);
+                            setSelectedCreatorUid(c.assigned_creator_id || creators[0]?.user_id || "");
+                            setShootBrief(c.shoot_brief || "");
+                          }}
+                          className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                         >
-                          <PackageCheck className="w-3.5 h-3.5" />
-                          <span>Confirm Sample</span>
+                          <UserCheck className="w-3.5 h-3.5" />
+                          <span>{c.assigned_creator_id ? "Reassign Creator" : "Assign Creator"}</span>
                         </button>
                       )}
 
-                    {["accepted", "assigned", "in_production", "revision_needed"].includes(c.workflow_status) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAssignTarget(c);
-                          setSelectedCreatorUid(c.assigned_creator_id || creators[0]?.user_id || "");
-                          setShootBrief(c.shoot_brief || "");
-                        }}
-                        className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        <span>{c.assigned_creator_id ? "Reassign Creator" : "Assign Creator"}</span>
-                      </button>
-                    )}
-
-                    {(c.workflow_status === "submitted_for_review" ||
-                      ["accepted", "assigned", "in_production"].includes(c.workflow_status)) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReviewTarget(c);
-                          setPublishedUrl(c.submitted_video_url || link?.video_url || "");
-                          setPlatform(link?.platform || "instagram");
-                          setAttachVideoProof(c.plan_type === "with_product_150");
-                        }}
-                        className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Play className="w-3.5 h-3.5" />
-                        <span>
-                          {c.workflow_status === "submitted_for_review"
-                            ? "Review & Go Live (7d)"
-                            : "Publish & Start 7d"}
-                        </span>
-                      </button>
-                    )}
+                    {gates.canProceed &&
+                      (c.workflow_status === "submitted_for_review" ||
+                        ["accepted", "assigned", "in_production"].includes(c.workflow_status)) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewTarget(c);
+                            setPublishedUrl(c.submitted_video_url || link?.video_url || "");
+                            setPlatform(link?.platform || "instagram");
+                            setAttachVideoProof(c.plan_type === "with_product_150");
+                          }}
+                          className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                          <span>
+                            {c.workflow_status === "submitted_for_review"
+                              ? "Review & Go Live (7d)"
+                              : "Publish & Start 7d"}
+                          </span>
+                        </button>
+                      )}
                   </div>
                 </div>
               );
@@ -797,7 +890,7 @@ export default function InfluencerQueuePage() {
           </div>
         )}
 
-        {/* REVIEW & GO LIVE (START 7-DAY LINK) MODAL */}
+        {/* REVIEW & GO LIVE MODAL */}
         {reviewTarget && (
           <div
             className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"

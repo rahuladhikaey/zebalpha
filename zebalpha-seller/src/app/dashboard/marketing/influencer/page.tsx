@@ -7,10 +7,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   PlayCircle,
-  Users,
   PhoneCall,
   Sparkles,
-  TrendingUp,
   Search,
   X,
   Pause,
@@ -20,7 +18,6 @@ import {
   ExternalLink,
   ShieldCheck,
   Store,
-  Camera,
   Video,
   Megaphone,
   Info,
@@ -30,7 +27,38 @@ import {
   PackageCheck,
   Flame,
   History,
+  CreditCard,
+  Lock,
 } from "lucide-react";
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, handler: (res: unknown) => void) => void;
+    };
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve(false);
+    if (window.Razorpay) return resolve(true);
+    const existing = document.getElementById("zebalpha-razorpay-sdk");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(Boolean(window.Razorpay)));
+      existing.addEventListener("error", () => resolve(false));
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "zebalpha-razorpay-sdk";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(Boolean(window.Razorpay));
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 interface SellerProductOption {
   id: string;
@@ -51,7 +79,16 @@ interface EnrollmentRow {
   commission_rate: number;
   fixed_fee_inr: number;
   payment_method?: string;
-  payment_status?: string;
+  payment_status: string;
+  payment_due_at?: string | null;
+  pending_payment_amount_inr: number;
+  pending_payment_purpose?: "new_shoot_150" | "upgrade_50" | null;
+  pending_extension_days: number;
+  pending_upgrade_mode?: string | null;
+  razorpay_payment_id?: string | null;
+  is_payment_pending: boolean;
+  is_payment_overdue: boolean;
+  dual_gate_ready: boolean;
   sample_status?: string;
   workflow_status?: string;
   effective_status: string;
@@ -113,10 +150,10 @@ interface AuditLogRow {
   created_at: string;
 }
 
-function formatTimeRemaining(expiresAt?: string | null): string {
-  if (!expiresAt) return "Starts on Media Publish";
-  const diff = new Date(expiresAt).getTime() - Date.now();
-  if (Number.isNaN(diff) || diff <= 0) return "Expired — Link Deactivated";
+function formatCountdown(targetIso?: string | null, emptyText = "Starts on Media Publish", expiredText = "Expired"): string {
+  if (!targetIso) return emptyText;
+  const diff = new Date(targetIso).getTime() - Date.now();
+  if (Number.isNaN(diff) || diff <= 0) return expiredText;
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   if (days > 0) return `${days}d ${hours}h left`;
@@ -127,11 +164,11 @@ function formatTimeRemaining(expiresAt?: string | null): string {
 function workflowLabel(wf: string): { label: string; tone: string } {
   switch (wf) {
     case "awaiting_payment":
-      return { label: "Awaiting ₹150 Verify", tone: "bg-amber-50 text-amber-800 border-amber-200" };
+      return { label: "Payment Pending", tone: "bg-rose-50 text-[#B91C1C] border-rose-200" };
     case "awaiting_review":
       return { label: "In Alpha Media Queue", tone: "bg-amber-50 text-amber-800 border-amber-200" };
     case "accepted":
-      return { label: "Accepted by Media Leader", tone: "bg-sky-50 text-sky-800 border-sky-200" };
+      return { label: "Ready for Shoot", tone: "bg-sky-50 text-sky-800 border-sky-200" };
     case "assigned":
     case "in_production":
       return { label: "Creator Shooting Reel", tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
@@ -165,6 +202,8 @@ export default function InfluencerMarketingPage() {
   const [summary, setSummary] = useState({
     activeCatalogs: 0,
     inQueueCatalogs: 0,
+    paymentPendingCount: 0,
+    paymentOverdueCount: 0,
     expiredCatalogs: 0,
     pausedCatalogs: 0,
     liveVideos: 0,
@@ -180,9 +219,10 @@ export default function InfluencerMarketingPage() {
   const [creatorLinks, setCreatorLinks] = useState<CreatorLinkRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"all" | "videos" | "expired" | "history">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "pending_pay" | "videos" | "expired" | "history">("all");
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   // Modals
   const [showSelectModal, setShowSelectModal] = useState(false);
@@ -194,8 +234,7 @@ export default function InfluencerMarketingPage() {
   const [selectedPlan, setSelectedPlan] = useState<"without_product_1pct" | "with_product_150">(
     "without_product_1pct"
   );
-  const [paymentMethod, setPaymentMethod] = useState<"seller_balance" | "upi_manual">("seller_balance");
-  const [paymentRef, setPaymentRef] = useState("");
+  const [enrollPayTiming, setEnrollPayTiming] = useState<"pay_now" | "pay_within_3_days">("pay_now");
   const [sampleReturnPref, setSampleReturnPref] = useState<"return_after_shoot" | "keep_for_future_shoots">(
     "return_after_shoot"
   );
@@ -204,11 +243,10 @@ export default function InfluencerMarketingPage() {
   const [maxBudgetCap, setMaxBudgetCap] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Renew / Upgrade Modal State
+  // Renew / Upgrade Modal State (₹50 Flat via Razorpay!)
   const [renewMode, setRenewMode] = useState<"renew" | "upgrade_with_product_150">("renew");
   const [renewDays, setRenewDays] = useState(7);
-  const [renewPayMethod, setRenewPayMethod] = useState<"seller_balance" | "upi_manual">("seller_balance");
-  const [renewPayRef, setRenewPayRef] = useState("");
+  const [renewPayTiming, setRenewPayTiming] = useState<"pay_now" | "pay_within_3_days">("pay_now");
   const [renewSubmitting, setRenewSubmitting] = useState(false);
 
   // Callback Form State
@@ -218,7 +256,7 @@ export default function InfluencerMarketingPage() {
 
   const notify = (text: string, type: "success" | "error" = "success") => {
     setToast({ text, type });
-    setTimeout(() => setToast(null), 5000);
+    setTimeout(() => setToast(null), 5500);
   };
 
   const getAuthHeaders = async () => {
@@ -263,19 +301,122 @@ export default function InfluencerMarketingPage() {
     loadData();
   }, [loadData]);
 
+  // Core Razorpay Checkout Launcher (₹150 New Studio Shoot OR ₹50 Upgrade/Reactivate)
+  const launchRazorpayCheckout = async (opts: {
+    enrollmentIds: string[];
+    purpose: "new_shoot_150" | "upgrade_50";
+    durationDays?: number;
+    upgradeMode?: "renew" | "upgrade_with_product_150";
+    busyKey?: string;
+  }) => {
+    setPayingId(opts.busyKey || opts.enrollmentIds[0] || "rzp");
+    try {
+      const sdkLoaded = await loadRazorpayScript();
+      if (!sdkLoaded || !window.Razorpay) {
+        notify("Could not load Razorpay Checkout SDK. Check your internet and try again.", "error");
+        setPayingId(null);
+        return;
+      }
+
+      const headers = await getAuthHeaders();
+      const orderRes = await fetch("/api/seller/marketing/razorpay/create-order", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          enrollmentIds: opts.enrollmentIds,
+          purpose: opts.purpose,
+          durationDays: opts.durationDays || 7,
+          upgradeMode: opts.upgradeMode || "renew",
+        }),
+      });
+      const orderJson = await orderRes.json().catch(() => null);
+      if (!orderRes.ok || !orderJson?.success) {
+        notify(orderJson?.error || "Failed to create Razorpay order.", "error");
+        setPayingId(null);
+        return;
+      }
+
+      const rzp = new window.Razorpay({
+        key: orderJson.keyId,
+        amount: orderJson.amountPaise,
+        currency: orderJson.currency || "INR",
+        name: "ZebAlpha Alpha Media",
+        description: orderJson.description || "Alpha Media Influencer Promotion",
+        order_id: orderJson.orderId,
+        prefill: {
+          name: orderJson.seller?.name || sellerInfo.storeName,
+          email: orderJson.seller?.email || "",
+          contact: orderJson.seller?.phone || sellerInfo.phone || "",
+        },
+        theme: { color: "#F03A46" },
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            const verifyHeaders = await getAuthHeaders();
+            const verifyRes = await fetch("/api/seller/marketing/razorpay/verify", {
+              method: "POST",
+              headers: verifyHeaders,
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            const verifyJson = await verifyRes.json().catch(() => null);
+            if (!verifyRes.ok || !verifyJson?.success) {
+              notify(verifyJson?.error || "Payment signature verification failed.", "error");
+            } else {
+              notify(verifyJson.message || "Razorpay payment verified successfully!");
+              setShowSelectModal(false);
+              setRenewTarget(null);
+              setSelectedIds([]);
+              await loadData();
+            }
+          } catch {
+            notify("Network error verifying Razorpay payment.", "error");
+          } finally {
+            setPayingId(null);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPayingId(null);
+            notify(
+              "Razorpay popup closed — campaign is safely saved as Payment Pending (complete within 3 days).",
+              "error"
+            );
+            loadData();
+          },
+        },
+      });
+
+      rzp.on("payment.failed", () => {
+        setPayingId(null);
+        notify("Razorpay payment failed. Campaign remains saved under Payment Pending (3-day window).", "error");
+        loadData();
+      });
+
+      rzp.open();
+    } catch {
+      setPayingId(null);
+      notify("Error initializing Razorpay Checkout.", "error");
+    }
+  };
+
   const openEnrollWithPlan = (plan: "without_product_1pct" | "with_product_150") => {
     setSelectedPlan(plan);
+    setEnrollPayTiming("pay_now");
     setShowSelectModal(true);
   };
 
   const openRenewModal = (row: EnrollmentRow, defaultMode?: "renew" | "upgrade_with_product_150") => {
     setRenewTarget(row);
-    setRenewMode(
-      defaultMode || (row.plan_type === "without_product_1pct" ? "renew" : "renew")
-    );
+    setRenewMode(defaultMode || "renew");
     setRenewDays(7);
-    setRenewPayMethod("seller_balance");
-    setRenewPayRef("");
+    setRenewPayTiming("pay_now");
   };
 
   const enrolledMap = useMemo(() => {
@@ -310,8 +451,7 @@ export default function InfluencerMarketingPage() {
           action: "enroll_catalogs",
           productIds: selectedIds,
           planType: selectedPlan,
-          paymentMethod,
-          paymentRef,
+          paymentTiming: enrollPayTiming,
           sampleReturnPreference: sampleReturnPref,
           maxBudgetCap: maxBudgetCap.trim() ? Number(maxBudgetCap) : null,
         }),
@@ -321,10 +461,21 @@ export default function InfluencerMarketingPage() {
         notify(json?.error || "Failed to enroll catalogs.", "error");
         return;
       }
-      notify(json.message || "Catalogs sent to Alpha Media Team!");
+
+      if (json.requiresRazorpayNow && Array.isArray(json.createdEnrollmentIds) && json.createdEnrollmentIds.length > 0) {
+        setSubmitting(false);
+        await launchRazorpayCheckout({
+          enrollmentIds: json.createdEnrollmentIds,
+          purpose: "new_shoot_150",
+          durationDays: 7,
+          busyKey: "enroll-now",
+        });
+        return;
+      }
+
+      notify(json.message || "Catalogs enrolled!");
       setShowSelectModal(false);
       setSelectedIds([]);
-      setPaymentRef("");
       await loadData();
     } catch {
       notify("Network error while enrolling catalogs.", "error");
@@ -335,6 +486,20 @@ export default function InfluencerMarketingPage() {
 
   const handleRenewUpgradeSubmit = async () => {
     if (!renewTarget) return;
+
+    // Option 1: Pay ₹50 Now via Razorpay (Instant reactivation on verify!)
+    if (renewPayTiming === "pay_now") {
+      await launchRazorpayCheckout({
+        enrollmentIds: [renewTarget.id],
+        purpose: "upgrade_50",
+        durationDays: renewDays,
+        upgradeMode: renewMode,
+        busyKey: renewTarget.id,
+      });
+      return;
+    }
+
+    // Option 2: Pay ₹50 Within 3 Days (Saved as Payment Pending — activates once paid!)
     setRenewSubmitting(true);
     try {
       const headers = await getAuthHeaders();
@@ -342,28 +507,42 @@ export default function InfluencerMarketingPage() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          action: "renew_or_upgrade",
+          action: "schedule_upgrade_pay_later",
           enrollmentId: renewTarget.id,
           mode: renewMode,
           durationDays: renewDays,
-          paymentMethod: renewPayMethod,
-          paymentRef: renewPayRef,
-          sampleReturnPreference: sampleReturnPref,
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        notify(json?.error || "Failed to reactivate link.", "error");
+        notify(json?.error || "Failed to save ₹50 upgrade request.", "error");
         return;
       }
-      notify(json.message || "Link reactivated!");
+      notify(json.message || "Saved as Payment Pending (Pay ₹50 via Razorpay within 3 days).");
       setRenewTarget(null);
       await loadData();
     } catch {
-      notify("Network error while reactivating link.", "error");
+      notify("Network error saving upgrade.", "error");
     } finally {
       setRenewSubmitting(false);
     }
+  };
+
+  const handlePayPendingRow = async (row: EnrollmentRow) => {
+    const purpose =
+      row.pending_payment_purpose === "upgrade_50" || Number(row.pending_payment_amount_inr) === 50
+        ? "upgrade_50"
+        : "new_shoot_150";
+    await launchRazorpayCheckout({
+      enrollmentIds: [row.id],
+      purpose,
+      durationDays: row.pending_extension_days || 7,
+      upgradeMode:
+        row.pending_upgrade_mode === "upgrade_with_product_150"
+          ? "upgrade_with_product_150"
+          : "renew",
+      busyKey: row.id,
+    });
   };
 
   const handleToggleStatus = async (row: EnrollmentRow) => {
@@ -428,6 +607,9 @@ export default function InfluencerMarketingPage() {
   };
 
   const visibleEnrollments = useMemo(() => {
+    if (activeTab === "pending_pay") {
+      return enrollments.filter((e) => e.is_payment_pending);
+    }
     if (activeTab === "expired") {
       return enrollments.filter((e) => e.effective_status === "expired");
     }
@@ -463,41 +645,47 @@ export default function InfluencerMarketingPage() {
         </div>
       )}
 
-      {/* Setup / Migration Notices */}
-      {(!sellerInfo.hasEnrolment || !sellerInfo.hasUpi) && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#F03A46]/30 bg-gradient-to-r from-[#FFF3F1] via-[#FFF8F6] to-[#FFFDF8] px-5 py-3.5">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="mt-0.5 text-[#F03A46] shrink-0" />
-            <div>
-              <p className="text-xs sm:text-sm font-black text-[#B91C1C]">
-                {!sellerInfo.hasEnrolment
-                  ? "Your 15-Character Enrolment ID / GSTIN is missing!"
-                  : "Verify your UPI ID for 5-day order payouts!"}
-              </p>
-              <p className="text-xs font-medium text-[#5C4E35]">
-                Complete your seller profile to unlock priority Alpha Media Team reels.
-              </p>
-            </div>
-          </div>
-          <Link
-            href={!sellerInfo.hasEnrolment ? "/dashboard/settings" : "/dashboard/payments"}
-            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-[#F03A46] bg-white px-4 py-2 text-xs font-black text-[#F03A46] hover:bg-[#F03A46] hover:text-white transition-all"
-          >
-            Complete Now
-          </Link>
-        </div>
-      )}
-
+      {/* Migration Notice */}
       {(migrationRequired || upgradeMigrationRequired) && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-[#FFF8DB] px-5 py-3.5 text-xs font-bold text-[#6E4900]">
           <Info size={16} className="mt-0.5 shrink-0 text-[#B45309]" />
           <span>
             Run{" "}
             <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px]">
-              supabase/upgrade_alpha_media_influencer_ecosystem.sql
+              supabase/upgrade_alpha_media_razorpay_and_dualgate.sql
             </code>{" "}
-            in Supabase SQL Editor to activate the 2-Plan 7-Day Alpha Media workflow &amp; permanent audit logs.
+            in Supabase SQL Editor to enable Razorpay ₹150/₹50 checkout, 3-day payment deadlines, and Dual-Gate Media locking.
           </span>
+        </div>
+      )}
+
+      {/* PAYMENT PENDING ALERT BANNER */}
+      {summary.paymentPendingCount > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-[#FFF8DB] via-[#FFFDF8] to-[#FFF4F2] px-5 py-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <CreditCard size={20} className="mt-0.5 text-[#B45309] shrink-0" />
+            <div>
+              <p className="text-sm font-black text-[#92400E]">
+                {summary.paymentPendingCount} campaign{summary.paymentPendingCount > 1 ? "s have" : " has"} Payment Pending
+                {summary.paymentOverdueCount > 0 && (
+                  <span className="ml-2 rounded-full bg-[#F03A46] px-2 py-0.5 text-[10px] text-white">
+                    {summary.paymentOverdueCount} Overdue (&gt;3 Days)
+                  </span>
+                )}
+              </p>
+              <p className="text-xs font-semibold text-[#5C4E35] mt-0.5">
+                Complete your Razorpay payment within 3 days (plus product delivery for ₹150 studio shoots) so Alpha Media can proceed!
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("pending_pay")}
+            data-photo-overlay="true"
+            className="shrink-0 rounded-xl bg-[#F03A46] px-4 py-2.5 text-xs font-black text-white shadow-md hover:brightness-105 cursor-pointer"
+          >
+            Pay Pending Now ({summary.paymentPendingCount})
+          </button>
         </div>
       )}
 
@@ -511,7 +699,7 @@ export default function InfluencerMarketingPage() {
                 {summary.missedClicks} customer click{summary.missedClicks > 1 ? "s" : ""} arrived after your 7-day link expired!
               </p>
               <p className="text-xs font-semibold text-[#5C4E35]">
-                Renew or Upgrade anytime — your exact same <code className="font-mono font-black">zebalpha.shop/go/INF-...</code> link reactivates immediately so your existing reels keep selling.
+                Reactivate / Upgrade for just <strong>₹50 via Razorpay</strong> — your exact same <code className="font-mono font-black">/go/INF-...</code> link becomes live immediately!
               </p>
             </div>
           </div>
@@ -521,7 +709,7 @@ export default function InfluencerMarketingPage() {
             data-photo-overlay="true"
             className="shrink-0 rounded-xl bg-[#F03A46] px-4 py-2.5 text-xs font-black text-white shadow-md hover:brightness-105 cursor-pointer"
           >
-            View Expired Links ({summary.expiredCatalogs})
+            Reactivate for ₹50 ({summary.expiredCatalogs})
           </button>
         </div>
       )}
@@ -536,7 +724,7 @@ export default function InfluencerMarketingPage() {
             Alpha Media Influencer Marketing
           </h1>
           <p className="mt-1 text-xs sm:text-sm font-semibold text-[#6E5C3D]">
-            Guaranteed in-house reels with 7-day smart expiring links — reactivate the exact same link anytime you renew or upgrade.
+            Guaranteed in-house reels with 7-day smart links — new studio shoot ₹150, future reactivations/upgrades just ₹50 via Razorpay!
           </p>
         </div>
 
@@ -579,7 +767,7 @@ export default function InfluencerMarketingPage() {
               Without Product + <span className="text-[#F03A46]">1% Commission</span>
             </h2>
             <p className="mt-1.5 text-xs font-semibold text-[#6E5C3D]">
-              No sample shipping needed. Alpha Media Team edits a high-converting promo reel using your catalog photos &amp; details.
+              No sample shipping needed. Alpha Media Team edits a promo reel using your catalog photos &amp; details.
             </p>
 
             <ul className="mt-5 space-y-2.5 text-xs font-bold text-[#14120F]">
@@ -592,13 +780,13 @@ export default function InfluencerMarketingPage() {
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
                 <span>
-                  <strong>7-Day Clock Starts on Publish:</strong> Full 168 hours from the moment Media Leader posts your reel.
+                  <strong>7-Day Clock Starts on Publish:</strong> Full 168 hours from when Media Leader publishes your reel.
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
                 <span>
-                  <strong>Auto-Deactivates After 7 Days:</strong> Renew or upgrade to Plan 2 anytime to reactivate the exact same link.
+                  <strong>Just ₹50 to Reactivate / Upgrade Anytime:</strong> Pay ₹50 via Razorpay after 7 days to instantly unlock the same link!
                 </span>
               </li>
             </ul>
@@ -607,7 +795,7 @@ export default function InfluencerMarketingPage() {
           <div className="mt-6 pt-4 border-t border-[#F0E2BE] flex items-center justify-between gap-3">
             <div>
               <p className="text-lg font-black text-[#14120F]">₹0 upfront</p>
-              <p className="text-[11px] font-bold text-[#7A6847]">+ 1% on delivered orders</p>
+              <p className="text-[11px] font-bold text-[#7A6847]">+ 1% on delivered • ₹50 future upgrade</p>
             </div>
             <button
               type="button"
@@ -645,7 +833,7 @@ export default function InfluencerMarketingPage() {
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#F03A46]" />
                 <span>
-                  <strong>Real Human Try-On / Unboxing Reel:</strong> Shot &amp; edited by ZebAlpha&apos;s personal Alpha Media Team.
+                  <strong>Pay ₹150 via Razorpay:</strong> Choose <em>Pay Now</em> or <em>Pay Within 3 Days</em> — Media Team proceeds once <strong>Product Delivered + Payment Complete</strong>.
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
@@ -657,7 +845,7 @@ export default function InfluencerMarketingPage() {
               <li className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#F03A46]" />
                 <span>
-                  <strong>₹150 Flat + 0% Extra Commission:</strong> Pay via Seller Balance or UPI; 7-day link starts after shoot goes live!
+                  <strong>0% Extra Commission + ₹50 Future Renewal:</strong> Never pay ₹150 again for the same reel — renew/reactivate anytime for just <strong>₹50</strong>!
                 </span>
               </li>
             </ul>
@@ -665,8 +853,8 @@ export default function InfluencerMarketingPage() {
 
           <div className="mt-6 pt-4 border-t border-[#F0E2BE] flex items-center justify-between gap-3">
             <div>
-              <p className="text-lg font-black text-[#14120F]">₹150 flat</p>
-              <p className="text-[11px] font-bold text-emerald-700">0% extra commission • 7 days</p>
+              <p className="text-lg font-black text-[#14120F]">₹150 flat (Razorpay)</p>
+              <p className="text-[11px] font-bold text-emerald-700">Pay Now or within 3 days • ₹50 renewals</p>
             </div>
             <button
               type="button"
@@ -684,8 +872,8 @@ export default function InfluencerMarketingPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {[
           { label: "Live 7-Day Links", value: summary.activeCatalogs },
+          { label: "Payment Pending", value: summary.paymentPendingCount, accent: summary.paymentPendingCount > 0 },
           { label: "In Media Queue", value: summary.inQueueCatalogs },
-          { label: "Expired Links", value: summary.expiredCatalogs },
           { label: "Active Clicks", value: summary.totalClicks },
           { label: "Missed After Expiry", value: summary.missedClicks, accent: summary.missedClicks > 0 },
           { label: "Delivered GMV", value: `₹${summary.deliveredGmv.toLocaleString("en-IN")}` },
@@ -693,9 +881,7 @@ export default function InfluencerMarketingPage() {
           <div
             key={kpi.label}
             className={`rounded-2xl border p-4 shadow-sm ${
-              kpi.accent
-                ? "border-rose-300 bg-[#FFF4F2]"
-                : "border-[#EAD296] bg-white"
+              kpi.accent ? "border-rose-300 bg-[#FFF4F2]" : "border-[#EAD296] bg-white"
             }`}
           >
             <p className="text-[10px] font-black uppercase tracking-wider text-[#7A6847]">
@@ -714,15 +900,16 @@ export default function InfluencerMarketingPage() {
           <div className="flex flex-wrap items-center gap-2">
             {[
               { key: "all" as const, label: `All Campaigns (${enrollments.length})` },
+              { key: "pending_pay" as const, label: `Payment Pending (${summary.paymentPendingCount})` },
               { key: "videos" as const, label: `Smart 7-Day Links (${creatorLinks.length})` },
-              { key: "expired" as const, label: `Expired / Renew (${summary.expiredCatalogs})` },
+              { key: "expired" as const, label: `Expired / ₹50 Renew (${summary.expiredCatalogs})` },
               { key: "history" as const, label: `Saved Activity (${auditLogs.length})` },
             ].map((t) => (
               <button
                 key={t.key}
                 type="button"
                 onClick={() => setActiveTab(t.key)}
-                className={`border-b-[3px] px-3.5 py-3 text-xs sm:text-sm transition-all cursor-pointer ${
+                className={`border-b-[3px] px-3 py-3 text-xs sm:text-sm transition-all cursor-pointer ${
                   activeTab === t.key
                     ? "border-[#F03A46] font-black text-[#F03A46]"
                     : "border-transparent font-bold text-[#6E5C3D] hover:text-[#14120F]"
@@ -743,7 +930,7 @@ export default function InfluencerMarketingPage() {
             </Link>
             <button
               type="button"
-              onClick={() => openEnrollWithPlan("without_product_1pct")}
+              onClick={() => openEnrollWithPlan("with_product_150")}
               className="rounded-xl border border-[#DFBE6F] bg-[#FFFDF8] px-3.5 py-1.5 text-xs font-black text-[#9A6503] hover:border-[#F03A46] hover:text-[#F03A46] cursor-pointer"
             >
               + Add Catalogs
@@ -774,7 +961,9 @@ export default function InfluencerMarketingPage() {
                 </thead>
                 <tbody className="divide-y divide-[#F0E2BE]">
                   {creatorLinks.map((lnk) => {
-                    const parentEnr = enrollments.find((e) => e.id === lnk.enrollment_id || e.product_id === lnk.product_id);
+                    const parentEnr = enrollments.find(
+                      (e) => e.id === lnk.enrollment_id || e.product_id === lnk.product_id
+                    );
                     return (
                       <tr key={lnk.id} className="hover:bg-[#FFFDF8]">
                         <td className="px-6 py-4">
@@ -799,7 +988,7 @@ export default function InfluencerMarketingPage() {
                           </span>
                         </td>
                         <td className="px-5 py-4 font-bold text-[#14120F]">
-                          {formatTimeRemaining(lnk.expires_at)}
+                          {formatCountdown(lnk.expires_at, "Starts on Media Publish", "Expired — Deactivated")}
                           {lnk.renewal_count > 0 && (
                             <p className="text-[10px] text-emerald-700">Renewed {lnk.renewal_count}×</p>
                           )}
@@ -855,7 +1044,7 @@ export default function InfluencerMarketingPage() {
                                 className="inline-flex items-center gap-1 rounded-xl bg-[#F03A46] px-3 py-1.5 text-[11px] font-black text-white hover:brightness-105 cursor-pointer"
                               >
                                 <RefreshCw size={11} />
-                                {lnk.is_expired ? "Reactivate" : "Extend"}
+                                {lnk.is_expired ? "Reactivate ₹50" : "Extend ₹50"}
                               </button>
                             )}
                           </div>
@@ -871,7 +1060,7 @@ export default function InfluencerMarketingPage() {
               <div className="py-12 text-center px-6">
                 <p className="text-sm font-black text-[#14120F]">No campaign timeline events yet</p>
                 <p className="mt-1 text-xs font-semibold text-[#6E5C3D]">
-                  Every enrollment, Alpha Media acceptance, publish, renewal, and upgrade is permanently saved here.
+                  Every enrollment, Razorpay payment ID, sample delivery, publish, and ₹50 upgrade is permanently saved here.
                 </p>
               </div>
             ) : (
@@ -888,6 +1077,11 @@ export default function InfluencerMarketingPage() {
                             {log.event_type.replace(/_/g, " ")}
                           </span>
                           {log.product_name || "Catalog"}
+                          {Number(log.fee_charged_inr || 0) > 0 && (
+                            <span className="ml-2 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] text-emerald-800">
+                              ₹{log.fee_charged_inr} Paid
+                            </span>
+                          )}
                         </p>
                         <p className="text-[11px] font-semibold text-[#5C4E35] mt-0.5">
                           {log.notes || "Workflow updated"}
@@ -905,28 +1099,40 @@ export default function InfluencerMarketingPage() {
           ) : visibleEnrollments.length === 0 ? (
             <div className="py-12 text-center px-6">
               <p className="text-sm font-black text-[#14120F]">
-                {activeTab === "expired"
+                {activeTab === "pending_pay"
+                  ? "No pending Razorpay payments!"
+                  : activeTab === "expired"
                   ? "No expired influencer links right now!"
                   : "No catalogs enrolled in Alpha Media Influencer Marketing yet"}
               </p>
               <p className="mt-1 text-xs font-semibold text-[#6E5C3D]">
-                Pick Plan 1 (Without Product + 1%) or Plan 2 (With Product + ₹150) above to launch your first 7-day reel campaign.
+                Pick Plan 1 (Without Product + 1%) or Plan 2 (With Product + ₹150 via Razorpay) above.
               </p>
             </div>
           ) : (
-            <table className="w-full min-w-[820px] text-left text-xs">
+            <table className="w-full min-w-[860px] text-left text-xs">
               <thead>
                 <tr className="border-b border-[#EAD296] bg-[#FFF8EB] text-[11px] font-black uppercase tracking-wider text-[#5C4E35]">
                   <th className="px-6 py-3.5">Catalog &amp; Plan</th>
-                  <th className="px-5 py-3.5">Alpha Media Status</th>
+                  <th className="px-5 py-3.5">Payment &amp; Delivery Gates</th>
                   <th className="px-5 py-3.5">7-Day Window</th>
                   <th className="px-5 py-3.5">Clicks / Orders</th>
-                  <th className="px-5 py-3.5 text-right">Renew / Upgrade</th>
+                  <th className="px-5 py-3.5 text-right">Pay / Upgrade (₹50)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F0E2BE]">
                 {visibleEnrollments.map((row) => {
                   const badge = workflowLabel(row.effective_workflow);
+                  const pendingAmt =
+                    row.pending_payment_amount_inr ||
+                    (row.pending_payment_purpose === "upgrade_50" ? 50 : 150);
+                  const sampleDelivered = [
+                    "sample_received",
+                    "in_shoot",
+                    "shoot_completed",
+                    "kept_at_studio",
+                  ].includes(String(row.sample_status || ""));
+
                   return (
                     <tr key={row.id} className="hover:bg-[#FFFDF8]">
                       <td className="px-6 py-4">
@@ -954,32 +1160,63 @@ export default function InfluencerMarketingPage() {
                                   ? "With Product + ₹150"
                                   : `Without Product + ${row.commission_rate}%`}
                               </span>
-                              {row.plan_type === "with_product_150" && row.sample_status && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF8DB] border border-[#EAD296] px-2 py-0.5 text-[10px] font-bold text-[#9A6503]">
-                                  <PackageCheck size={10} />
-                                  {row.sample_status.replace(/_/g, " ")}
-                                </span>
-                              )}
+                              <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black ${badge.tone}`}>
+                                {badge.label}
+                              </span>
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black ${badge.tone}`}>
-                          {badge.label}
-                        </span>
-                        {row.assigned_creator_name && (
-                          <p className="mt-1 text-[11px] font-semibold text-[#5C4E35]">
-                            Creator: {row.assigned_creator_name}
-                          </p>
+
+                      <td className="px-5 py-4 space-y-1">
+                        {/* Payment Gate Badge */}
+                        {row.is_payment_pending ? (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-black ${
+                              row.is_payment_overdue
+                                ? "border-rose-300 bg-rose-50 text-[#B91C1C]"
+                                : "border-amber-300 bg-[#FFF8DB] text-[#92400E]"
+                            }`}
+                          >
+                            <CreditCard size={10} />
+                            {row.is_payment_overdue
+                              ? `Payment Pending ₹${pendingAmt} • Overdue (>3d)`
+                              : `Payment Pending ₹${pendingAmt} • ${formatCountdown(row.payment_due_at, "3 days", "Overdue")}`}
+                          </span>
+                        ) : row.payment_status === "paid" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-black text-emerald-800">
+                            <CheckCircle2 size={10} /> Razorpay Paid
+                            {row.razorpay_payment_id ? ` (${row.razorpay_payment_id.slice(-6)})` : ""}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-[#7A6847]">1% Delivered Comm.</span>
                         )}
-                        {row.rejection_reason && (
-                          <p className="mt-1 text-[11px] font-bold text-rose-700">{row.rejection_reason}</p>
+
+                        {/* Product Delivery Gate (for Plan 2) */}
+                        {row.plan_type === "with_product_150" && (
+                          <div>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
+                                sampleDelivered
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                  : "border-[#EAD296] bg-[#FFF8DB] text-[#9A6503]"
+                              }`}
+                            >
+                              <PackageCheck size={10} />
+                              {sampleDelivered ? "Product Delivered to Studio" : "Send Product Sample"}
+                            </span>
+                            {!row.dual_gate_ready && (
+                              <p className="text-[10px] font-bold text-[#7A6847] mt-0.5 flex items-center gap-1">
+                                <Lock size={9} /> Media proceeds after Payment + Delivery
+                              </p>
+                            )}
+                          </div>
                         )}
                       </td>
+
                       <td className="px-5 py-4">
                         <p className={`font-black ${row.is_expired ? "text-[#F03A46]" : "text-[#14120F]"}`}>
-                          {formatTimeRemaining(row.expires_at)}
+                          {formatCountdown(row.expires_at, "Starts on Media Publish", "Expired — Deactivated")}
                         </p>
                         {row.missed_clicks_after_expiry > 0 && (
                           <p className="mt-0.5 text-[11px] font-black text-[#F03A46]">
@@ -987,36 +1224,53 @@ export default function InfluencerMarketingPage() {
                           </p>
                         )}
                       </td>
+
                       <td className="px-5 py-4 font-extrabold text-[#14120F]">
                         {row.total_clicks} clicks • {row.delivered_orders}/{row.total_orders} orders
                         <p className="text-[11px] font-bold text-[#7A6847]">
                           GMV ₹{Number(row.delivered_gmv || 0).toLocaleString("en-IN")}
                         </p>
                       </td>
+
                       <td className="px-5 py-4 text-right">
                         <div className="inline-flex flex-wrap items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openRenewModal(row, "renew")}
-                            data-photo-overlay={row.is_expired ? "true" : undefined}
-                            className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${
-                              row.is_expired
-                                ? "bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white shadow-sm"
-                                : "border border-[#DFBE6F] bg-[#FFFDF8] text-[#14120F] hover:border-[#F03A46]"
-                            }`}
-                          >
-                            <RefreshCw size={11} />
-                            {row.is_expired ? "Reactivate +7d" : "Renew +7d"}
-                          </button>
-
-                          {row.plan_type === "without_product_1pct" && (
+                          {row.is_payment_pending ? (
                             <button
                               type="button"
-                              onClick={() => openRenewModal(row, "upgrade_with_product_150")}
-                              className="inline-flex items-center gap-1 rounded-xl border border-[#F03A46]/40 bg-[#FFF4F2] px-3 py-1.5 text-[11px] font-black text-[#F03A46] hover:bg-[#F03A46] hover:text-white transition-all cursor-pointer"
+                              disabled={payingId === row.id}
+                              onClick={() => handlePayPendingRow(row)}
+                              data-photo-overlay="true"
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-3.5 py-2 text-[11px] font-black text-white shadow-md hover:brightness-105 disabled:opacity-60 cursor-pointer"
                             >
-                              <ArrowUpRight size={12} /> Upgrade ₹150
+                              <CreditCard size={12} />
+                              {payingId === row.id ? "Opening..." : `Pay ₹${pendingAmt} (Razorpay)`}
                             </button>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openRenewModal(row, "renew")}
+                                data-photo-overlay={row.is_expired ? "true" : undefined}
+                                className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${
+                                  row.is_expired
+                                    ? "bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white shadow-sm"
+                                    : "border border-[#DFBE6F] bg-[#FFFDF8] text-[#14120F] hover:border-[#F03A46]"
+                                }`}
+                              >
+                                <RefreshCw size={11} />
+                                {row.is_expired ? "Reactivate ₹50" : "Upgrade ₹50"}
+                              </button>
+
+                              {row.plan_type === "without_product_1pct" && (
+                                <button
+                                  type="button"
+                                  onClick={() => openRenewModal(row, "upgrade_with_product_150")}
+                                  className="inline-flex items-center gap-1 rounded-xl border border-[#F03A46]/40 bg-[#FFF4F2] px-3 py-1.5 text-[11px] font-black text-[#F03A46] hover:bg-[#F03A46] hover:text-white transition-all cursor-pointer"
+                                >
+                                  <ArrowUpRight size={12} /> Studio ₹50
+                                </button>
+                              )}
+                            </>
                           )}
 
                           {row.effective_status === "active" || row.effective_status === "paused" ? (
@@ -1050,7 +1304,7 @@ export default function InfluencerMarketingPage() {
         <span>Request Alpha Media Callback</span>
       </button>
 
-      {/* ENROLL CATALOGS MODAL (2 PLANS) */}
+      {/* ENROLL CATALOGS MODAL (2 PLANS + DUAL PAYMENT TIMING FOR PLAN 2) */}
       {showSelectModal && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
@@ -1066,7 +1320,7 @@ export default function InfluencerMarketingPage() {
                   Launch 7-Day Alpha Media Influencer Campaign
                 </h3>
                 <p className="mt-0.5 text-xs font-semibold text-[#6E5C3D]">
-                  Choose your plan &amp; select live catalogs. Your 7-day link activates once Media Leader publishes the reel!
+                  Choose your plan &amp; payment timing. For ₹150 studio shoots, Alpha Media proceeds once Product Delivery + Razorpay Payment are both complete.
                 </p>
               </div>
               <button
@@ -1103,40 +1357,59 @@ export default function InfluencerMarketingPage() {
                     : "border-[#EAD296] bg-[#FFFDF8]"
                 }`}
               >
-                <p className="text-xs font-black text-[#14120F]">Plan 2: With Product + ₹150</p>
+                <p className="text-xs font-black text-[#14120F]">Plan 2: With Product + ₹150 (Razorpay)</p>
                 <p className="mt-0.5 text-[11px] font-semibold text-[#6E5C3D]">
-                  Real Alpha Studio shoot + PDP Video Proof • 0% comm • 7 days
+                  Real Alpha Studio shoot + PDP Video Proof • 0% comm
                 </p>
               </button>
             </div>
 
             {/* Plan-specific options */}
             {selectedPlan === "with_product_150" ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-4">
+              <div className="mt-4 space-y-3 rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-4">
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-1.5">
-                    ₹150 Shoot Fee Mode (per catalog)
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-2">
+                    Choose ₹150 Razorpay Payment Option (per catalog)
                   </label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as "seller_balance" | "upi_manual")}
-                    className="w-full rounded-xl border border-[#EAD296] bg-white px-3 py-2 text-xs font-bold"
-                  >
-                    <option value="seller_balance">Auto-Deduct from Seller Payout (Instant Queue)</option>
-                    <option value="upi_manual">UPI Manual Transfer (Enter UTR)</option>
-                  </select>
-                  {paymentMethod === "upi_manual" && (
-                    <input
-                      type="text"
-                      value={paymentRef}
-                      onChange={(e) => setPaymentRef(e.target.value)}
-                      placeholder="Enter 12-digit UPI UTR Reference"
-                      className="mt-2 w-full rounded-xl border border-[#EAD296] bg-white px-3 py-2 text-xs font-bold"
-                    />
-                  )}
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setEnrollPayTiming("pay_now")}
+                      className={`rounded-xl border-2 p-3 text-left transition-all cursor-pointer ${
+                        enrollPayTiming === "pay_now"
+                          ? "border-[#F03A46] bg-white shadow-sm"
+                          : "border-[#EAD296] bg-[#FFFDF8]"
+                      }`}
+                    >
+                      <p className="text-xs font-black text-[#14120F] flex items-center gap-1.5">
+                        <CreditCard size={13} className="text-[#F03A46]" /> Pay Now via Razorpay
+                      </p>
+                      <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
+                        UPI / GPay / PhonePe / Card — instant verification
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEnrollPayTiming("pay_within_3_days")}
+                      className={`rounded-xl border-2 p-3 text-left transition-all cursor-pointer ${
+                        enrollPayTiming === "pay_within_3_days"
+                          ? "border-[#F03A46] bg-white shadow-sm"
+                          : "border-[#EAD296] bg-[#FFFDF8]"
+                      }`}
+                    >
+                      <p className="text-xs font-black text-[#14120F] flex items-center gap-1.5">
+                        <Clock size={13} className="text-[#9A6503]" /> Pay Within 3 Days (Razorpay)
+                      </p>
+                      <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
+                        Shows Payment Pending until paid; Media starts after Payment + Delivery
+                      </p>
+                    </button>
+                  </div>
                 </div>
+
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-1.5">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35] mb-1">
                     Sample Product Handling
                   </label>
                   <select
@@ -1236,7 +1509,7 @@ export default function InfluencerMarketingPage() {
               <span className="text-xs font-extrabold text-[#5C4E35]">
                 {selectedIds.length} catalog(s) •{" "}
                 {selectedPlan === "with_product_150"
-                  ? `Total ₹${selectedIds.length * 150} (7-Day Studio Shoot)`
+                  ? `₹${selectedIds.length * 150} via Razorpay (${enrollPayTiming === "pay_now" ? "Pay Now" : "Within 3 Days"})`
                   : "₹0 upfront + 1% delivered commission"}
               </span>
               <div className="flex items-center gap-2.5">
@@ -1249,12 +1522,18 @@ export default function InfluencerMarketingPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={submitting || selectedIds.length === 0}
+                  disabled={submitting || payingId === "enroll-now" || selectedIds.length === 0}
                   onClick={handleEnrollSubmit}
                   data-photo-overlay="true"
                   className="rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-2.5 text-xs font-black text-white shadow-md disabled:opacity-50 cursor-pointer"
                 >
-                  {submitting ? "Submitting..." : "Submit to Alpha Media"}
+                  {submitting || payingId === "enroll-now"
+                    ? "Processing..."
+                    : selectedPlan === "with_product_150" && enrollPayTiming === "pay_now"
+                    ? `Pay ₹${selectedIds.length * 150} via Razorpay`
+                    : selectedPlan === "with_product_150"
+                    ? "Book Now (Pay Within 3 Days)"
+                    : "Submit to Alpha Media"}
                 </button>
               </div>
             </div>
@@ -1262,7 +1541,7 @@ export default function InfluencerMarketingPage() {
         </div>
       )}
 
-      {/* RENEW / UPGRADE MODAL (INSTANT SAME-LINK REACTIVATION) */}
+      {/* REACTIVATE / UPGRADE MODAL (₹50 FLAT VIA RAZORPAY — PAY NOW OR WITHIN 3 DAYS!) */}
       {renewTarget && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
@@ -1275,10 +1554,10 @@ export default function InfluencerMarketingPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-[10px] font-black uppercase text-emerald-800">
-                  <RefreshCw size={10} /> Instant Same-Link Reactivation
+                  <RefreshCw size={10} /> Instant Same-Link Reactivation • Just ₹50
                 </span>
                 <h3 className="mt-2 text-lg font-black text-[#14120F]">
-                  Reactivate / Upgrade Campaign
+                  Reactivate / Upgrade Campaign (₹50)
                 </h3>
                 <p className="text-xs font-semibold text-[#6E5C3D]">{renewTarget.product_name}</p>
               </div>
@@ -1299,11 +1578,9 @@ export default function InfluencerMarketingPage() {
                   renewMode === "renew" ? "border-[#F03A46] bg-[#FFF4F2]/60" : "border-[#EAD296]"
                 }`}
               >
-                <p className="text-xs font-black text-[#14120F]">Renew Current Plan</p>
+                <p className="text-xs font-black text-[#14120F]">Renew Current Plan — ₹50</p>
                 <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
-                  {renewTarget.plan_type === "with_product_150"
-                    ? "With Product + ₹150 (+7 days)"
-                    : "Without Product + 1% (+7 days)"}
+                  Reactivate the exact same /go/INF link via Razorpay
                 </p>
               </button>
 
@@ -1317,9 +1594,9 @@ export default function InfluencerMarketingPage() {
                       : "border-[#EAD296]"
                   }`}
                 >
-                  <p className="text-xs font-black text-[#F03A46]">Upgrade to Studio Shoot (₹150)</p>
+                  <p className="text-xs font-black text-[#F03A46]">Upgrade to Studio — ₹50</p>
                   <p className="text-[11px] font-semibold text-[#6E5C3D] mt-0.5">
-                    Real try-on video + PDP proof + 0% comm
+                    Real try-on video + PDP proof + 0% comm (no ₹150 again!)
                   </p>
                 </button>
               )}
@@ -1347,30 +1624,47 @@ export default function InfluencerMarketingPage() {
               </div>
             </div>
 
-            {(renewMode === "upgrade_with_product_150" || renewTarget.plan_type === "with_product_150") && (
-              <div className="rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-3.5 space-y-2.5">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35]">
-                  ₹150 Payment Mode
-                </label>
-                <select
-                  value={renewPayMethod}
-                  onChange={(e) => setRenewPayMethod(e.target.value as "seller_balance" | "upi_manual")}
-                  className="w-full rounded-xl border border-[#EAD296] bg-white px-3 py-2 text-xs font-bold"
+            {/* 2 Payment Options for ₹50 Upgrade */}
+            <div className="rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-3.5 space-y-2">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-[#5C4E35]">
+                ₹50 Razorpay Payment Option
+              </label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setRenewPayTiming("pay_now")}
+                  className={`rounded-xl border-2 p-2.5 text-left cursor-pointer ${
+                    renewPayTiming === "pay_now"
+                      ? "border-[#F03A46] bg-white"
+                      : "border-[#EAD296] bg-[#FFFDF8]"
+                  }`}
                 >
-                  <option value="seller_balance">Auto-Deduct from Seller Payout (Instant Reactivation)</option>
-                  <option value="upi_manual">UPI Manual Transfer (Enter UTR)</option>
-                </select>
-                {renewPayMethod === "upi_manual" && (
-                  <input
-                    type="text"
-                    value={renewPayRef}
-                    onChange={(e) => setRenewPayRef(e.target.value)}
-                    placeholder="Enter UPI UTR Reference"
-                    className="w-full rounded-xl border border-[#EAD296] bg-white px-3 py-2 text-xs font-bold"
-                  />
-                )}
+                  <p className="text-xs font-black text-[#14120F] flex items-center gap-1">
+                    <CreditCard size={12} className="text-[#F03A46]" /> Pay ₹50 Now (Razorpay)
+                  </p>
+                  <p className="text-[10px] font-semibold text-[#6E5C3D] mt-0.5">
+                    Link reactivates instantly after payment
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRenewPayTiming("pay_within_3_days")}
+                  className={`rounded-xl border-2 p-2.5 text-left cursor-pointer ${
+                    renewPayTiming === "pay_within_3_days"
+                      ? "border-[#F03A46] bg-white"
+                      : "border-[#EAD296] bg-[#FFFDF8]"
+                  }`}
+                >
+                  <p className="text-xs font-black text-[#14120F] flex items-center gap-1">
+                    <Clock size={12} className="text-[#9A6503]" /> Pay Within 3 Days
+                  </p>
+                  <p className="text-[10px] font-semibold text-[#6E5C3D] mt-0.5">
+                    Marked Payment Pending; unlocks once ₹50 paid
+                  </p>
+                </button>
               </div>
-            )}
+            </div>
 
             <div className="flex justify-end gap-2.5 pt-2">
               <button
@@ -1382,12 +1676,16 @@ export default function InfluencerMarketingPage() {
               </button>
               <button
                 type="button"
-                disabled={renewSubmitting}
+                disabled={renewSubmitting || payingId === renewTarget.id}
                 onClick={handleRenewUpgradeSubmit}
                 data-photo-overlay="true"
                 className="rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-2.5 text-xs font-black text-white shadow-md disabled:opacity-50 cursor-pointer"
               >
-                {renewSubmitting ? "Activating..." : `Activate Link (+${renewDays} Days)`}
+                {renewSubmitting || payingId === renewTarget.id
+                  ? "Opening Razorpay..."
+                  : renewPayTiming === "pay_now"
+                  ? `Pay ₹50 via Razorpay (+${renewDays}d)`
+                  : `Save Pending (Pay ₹50 in 3 Days)`}
               </button>
             </div>
           </div>
@@ -1407,10 +1705,10 @@ export default function InfluencerMarketingPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF8DB] border border-[#DFBE6F] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#9A6503]">
-                  <ShieldCheck size={11} className="text-emerald-600" /> Guaranteed In-House Alpha Media
+                  <ShieldCheck size={11} className="text-emerald-600" /> Razorpay Verified + Dual Gate
                 </span>
                 <h3 className="mt-3 text-xl font-black text-[#14120F]">
-                  How ZebAlpha&apos;s 2-Plan 7-Day System Works
+                  How ZebAlpha&apos;s Alpha Media System Works
                 </h3>
               </div>
               <button
@@ -1424,16 +1722,16 @@ export default function InfluencerMarketingPage() {
 
             <ol className="mt-5 space-y-3 rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-5 text-xs sm:text-sm font-semibold text-[#14120F]">
               <li>
-                <strong>1. Pick Your Plan:</strong> Choose <strong>Without Product + 1%</strong> (₹0 upfront, catalog reel) OR <strong>With Product + ₹150</strong> (send sample for real Alpha Studio shoot + PDP Video Proof).
+                <strong>1. New Apply (Plan 1 or Plan 2):</strong> Start free with <strong>Without Product + 1%</strong> OR book a real studio reel under <strong>With Product + ₹150 via Razorpay</strong> (Pay Now or within 3 days).
               </li>
               <li>
-                <strong>2. Media Leader Accepts &amp; Assigns Creator:</strong> Our Media Leader reviews your catalog/sample and assigns a dedicated Alpha Media creator to produce your reel.
+                <strong>2. Dual-Gate Verification (Plan 2):</strong> Alpha Media proceeds as soon as BOTH <strong>₹150 Razorpay Payment</strong> AND <strong>Physical Product Delivery</strong> to Alpha Studio are complete.
               </li>
               <li>
-                <strong>3. Full 7-Day Live Smart Link:</strong> The 7-day countdown starts <em>only</em> when your reel goes live! Your reusable <code className="font-mono">zebalpha.shop/go/INF-...</code> link tracks every click &amp; order.
+                <strong>3. Full 7-Day Smart Link:</strong> Your 7-day countdown starts <em>only</em> when Media Leader publishes your reel — zero wasted days!
               </li>
               <li>
-                <strong>4. Auto-Expiry + Anytime Reactivation:</strong> After 7 days the link pauses automatically and counts missed clicks. Click Renew or Upgrade anytime to reactivate the exact same link in 1 second!
+                <strong>4. Future Upgrades Just ₹50:</strong> After 7 days, renew or upgrade anytime for just <strong>₹50 via Razorpay</strong> (Pay Now or within 3 days) to reactivate the exact same <code className="font-mono">/go/INF-...</code> link!
               </li>
             </ol>
 
@@ -1447,7 +1745,7 @@ export default function InfluencerMarketingPage() {
                 data-photo-overlay="true"
                 className="rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] px-6 py-2.5 text-xs font-black text-white shadow-md cursor-pointer"
               >
-                Enroll Catalogs Now
+                Book Studio Shoot (₹150)
               </button>
             </div>
           </div>
@@ -1467,11 +1765,9 @@ export default function InfluencerMarketingPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-black text-[#14120F]">
-                  Request Alpha Media Callback
-                </h3>
+                <h3 className="text-lg font-black text-[#14120F]">Request Alpha Media Callback</h3>
                 <p className="mt-0.5 text-xs font-semibold text-[#6E5C3D]">
-                  Need help shipping a sample for Plan 2 (₹150) or selecting winning catalogs? We&apos;ll call you!
+                  Need help delivering your sample for a ₹150 studio shoot or activating a ₹50 renewal?
                 </p>
               </div>
               <button
@@ -1500,13 +1796,13 @@ export default function InfluencerMarketingPage() {
 
             <div>
               <label className="block text-[11px] font-black uppercase tracking-wider text-[#5C4E35] mb-1">
-                What would you like help with? (Optional)
+                Notes (Optional)
               </label>
               <textarea
                 rows={3}
                 value={cbNotes}
                 onChange={(e) => setCbNotes(e.target.value)}
-                placeholder="e.g. Want to schedule sample handover for ₹150 studio shoot..."
+                placeholder="e.g. Want to coordinate sample delivery to Alpha Studio..."
                 className="w-full rounded-xl border border-[#EAD296] px-3.5 py-2.5 text-xs font-semibold"
               />
             </div>

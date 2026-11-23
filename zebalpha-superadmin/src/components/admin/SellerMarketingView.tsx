@@ -19,6 +19,7 @@ import {
   Play,
   Ban,
   X,
+  CreditCard,
 } from "lucide-react";
 
 interface ProvisionedCreds {
@@ -27,6 +28,15 @@ interface ProvisionedCreds {
   password: string;
   roleType: string;
   loginUrl: string;
+}
+
+function dueRemaining(dueIso?: string | null): string {
+  if (!dueIso) return "3-day window";
+  const diff = new Date(dueIso).getTime() - Date.now();
+  if (Number.isNaN(diff) || diff <= 0) return "OVERDUE (>3 Days)";
+  const d = Math.floor(diff / 86_400_000);
+  const h = Math.floor((diff % 86_400_000) / 3_600_000);
+  return d > 0 ? `${d}d ${h}h left` : `${h}h left`;
 }
 
 export default function SellerMarketingView() {
@@ -42,6 +52,8 @@ export default function SellerMarketingView() {
     totalCommissionAccrued: 0,
     activeLinks: 0,
     expiredLinks: 0,
+    paymentPendingCount: 0,
+    paymentOverdueCount: 0,
     totalMissedClicks: 0,
     pendingCreatorApps: 0,
   });
@@ -52,7 +64,9 @@ export default function SellerMarketingView() {
   const [auditLogs, setAuditLogs] = useState<Array<Record<string, any>>>([]);
   const [mediaCreators, setMediaCreators] = useState<Array<Record<string, any>>>([]);
 
-  const [planFilter, setPlanFilter] = useState<"all" | "without_product_1pct" | "with_product_150" | "own_brand">("all");
+  const [planFilter, setPlanFilter] = useState<
+    "all" | "payment_pending" | "without_product_1pct" | "with_product_150" | "own_brand"
+  >("all");
   const [auditSearch, setAuditSearch] = useState("");
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,7 +79,7 @@ export default function SellerMarketingView() {
   const [platform, setPlatform] = useState("instagram");
   const [videoUrl, setVideoUrl] = useState("");
 
-  // Create Media Account Modal (Invite-Only Provisioning)
+  // Create Media Account Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -139,6 +153,7 @@ export default function SellerMarketingView() {
 
   const filteredEnrollments = useMemo(() => {
     return enrollments.filter((e) => {
+      if (planFilter === "payment_pending") return String(e.payment_status || "") === "pending";
       if (planFilter === "own_brand") return e.campaign_source === "zebalpha_own_brand";
       if (planFilter === "without_product_1pct")
         return e.campaign_source !== "zebalpha_own_brand" && (e.plan_type || "without_product_1pct") === "without_product_1pct";
@@ -205,7 +220,7 @@ export default function SellerMarketingView() {
             Alpha Media, Influencer &amp; Seller Branding Command
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Permanent saved data across Plan 1 (Without Product + 1%), Plan 2 (With Product + ₹150), Media Leader/Creator accounts, and App Branding.
+            Razorpay ₹150 New Studio Shoot + ₹50 Upgrade tracking, 3-day Payment Pending alerts, Dual-Gate delivery verification &amp; permanent audit data.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -246,16 +261,17 @@ export default function SellerMarketingView() {
         <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 px-4 py-3 text-xs font-bold text-amber-300">
           Run{" "}
           <code className="bg-black px-1.5 py-0.5 rounded">
-            supabase/upgrade_alpha_media_influencer_ecosystem.sql
+            supabase/upgrade_alpha_media_razorpay_and_dualgate.sql
           </code>{" "}
-          in Supabase SQL Editor to activate the full Alpha Media Team profiles &amp; permanent audit ledger.
+          in Supabase SQL Editor to enable Razorpay payment ledger &amp; Dual-Gate hard locks.
         </div>
       )}
 
       {/* Financial & Operations KPI Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
-          { label: "₹150 Shoot Fees", value: `₹${summary.totalFixedFeesInr.toLocaleString("en-IN")}`, tone: "text-emerald-400" },
+          { label: "Verified Fees (₹150/₹50)", value: `₹${summary.totalFixedFeesInr.toLocaleString("en-IN")}`, tone: "text-emerald-400" },
+          { label: "Payment Pending / Overdue", value: `${summary.paymentPendingCount} / ${summary.paymentOverdueCount}`, tone: summary.paymentPendingCount > 0 ? "text-rose-400" : "text-zinc-300" },
           { label: "1% Commission Ledger", value: `₹${summary.totalCommissionAccrued.toLocaleString("en-IN")}`, tone: "text-amber-400" },
           { label: "Active 7-Day Links", value: summary.activeLinks, tone: "text-white" },
           { label: "Expired / Missed Clicks", value: `${summary.expiredLinks} / ${summary.totalMissedClicks}`, tone: "text-rose-400" },
@@ -292,13 +308,14 @@ export default function SellerMarketingView() {
         ))}
       </div>
 
-      {/* TAB 1: INFLUENCER CAMPAIGNS (FULL VISIBILITY + MASTER OVERRIDES) */}
+      {/* TAB 1: INFLUENCER CAMPAIGNS */}
       {tab === "influencer" && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {(
               [
                 { key: "all", label: "All Campaigns" },
+                { key: "payment_pending", label: `Payment Pending (${summary.paymentPendingCount})` },
                 { key: "without_product_1pct", label: "Plan 1: Without Product + 1%" },
                 { key: "with_product_150", label: "Plan 2: With Product + ₹150" },
                 { key: "own_brand", label: "ZebAlpha Own Brand" },
@@ -332,6 +349,20 @@ export default function SellerMarketingView() {
               const isExpired =
                 enr.status === "expired" ||
                 (enr.status === "active" && expMs !== null && expMs <= Date.now());
+              const isPayPending = String(enr.payment_status || "") === "pending";
+              const isPayOverdue =
+                isPayPending &&
+                Boolean(enr.payment_due_at) &&
+                new Date(String(enr.payment_due_at)).getTime() <= Date.now();
+              const pendingAmt =
+                Number(enr.pending_payment_amount_inr || 0) ||
+                (enr.pending_payment_purpose === "upgrade_50" ? 50 : 150);
+              const sampleDelivered = [
+                "sample_received",
+                "in_shoot",
+                "shoot_completed",
+                "kept_at_studio",
+              ].includes(String(enr.sample_status || ""));
 
               return (
                 <div
@@ -339,7 +370,7 @@ export default function SellerMarketingView() {
                   className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-black text-white">{enr.product_name}</p>
                         <span
@@ -362,6 +393,40 @@ export default function SellerMarketingView() {
                           </span>
                         )}
                       </div>
+
+                      {/* Dual-Gate + Razorpay Payment Strip */}
+                      {(enr.plan_type === "with_product_150" || isPayPending || enr.razorpay_payment_id) && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-black ${
+                              enr.payment_status === "paid"
+                                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                                : isPayOverdue
+                                ? "border-rose-500/40 bg-rose-500/20 text-rose-300"
+                                : "border-amber-500/30 bg-amber-500/15 text-amber-300"
+                            }`}
+                          >
+                            <CreditCard size={11} />
+                            {enr.payment_status === "paid"
+                              ? `Razorpay Paid${enr.razorpay_payment_id ? ` (${enr.razorpay_payment_id})` : ""}`
+                              : `Payment Pending ₹${pendingAmt} • ${dueRemaining(enr.payment_due_at)}`}
+                          </span>
+
+                          {enr.plan_type === "with_product_150" && (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-black ${
+                                sampleDelivered
+                                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                                  : "border-zinc-700 bg-zinc-900 text-zinc-300"
+                              }`}
+                            >
+                              <PackageCheck size={11} />
+                              {sampleDelivered ? "Product Delivered" : "Awaiting Product Delivery"}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       <p className="text-xs text-zinc-400">
                         Store: <strong className="text-zinc-200">{enr.seller_store_name || enr.seller_id}</strong> •{" "}
                         Creator: <strong className="text-zinc-200">{enr.assigned_creator_name || "Unassigned"}</strong> •{" "}
@@ -372,13 +437,6 @@ export default function SellerMarketingView() {
                           </strong>
                         )}
                       </p>
-                      {enr.plan_type === "with_product_150" && (
-                        <p className="text-[11px] text-amber-300">
-                          Fee Status: <strong>{enr.payment_status}</strong> ({enr.payment_method}{" "}
-                          {enr.payment_ref ? `• UTR: ${enr.payment_ref}` : ""}) • Sample:{" "}
-                          <strong>{String(enr.sample_status || "awaiting_sample").replace(/_/g, " ")}</strong>
-                        </p>
-                      )}
                       {enr.expires_at && (
                         <p className="text-[11px] text-zinc-400 flex items-center gap-1">
                           <Clock size={12} />
@@ -389,7 +447,7 @@ export default function SellerMarketingView() {
 
                     {/* Master Override Buttons */}
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      {enr.plan_type === "with_product_150" && enr.payment_status === "pending" && (
+                      {isPayPending && (
                         <button
                           type="button"
                           disabled={saving}
@@ -398,11 +456,11 @@ export default function SellerMarketingView() {
                           }
                           className="inline-flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-1.5 text-[11px] font-black text-black cursor-pointer"
                         >
-                          <CheckCircle2 size={12} /> Verify ₹150
+                          <CheckCircle2 size={12} /> Mark ₹{pendingAmt} Paid
                         </button>
                       )}
 
-                      {["awaiting_review", "awaiting_payment"].includes(String(enr.workflow_status)) && (
+                      {enr.plan_type === "with_product_150" && !sampleDelivered && (
                         <button
                           type="button"
                           disabled={saving}
@@ -411,12 +469,12 @@ export default function SellerMarketingView() {
                               action: "admin_override_campaign",
                               enrollmentId: enr.id,
                               overrideAction: "accept",
-                              sampleReceived: enr.plan_type === "with_product_150",
+                              sampleReceived: true,
                             })
                           }
                           className="inline-flex items-center gap-1 rounded-xl bg-sky-500 px-3 py-1.5 text-[11px] font-black text-black cursor-pointer"
                         >
-                          <PackageCheck size={12} /> Accept
+                          <PackageCheck size={12} /> Confirm Delivery
                         </button>
                       )}
 
@@ -674,7 +732,7 @@ export default function SellerMarketingView() {
               type="text"
               value={auditSearch}
               onChange={(e) => setAuditSearch(e.target.value)}
-              placeholder="Search audit logs by product, event, actor, or notes..."
+              placeholder="Search audit logs by product, event, actor, or Razorpay ID..."
               className="w-full sm:w-96 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs text-white"
             />
             <button
@@ -689,7 +747,7 @@ export default function SellerMarketingView() {
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950 overflow-hidden">
             {filteredAuditLogs.length === 0 ? (
               <div className="p-10 text-center text-xs text-zinc-400">
-                No audit events recorded yet. Every enrollment, payment verification, assignment, publish, renewal, and upgrade is permanently stored here.
+                No audit events recorded yet.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -853,7 +911,7 @@ export default function SellerMarketingView() {
         </div>
       )}
 
-      {/* CREATE MEDIA ACCOUNT MODAL (INVITE-ONLY) */}
+      {/* CREATE MEDIA ACCOUNT MODAL */}
       {showCreateModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
