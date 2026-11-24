@@ -712,6 +712,16 @@ export default function CartPage() {
           <button 
             disabled={cart.filter(item => (item.stock ?? Infinity) > 0).length === 0}
             onClick={() => router.push(appliedCoupon ? `/checkout?coupon=${appliedCoupon.code}` : '/checkout')}
+            data-photo-overlay={isOfficialTheme ? undefined : undefined}
+            style={
+              isOfficialTheme && cart.filter(item => (item.stock ?? Infinity) > 0).length > 0
+                ? {
+                    background: "var(--dems-btn-primary-bg, #F2C34B)",
+                    color: "var(--dems-btn-primary-text, #14120F)",
+                    borderColor: "var(--dems-border, #DFBE6F)",
+                  }
+                : undefined
+            }
             className={`transition-all px-9 sm:px-12 py-3.5 sm:py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide shadow-xl active:scale-95 min-w-[160px] text-center cursor-pointer ${
               cart.filter(item => (item.stock ?? Infinity) > 0).length === 0
                 ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"

@@ -9,6 +9,7 @@ import { Product, ProductPackage } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { useOfficialTheme } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 // In-memory cache for loaded variant products to avoid repeated network requests
 const productVariantsCache = new Map<string, Product>();
@@ -17,6 +18,11 @@ export function MeeshoVariantBottomSheet() {
   const { isOpen, product, initialColor, closeVariantSelector } = useVariantSelector();
   const { cart, addToCart } = useCart();
   const isNativeApp = useOfficialTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isLightBtnText =
+    (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
+    (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
 
   // Full product with packages (may be fetched asynchronously if card had slim data)
   const [fullProduct, setFullProduct] = useState<Product | null>(null);
@@ -732,11 +738,28 @@ export function MeeshoVariantBottomSheet() {
         </div>
 
         {/* Bottom Sticky Action: Prominent Add To Cart Button (Champagne Gold on Android App, Yellow on Web) */}
-        <div className={`p-4 pt-3 pb-6 sm:pb-4 border-t ${isNativeApp ? "border-[#E5C983] bg-[#FFFDF8]" : "border-neutral-100 bg-white"}`}>
+        <div
+          style={
+            isNativeApp && isFestivalOverride
+              ? { backgroundColor: t.cardBackground, borderColor: t.borderColor }
+              : undefined
+          }
+          className={`p-4 pt-3 pb-6 sm:pb-4 border-t ${isNativeApp ? "border-[#E5C983] bg-[#FFFDF8]" : "border-neutral-100 bg-white"}`}
+        >
           <button
             type="button"
             disabled={isAdding || isOutOfStock || (distinctSizes.length > 0 && !selectedSize)}
             onClick={handleAddToCart}
+            data-photo-overlay={isNativeApp && isFestivalOverride && isLightBtnText ? "true" : undefined}
+            style={
+              isNativeApp && isFestivalOverride
+                ? {
+                    background: t.primaryButtonBg || t.primaryColor,
+                    color: t.primaryButtonText || "#14120F",
+                    borderColor: t.borderColor,
+                  }
+                : undefined
+            }
             className={`w-full flex h-13 items-center justify-center gap-2 rounded-xl active:scale-[0.99] font-black uppercase tracking-wider text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none ${isNativeApp
               ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] border border-[#D49A18]/60 shadow-[0_6px_18px_rgba(202,138,4,0.28)]"
               : "bg-[#FEE500] hover:bg-[#FDD800] text-black"

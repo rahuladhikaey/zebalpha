@@ -7,6 +7,7 @@ import type { Product } from "@/lib/types";
 import { getProductDisplayPricing } from "@/lib/productPricing";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { useOfficialTheme } from "@/lib/platform";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 interface FlashDealStripSectionProps {
   title?: string;
@@ -52,6 +53,11 @@ export function FlashDealStripSection({
   allProducts = [],
 }: FlashDealStripSectionProps) {
   const isNativeApp = useOfficialTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isLightBtnText =
+    (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
+    (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   const [countdown, setCountdown] = useState(() => computeCountdown(endsAt));
 
   useEffect(() => {
@@ -90,6 +96,14 @@ export function FlashDealStripSection({
   return (
     <section className="my-8 sm:my-12 relative select-none">
       <div
+        style={
+          isNativeApp && isFestivalOverride
+            ? {
+                background: `linear-gradient(135deg, ${t.cardBackground}, ${t.surfaceColor})`,
+                borderColor: t.borderColor,
+              }
+            : undefined
+        }
         className={`overflow-hidden rounded-3xl border p-4 sm:p-6 shadow-xl ${
           isNativeApp
             ? "border-[#E4C57A] bg-gradient-to-br from-[#FFFDF8] via-[#FFF6D6] to-[#FDE7A1]/65 shadow-[0_14px_34px_-12px_rgba(180,125,15,0.22)]"
@@ -142,6 +156,16 @@ export function FlashDealStripSection({
 
           <Link
             href={ctaHref || "/products"}
+            data-photo-overlay={isNativeApp && isFestivalOverride && isLightBtnText ? "true" : undefined}
+            style={
+              isNativeApp && isFestivalOverride
+                ? {
+                    background: t.primaryButtonBg || t.primaryColor,
+                    color: t.primaryButtonText || "#14120F",
+                    borderColor: t.borderColor,
+                  }
+                : undefined
+            }
             className={`inline-flex items-center gap-1.5 self-start sm:self-center rounded-full px-4 py-2 text-xs font-black uppercase tracking-wider transition-all active:scale-95 shrink-0 ${
               isNativeApp
                 ? "bg-gradient-to-r from-[#FCE38A] via-[#F5B922] to-[#D49014] text-[#14120F] border border-[#DFAA30] shadow-sm"

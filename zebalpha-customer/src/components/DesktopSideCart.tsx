@@ -5,11 +5,17 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Minus, Plus, ShoppingBag, Zap } from "lucide-react";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 export default function DesktopSideCart() {
   const router = useRouter();
   const pathname = usePathname();
   const { cart, updateQuantity, removeFromCart, totalValue, totalItems } = useCart();
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isLightBtnText =
+    (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
+    (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   
   const [billingSettings, setBillingSettings] = useState({
     deliveryFee: 0,
@@ -231,9 +237,26 @@ export default function DesktopSideCart() {
       </div>
 
       {/* Checkout Action */}
-      <div className="bg-[#FAF2DC] p-6 border-t border-[#E4C988] shrink-0">
+      <div
+        style={
+          isFestivalOverride
+            ? { backgroundColor: t.surfaceColor, borderColor: t.borderColor }
+            : undefined
+        }
+        className="bg-[#FAF2DC] p-6 border-t border-[#E4C988] shrink-0"
+      >
         <button 
           onClick={() => router.push('/checkout')}
+          data-photo-overlay={isFestivalOverride && isLightBtnText ? "true" : undefined}
+          style={
+            isFestivalOverride
+              ? {
+                  background: t.primaryButtonBg || t.primaryColor,
+                  color: t.primaryButtonText || "#14120F",
+                  borderColor: t.borderColor,
+                }
+              : undefined
+          }
           className="w-full bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] hover:brightness-105 transition-all text-[#111111] border border-[#D49A18]/70 py-4 rounded-2xl font-black text-sm tracking-widest uppercase shadow-[0_6px_18px_rgba(202,138,4,0.28)] active:scale-[0.98] cursor-pointer"
         >
           Checkout

@@ -501,38 +501,104 @@ html:is(.is-official-theme, .is-android-app) :is(.text-rose-300, .text-rose-400,
   color: #B91C1C;
 }
 
-/* White pill CTAs on White/Yellow pages get luxury Yellow-Gold gradient + crisp Black ink */
+/* White pill CTAs on White/Yellow pages -> controlled by DEMS --dems-btn-primary-bg / --dems-btn-primary-text */
 html:is(.is-official-theme, .is-android-app) main a.bg-white.text-black,
 html:is(.is-official-theme, .is-android-app) main button.bg-white.text-black {
-  background: linear-gradient(135deg, #FCE38A 0%, #F5B922 52%, #D49014 100%);
-  color: #111111;
-  border: 1px solid rgba(180, 120, 12, 0.45);
+  background: var(--dems-btn-primary-bg, linear-gradient(135deg, #FCE38A 0%, #F5B922 52%, #D49014 100%));
+  color: var(--dems-btn-primary-text, #111111);
+  border: 1px solid var(--dems-border, rgba(180, 120, 12, 0.45));
   box-shadow: 0 6px 20px rgba(217, 155, 22, 0.25);
 }
 
-/* Official luxury primary & champagne-gold CTAs */
+/* Official luxury primary & champagne-gold CTAs -> controlled by DEMS tokens */
 :is(.is-official-theme, .is-android-app) .royal-button-primary,
 :is(.is-official-theme, .is-android-app) .android-cta-emerald,
 :is(.is-official-theme, .is-android-app) .android-cta-gold {
-  background: linear-gradient(135deg, #FCE38A 0%, #F5B922 52%, #D49014 100%) !important;
-  color: #14120F !important;
-  border: 1px solid rgba(180, 120, 12, 0.45) !important;
-  box-shadow: 0 6px 20px rgba(217, 155, 22, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+  background: var(--dems-btn-primary-bg, linear-gradient(135deg, #FCE38A 0%, #F5B922 52%, #D49014 100%)) !important;
+  color: var(--dems-btn-primary-text, #14120F) !important;
+  border: 1px solid var(--dems-border, rgba(180, 120, 12, 0.45)) !important;
+  box-shadow: 0 6px 20px rgba(217, 155, 22, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
 }
 
 :is(.is-official-theme, .is-android-app) .royal-button-primary:hover,
 :is(.is-official-theme, .is-android-app) .android-cta-emerald:hover,
 :is(.is-official-theme, .is-android-app) .android-cta-gold:hover,
 :is(.is-official-theme, .is-android-app) .android-cta-gold:active {
-  background: linear-gradient(135deg, #FEF08A 0%, #FACC15 50%, #CA8A04 100%) !important;
-  color: #111111 !important;
-  box-shadow: 0 10px 26px rgba(217, 155, 22, 0.36) !important;
+  filter: brightness(1.05);
+  color: var(--dems-btn-primary-text, #111111) !important;
+  box-shadow: 0 10px 26px rgba(217, 155, 22, 0.30) !important;
 }
 
 :is(.is-official-theme, .is-android-app) .royal-button-secondary {
-  background: #FFFDF8 !important;
-  color: #14120F !important;
-  border: 1px solid rgba(202, 138, 4, 0.35) !important;
+  background: var(--dems-btn-secondary-bg, #FFFDF8) !important;
+  color: var(--dems-btn-secondary-text, #14120F) !important;
+  border: 1px solid var(--dems-border, rgba(202, 138, 4, 0.35)) !important;
+}
+
+html:is(.is-official-theme, .is-android-app) .royal-card {
+  background: var(--dems-card-bg, #FFFFFF);
+  border-color: var(--dems-border, rgba(212, 160, 23, 0.36));
+  color: var(--dems-text-primary, #111111);
+  box-shadow: 0 10px 28px -12px rgba(160, 115, 20, 0.16);
+}
+
+html:is(.is-official-theme, .is-android-app) .royal-glass {
+  background: var(--dems-surface, rgba(255, 253, 247, 0.94));
+  border-color: var(--dems-border, rgba(212, 160, 23, 0.36));
+  color: var(--dems-text-primary, #111111);
+}
+
+/* ── GLOBAL ALL-PAGES DEMS OVERRIDE LAYER (Propagates SuperAdmin theme tokens across all 42 customer pages) ── */
+html[data-dems-custom="true"]:is(.is-official-theme, .is-android-app) :is(
+  .bg-\[\#FFFDF8\],
+  .bg-\[\#FFFDF7\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  background-color: var(--dems-card-bg, #FFFDF8);
+}
+
+html[data-dems-custom="true"]:is(.is-official-theme, .is-android-app) :is(
+  .bg-\[\#FAF0D1\],
+  .bg-\[\#FAF2DE\],
+  .bg-\[\#FCF9F2\],
+  .bg-\[\#FFF7DA\],
+  .bg-\[\#FFF8DB\],
+  .bg-\[\#FFF9E6\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  background-color: var(--dems-surface, #FAF0D1);
+}
+
+html[data-dems-custom="true"]:is(.is-official-theme, .is-android-app) :is(
+  .border-\[\#DFBE6F\],
+  .border-\[\#E4C988\],
+  .border-\[\#E5C882\],
+  .border-\[\#E5C983\],
+  .border-\[\#E2BE66\],
+  .border-\[\#E7CF94\],
+  .border-\[\#EFE1BE\],
+  .border-\[\#EAD296\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  border-color: var(--dems-border, #DFBE6F);
+}
+
+html[data-dems-custom="true"]:is(.is-official-theme, .is-android-app) :is(
+  .text-\[\#8E6208\],
+  .text-\[\#9A6503\],
+  .text-\[\#8A5A03\],
+  .text-\[\#B8800C\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  color: var(--dems-promo-badge, var(--dems-primary, #8E6208));
+}
+
+html[data-dems-custom="true"]:is(.is-official-theme, .is-android-app) :is(
+  .from-\[\#FCE89C\],
+  .from-\[\#FCE38A\],
+  .from-\[\#FBE28A\],
+  .from-\[\#FDE047\],
+  .from-\[\#FFE68B\]
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  background-image: none;
+  background-color: var(--dems-btn-primary-bg, #F2C34B);
+  color: var(--dems-btn-primary-text, #14120F);
 }
 
 /* ── ANDROID SPLASH & ONBOARDING ZERO-FLASH GUARD (Android App ONLY) ── */

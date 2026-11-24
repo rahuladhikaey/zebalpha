@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Store, ArrowUpRight, Globe } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 type MobileDrawerProps = {
   isOpen: boolean;
@@ -19,6 +20,8 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { language, openLanguageModal, t } = useLanguage();
   const isNativeApp = useIsNativeApp();
   const isOfficialTheme = useOfficialTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const theme = experience.themeTokens;
 
   // Prevent scrolling when drawer is open
   useEffect(() => {
@@ -52,6 +55,15 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
 
       {/* Drawer Panel (Slides in from Left for native Android pattern) */}
       <div
+        style={
+          isOfficialTheme && isFestivalOverride
+            ? {
+                backgroundColor: theme.backgroundColor,
+                borderColor: theme.borderColor,
+                color: theme.primaryText,
+              }
+            : undefined
+        }
         className={`fixed left-0 top-0 z-[70] h-full w-[85%] max-w-[320px] shadow-2xl transition-transform duration-300 ease-out ${
           isOfficialTheme
             ? "bg-[#FCF9F2] border-r border-[#E6CF96]/80 text-[#14120F]"
@@ -63,6 +75,11 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div
+            style={
+              isOfficialTheme && isFestivalOverride
+                ? { backgroundColor: theme.surfaceColor, borderColor: theme.borderColor }
+                : undefined
+            }
             className={`flex items-center justify-between p-6 border-b ${
               isOfficialTheme ? "border-[#E9D7A9]/75 bg-[#FAF3E1]/80" : "border-neutral-800"
             }`}

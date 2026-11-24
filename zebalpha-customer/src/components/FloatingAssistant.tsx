@@ -17,6 +17,7 @@ import {
 import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 import { VoiceSearchSheet, useVoiceSearch } from "@/components/VoiceSearchSheet";
 import { Product } from "@/lib/types";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 type AssistantQuickLink = {
   label: string;
@@ -320,6 +321,11 @@ export default function FloatingAssistant() {
     return null;
   }
 
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isLightBtnText =
+    (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
+    (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   const isVoiceActive =
     voiceSearch.status === "listening" || voiceSearch.status === "starting";
 
@@ -659,6 +665,12 @@ export default function FloatingAssistant() {
           style={{
             transform: `translate(${position.x}px, ${position.y}px)`,
             touchAction: "none",
+            ...(isOfficialTheme && isFestivalOverride
+              ? {
+                  background: `linear-gradient(135deg, ${t.accentColor || t.primaryButtonBg}, ${t.primaryColor})`,
+                  borderColor: t.cardBackground || "#FFFDF8",
+                }
+              : {}),
           }}
           className={`pointer-events-auto relative h-14 w-14 sm:h-16 sm:w-16 rounded-full shadow-2xl flex items-center justify-center border-2 transition-shadow cursor-grab active:cursor-grabbing shrink-0 select-none ${
             isOfficialTheme
@@ -668,15 +680,26 @@ export default function FloatingAssistant() {
           aria-label="Open Alpha AI Shopping Assistant"
         >
           <div
+            style={
+              isOfficialTheme && isFestivalOverride
+                ? { borderColor: t.borderColor }
+                : undefined
+            }
             className={`absolute inset-0 rounded-full overflow-hidden flex items-center justify-center bg-black p-1 border ${
               isOfficialTheme ? "border-[#EAB308]/80" : "border-zinc-800"
             }`}
           >
-            <img src="/official-logo-sm.png" alt="Alpha AI" className="h-full w-full object-cover rounded-full" />
+            <img src={experience.assets?.festivalLogoUrl || "/official-logo-sm.png"} alt="Alpha AI" className="h-full w-full object-cover rounded-full" />
           </div>
           <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white"></span>
+            <span
+              className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+              style={{ backgroundColor: isFestivalOverride ? t.successColor : "#34D399" }}
+            ></span>
+            <span
+              className="relative inline-flex rounded-full h-3.5 w-3.5 border-2 border-white"
+              style={{ backgroundColor: isFestivalOverride ? t.successColor : "#10B981" }}
+            ></span>
           </span>
         </button>
       </div>

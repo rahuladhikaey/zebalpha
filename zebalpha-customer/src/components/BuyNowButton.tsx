@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { useOfficialTheme } from "@/lib/platform";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 import { Zap } from "lucide-react";
 
 export function BuyNowButton({ 
@@ -23,6 +24,11 @@ export function BuyNowButton({
   const { session } = useAuth();
   const router = useRouter();
   const isNativeApp = useOfficialTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isLightBtnText =
+    (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
+    (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
 
@@ -92,6 +98,16 @@ export function BuyNowButton({
     <button
       type="button"
       onClick={handleBuyNow}
+      data-photo-overlay={isNativeApp && isFestivalOverride && isLightBtnText ? "true" : undefined}
+      style={
+        isNativeApp && isFestivalOverride
+          ? {
+              background: t.primaryButtonBg || t.primaryColor,
+              color: t.primaryButtonText || "#14120F",
+              borderColor: t.borderColor || t.primaryDark,
+            }
+          : undefined
+      }
       className={resolvedClass}
     >
       {isPreOrder ? (

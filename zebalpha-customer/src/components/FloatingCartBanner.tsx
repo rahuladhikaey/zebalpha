@@ -6,12 +6,18 @@ import { useEffect, useState } from "react";
 import { Lock, ShoppingBag, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useIsNativeApp } from "@/lib/platform";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 export default function FloatingCartBanner() {
   const { cart, totalItems, totalValue } = useCart();
   const router = useRouter();
   const pathname = usePathname();
   const isNativeApp = useIsNativeApp();
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isLightBtnText =
+    (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
+    (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   
   const [offerThreshold, setOfferThreshold] = useState(0);
   const [offerPercentage, setOfferPercentage] = useState(0);
@@ -47,7 +53,17 @@ export default function FloatingCartBanner() {
 
   return (
     <div className="fixed left-0 right-0 z-50 px-3 sm:px-6 transition-all duration-300 lg:hidden bottom-3 sm:bottom-4">
-      <div className="max-w-xl mx-auto bg-[#FFFDF8]/96 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-[0_14px_34px_rgba(140,95,12,0.22)] border border-[#DFBE6F] flex flex-col gap-2.5">
+      <div
+        style={
+          isFestivalOverride
+            ? {
+                backgroundColor: t.cardBackground,
+                borderColor: t.borderColor,
+              }
+            : undefined
+        }
+        className="max-w-xl mx-auto bg-[#FFFDF8]/96 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-[0_14px_34px_rgba(140,95,12,0.22)] border border-[#DFBE6F] flex flex-col gap-2.5"
+      >
         {/* Offer Section (Only when active) */}
         {hasValidOffer && (
           <div>
@@ -91,6 +107,16 @@ export default function FloatingCartBanner() {
           <button 
             type="button"
             onClick={() => router.push('/cart')}
+            data-photo-overlay={isFestivalOverride && isLightBtnText ? "true" : undefined}
+            style={
+              isFestivalOverride
+                ? {
+                    background: t.primaryButtonBg || t.primaryColor,
+                    color: t.primaryButtonText || "#14120F",
+                    borderColor: t.borderColor,
+                  }
+                : undefined
+            }
             className="bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] hover:brightness-105 active:scale-95 transition-all text-[#111111] border border-[#D49A18]/65 px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm tracking-wider uppercase flex items-center gap-1.5 shadow-[0_6px_16px_rgba(202,138,4,0.28)] shrink-0 cursor-pointer"
           >
             <span>View Cart</span>
