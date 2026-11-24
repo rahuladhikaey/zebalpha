@@ -58,7 +58,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://admin.zebalpha.shop https://www.admin.zebalpha.shop http://localhost:* http://127.0.0.1:*"
+            value: "frame-ancestors 'self' https://zebalpha.shop https://*.zebalpha.shop http://localhost:* http://127.0.0.1:*"
           },
           {
             key: 'X-Content-Type-Options',

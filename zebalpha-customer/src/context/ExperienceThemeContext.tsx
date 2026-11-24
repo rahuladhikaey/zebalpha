@@ -156,7 +156,7 @@ export function ExperienceThemeProvider({
     const isAllowedPreviewOrigin = (origin: string) => {
       if (!origin) return false;
       if (origin === window.location.origin) return true;
-      if (/^https:\/\/(www\.)?admin\.zebalpha\.shop$/i.test(origin)) return true;
+      if (/^https:\/\/([a-z0-9-]+\.)*zebalpha\.shop$/i.test(origin)) return true;
       if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return true;
       return false;
     };

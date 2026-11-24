@@ -260,10 +260,11 @@ export function AddToCartButton({
             : undefined
         }
         className={
-          className ||
-          (isNativeApp
-            ? "flex h-10 min-w-[6.5rem] px-1 items-center justify-between rounded-xl border border-[#DFBE6F] bg-[#FFFDF8] text-sm font-black text-[#14120F] shadow-sm overflow-hidden transition-all active:scale-95"
-            : "flex h-10 min-w-[6.5rem] px-1 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95")
+          className
+            ? `${className} !justify-between !px-1 !py-1 gap-1 overflow-hidden`
+            : isNativeApp
+              ? "flex h-10 min-w-[6.5rem] px-1 py-1 gap-1 items-center justify-between rounded-xl border border-[#DFBE6F] bg-[#FFFDF8] text-sm font-black text-[#14120F] shadow-sm overflow-hidden transition-all active:scale-95"
+              : "flex h-10 min-w-[6.5rem] px-1 py-1 gap-1 items-center justify-between rounded-xl border border-neutral-700 bg-neutral-900 text-sm font-black text-white shadow-lg overflow-hidden transition-all active:scale-95"
         }
       >
         <button
@@ -274,7 +275,7 @@ export function AddToCartButton({
               ? { backgroundColor: t.surfaceColor, color: t.primaryText }
               : undefined
           }
-          className={`flex h-full w-7 sm:w-8 items-center justify-center transition-colors cursor-pointer select-none ${
+          className={`flex h-full w-8 sm:w-9 shrink-0 items-center justify-center rounded-lg transition-colors cursor-pointer select-none ${
             isNativeApp
               ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#14120F]"
               : "bg-neutral-900 hover:bg-neutral-800 text-white"
@@ -294,7 +295,7 @@ export function AddToCartButton({
                 }
               : undefined
           }
-          className={`flex h-full flex-1 items-center justify-center text-xs sm:text-sm font-black px-2 py-0.5 rounded-lg mx-1 animate-in zoom-in-50 duration-200 cursor-pointer transition-colors select-none whitespace-nowrap ${
+          className={`flex h-full flex-1 min-w-0 items-center justify-center text-xs sm:text-sm font-black px-2 rounded-lg animate-in zoom-in-50 duration-200 cursor-pointer transition-colors select-none whitespace-nowrap ${
             isNativeApp
               ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] shadow-sm"
               : "bg-white text-black hover:bg-neutral-200"
@@ -310,7 +311,7 @@ export function AddToCartButton({
               ? { backgroundColor: t.surfaceColor, color: t.primaryText }
               : undefined
           }
-          className={`flex h-full w-7 sm:w-8 items-center justify-center transition-colors cursor-pointer select-none ${
+          className={`flex h-full w-8 sm:w-9 shrink-0 items-center justify-center rounded-lg transition-colors cursor-pointer select-none ${
             isNativeApp
               ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#14120F]"
               : "bg-neutral-900 hover:bg-neutral-800 text-white"
