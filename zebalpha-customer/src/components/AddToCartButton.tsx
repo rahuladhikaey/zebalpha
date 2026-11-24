@@ -250,6 +250,15 @@ export function AddToCartButton({
 
     return (
       <div 
+        style={
+          isNativeApp && isFestivalOverride
+            ? {
+                backgroundColor: t.cardBackground,
+                borderColor: t.borderColor,
+                color: t.primaryText,
+              }
+            : undefined
+        }
         className={
           className ||
           (isNativeApp
@@ -260,6 +269,11 @@ export function AddToCartButton({
         <button
           type="button"
           onClick={handleDecrement}
+          style={
+            isNativeApp && isFestivalOverride
+              ? { backgroundColor: t.surfaceColor, color: t.primaryText }
+              : undefined
+          }
           className={`flex h-full w-7 sm:w-8 items-center justify-center transition-colors cursor-pointer select-none ${
             isNativeApp
               ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#14120F]"
@@ -272,6 +286,14 @@ export function AddToCartButton({
         <span 
           onClick={handleCenterClick}
           title="Click to view cart or change size"
+          style={
+            isNativeApp && isFestivalOverride
+              ? {
+                  background: t.primaryButtonBg || t.primaryColor,
+                  color: t.primaryButtonText || "#14120F",
+                }
+              : undefined
+          }
           className={`flex h-full flex-1 items-center justify-center text-xs sm:text-sm font-black px-2 py-0.5 rounded-lg mx-1 animate-in zoom-in-50 duration-200 cursor-pointer transition-colors select-none whitespace-nowrap ${
             isNativeApp
               ? "bg-gradient-to-r from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111] shadow-sm"
@@ -283,6 +305,11 @@ export function AddToCartButton({
         <button
           type="button"
           onClick={handleIncrement}
+          style={
+            isNativeApp && isFestivalOverride
+              ? { backgroundColor: t.surfaceColor, color: t.primaryText }
+              : undefined
+          }
           className={`flex h-full w-7 sm:w-8 items-center justify-center transition-colors cursor-pointer select-none ${
             isNativeApp
               ? "bg-[#FAF2DE] hover:bg-[#F5E4B8] text-[#14120F]"

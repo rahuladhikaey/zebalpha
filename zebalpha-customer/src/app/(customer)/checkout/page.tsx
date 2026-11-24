@@ -294,6 +294,22 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (isBuyNow && productId) {
+      // 1. Instant zero-latency hydrate from sessionStorage (preserves exact selected size, color & variant price)
+      try {
+        if (typeof window !== "undefined") {
+          const raw = window.sessionStorage.getItem("zebalpha_buy_now_item_v1");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && String(parsed.id) === String(productId)) {
+              setBuyNowItem({ ...parsed, quantity: quantity || parsed.quantity || 1 });
+              setIsLoadingProduct(false);
+              return;
+            }
+          }
+        }
+      } catch {}
+
+      // 2. Fallback to Supabase if opened directly via URL without sessionStorage
       const fetchProduct = async () => {
         setIsLoadingProduct(true);
         try {

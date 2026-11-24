@@ -562,8 +562,15 @@ html[data-dems-custom="true"]:is(.is-official-theme, .is-android-app) :is(
   .bg-\[\#FCF9F2\],
   .bg-\[\#FFF7DA\],
   .bg-\[\#FFF8DB\],
-  .bg-\[\#FFF9E6\]
-):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
+  .bg-\[\#FFF9E6\],
+  .bg-\[\#FFF4CC\],
+  .bg-\[\#FFF6D6\],
+  .bg-\[\#FFF3C4\],
+  .bg-\[\#F7E8BD\],
+  .bg-neutral-900,
+  .bg-neutral-900\/60,
+  .bg-zinc-900
+):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *):not([class*="inset-0"]):not([class*="pointer-events-none"]) {
   background-color: var(--dems-surface, #FAF0D1);
 }
 
@@ -575,7 +582,12 @@ html[data-dems-custom="true"]:is(.is-official-theme, .is-android-app) :is(
   .border-\[\#E2BE66\],
   .border-\[\#E7CF94\],
   .border-\[\#EFE1BE\],
-  .border-\[\#EAD296\]
+  .border-\[\#EAD296\],
+  .border-\[\#C68A12\]\/70,
+  .border-\[\#C68A12\]\/80,
+  .border-\[\#B4780C\]\/55,
+  .border-\[\#D49A18\]\/55,
+  .border-\[\#D49A18\]\/60
 ):not([data-keep-dark]):not([data-keep-dark] *):not([data-photo-overlay]):not([data-photo-overlay] *) {
   border-color: var(--dems-border, #DFBE6F);
 }

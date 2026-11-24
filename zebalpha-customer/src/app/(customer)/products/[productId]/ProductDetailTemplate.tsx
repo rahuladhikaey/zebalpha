@@ -1813,7 +1813,15 @@ export default function ProductDetailTemplate({
 
       {/* STICKY BOTTOM BAR FOR MOBILE */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-[60] flex w-full items-center border-t lg:hidden px-3 gap-2 ${isNativeApp
+        style={
+          isNativeApp
+            ? {
+                backgroundColor: "var(--dems-card-bg, #FFFFFF)",
+                borderColor: "var(--dems-border, #DFBE6F)",
+              }
+            : undefined
+        }
+        className={`fixed bottom-0 left-0 right-0 z-[60] flex w-full items-center border-t lg:hidden px-3 gap-2 overflow-x-hidden ${isNativeApp
             ? "min-h-[68px] py-2.5 pb-[max(env(safe-area-inset-bottom,10px),12px)] bg-[#FFFFFF] border-[#DFBE6F] shadow-[0_-10px_28px_rgba(160,115,20,0.14)]"
             : "h-16 bg-black/95 backdrop-blur-md border-zinc-800 shadow-2xl"
           }`}
@@ -1845,34 +1853,47 @@ export default function ProductDetailTemplate({
             </Link>
           </div>
         ) : isCurrentVariantInStock ? (
-          <div className="flex h-11 flex-1 gap-2 items-center">
+          <div className="flex h-11 w-full min-w-0 flex-1 gap-2 items-center">
             {tryOnEligibility.isEligible && (
               <Link
                 href={tryOnUrl}
-                className={`flex flex-col items-center justify-center px-2.5 h-full rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0 ${isNativeApp
-                    ? "bg-[#FFF4CC] border-[#C68A12]/70 text-[#111111] hover:bg-[#FCE89C]"
+                style={
+                  isNativeApp
+                    ? {
+                        backgroundColor: "var(--dems-btn-secondary-bg, #FFF4CC)",
+                        borderColor: "var(--dems-border, #C68A12)",
+                        color: "var(--dems-btn-secondary-text, #111111)",
+                      }
+                    : undefined
+                }
+                className={`flex flex-col items-center justify-center min-w-[56px] px-2 h-11 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0 ${isNativeApp
+                    ? "bg-[#FFF4CC] border-[#C68A12]/70 text-[#111111] hover:brightness-95"
                     : "bg-gradient-to-r from-zinc-900 to-zinc-850 border-zinc-700/80 text-white hover:border-white"
                   }`}
                 aria-label="Virtual Try-On"
               >
-                <Shirt size={13} className={isNativeApp ? "text-[#9A6503]" : "text-amber-400"} />
-                <span className="mt-0.5 leading-none">Try On</span>
+                <Shirt
+                  size={13}
+                  style={isNativeApp ? { color: "var(--dems-primary, #9A6503)" } : undefined}
+                  className={isNativeApp ? "text-[#9A6503]" : "text-amber-400"}
+                />
+                <span className="mt-0.5 leading-none whitespace-nowrap">Try On</span>
               </Link>
             )}
-            <div className="grid grid-cols-2 h-full flex-1 gap-2.5">
+            <div className="grid grid-cols-2 h-11 flex-1 min-w-0 gap-2">
               <AddToCartButton
                 product={computedProduct}
                 variant="outline"
                 onBeforeAdd={handleValidateAndProceed}
-                className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border cursor-pointer ${isNativeApp
-                    ? "bg-[#FFF4CC] text-[#111111] border-[#C68A12]/80 hover:bg-[#FCE89C]"
+                className={`flex h-11 w-full min-w-0 items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border cursor-pointer ${isNativeApp
+                    ? "bg-[#FFF4CC] text-[#111111] border-[#C68A12]/80"
                     : "bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-800"
                   }`}
               />
               <BuyNowButton
                 product={computedProduct}
                 onBeforeBuy={handleValidateAndProceed}
-                className={`flex h-full items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer ${isNativeApp
+                className={`flex h-11 w-full min-w-0 items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer ${isNativeApp
                     ? "bg-gradient-to-b from-[#FCE89C] via-[#F5B922] to-[#D49014] text-[#111111] shadow-sm"
                     : "bg-white text-black hover:bg-zinc-200"
                   }`}

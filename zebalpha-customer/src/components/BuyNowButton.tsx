@@ -1,13 +1,13 @@
 "use client";
 
-import { useCart } from "@/context/CartContext";
+import { useState, useEffect } from "react";
 import { Product } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { useOfficialTheme } from "@/lib/platform";
 import { useExperienceTheme } from "@/context/ExperienceThemeContext";
-import { Zap } from "lucide-react";
+import { Zap, Loader2 } from "lucide-react";
 
 export function BuyNowButton({ 
   product, 
@@ -20,20 +20,30 @@ export function BuyNowButton({
   isPreOrder?: boolean;
   onBeforeBuy?: () => boolean;
 }) {
-  const { cart, addToCart } = useCart();
   const { session } = useAuth();
   const router = useRouter();
   const isNativeApp = useOfficialTheme();
   const { experience, isFestivalOverride } = useExperienceTheme();
   const t = experience.themeTokens;
+  const [isNavigating, setIsNavigating] = useState(false);
   const isLightBtnText =
     (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
     (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
 
+  // Prefetch checkout route for zero-latency Buy Now navigation
+  useEffect(() => {
+    try {
+      router.prefetch("/checkout");
+    } catch {}
+  }, [router]);
+
   const handleBuyNow = () => {
+    if (isNavigating) return;
+
     if (isUpcomingDrop) {
+      setIsNavigating(true);
       router.push(`/new-drops`);
       return;
     }
@@ -43,45 +53,34 @@ export function BuyNowButton({
       if (!allowed) return;
     }
 
-    const prodAny = product as any;
-    const targetKey = prodAny.cart_item_key;
-    const targetPkg = prodAny.package_name;
-    const targetVariantId = prodAny.variant_id;
-    const targetSize = prodAny.selected_size;
-    const targetColor = prodAny.selected_color;
+    setIsNavigating(true);
 
-    const cartItem = cart.find((item) => {
-      if (targetKey && item.cart_item_key === targetKey) return true;
-      if (targetVariantId && item.variant_id && String(item.variant_id) === String(targetVariantId)) return true;
-      if (targetPkg && String(item.id) === String(product.id) && item.package_name === targetPkg) return true;
-      if (targetSize && String(item.id) === String(product.id)) {
-        const matchSize = (item.selected_size || "").toLowerCase() === targetSize.toLowerCase();
-        const matchColor = !targetColor || !item.selected_color || item.selected_color.toLowerCase() === targetColor.toLowerCase();
-        if (matchSize && matchColor) return true;
-      }
-      if (!targetKey && !targetVariantId && !targetSize && !item.variant_id && !item.selected_size) {
-        return String(item.id) === String(product.id);
-      }
-      return false;
-    });
-    const quantity = cartItem?.quantity || 1;
+    // Save exact selected product + variant into sessionStorage for instant, isolated Direct Buy Now checkout
+    // (Never pollutes or pulls in existing items from the user's Cart!)
+    const directBuyPayload = {
+      ...product,
+      quantity: 1,
+    };
 
-    // Automatically add to cart if not already present and not a pre-order
-    if (!isPreOrder && !cartItem) {
-      addToCart(product, 1);
-    }
+    try {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(
+          "zebalpha_buy_now_item_v1",
+          JSON.stringify(directBuyPayload)
+        );
+      }
+    } catch {}
+
+    const targetUrl = isPreOrder
+      ? `/pre-order?productId=${encodeURIComponent(String(product.id))}&quantity=1`
+      : `/checkout?buyNow=true&productId=${encodeURIComponent(String(product.id))}&quantity=1`;
 
     if (!session) {
-      const redirectUrl = encodeURIComponent(isPreOrder ? `/pre-order?productId=${product.id}&quantity=1` : '/checkout');
-      router.push(`/login?redirect=${redirectUrl}`);
+      router.push(`/login?redirect=${encodeURIComponent(targetUrl)}`);
       return;
     }
     
-    if (isPreOrder) {
-      router.push(`/pre-order?productId=${product.id}&quantity=1`);
-    } else {
-      router.push('/checkout');
-    }
+    router.push(targetUrl);
   };
 
   const defaultClasses = isNativeApp
@@ -90,13 +89,14 @@ export function BuyNowButton({
 
   const resolvedClass = className
     ? (isNativeApp
-        ? `${className} !bg-gradient-to-b !from-[#FCE89C] !via-[#F5B922] !to-[#D49014] !text-[#111111] !border !border-[#B4780C]/55 shadow-[0_6px_18px_rgba(202,138,4,0.26)]`
+        ? `${className} border border-[#B4780C]/55 shadow-[0_6px_18px_rgba(202,138,4,0.26)]`
         : className)
     : defaultClasses;
 
   return (
     <button
       type="button"
+      disabled={isNavigating}
       onClick={handleBuyNow}
       data-photo-overlay={isNativeApp && isFestivalOverride && isLightBtnText ? "true" : undefined}
       style={
@@ -108,9 +108,14 @@ export function BuyNowButton({
             }
           : undefined
       }
-      className={resolvedClass}
+      className={`${resolvedClass} disabled:opacity-80`}
     >
-      {isPreOrder ? (
+      {isNavigating ? (
+        <span className="inline-flex items-center gap-1.5">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+          <span>Opening...</span>
+        </span>
+      ) : isPreOrder ? (
         "Pre-Order 📦"
       ) : isNativeApp ? (
         <>
