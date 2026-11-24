@@ -57,8 +57,8 @@ const nextConfig: NextConfig = {
             value: '1; mode=block'
           },
           {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https://admin.zebalpha.shop https://www.admin.zebalpha.shop http://localhost:* http://127.0.0.1:*"
           },
           {
             key: 'X-Content-Type-Options',

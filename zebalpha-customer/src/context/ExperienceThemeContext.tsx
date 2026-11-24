@@ -143,8 +143,47 @@ export function ExperienceThemeProvider({
     return DEFAULT_FALLBACK_EXPERIENCE;
   });
 
-  // Sync if SSR prop updates
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+  // Listen for live unsaved draft updates from SuperAdmin Studio iframe (?dems_preview=1)
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("dems_preview") !== "1") return;
+
+    setIsPreviewMode(true);
+
+    const isAllowedPreviewOrigin = (origin: string) => {
+      if (!origin) return false;
+      if (origin === window.location.origin) return true;
+      if (/^https:\/\/(www\.)?admin\.zebalpha\.shop$/i.test(origin)) return true;
+      if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return true;
+      return false;
+    };
+
+    const handlePreviewMessage = (event: MessageEvent) => {
+      if (!isAllowedPreviewOrigin(event.origin)) return;
+      if (event.data?.type !== "ZEBALPHA_DEMS_PREVIEW") return;
+      const incoming = event.data?.payload;
+      if (validateExperiencePayload(incoming)) {
+        setExperience(incoming);
+        applyThemeCssVariables(incoming);
+      }
+    };
+
+    window.addEventListener("message", handlePreviewMessage);
+    try {
+      window.parent?.postMessage({ type: "ZEBALPHA_DEMS_PREVIEW_READY" }, "*");
+    } catch {}
+
+    return () => {
+      window.removeEventListener("message", handlePreviewMessage);
+    };
+  }, []);
+
+  // Sync if SSR prop updates (skipped in live preview mode so draft is preserved)
+  useEffect(() => {
+    if (isPreviewMode) return;
     if (initialExperience && validateExperiencePayload(initialExperience)) {
       setExperience((prev) => {
         if (
@@ -163,7 +202,7 @@ export function ExperienceThemeProvider({
         return prev;
       });
     }
-  }, [initialExperience]);
+  }, [initialExperience, isPreviewMode]);
 
   useEffect(() => {
     applyThemeCssVariables(experience);
@@ -171,6 +210,7 @@ export function ExperienceThemeProvider({
 
   const syncRemoteExperience = useCallback(
     async (forceFull = false) => {
+      if (isPreviewMode) return;
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
         return;
       }
@@ -213,10 +253,11 @@ export function ExperienceThemeProvider({
         // Preserve last valid cached configuration silently
       }
     },
-    [experience.version, experience.activeExperienceId]
+    [experience.version, experience.activeExperienceId, isPreviewMode]
   );
 
   useEffect(() => {
+    if (isPreviewMode) return;
     syncRemoteExperience(true);
 
     // Live poll every 15 seconds while tab/app is visible so published themes apply live without app restart
@@ -240,7 +281,7 @@ export function ExperienceThemeProvider({
       window.removeEventListener("online", handleOnline);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [syncRemoteExperience]);
+  }, [syncRemoteExperience, isPreviewMode]);
 
   const defTokens = DEFAULT_FALLBACK_EXPERIENCE.themeTokens;
   const hasAnyTokenChange = (Object.keys(defTokens) as Array<keyof typeof defTokens>).some(

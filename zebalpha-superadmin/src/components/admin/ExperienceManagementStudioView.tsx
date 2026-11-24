@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   LayoutDashboard,
   Palette,
@@ -168,6 +168,9 @@ export default function ExperienceManagementStudioView({
   // Currently selected theme for editing & live phone preview
   const [selectedExpId, setSelectedExpId] = useState<string>("exp_default_zebalpha");
   const [workingExp, setWorkingExp] = useState<ExperienceRecord | null>(null);
+  const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [previewIframeKey, setPreviewIframeKey] = useState(1);
+  const [previewIframeReady, setPreviewIframeReady] = useState(false);
 
   // Create New Theme Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -212,6 +215,61 @@ export default function ExperienceManagementStudioView({
       body: JSON.stringify({ target: "dems" }),
     }).catch(() => {});
   }, []);
+
+  // Build live preview payload from the currently edited draft + active banners/announcements
+  const buildDraftPreviewPayload = useCallback((): CustomerActiveExperiencePayload | null => {
+    const exp = workingExp || experiences[0];
+    if (!exp) return null;
+    return {
+      version: Math.max(Number(version || 1) + 1, 999),
+      schemaVersion: exp.schema_version || 1,
+      activeExperienceId: exp.id,
+      name: exp.name,
+      slug: exp.slug,
+      festivalName: exp.festival_name,
+      experienceType: exp.experience_type,
+      isDefault: exp.is_default,
+      timezone: exp.timezone || "Asia/Kolkata",
+      effectiveStartAt: exp.start_at || null,
+      effectiveEndAt: exp.end_at || null,
+      lastUpdatedAt: new Date().toISOString(),
+      lastPublishedBy: "Live Draft Preview",
+      themeTokens: exp.theme_tokens,
+      typography: exp.typography,
+      assets: exp.assets,
+      homeSections: (exp.home_sections || []).slice().sort((a, b) => (a.display_order ?? 99) - (b.display_order ?? 99)),
+      banners: banners.filter((b) => b.status === "active"),
+      campaigns: campaigns.filter((c) => c.status === "active"),
+      popups: popups.filter((p) => p.status === "active"),
+      announcements: announcements.filter((a) => a.status === "active"),
+    };
+  }, [workingExp, experiences, version, banners, campaigns, popups, announcements]);
+
+  const pushDraftToPreviewIframe = useCallback(() => {
+    const win = previewIframeRef.current?.contentWindow;
+    const payload = buildDraftPreviewPayload();
+    if (!win || !payload) return;
+    try {
+      win.postMessage({ type: "ZEBALPHA_DEMS_PREVIEW", payload }, "*");
+    } catch {}
+  }, [buildDraftPreviewPayload]);
+
+  // Listen for iframe READY handshake and immediately push current draft
+  useEffect(() => {
+    const onMsg = (event: MessageEvent) => {
+      if (event.data?.type === "ZEBALPHA_DEMS_PREVIEW_READY") {
+        setPreviewIframeReady(true);
+        pushDraftToPreviewIframe();
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [pushDraftToPreviewIframe]);
+
+  // Auto-sync every color/asset/section/banner edit to the live real app iframe
+  useEffect(() => {
+    pushDraftToPreviewIframe();
+  }, [pushDraftToPreviewIframe]);
 
   const fetchAllDemsData = useCallback(async () => {
     setLoading(true);
@@ -407,433 +465,98 @@ export default function ExperienceManagementStudioView({
   }, [experiences, publications, banners]);
 
   // =========================================================================
-  // LIVE INTERACTIVE CUSTOMER ANDROID APP PHONE PREVIEW COMPONENT
-  // (Shows real ZebAlpha App structure dynamically styled by workingExp tokens)
+  // LIVE INTERACTIVE CUSTOMER ANDROID APP PHONE PREVIEW (REAL LIVE APP IFRAME)
+  // Embeds https://zebalpha.shop/?app=1&dems_preview=1 and streams live
+  // unsaved draft tokens via window.postMessage in real time.
   // =========================================================================
   const renderLivePhonePreview = () => {
     const exp = workingExp || experiences[0];
     if (!exp) return null;
-    const t = exp.theme_tokens;
-    const typo = exp.typography;
-    const art = exp.assets;
-    const previewBanner =
-      banners.find((b) => b.status === "active")?.image_url ||
-      art.homepageHeroArtworkUrl ||
-      "/banner-grand-opening.jpg";
-    const previewProds = products.slice(0, 2);
-    const activePopup = popups.find((p) => p.status === "active");
-    const activeAnn = announcements.find((a) => a.status === "active");
+    const storefrontBase = getStorefrontUrl().replace(/\/$/, "");
+    const previewUrl = `${storefrontBase}/?app=1&dems_preview=1`;
 
     return (
       <div className="sticky top-6 rounded-3xl bg-white border border-[#F1E4DE] p-4 shadow-[0_14px_34px_-12px_rgba(240,58,70,0.12)]">
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#F1E4DE]">
-          <div>
+        <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-[#F1E4DE]">
+          <div className="min-w-0">
             <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#F03A46]">
-              <Smartphone className="w-3.5 h-3.5" />
-              Live Customer App Preview
+              <Smartphone className="w-3.5 h-3.5 shrink-0" />
+              Real Customer App (Live)
             </span>
             <h4 className="text-xs font-black text-[#14120F] truncate mt-0.5">
               {exp.name} ({exp.festival_name})
             </h4>
           </div>
-          <span
-            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-              exp.id === activeCustomerExp?.activeExperienceId
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                : "bg-[#FFF4F2] text-[#F03A46] border border-[#FECDD3]"
-            }`}
-          >
-            {exp.id === activeCustomerExp?.activeExperienceId ? "LIVE ON APP" : "DRAFT PREVIEW"}
-          </span>
-        </div>
-
-        {/* Phone Frame */}
-        <div
-          className="mx-auto w-[292px] rounded-[2.25rem] border-[6px] border-[#14120F] overflow-hidden shadow-2xl relative"
-          style={{
-            backgroundColor: t.backgroundColor,
-            color: t.primaryText,
-            fontFamily:
-              typo.headingStyle === "serif"
-                ? "Georgia, serif"
-                : "Outfit, Inter, system-ui, sans-serif",
-          }}
-        >
-          {/* 1. Dynamic App Header + Search Bar + Category Navigation */}
-          <div
-            className="relative px-3 pt-3 pb-2.5 overflow-hidden"
-            style={{
-              background: `linear-gradient(180deg, ${t.primaryColor} 0%, ${t.primaryLight} 45%, ${t.secondaryColor} 85%, ${t.backgroundColor} 100%)`,
-            }}
-          >
-            {art.headerArtworkUrl && (
-              <div
-                className="absolute inset-0 opacity-30 bg-cover bg-top pointer-events-none"
-                style={{ backgroundImage: `url(${art.headerArtworkUrl})` }}
-              />
-            )}
-
-            {/* Header Top Row */}
-            <div className="relative z-10 flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-white p-0.5 shadow flex items-center justify-center overflow-hidden">
-                  <img
-                    src={art.festivalLogoUrl || "/official-logo.png"}
-                    alt="ZebAlpha"
-                    className="h-full w-full object-contain rounded-full"
-                  />
-                </div>
-                <div>
-                  <div className="text-[11px] font-black tracking-wider text-white drop-shadow-sm">
-                    ZEBALPHA
-                  </div>
-                  <div className="text-[7px] font-bold uppercase tracking-widest text-white/90">
-                    {exp.festival_name}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="h-6 w-6 rounded-lg bg-white/90 flex items-center justify-center text-[#14120F]">
-                  <Heart className="w-3 h-3" />
-                </span>
-                <span className="h-6 w-6 rounded-lg bg-white/90 flex items-center justify-center text-[#14120F]">
-                  <Bell className="w-3 h-3" />
-                </span>
-              </div>
-            </div>
-
-            {/* Dynamic Search Bar */}
-            <div
-              className="relative z-10 flex items-center justify-between rounded-full px-2.5 py-1.5 shadow-sm border"
-              style={{
-                backgroundColor: t.searchBarBg,
-                borderColor: t.borderColor,
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setPreviewIframeReady(false);
+                setPreviewIframeKey((k) => k + 1);
               }}
+              title="Reload Live App Preview"
+              className="p-1.5 rounded-lg border border-[#F1E4DE] bg-[#FFF8F6] text-[#6B5A56] hover:text-[#F03A46] transition cursor-pointer"
             >
-              <div className="flex items-center gap-1.5 text-[9px] text-zinc-500">
-                <Search className="w-3 h-3" style={{ color: t.primaryColor }} />
-                <span>Search &ldquo;240 GSM Oversized Tee&rdquo;</span>
-              </div>
-              <span
-                className="px-2 py-0.5 rounded-full text-[8px] font-black"
-                style={{
-                  backgroundColor: t.primaryButtonBg,
-                  color: t.primaryButtonText,
-                }}
-              >
-                GO
-              </span>
-            </div>
-
-            {/* Dynamic Category Strip (Icon Boxes matching real Android App) */}
-            <div
-              className="relative z-10 mt-2 flex items-end justify-between gap-1.5 overflow-x-auto no-scrollbar rounded-xl px-2 py-1.5"
-              style={{ backgroundColor: t.categoryBarBg }}
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open Real App in New Tab"
+              className="p-1.5 rounded-lg border border-[#F1E4DE] bg-[#FFF8F6] text-[#6B5A56] hover:text-[#F03A46] transition"
             >
-              {[
-                { label: "For You", isNew: false },
-                { label: "New Drop", isNew: true },
-                { label: "Beauty", isNew: false },
-                { label: "Men's", isNew: false },
-                { label: "Women's", isNew: false },
-              ].map((c, idx) => {
-                const isActive = idx === 0;
-                const activeBg = t.accentColor || t.primaryColor;
-                const isLightActive =
-                  activeBg.toUpperCase() === "#F2C34B" ||
-                  activeBg.toUpperCase() === "#F5B922" ||
-                  activeBg.toUpperCase() === "#FBBF24" ||
-                  activeBg.toUpperCase() === "#EAB308";
-                return (
-                  <div key={c.label} className="relative flex flex-col items-center shrink-0 pb-1">
-                    <div
-                      className="relative h-8 w-8 rounded-xl border flex items-center justify-center shadow-sm"
-                      style={
-                        isActive
-                          ? {
-                              background: `linear-gradient(180deg, ${activeBg} 0%, ${t.primaryButtonBg || activeBg} 100%)`,
-                              borderColor: t.borderColor,
-                              color: isLightActive ? "#14120F" : "#FFFFFF",
-                            }
-                          : {
-                              background: `linear-gradient(180deg, #FFFFFF 0%, ${t.surfaceColor} 100%)`,
-                              borderColor: t.borderColor,
-                              color: t.primaryText,
-                            }
-                      }
-                    >
-                      {c.isNew && (
-                        <span
-                          className="absolute -top-1 -right-1 rounded-full px-1 py-[0.5px] text-[5.5px] font-black uppercase text-white"
-                          style={{ backgroundColor: t.primaryColor }}
-                        >
-                          NEW
-                        </span>
-                      )}
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                    </div>
-                    <span
-                      className="mt-1 text-[7.5px] font-extrabold whitespace-nowrap"
-                      style={{ color: t.primaryText }}
-                    >
-                      {c.label}
-                    </span>
-                    {isActive && (
-                      <span
-                        className="absolute bottom-0 w-5 h-[2.5px] rounded-full"
-                        style={{ backgroundColor: activeBg }}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 2. Announcement Marquee Ticker */}
-          {activeAnn && (
-            <div
-              className="px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-center truncate border-y"
-              style={{
-                backgroundColor: t.surfaceColor,
-                borderColor: t.borderColor,
-                color: t.primaryText,
-              }}
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                exp.id === activeCustomerExp?.activeExperienceId
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-[#FFF4F2] text-[#F03A46] border border-[#FECDD3]"
+              }`}
             >
-              ✦ {activeAnn.message} ✦
-            </div>
-          )}
-
-          {/* 3. Scrollable Homepage Body Preview */}
-          <div className="p-2.5 space-y-2.5 max-h-[340px] overflow-y-auto no-scrollbar">
-            {/* Hero Banner */}
-            <div
-              className="relative aspect-[16/9] w-full rounded-xl overflow-hidden border shadow-sm"
-              style={{ borderColor: t.borderColor }}
-            >
-              <img
-                src={previewBanner}
-                alt="Hero Preview"
-                className="w-full h-full object-cover"
-              />
-              <span
-                className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[7.5px] font-black uppercase shadow"
-                style={{
-                  backgroundColor: t.promoBadgeColor,
-                  color: "#FFFFFF",
-                }}
-              >
-                {exp.festival_name} LIVE
-              </span>
-            </div>
-
-            {/* Promotional Section Header */}
-            <div
-              className="rounded-xl p-2 border"
-              style={{
-                backgroundColor: t.surfaceColor,
-                borderColor: t.borderColor,
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div
-                    className="text-[10px] font-black uppercase"
-                    style={{ color: typo.headingColor || t.primaryText }}
-                  >
-                    {exp.home_sections.find((s) => s.is_visible && s.display_order > 3)?.title ||
-                      "Curated Collections"}
-                  </div>
-                  <div className="text-[8px]" style={{ color: t.secondaryText }}>
-                    {exp.festival_name} Special Picks
-                  </div>
-                </div>
-                <span
-                  className="px-2 py-0.5 rounded-full text-[8px] font-black"
-                  style={{
-                    backgroundColor: t.primaryButtonBg,
-                    color: t.primaryButtonText,
-                  }}
-                >
-                  Shop →
-                </span>
-              </div>
-            </div>
-
-            {/* 2-Column Product Cards Preview (1:1 Match with Android App Cards) */}
-            <div className="grid grid-cols-2 gap-2">
-              {(previewProds.length > 0
-                ? previewProds
-                : [
-                    {
-                      id: "p1",
-                      name: "240 GSM Oversized Graphic Tee",
-                      price: 450,
-                      mrp: 599,
-                      image_url: "/placeholder.png",
-                    },
-                    {
-                      id: "p2",
-                      name: "Textured Zip Collar Polo",
-                      price: 549,
-                      mrp: 799,
-                      image_url: "/placeholder.png",
-                    },
-                  ]
-              ).map((prod) => {
-                const isWhiteBadge =
-                  (t.discountBadgeColor || "").toUpperCase() === "#FFFFFF" ||
-                  (t.discountBadgeColor || "").toUpperCase() === "#FFFDF8";
-                return (
-                  <div
-                    key={prod.id}
-                    className="rounded-xl border p-1.5 flex flex-col shadow-sm"
-                    style={{
-                      backgroundColor: t.cardBackground,
-                      borderColor: t.borderColor,
-                    }}
-                  >
-                    <div className="relative aspect-[4/5] rounded-lg overflow-hidden bg-zinc-100">
-                      {prod.image_url ? (
-                        <img
-                          src={prod.image_url}
-                          alt={prod.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : null}
-                      <span
-                        className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[7px] font-black shadow"
-                        style={{
-                          backgroundColor: t.discountBadgeColor,
-                          color: isWhiteBadge ? "#14120F" : "#FFFFFF",
-                        }}
-                      >
-                        20% OFF
-                      </span>
-                    </div>
-                    <div
-                      className="mt-1 text-[6.5px] font-black uppercase tracking-wider"
-                      style={{ color: t.promoBadgeColor || t.primaryColor }}
-                    >
-                      ZEBALPHA
-                    </div>
-                    <div
-                      className="text-[8.5px] font-bold truncate"
-                      style={{ color: t.primaryText }}
-                    >
-                      {prod.name}
-                    </div>
-                    <div className="mt-0.5 flex items-baseline gap-1">
-                      <span className="text-[10px] font-black" style={{ color: t.priceColor }}>
-                        ₹{Number(prod.price || 450)}
-                      </span>
-                      <span
-                        className="text-[7.5px] line-through"
-                        style={{ color: t.secondaryText }}
-                      >
-                        ₹{Number(prod.mrp || 699)}
-                      </span>
-                    </div>
-                    <span
-                      className="mt-0.5 inline-block w-fit rounded-full px-1.5 py-[1px] text-[6.5px] font-black uppercase border"
-                      style={{
-                        backgroundColor: t.surfaceColor,
-                        borderColor: t.borderColor,
-                        color: t.promoBadgeColor || t.primaryColor,
-                      }}
-                    >
-                      SAVE ₹{Math.max(50, Number(prod.mrp || 699) - Number(prod.price || 450))}
-                    </span>
-                    <button
-                      type="button"
-                      className="mt-1.5 w-full py-1 rounded-lg text-[8px] font-black uppercase tracking-wider shadow-sm border"
-                      style={{
-                        backgroundColor: t.primaryButtonBg,
-                        color: t.primaryButtonText,
-                        borderColor: t.borderColor,
-                      }}
-                    >
-                      ADD +
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Active Popup Preview Pill */}
-            {activePopup && (
-              <div
-                className="rounded-xl p-2 border text-center space-y-1 shadow-md"
-                style={{
-                  backgroundColor: t.cardBackground,
-                  borderColor: t.primaryColor,
-                }}
-              >
-                <span
-                  className="inline-block px-1.5 py-0.5 rounded text-[7px] font-black uppercase text-white"
-                  style={{ backgroundColor: t.primaryColor }}
-                >
-                  {activePopup.popup_type}
-                </span>
-                <div className="text-[9px] font-black" style={{ color: t.primaryText }}>
-                  {activePopup.title}
-                </div>
-                <div className="text-[7.5px]" style={{ color: t.secondaryText }}>
-                  {activePopup.description}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 4. Dynamic Bottom Navigation Bar (1:1 Match with Android App) */}
-          <div
-            className="grid grid-cols-5 items-center py-1.5 px-1.5 border-t text-[7.5px] font-bold"
-            style={{
-              backgroundColor: t.navBarBg,
-              borderColor: t.borderColor,
-              color: t.secondaryText,
-            }}
-          >
-            <div
-              className="flex flex-col items-center rounded-xl py-1"
-              style={{
-                backgroundColor: t.accentColor || t.primaryButtonBg,
-                color: t.navBarIcon || "#14120F",
-              }}
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span className="font-black">Home</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <Grid className="w-3.5 h-3.5" />
-              <span>Categories</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <div
-                className="h-6 w-6 rounded-full border-2 p-0.5 bg-white flex items-center justify-center"
-                style={{ borderColor: t.accentColor }}
-              >
-                <img
-                  src="/official-logo.png"
-                  alt="AI"
-                  className="h-full w-full object-contain rounded-full"
-                />
-              </div>
-              <span className="font-black mt-0.5" style={{ color: t.primaryText }}>
-                Alpha AI
-              </span>
-            </div>
-            <div className="flex flex-col items-center">
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Cart</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <User className="w-3.5 h-3.5" />
-              <span>Account</span>
-            </div>
+              {exp.id === activeCustomerExp?.activeExperienceId ? "LIVE" : "DRAFT"}
+            </span>
           </div>
         </div>
+
+        {/* Realistic Android Phone Bezel containing the REAL Customer App */}
+        <div className="mx-auto w-[310px] rounded-[2.4rem] border-[7px] border-[#14120F] overflow-hidden shadow-2xl relative bg-white">
+          {/* Top Speaker / Camera Notch */}
+          <div className="h-4 bg-[#14120F] flex items-center justify-center">
+            <span className="h-1.5 w-12 rounded-full bg-zinc-800" />
+          </div>
+
+          <div className="relative w-full h-[600px] bg-white">
+            {!previewIframeReady && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/95 text-center p-4">
+                <RefreshCw className="w-5 h-5 text-[#F03A46] animate-spin" />
+                <p className="text-[11px] font-black text-[#14120F]">
+                  Connecting Real ZebAlpha App...
+                </p>
+                <p className="text-[10px] text-[#6B5A56]">
+                  Live colors &amp; sections sync automatically
+                </p>
+              </div>
+            )}
+            <iframe
+              key={previewIframeKey}
+              ref={previewIframeRef}
+              src={previewUrl}
+              title="ZebAlpha Real Customer App Live Preview"
+              onLoad={() => {
+                setPreviewIframeReady(true);
+                setTimeout(() => pushDraftToPreviewIframe(), 250);
+              }}
+              className="w-full h-full border-0 bg-white"
+              allow="clipboard-write"
+            />
+          </div>
+        </div>
+
+        <p className="mt-2.5 text-center text-[10px] font-medium text-[#6B5A56]">
+          Interactive Real App — Scroll, tap Categories, Cart &amp; Products to test your changes live before publishing.
+        </p>
       </div>
     );
   };
