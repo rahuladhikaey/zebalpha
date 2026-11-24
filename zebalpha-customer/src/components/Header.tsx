@@ -182,7 +182,15 @@ function LuxuryGoldHeaderBackdrop() {
   );
 }
 
-function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: boolean; lightTheme?: boolean }) {
+function HeaderBrandLogo({
+  compact = false,
+  lightTheme = false,
+  minimalBlack = false,
+}: {
+  compact?: boolean;
+  lightTheme?: boolean;
+  minimalBlack?: boolean;
+}) {
   const { experience, isFestivalOverride } = useExperienceTheme();
   const logoSrc =
     experience.assets?.festivalLogoUrl && experience.assets.festivalLogoUrl.trim()
@@ -218,9 +226,13 @@ function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: bo
         </div>
       </div>
 
-      {/* Brand Wordmark + Gold Subtitle */}
+      {/* Brand Wordmark */}
       <div className="flex flex-col items-start">
-        {lightTheme ? (
+        {minimalBlack ? (
+          <span className="text-[17px] sm:text-lg font-black tracking-[0.16em] uppercase leading-none text-[#111111]">
+            ZEBALPHA
+          </span>
+        ) : lightTheme ? (
           <>
             <span
               data-photo-overlay="true"
@@ -403,21 +415,21 @@ export function Header({
             <AndroidFestiveHeaderBackdrop />
 
             <div className="relative z-10 flex w-full items-center justify-between gap-2">
-              {/* Left: Hamburger Menu Icon */}
-              <button
-                type="button"
-                onClick={() => setIsDrawerOpen(true)}
-                style={headerIconBtnStyle}
-                className={CREAM_GOLD_ICON_BTN_CLASS}
-                aria-label="Open Navigation Menu"
-              >
-                <Menu style={headerIconTextStyle} className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
-              </button>
+              {/* Left: Hamburger Menu Icon + Black ZEBALPHA Wordmark */}
+              <div className="flex items-center gap-2.5 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setIsDrawerOpen(true)}
+                  style={headerIconBtnStyle}
+                  className={CREAM_GOLD_ICON_BTN_CLASS}
+                  aria-label="Open Navigation Menu"
+                >
+                  <Menu style={headerIconTextStyle} className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
+                </button>
+                <HeaderBrandLogo compact lightTheme minimalBlack />
+              </div>
 
-              {/* Center: ZebAlpha Logo & Brand Name */}
-              <HeaderBrandLogo compact lightTheme />
-
-              {/* Right: Wishlist Heart + Notification Bell */}
+              {/* Right: Wishlist Heart + Super Coins */}
               {RightActionsCreamGold}
             </div>
           </header>
@@ -441,23 +453,23 @@ export function Header({
           <AndroidFestiveHeaderBackdrop />
 
           <div className="relative z-10 flex w-full items-center justify-between gap-2">
-            {/* Left: Back button */}
-            <button
-              type="button"
-              onClick={() => router.back()}
-              style={headerIconBtnStyle}
-              className={CREAM_GOLD_ICON_BTN_CLASS}
-              aria-label="Go Back"
-            >
-              <svg style={headerIconTextStyle} className="h-5 w-5 text-[#14120F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+            {/* Left: Back button + Black ZEBALPHA Wordmark */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                style={headerIconBtnStyle}
+                className={CREAM_GOLD_ICON_BTN_CLASS}
+                aria-label="Go Back"
+              >
+                <svg style={headerIconTextStyle} className="h-5 w-5 text-[#14120F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <HeaderBrandLogo compact lightTheme minimalBlack />
+            </div>
 
-            {/* Center: ZebAlpha Logo & Brand Name */}
-            <HeaderBrandLogo compact lightTheme />
-
-            {/* Right: Wishlist Heart + Notification Bell */}
+            {/* Right: Wishlist Heart + Super Coins */}
             {RightActionsCreamGold}
           </div>
         </header>
