@@ -139,7 +139,7 @@ async function fetchSellerMatchingProducts(
     if (parsed) {
       q = applyMultilingualSearchConstraints(q, parsed, mode);
     }
-    return q.order("created_at", { ascending: false }).limit(40);
+    return q.order("created_at", { ascending: false }).limit(parsed ? 40 : 48);
   };
 
   let { data, error } = await runQuery("and");

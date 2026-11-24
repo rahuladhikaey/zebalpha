@@ -311,7 +311,15 @@ export default function CartPage() {
             {cart.map((item) => {
               const outOfStock = (item.stock ?? Infinity) <= 0;
               const itemKey = item.cart_item_key || String(item.id);
-              const displayImg = item.selected_image || item.image_url || (item.images && item.images.length > 0 ? item.images[0] : "");
+              const fallbackImg =
+                (item.image_url && item.image_url !== item.selected_image ? item.image_url : "") ||
+                (item.images && item.images.length > 0 ? item.images[0] : "") ||
+                "/official-logo-sm.png";
+              const displayImg =
+                item.selected_image ||
+                item.image_url ||
+                (item.images && item.images.length > 0 ? item.images[0] : "") ||
+                "/official-logo-sm.png";
 
               return (
                 <div key={itemKey} className={`flex gap-4 items-center ${outOfStock ? "opacity-50 grayscale" : ""}`}>
@@ -322,6 +330,17 @@ export default function CartPage() {
                         alt={item.name}
                         loading="lazy"
                         decoding="async"
+                        onError={(e) => {
+                          const imgEl = e.currentTarget;
+                          if (imgEl.dataset.fallbackStep === "2") return;
+                          if (imgEl.dataset.fallbackStep !== "1" && fallbackImg && fallbackImg !== displayImg) {
+                            imgEl.dataset.fallbackStep = "1";
+                            imgEl.src = IMAGE_VARIANTS.productDetailThumb(fallbackImg);
+                          } else {
+                            imgEl.dataset.fallbackStep = "2";
+                            imgEl.src = "/official-logo-sm.png";
+                          }
+                        }}
                         className="h-full w-full object-cover"
                       />
                     ) : (

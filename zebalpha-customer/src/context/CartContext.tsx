@@ -165,7 +165,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 selectedColor = pkg.color || "";
                 selectedSize = pkg.size || "";
                 selectedSku = pkg.sku || "";
-                selectedImage = pkg.image_url || selectedImage;
+                selectedImage =
+                  pkg.image_url && String(pkg.image_url).trim().length > 0
+                    ? String(pkg.image_url).trim()
+                    : selectedImage;
                 variantId = pkg.id;
               } else {
                 displayName = `${p.name} (${row.package_name})`;
@@ -188,7 +191,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               mrp: mrp,
               quantity: row.quantity,
               stock: p.stock ?? 100,
-              image_url: selectedImage,
+              image_url: p.image_url || p.images?.[0] || selectedImage,
               images: p.images || [],
             } as CartItem;
           });

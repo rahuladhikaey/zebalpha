@@ -96,6 +96,55 @@ const GENERIC_SHOP_STOPWORDS = new Set([
   "bags",
 ]);
 
+const STORE_BROWSE_FILLER_WORDS = new Set([
+  "product",
+  "products",
+  "item",
+  "items",
+  "all",
+  "store",
+  "stores",
+  "shop",
+  "shops",
+  "collection",
+  "collections",
+  "catalog",
+  "catalogue",
+  "list",
+  "listing",
+  "listings",
+  "show",
+  "view",
+  "see",
+  "s",
+  "ka",
+  "ke",
+  "ki",
+  "er",
+  "the",
+  "a",
+  "an",
+  "by",
+  "from",
+  "of",
+  "in",
+  "at",
+  "for",
+  "on",
+]);
+
+/**
+ * Strips generic browse words like "product", "products", "all", "collection", "items"
+ * so queries like "Ab Store product" or "Ab Store all items" resolve cleanly to store_only (all store products),
+ * and "Ab Store red saree products" resolves cleanly to productQuery = "red saree".
+ */
+export function stripStoreBrowseFillerWords(rawProductQuery: string): string {
+  const tokens = normalizeStoreText(rawProductQuery)
+    .split(" ")
+    .filter((tok) => tok && !STORE_BROWSE_FILLER_WORDS.has(tok));
+  return tokens.join(" ").trim();
+}
+
 export function normalizeStoreText(input: string): string {
   return String(input || "")
     .toLowerCase()
@@ -255,6 +304,17 @@ export function resolveStoreMatches(
     }
 
     if (score === 0) continue;
+
+    // Normalize productQuery by stripping generic browse words ("product", "products", "all", "items", etc.)
+    if (productQuery) {
+      const cleanedProductQuery = stripStoreBrowseFillerWords(productQuery);
+      if (!cleanedProductQuery) {
+        productQuery = "";
+        matchType = "store_only";
+      } else {
+        productQuery = cleanedProductQuery;
+      }
+    }
 
     const active = isSellerStorePassActive(seller, nowMs);
     // Pro plan (₹59/28d) receives a priority tie-breaker boost in autocomplete

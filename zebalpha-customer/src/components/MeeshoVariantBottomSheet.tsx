@@ -81,7 +81,7 @@ export function MeeshoVariantBottomSheet() {
         try {
           const { data: dbProd } = await supabase
             .from("products")
-            .select("id, name, brand, price, mrp, stock, packages, specifications, status, is_active")
+            .select("id, name, brand, price, mrp, stock, image_url, images, packages, specifications, status, is_active")
             .eq("id", product.id)
             .maybeSingle();
 
@@ -427,7 +427,10 @@ export function MeeshoVariantBottomSheet() {
         selected_size: selectedSize,
         selected_sku: matchedVariant?.sku || activeProduct.sku || "",
         selected_image: displayImage,
-        image_url: displayImage,
+        image_url:
+          activeProduct.image_url ||
+          (Array.isArray(activeProduct.images) && activeProduct.images[0]) ||
+          displayImage,
         cart_item_key: `${activeProduct.id}_${matchedVariant?.id || pkgName}`,
       };
 
