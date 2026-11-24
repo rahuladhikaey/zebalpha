@@ -97,8 +97,8 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                   className="h-full w-full object-cover rounded-full"
                 />
               </div>
-              <span className={`text-base font-black tracking-[0.2em] uppercase ${isOfficialTheme ? "text-[#14120F]" : "text-white"}`}>
-                ZEB<span className={isOfficialTheme ? "text-[#B8820E]" : "text-amber-400"}>ALPHA</span>
+              <span className={`text-base font-black tracking-[0.2em] uppercase ${isOfficialTheme ? "text-[#111111]" : "text-white"}`}>
+                ZEBALPHA
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">

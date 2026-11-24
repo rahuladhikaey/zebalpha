@@ -1,0 +1,30 @@
+export default function CustomerRouteLoading() {
+  return (
+    <main className="min-h-screen bg-[var(--dems-bg,#FFFFFF)] text-[var(--dems-text-primary,#14120F)] pb-24">
+      {/* Top Header Skeleton */}
+      <div className="h-14 w-full bg-[var(--dems-primary,#F03A46)] animate-pulse" />
+
+      <div className="mx-auto max-w-[1400px] px-3.5 md:px-8 pt-4 space-y-4">
+        {/* Top Banner / Summary Card Skeleton */}
+        <div className="rounded-2xl border border-[var(--dems-border,#EAD296)] bg-[var(--dems-surface,#FFFDF8)] p-4 shadow-sm animate-pulse space-y-3">
+          <div className="h-4 w-40 rounded-lg bg-black/10" />
+          <div className="h-3 w-64 max-w-full rounded bg-black/5" />
+        </div>
+
+        {/* Content Grid Skeleton */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-[var(--dems-border,#EAD296)] bg-[var(--dems-card-bg,#FFFFFF)] p-2.5 space-y-2.5 animate-pulse"
+            >
+              <div className="aspect-[3/4] w-full rounded-xl bg-black/5" />
+              <div className="h-3 w-3/4 rounded bg-black/10" />
+              <div className="h-4 w-1/2 rounded bg-black/10" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}

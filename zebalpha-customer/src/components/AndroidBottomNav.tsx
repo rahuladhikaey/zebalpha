@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, User, ShoppingCart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -40,7 +41,21 @@ function HomeStoreIcon({
 export function AndroidBottomNav() {
   const isNativeApp = useIsNativeApp();
   const pathname = usePathname();
+  const router = useRouter();
   const { totalItems } = useCart();
+
+  // Background-prefetch core bottom nav routes so tab switching is instant
+  useEffect(() => {
+    if (!isNativeApp) return;
+    const timer = window.setTimeout(() => {
+      ["/", "/categories", "/assistant", "/cart", "/profile"].forEach((route) => {
+        try {
+          router.prefetch(route);
+        } catch {}
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [isNativeApp, router]);
   const { user } = useAuth();
   const { t } = useLanguage();
   const { experience, isFestivalOverride } = useExperienceTheme();

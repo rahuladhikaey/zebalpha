@@ -280,6 +280,19 @@ export function Header({
   const isNativeApp = useIsNativeApp();
   const [superCoins, setSuperCoins] = useState<number>(0);
 
+  // Background-prefetch header destinations for instant navigation on Android
+  useEffect(() => {
+    if (!isNativeApp) return;
+    const timer = window.setTimeout(() => {
+      ["/wishlist", "/profile/cards", "/notifications"].forEach((route) => {
+        try {
+          router.prefetch(route);
+        } catch {}
+      });
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [isNativeApp, router]);
+
   // Fetch user's Super Coin balance once per session for Android App header pill
   useEffect(() => {
     if (!isNativeApp || !user?.email) {
