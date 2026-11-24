@@ -7,6 +7,7 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useIsNativeApp } from "@/lib/platform";
 import { useLanguage } from "@/context/LanguageContext";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 function HomeStoreIcon({
   className = "",
@@ -42,6 +43,11 @@ export function AndroidBottomNav() {
   const { totalItems } = useCart();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { experience } = useExperienceTheme();
+  const theme = experience.themeTokens;
+  const isFestivalOverride =
+    !experience.isDefault ||
+    (theme.primaryColor && theme.primaryColor.toUpperCase() !== "#F03A46");
 
   // Only render on native Capacitor Android app shell or preview mode
   if (!isNativeApp) return null;
@@ -104,10 +110,25 @@ export function AndroidBottomNav() {
 
       <nav
         aria-label="Android Bottom Navigation"
+        style={
+          isFestivalOverride
+            ? {
+                backgroundColor: theme.navBarBg || "#FFFFFF",
+                borderColor: theme.borderColor,
+              }
+            : undefined
+        }
         className="fixed bottom-0 left-0 right-0 z-50 overflow-visible bg-[#FFFDF8]/[0.97] backdrop-blur-2xl select-none border-t border-[#E6CA7D]/55 shadow-[0_-10px_28px_rgba(166,124,28,0.12)] pb-[env(safe-area-inset-bottom,0px)]"
       >
         {/* Top metallic champagne gold hairline accent */}
         <div
+          style={
+            isFestivalOverride
+              ? {
+                  background: `linear-gradient(90deg, transparent, ${theme.primaryColor}, transparent)`,
+                }
+              : undefined
+          }
           className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#EAB308]/80 to-transparent"
           aria-hidden="true"
         />
@@ -171,6 +192,13 @@ export function AndroidBottomNav() {
                 {/* Active rounded Champagne Gold pill capsule */}
                 <span
                   aria-hidden="true"
+                  style={
+                    active && isFestivalOverride
+                      ? {
+                          background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`,
+                        }
+                      : undefined
+                  }
                   className={`pointer-events-none absolute inset-x-0.5 top-1.5 bottom-1.5 rounded-2xl transition-all duration-300 ${
                     active
                       ? "opacity-100 bg-gradient-to-b from-[#FCE89C] via-[#F4C954] to-[#E2AA23] shadow-[0_4px_14px_rgba(217,155,22,0.28),inset_0_1px_0_rgba(255,255,255,0.75)]"
@@ -179,18 +207,31 @@ export function AndroidBottomNav() {
                 />
 
                 {/* Icon Container with Champagne Gold Cart Badge */}
-                <div className="relative z-10 flex items-center justify-center">
+                <div
+                  data-photo-overlay={active && isFestivalOverride ? "true" : undefined}
+                  className="relative z-10 flex items-center justify-center"
+                >
                   <IconComponent
                     strokeWidth={active ? 2.2 : 1.85}
                     className={`h-[21px] w-[21px] transition-all duration-200 ${
                       active
-                        ? "text-[#14120F]"
+                        ? isFestivalOverride
+                          ? "text-white"
+                          : "text-[#14120F]"
                         : "text-[#292319] group-hover:text-[#000000]"
                     }`}
                   />
 
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FFFDF8] shadow-sm">
+                    <span
+                      data-photo-overlay={isFestivalOverride ? "true" : undefined}
+                      style={
+                        isFestivalOverride
+                          ? { backgroundColor: theme.primaryColor, color: "#FFFFFF" }
+                          : undefined
+                      }
+                      className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FFFDF8] shadow-sm"
+                    >
                       {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   )}
@@ -198,9 +239,12 @@ export function AndroidBottomNav() {
 
                 {/* Label */}
                 <span
+                  data-photo-overlay={active && isFestivalOverride ? "true" : undefined}
                   className={`relative z-10 mt-1 text-[10.5px] leading-none tracking-tight transition-all duration-200 ${
                     active
-                      ? "font-extrabold text-[#14120F]"
+                      ? isFestivalOverride
+                        ? "font-extrabold text-white"
+                        : "font-extrabold text-[#14120F]"
                       : "font-semibold text-[#3B3326] group-hover:text-[#14120F]"
                   }`}
                 >

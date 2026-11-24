@@ -14,6 +14,7 @@ import { DeliveryEstimateWidget } from "./DeliveryEstimateWidget";
 import { getProductDisplayPricing } from "@/hooks/useCatalogQueries";
 import { useOfficialTheme } from "@/lib/platform";
 import { Star } from "lucide-react";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 import { isProductNewDrop } from "@/lib/dropUtils";
 
@@ -25,6 +26,11 @@ interface InfiniteProductFeedProps {
 export function InfiniteProductFeed({ initialProducts = [], brandFilter }: InfiniteProductFeedProps) {
   useScrollRestoration("home_feed");
   const isNativeApp = useOfficialTheme();
+  const { experience } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isFestivalOverride =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   const { recommendedBatchSize, prefetchMargin, isOnline } = useNetworkAdaptive();
   const currentBatchSize = isOnline ? recommendedBatchSize : 20;
 
@@ -190,6 +196,14 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           return (
             <article
               key={product.id}
+              style={
+                isNativeApp && isFestivalOverride
+                  ? {
+                      backgroundColor: t.cardBackground,
+                      borderColor: t.borderColor,
+                    }
+                  : undefined
+              }
               className={`group relative flex flex-col overflow-hidden rounded-2xl md:rounded-3xl border transition-all duration-300 isolate ${
                 isNativeApp
                   ? "bg-[#FFFDF8] border-[#E5C882]/85 shadow-[0_8px_22px_rgba(166,124,28,0.09)] hover:border-[#C28D12]"
@@ -224,10 +238,16 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
               {/* Content */}
               <div className="flex flex-1 flex-col p-3.5 sm:p-4">
                 <Link href={`/products/${product.id}`} className="mb-auto">
-                  <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${isNativeApp ? "text-[#8E6208]" : "text-neutral-400"}`}>
+                  <p
+                    style={isNativeApp && isFestivalOverride ? { color: t.primaryColor } : undefined}
+                    className={`text-[9px] font-black uppercase tracking-[0.18em] ${isNativeApp ? "text-[#8E6208]" : "text-neutral-400"}`}
+                  >
                     {product.brand || "ZEBALPHA"}
                   </p>
-                  <h3 className={`line-clamp-2 text-sm font-bold leading-snug transition-colors mt-0.5 ${isNativeApp ? "text-[#14120F]" : "text-neutral-100 group-hover:text-white"}`}>
+                  <h3
+                    style={isNativeApp && isFestivalOverride ? { color: t.primaryText } : undefined}
+                    className={`line-clamp-2 text-sm font-bold leading-snug transition-colors mt-0.5 ${isNativeApp ? "text-[#14120F]" : "text-neutral-100 group-hover:text-white"}`}
+                  >
                     {product.name}
                   </h3>
                 </Link>
@@ -235,6 +255,11 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                 {typeof product.rating === "number" && product.rating > 0 && (
                   <div className="mt-1.5 flex items-center gap-1.5">
                     <span
+                      style={
+                        isNativeApp && isFestivalOverride
+                          ? { backgroundColor: t.surfaceColor, borderColor: t.borderColor, color: t.primaryText }
+                          : undefined
+                      }
                       className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-black border ${
                         isNativeApp
                           ? "bg-[#FAF0D1] border-[#E4C988] text-[#111111]"
@@ -255,7 +280,10 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                 <div className="mt-3.5 space-y-2.5">
                   <div className="flex flex-col">
                     <div className="flex items-baseline gap-2 flex-wrap">
-                      <span className={`text-base sm:text-lg font-black tracking-tight ${isNativeApp ? "text-[#111111]" : "text-white"}`}>
+                      <span
+                        style={isNativeApp && isFestivalOverride ? { color: t.priceColor || t.primaryText } : undefined}
+                        className={`text-base sm:text-lg font-black tracking-tight ${isNativeApp ? "text-[#111111]" : "text-white"}`}
+                      >
                         ₹{displayPrice}
                       </span>
                       {hasDiscount && (
@@ -267,6 +295,15 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
 
                     {hasDiscount && (
                       <span
+                        style={
+                          isNativeApp && isFestivalOverride
+                            ? {
+                                backgroundColor: t.surfaceColor,
+                                borderColor: t.borderColor,
+                                color: t.discountBadgeColor || t.primaryColor,
+                              }
+                            : undefined
+                        }
                         className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full inline-block w-fit mt-1 border ${
                           isNativeApp
                             ? "text-[#8A5A03] bg-[#FAF0D1] border-[#E4C988]"

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 interface ProductCardImageSliderProps {
   images: string[];
@@ -25,6 +26,11 @@ export function ProductCardImageSlider({
   className = "",
   isAboveTheFold = false,
 }: ProductCardImageSliderProps) {
+  const { experience } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isFestivalOverride =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   // Normalize image list (remove empty/null strings and duplicates)
   const validImages = Array.from(
     new Set(images.filter((img) => img && typeof img === "string" && img.trim().length > 0))
@@ -110,6 +116,14 @@ export function ProductCardImageSlider({
       {discountPercent !== undefined && discountPercent > 0 && (
         <div
           data-photo-overlay="true"
+          style={
+            isFestivalOverride
+              ? {
+                  backgroundColor: t.discountBadgeColor || t.primaryColor,
+                  color: "#FFFFFF",
+                }
+              : undefined
+          }
           className="absolute top-2.5 left-2.5 z-20 bg-white text-black font-black uppercase tracking-wider rounded-md px-2 py-0.5 text-[10px] shadow-lg pointer-events-none"
         >
           {discountPercent}% OFF

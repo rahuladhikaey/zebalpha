@@ -9,12 +9,18 @@ import { useSearchProducts, useStoreSearch } from "@/hooks/useCatalogQueries";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 import { useOfficialTheme } from "@/lib/platform";
 import { useVoiceSearch, VoiceSearchSheet } from "@/components/VoiceSearchSheet";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 const searchItems = ["T-Shirts, Hoodies, Shoes", "Oversized Tees", "Polos", "Streetwear", "Joggers"];
 
 export function MobileSearch({ className }: { className?: string } = {}) {
   const router = useRouter();
   const isNativeApp = useOfficialTheme();
+  const { experience } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isFestivalOverride =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   const [index, setIndex] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -85,8 +91,21 @@ export function MobileSearch({ className }: { className?: string } = {}) {
   if (isNativeApp) {
     return (
       <div ref={containerRef} className={className || "relative flex w-full flex-col min-h-[50px]"}>
-        <div className="relative flex w-full h-[50px] items-center rounded-full border-[1.5px] border-[#DFBE6F] bg-[#FFFDF8] pl-4 pr-2.5 shadow-[0_6px_18px_rgba(166,124,28,0.10),inset_0_1px_0_rgba(255,255,255,0.95)] transition-all focus-within:border-[#B8800C] focus-within:shadow-[0_6px_22px_rgba(184,128,12,0.2)]">
-          <Search className="mr-2.5 h-5 w-5 text-[#14120F] flex-shrink-0 stroke-[2.2]" />
+        <div
+          style={
+            isFestivalOverride
+              ? {
+                  backgroundColor: t.searchBarBg || "#FFFFFF",
+                  borderColor: t.borderColor || t.accentColor,
+                }
+              : undefined
+          }
+          className="relative flex w-full h-[50px] items-center rounded-full border-[1.5px] border-[#DFBE6F] bg-[#FFFDF8] pl-4 pr-2.5 shadow-[0_6px_18px_rgba(166,124,28,0.10),inset_0_1px_0_rgba(255,255,255,0.95)] transition-all focus-within:border-[#B8800C] focus-within:shadow-[0_6px_22px_rgba(184,128,12,0.2)]"
+        >
+          <Search
+            style={isFestivalOverride ? { color: t.primaryColor } : undefined}
+            className="mr-2.5 h-5 w-5 text-[#14120F] flex-shrink-0 stroke-[2.2]"
+          />
 
           <div className="relative flex-1 h-7 overflow-hidden flex items-center">
             {!inputValue &&
@@ -134,6 +153,15 @@ export function MobileSearch({ className }: { className?: string } = {}) {
               <button
                 type="button"
                 onClick={() => handleSearch()}
+                data-photo-overlay={isFestivalOverride ? "true" : undefined}
+                style={
+                  isFestivalOverride
+                    ? {
+                        backgroundColor: t.primaryButtonBg,
+                        color: t.primaryButtonText,
+                      }
+                    : undefined
+                }
                 className="mr-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#FBE28A] to-[#D99B16] text-[11px] font-black text-[#111111] shadow-sm active:scale-95 cursor-pointer"
               >
                 Go
@@ -143,6 +171,7 @@ export function MobileSearch({ className }: { className?: string } = {}) {
               type="button"
               onClick={voiceSearch.openVoiceSearch}
               aria-label={isListening ? "Listening for voice search" : "Voice Search"}
+              style={isFestivalOverride && !isListening ? { color: t.primaryColor } : undefined}
               className={`flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90 cursor-pointer ${
                 isListening
                   ? "bg-gradient-to-br from-[#FDE047] to-[#D97706] text-[#111111] animate-pulse shadow-sm"

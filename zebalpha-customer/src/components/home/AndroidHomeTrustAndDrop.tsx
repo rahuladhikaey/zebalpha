@@ -16,6 +16,7 @@ import { useFirstOrderOffer } from "@/hooks/useFirstOrderOffer";
 import { useCart } from "@/context/CartContext";
 import { useOfficialTheme } from "@/lib/platform";
 import type { SduiTrustBadgeItem } from "@/lib/types";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 interface AndroidHomeTrustBarProps {
   badges?: SduiTrustBadgeItem[];
@@ -30,6 +31,12 @@ export function AndroidHomeTrustBar({
   badges,
   freeShippingThreshold = 499,
 }: AndroidHomeTrustBarProps) {
+  const { experience } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isFestivalOverride =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
+
   const defaultDeliverySub =
     freeShippingThreshold > 0 ? `on ₹${freeShippingThreshold}+` : "Pan-India Free";
 
@@ -44,22 +51,39 @@ export function AndroidHomeTrustBar({
 
   const renderBadgeIcon = (iconName: string, idx: number) => {
     const cls = `h-4 w-4 ${idx === 1 ? "text-[#B8800C]" : "text-[#9A6503]"} shrink-0 stroke-[2.2]`;
-    if (iconName === "truck") return <Truck className={cls} />;
-    if (iconName === "shield") return <ShieldCheck className={cls} />;
-    return <BadgeCheck className={cls} />;
+    const style = isFestivalOverride ? { color: t.primaryColor } : undefined;
+    if (iconName === "truck") return <Truck className={cls} style={style} />;
+    if (iconName === "shield") return <ShieldCheck className={cls} style={style} />;
+    return <BadgeCheck className={cls} style={style} />;
   };
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-3.5 mt-3">
-      <div className="grid grid-cols-3 divide-x divide-[#EFE1BE] rounded-2xl bg-[#FFFDF8] border border-[#E5C983]/80 shadow-[0_6px_18px_rgba(166,124,28,0.08)] py-2.5 px-1">
+      <div
+        style={
+          isFestivalOverride
+            ? {
+                backgroundColor: t.surfaceColor,
+                borderColor: t.borderColor,
+              }
+            : undefined
+        }
+        className="grid grid-cols-3 divide-x divide-[#EFE1BE] rounded-2xl bg-[#FFFDF8] border border-[#E5C983]/80 shadow-[0_6px_18px_rgba(166,124,28,0.08)] py-2.5 px-1"
+      >
         {resolvedBadges.map((b, idx) => (
           <div key={idx} className="flex items-center justify-center gap-1.5 px-1.5 min-w-0">
             {renderBadgeIcon(b.icon, idx)}
             <div className="min-w-0">
-              <p className="text-[10px] font-extrabold text-[#14120F] leading-tight truncate">
+              <p
+                style={isFestivalOverride ? { color: t.primaryText } : undefined}
+                className="text-[10px] font-extrabold text-[#14120F] leading-tight truncate"
+              >
                 {b.title}
               </p>
-              <p className="text-[9px] font-semibold text-[#6B5D44] leading-tight truncate">
+              <p
+                style={isFestivalOverride ? { color: t.secondaryText } : undefined}
+                className="text-[9px] font-semibold text-[#6B5D44] leading-tight truncate"
+              >
                 {b.subtitle}
               </p>
             </div>

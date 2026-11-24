@@ -15,8 +15,15 @@ import { ProductNavigationOverlay } from "@/components/ProductDetailsLoadingScre
 import { checkIsNativeApp } from "@/lib/platform";
 import { ExperienceThemeProvider } from "@/context/ExperienceThemeContext";
 import { ExperienceOverlayManager } from "@/components/experience/ExperienceOverlayManager";
+import type { CustomerActiveExperiencePayload } from "@/lib/experienceThemes";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  initialExperience,
+}: {
+  children: React.ReactNode;
+  initialExperience?: CustomerActiveExperiencePayload | null;
+}) {
   // Dismiss pre-hydration native shield once client UI commits & enforce official theme
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -41,7 +48,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ExperienceThemeProvider>
+    <ExperienceThemeProvider initialExperience={initialExperience}>
       <LanguageProvider>
         <AuthProvider>
           <ActiveSessionTracker />

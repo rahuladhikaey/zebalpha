@@ -30,6 +30,7 @@ import {
   getCachedNavigationCategories,
   getCachedPromotionalCampaigns,
   getCachedHomepageLayout,
+  getCachedActiveCustomerExperience,
 } from "@/lib/cachedQueries";
 import type { SduiWidgetConfig } from "@/lib/types";
 import {
@@ -176,14 +177,31 @@ export default async function HomePage(props: {
   const resolvedParams = await props.searchParams;
   const brandParam = typeof resolvedParams?.brand === "string" ? resolvedParams.brand : undefined;
 
-  const [navigationCategories, serverIsNative, sduiLayout] = await Promise.all([
+  const [navigationCategories, serverIsNative, sduiLayout, activeDemsExperience] = await Promise.all([
     getCachedNavigationCategories().catch(() => []),
     detectNativeAppOnServer(resolvedParams),
     getCachedHomepageLayout(),
+    getCachedActiveCustomerExperience(),
   ]);
 
-  // Filter & sort widgets according to SuperAdmin SDUI Blueprint + platform targeting
-  const activeWidgets = (sduiLayout.widgets || [])
+  // Merge active DEMS homeSections override if present, otherwise fallback to sduiLayout.widgets
+  const rawWidgets: SduiWidgetConfig[] =
+    Array.isArray(activeDemsExperience?.homeSections) && activeDemsExperience.homeSections.length > 0
+      ? activeDemsExperience.homeSections.map((sec) => ({
+          id: sec.id,
+          widget_type: sec.widget_type as any,
+          title: sec.title,
+          subtitle: sec.subtitle,
+          enabled: sec.is_visible !== false,
+          app_enabled: sec.app_enabled !== false,
+          web_enabled: sec.web_enabled !== false,
+          display_order: sec.display_order,
+          config: sec.settings_json || {},
+        }))
+      : sduiLayout.widgets || [];
+
+  // Filter & sort widgets according to SuperAdmin DEMS / SDUI Blueprint + platform targeting
+  const activeWidgets = rawWidgets
     .filter((w) => {
       if (!w || !w.enabled) return false;
       if (serverIsNative && w.app_enabled === false) return false;

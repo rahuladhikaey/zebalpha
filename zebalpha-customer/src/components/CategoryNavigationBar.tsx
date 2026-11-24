@@ -7,6 +7,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { CategoryIconRenderer, getLocalizedCategoryName } from "@/lib/categoryIcons";
 import { ShoppingBag, Flame } from "lucide-react";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 const ACTIVE_GOLD_BOX_CLASS =
   "bg-black text-white border-[2px] border-amber-300 shadow-[0_0_22px_rgba(251,191,36,0.7),inset_0_0_12px_rgba(251,191,36,0.25)]";
@@ -27,12 +28,16 @@ const ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS =
   "absolute bottom-0 w-8 h-[3px] rounded-full bg-gradient-to-r from-[#D4A017] via-[#EAB308] to-[#9A6503]";
 
 function AndroidCreamWaveBackdrop() {
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 transition-colors duration-300"
         style={{
-          background: "linear-gradient(180deg, rgba(252,249,242,0.5) 0%, rgba(250,242,220,0.7) 100%)",
+          background: isFestivalOverride
+            ? `linear-gradient(180deg, ${t.categoryBarBg}88 0%, ${t.surfaceColor}cc 100%)`
+            : "linear-gradient(180deg, rgba(252,249,242,0.5) 0%, rgba(250,242,220,0.7) 100%)",
         }}
       />
     </div>
@@ -150,6 +155,33 @@ export function CategoryNavigationBar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { language } = useLanguage();
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const demsTokens = experience.themeTokens;
+
+  const activeBoxDynamicStyle: React.CSSProperties | undefined =
+    isNativeApp && isFestivalOverride
+      ? {
+          background: `linear-gradient(180deg, ${demsTokens.accentColor} 0%, ${demsTokens.primaryColor} 100%)`,
+          borderColor: demsTokens.primaryColor,
+          color: "#FFFFFF",
+        }
+      : undefined;
+
+  const inactiveBoxDynamicStyle: React.CSSProperties | undefined =
+    isNativeApp && isFestivalOverride
+      ? {
+          background: `linear-gradient(180deg, #FFFFFF 0%, ${demsTokens.surfaceColor} 100%)`,
+          borderColor: demsTokens.borderColor,
+          color: demsTokens.primaryText,
+        }
+      : undefined;
+
+  const activeUnderlineDynamicStyle: React.CSSProperties | undefined =
+    isNativeApp && isFestivalOverride
+      ? {
+          background: `linear-gradient(90deg, ${demsTokens.primaryColor}, ${demsTokens.accentColor})`,
+        }
+      : undefined;
 
   const [categories, setCategories] = useState<NavigationCategory[]>(initialCategories);
   const [loading, setLoading] = useState(initialCategories.length === 0);
@@ -320,6 +352,14 @@ export function CategoryNavigationBar({
   return (
     <nav
       aria-label="Category Navigation"
+      style={
+        isNativeApp && isFestivalOverride
+          ? {
+              backgroundColor: demsTokens.categoryBarBg || demsTokens.surfaceColor,
+              borderColor: isCollapsed ? demsTokens.borderColor : undefined,
+            }
+          : undefined
+      }
       className={`relative w-full transition-all duration-200 select-none overflow-hidden ${
         isNativeApp
           ? "bg-[#FCF9F2]"
@@ -373,7 +413,11 @@ export function CategoryNavigationBar({
             {/* Collapsible Icon Box */}
             <div
               aria-hidden={isCollapsed}
-              style={iconBoxStyle}
+              style={{
+                ...iconBoxStyle,
+                ...(isForYouActive ? activeBoxDynamicStyle : inactiveBoxDynamicStyle),
+              }}
+              data-photo-overlay={isForYouActive && isFestivalOverride ? "true" : undefined}
               className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
                 isNativeApp
                   ? isForYouActive
@@ -388,7 +432,9 @@ export function CategoryNavigationBar({
                 size={isNativeApp ? 20 : 21}
                 className={`transition-transform stroke-[2.2] ${
                   isNativeApp
-                    ? "text-[#14120F]"
+                    ? isForYouActive && isFestivalOverride
+                      ? "text-white"
+                      : "text-[#14120F]"
                     : isForYouActive
                       ? "text-white scale-105 drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
                       : "text-white group-hover:text-amber-100"
@@ -413,7 +459,10 @@ export function CategoryNavigationBar({
 
             {/* Active Indicator Underline - ALWAYS VISIBLE */}
             {isForYouActive && (
-              <span className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS} />
+              <span
+                style={activeUnderlineDynamicStyle}
+                className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS}
+              />
             )}
           </Link>
 
@@ -442,7 +491,11 @@ export function CategoryNavigationBar({
             {/* Collapsible Icon Box */}
             <div
               aria-hidden={isCollapsed}
-              style={iconBoxStyle}
+              style={{
+                ...iconBoxStyle,
+                ...(pathname === "/new-drops" ? activeBoxDynamicStyle : inactiveBoxDynamicStyle),
+              }}
+              data-photo-overlay={pathname === "/new-drops" && isFestivalOverride ? "true" : undefined}
               className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 ${
                 isNativeApp
                   ? pathname === "/new-drops"
@@ -456,6 +509,11 @@ export function CategoryNavigationBar({
               {isNativeApp && (
                 <span
                   data-photo-overlay="true"
+                  style={
+                    isFestivalOverride
+                      ? { background: `linear-gradient(90deg, ${demsTokens.primaryColor}, ${demsTokens.primaryDark})` }
+                      : undefined
+                  }
                   className="absolute -top-1.5 -right-1.5 z-10 rounded-full bg-gradient-to-r from-[#EF4444] to-[#B91C1C] px-1.5 py-[1px] text-[7.5px] font-black uppercase tracking-wider text-white border border-[#FFFDF8] shadow-sm leading-tight"
                 >
                   NEW
@@ -463,6 +521,11 @@ export function CategoryNavigationBar({
               )}
               <Flame
                 size={isNativeApp ? 20 : 21}
+                style={
+                  isNativeApp && isFestivalOverride
+                    ? { color: pathname === "/new-drops" ? "#FFFFFF" : demsTokens.primaryColor }
+                    : undefined
+                }
                 className={`transition-transform stroke-[2.2] ${
                   isNativeApp
                     ? "text-[#B45309]"
@@ -490,7 +553,10 @@ export function CategoryNavigationBar({
 
             {/* Active Indicator Underline */}
             {pathname === "/new-drops" && (
-              <span className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS} />
+              <span
+                style={activeUnderlineDynamicStyle}
+                className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS}
+              />
             )}
           </Link>
 
@@ -531,7 +597,11 @@ export function CategoryNavigationBar({
                 {/* Collapsible Icon Box */}
                 <div
                   aria-hidden={isCollapsed}
-                  style={iconBoxStyle}
+                  style={{
+                    ...iconBoxStyle,
+                    ...(isSelected ? activeBoxDynamicStyle : inactiveBoxDynamicStyle),
+                  }}
+                  data-photo-overlay={isSelected && isFestivalOverride ? "true" : undefined}
                   className={`relative items-center justify-center rounded-2xl shrink-0 transition-all duration-200 overflow-hidden ${
                     isNativeApp
                       ? isSelected
@@ -583,7 +653,10 @@ export function CategoryNavigationBar({
 
                 {/* Active Indicator Underline - ALWAYS VISIBLE */}
                 {isSelected && (
-                  <span className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS} />
+                  <span
+                    style={activeUnderlineDynamicStyle}
+                    className={isNativeApp ? ANDROID_GOLD_ACTIVE_UNDERLINE_CLASS : GOLD_ACTIVE_UNDERLINE_CLASS}
+                  />
                 )}
               </Link>
             );

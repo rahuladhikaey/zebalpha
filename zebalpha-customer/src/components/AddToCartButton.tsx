@@ -7,6 +7,7 @@ import { Product } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { useOfficialTheme } from "@/lib/platform";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 export function AddToCartButton({ 
   product, 
@@ -26,6 +27,11 @@ export function AddToCartButton({
   const { session } = useAuth();
   const router = useRouter();
   const isNativeApp = useOfficialTheme();
+  const { experience } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isFestivalOverride =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
   const isOutOfStock = !isUpcomingDrop && ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK");
@@ -295,6 +301,16 @@ export function AddToCartButton({
       <button
         type="button"
         onClick={handleAdd}
+        data-photo-overlay={isNativeApp && isFestivalOverride ? "true" : undefined}
+        style={
+          isNativeApp && isFestivalOverride
+            ? {
+                background: t.primaryButtonBg || t.primaryColor,
+                color: t.primaryButtonText || "#FFFFFF",
+                borderColor: t.primaryDark,
+              }
+            : undefined
+        }
         className={`flex h-8 w-8 sm:h-10 sm:w-24 items-center justify-center rounded-full sm:rounded-xl font-black text-sm shadow-md transition-all active:scale-95 cursor-pointer ${
           isNativeApp
             ? "border border-[#D49A18]/60 bg-gradient-to-b from-[#FCE89C] via-[#F2C34B] to-[#DDA216] text-[#111111]"
@@ -324,6 +340,22 @@ export function AddToCartButton({
     <button
       type="button"
       onClick={handleAdd}
+      data-photo-overlay={isNativeApp && isFestivalOverride && variant !== "outline" ? "true" : undefined}
+      style={
+        isNativeApp && isFestivalOverride
+          ? variant === "outline"
+            ? {
+                backgroundColor: t.secondaryButtonBg || "#FFFFFF",
+                color: t.secondaryButtonText || t.primaryColor,
+                borderColor: t.primaryColor,
+              }
+            : {
+                background: t.primaryButtonBg || t.primaryColor,
+                color: t.primaryButtonText || "#FFFFFF",
+                borderColor: t.primaryDark,
+              }
+          : undefined
+      }
       className={resolvedClass}
     >
       ADD +

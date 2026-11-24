@@ -448,6 +448,29 @@ async function syncAllSettingsAndTables(
   } catch {
     // Non-fatal if SQL migration not yet run
   }
+
+  // 4. Trigger instant Server-to-Server Cache Purge on Customer Storefront (both production & configured URL)
+  const revalidateTargets = new Set<string>([
+    process.env.NEXT_PUBLIC_STOREFRONT_URL || "https://zebalpha.shop",
+    "https://zebalpha.shop",
+  ]);
+  const revalidateSecret = (process.env.CACHE_REVALIDATE_SECRET || "").trim();
+
+  await Promise.allSettled(
+    Array.from(revalidateTargets).map((baseUrl) =>
+      fetch(`${baseUrl.replace(/\/$/, "")}/api/cache/revalidate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(revalidateSecret ? { "x-revalidate-secret": revalidateSecret } : {}),
+        },
+        body: JSON.stringify({
+          target: "all",
+          ...(revalidateSecret ? { secret: revalidateSecret } : {}),
+        }),
+      })
+    )
+  );
 }
 
 async function loadDemsMasterState(): Promise<DemsMasterState> {

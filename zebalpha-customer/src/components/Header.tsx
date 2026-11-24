@@ -11,6 +11,7 @@ import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { ShoppingBag, Menu, Heart } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 import dynamicImport from "next/dynamic";
 const MobileDrawer = dynamicImport(() => import("./MobileDrawer").then((mod) => mod.MobileDrawer), {
   ssr: false,
@@ -31,12 +32,24 @@ const CREAM_GOLD_ICON_BTN_CLASS =
   "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E4B7] border border-[#DFBC5E]/75 text-[#14120F] hover:border-[#C28D12] active:scale-95 transition-all shadow-[0_3px_10px_rgba(160,115,20,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] cursor-pointer";
 
 function AndroidFestiveHeaderBackdrop({ responsiveDesktop = false }: { responsiveDesktop?: boolean }) {
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const customHeaderArt =
+    experience.assets?.headerArtworkUrl &&
+    experience.assets.headerArtworkUrl !== "/festive-header-bg.jpg"
+      ? experience.assets.headerArtworkUrl
+      : null;
+
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden select-none">
-      {/* Dynamic DEMS primary header background color (defaults to Official Bright Coral #f03a46) */}
+      {/* Dynamic DEMS primary header background gradient */}
       <div
         className="absolute inset-0 transition-colors duration-300"
-        style={{ backgroundColor: "var(--dems-primary, #f03a46)" }}
+        style={{
+          background: isFestivalOverride
+            ? `linear-gradient(135deg, ${t.primaryDark || t.primaryColor} 0%, ${t.primaryColor} 55%, ${t.primaryLight || t.secondaryColor} 100%)`
+            : "#f03a46",
+        }}
       />
       {/* Festive traditional ornamental pattern image anchored to top center */}
       <div
@@ -44,9 +57,9 @@ function AndroidFestiveHeaderBackdrop({ responsiveDesktop = false }: { responsiv
           responsiveDesktop
             ? "bg-no-repeat md:bg-repeat-x bg-[length:100%_auto] md:bg-[length:560px_auto]"
             : "bg-no-repeat bg-[length:100%_auto]"
-        }`}
+        } ${isFestivalOverride && !customHeaderArt ? "mix-blend-luminosity opacity-30" : ""}`}
         style={{
-          backgroundImage: "var(--dems-header-artwork, url('/festive-header-bg.jpg'))",
+          backgroundImage: `url('${customHeaderArt || "/festive-header-bg.jpg"}')`,
           backgroundPosition: "center 0px",
         }}
       />
@@ -165,6 +178,16 @@ function LuxuryGoldHeaderBackdrop() {
 }
 
 function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: boolean; lightTheme?: boolean }) {
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const logoSrc =
+    experience.assets?.festivalLogoUrl && experience.assets.festivalLogoUrl.trim()
+      ? experience.assets.festivalLogoUrl
+      : "/official-logo-sm.png";
+  const subtitleText =
+    isFestivalOverride && experience.festivalName
+      ? `${experience.festivalName.toUpperCase()} • CLOTHING FOR THE CULTURE`
+      : "CLOTHING FOR THE CULTURE";
+
   return (
     <Link href="/" className="flex items-center gap-2 sm:gap-3 active:scale-95 transition-transform group">
       {/* Double metallic gold glowing circular logo frame */}
@@ -180,13 +203,12 @@ function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: bo
             lightTheme ? "bg-[#111111] ring-1 ring-[#FFE89C]" : "bg-black ring-1 ring-amber-300/60"
           }`}
         >
-          <Image
-            src="/official-logo-sm.png"
+          <img
+            src={logoSrc}
             alt="ZebAlpha Official Logo"
             width={44}
             height={44}
             className="h-full w-full object-cover rounded-full"
-            priority
           />
         </div>
       </div>
@@ -207,7 +229,7 @@ function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: bo
                 data-photo-overlay="true"
                 className="text-[7.5px] sm:text-[8.5px] font-black text-[#FFE68B] tracking-[0.13em] uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]"
               >
-                CLOTHING FOR THE CULTURE
+                {subtitleText}
               </span>
               <span className="h-[1px] w-3 bg-[#FFE68B]/90" />
             </span>
@@ -218,7 +240,7 @@ function HeaderBrandLogo({ compact = false, lightTheme = false }: { compact?: bo
               ZEBALPHA
             </span>
             <span className="text-[8.5px] sm:text-[9.5px] font-bold text-amber-400 tracking-[0.14em] uppercase mt-0.5 leading-none">
-              CLOTHING FOR THE CULTURE
+              {subtitleText}
             </span>
             <span className="mt-1 h-[1.5px] w-full bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_8px_#fbbf24]" />
           </>
@@ -270,8 +292,11 @@ export function Header({
         <>
           {/* Status bar background filler matching top of festive pattern */}
           <div
-            className="fixed top-0 left-0 right-0 z-50 bg-[#f03a46] pointer-events-none"
-            style={{ height: "env(safe-area-inset-top, 0px)" }}
+            className="fixed top-0 left-0 right-0 z-50 pointer-events-none transition-colors duration-300"
+            style={{
+              height: "env(safe-area-inset-top, 0px)",
+              backgroundColor: "var(--dems-primary, #f03a46)",
+            }}
             aria-hidden="true"
           />
 
@@ -279,7 +304,10 @@ export function Header({
           {/* ANDROID ZEBALPHA HEADER (NORMAL SCROLL - NOT STICKY)                */}
           {/* Festive Traditional Red Floral Lattice Pattern                      */}
           {/* =================================================================== */}
-          <header className="relative z-20 w-full overflow-hidden bg-[#f03a46] px-3.5 py-2.5 text-[#14120F] select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+          <header
+            className="relative z-20 w-full overflow-hidden px-3.5 py-2.5 text-[#14120F] select-none pt-[max(env(safe-area-inset-top),0.625rem)] transition-colors duration-300"
+            style={{ backgroundColor: "var(--dems-primary, #f03a46)" }}
+          >
             <AndroidFestiveHeaderBackdrop />
 
             <div className="relative z-10 flex w-full items-center justify-between gap-2">
@@ -313,7 +341,10 @@ export function Header({
     // On other Android pages (non-home, e.g. /products, /categories, /profile)
     return (
       <>
-        <header className="sticky top-0 z-40 overflow-hidden border-b border-rose-950/20 bg-[#f03a46]/96 px-3.5 py-2.5 backdrop-blur-xl text-[#14120F] transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]">
+        <header
+          className="sticky top-0 z-40 overflow-hidden border-b border-rose-950/20 px-3.5 py-2.5 backdrop-blur-xl text-[#14120F] transition-all select-none pt-[max(env(safe-area-inset-top),0.625rem)]"
+          style={{ backgroundColor: "var(--dems-primary, #f03a46)" }}
+        >
           <AndroidFestiveHeaderBackdrop />
 
           <div className="relative z-10 flex w-full items-center justify-between gap-2">
@@ -351,7 +382,10 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-50 overflow-visible border-b border-rose-950/20 bg-[#f03a46] px-3.5 py-2.5 md:px-8 text-[#14120F] transition-all shadow-[0_6px_22px_rgba(240,58,70,0.22)]">
+      <header
+        className="sticky top-0 z-50 overflow-visible border-b border-rose-950/20 px-3.5 py-2.5 md:px-8 text-[#14120F] transition-all shadow-[0_6px_22px_rgba(240,58,70,0.22)]"
+        style={{ backgroundColor: "var(--dems-primary, #f03a46)" }}
+      >
         <AndroidFestiveHeaderBackdrop responsiveDesktop />
 
         <div className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between gap-2 md:gap-4">

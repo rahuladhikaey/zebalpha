@@ -8,6 +8,7 @@ import { CheckCircle2 } from "lucide-react";
 import { useOfficialTheme } from "@/lib/platform";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { AndroidNewSeasonDropBanner } from "@/components/home/AndroidHomeTrustAndDrop";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 interface CuratedCollectionsSectionProps {
   initialCollections?: CuratedCollection[];
@@ -23,6 +24,11 @@ export function CuratedCollectionsSection({
   hidePromoDropBanner = false,
 }: CuratedCollectionsSectionProps) {
   const isNativeApp = useOfficialTheme();
+  const { experience } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isFestivalOverride =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   const [collections, setCollections] = useState<CuratedCollection[]>(initialCollections);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
@@ -144,9 +150,24 @@ export function CuratedCollectionsSection({
                       key={keyId}
                       href={item.href}
                       aria-label={`Explore ${item.title} collection`}
+                      style={
+                        isFestivalOverride
+                          ? {
+                              backgroundColor: t.cardBackground,
+                              borderColor: t.borderColor,
+                            }
+                          : undefined
+                      }
                       className="group relative flex flex-col items-center rounded-2xl bg-[#FFFDF8] border border-[#E5C882]/85 transition-all duration-300 active:scale-95 text-center overflow-hidden cursor-pointer p-1.5 w-[108px] sm:w-[126px] lg:w-auto shrink-0 lg:shrink shadow-[0_6px_16px_rgba(166,124,28,0.09)] hover:border-[#C28D12]"
                     >
-                      <div className="relative w-full aspect-square rounded-xl bg-gradient-to-b from-[#FAF3E1] to-[#F4E3B7] overflow-hidden flex items-center justify-center">
+                      <div
+                        style={
+                          isFestivalOverride
+                            ? { background: `linear-gradient(180deg, ${t.surfaceColor}, ${t.cardBackground})` }
+                            : undefined
+                        }
+                        className="relative w-full aspect-square rounded-xl bg-gradient-to-b from-[#FAF3E1] to-[#F4E3B7] overflow-hidden flex items-center justify-center"
+                      >
                         {failedImages[keyId] ? (
                           <div className="w-full h-full flex flex-col items-center justify-center p-1">
                             <span className="text-[9px] font-bold uppercase tracking-wider text-[#3D3528] text-center truncate max-w-full">

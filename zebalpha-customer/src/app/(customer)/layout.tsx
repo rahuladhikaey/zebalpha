@@ -10,6 +10,7 @@ import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { MobilePullToRefresh } from "@/components/MobilePullToRefresh";
 import { InAppBroadcastToast } from "@/components/InAppBroadcastToast";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
+import { getCachedActiveCustomerExperience } from "@/lib/cachedQueries";
 import dynamic from "next/dynamic";
 
 const ClientAssistant = dynamic(() => import("@/components/ClientAssistant"));
@@ -115,14 +116,16 @@ export const metadata: Metadata = {
 
 export const viewport = "width=device-width, initial-scale=1";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialExperience = await getCachedActiveCustomerExperience().catch(() => null);
+
   return (
     <>
-      <Providers>
+      <Providers initialExperience={initialExperience}>
         <NetworkStatusBanner />
         <MobilePullToRefresh />
         <InAppBroadcastToast />

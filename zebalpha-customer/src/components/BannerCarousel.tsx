@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { useOfficialTheme } from "@/lib/platform";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 interface BannerItem {
   id?: number | string;
@@ -64,7 +65,38 @@ const DEFAULT_BANNERS: BannerItem[] = [
 
 export function BannerCarousel() {
   const isNativeApp = useOfficialTheme();
-  const [banners, setBanners] = useState<BannerItem[]>(DEFAULT_BANNERS);
+  const { experience } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isFestivalOverride =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
+
+  const [banners, setBanners] = useState<BannerItem[]>(() => {
+    const activeDemsBanners: BannerItem[] = (experience.banners || [])
+      .filter((b) => b && b.status === "active" && b.image_url)
+      .sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+      .map((b) => ({
+        id: b.id,
+        src: b.image_url,
+        alt: b.title || experience.festivalName,
+        title: b.title,
+        tagline: b.subtitle,
+        link: b.destination_value || "/products",
+        bgColor: t.surfaceColor,
+      }));
+    if (experience.assets?.homepageHeroArtworkUrl) {
+      activeDemsBanners.unshift({
+        id: "dems-hero-artwork",
+        src: experience.assets.homepageHeroArtworkUrl,
+        alt: `${experience.festivalName} Hero Banner`,
+        title: experience.name,
+        tagline: experience.festivalName,
+        link: "/products",
+        bgColor: t.primaryColor,
+      });
+    }
+    return activeDemsBanners.length > 0 ? activeDemsBanners : DEFAULT_BANNERS;
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -76,12 +108,43 @@ export function BannerCarousel() {
   const isHorizontalSwipeRef = useRef<boolean | null>(null);
   const didSwipeRef = useRef<boolean>(false);
 
+  // Sync immediately whenever live DEMS experience updates
+  useEffect(() => {
+    const activeDemsBanners: BannerItem[] = (experience.banners || [])
+      .filter((b) => b && b.status === "active" && b.image_url)
+      .sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+      .map((b) => ({
+        id: b.id,
+        src: b.image_url,
+        alt: b.title || experience.festivalName,
+        title: b.title,
+        tagline: b.subtitle,
+        link: b.destination_value || "/products",
+        bgColor: t.surfaceColor,
+      }));
+    if (experience.assets?.homepageHeroArtworkUrl) {
+      activeDemsBanners.unshift({
+        id: "dems-hero-artwork",
+        src: experience.assets.homepageHeroArtworkUrl,
+        alt: `${experience.festivalName} Hero Banner`,
+        title: experience.name,
+        tagline: experience.festivalName,
+        link: "/products",
+        bgColor: t.primaryColor,
+      });
+    }
+    if (activeDemsBanners.length > 0) {
+      setBanners(activeDemsBanners);
+      setCurrentIndex(0);
+    }
+  }, [experience.banners, experience.assets?.homepageHeroArtworkUrl, experience.festivalName, experience.name, t.primaryColor, t.surfaceColor]);
+
   // Load admin-configured custom banners via Edge CDN + Upstash Redis cached API
   useEffect(() => {
     let isMounted = true;
     const fetchBanners = async () => {
       try {
-        const res = await fetch("/api/banners");
+        const res = await fetch("/api/banners", { cache: "no-store" });
         if (!res.ok) return;
         const json = await res.json();
         if (isMounted && json?.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -187,6 +250,14 @@ export function BannerCarousel() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
+        style={
+          isNativeApp && isFestivalOverride
+            ? {
+                borderColor: t.borderColor || t.accentColor,
+                backgroundColor: t.cardBackground,
+              }
+            : undefined
+        }
         className={`relative w-full overflow-hidden group isolate touch-pan-y ${
           isNativeApp
             ? "mt-1 rounded-2xl bg-[#FFFDF8] border border-[#E2BE66]/80 shadow-[0_10px_26px_rgba(166,124,28,0.13)]"
@@ -376,6 +447,9 @@ export function BannerCarousel() {
                           : "bg-white"
                       }`}
                       style={{
+                        ...(isNativeApp && isFestivalOverride
+                          ? { background: `linear-gradient(90deg, ${t.primaryColor}, ${t.accentColor})` }
+                          : {}),
                         animation:
                           !isPaused && !isDragging
                             ? `za-banner-pill-fill ${AUTO_SCROLL_INTERVAL_MS}ms linear forwards`

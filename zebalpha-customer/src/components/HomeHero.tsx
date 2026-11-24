@@ -6,6 +6,7 @@ import { MovingOfferBanner } from "@/components/MovingOfferBanner";
 import { MobileSearch } from "@/components/MobileSearch";
 import { CategoryNavigationBar, NavigationCategory } from "@/components/CategoryNavigationBar";
 import { AndroidHomeTrustBar } from "@/components/home/AndroidHomeTrustAndDrop";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 import { Suspense } from "react";
 
 interface HomeHeroProps {
@@ -101,14 +102,23 @@ function LuxuryGoldCurvesBackdrop() {
 }
 
 function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiveDesktop?: boolean }) {
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const customHeaderArt =
+    experience.assets?.headerArtworkUrl &&
+    experience.assets.headerArtworkUrl !== "/festive-header-bg.jpg"
+      ? experience.assets.headerArtworkUrl
+      : null;
+
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden z-0 select-none" aria-hidden="true">
-      {/* Dynamic DEMS gradient foundation (defaults to Official Bright Coral #fd5852 -> Warm Coral #feaa90 -> White) */}
+      {/* Dynamic DEMS gradient foundation */}
       <div
         className="absolute inset-0 transition-colors duration-300"
         style={{
-          background:
-            "linear-gradient(180deg, var(--dems-primary-light, #fd5852) 0%, var(--dems-secondary, #feaa90) 45%, var(--dems-cat-bg, #ffd0be) 78%, var(--dems-bg, #FFFFFF) 100%)",
+          background: isFestivalOverride
+            ? `linear-gradient(180deg, ${t.primaryLight || t.primaryColor} 0%, ${t.secondaryColor} 45%, ${t.categoryBarBg || t.surfaceColor} 78%, ${t.backgroundColor} 100%)`
+            : "linear-gradient(180deg, #fd5852 0%, #feaa90 40%, #ffd0be 75%, #FFFFFF 100%)",
         }}
       />
       {/* Continuing festive floral lattice pattern from image */}
@@ -117,9 +127,9 @@ function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiv
           responsiveDesktop
             ? "bg-no-repeat md:bg-repeat-x bg-[length:100%_auto] md:bg-[length:560px_auto]"
             : "bg-no-repeat bg-[length:100%_auto]"
-        }`}
+        } ${isFestivalOverride && !customHeaderArt ? "mix-blend-luminosity opacity-25" : ""}`}
         style={{
-          backgroundImage: "var(--dems-header-artwork, url('/festive-header-bg.jpg'))",
+          backgroundImage: `url('${customHeaderArt || "/festive-header-bg.jpg"}')`,
           backgroundPosition: "center -60px",
           ...(responsiveDesktop
             ? {
@@ -135,8 +145,7 @@ function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiv
       <div
         className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
         style={{
-          background:
-            "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 60%, var(--dems-bg, #FFFFFF) 100%)",
+          background: `linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 60%, ${t.backgroundColor || "#FFFFFF"} 100%)`,
         }}
       />
     </div>
