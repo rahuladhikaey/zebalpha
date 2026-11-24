@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/Header";
 import { supabaseServer } from "@/lib/supabaseServer";
@@ -46,7 +47,7 @@ function normalizeProductRows(rows: Array<Record<string, unknown>>): Product[] {
     });
 }
 
-async function fetchSellerBySlug(slug: string) {
+const fetchSellerBySlug = cache(async (slug: string) => {
   const cleanSlug = decodeURIComponent(slug || "").trim().toLowerCase();
   if (!cleanSlug) return null;
 
@@ -59,9 +60,21 @@ async function fetchSellerBySlug(slug: string) {
     .ilike("store_slug", cleanSlug)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return data as Record<string, unknown>;
-}
+  if (!error && data) return data as Record<string, unknown>;
+
+  // Fallback: match by business_name if slug contains spaces or was derived from name
+  const nameGuess = cleanSlug.replace(/-/g, " ");
+  const { data: byName } = await supabaseServer
+    .from("sellers")
+    .select(
+      "id, business_name, store_slug, business_logo_url, store_banner_url, store_tagline, store_pass_plan, store_pass_status, store_pass_expires_at, store_slug_blocked"
+    )
+    .ilike("business_name", nameGuess)
+    .limit(1)
+    .maybeSingle();
+
+  return byName ? (byName as Record<string, unknown>) : null;
+});
 
 async function incrementStoreVisitMetric(sellerId: string, metric: "store_visit" | "missed_visit") {
   try {

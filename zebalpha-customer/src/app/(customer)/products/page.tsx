@@ -13,7 +13,7 @@ import { WishlistButton } from "@/components/WishlistButton";
 import { QuickCartButton } from "@/components/QuickCartButton";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
-import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star, Mic, Store, ShieldCheck, ArrowRight } from "lucide-react";
+import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star, Mic, Store, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { VoiceSearchSheet, useVoiceSearch } from "@/components/VoiceSearchSheet";
 import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import {
@@ -171,10 +171,27 @@ function ProductsContent() {
   });
   const primaryStoreMatch = debouncedSearch.trim().length >= 2 ? storeSearchData?.primaryMatch || null : null;
   const [storeScopeMode, setStoreScopeMode] = useState<"store_only" | "all_marketplace">("store_only");
+  const [isOpeningStorefront, setIsOpeningStorefront] = useState(false);
+
+  const primaryStoreHref = primaryStoreMatch?.store?.store_slug
+    ? `/store/${encodeURIComponent(primaryStoreMatch.store.store_slug)}`
+    : primaryStoreMatch?.store?.business_name
+      ? `/store/${encodeURIComponent(primaryStoreMatch.store.business_name.toLowerCase().trim().replace(/\s+/g, "-"))}`
+      : null;
 
   useEffect(() => {
     setStoreScopeMode("store_only");
+    setIsOpeningStorefront(false);
   }, [debouncedSearch]);
+
+  // Prefetch matched storefront route immediately for instant navigation
+  useEffect(() => {
+    if (primaryStoreHref) {
+      try {
+        router.prefetch(primaryStoreHref);
+      } catch {}
+    }
+  }, [primaryStoreHref, router]);
 
   const products = paginatedData?.products || [];
   const totalCount = paginatedData?.totalCount || 0;
@@ -1240,18 +1257,34 @@ function ProductsContent() {
                     </div>
                   </div>
 
-                  <Link
-                    href={`/store/${primaryStoreMatch.store.store_slug}`}
-                    className={
-                      isNativeApp
-                        ? "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#C68A12]/60 bg-gradient-to-r from-[#FCE89C] via-[#F5B922] to-[#D49014] px-4 py-2.5 text-[11px] font-black uppercase tracking-wider text-[#14120F] shadow-[0_4px_12px_rgba(217,155,22,0.25)] hover:brightness-105 active:scale-[0.98] transition-all"
-                        : "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-colors"
-                    }
-                  >
-                    <Store size={13} />
-                    <span>Visit Storefront</span>
-                    <ArrowRight size={13} />
-                  </Link>
+                  {primaryStoreHref && (
+                    <button
+                      type="button"
+                      disabled={isOpeningStorefront}
+                      onClick={() => {
+                        setIsOpeningStorefront(true);
+                        router.push(primaryStoreHref);
+                      }}
+                      className={
+                        isNativeApp
+                          ? "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#C68A12]/60 bg-gradient-to-r from-[#FCE89C] via-[#F5B922] to-[#D49014] px-4 py-2.5 text-[11px] font-black uppercase tracking-wider text-[#14120F] shadow-[0_4px_12px_rgba(217,155,22,0.25)] hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-80"
+                          : "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-wider text-black hover:bg-zinc-200 transition-colors cursor-pointer disabled:opacity-80"
+                      }
+                    >
+                      {isOpeningStorefront ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" />
+                          <span>Opening Store...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Store size={13} />
+                          <span>Visit Storefront</span>
+                          <ArrowRight size={13} />
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Clean High-Contrast Competitor-Free Scope Toggle */}
