@@ -27,11 +27,11 @@ export function AddToCartButton({
   const { session } = useAuth();
   const router = useRouter();
   const isNativeApp = useOfficialTheme();
-  const { experience } = useExperienceTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
   const t = experience.themeTokens;
-  const isFestivalOverride =
-    !experience.isDefault ||
-    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
+  const isLightBtnText =
+    (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
+    (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   
   const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
   const isOutOfStock = !isUpcomingDrop && ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK");
@@ -301,13 +301,13 @@ export function AddToCartButton({
       <button
         type="button"
         onClick={handleAdd}
-        data-photo-overlay={isNativeApp && isFestivalOverride ? "true" : undefined}
+        data-photo-overlay={isNativeApp && isFestivalOverride && isLightBtnText ? "true" : undefined}
         style={
           isNativeApp && isFestivalOverride
             ? {
                 background: t.primaryButtonBg || t.primaryColor,
-                color: t.primaryButtonText || "#FFFFFF",
-                borderColor: t.primaryDark,
+                color: t.primaryButtonText || "#14120F",
+                borderColor: t.borderColor || t.primaryDark,
               }
             : undefined
         }
@@ -340,19 +340,23 @@ export function AddToCartButton({
     <button
       type="button"
       onClick={handleAdd}
-      data-photo-overlay={isNativeApp && isFestivalOverride && variant !== "outline" ? "true" : undefined}
+      data-photo-overlay={
+        isNativeApp && isFestivalOverride && variant !== "outline" && isLightBtnText
+          ? "true"
+          : undefined
+      }
       style={
         isNativeApp && isFestivalOverride
           ? variant === "outline"
             ? {
                 backgroundColor: t.secondaryButtonBg || "#FFFFFF",
                 color: t.secondaryButtonText || t.primaryColor,
-                borderColor: t.primaryColor,
+                borderColor: t.borderColor || t.primaryColor,
               }
             : {
                 background: t.primaryButtonBg || t.primaryColor,
-                color: t.primaryButtonText || "#FFFFFF",
-                borderColor: t.primaryDark,
+                color: t.primaryButtonText || "#14120F",
+                borderColor: t.borderColor || t.primaryDark,
               }
           : undefined
       }

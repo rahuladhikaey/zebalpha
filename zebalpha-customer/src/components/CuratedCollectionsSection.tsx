@@ -24,11 +24,8 @@ export function CuratedCollectionsSection({
   hidePromoDropBanner = false,
 }: CuratedCollectionsSectionProps) {
   const isNativeApp = useOfficialTheme();
-  const { experience } = useExperienceTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
   const t = experience.themeTokens;
-  const isFestivalOverride =
-    !experience.isDefault ||
-    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   const [collections, setCollections] = useState<CuratedCollection[]>(initialCollections);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 

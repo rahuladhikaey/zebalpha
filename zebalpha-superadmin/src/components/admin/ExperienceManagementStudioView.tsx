@@ -526,27 +526,68 @@ export default function ExperienceManagementStudioView({
               </span>
             </div>
 
-            {/* Dynamic Category Strip */}
+            {/* Dynamic Category Strip (Icon Boxes matching real Android App) */}
             <div
-              className="relative z-10 mt-2 flex items-center gap-2 overflow-x-auto no-scrollbar rounded-xl px-2 py-1"
+              className="relative z-10 mt-2 flex items-end justify-between gap-1.5 overflow-x-auto no-scrollbar rounded-xl px-2 py-1.5"
               style={{ backgroundColor: t.categoryBarBg }}
             >
-              {["For You", "New Drop", "Oversized", "Polos", "Hoodies"].map((c, idx) => (
-                <span
-                  key={c}
-                  className="text-[8.5px] font-black whitespace-nowrap px-1.5 py-0.5 rounded-md"
-                  style={
-                    idx === 0
-                      ? {
-                          backgroundColor: t.primaryColor,
-                          color: "#FFFFFF",
-                        }
-                      : { color: t.primaryText }
-                  }
-                >
-                  {c}
-                </span>
-              ))}
+              {[
+                { label: "For You", isNew: false },
+                { label: "New Drop", isNew: true },
+                { label: "Beauty", isNew: false },
+                { label: "Men's", isNew: false },
+                { label: "Women's", isNew: false },
+              ].map((c, idx) => {
+                const isActive = idx === 0;
+                const activeBg = t.accentColor || t.primaryColor;
+                const isLightActive =
+                  activeBg.toUpperCase() === "#F2C34B" ||
+                  activeBg.toUpperCase() === "#F5B922" ||
+                  activeBg.toUpperCase() === "#FBBF24" ||
+                  activeBg.toUpperCase() === "#EAB308";
+                return (
+                  <div key={c.label} className="relative flex flex-col items-center shrink-0 pb-1">
+                    <div
+                      className="relative h-8 w-8 rounded-xl border flex items-center justify-center shadow-sm"
+                      style={
+                        isActive
+                          ? {
+                              background: `linear-gradient(180deg, ${activeBg} 0%, ${t.primaryButtonBg || activeBg} 100%)`,
+                              borderColor: t.borderColor,
+                              color: isLightActive ? "#14120F" : "#FFFFFF",
+                            }
+                          : {
+                              background: `linear-gradient(180deg, #FFFFFF 0%, ${t.surfaceColor} 100%)`,
+                              borderColor: t.borderColor,
+                              color: t.primaryText,
+                            }
+                      }
+                    >
+                      {c.isNew && (
+                        <span
+                          className="absolute -top-1 -right-1 rounded-full px-1 py-[0.5px] text-[5.5px] font-black uppercase text-white"
+                          style={{ backgroundColor: t.primaryColor }}
+                        >
+                          NEW
+                        </span>
+                      )}
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                    </div>
+                    <span
+                      className="mt-1 text-[7.5px] font-extrabold whitespace-nowrap"
+                      style={{ color: t.primaryText }}
+                    >
+                      {c.label}
+                    </span>
+                    {isActive && (
+                      <span
+                        className="absolute bottom-0 w-5 h-[2.5px] rounded-full"
+                        style={{ backgroundColor: activeBg }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -620,7 +661,7 @@ export default function ExperienceManagementStudioView({
               </div>
             </div>
 
-            {/* 2-Column Product Cards Preview */}
+            {/* 2-Column Product Cards Preview (1:1 Match with Android App Cards) */}
             <div className="grid grid-cols-2 gap-2">
               {(previewProds.length > 0
                 ? previewProds
@@ -640,59 +681,84 @@ export default function ExperienceManagementStudioView({
                       image_url: "/placeholder.png",
                     },
                   ]
-              ).map((prod) => (
-                <div
-                  key={prod.id}
-                  className="rounded-xl border p-1.5 flex flex-col"
-                  style={{
-                    backgroundColor: t.cardBackground,
-                    borderColor: t.borderColor,
-                  }}
-                >
-                  <div className="relative aspect-[4/5] rounded-lg overflow-hidden bg-zinc-100">
-                    {prod.image_url ? (
-                      <img
-                        src={prod.image_url}
-                        alt={prod.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : null}
-                    <span
-                      className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[7px] font-black text-white"
-                      style={{ backgroundColor: t.discountBadgeColor }}
-                    >
-                      25% OFF
-                    </span>
-                  </div>
+              ).map((prod) => {
+                const isWhiteBadge =
+                  (t.discountBadgeColor || "").toUpperCase() === "#FFFFFF" ||
+                  (t.discountBadgeColor || "").toUpperCase() === "#FFFDF8";
+                return (
                   <div
-                    className="mt-1 text-[8.5px] font-bold truncate"
-                    style={{ color: t.primaryText }}
-                  >
-                    {prod.name}
-                  </div>
-                  <div className="mt-0.5 flex items-baseline gap-1">
-                    <span className="text-[10px] font-black" style={{ color: t.priceColor }}>
-                      ₹{Number(prod.price || 450)}
-                    </span>
-                    <span
-                      className="text-[7.5px] line-through"
-                      style={{ color: t.secondaryText }}
-                    >
-                      ₹{Number(prod.mrp || 699)}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="mt-1 w-full py-1 rounded-lg text-[8px] font-black"
+                    key={prod.id}
+                    className="rounded-xl border p-1.5 flex flex-col shadow-sm"
                     style={{
-                      backgroundColor: t.primaryButtonBg,
-                      color: t.primaryButtonText,
+                      backgroundColor: t.cardBackground,
+                      borderColor: t.borderColor,
                     }}
                   >
-                    Add to Cart
-                  </button>
-                </div>
-              ))}
+                    <div className="relative aspect-[4/5] rounded-lg overflow-hidden bg-zinc-100">
+                      {prod.image_url ? (
+                        <img
+                          src={prod.image_url}
+                          alt={prod.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : null}
+                      <span
+                        className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[7px] font-black shadow"
+                        style={{
+                          backgroundColor: t.discountBadgeColor,
+                          color: isWhiteBadge ? "#14120F" : "#FFFFFF",
+                        }}
+                      >
+                        20% OFF
+                      </span>
+                    </div>
+                    <div
+                      className="mt-1 text-[6.5px] font-black uppercase tracking-wider"
+                      style={{ color: t.promoBadgeColor || t.primaryColor }}
+                    >
+                      ZEBALPHA
+                    </div>
+                    <div
+                      className="text-[8.5px] font-bold truncate"
+                      style={{ color: t.primaryText }}
+                    >
+                      {prod.name}
+                    </div>
+                    <div className="mt-0.5 flex items-baseline gap-1">
+                      <span className="text-[10px] font-black" style={{ color: t.priceColor }}>
+                        ₹{Number(prod.price || 450)}
+                      </span>
+                      <span
+                        className="text-[7.5px] line-through"
+                        style={{ color: t.secondaryText }}
+                      >
+                        ₹{Number(prod.mrp || 699)}
+                      </span>
+                    </div>
+                    <span
+                      className="mt-0.5 inline-block w-fit rounded-full px-1.5 py-[1px] text-[6.5px] font-black uppercase border"
+                      style={{
+                        backgroundColor: t.surfaceColor,
+                        borderColor: t.borderColor,
+                        color: t.promoBadgeColor || t.primaryColor,
+                      }}
+                    >
+                      SAVE ₹{Math.max(50, Number(prod.mrp || 699) - Number(prod.price || 450))}
+                    </span>
+                    <button
+                      type="button"
+                      className="mt-1.5 w-full py-1 rounded-lg text-[8px] font-black uppercase tracking-wider shadow-sm border"
+                      style={{
+                        backgroundColor: t.primaryButtonBg,
+                        color: t.primaryButtonText,
+                        borderColor: t.borderColor,
+                      }}
+                    >
+                      ADD +
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Active Popup Preview Pill */}
@@ -720,16 +786,22 @@ export default function ExperienceManagementStudioView({
             )}
           </div>
 
-          {/* 4. Dynamic Bottom Navigation Bar */}
+          {/* 4. Dynamic Bottom Navigation Bar (1:1 Match with Android App) */}
           <div
-            className="grid grid-cols-5 items-center py-1.5 px-2 border-t text-[7.5px] font-bold"
+            className="grid grid-cols-5 items-center py-1.5 px-1.5 border-t text-[7.5px] font-bold"
             style={{
               backgroundColor: t.navBarBg,
               borderColor: t.borderColor,
               color: t.secondaryText,
             }}
           >
-            <div className="flex flex-col items-center" style={{ color: t.navBarIcon }}>
+            <div
+              className="flex flex-col items-center rounded-xl py-1"
+              style={{
+                backgroundColor: t.accentColor || t.primaryButtonBg,
+                color: t.navBarIcon || "#14120F",
+              }}
+            >
               <Home className="w-3.5 h-3.5" />
               <span className="font-black">Home</span>
             </div>
@@ -748,6 +820,9 @@ export default function ExperienceManagementStudioView({
                   className="h-full w-full object-contain rounded-full"
                 />
               </div>
+              <span className="font-black mt-0.5" style={{ color: t.primaryText }}>
+                Alpha AI
+              </span>
             </div>
             <div className="flex flex-col items-center">
               <ShoppingBag className="w-3.5 h-3.5" />

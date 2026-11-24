@@ -26,11 +26,8 @@ interface InfiniteProductFeedProps {
 export function InfiniteProductFeed({ initialProducts = [], brandFilter }: InfiniteProductFeedProps) {
   useScrollRestoration("home_feed");
   const isNativeApp = useOfficialTheme();
-  const { experience } = useExperienceTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
   const t = experience.themeTokens;
-  const isFestivalOverride =
-    !experience.isDefault ||
-    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   const { recommendedBatchSize, prefetchMargin, isOnline } = useNetworkAdaptive();
   const currentBatchSize = isOnline ? recommendedBatchSize : 20;
 
@@ -239,7 +236,11 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
               <div className="flex flex-1 flex-col p-3.5 sm:p-4">
                 <Link href={`/products/${product.id}`} className="mb-auto">
                   <p
-                    style={isNativeApp && isFestivalOverride ? { color: t.primaryColor } : undefined}
+                    style={
+                      isNativeApp && isFestivalOverride
+                        ? { color: t.promoBadgeColor || t.primaryColor }
+                        : undefined
+                    }
                     className={`text-[9px] font-black uppercase tracking-[0.18em] ${isNativeApp ? "text-[#8E6208]" : "text-neutral-400"}`}
                   >
                     {product.brand || "ZEBALPHA"}
@@ -300,7 +301,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                             ? {
                                 backgroundColor: t.surfaceColor,
                                 borderColor: t.borderColor,
-                                color: t.discountBadgeColor || t.primaryColor,
+                                color: t.promoBadgeColor || t.primaryColor,
                               }
                             : undefined
                         }

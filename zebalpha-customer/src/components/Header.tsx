@@ -32,8 +32,11 @@ const CREAM_GOLD_ICON_BTN_CLASS =
   "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E4B7] border border-[#DFBC5E]/75 text-[#14120F] hover:border-[#C28D12] active:scale-95 transition-all shadow-[0_3px_10px_rgba(160,115,20,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] cursor-pointer";
 
 function AndroidFestiveHeaderBackdrop({ responsiveDesktop = false }: { responsiveDesktop?: boolean }) {
-  const { experience, isFestivalOverride } = useExperienceTheme();
+  const { experience } = useExperienceTheme();
   const t = experience.themeTokens;
+  const isCustomHeaderColor =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   const customHeaderArt =
     experience.assets?.headerArtworkUrl &&
     experience.assets.headerArtworkUrl !== "/festive-header-bg.jpg"
@@ -46,7 +49,7 @@ function AndroidFestiveHeaderBackdrop({ responsiveDesktop = false }: { responsiv
       <div
         className="absolute inset-0 transition-colors duration-300"
         style={{
-          background: isFestivalOverride
+          background: isCustomHeaderColor
             ? `linear-gradient(135deg, ${t.primaryDark || t.primaryColor} 0%, ${t.primaryColor} 55%, ${t.primaryLight || t.secondaryColor} 100%)`
             : "#f03a46",
         }}
@@ -57,7 +60,7 @@ function AndroidFestiveHeaderBackdrop({ responsiveDesktop = false }: { responsiv
           responsiveDesktop
             ? "bg-no-repeat md:bg-repeat-x bg-[length:100%_auto] md:bg-[length:560px_auto]"
             : "bg-no-repeat bg-[length:100%_auto]"
-        } ${isFestivalOverride && !customHeaderArt ? "mix-blend-luminosity opacity-30" : ""}`}
+        } ${isCustomHeaderColor && !customHeaderArt ? "mix-blend-luminosity opacity-30" : ""}`}
         style={{
           backgroundImage: `url('${customHeaderArt || "/festive-header-bg.jpg"}')`,
           backgroundPosition: "center 0px",

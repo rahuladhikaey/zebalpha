@@ -102,8 +102,11 @@ function LuxuryGoldCurvesBackdrop() {
 }
 
 function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiveDesktop?: boolean }) {
-  const { experience, isFestivalOverride } = useExperienceTheme();
+  const { experience } = useExperienceTheme();
   const t = experience.themeTokens;
+  const isCustomHeaderColor =
+    !experience.isDefault ||
+    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   const customHeaderArt =
     experience.assets?.headerArtworkUrl &&
     experience.assets.headerArtworkUrl !== "/festive-header-bg.jpg"
@@ -116,7 +119,7 @@ function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiv
       <div
         className="absolute inset-0 transition-colors duration-300"
         style={{
-          background: isFestivalOverride
+          background: isCustomHeaderColor
             ? `linear-gradient(180deg, ${t.primaryLight || t.primaryColor} 0%, ${t.secondaryColor} 45%, ${t.categoryBarBg || t.surfaceColor} 78%, ${t.backgroundColor} 100%)`
             : "linear-gradient(180deg, #fd5852 0%, #feaa90 40%, #ffd0be 75%, #FFFFFF 100%)",
         }}
@@ -127,7 +130,7 @@ function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiv
           responsiveDesktop
             ? "bg-no-repeat md:bg-repeat-x bg-[length:100%_auto] md:bg-[length:560px_auto]"
             : "bg-no-repeat bg-[length:100%_auto]"
-        } ${isFestivalOverride && !customHeaderArt ? "mix-blend-luminosity opacity-25" : ""}`}
+        } ${isCustomHeaderColor && !customHeaderArt ? "mix-blend-luminosity opacity-25" : ""}`}
         style={{
           backgroundImage: `url('${customHeaderArt || "/festive-header-bg.jpg"}')`,
           backgroundPosition: "center -60px",

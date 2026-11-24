@@ -564,9 +564,22 @@ export async function getCachedActiveCustomerExperience(): Promise<CustomerActiv
 
         const master = map.dems_master_state_v1;
         if (master && Array.isArray(master.experiences) && master.experiences.length > 0) {
+          const normalizedExperiences = (master.experiences as ExperienceRecord[]).map((exp) => {
+            if (
+              exp.id === 'exp_default_zebalpha' &&
+              exp.theme_tokens?.primaryButtonBg?.toUpperCase() === '#F03A46' &&
+              exp.theme_tokens?.discountBadgeColor?.toUpperCase() === '#047857'
+            ) {
+              return {
+                ...exp,
+                theme_tokens: { ...PREBUILT_EXPERIENCE_PRESETS[0].theme_tokens },
+              };
+            }
+            return exp;
+          });
           const nowMs = Date.now();
           const { activeExperience } = resolveActiveExperience(
-            master.experiences as ExperienceRecord[],
+            normalizedExperiences,
             nowMs
           );
 

@@ -16,11 +16,8 @@ const searchItems = ["T-Shirts, Hoodies, Shoes", "Oversized Tees", "Polos", "Str
 export function MobileSearch({ className }: { className?: string } = {}) {
   const router = useRouter();
   const isNativeApp = useOfficialTheme();
-  const { experience } = useExperienceTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
   const t = experience.themeTokens;
-  const isFestivalOverride =
-    !experience.isDefault ||
-    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
   const [index, setIndex] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);

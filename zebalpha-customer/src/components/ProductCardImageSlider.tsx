@@ -26,11 +26,11 @@ export function ProductCardImageSlider({
   className = "",
   isAboveTheFold = false,
 }: ProductCardImageSliderProps) {
-  const { experience } = useExperienceTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
   const t = experience.themeTokens;
-  const isFestivalOverride =
-    !experience.isDefault ||
-    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
+  const isWhiteBadge =
+    (t.discountBadgeColor || "").toUpperCase() === "#FFFFFF" ||
+    (t.discountBadgeColor || "").toUpperCase() === "#FFFDF8";
   // Normalize image list (remove empty/null strings and duplicates)
   const validImages = Array.from(
     new Set(images.filter((img) => img && typeof img === "string" && img.trim().length > 0))
@@ -115,12 +115,12 @@ export function ProductCardImageSlider({
       {/* Discount Badge */}
       {discountPercent !== undefined && discountPercent > 0 && (
         <div
-          data-photo-overlay="true"
+          data-photo-overlay={isFestivalOverride && !isWhiteBadge ? "true" : undefined}
           style={
             isFestivalOverride
               ? {
-                  backgroundColor: t.discountBadgeColor || t.primaryColor,
-                  color: "#FFFFFF",
+                  backgroundColor: t.discountBadgeColor || "#FFFFFF",
+                  color: isWhiteBadge ? "#14120F" : "#FFFFFF",
                 }
               : undefined
           }

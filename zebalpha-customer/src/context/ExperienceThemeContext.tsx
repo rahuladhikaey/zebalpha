@@ -10,7 +10,7 @@ import {
   isValidHexColor,
 } from "@/lib/experienceThemes";
 
-const DEMS_CACHE_STORAGE_KEY = "zebalpha_dems_active_cache_v2";
+const DEMS_CACHE_STORAGE_KEY = "zebalpha_dems_active_cache_v3";
 
 export const DEFAULT_FALLBACK_EXPERIENCE: CustomerActiveExperiencePayload = {
   version: 1,
@@ -243,10 +243,15 @@ export function ExperienceThemeProvider({
   }, [syncRemoteExperience]);
 
   const defTokens = DEFAULT_FALLBACK_EXPERIENCE.themeTokens;
+  const hasAnyTokenChange = (Object.keys(defTokens) as Array<keyof typeof defTokens>).some(
+    (k) =>
+      String(experience.themeTokens?.[k] || "").toLowerCase() !==
+      String(defTokens[k] || "").toLowerCase()
+  );
   const isFestivalOverride =
     !experience.isDefault ||
     experience.activeExperienceId !== "exp_default_zebalpha" ||
-    experience.themeTokens.primaryColor.toLowerCase() !== defTokens.primaryColor.toLowerCase();
+    hasAnyTokenChange;
 
   return (
     <ExperienceThemeContext.Provider

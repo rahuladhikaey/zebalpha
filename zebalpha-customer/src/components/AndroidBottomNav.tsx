@@ -43,11 +43,14 @@ export function AndroidBottomNav() {
   const { totalItems } = useCart();
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { experience } = useExperienceTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
   const theme = experience.themeTokens;
-  const isFestivalOverride =
-    !experience.isDefault ||
-    (theme.primaryColor && theme.primaryColor.toUpperCase() !== "#F03A46");
+  const activeTabBg = theme.accentColor || theme.primaryColor;
+  const isLightActiveTab =
+    activeTabBg.toUpperCase() === "#F2C34B" ||
+    activeTabBg.toUpperCase() === "#F5B922" ||
+    activeTabBg.toUpperCase() === "#FBBF24" ||
+    activeTabBg.toUpperCase() === "#EAB308";
 
   // Only render on native Capacitor Android app shell or preview mode
   if (!isNativeApp) return null;
@@ -195,7 +198,7 @@ export function AndroidBottomNav() {
                   style={
                     active && isFestivalOverride
                       ? {
-                          background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`,
+                          background: `linear-gradient(180deg, ${activeTabBg}, ${theme.primaryButtonBg || activeTabBg})`,
                         }
                       : undefined
                   }
@@ -208,14 +211,14 @@ export function AndroidBottomNav() {
 
                 {/* Icon Container with Champagne Gold Cart Badge */}
                 <div
-                  data-photo-overlay={active && isFestivalOverride ? "true" : undefined}
+                  data-photo-overlay={active && isFestivalOverride && !isLightActiveTab ? "true" : undefined}
                   className="relative z-10 flex items-center justify-center"
                 >
                   <IconComponent
                     strokeWidth={active ? 2.2 : 1.85}
                     className={`h-[21px] w-[21px] transition-all duration-200 ${
                       active
-                        ? isFestivalOverride
+                        ? isFestivalOverride && !isLightActiveTab
                           ? "text-white"
                           : "text-[#14120F]"
                         : "text-[#292319] group-hover:text-[#000000]"
@@ -239,10 +242,10 @@ export function AndroidBottomNav() {
 
                 {/* Label */}
                 <span
-                  data-photo-overlay={active && isFestivalOverride ? "true" : undefined}
+                  data-photo-overlay={active && isFestivalOverride && !isLightActiveTab ? "true" : undefined}
                   className={`relative z-10 mt-1 text-[10.5px] leading-none tracking-tight transition-all duration-200 ${
                     active
-                      ? isFestivalOverride
+                      ? isFestivalOverride && !isLightActiveTab
                         ? "font-extrabold text-white"
                         : "font-extrabold text-[#14120F]"
                       : "font-semibold text-[#3B3326] group-hover:text-[#14120F]"

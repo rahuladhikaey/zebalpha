@@ -483,19 +483,39 @@ async function loadDemsMasterState(): Promise<DemsMasterState> {
   if (row?.value) {
     const parsed = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
     if (parsed && Array.isArray(parsed.experiences) && parsed.experiences.length > 0) {
-      // Ensure all 8 prebuilt templates exist
+      // Ensure all 8 prebuilt templates exist and migrate untouched v1 Default ZebAlpha Theme to Option B (Coral Header + Champagne Gold Accents)
       const existingIds = new Set(parsed.experiences.map((e: ExperienceRecord) => e.id));
-      const mergedExperiences = [...parsed.experiences];
+      let didMigrateDefault = false;
+      const mergedExperiences = parsed.experiences.map((exp: ExperienceRecord) => {
+        if (
+          exp.id === "exp_default_zebalpha" &&
+          exp.theme_tokens?.primaryButtonBg?.toUpperCase() === "#F03A46" &&
+          exp.theme_tokens?.discountBadgeColor?.toUpperCase() === "#047857"
+        ) {
+          didMigrateDefault = true;
+          return {
+            ...exp,
+            theme_tokens: { ...PREBUILT_EXPERIENCE_PRESETS[0].theme_tokens },
+          };
+        }
+        return exp;
+      });
       for (const preset of PREBUILT_EXPERIENCE_PRESETS) {
         if (!existingIds.has(preset.id)) {
           mergedExperiences.push({ ...preset });
         }
       }
-      return {
+      const nextState: DemsMasterState = {
         ...buildInitialDemsState(),
         ...parsed,
         experiences: mergedExperiences,
       };
+      if (didMigrateDefault) {
+        const { customerPayload, resolvedState } = buildCustomerActivePayload(nextState);
+        await syncAllSettingsAndTables(resolvedState, customerPayload);
+        return resolvedState;
+      }
+      return nextState;
     }
   }
 

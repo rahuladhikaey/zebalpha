@@ -41,11 +41,8 @@ interface MovingOfferBannerProps {
  */
 export function MovingOfferBanner({ initialItems }: MovingOfferBannerProps = {}) {
   const isNativeApp = useOfficialTheme();
-  const { experience } = useExperienceTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
   const t = experience.themeTokens;
-  const isFestivalOverride =
-    !experience.isDefault ||
-    (t.primaryColor && t.primaryColor.toUpperCase() !== "#F03A46");
 
   const demsAnnouncements: SduiMarqueeItem[] = (experience.announcements || [])
     .filter((a) => a && a.status === "active" && (a.message || a.title))
