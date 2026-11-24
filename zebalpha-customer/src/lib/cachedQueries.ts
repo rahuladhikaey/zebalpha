@@ -10,6 +10,15 @@ import {
   SduiHomepageBlueprint,
   SduiWidgetConfig,
 } from './types';
+import {
+  PREBUILT_EXPERIENCE_PRESETS,
+  DEFAULT_HOME_SECTIONS,
+  DEFAULT_ASSETS,
+  DEFAULT_TYPOGRAPHY,
+  CustomerActiveExperiencePayload,
+  ExperienceRecord,
+  resolveActiveExperience,
+} from './experienceThemes';
 import { fetchProductRatingSummaries, attachRatingsToProducts } from './productRatings';
 import { resolveCategoryIcon } from '../../../shared/constants/categoryIcons';
 
@@ -499,8 +508,122 @@ export async function invalidateHomepageEditorialCache() {
   await invalidateCacheKey('homepage:section:hero_banners');
   await invalidateCacheKey('homepage:section:promotional_campaigns');
   await invalidateCacheKey('homepage:sdui:layout:v1');
+  await invalidateCacheKey('homepage:dems:current:v1');
   await invalidateCachePattern('homepage:section:*');
   await invalidateCachePattern('homepage:sdui:*');
+  await invalidateCachePattern('homepage:dems:*');
+}
+
+export const DEFAULT_CUSTOMER_EXPERIENCE_PAYLOAD: CustomerActiveExperiencePayload = {
+  version: 1,
+  schemaVersion: 1,
+  activeExperienceId: PREBUILT_EXPERIENCE_PRESETS[0].id,
+  name: PREBUILT_EXPERIENCE_PRESETS[0].name,
+  slug: PREBUILT_EXPERIENCE_PRESETS[0].slug,
+  festivalName: PREBUILT_EXPERIENCE_PRESETS[0].festival_name,
+  experienceType: PREBUILT_EXPERIENCE_PRESETS[0].experience_type,
+  isDefault: true,
+  timezone: 'Asia/Kolkata',
+  effectiveStartAt: null,
+  effectiveEndAt: null,
+  lastUpdatedAt: '2026-11-24T00:00:00.000Z',
+  lastPublishedBy: 'Super Admin',
+  themeTokens: PREBUILT_EXPERIENCE_PRESETS[0].theme_tokens,
+  typography: DEFAULT_TYPOGRAPHY,
+  assets: DEFAULT_ASSETS,
+  homeSections: DEFAULT_HOME_SECTIONS,
+  banners: [],
+  campaigns: [],
+  popups: [],
+  announcements: [],
+};
+
+/**
+ * Single-Key Cached DEMS Customer Experience Fetcher (~3 KB payload)
+ * Dynamically evaluates scheduled start/end dates in Asia/Kolkata timezone so scheduled
+ * festival themes auto-activate and auto-expire back to Default ZebAlpha Theme without manual cron delay!
+ */
+export async function getCachedActiveCustomerExperience(): Promise<CustomerActiveExperiencePayload> {
+  return getCachedOrFetch<CustomerActiveExperiencePayload>(
+    'homepage:dems:current:v1',
+    async () => {
+      try {
+        const { data: rows, error } = await supabaseServer
+          .from('store_settings')
+          .select('key, value')
+          .in('key', ['dems_master_state_v1', 'dems_active_experience_v1']);
+
+        if (error || !rows || rows.length === 0) {
+          return DEFAULT_CUSTOMER_EXPERIENCE_PAYLOAD;
+        }
+
+        const map: Record<string, any> = {};
+        rows.forEach((r: any) => {
+          map[r.key] = typeof r.value === 'string' ? JSON.parse(r.value) : r.value;
+        });
+
+        const master = map.dems_master_state_v1;
+        if (master && Array.isArray(master.experiences) && master.experiences.length > 0) {
+          const nowMs = Date.now();
+          const { activeExperience } = resolveActiveExperience(
+            master.experiences as ExperienceRecord[],
+            nowMs
+          );
+
+          const filterByWindow = (list: any[]) =>
+            (Array.isArray(list) ? list : [])
+              .filter((item) => {
+                if (item.status !== 'active' && item.status !== 'scheduled') return false;
+                const sMs = item.start_at ? new Date(item.start_at).getTime() : null;
+                const eMs = item.end_at ? new Date(item.end_at).getTime() : null;
+                if (sMs && !Number.isNaN(sMs) && sMs > nowMs) return false;
+                if (eMs && !Number.isNaN(eMs) && eMs <= nowMs) return false;
+                return true;
+              })
+              .sort((a, b) => Number(b.priority || 0) - Number(a.priority || 0));
+
+          return {
+            version: Number(master.version || 1),
+            schemaVersion: Number(master.schema_version || 1),
+            activeExperienceId: activeExperience.id,
+            name: activeExperience.name,
+            slug: activeExperience.slug,
+            festivalName: activeExperience.festival_name,
+            experienceType: activeExperience.experience_type,
+            isDefault: Boolean(activeExperience.is_default),
+            timezone: master.timezone || 'Asia/Kolkata',
+            effectiveStartAt: activeExperience.start_at || null,
+            effectiveEndAt: activeExperience.end_at || null,
+            lastUpdatedAt: activeExperience.updated_at || master.updated_at || new Date().toISOString(),
+            lastPublishedBy: activeExperience.last_published_by || 'Super Admin',
+            themeTokens: activeExperience.theme_tokens || PREBUILT_EXPERIENCE_PRESETS[0].theme_tokens,
+            typography: activeExperience.typography || DEFAULT_TYPOGRAPHY,
+            assets: activeExperience.assets || DEFAULT_ASSETS,
+            homeSections: (activeExperience.home_sections || DEFAULT_HOME_SECTIONS).sort(
+              (a, b) => (a.display_order ?? 99) - (b.display_order ?? 99)
+            ),
+            banners: filterByWindow(master.banners),
+            campaigns: filterByWindow(master.campaigns),
+            popups: filterByWindow(master.popups),
+            announcements: filterByWindow(master.announcements),
+          };
+        }
+
+        if (map.dems_active_experience_v1) {
+          return {
+            ...DEFAULT_CUSTOMER_EXPERIENCE_PAYLOAD,
+            ...map.dems_active_experience_v1,
+          };
+        }
+
+        return DEFAULT_CUSTOMER_EXPERIENCE_PAYLOAD;
+      } catch (e) {
+        console.error('[DEMS Active Experience Fallback]:', e);
+        return DEFAULT_CUSTOMER_EXPERIENCE_PAYLOAD;
+      }
+    },
+    180 // 3 min TTL in L1 RAM + Redis (purged in <1s on SuperAdmin publish/schedule/rollback)
+  );
 }
 
 export const DEFAULT_SDUI_HOMEPAGE_BLUEPRINT: SduiHomepageBlueprint = {

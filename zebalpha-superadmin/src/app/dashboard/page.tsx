@@ -99,7 +99,7 @@ const CategoryManagementView = dynamic(() => import("@/components/admin/Category
 const CustomerIntelligenceView = dynamic(() => import("@/components/admin/CustomerIntelligenceView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const RecommendationAnalyticsView = dynamic(() => import("@/components/admin/RecommendationAnalyticsView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 const CustomStudioAdminView = dynamic(() => import("@/components/admin/CustomStudioAdminView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
-const SduiStorefrontStudioView = dynamic(() => import("@/components/admin/SduiStorefrontStudioView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
+const ExperienceManagementStudioView = dynamic(() => import("@/components/admin/ExperienceManagementStudioView"), { ssr: false, loading: () => <AdminTabSkeleton /> });
 
 export default function AdminPage() {
   const router = useRouter();
@@ -130,6 +130,7 @@ export default function AdminPage() {
 
   const VALID_TABS = new Set([
     "dashboard",
+    "experience-management",
     "sdui-studio",
     "custom-studio",
     "customers",
@@ -320,7 +321,7 @@ export default function AdminPage() {
 
   const MENU_ITEMS = [
     { id: 'dashboard', label: 'Overview & Analytics', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z' },
-    { id: 'sdui-studio', label: 'Storefront SDUI Studio', badge: 'SDUI', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' },
+    { id: 'experience-management', label: 'Experience Management', badge: 'DEMS', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01' },
     { id: 'customers', label: 'Customer Intelligence', badge: 'LIVE', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { id: 'recommendations', label: 'Recommendation Engine', badge: 'AI', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' },
     { id: 'sellers', label: 'Seller Management', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
@@ -538,7 +539,9 @@ export default function AdminPage() {
                 />
               )}
 
-              {tab === "sdui-studio" && <SduiStorefrontStudioView />}
+              {(tab === "experience-management" || tab === "sdui-studio") && (
+                <ExperienceManagementStudioView onNavigateTab={setTab} />
+              )}
 
               {tab === "customers" && (
                 <CustomerIntelligenceView />

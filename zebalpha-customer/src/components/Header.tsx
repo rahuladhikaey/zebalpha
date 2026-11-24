@@ -33,8 +33,11 @@ const CREAM_GOLD_ICON_BTN_CLASS =
 function AndroidFestiveHeaderBackdrop({ responsiveDesktop = false }: { responsiveDesktop?: boolean }) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden select-none">
-      {/* Base rich festive red color matching the top edge of the pattern */}
-      <div className="absolute inset-0 bg-[#f03a46]" />
+      {/* Dynamic DEMS primary header background color (defaults to Official Bright Coral #f03a46) */}
+      <div
+        className="absolute inset-0 transition-colors duration-300"
+        style={{ backgroundColor: "var(--dems-primary, #f03a46)" }}
+      />
       {/* Festive traditional ornamental pattern image anchored to top center */}
       <div
         className={`absolute inset-0 ${
@@ -43,7 +46,7 @@ function AndroidFestiveHeaderBackdrop({ responsiveDesktop = false }: { responsiv
             : "bg-no-repeat bg-[length:100%_auto]"
         }`}
         style={{
-          backgroundImage: "url('/festive-header-bg.jpg')",
+          backgroundImage: "var(--dems-header-artwork, url('/festive-header-bg.jpg'))",
           backgroundPosition: "center 0px",
         }}
       />

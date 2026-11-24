@@ -13,6 +13,8 @@ import DesktopSideCart from "@/components/DesktopSideCart";
 import { ActiveSessionTracker } from "@/components/ActiveSessionTracker";
 import { ProductNavigationOverlay } from "@/components/ProductDetailsLoadingScreen";
 import { checkIsNativeApp } from "@/lib/platform";
+import { ExperienceThemeProvider } from "@/context/ExperienceThemeContext";
+import { ExperienceOverlayManager } from "@/components/experience/ExperienceOverlayManager";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Dismiss pre-hydration native shield once client UI commits & enforce official theme
@@ -39,27 +41,30 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <ActiveSessionTracker />
-        <WishlistProvider>
-          <CartProvider>
-            <VariantSelectorProvider>
-              <ProductNavigationOverlay />
-              <div className="flex w-full min-h-screen">
-                <div className="flex-1 min-w-0 flex flex-col">
-                  {children}
+    <ExperienceThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <ActiveSessionTracker />
+          <WishlistProvider>
+            <CartProvider>
+              <VariantSelectorProvider>
+                <ProductNavigationOverlay />
+                <ExperienceOverlayManager />
+                <div className="flex w-full min-h-screen">
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    {children}
+                  </div>
+                  <DesktopSideCart />
                 </div>
-                <DesktopSideCart />
-              </div>
-              <FloatingCartBanner />
-              <MeeshoVariantBottomSheet />
-              <ShareBottomSheet />
-            </VariantSelectorProvider>
-          </CartProvider>
-        </WishlistProvider>
-      </AuthProvider>
-    </LanguageProvider>
+                <FloatingCartBanner />
+                <MeeshoVariantBottomSheet />
+                <ShareBottomSheet />
+              </VariantSelectorProvider>
+            </CartProvider>
+          </WishlistProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ExperienceThemeProvider>
   );
 }
 

@@ -103,11 +103,12 @@ function LuxuryGoldCurvesBackdrop() {
 function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiveDesktop?: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden z-0 select-none" aria-hidden="true">
-      {/* Base warm peach-coral gradient foundation matching image gradient */}
+      {/* Dynamic DEMS gradient foundation (defaults to Official Bright Coral #fd5852 -> Warm Coral #feaa90 -> White) */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 transition-colors duration-300"
         style={{
-          background: "linear-gradient(180deg, #fd5852 0%, #feaa90 40%, #ffd0be 75%, #FFFFFF 100%)",
+          background:
+            "linear-gradient(180deg, var(--dems-primary-light, #fd5852) 0%, var(--dems-secondary, #feaa90) 45%, var(--dems-cat-bg, #ffd0be) 78%, var(--dems-bg, #FFFFFF) 100%)",
         }}
       />
       {/* Continuing festive floral lattice pattern from image */}
@@ -118,7 +119,7 @@ function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiv
             : "bg-no-repeat bg-[length:100%_auto]"
         }`}
         style={{
-          backgroundImage: "url('/festive-header-bg.jpg')",
+          backgroundImage: "var(--dems-header-artwork, url('/festive-header-bg.jpg'))",
           backgroundPosition: "center -60px",
           ...(responsiveDesktop
             ? {
@@ -130,11 +131,12 @@ function AndroidFestiveCurvesBackdrop({ responsiveDesktop = false }: { responsiv
             : {}),
         }}
       />
-      {/* Seamless bottom fade to pure white so categories flow organically into the page */}
+      {/* Seamless bottom fade so categories flow organically into the page */}
       <div
         className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
         style={{
-          background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 60%, #FFFFFF 100%)",
+          background:
+            "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 60%, var(--dems-bg, #FFFFFF) 100%)",
         }}
       />
     </div>
