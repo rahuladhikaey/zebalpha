@@ -16,8 +16,10 @@ export default function NotificationsPage() {
   const [message, setMessage] = useState("");
   const [targetAudience, setTargetAudience] = useState("customers");
   const [submitting, setSubmitting] = useState(false);
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [statusBanner, setStatusBanner] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -38,6 +40,57 @@ export default function NotificationsPage() {
     init();
   }, [router]);
 
+  const dispatchCampaignLive = async (camp: {
+    id: string;
+    title: string;
+    message: string;
+    target_audience: string;
+  }) => {
+    setDispatchingId(camp.id);
+    setStatusBanner(null);
+    try {
+      const res = await fetch("/api/notifications/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: camp.title,
+          message: camp.message,
+          targetAudience: camp.target_audience,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error || "Dispatch failed");
+      }
+
+      const deliveredCount = Math.max(
+        Number(json.deliveredToDevices || 0),
+        json.inAppBroadcastSaved ? 1 : 0
+      );
+
+      await supabase
+        .from("notification_campaigns")
+        .update({
+          status: "sent",
+          total_delivered: deliveredCount,
+        })
+        .eq("id", camp.id);
+
+      setCampaigns((prev) =>
+        prev.map((c) =>
+          c.id === camp.id
+            ? { ...c, status: "sent", total_delivered: deliveredCount }
+            : c
+        )
+      );
+      setStatusBanner(`Notification "${camp.title}" dispatched (${json.message})`);
+    } catch (err: any) {
+      setStatusBanner(`Dispatch error: ${err?.message || "Failed"}`);
+    } finally {
+      setDispatchingId(null);
+    }
+  };
+
   const handleQueueBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.userId) return;
@@ -45,19 +98,24 @@ export default function NotificationsPage() {
     setSubmitting(true);
 
     try {
-      const { data, error } = await supabase.from("notification_campaigns").insert({
-        title: title.trim(),
-        message: message.trim(),
-        target_audience: targetAudience,
-        status: "queued",
-        created_by: session.userId,
-      }).select().single();
+      const { data, error } = await supabase
+        .from("notification_campaigns")
+        .insert({
+          title: title.trim(),
+          message: message.trim(),
+          target_audience: targetAudience,
+          status: "queued",
+          created_by: session.userId,
+        })
+        .select()
+        .single();
 
       if (!error && data) {
-        setCampaigns([data, ...campaigns]);
+        setCampaigns((prev) => [data, ...prev]);
         setTitle("");
         setMessage("");
         setShowModal(false);
+        await dispatchCampaignLive(data);
       } else if (error) {
         setFormError(error.message);
       }
@@ -155,6 +213,18 @@ export default function NotificationsPage() {
           </div>
         )}
 
+        {statusBanner && (
+          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{statusBanner}</span>
+            </span>
+            <button onClick={() => setStatusBanner(null)} className="text-[10px] underline">
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <div className="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden shadow-xl">
           {campaigns.length === 0 ? (
             <div className="p-12 text-center text-zinc-400 text-xs">
@@ -163,19 +233,38 @@ export default function NotificationsPage() {
           ) : (
             <div className="divide-y divide-dark-800">
               {campaigns.map((camp) => (
-                <div key={camp.id} className="p-4 flex items-center justify-between">
+                <div key={camp.id} className="p-4 flex items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="text-xs font-bold text-white">{camp.title}</h4>
-                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono bg-brand-500/10 text-brand-400 border border-brand-500/20">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] uppercase font-mono border ${
+                          camp.status === "sent"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+                            : "bg-brand-500/10 text-brand-400 border-brand-500/20"
+                        }`}
+                      >
                         {camp.status}
                       </span>
                     </div>
                     <p className="text-xs text-zinc-400 mt-1">{camp.message}</p>
                   </div>
-                  <div className="text-right text-[11px] text-zinc-500">
-                    <div>Target: <span className="text-zinc-300 uppercase">{camp.target_audience}</span></div>
-                    <div>Delivered: {camp.total_delivered}</div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {camp.status !== "sent" && (
+                      <button
+                        type="button"
+                        disabled={dispatchingId === camp.id}
+                        onClick={() => void dispatchCampaignLive(camp)}
+                        className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[11px] font-semibold flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                      >
+                        <Send className="w-3 h-3" />
+                        <span>{dispatchingId === camp.id ? "Sending..." : "Send Now"}</span>
+                      </button>
+                    )}
+                    <div className="text-right text-[11px] text-zinc-500">
+                      <div>Target: <span className="text-zinc-300 uppercase">{camp.target_audience}</span></div>
+                      <div>Delivered: {camp.total_delivered || 0}</div>
+                    </div>
                   </div>
                 </div>
               ))}

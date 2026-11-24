@@ -67,6 +67,15 @@ export async function POST(req: NextRequest) {
           },
           { onConflict: "key" }
         );
+
+        // Also persist to notifications table so Seller Dashboard & Customer History both receive it
+        await supabaseServer.from("notifications").insert({
+          title: title.trim(),
+          message: body.trim(),
+          target_group: target === "sellers" ? "sellers" : target === "customers" ? "customers" : "all",
+          is_active: true,
+          created_at: new Date().toISOString(),
+        });
       } catch (saveErr) {
         console.warn("Notice saving in-app broadcast message:", saveErr);
       }

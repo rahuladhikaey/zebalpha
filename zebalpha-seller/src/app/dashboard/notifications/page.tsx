@@ -18,9 +18,13 @@ export default function SellerNotifications() {
         const { data } = await supabase
           .from("notifications")
           .select("*")
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+          .limit(50);
 
-        setNotifications(data || []);
+        const filtered = (data || []).filter(
+          (n: any) => !n.target_group || n.target_group === "all" || n.target_group === "sellers"
+        );
+        setNotifications(filtered);
       } catch (e) {
         console.error(e);
       } finally {
