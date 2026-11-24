@@ -8,6 +8,7 @@ import { Store, ArrowUpRight, Globe } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 import { useExperienceTheme } from "@/context/ExperienceThemeContext";
+import NotificationBell from "./NotificationBell";
 
 type MobileDrawerProps = {
   isOpen: boolean;
@@ -100,19 +101,49 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 ZEB<span className={isOfficialTheme ? "text-[#B8820E]" : "text-amber-400"}>ALPHA</span>
               </span>
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Close menu"
-              className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${
-                isOfficialTheme
-                  ? "bg-[#FFFDF8] border-[#DFC16E]/70 text-[#4B402D] hover:text-[#14120F]"
-                  : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
-              }`}
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <div onClick={onClose}>
+                <NotificationBell
+                  style={
+                    isOfficialTheme && isFestivalOverride
+                      ? {
+                          backgroundColor: theme.cardBackground,
+                          borderColor: theme.borderColor,
+                          color: theme.primaryText,
+                        }
+                      : undefined
+                  }
+                  className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${
+                    isOfficialTheme
+                      ? "bg-[#FFFDF8] border-[#DFC16E]/70 text-[#4B402D] hover:text-[#14120F]"
+                      : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
+                  }`}
+                  iconClassName="h-4 w-4 stroke-[2.2]"
+                />
+              </div>
+              <button
+                onClick={onClose}
+                aria-label="Close menu"
+                style={
+                  isOfficialTheme && isFestivalOverride
+                    ? {
+                        backgroundColor: theme.cardBackground,
+                        borderColor: theme.borderColor,
+                        color: theme.primaryText,
+                      }
+                    : undefined
+                }
+                className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${
+                  isOfficialTheme
+                    ? "bg-[#FFFDF8] border-[#DFC16E]/70 text-[#4B402D] hover:text-[#14120F]"
+                    : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
+                }`}
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Body */}

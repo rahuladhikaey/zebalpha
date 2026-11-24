@@ -10,9 +10,10 @@ let cachedHasNew = false;
 interface NotificationBellProps {
   className?: string;
   iconClassName?: string;
+  style?: React.CSSProperties;
 }
 
-export default function NotificationBell({ className, iconClassName }: NotificationBellProps = {}) {
+export default function NotificationBell({ className, iconClassName, style }: NotificationBellProps = {}) {
   const [hasNew, setHasNew] = useState(cachedHasNew);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function NotificationBell({ className, iconClassName }: Notificat
     <Link
       href="/notifications"
       onClick={handleClick}
+      style={style}
       className={className || "relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-[#1a140b] to-[#0b0905] border border-amber-500/35 text-amber-400 hover:text-amber-300 hover:border-amber-400/60 shadow-[0_4px_14px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(253,230,138,0.18)] transition-all shrink-0 active:scale-95"}
       aria-label="Notifications"
     >

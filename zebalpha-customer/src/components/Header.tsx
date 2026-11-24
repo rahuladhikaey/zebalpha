@@ -3,13 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useState, useId } from "react";
+import { useState, useId, useEffect } from "react";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import AnimatedSearchBar from "./AnimatedSearchBar";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
-import { ShoppingBag, Menu, Heart } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
+import { ShoppingBag, Menu, Heart, Coins } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 import dynamicImport from "next/dynamic";
@@ -262,7 +264,77 @@ export function Header({
   const pathname = usePathname();
   const { totalItems } = useCart();
   const { wishlist } = useWishlist();
+  const { user } = useAuth();
   const isNativeApp = useIsNativeApp();
+  const [superCoins, setSuperCoins] = useState<number>(0);
+
+  // Fetch user's Super Coin balance once per session for Android App header pill
+  useEffect(() => {
+    if (!isNativeApp || !user?.email) {
+      setSuperCoins(0);
+      return;
+    }
+    const cacheKey = `zebalpha_super_coins_${user.email.toLowerCase()}`;
+    try {
+      const cached = window.sessionStorage.getItem(cacheKey);
+      if (cached !== null && !Number.isNaN(Number(cached))) {
+        setSuperCoins(Number(cached));
+        return;
+      }
+    } catch {}
+
+    let active = true;
+    (async () => {
+      try {
+        const userEmail = (user.email || "").trim().toLowerCase();
+        const { data } = await supabase
+          .from("card_applications")
+          .select("status, coins")
+          .or(`user_email.ilike.${userEmail},email.ilike.${userEmail}`)
+          .order("applied_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const resolvedCoins =
+          data && data.status === "APPROVED"
+            ? Number((data as any).coins ?? 100)
+            : Number((data as any)?.coins ?? 0);
+
+        if (active) {
+          setSuperCoins(resolvedCoins);
+          try {
+            window.sessionStorage.setItem(cacheKey, String(resolvedCoins));
+          } catch {}
+        }
+      } catch {
+        // Keep 0 silently
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isNativeApp, user?.email]);
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const headerIconBtnStyle: React.CSSProperties | undefined = isFestivalOverride
+    ? {
+        backgroundImage: "none",
+        backgroundColor: t.secondaryButtonBg || t.surfaceColor || "#FFFDF7",
+        borderColor: t.borderColor || "#DFBC5E",
+        color: t.secondaryButtonText || t.primaryText || "#14120F",
+      }
+    : undefined;
+  const headerIconTextStyle: React.CSSProperties | undefined = isFestivalOverride
+    ? { color: t.secondaryButtonText || t.primaryText || "#14120F" }
+    : undefined;
+  const headerBadgeStyle: React.CSSProperties | undefined = isFestivalOverride
+    ? {
+        backgroundImage: "none",
+        backgroundColor: t.accentColor || t.primaryButtonBg,
+        color: t.primaryButtonText || "#14120F",
+      }
+    : undefined;
   const isHome = pathname === "/";
 
   // Native Android App
@@ -274,19 +346,36 @@ export function Header({
         <Link
           href="/wishlist"
           aria-label={`Wishlist (${wishlistCount})`}
+          style={headerIconBtnStyle}
           className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
         >
-          <Heart className="h-[19px] w-[19px] stroke-[2.15] text-[#14120F]" />
+          <Heart style={headerIconTextStyle} className="h-[19px] w-[19px] stroke-[2.15] text-[#14120F]" />
           {wishlistCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm">
+            <span
+              style={headerBadgeStyle}
+              className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm"
+            >
               {wishlistCount > 99 ? "99+" : wishlistCount}
             </span>
           )}
         </Link>
-        <NotificationBell
-          className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
-          iconClassName="h-[19px] w-[19px] stroke-[2.15] text-[#14120F]"
-        />
+        <Link
+          href="/profile/cards"
+          aria-label={`Super Coins (${superCoins})`}
+          style={headerIconBtnStyle}
+          className="flex h-10 items-center justify-center gap-1 rounded-2xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E4B7] border border-[#DFBC5E]/75 px-2.5 text-[#14120F] hover:border-[#C28D12] active:scale-95 transition-all shadow-[0_3px_10px_rgba(160,115,20,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] cursor-pointer shrink-0"
+        >
+          <Coins
+            style={isFestivalOverride ? { color: t.primaryColor || "#B45309" } : undefined}
+            className="h-[17px] w-[17px] stroke-[2.2] text-[#B45309] shrink-0"
+          />
+          <span
+            style={headerIconTextStyle}
+            className="text-xs font-black tracking-tight text-[#14120F] leading-none"
+          >
+            {superCoins}
+          </span>
+        </Link>
       </div>
     );
 
@@ -318,10 +407,11 @@ export function Header({
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(true)}
+                style={headerIconBtnStyle}
                 className={CREAM_GOLD_ICON_BTN_CLASS}
                 aria-label="Open Navigation Menu"
               >
-                <Menu className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
+                <Menu style={headerIconTextStyle} className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
               </button>
 
               {/* Center: ZebAlpha Logo & Brand Name */}
@@ -355,10 +445,11 @@ export function Header({
             <button
               type="button"
               onClick={() => router.back()}
+              style={headerIconBtnStyle}
               className={CREAM_GOLD_ICON_BTN_CLASS}
               aria-label="Go Back"
             >
-              <svg className="h-5 w-5 text-[#14120F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg style={headerIconTextStyle} className="h-5 w-5 text-[#14120F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -398,10 +489,11 @@ export function Header({
               <button
                 type="button"
                 onClick={() => router.back()}
+                style={headerIconBtnStyle}
                 className={CREAM_GOLD_ICON_BTN_CLASS}
                 aria-label="Go Back"
               >
-                <svg className="h-5 w-5 text-[#14120F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg style={headerIconTextStyle} className="h-5 w-5 text-[#14120F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
@@ -409,10 +501,11 @@ export function Header({
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(true)}
+                style={headerIconBtnStyle}
                 className={`${CREAM_GOLD_ICON_BTN_CLASS} lg:hidden`}
                 aria-label="Open Navigation Menu"
               >
-                <Menu className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
+                <Menu style={headerIconTextStyle} className="h-5 w-5 stroke-[2.2] text-[#14120F]" />
               </button>
             )}
 
@@ -451,11 +544,15 @@ export function Header({
             <Link
               href="/wishlist"
               aria-label={`Wishlist (${wishlistCount})`}
+              style={headerIconBtnStyle}
               className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
             >
-              <Heart className="h-[18px] w-[18px] stroke-[2.15] text-[#14120F]" />
+              <Heart style={headerIconTextStyle} className="h-[18px] w-[18px] stroke-[2.15] text-[#14120F]" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm">
+                <span
+                  style={headerBadgeStyle}
+                  className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm"
+                >
                   {wishlistCount > 99 ? "99+" : wishlistCount}
                 </span>
               )}
@@ -464,10 +561,11 @@ export function Header({
             {/* Shopping Cart Button */}
             <Link
               href="/cart"
+              style={headerIconBtnStyle}
               className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
               aria-label="View Shopping Cart"
             >
-              <ShoppingBag className="h-[18px] w-[18px] stroke-[2.15] text-[#14120F]" />
+              <ShoppingBag style={headerIconTextStyle} className="h-[18px] w-[18px] stroke-[2.15] text-[#14120F]" />
               {totalItems > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm">
                   {totalItems > 99 ? "99+" : totalItems}
