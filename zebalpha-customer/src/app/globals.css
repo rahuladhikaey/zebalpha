@@ -247,26 +247,23 @@ html:is(.is-official-theme, .is-android-app) {
 }
 
 html:is(.is-official-theme, .is-android-app) body {
-  background-color: #FFFFFF;
-  background-image:
-    radial-gradient(ellipse 95% 42% at 50% 0%, rgba(250, 204, 21, 0.16), transparent 68%),
-    radial-gradient(circle at 0% 28%, rgba(253, 224, 71, 0.12), transparent 46%),
-    radial-gradient(circle at 100% 34%, rgba(234, 179, 8, 0.10), transparent 46%);
-  color: #111111;
+  background-color: var(--dems-bg, #FFFFFF);
+  background-image: none;
+  color: var(--dems-text-primary, #111111);
 }
 
 html:is(.is-official-theme, .is-android-app) .bg-page {
-  background-color: #FFFFFF;
-  background-image: linear-gradient(180deg, #FFFFFF 0%, #FFFDF3 48%, #FDF5D7 100%);
-  color: #111111;
+  background-color: var(--dems-bg, #FFFFFF);
+  background-image: none;
+  color: var(--dems-text-primary, #111111);
 }
 
-/* Primary page wrappers across the whole site & app: clean White + soft Yellow mix */
+/* Primary page wrappers across the whole site & app: controlled by DEMS --dems-bg */
 html:is(.is-official-theme, .is-android-app) main,
 html:is(.is-official-theme, .is-android-app) .min-h-screen:not([data-keep-dark]):not([data-photo-overlay]) {
-  background-color: #FFFFFF;
-  background-image: linear-gradient(180deg, #FFFFFF 0%, #FFFDF4 45%, #FCF3D2 100%);
-  color: #111111;
+  background-color: var(--dems-bg, #FFFFFF);
+  background-image: none;
+  color: var(--dems-text-primary, #111111);
 }
 
 /* Dark page containers, cards & sections converted to clean White + Champagne Yellow surfaces */

@@ -251,7 +251,11 @@ export default async function HomePage(props: {
       />
       <main
         data-ssr-native={serverIsNative ? "true" : undefined}
-        className="min-h-screen bg-[#FFFFFF] text-[#111111] selection:bg-[#F5B922]/30 selection:text-[#111111] overflow-x-clip"
+        style={{
+          backgroundColor: activeDemsExperience?.themeTokens?.backgroundColor || "var(--dems-bg, #FFFFFF)",
+          color: activeDemsExperience?.themeTokens?.primaryText || "var(--dems-text-primary, #111111)",
+        }}
+        className="min-h-screen selection:bg-[#F5B922]/30 selection:text-[#111111] overflow-x-clip"
       >
         {/* P0 IMMEDIATE: Header + Sticky Search & Category Navigation Bar */}
         <Header title="ZebAlpha" subtitle="CLOTHING FOR THE CULTURE ✦" />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useId } from "react";
 import { ArrowRight } from "lucide-react";
 import { useOfficialTheme } from "@/lib/platform";
+import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
 interface OurProductsBannerProps {
   title?: string;
@@ -23,6 +24,11 @@ export function OurProductsBanner({
   ctaHref = "/customize",
 }: OurProductsBannerProps = {}) {
   const isNativeApp = useOfficialTheme();
+  const { experience, isFestivalOverride } = useExperienceTheme();
+  const t = experience.themeTokens;
+  const isLightBtnText =
+    (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
+    (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   const uid = useId().replace(/:/g, "");
   const ribbonGoldId = `opRibbonGold-${uid}`;
   const ribbonDeepId = `opRibbonDeep-${uid}`;
@@ -39,21 +45,43 @@ export function OurProductsBanner({
 
   if (isNativeApp) {
     return (
-      <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFFDF8] via-[#FAF0D1] to-[#FFFDF8] border border-[#E2BE66]/85 shadow-[0_8px_22px_rgba(166,124,28,0.10)] px-4 py-3.5">
+      <div
+        style={
+          isFestivalOverride
+            ? {
+                background: `linear-gradient(90deg, ${t.cardBackground}, ${t.surfaceColor}, ${t.cardBackground})`,
+                borderColor: t.borderColor,
+              }
+            : undefined
+        }
+        className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFFDF8] via-[#FAF0D1] to-[#FFFDF8] border border-[#E2BE66]/85 shadow-[0_8px_22px_rgba(166,124,28,0.10)] px-4 py-3.5"
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white p-0.5 border-2 border-[#E2BE66] shadow-[0_4px_12px_rgba(166,124,28,0.22)] overflow-hidden">
+            <span
+              style={isFestivalOverride ? { borderColor: t.borderColor } : undefined}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white p-0.5 border-2 border-[#E2BE66] shadow-[0_4px_12px_rgba(166,124,28,0.22)] overflow-hidden"
+            >
               <img
-                src="/official-logo-sm.png"
+                src={experience.assets?.festivalLogoUrl || "/official-logo-sm.png"}
                 alt="ZebAlpha"
                 className="h-full w-full rounded-full object-contain"
               />
             </span>
             <div className="min-w-0">
-              <h2 className="text-base font-black uppercase tracking-tight leading-none text-[#14120F]">
-                {firstWord} <span className="text-[#9A6503]">{restWords}</span>
+              <h2
+                style={isFestivalOverride ? { color: t.primaryText } : undefined}
+                className="text-base font-black uppercase tracking-tight leading-none text-[#14120F]"
+              >
+                {firstWord}{" "}
+                <span style={isFestivalOverride ? { color: t.promoBadgeColor || t.primaryColor } : undefined} className="text-[#9A6503]">
+                  {restWords}
+                </span>
               </h2>
-              <p className="mt-1 text-[11px] font-medium text-[#5C4E35] truncate">
+              <p
+                style={isFestivalOverride ? { color: t.secondaryText } : undefined}
+                className="mt-1 text-[11px] font-medium text-[#5C4E35] truncate"
+              >
                 {subtitle}
               </p>
             </div>
@@ -62,6 +90,16 @@ export function OurProductsBanner({
           <Link
             href={ctaHref || "/customize"}
             aria-label={ctaLabel || "Create Custom Apparel Design"}
+            data-photo-overlay={isFestivalOverride && isLightBtnText ? "true" : undefined}
+            style={
+              isFestivalOverride
+                ? {
+                    background: t.primaryButtonBg || t.primaryColor,
+                    color: t.primaryButtonText || "#14120F",
+                    borderColor: t.borderColor,
+                  }
+                : undefined
+            }
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-b from-[#FCE89C] via-[#EAB308] to-[#C68A12] border border-[#FFF5C8] px-3.5 py-2 text-[11px] font-black text-[#111111] shadow-sm active:scale-95 transition-transform"
           >
             <span>{ctaLabel || "Create"}</span>

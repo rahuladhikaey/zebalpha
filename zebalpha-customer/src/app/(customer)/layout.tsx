@@ -130,7 +130,13 @@ export default async function RootLayout({
         <MobilePullToRefresh />
         <InAppBroadcastToast />
         <NotificationPermissionPrompt />
-        <div className="min-h-screen">
+        <div
+          className="min-h-screen"
+          style={{
+            backgroundColor: initialExperience?.themeTokens?.backgroundColor || "var(--dems-bg, #FFFFFF)",
+            color: initialExperience?.themeTokens?.primaryText || "var(--dems-text-primary, #111111)",
+          }}
+        >
           {children}
         </div>
         <AndroidBottomNav />

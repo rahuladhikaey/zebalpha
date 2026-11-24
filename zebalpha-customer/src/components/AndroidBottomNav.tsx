@@ -142,6 +142,8 @@ export function AndroidBottomNav() {
             const active = item.isActive;
 
             if (item.isCenterAi) {
+              const aiRingBg = theme.accentColor || theme.primaryButtonBg || "#F2C34B";
+              const aiRingBorder = active ? (theme.primaryColor || "#D97706") : (theme.borderColor || "#EAB308");
               return (
                 <Link
                   key={item.id}
@@ -151,32 +153,51 @@ export function AndroidBottomNav() {
                   className="group relative flex h-full flex-col items-center justify-end pb-1.5 transition-transform duration-150 active:scale-95"
                 >
                   <span
+                    style={{
+                      borderColor: aiRingBorder,
+                      background: `linear-gradient(135deg, ${theme.surfaceColor || "#FFFDF8"} 0%, ${aiRingBg} 60%, ${theme.primaryButtonBg || aiRingBg} 100%)`,
+                      boxShadow: active
+                        ? `0 6px 22px ${aiRingBorder}66, 0 0 0 3px ${aiRingBg}44`
+                        : `0 6px 18px ${aiRingBg}44`,
+                    }}
                     className={`relative -mt-5 flex h-[50px] w-[50px] items-center justify-center rounded-full border-2 p-[2.5px] transition-all duration-300 ${
-                      active
-                        ? "border-[#D97706] bg-gradient-to-br from-[#FEF08A] via-[#F5C542] to-[#C68A12] shadow-[0_6px_22px_rgba(217,119,6,0.45),0_0_0_3px_rgba(250,204,21,0.35)] scale-105"
-                        : "border-[#EAB308] bg-gradient-to-br from-[#FFFDF8] via-[#FCE694] to-[#EAB308] shadow-[0_6px_18px_rgba(180,120,16,0.30)] group-hover:scale-105"
+                      active ? "scale-105" : "group-hover:scale-105"
                     }`}
                   >
                     <span
                       className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white border border-[#111111]/15 p-0.5"
                     >
                       <img
-                        src="/official-logo-sm.png"
+                        src={experience.assets?.festivalLogoUrl || "/official-logo-sm.png"}
                         alt="Alpha AI"
                         className="h-full w-full object-cover rounded-full"
                       />
                     </span>
 
-                    {/* Live green AI status dot */}
+                    {/* Live AI status dot */}
                     <span className="pointer-events-none absolute -top-0.5 -right-0.5 z-10 flex h-3.5 w-3.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-[#FFFDF8] bg-emerald-500" />
+                      <span
+                        className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                        style={{ backgroundColor: theme.successColor || "#10B981" }}
+                      />
+                      <span
+                        className="relative inline-flex h-3.5 w-3.5 rounded-full border-2"
+                        style={{
+                          backgroundColor: theme.successColor || "#10B981",
+                          borderColor: theme.navBarBg || "#FFFDF8",
+                        }}
+                      />
                     </span>
                   </span>
 
                   <span
+                    style={{
+                      color: active
+                        ? theme.primaryColor || "#9A6503"
+                        : theme.primaryText || "#111111",
+                    }}
                     className={`mt-1 text-[10.5px] leading-none tracking-tight transition-colors ${
-                      active ? "font-black text-[#9A6503]" : "font-extrabold text-[#111111]"
+                      active ? "font-black" : "font-extrabold"
                     }`}
                   >
                     {item.label}
