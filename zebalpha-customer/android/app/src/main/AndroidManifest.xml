@@ -66,6 +66,8 @@
     <!-- Location / GPS Permissions (Required for GOα 5-6 Hr Hyperlocal Delivery) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <!-- Queries for UPI Payment apps, Voice Speech Recognition & Intent verification -->
     <queries>
