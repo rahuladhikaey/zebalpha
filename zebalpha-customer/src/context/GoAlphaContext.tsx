@@ -181,6 +181,11 @@ export function GoAlphaProvider({ children }: { children: React.ReactNode }) {
   );
 
   const detectGpsPincode = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      try {
+        (window as any).ZebAlphaNative?.requestLocationPermission?.();
+      } catch {}
+    }
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       return { ok: false, error: "Location not supported on this device" };
     }

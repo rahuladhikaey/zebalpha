@@ -15,6 +15,13 @@ export default function GoAlphaCommandCenterView() {
   const [newCity, setNewCity] = useState("");
   const [newCorridor, setNewCorridor] = useState("Sealdah-Krishnanagar");
 
+  // Create Main Category & Subcategory forms
+  const [newMainCatName, setNewMainCatName] = useState("");
+  const [newMainCatDesc, setNewMainCatDesc] = useState("");
+  const [newSubGroup, setNewSubGroup] = useState("Women's Innerwear");
+  const [newSubName, setNewSubName] = useState("");
+  const [newSubKeywords, setNewSubKeywords] = useState("");
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -56,6 +63,43 @@ export default function GoAlphaCommandCenterView() {
       setNewPin("");
       setNewArea("");
       setNewCity("");
+      await loadData();
+    }
+  };
+
+  const handleCreateMainCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/go-alpha", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create_main_category",
+        name: newMainCatName,
+        description: newMainCatDesc,
+      }),
+    });
+    if (res.ok) {
+      setNewMainCatName("");
+      setNewMainCatDesc("");
+      await loadData();
+    }
+  };
+
+  const handleCreateSubcategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/go-alpha", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create_subcategory",
+        category_group: newSubGroup,
+        name: newSubName,
+        keywords: newSubKeywords,
+      }),
+    });
+    if (res.ok) {
+      setNewSubName("");
+      setNewSubKeywords("");
       await loadData();
     }
   };
@@ -338,24 +382,110 @@ export default function GoAlphaCommandCenterView() {
           )}
 
           {subTab === "categories" && (
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {(data?.subcategories || []).map((sub: any) => (
-                <div key={sub.id} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase text-orange-400">{sub.category_group}</p>
-                    <p className="text-sm font-black text-white">{sub.name}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => patchAction({ action: "toggle_subcategory", id: sub.id, is_active: !sub.is_active })}
-                    className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${
-                      sub.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
-                    }`}
-                  >
-                    {sub.is_active ? "ALLOWED" : "DISABLED"}
+            <div className="space-y-6">
+              {/* Create Main Category */}
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-4">
+                <h3 className="text-sm font-black text-white">1. Main Categories ({(data?.mainCategories || []).length})</h3>
+                <form onSubmit={handleCreateMainCategory} className="grid sm:grid-cols-3 gap-3">
+                  <input
+                    required
+                    value={newMainCatName}
+                    onChange={(e) => setNewMainCatName(e.target.value)}
+                    placeholder="Main Category Name (e.g. Women's Innerwear)"
+                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                  />
+                  <input
+                    value={newMainCatDesc}
+                    onChange={(e) => setNewMainCatDesc(e.target.value)}
+                    placeholder="Short Description (optional)"
+                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                  />
+                  <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white cursor-pointer">
+                    + Create Main Category
                   </button>
+                </form>
+
+                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {(data?.mainCategories || []).map((mc: any) => (
+                    <div key={mc.id} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3.5">
+                      <div>
+                        <p className="text-sm font-black text-white">{mc.name}</p>
+                        {mc.description && <p className="text-[11px] text-zinc-400 line-clamp-1">{mc.description}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => patchAction({ action: "toggle_main_category", id: mc.id, is_active: !mc.is_active })}
+                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${
+                          mc.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                        }`}
+                      >
+                        {mc.is_active ? "ACTIVE" : "OFF"}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Create Subcategory */}
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-4">
+                <h3 className="text-sm font-black text-white">2. Allowed Subcategories ({(data?.subcategories || []).length})</h3>
+                <form onSubmit={handleCreateSubcategory} className="grid sm:grid-cols-4 gap-3">
+                  <select
+                    value={newSubGroup}
+                    onChange={(e) => setNewSubGroup(e.target.value)}
+                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                  >
+                    {Array.from(
+                      new Set([
+                        "Women's Innerwear",
+                        "Men's Innerwear",
+                        "Men's Dailywear",
+                        "Fashion Accessories",
+                        "Everyday Essentials",
+                        ...((data?.mainCategories || []).map((m: any) => m.name)),
+                      ])
+                    ).map((grp) => (
+                      <option key={grp} value={grp}>{grp}</option>
+                    ))}
+                  </select>
+                  <input
+                    required
+                    value={newSubName}
+                    onChange={(e) => setNewSubName(e.target.value)}
+                    placeholder="Subcategory Name (e.g. Sports Bras)"
+                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                  />
+                  <input
+                    value={newSubKeywords}
+                    onChange={(e) => setNewSubKeywords(e.target.value)}
+                    placeholder="Keywords (comma-separated, e.g. bra, sports bra)"
+                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                  />
+                  <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white cursor-pointer">
+                    + Create Subcategory
+                  </button>
+                </form>
+
+                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {(data?.subcategories || []).map((sub: any) => (
+                    <div key={sub.id} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-orange-400">{sub.category_group}</p>
+                        <p className="text-sm font-black text-white">{sub.name}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => patchAction({ action: "toggle_subcategory", id: sub.id, is_active: !sub.is_active })}
+                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${
+                          sub.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                        }`}
+                      >
+                        {sub.is_active ? "ALLOWED" : "DISABLED"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </>

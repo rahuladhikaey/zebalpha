@@ -484,6 +484,7 @@ public class MainActivity extends BridgeActivity {
                 if (!defaultUa.contains("ZEBALPHA_ANDROID_APP")) {
                     settings.setUserAgentString(defaultUa + " ZEBALPHA_ANDROID_APP");
                 }
+                settings.setGeolocationEnabled(true);
             }
         } catch (Exception e) {
             Log.e(TAG, "Error configuring User-Agent", e);
@@ -764,6 +765,21 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void requestPermission() {
             runOnUiThread(() -> checkAndRequestNotificationPermission());
+        }
+
+        @JavascriptInterface
+        public void requestLocationPermission() {
+            runOnUiThread(() -> {
+                boolean hasFine = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED;
+                if (!hasFine) {
+                    ActivityCompat.requestPermissions(
+                        MainActivity.this,
+                        new String[] { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION },
+                        2026
+                    );
+                }
+            });
         }
 
         @JavascriptInterface

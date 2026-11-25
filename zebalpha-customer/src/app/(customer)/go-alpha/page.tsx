@@ -10,9 +10,21 @@ import { GO_ALPHA_CATEGORY_GROUPS, GO_ALPHA_FREE_DELIVERY_MIN } from "@shared/co
 export default function GoAlphaHomePage() {
   const { pincode, serviceability, setLocationModalOpen } = useGoAlpha();
   const [selectedGroup, setSelectedGroup] = useState<string>("All");
+  const [mainCategories, setMainCategories] = useState<string[]>([...GO_ALPHA_CATEGORY_GROUPS]);
   const [search, setSearch] = useState("");
   const [products, setProducts] = useState<GoAlphaProductRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/go-alpha/categories")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.mainCategories) && d.mainCategories.length > 0) {
+          setMainCategories(d.mainCategories.map((m: any) => m.name));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -111,7 +123,7 @@ export default function GoAlphaHomePage() {
         <>
           {/* Category Group Pills */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {["All", ...GO_ALPHA_CATEGORY_GROUPS].map((group) => {
+            {["All", ...mainCategories].map((group) => {
               const active = selectedGroup === group;
               return (
                 <button
@@ -144,19 +156,31 @@ export default function GoAlphaHomePage() {
               ))}
             </div>
           ) : products.length === 0 ? (
-            <div className="rounded-3xl border border-orange-200/70 bg-white p-8 text-center">
-              <p className="text-sm font-black text-neutral-900">
-                No GOα express products live in {pincode} yet
+            <div className="rounded-3xl border border-orange-200 bg-gradient-to-b from-orange-50/70 to-white p-8 text-center shadow-xs">
+              <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#EE2B00]">
+                <Zap className="h-3 w-3 fill-[#EE2B00]" />
+                Products Coming Soon
+              </span>
+              <h2 className="mt-3 text-base font-black text-neutral-900">
+                Products Coming Soon in {pincode}!
+              </h2>
+              <p className="mt-1.5 text-xs text-neutral-600 max-w-md mx-auto leading-relaxed">
+                GOα 5–6 Hr delivery service is active in your area. Local verified sellers are listing fresh innerwear &amp; dailywear inventory soon!
               </p>
-              <p className="mt-1 text-xs text-neutral-500">
-                Local sellers on the Sealdah – Krishnanagar route are adding inventory. Check back soon or explore Categories!
-              </p>
-              <Link
-                href="/go-alpha/categories"
-                className="mt-4 inline-flex items-center gap-1.5 rounded-2xl bg-[#EE2B00] px-4 py-2 text-xs font-extrabold text-white"
-              >
-                Browse Categories
-              </Link>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+                <Link
+                  href="/go-alpha/categories"
+                  className="inline-flex items-center gap-1.5 rounded-2xl bg-[#EE2B00] px-4 py-2.5 text-xs font-extrabold text-white"
+                >
+                  Browse Categories
+                </Link>
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1.5 rounded-2xl bg-neutral-900 px-4 py-2.5 text-xs font-extrabold text-white"
+                >
+                  Shop on ZebAlpha <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">

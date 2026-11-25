@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GO_ALPHA_ALLOWED_SUBCATEGORIES, GO_ALPHA_CATEGORY_GROUPS } from "@shared/constants/goAlpha";
 import { GoAlphaProductCard, type GoAlphaProductRecord } from "@/components/go-alpha/GoAlphaProductCard";
 import { useGoAlpha } from "@/context/GoAlphaContext";
@@ -9,9 +9,29 @@ import { Zap } from "lucide-react";
 
 export default function GoAlphaCategoriesPage() {
   const { pincode } = useGoAlpha();
+  const [mainCategories, setMainCategories] = useState<Array<{ name: string }>>(
+    GO_ALPHA_CATEGORY_GROUPS.map((name) => ({ name }))
+  );
+  const [subcategories, setSubcategories] = useState<Array<{ slug: string; name: string; category_group: string }>>(
+    GO_ALPHA_ALLOWED_SUBCATEGORIES.map((s) => ({ slug: s.slug, name: s.name, category_group: s.categoryGroup }))
+  );
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [products, setProducts] = useState<GoAlphaProductRecord[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/go-alpha/categories")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.mainCategories) && d.mainCategories.length > 0) {
+          setMainCategories(d.mainCategories);
+        }
+        if (Array.isArray(d.subcategories) && d.subcategories.length > 0) {
+          setSubcategories(d.subcategories);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const loadSubcategory = async (slug: string) => {
     setSelectedSlug(slug);
@@ -39,13 +59,14 @@ export default function GoAlphaCategoriesPage() {
         </Link>
       </div>
 
-      {GO_ALPHA_CATEGORY_GROUPS.map((group) => {
-        const subs = GO_ALPHA_ALLOWED_SUBCATEGORIES.filter((s) => s.categoryGroup === group);
+      {mainCategories.map((group) => {
+        const subs = subcategories.filter((s) => s.category_group === group.name);
+        if (subs.length === 0) return null;
         return (
-          <section key={group} className="space-y-2.5">
+          <section key={group.name} className="space-y-2.5">
             <h2 className="text-sm font-black text-neutral-900 flex items-center gap-1.5">
               <Zap className="h-3.5 w-3.5 text-[#EE2B00] fill-[#EE2B00]" />
-              {group}
+              {group.name}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
               {subs.map((sub) => {
@@ -73,7 +94,7 @@ export default function GoAlphaCategoriesPage() {
       {selectedSlug && (
         <div className="pt-2 space-y-3">
           <h3 className="text-sm font-black text-neutral-900">
-            Results for {GO_ALPHA_ALLOWED_SUBCATEGORIES.find((s) => s.slug === selectedSlug)?.name}
+            Results for {subcategories.find((s) => s.slug === selectedSlug)?.name}
           </h3>
           {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -83,7 +104,7 @@ export default function GoAlphaCategoriesPage() {
             </div>
           ) : products.length === 0 ? (
             <p className="rounded-2xl border border-orange-200 bg-white p-6 text-center text-xs font-semibold text-neutral-500">
-              No active products in this subcategory for pincode {pincode} yet.
+              Products coming soon in this subcategory for pincode {pincode}.
             </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
