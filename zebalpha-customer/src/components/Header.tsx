@@ -363,7 +363,7 @@ export function Header({
   const isHome = pathname === "/";
 
   // Isolate ZebQuick Quick Commerce sub-app from ZebAlpha's global header
-  if (pathname?.startsWith("/go-alpha")) return null;
+  if (pathname?.startsWith("/zeb-quick")) return null;
 
   // Native Android App
   if (isNativeApp) {

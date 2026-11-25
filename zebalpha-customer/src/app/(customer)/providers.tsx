@@ -16,7 +16,7 @@ import { checkIsNativeApp } from "@/lib/platform";
 import { ExperienceThemeProvider } from "@/context/ExperienceThemeContext";
 import { ExperienceOverlayManager } from "@/components/experience/ExperienceOverlayManager";
 import type { CustomerActiveExperiencePayload } from "@/lib/experienceThemes";
-import { GoAlphaProvider } from "@/context/GoAlphaContext";
+import { ZebQuickProvider } from "@/context/ZebQuickContext";
 
 export function Providers({
   children,
@@ -55,7 +55,7 @@ export function Providers({
           <ActiveSessionTracker />
           <WishlistProvider>
             <CartProvider>
-              <GoAlphaProvider>
+              <ZebQuickProvider>
                 <VariantSelectorProvider>
                   <ProductNavigationOverlay />
                   <ExperienceOverlayManager />
@@ -69,7 +69,7 @@ export function Providers({
                   <MeeshoVariantBottomSheet />
                   <ShareBottomSheet />
                 </VariantSelectorProvider>
-              </GoAlphaProvider>
+              </ZebQuickProvider>
             </CartProvider>
           </WishlistProvider>
         </AuthProvider>

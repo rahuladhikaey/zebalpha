@@ -10,4 +10,4 @@ export const USER_ROLES = {
 export * from './productAttributeEngine';
 export * from './tryOnEligibility';
 export * from './categoryIcons';
-export * from './goAlpha';
+export * from './zebQuick';

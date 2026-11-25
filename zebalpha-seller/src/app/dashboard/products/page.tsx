@@ -16,7 +16,7 @@ import {
   ExternalLink,
   Zap
 } from "lucide-react";
-import { matchGoAlphaSubcategory, type GoAlphaSubcategoryDef } from "@shared/constants/goAlpha";
+import { matchZebQuickSubcategory, type ZebQuickSubcategoryDef } from "@shared/constants/zebQuick";
 import { uploadToCloudinary, compressImageTo100KB } from "@shared/services";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
@@ -43,9 +43,9 @@ export default function SellerProducts() {
   // Multi-step Catalog Wizard state
   const [isWizardModalOpen, setIsWizardModalOpen] = useState(false);
   const [isNewDropInitial, setIsNewDropInitial] = useState(false);
-  const [goAlphaActiveIds, setGoAlphaActiveIds] = useState<string[]>([]);
-  const [goAlphaAllowedSubs, setGoAlphaAllowedSubs] = useState<GoAlphaSubcategoryDef[] | undefined>(undefined);
-  const [goAlphaTogglingId, setGoAlphaTogglingId] = useState<string | null>(null);
+  const [zebQuickActiveIds, setZebQuickActiveIds] = useState<string[]>([]);
+  const [zebQuickAllowedSubs, setZebQuickAllowedSubs] = useState<ZebQuickSubcategoryDef[] | undefined>(undefined);
+  const [zebQuickTogglingId, setZebQuickTogglingId] = useState<string | null>(null);
 
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -225,7 +225,7 @@ export default function SellerProducts() {
       };
 
       // PARALLEL EXECUTION: Fetch products, categories, curated collections, and ZebQuick active IDs concurrently
-      const [productsData, categoriesRes, curatedRes, goAlphaRes] = await Promise.all([
+      const [productsData, categoriesRes, curatedRes, zebQuickRes] = await Promise.all([
         fetchProductsSafe(),
         supabase
           .from("categories")
@@ -237,14 +237,14 @@ export default function SellerProducts() {
           .select("id, title, slug")
           .eq("is_active", true)
           .order("display_order", { ascending: true }),
-        fetch("/api/go-alpha/products", { headers: authHeaders, cache: "no-store" }).catch(() => null),
+        fetch("/api/zeb-quick/products", { headers: authHeaders, cache: "no-store" }).catch(() => null),
       ]);
 
-      if (goAlphaRes && goAlphaRes.ok) {
+      if (zebQuickRes && zebQuickRes.ok) {
         try {
-          const gJson = await goAlphaRes.json();
-          if (Array.isArray(gJson.activeProductIds)) setGoAlphaActiveIds(gJson.activeProductIds);
-          if (Array.isArray(gJson.allowedSubcategories)) setGoAlphaAllowedSubs(gJson.allowedSubcategories);
+          const gJson = await zebQuickRes.json();
+          if (Array.isArray(gJson.activeProductIds)) setZebQuickActiveIds(gJson.activeProductIds);
+          if (Array.isArray(gJson.allowedSubcategories)) setZebQuickAllowedSubs(gJson.allowedSubcategories);
         } catch {}
       }
 
@@ -1138,34 +1138,34 @@ export default function SellerProducts() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {matchGoAlphaSubcategory(
+                        {matchZebQuickSubcategory(
                           {
                             name: product.name,
                             category: (product as any).categories?.name || "",
                           },
-                          goAlphaAllowedSubs
+                          zebQuickAllowedSubs
                         ) && (() => {
                           const pid = String(product.id);
-                          const isGoActive = goAlphaActiveIds.includes(pid);
-                          const isBusy = goAlphaTogglingId === pid;
+                          const isGoActive = zebQuickActiveIds.includes(pid);
+                          const isBusy = zebQuickTogglingId === pid;
                           return (
                             <button
                               type="button"
                               disabled={isBusy}
                               onClick={async () => {
-                                setGoAlphaTogglingId(pid);
+                                setZebQuickTogglingId(pid);
                                 try {
                                   const { data: { session: activeSession } } = await supabase.auth.getSession();
                                   const reqHeaders: Record<string, string> = { "Content-Type": "application/json" };
                                   if (activeSession?.access_token) reqHeaders["Authorization"] = `Bearer ${activeSession.access_token}`;
-                                  const res = await fetch("/api/go-alpha/products", {
+                                  const res = await fetch("/api/zeb-quick/products", {
                                     method: "POST",
                                     headers: reqHeaders,
                                     body: JSON.stringify({ productId: pid, activate: !isGoActive }),
                                   });
                                   const json = await res.json();
                                   if (json.success) {
-                                    setGoAlphaActiveIds((prev) =>
+                                    setZebQuickActiveIds((prev) =>
                                       json.is_active
                                         ? Array.from(new Set([...prev, pid]))
                                         : prev.filter((id) => id !== pid)
@@ -1174,7 +1174,7 @@ export default function SellerProducts() {
                                     alert(json.error || "Could not update ZebQuick status");
                                   }
                                 } finally {
-                                  setGoAlphaTogglingId(null);
+                                  setZebQuickTogglingId(null);
                                 }
                               }}
                               className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-[11px] font-black transition-all cursor-pointer ${

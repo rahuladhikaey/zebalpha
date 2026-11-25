@@ -46,7 +46,7 @@ export function AndroidBottomNav() {
   useEffect(() => {
     if (!isNativeApp) return;
     const timer = window.setTimeout(() => {
-      ["/", "/categories", "/assistant", "/go-alpha", "/profile"].forEach((route) => {
+      ["/", "/categories", "/assistant", "/zeb-quick", "/profile"].forEach((route) => {
         try {
           router.prefetch(route);
         } catch {}
@@ -69,7 +69,7 @@ export function AndroidBottomNav() {
   if (!isNativeApp) return null;
 
   // Isolate ZebQuick Quick Commerce sub-app from ZebAlpha's bottom nav
-  if (pathname?.startsWith("/go-alpha")) return null;
+  if (pathname?.startsWith("/zeb-quick")) return null;
 
   // Hide global bottom bar on product detail routes where the sticky Cart / Buy Now bar owns the bottom dock
   if (pathname && /^\/products\/[^/]+/.test(pathname)) return null;
@@ -78,7 +78,7 @@ export function AndroidBottomNav() {
   const isHomeActive = pathname === "/";
   const isCategoriesActive = pathname.startsWith("/categories") || pathname.startsWith("/category");
   const isAlphaAiActive = pathname.startsWith("/assistant");
-  const isGoAlphaActive = pathname.startsWith("/go-alpha");
+  const isZebQuickActive = pathname.startsWith("/zeb-quick");
   const isAccountActive =
     pathname.startsWith("/profile") || pathname === "/login" || pathname === "/signup" || pathname.startsWith("/orders");
 
@@ -114,12 +114,12 @@ export function AndroidBottomNav() {
       isCenterAi: true,
     },
     {
-      id: "go_alpha",
+      id: "zeb_quick",
       label: "ZebQuick",
-      href: "/go-alpha",
+      href: "/zeb-quick",
       icon: LayoutGrid,
-      imageSrc: "/go-alpha-icon.png",
-      isActive: isGoAlphaActive,
+      imageSrc: "/zeb-quick-icon.png",
+      isActive: isZebQuickActive,
     },
     {
       id: "account",
