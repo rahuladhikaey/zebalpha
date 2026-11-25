@@ -44,6 +44,20 @@ export default function SellerGoAlphaDashboardPage() {
     await loadData();
   };
 
+  const handleBookShadowfax = async (orderId: string) => {
+    const headers = await getAuthHeaders();
+    const res = await fetch("/api/go-alpha/dashboard", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify({ action: "dispatch_shadowfax", orderId }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      alert(json.error || "Shadowfax rider booking failed");
+    }
+    await loadData();
+  };
+
   const stats = data?.stats || {
     totalOrders: 0,
     activeProducts: 0,
@@ -170,13 +184,22 @@ export default function SellerGoAlphaDashboardPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex gap-1.5">
                           {item.item_status === "PLACED" && (
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(item.order_id, "PACKED")}
-                              className="rounded-lg bg-amber-500 px-2.5 py-1 text-[10px] font-black text-white cursor-pointer"
-                            >
-                              Mark Packed
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleBookShadowfax(item.order_id)}
+                                className="rounded-lg bg-[#EE2B00] px-2.5 py-1 text-[10px] font-black text-white cursor-pointer"
+                              >
+                                ⚡ Book Shadowfax Rider
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(item.order_id, "PACKED")}
+                                className="rounded-lg bg-amber-500 px-2.5 py-1 text-[10px] font-black text-white cursor-pointer"
+                              >
+                                Mark Packed
+                              </button>
+                            </>
                           )}
                           {item.item_status === "PACKED" && (
                             <button

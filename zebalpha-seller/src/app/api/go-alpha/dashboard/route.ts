@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
+import { createShadowfaxHyperlocalOrder } from "@/lib/shadowfaxHyperlocal";
 
 async function resolveSeller(req: Request) {
   const supabase = await createSupabaseServerClient();
@@ -15,7 +16,7 @@ async function resolveSeller(req: Request) {
 
   let query = supabaseServer
     .from("sellers")
-    .select("id, user_id, business_name, full_name, pincode, city, pickup_address, email");
+    .select("id, user_id, business_name, full_name, pincode, city, pickup_address, phone_number, mobile_number, email");
   if (user.email) {
     query = query.or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase().trim()}`);
   } else {
@@ -164,6 +165,81 @@ export async function PATCH(req: Request) {
       await db.from("orders").update(orderUpdate).eq("id", body.orderId);
 
       return NextResponse.json({ success: true });
+    }
+
+    if (body.action === "dispatch_shadowfax" && body.orderId) {
+      const { data: orderRow } = await db
+        .from("orders")
+        .select("*")
+        .eq("id", body.orderId)
+        .maybeSingle();
+      if (!orderRow) {
+        return NextResponse.json({ error: "GOα order not found" }, { status: 404 });
+      }
+      const { data: items } = await db
+        .from("order_items")
+        .select("*")
+        .eq("order_id", body.orderId)
+        .eq("seller_id", ctx.seller.id);
+
+      const idsToQuery = Array.from(new Set([ctx.seller.id, ctx.user.id].filter(Boolean)));
+      const { data: pickupHub } = await supabaseServer
+        .from("seller_pickup_locations")
+        .select("pincode, address, address_line1, city, contact_phone, phone, location_name")
+        .in("seller_id", idsToQuery)
+        .order("is_default", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const pickupPin = String(pickupHub?.pincode || (ctx.seller as any).pincode || "741222").replace(/\D/g, "").slice(0, 6);
+      const sfxRes = await createShadowfaxHyperlocalOrder({
+        orderNumber: orderRow.order_number,
+        orderValue: Number(orderRow.total_amount || 0),
+        paid: String(orderRow.payment_status || "").toUpperCase() === "PAID",
+        pickup: {
+          name: pickupHub?.location_name || ctx.seller.business_name || ctx.seller.full_name || "ZebAlpha Seller",
+          phone: String(pickupHub?.contact_phone || pickupHub?.phone || (ctx.seller as any).phone_number || (ctx.seller as any).mobile_number || "9999999999"),
+          address: pickupHub?.address || pickupHub?.address_line1 || ctx.seller.pickup_address || "Local Pickup Hub",
+          city: pickupHub?.city || (ctx.seller as any).city || "West Bengal",
+          pincode: pickupPin,
+        },
+        drop: {
+          name: orderRow.customer_name,
+          phone: orderRow.phone,
+          address: orderRow.delivery_address,
+          pincode: orderRow.delivery_pincode,
+        },
+        items: (items || []).map((it: any) => ({
+          name: it.title,
+          quantity: Number(it.quantity || 1),
+          price: Number(it.unit_price || 0),
+        })),
+      });
+
+      if (!sfxRes.ok) {
+        return NextResponse.json(
+          { error: sfxRes.data?.message || sfxRes.data?.error || "Shadowfax rider booking failed", details: sfxRes.data },
+          { status: sfxRes.status || 400 }
+        );
+      }
+
+      const sfxOrderId = String(sfxRes.data?.sfx_order_id || sfxRes.data?.id || sfxRes.data?.order_id || "");
+      const sfxAwb = String(sfxRes.data?.awb_number || sfxOrderId || "");
+      await db
+        .from("orders")
+        .update({
+          courier_partner: "SHADOWFAX_HYPERLOCAL",
+          shadowfax_order_id: sfxOrderId || null,
+          shadowfax_awb: sfxAwb || null,
+          shadowfax_status: String(sfxRes.data?.order_status || "ACCEPTED").toUpperCase(),
+          order_status: "PACKED",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", body.orderId);
+
+      await db.from("order_items").update({ item_status: "PACKED" }).eq("order_id", body.orderId).eq("seller_id", ctx.seller.id);
+
+      return NextResponse.json({ success: true, shadowfax: sfxRes.data });
     }
 
     return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
