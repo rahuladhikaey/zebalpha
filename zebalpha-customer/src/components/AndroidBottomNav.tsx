@@ -3,8 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, User, ShoppingCart } from "lucide-react";
-import { useCart } from "@/context/CartContext";
+import { LayoutGrid, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useIsNativeApp } from "@/lib/platform";
 import { useLanguage } from "@/context/LanguageContext";
@@ -42,13 +41,12 @@ export function AndroidBottomNav() {
   const isNativeApp = useIsNativeApp();
   const pathname = usePathname();
   const router = useRouter();
-  const { totalItems } = useCart();
 
   // Background-prefetch core bottom nav routes so tab switching is instant
   useEffect(() => {
     if (!isNativeApp) return;
     const timer = window.setTimeout(() => {
-      ["/", "/categories", "/assistant", "/cart", "/profile"].forEach((route) => {
+      ["/", "/categories", "/assistant", "/profile"].forEach((route) => {
         try {
           router.prefetch(route);
         } catch {}
@@ -105,14 +103,6 @@ export function AndroidBottomNav() {
       isCenterAi: true,
     },
     {
-      id: "cart",
-      label: t("nav_cart"),
-      href: "/cart",
-      icon: ShoppingCart,
-      isActive: isCartActive,
-      badge: totalItems,
-    },
-    {
       id: "account",
       label: t("nav_account"),
       href: user ? "/profile" : "/profile",
@@ -151,7 +141,7 @@ export function AndroidBottomNav() {
           aria-hidden="true"
         />
 
-        <div className="relative mx-auto grid h-[68px] max-w-lg grid-cols-5 items-center gap-1 px-2">
+        <div className="relative mx-auto grid h-[68px] max-w-lg grid-cols-4 items-center gap-1 px-2">
           {navItems.map((item) => {
             const IconComponent = item.icon;
             const active = item.isActive;
@@ -260,20 +250,6 @@ export function AndroidBottomNav() {
                         : "text-[#292319] group-hover:text-[#000000]"
                     }`}
                   />
-
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <span
-                      data-photo-overlay={isFestivalOverride ? "true" : undefined}
-                      style={
-                        isFestivalOverride
-                          ? { backgroundColor: theme.primaryColor, color: "#FFFFFF" }
-                          : undefined
-                      }
-                      className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FFFDF8] shadow-sm"
-                    >
-                      {item.badge > 99 ? "99+" : item.badge}
-                    </span>
-                  )}
                 </div>
 
                 {/* Label */}
