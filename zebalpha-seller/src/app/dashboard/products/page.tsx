@@ -16,7 +16,7 @@ import {
   ExternalLink,
   Zap
 } from "lucide-react";
-import { matchGoAlphaSubcategory } from "@shared/constants/goAlpha";
+import { matchGoAlphaSubcategory, type GoAlphaSubcategoryDef } from "@shared/constants/goAlpha";
 import { uploadToCloudinary, compressImageTo100KB } from "@shared/services";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
@@ -44,6 +44,7 @@ export default function SellerProducts() {
   const [isWizardModalOpen, setIsWizardModalOpen] = useState(false);
   const [isNewDropInitial, setIsNewDropInitial] = useState(false);
   const [goAlphaActiveIds, setGoAlphaActiveIds] = useState<string[]>([]);
+  const [goAlphaAllowedSubs, setGoAlphaAllowedSubs] = useState<GoAlphaSubcategoryDef[] | undefined>(undefined);
   const [goAlphaTogglingId, setGoAlphaTogglingId] = useState<string | null>(null);
 
   // Modal / Form state
@@ -243,6 +244,7 @@ export default function SellerProducts() {
         try {
           const gJson = await goAlphaRes.json();
           if (Array.isArray(gJson.activeProductIds)) setGoAlphaActiveIds(gJson.activeProductIds);
+          if (Array.isArray(gJson.allowedSubcategories)) setGoAlphaAllowedSubs(gJson.allowedSubcategories);
         } catch {}
       }
 
@@ -1136,10 +1138,13 @@ export default function SellerProducts() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {matchGoAlphaSubcategory({
-                          name: product.name,
-                          category: (product as any).categories?.name || "",
-                        }) && (() => {
+                        {matchGoAlphaSubcategory(
+                          {
+                            name: product.name,
+                            category: (product as any).categories?.name || "",
+                          },
+                          goAlphaAllowedSubs
+                        ) && (() => {
                           const pid = String(product.id);
                           const isGoActive = goAlphaActiveIds.includes(pid);
                           const isBusy = goAlphaTogglingId === pid;

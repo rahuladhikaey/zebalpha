@@ -46,6 +46,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       goSeller: goSeller || null,
+      zebalphaPickupPincode: ctx.seller.pickup_pincode || goSeller?.pickup_pincode || "",
+      zebalphaPickupAddress: ctx.seller.pickup_address || goSeller?.pickup_address || "",
       stats: {
         totalOrders: new Set(items.map((i: any) => i.order_id)).size,
         activeProducts: (goProducts || []).length,

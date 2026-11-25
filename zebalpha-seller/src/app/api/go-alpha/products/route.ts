@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
 import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
-import { matchGoAlphaSubcategory } from "@shared/constants/goAlpha";
+import { matchGoAlphaSubcategory, type GoAlphaSubcategoryDef } from "@shared/constants/goAlpha";
+
+async function loadLiveAllowedSubcategories(db: ReturnType<typeof supabaseServer.schema>): Promise<GoAlphaSubcategoryDef[] | undefined> {
+  try {
+    const { data, error } = await db
+      .from("allowed_subcategories")
+      .select("slug, name, category_group, keywords")
+      .eq("is_active", true);
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return data.map((row: any) => ({
+        slug: row.slug,
+        name: row.name,
+        categoryGroup: row.category_group,
+        keywords: Array.isArray(row.keywords) ? row.keywords : [String(row.name || "").toLowerCase()],
+      }));
+    }
+  } catch {}
+  return undefined;
+}
 
 async function resolveSellerFromRequest(req: Request) {
   const supabase = await createSupabaseServerClient();
@@ -34,15 +52,17 @@ export async function GET(req: Request) {
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = supabaseServer.schema("go_alpha");
-    const [{ data: goSeller }, { data: goProducts }] = await Promise.all([
+    const [{ data: goSeller }, { data: goProducts }, allowedSubcategories] = await Promise.all([
       db.from("sellers").select("*").eq("seller_id", ctx.seller.id).maybeSingle(),
       db.from("products").select("id, source_product_id, is_active, go_alpha_price, go_alpha_stock").eq("seller_id", ctx.seller.id),
+      loadLiveAllowedSubcategories(db),
     ]);
 
     return NextResponse.json({
       goSeller: goSeller || null,
       activeProductIds: (goProducts || []).filter((p: any) => p.is_active).map((p: any) => p.source_product_id),
       goProducts: goProducts || [],
+      allowedSubcategories: allowedSubcategories || null,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 });
@@ -84,10 +104,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Product not found for this seller" }, { status: 404 });
     }
 
-    const matchedSub = matchGoAlphaSubcategory({
-      name: srcProd.name,
-      category: (srcProd as any).categories?.name || "",
-    });
+    const liveAllowed = await loadLiveAllowedSubcategories(db);
+    const matchedSub = matchGoAlphaSubcategory(
+      {
+        name: srcProd.name,
+        category: (srcProd as any).categories?.name || "",
+      },
+      liveAllowed
+    );
 
     if (!matchedSub) {
       return NextResponse.json(
