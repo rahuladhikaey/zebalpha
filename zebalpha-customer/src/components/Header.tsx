@@ -284,7 +284,7 @@ export function Header({
   useEffect(() => {
     if (!isNativeApp) return;
     const timer = window.setTimeout(() => {
-      ["/cart", "/notifications"].forEach((route) => {
+      ["/wishlist", "/profile/cards", "/cart", "/notifications"].forEach((route) => {
         try {
           router.prefetch(route);
         } catch {}
@@ -364,8 +364,43 @@ export function Header({
 
   // Native Android App
   if (isNativeApp) {
+    const wishlistCount = wishlist.length;
+
     const RightActionsCreamGold = (
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-1.5">
+        <Link
+          href="/wishlist"
+          aria-label={`Wishlist (${wishlistCount})`}
+          style={headerIconBtnStyle}
+          className={`relative ${CREAM_GOLD_ICON_BTN_CLASS}`}
+        >
+          <Heart style={headerIconTextStyle} className="h-[19px] w-[19px] stroke-[2.15] text-[#14120F]" />
+          {wishlistCount > 0 && (
+            <span
+              style={headerBadgeStyle}
+              className="absolute -top-1 -right-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] px-1 text-[9px] font-black leading-none text-[#111111] ring-1 ring-[#FCF9F2] shadow-sm"
+            >
+              {wishlistCount > 99 ? "99+" : wishlistCount}
+            </span>
+          )}
+        </Link>
+        <Link
+          href="/profile/cards"
+          aria-label={`Super Coins (${superCoins})`}
+          style={headerIconBtnStyle}
+          className="flex h-10 items-center justify-center gap-1 rounded-2xl bg-gradient-to-b from-[#FFFDF7] to-[#F5E4B7] border border-[#DFBC5E]/75 px-2.5 text-[#14120F] hover:border-[#C28D12] active:scale-95 transition-all shadow-[0_3px_10px_rgba(160,115,20,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] cursor-pointer shrink-0"
+        >
+          <Coins
+            style={isFestivalOverride ? { color: t.primaryColor || "#B45309" } : undefined}
+            className="h-[17px] w-[17px] stroke-[2.2] text-[#B45309] shrink-0"
+          />
+          <span
+            style={headerIconTextStyle}
+            className="text-xs font-black tracking-tight text-[#14120F] leading-none"
+          >
+            {superCoins}
+          </span>
+        </Link>
         <Link
           href="/cart"
           aria-label={`Cart (${totalItems})`}

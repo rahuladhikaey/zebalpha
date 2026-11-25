@@ -5,7 +5,6 @@
  * and Deterministic Asia/Kolkata Scheduler & Conflict Resolver
  * ============================================================================
  */
-
 export interface ExperienceColorTokens {
   primaryColor: string;
   primaryDark: string;
@@ -33,7 +32,6 @@ export interface ExperienceColorTokens {
   warningColor: string;
   errorColor: string;
 }
-
 export interface ExperienceTypographyTokens {
   headingStyle: "sans" | "serif" | "display";
   bodyTextStyle: "sans" | "clean";
@@ -42,7 +40,6 @@ export interface ExperienceTypographyTokens {
   bodyColor: string;
   buttonTextWeight: "semibold" | "bold" | "black";
 }
-
 export interface ExperienceAssetTokens {
   festivalBackgroundUrl: string;
   homepageHeroArtworkUrl: string;
@@ -58,17 +55,17 @@ export interface ExperienceHomeSectionItem {
   id: string;
   section_key: string;
   widget_type:
-    | "HERO_CAROUSEL"
-    | "TRUST_BADGE_STRIP"
-    | "MARQUEE_TICKER"
-    | "CURATED_COLLECTIONS"
-    | "PROMO_DROP_CAROUSEL"
-    | "FLASH_DEAL_STRIP"
-    | "FESTIVE_16_SLOT_GRID"
-    | "CUSTOM_STUDIO_EDITORIAL"
-    | "SELLER_BRAND_SPOTLIGHT"
-    | "FEATURED_PRODUCT_FEED"
-    | "RECENTLY_VIEWED";
+  | "HERO_CAROUSEL"
+  | "TRUST_BADGE_STRIP"
+  | "MARQUEE_TICKER"
+  | "CURATED_COLLECTIONS"
+  | "PROMO_DROP_CAROUSEL"
+  | "FLASH_DEAL_STRIP"
+  | "FESTIVE_16_SLOT_GRID"
+  | "CUSTOM_STUDIO_EDITORIAL"
+  | "SELLER_BRAND_SPOTLIGHT"
+  | "FEATURED_PRODUCT_FEED"
+  | "RECENTLY_VIEWED";
   title: string;
   subtitle: string;
   display_order: number;
@@ -84,7 +81,6 @@ export interface ExperienceHomeSectionItem {
   destination_url?: string;
   settings_json?: Record<string, any>;
 }
-
 export type BannerDestinationType =
   | "product"
   | "category"
@@ -92,7 +88,6 @@ export type BannerDestinationType =
   | "campaign"
   | "page"
   | "external";
-
 export interface ExperienceBannerItem {
   id: string;
   experience_id?: string;
@@ -146,11 +141,11 @@ export interface ExperiencePopupItem {
   id: string;
   experience_id?: string;
   popup_type:
-    | "Welcome Popup"
-    | "Festival Popup"
-    | "Promotional Popup"
-    | "Campaign Popup"
-    | "Announcement Popup";
+  | "Welcome Popup"
+  | "Festival Popup"
+  | "Promotional Popup"
+  | "Campaign Popup"
+  | "Announcement Popup";
   title: string;
   description: string;
   image_url?: string;
@@ -233,20 +228,20 @@ export interface ExperienceAuditLogItem {
   admin_id?: string | null;
   admin_email: string;
   action:
-    | "CREATE_EXPERIENCE"
-    | "UPDATE_EXPERIENCE"
-    | "DUPLICATE_EXPERIENCE"
-    | "SAVE_DRAFT"
-    | "PUBLISH_EXPERIENCE"
-    | "SCHEDULE_EXPERIENCE"
-    | "UNPUBLISH_EXPERIENCE"
-    | "ROLLBACK_EXPERIENCE"
-    | "ARCHIVE_EXPERIENCE"
-    | "UPDATE_BANNERS"
-    | "UPDATE_CAMPAIGNS"
-    | "UPDATE_POPUPS"
-    | "UPDATE_ANNOUNCEMENTS"
-    | "EMERGENCY_RESET_DEFAULT";
+  | "CREATE_EXPERIENCE"
+  | "UPDATE_EXPERIENCE"
+  | "DUPLICATE_EXPERIENCE"
+  | "SAVE_DRAFT"
+  | "PUBLISH_EXPERIENCE"
+  | "SCHEDULE_EXPERIENCE"
+  | "UNPUBLISH_EXPERIENCE"
+  | "ROLLBACK_EXPERIENCE"
+  | "ARCHIVE_EXPERIENCE"
+  | "UPDATE_BANNERS"
+  | "UPDATE_CAMPAIGNS"
+  | "UPDATE_POPUPS"
+  | "UPDATE_ANNOUNCEMENTS"
+  | "EMERGENCY_RESET_DEFAULT";
   experience_id: string;
   experience_name?: string;
   previous_version?: number | null;
@@ -585,8 +580,8 @@ export const PREBUILT_EXPERIENCE_PRESETS: ExperienceRecord[] = [
       s.section_key === "curated_collections"
         ? { ...s, title: "Sharodiya Pujo Collections", subtitle: "Festive streetwear & ethnic drops for Pujo" }
         : s.section_key === "festive_16_slot_grid"
-        ? { ...s, title: "PUJO MAHA DEALS", subtitle: "Shubho Sharodiya • Up to 70% OFF across categories" }
-        : { ...s }
+          ? { ...s, title: "PUJO MAHA DEALS", subtitle: "Shubho Sharodiya • Up to 70% OFF across categories" }
+          : { ...s }
     ),
     created_by: "system",
     created_at: "2026-11-24T00:00:00.000Z",
@@ -643,8 +638,8 @@ export const PREBUILT_EXPERIENCE_PRESETS: ExperienceRecord[] = [
       s.section_key === "festive_16_slot_grid"
         ? { ...s, title: "DIWALI GRAND DEALS", subtitle: "Celebrate Bigger • Light Up Your Wardrobe" }
         : s.section_key === "flash_deal_strip"
-        ? { ...s, is_visible: true, title: "Diwali Pataka Flash Deals" }
-        : { ...s }
+          ? { ...s, is_visible: true, title: "Diwali Pataka Flash Deals" }
+          : { ...s }
     ),
     created_by: "system",
     created_at: "2026-11-24T00:00:00.000Z",
