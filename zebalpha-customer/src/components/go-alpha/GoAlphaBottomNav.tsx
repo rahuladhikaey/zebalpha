@@ -30,7 +30,12 @@ export function GoAlphaBottomNav() {
       icon: Package,
       active: pathname.startsWith("/go-alpha/orders"),
     },
-    { label: "Account", href: "/profile", icon: User, active: pathname.startsWith("/profile") },
+    {
+      label: "Account",
+      href: "/go-alpha/account",
+      icon: User,
+      active: pathname.startsWith("/go-alpha/account"),
+    },
   ];
 
   return (

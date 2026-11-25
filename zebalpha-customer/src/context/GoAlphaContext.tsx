@@ -33,6 +33,8 @@ interface GoAlphaContextValue {
   serviceability: GoAlphaServiceability;
   setPincode: (pin: string) => Promise<void>;
   detectGpsPincode: () => Promise<{ ok: boolean; pincode?: string; error?: string }>;
+  locationModalOpen: boolean;
+  setLocationModalOpen: (open: boolean) => void;
   cart: GoAlphaCartItem[];
   cartCount: number;
   cartSubtotal: number;
@@ -66,6 +68,7 @@ export function GoAlphaProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<GoAlphaCartItem[]>([]);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
 
   const checkPincode = useCallback(async (pin: string) => {
     const clean = pin.replace(/\D/g, "").slice(0, 6);
@@ -95,9 +98,35 @@ export function GoAlphaProvider({ children }: { children: React.ReactNode }) {
       if (savedCart) setCart(JSON.parse(savedCart));
 
       const savedPin = localStorage.getItem(PINCODE_STORAGE_KEY);
-      const initialPin = savedPin && /^\d{6}$/.test(savedPin) ? savedPin : "700014";
-      setPincodeState(initialPin);
-      void checkPincode(initialPin);
+      if (savedPin && /^\d{6}$/.test(savedPin)) {
+        setPincodeState(savedPin);
+        void checkPincode(savedPin);
+      } else {
+        // Auto-attempt real GPS detection on first visit; fallback to Sealdah 700014
+        void checkPincode("700014");
+        if (typeof navigator !== "undefined" && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              try {
+                const res = await fetch(
+                  `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`
+                );
+                const data = await res.json();
+                const pin = String(data?.address?.postcode || "").replace(/\D/g, "").slice(0, 6);
+                if (pin.length === 6) {
+                  setPincodeState(pin);
+                  try {
+                    localStorage.setItem(PINCODE_STORAGE_KEY, pin);
+                  } catch {}
+                  await checkPincode(pin);
+                }
+              } catch {}
+            },
+            () => {},
+            { enableHighAccuracy: false, timeout: 6000 }
+          );
+        }
+      }
 
       const savedW = localStorage.getItem(WISHLIST_STORAGE_KEY);
       if (savedW) setWishlistIds(JSON.parse(savedW));
@@ -262,6 +291,8 @@ export function GoAlphaProvider({ children }: { children: React.ReactNode }) {
         serviceability,
         setPincode,
         detectGpsPincode,
+        locationModalOpen,
+        setLocationModalOpen,
         cart,
         cartCount,
         cartSubtotal,

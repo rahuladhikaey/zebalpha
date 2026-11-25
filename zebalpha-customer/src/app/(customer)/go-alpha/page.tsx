@@ -8,7 +8,7 @@ import { GoAlphaProductCard, type GoAlphaProductRecord } from "@/components/go-a
 import { GO_ALPHA_CATEGORY_GROUPS, GO_ALPHA_FREE_DELIVERY_MIN } from "@shared/constants/goAlpha";
 
 export default function GoAlphaHomePage() {
-  const { pincode, serviceability } = useGoAlpha();
+  const { pincode, serviceability, setLocationModalOpen } = useGoAlpha();
   const [selectedGroup, setSelectedGroup] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [products, setProducts] = useState<GoAlphaProductRecord[]>([]);
@@ -75,23 +75,37 @@ export default function GoAlphaHomePage() {
         </div>
       </div>
 
-      {/* Serviceability Warning if outside Sealdah-Krishnanagar */}
+      {/* Serviceability Warning if outside active delivery corridor */}
       {serviceability.checked && !serviceability.serviceable ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center">
-          <MapPinOff className="mx-auto h-10 w-10 text-amber-600" />
-          <h2 className="mt-3 text-base font-black text-neutral-900">
-            Not Available in Pincode {pincode} Yet
+        <div className="rounded-3xl border border-orange-200 bg-gradient-to-b from-orange-50 to-white p-6 text-center shadow-xs">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-[#EE2B00]">
+            <MapPinOff className="h-7 w-7" />
+          </div>
+          <span className="mt-3 inline-block rounded-full bg-amber-100 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
+            Services Coming Soon
+          </span>
+          <h2 className="mt-2 text-lg font-black text-neutral-900">
+            GOα is Coming Soon to {pincode}!
           </h2>
-          <p className="mt-1 text-xs text-neutral-600 max-w-md mx-auto">
-            GOα 5–6 Hr delivery is currently live on the <strong>Sealdah → Krishnanagar</strong> corridor.
-            Switch to ZebAlpha for Pan-India doorstep delivery!
+          <p className="mt-1.5 text-xs text-neutral-600 max-w-md mx-auto leading-relaxed">
+            Our 5–6 Hour Express Delivery is currently live on the <strong>Sealdah → Krishnanagar</strong> corridor.
+            We&apos;re expanding rapidly to your area!
           </p>
-          <Link
-            href="/"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-2xl bg-neutral-900 px-4 py-2.5 text-xs font-extrabold text-white"
-          >
-            Switch to ZebAlpha <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setLocationModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl bg-[#EE2B00] px-4 py-2.5 text-xs font-extrabold text-white cursor-pointer"
+            >
+              Change Location / Pincode
+            </button>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 rounded-2xl bg-neutral-900 px-4 py-2.5 text-xs font-extrabold text-white"
+            >
+              Switch to ZebAlpha <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       ) : (
         <>
