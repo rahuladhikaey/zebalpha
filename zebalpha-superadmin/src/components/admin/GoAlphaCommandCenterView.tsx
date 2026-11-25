@@ -167,7 +167,7 @@ export default function GoAlphaCommandCenterView() {
             { id: "overview", label: "Overview & Revenue" },
             { id: "orders", label: `GOα Orders (${(data?.orders || []).length})` },
             { id: "products", label: `Live Products (${(data?.products || []).length})` },
-            { id: "sellers", label: `GOα Sellers (${(data?.sellers || []).length})` },
+            { id: "sellers", label: `GOα Sellers (${(data?.sellers || []).length + (data?.eligibleNotLiveSellers || []).length})` },
             { id: "pincodes", label: `Pincode Corridors (${(data?.pincodes || []).length})` },
             { id: "categories", label: `Allowed Subcategories (${(data?.subcategories || []).length})` },
           ] as Array<{ id: SubTab; label: string }>
@@ -296,36 +296,125 @@ export default function GoAlphaCommandCenterView() {
           )}
 
           {subTab === "sellers" && (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-zinc-800 text-zinc-400">
-                  <tr>
-                    <th className="px-4 py-3 font-black">Store Name</th>
-                    <th className="px-4 py-3 font-black">Pickup Pincode</th>
-                    <th className="px-4 py-3 font-black">Serviceable Pincodes</th>
-                    <th className="px-4 py-3 font-black text-right">Approval</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/70">
-                  {(data?.sellers || []).map((s: any) => (
-                    <tr key={s.id}>
-                      <td className="px-4 py-3 font-bold text-white">{s.store_name}</td>
-                      <td className="px-4 py-3 font-bold text-orange-400">{s.pickup_pincode}</td>
-                      <td className="px-4 py-3 text-zinc-400">{(s.serviceable_pincodes || []).join(", ")}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => patchAction({ action: "toggle_seller", id: s.id, is_approved: !s.is_approved })}
-                          className={`rounded-lg px-3 py-1 text-[11px] font-black cursor-pointer ${s.is_approved ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                            }`}
-                        >
-                          {s.is_approved ? "APPROVED" : "SUSPENDED"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-6">
+              {/* Eligible Sellers by Pincode with 0 Live GOα Products */}
+              <div className="rounded-2xl border border-amber-500/30 bg-zinc-950 overflow-hidden">
+                <div className="border-b border-zinc-800 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 bg-amber-500/5">
+                  <div>
+                    <h3 className="text-sm font-black text-white">
+                      Eligible GOα Sellers — No Products Live Yet ({(data?.eligibleNotLiveSellers || []).length})
+                    </h3>
+                    <p className="text-[11px] text-zinc-400">
+                      Sellers whose registered pickup pincode is active in GOα corridors, but have not activated any GOα products yet.
+                    </p>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-zinc-800 text-zinc-400">
+                      <tr>
+                        <th className="px-4 py-3 font-black">Store &amp; Owner</th>
+                        <th className="px-4 py-3 font-black">Contact Details</th>
+                        <th className="px-4 py-3 font-black">Pickup Address &amp; Pincode</th>
+                        <th className="px-4 py-3 font-black">Catalog</th>
+                        <th className="px-4 py-3 font-black text-right">GOα Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/70">
+                      {(data?.eligibleNotLiveSellers || []).map((es: any) => (
+                        <tr key={es.id}>
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-white">{es.store_name}</div>
+                            {es.owner_name && <div className="text-[11px] text-zinc-400">Owner: {es.owner_name}</div>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-zinc-200">{es.email || "—"}</div>
+                            <div className="text-[11px] text-zinc-400">{es.phone || "—"}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-orange-400">
+                              {es.pickup_pincode} • {es.area_name || es.city}
+                            </div>
+                            <div className="text-[11px] text-zinc-400 line-clamp-1">
+                              {es.pickup_address || es.city} ({es.corridor_name})
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-zinc-200">{es.total_zeb_products} ZebAlpha</div>
+                            <div className="text-[11px] text-amber-400 font-bold">0 GOα Live</div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="inline-flex rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-[10px] font-black text-amber-300">
+                              ELIGIBLE • NO PRODUCTS LIVE
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {(data?.eligibleNotLiveSellers || []).length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-6 text-center text-zinc-500">
+                            All eligible corridor sellers already have live GOα products, or no matching pincode sellers found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Active / Onboarded GOα Sellers */}
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+                <div className="border-b border-zinc-800 px-5 py-3.5">
+                  <h3 className="text-sm font-black text-white">
+                    Onboarded GOα Sellers ({(data?.sellers || []).length})
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-zinc-800 text-zinc-400">
+                      <tr>
+                        <th className="px-4 py-3 font-black">Store &amp; Owner</th>
+                        <th className="px-4 py-3 font-black">Contact</th>
+                        <th className="px-4 py-3 font-black">Pickup Pincode &amp; Address</th>
+                        <th className="px-4 py-3 font-black">Live GOα Products</th>
+                        <th className="px-4 py-3 font-black text-right">Approval</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/70">
+                      {(data?.sellers || []).map((s: any) => (
+                        <tr key={s.id}>
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-white">{s.store_name}</div>
+                            {s.owner_name && <div className="text-[11px] text-zinc-400">{s.owner_name}</div>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-zinc-200">{s.email || "—"}</div>
+                            <div className="text-[11px] text-zinc-400">{s.phone || "—"}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-orange-400">{s.pickup_pincode}</div>
+                            <div className="text-[11px] text-zinc-400 line-clamp-1">{s.pickup_address || s.city}</div>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-emerald-400">
+                            {s.live_go_products ?? 0} Live
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => patchAction({ action: "toggle_seller", id: s.id, is_approved: !s.is_approved })}
+                              className={`rounded-lg px-3 py-1 text-[11px] font-black cursor-pointer ${
+                                s.is_approved ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                              }`}
+                            >
+                              {s.is_approved ? "APPROVED" : "SUSPENDED"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 

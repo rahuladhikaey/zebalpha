@@ -14,6 +14,9 @@ export async function GET() {
       { data: pincodes },
       { data: subcategories },
       { data: mainCategories },
+      { data: publicSellers },
+      { data: publicPickupHubs },
+      { data: publicProducts },
     ] = await Promise.all([
       db.from("orders").select("*").order("created_at", { ascending: false }).limit(200),
       db.from("products").select("*").order("activated_at", { ascending: false }).limit(300),
@@ -21,6 +24,9 @@ export async function GET() {
       db.from("serviceable_pincodes").select("*").order("corridor_name", { ascending: true }).order("pincode", { ascending: true }),
       db.from("allowed_subcategories").select("*").order("display_order", { ascending: true }),
       db.from("main_categories").select("*").order("display_order", { ascending: true }),
+      supabaseServer.from("sellers").select("id, user_id, business_name, owner_name, full_name, email, phone_number, mobile_number, pincode, city, pickup_address, status, account_status").limit(500),
+      supabaseServer.from("seller_pickup_locations").select("seller_id, location_name, name, contact_name, contact_phone, phone, contact_email, address, address_line1, city, state, pincode, is_default").order("is_default", { ascending: false }).limit(1000),
+      supabaseServer.from("products").select("id, seller_id").limit(2000),
     ]);
 
     const orderList = orders || [];
@@ -28,6 +34,82 @@ export async function GET() {
     const sellerList = sellers || [];
     const pincodeList = pincodes || [];
     const subcategoryList = subcategories || [];
+
+    // Build lookup maps for full seller details + eligible sellers with 0 live GOα products
+    const activePinMap = new Map<string, any>();
+    pincodeList.filter((p: any) => p.is_active).forEach((p: any) => activePinMap.set(String(p.pincode), p));
+
+    const hubBySellerOrUser = new Map<string, any>();
+    (publicPickupHubs || []).forEach((h: any) => {
+      if (h.seller_id && !hubBySellerOrUser.has(String(h.seller_id))) {
+        hubBySellerOrUser.set(String(h.seller_id), h);
+      }
+    });
+
+    const goProductsCountBySeller = new Map<string, number>();
+    productList.filter((p: any) => p.is_active).forEach((p: any) => {
+      const k = String(p.seller_id);
+      goProductsCountBySeller.set(k, (goProductsCountBySeller.get(k) || 0) + 1);
+    });
+
+    const totalZebProductsBySeller = new Map<string, number>();
+    (publicProducts || []).forEach((p: any) => {
+      const k = String(p.seller_id);
+      totalZebProductsBySeller.set(k, (totalZebProductsBySeller.get(k) || 0) + 1);
+    });
+
+    const goSellerIds = new Set(sellerList.map((s: any) => String(s.seller_id)));
+    const publicSellerMap = new Map((publicSellers || []).map((ps: any) => [String(ps.id), ps]));
+
+    const enrichedGoSellers = sellerList.map((gs: any) => {
+      const ps = publicSellerMap.get(String(gs.seller_id)) || {};
+      const hub = hubBySellerOrUser.get(String(gs.seller_id)) || hubBySellerOrUser.get(String(ps.user_id || "")) || {};
+      const pin = String(hub.pincode || gs.pickup_pincode || ps.pincode || "").replace(/\D/g, "").slice(0, 6);
+      const pinMeta = activePinMap.get(pin);
+      return {
+        ...gs,
+        owner_name: ps.owner_name || ps.full_name || hub.contact_name || "",
+        email: ps.email || hub.contact_email || "",
+        phone: ps.phone_number || ps.mobile_number || hub.contact_phone || hub.phone || "",
+        pickup_address: hub.address || hub.address_line1 || gs.pickup_address || ps.pickup_address || "",
+        city: hub.city || gs.city || ps.city || "",
+        pickup_pincode: pin,
+        corridor_name: pinMeta?.corridor_name || "",
+        live_go_products: goProductsCountBySeller.get(String(gs.seller_id)) || 0,
+        total_zeb_products:
+          (totalZebProductsBySeller.get(String(gs.seller_id)) || 0) +
+          (ps.user_id && String(ps.user_id) !== String(gs.seller_id) ? totalZebProductsBySeller.get(String(ps.user_id)) || 0 : 0),
+      };
+    });
+
+    const eligibleNotLiveSellers = (publicSellers || [])
+      .map((ps: any) => {
+        const hub = hubBySellerOrUser.get(String(ps.id)) || hubBySellerOrUser.get(String(ps.user_id || "")) || {};
+        const pin = String(hub.pincode || ps.pincode || "").replace(/\D/g, "").slice(0, 6);
+        const pinMeta = activePinMap.get(pin);
+        const liveGoCount = goProductsCountBySeller.get(String(ps.id)) || 0;
+        if (!pinMeta || liveGoCount > 0) return null;
+        return {
+          id: ps.id,
+          seller_id: ps.id,
+          store_name: ps.business_name || hub.location_name || hub.name || ps.full_name || "Seller Store",
+          owner_name: ps.owner_name || ps.full_name || hub.contact_name || "",
+          email: ps.email || hub.contact_email || "",
+          phone: ps.phone_number || ps.mobile_number || hub.contact_phone || hub.phone || "",
+          pickup_pincode: pin,
+          pickup_address: hub.address || hub.address_line1 || ps.pickup_address || "",
+          city: hub.city || ps.city || "",
+          area_name: pinMeta.area_name || "",
+          corridor_name: pinMeta.corridor_name || "",
+          account_status: ps.account_status || ps.status || "Active",
+          is_onboarded_go_alpha: goSellerIds.has(String(ps.id)),
+          live_go_products: 0,
+          total_zeb_products:
+            (totalZebProductsBySeller.get(String(ps.id)) || 0) +
+            (ps.user_id && String(ps.user_id) !== String(ps.id) ? totalZebProductsBySeller.get(String(ps.user_id)) || 0 : 0),
+        };
+      })
+      .filter(Boolean);
 
     const totalRevenue = orderList.reduce((s: number, o: any) => s + Number(o.total_amount || 0), 0);
     const totalCommission = orderList.reduce((s: number, o: any) => s + Number(o.commission_amount || 0), 0);
@@ -52,7 +134,8 @@ export async function GET() {
       },
       orders: orderList,
       products: productList,
-      sellers: sellerList,
+      sellers: enrichedGoSellers,
+      eligibleNotLiveSellers,
       pincodes: pincodeList,
       subcategories: subcategoryList,
       mainCategories: mainCategories || [],
