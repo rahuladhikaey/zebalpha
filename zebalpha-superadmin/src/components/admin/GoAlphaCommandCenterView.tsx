@@ -21,13 +21,15 @@ export default function GoAlphaCommandCenterView() {
   const [newSubGroup, setNewSubGroup] = useState("Women's Innerwear");
   const [newSubName, setNewSubName] = useState("");
   const [newSubKeywords, setNewSubKeywords] = useState("");
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/go-alpha", { cache: "no-store" });
+      const res = await fetch(`/api/go-alpha?_t=${Date.now()}`, { cache: "no-store" });
       const json = await res.json();
       setData(json);
+      setLastSyncedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     } finally {
       setLoading(false);
     }
@@ -128,13 +130,34 @@ export default function GoAlphaCommandCenterView() {
             100% isolated from ZebAlpha — separate orders, revenue, sellers, users, and 5–6 hr SLA tracking.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadData}
-          className="rounded-xl bg-white px-4 py-2 text-xs font-black text-black hover:bg-zinc-200 cursor-pointer"
-        >
-          Refresh Live Data
-        </button>
+        <div className="flex flex-col items-end gap-1.5">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void loadData()}
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-black text-black hover:bg-zinc-200 disabled:opacity-70 cursor-pointer transition"
+          >
+            <svg
+              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            {loading ? "Refreshing..." : "Refresh Live Data"}
+          </button>
+          {lastSyncedAt && (
+            <span className="text-[10px] font-bold text-zinc-400">
+              Synced: {lastSyncedAt}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Sub-navigation */}
