@@ -27,6 +27,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.webkit.GeolocationPermissions;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -61,6 +65,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
 import com.getcapacitor.BridgeWebViewClient;
 import com.google.firebase.messaging.FirebaseMessaging;
 import java.util.ArrayList;
@@ -118,6 +123,7 @@ public class MainActivity extends BridgeActivity {
     private ConnectivityManager.NetworkCallback networkCallback;
     private ActivityResultLauncher<String> notificationPermissionLauncher;
     private ActivityResultLauncher<String> micPermissionLauncher;
+    private ActivityResultLauncher<String[]> locationPermissionLauncher;
     private ActivityResultLauncher<Intent> voiceRecognizerIntentLauncher;
     private SpeechRecognizer voiceSpeechRecognizer;
     private String pendingVoiceLangTag = "en-IN";
@@ -397,6 +403,14 @@ public class MainActivity extends BridgeActivity {
             Bridge bridge = getBridge();
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.setWebViewClient(new ZebAlphaWebViewClient(bridge));
+                bridge.getWebView().setWebChromeClient(new BridgeWebChromeClient(bridge) {
+                    @Override
+                    public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                        boolean hasLoc = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                            || ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+                        callback.invoke(origin, hasLoc, false);
+                    }
+                });
                 bridge.getWebView().addJavascriptInterface(new ZebAlphaNativeInterface(), "ZebAlphaNative");
             }
         } catch (Exception e) {
@@ -434,6 +448,19 @@ public class MainActivity extends BridgeActivity {
             this::handleMicPermissionResult
         );
 
+        locationPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(),
+            result -> {
+                boolean fine = Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION));
+                boolean coarse = Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_COARSE_LOCATION));
+                if (fine || coarse) {
+                    fetchAndDispatchNativeLocation();
+                } else {
+                    dispatchJsEvent("zebalpha:native-location", "{\"granted\":false,\"error\":\"Location permission denied\"}");
+                }
+            }
+        );
+
         voiceRecognizerIntentLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -464,6 +491,14 @@ public class MainActivity extends BridgeActivity {
             Bridge bridge = getBridge();
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.setWebViewClient(new ZebAlphaWebViewClient(bridge));
+                bridge.getWebView().setWebChromeClient(new BridgeWebChromeClient(bridge) {
+                    @Override
+                    public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                        boolean hasLoc = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                            || ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+                        callback.invoke(origin, hasLoc, false);
+                    }
+                });
                 bridge.getWebView().addJavascriptInterface(new ZebAlphaNativeInterface(), "ZebAlphaNative");
             }
         } catch (Exception e) {
@@ -626,6 +661,60 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private void fetchAndDispatchNativeLocation() {
+        try {
+            LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) {
+                dispatchJsEvent("zebalpha:native-location", "{\"granted\":true,\"error\":\"Location service unavailable\"}");
+                return;
+            }
+            boolean hasFine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean hasCoarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            if (!hasFine && !hasCoarse) {
+                dispatchJsEvent("zebalpha:native-location", "{\"granted\":false,\"error\":\"Location permission denied\"}");
+                return;
+            }
+            Location best = null;
+            if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                best = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            }
+            if (best == null && lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                best = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            }
+            if (best != null) {
+                dispatchJsEvent("zebalpha:native-location", "{\"granted\":true,\"lat\":" + best.getLatitude() + ",\"lng\":" + best.getLongitude() + "}");
+                return;
+            }
+            String provider = lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+                ? LocationManager.NETWORK_PROVIDER
+                : (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER : null);
+            if (provider == null) {
+                dispatchJsEvent("zebalpha:native-location", "{\"granted\":true,\"error\":\"Please turn ON phone GPS / Location\"}");
+                return;
+            }
+            final boolean[] resolved = { false };
+            LocationListener listener = new LocationListener() {
+                @Override
+                public void onLocationChanged(Location loc) {
+                    if (resolved[0]) return;
+                    resolved[0] = true;
+                    try { lm.removeUpdates(this); } catch (Exception ignored) {}
+                    dispatchJsEvent("zebalpha:native-location", "{\"granted\":true,\"lat\":" + loc.getLatitude() + ",\"lng\":" + loc.getLongitude() + "}");
+                }
+            };
+            lm.requestLocationUpdates(provider, 0L, 0f, listener, Looper.getMainLooper());
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (!resolved[0]) {
+                    resolved[0] = true;
+                    try { lm.removeUpdates(listener); } catch (Exception ignored) {}
+                    dispatchJsEvent("zebalpha:native-location", "{\"granted\":true,\"error\":\"GPS timeout — please turn ON phone Location\"}");
+                }
+            }, 6500);
+        } catch (Exception e) {
+            dispatchJsEvent("zebalpha:native-location", "{\"granted\":true,\"error\":\"Unable to read GPS coordinates\"}");
+        }
+    }
+
     private void dispatchJsEvent(String eventName, String jsonDetail) {
         runOnUiThread(() -> {
             try {
@@ -769,15 +858,23 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void requestLocationPermission() {
+            runOnUiThread(() -> requestLocationAndFetch());
+        }
+
+        @JavascriptInterface
+        public void requestLocationAndFetch() {
             runOnUiThread(() -> {
                 boolean hasFine = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
                     == PackageManager.PERMISSION_GRANTED;
-                if (!hasFine) {
-                    ActivityCompat.requestPermissions(
-                        MainActivity.this,
-                        new String[] { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION },
-                        2026
-                    );
+                boolean hasCoarse = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED;
+                if (hasFine || hasCoarse) {
+                    fetchAndDispatchNativeLocation();
+                } else if (locationPermissionLauncher != null) {
+                    locationPermissionLauncher.launch(new String[] {
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    });
                 }
             });
         }

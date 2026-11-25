@@ -181,11 +181,62 @@ export function GoAlphaProvider({ children }: { children: React.ReactNode }) {
   );
 
   const detectGpsPincode = useCallback(async () => {
-    if (typeof window !== "undefined") {
-      try {
-        (window as any).ZebAlphaNative?.requestLocationPermission?.();
-      } catch {}
+    const reverseLookup = async (lat: number, lng: number) => {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+      );
+      const data = await res.json();
+      const pin = String(data?.address?.postcode || "").replace(/\D/g, "").slice(0, 6);
+      if (pin.length === 6) {
+        await setPincode(pin);
+        return { ok: true, pincode: pin };
+      }
+      return { ok: false, error: "Could not detect 6-digit pincode from GPS" };
+    };
+
+    const nativeBridge = typeof window !== "undefined" ? (window as any).ZebAlphaNative : null;
+    if (nativeBridge?.requestLocationAndFetch) {
+      return new Promise<{ ok: boolean; pincode?: string; error?: string }>((resolve) => {
+        let done = false;
+        const timer = window.setTimeout(() => {
+          if (done) return;
+          done = true;
+          window.removeEventListener("zebalpha:native-location", handler);
+          resolve({ ok: false, error: "Please turn ON phone GPS & allow Location permission" });
+        }, 10000);
+
+        const handler = async (ev: any) => {
+          if (done) return;
+          done = true;
+          window.clearTimeout(timer);
+          window.removeEventListener("zebalpha:native-location", handler);
+          const detail = ev?.detail || {};
+          if (detail.granted === false) {
+            resolve({ ok: false, error: "Location permission denied. Allow Location in App Settings." });
+            return;
+          }
+          if (typeof detail.lat === "number" && typeof detail.lng === "number") {
+            try {
+              resolve(await reverseLookup(detail.lat, detail.lng));
+            } catch {
+              resolve({ ok: false, error: "Failed to resolve pincode from GPS" });
+            }
+          } else {
+            resolve({ ok: false, error: detail.error || "Please turn ON phone GPS / Location" });
+          }
+        };
+
+        window.addEventListener("zebalpha:native-location", handler);
+        try {
+          nativeBridge.requestLocationAndFetch();
+        } catch {
+          window.clearTimeout(timer);
+          window.removeEventListener("zebalpha:native-location", handler);
+          resolve({ ok: false, error: "Unable to open location prompt" });
+        }
+      });
     }
+
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       return { ok: false, error: "Location not supported on this device" };
     }
@@ -193,18 +244,7 @@ export function GoAlphaProvider({ children }: { children: React.ReactNode }) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           try {
-            const { latitude, longitude } = pos.coords;
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
-            );
-            const data = await res.json();
-            const pin = String(data?.address?.postcode || "").replace(/\D/g, "").slice(0, 6);
-            if (pin.length === 6) {
-              await setPincode(pin);
-              resolve({ ok: true, pincode: pin });
-            } else {
-              resolve({ ok: false, error: "Could not detect 6-digit pincode from GPS" });
-            }
+            resolve(await reverseLookup(pos.coords.latitude, pos.coords.longitude));
           } catch {
             resolve({ ok: false, error: "Failed to resolve pincode from coordinates" });
           }

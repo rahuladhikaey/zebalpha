@@ -188,7 +188,20 @@ export function GoAlphaHeader() {
                   Check
                 </button>
               </div>
-              {gpsStatus && <p className="text-xs font-semibold text-red-600">{gpsStatus}</p>}
+              {gpsStatus && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-red-600">{gpsStatus}</p>
+                  {typeof window !== "undefined" && (window as any).ZebAlphaNative?.openAppInfoSettings && (
+                    <button
+                      type="button"
+                      onClick={() => (window as any).ZebAlphaNative.openAppInfoSettings()}
+                      className="text-xs font-extrabold text-[#EE2B00] underline cursor-pointer"
+                    >
+                      Open App Settings to Allow Location →
+                    </button>
+                  )}
+                </div>
+              )}
             </form>
 
             {/* Quick Corridor Pincodes */}
