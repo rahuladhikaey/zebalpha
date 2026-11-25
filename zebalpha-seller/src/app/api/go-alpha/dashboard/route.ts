@@ -31,12 +31,46 @@ export async function GET(req: Request) {
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = supabaseServer.schema("go_alpha");
-    const [{ data: goSeller }, { data: orderItems }, { data: ledger }, { data: goProducts }] = await Promise.all([
+    const [
+      { data: pickupHub },
+      { data: goSeller },
+      { data: orderItems },
+      { data: ledger },
+      { data: goProducts },
+    ] = await Promise.all([
+      supabaseServer
+        .from("seller_pickup_locations")
+        .select("pincode, address, address_line1, city, state, is_default")
+        .eq("seller_id", ctx.seller.id)
+        .order("is_default", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       db.from("sellers").select("*").eq("seller_id", ctx.seller.id).maybeSingle(),
       db.from("order_items").select("*, orders(*)").eq("seller_id", ctx.seller.id).order("created_at", { ascending: false }).limit(100),
       db.from("seller_payout_ledger").select("*").eq("seller_id", ctx.seller.id).order("created_at", { ascending: false }),
       db.from("products").select("*").eq("seller_id", ctx.seller.id).eq("is_active", true),
     ]);
+
+    const resolvedPin = String(pickupHub?.pincode || ctx.seller.pickup_pincode || "")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+    const resolvedAddr =
+      pickupHub?.address ||
+      pickupHub?.address_line1 ||
+      ctx.seller.pickup_address ||
+      "";
+    const resolvedCity = pickupHub?.city || "";
+
+    let serviceablePinRow: any = null;
+    if (resolvedPin.length === 6) {
+      const { data: pinData } = await db
+        .from("serviceable_pincodes")
+        .select("pincode, area_name, city, corridor_name, is_active")
+        .eq("pincode", resolvedPin)
+        .eq("is_active", true)
+        .maybeSingle();
+      serviceablePinRow = pinData || null;
+    }
 
     const items = orderItems || [];
     const ledgerRows = ledger || [];
@@ -46,8 +80,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       goSeller: goSeller || null,
-      zebalphaPickupPincode: ctx.seller.pickup_pincode || goSeller?.pickup_pincode || "",
-      zebalphaPickupAddress: ctx.seller.pickup_address || goSeller?.pickup_address || "",
+      zebalphaPickupPincode: resolvedPin,
+      zebalphaPickupAddress: resolvedAddr,
+      zebalphaPickupCity: resolvedCity,
+      isGoAlphaServiceable: Boolean(serviceablePinRow),
+      serviceAreaName: serviceablePinRow?.area_name || "",
+      corridorName: serviceablePinRow?.corridor_name || "",
       stats: {
         totalOrders: new Set(items.map((i: any) => i.order_id)).size,
         activeProducts: (goProducts || []).length,

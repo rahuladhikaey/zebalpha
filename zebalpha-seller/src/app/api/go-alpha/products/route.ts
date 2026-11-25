@@ -120,34 +120,69 @@ export async function POST(req: Request) {
       );
     }
 
-    // Ensure seller has go_alpha.sellers profile
-    let { data: goSeller } = await db
-      .from("sellers")
-      .select("*")
+    // Resolve seller's registered ZebAlpha Pickup Hub pincode
+    const { data: pickupHub } = await supabaseServer
+      .from("seller_pickup_locations")
+      .select("pincode, address, address_line1, city")
       .eq("seller_id", ctx.seller.id)
+      .order("is_default", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    const fallbackPin = String(ctx.seller.pickup_pincode || "700014").replace(/\D/g, "").slice(0, 6) || "700014";
-    if (!goSeller) {
-      const { data: createdSeller, error: createSelErr } = await db
-        .from("sellers")
-        .insert({
+    const sellerPin = String(pickupHub?.pincode || ctx.seller.pickup_pincode || "")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+
+    if (sellerPin.length !== 6) {
+      return NextResponse.json(
+        { error: "Please set your Pickup Warehouse & Hub pincode first before activating GOα." },
+        { status: 400 }
+      );
+    }
+
+    // Verify seller's registered pincode is active in GOα serviceable_pincodes
+    const { data: serviceableRow } = await db
+      .from("serviceable_pincodes")
+      .select("pincode")
+      .eq("pincode", sellerPin)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!serviceableRow) {
+      return NextResponse.json(
+        {
+          error: `Pickup is not available at your registered address (Pincode ${sellerPin}) yet. GOα Express is coming soon to this pincode.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Ensure seller has go_alpha.sellers profile synced with ZebAlpha Pickup Hub
+    const resolvedAddress = pickupHub?.address || pickupHub?.address_line1 || ctx.seller.pickup_address || "";
+    const { data: upsertedSeller, error: createSelErr } = await db
+      .from("sellers")
+      .upsert(
+        {
           seller_id: ctx.seller.id,
           user_id: ctx.user.id,
           store_name: ctx.seller.business_name || ctx.seller.full_name || "GOα Local Store",
-          pickup_pincode: fallbackPin,
-          pickup_address: ctx.seller.pickup_address || "",
-          serviceable_pincodes: [fallbackPin],
+          pickup_pincode: sellerPin,
+          pickup_address: resolvedAddress,
+          city: pickupHub?.city || "West Bengal",
+          serviceable_pincodes: [sellerPin],
           is_approved: true,
           is_active: true,
-        })
-        .select()
-        .single();
-      if (createSelErr) {
-        return NextResponse.json({ error: createSelErr.message }, { status: 500 });
-      }
-      goSeller = createdSeller;
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "seller_id" }
+      )
+      .select()
+      .single();
+
+    if (createSelErr) {
+      return NextResponse.json({ error: createSelErr.message }, { status: 500 });
     }
+    const goSeller = upsertedSeller;
 
     const primaryImg =
       srcProd.image_url ||
@@ -169,7 +204,7 @@ export async function POST(req: Request) {
           go_alpha_price: Number(goAlphaPrice || srcProd.price || 0),
           mrp: srcProd.mrp ? Number(srcProd.mrp) : null,
           go_alpha_stock: Number(goAlphaStock ?? srcProd.stock ?? 10),
-          pickup_pincode: goSeller.pickup_pincode || fallbackPin,
+          pickup_pincode: sellerPin,
           delivery_eta_label: "5–6 Hours",
           is_active: true,
           updated_at: new Date().toISOString(),

@@ -83,11 +83,33 @@ export default function SellerGoAlphaDashboardPage() {
             <MapPin className="h-4 w-4 text-orange-600" /> Store Pickup Pincode
           </div>
           <p className="mt-2 text-2xl font-black text-[#14120F]">
-            {data?.zebalphaPickupPincode || data?.goSeller?.pickup_pincode || "—"}
+            {data?.zebalphaPickupPincode || "—"}
           </p>
-          <p className="text-[11px] text-neutral-500">Synced with ZebAlpha Pickup Hub</p>
+          <p className="text-[11px] text-neutral-500">
+            {data?.zebalphaPickupCity ? `${data.zebalphaPickupCity} • ` : ""}Synced with ZebAlpha Pickup Hub
+          </p>
         </div>
       </div>
+
+      {/* Pickup Serviceability Banner */}
+      {!loading && data && (
+        data.isGoAlphaServiceable ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs font-bold text-emerald-900 flex items-center justify-between gap-3">
+            <span>
+              GOα 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}).
+            </span>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-xs text-amber-950 space-y-1">
+            <p className="font-black text-sm">
+              Pickup is not available at this address yet — GOα Express is coming soon to Pincode {data.zebalphaPickupPincode || "your area"}.
+            </p>
+            <p className="text-amber-800">
+              Your registered ZebAlpha Pickup Hub address ({data.zebalphaPickupAddress || "Default Warehouse"}, {data.zebalphaPickupPincode || "N/A"}) is currently outside active GOα pickup corridors.
+            </p>
+          </div>
+        )
+      )}
 
       {/* Isolated GOα Orders Table */}
       <div className="rounded-2xl border border-[#EAD296] bg-white overflow-hidden shadow-xs">
