@@ -29,7 +29,8 @@ import {
   Megaphone,
   ChevronDown,
   Users,
-  Star
+  Star,
+  Zap
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -184,6 +185,7 @@ export default function DashboardLayout({
     { name: "Home",          href: "/dashboard/home",          icon: Home },
     { name: "Dashboard",     href: "/dashboard",               icon: LayoutDashboard },
     { name: "Products",      href: "/dashboard/products",      icon: ShoppingBag },
+    { name: "GOα Express",   href: "/dashboard/go-alpha",      icon: Zap, badge: "5-6 HR" },
     { name: "Quality",       href: "/dashboard/quality",       icon: Award },
     { name: "Collections",   href: "/dashboard/collections",   icon: Sparkles },
     { name: "Inventory",     href: "/dashboard/inventory",     icon: Package },

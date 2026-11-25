@@ -13,8 +13,10 @@ import {
   Upload,
   ShoppingBag,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  Zap
 } from "lucide-react";
+import { matchGoAlphaSubcategory } from "@shared/constants/goAlpha";
 import { uploadToCloudinary, compressImageTo100KB } from "@shared/services";
 import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
@@ -41,6 +43,8 @@ export default function SellerProducts() {
   // Multi-step Catalog Wizard state
   const [isWizardModalOpen, setIsWizardModalOpen] = useState(false);
   const [isNewDropInitial, setIsNewDropInitial] = useState(false);
+  const [goAlphaActiveIds, setGoAlphaActiveIds] = useState<string[]>([]);
+  const [goAlphaTogglingId, setGoAlphaTogglingId] = useState<string | null>(null);
 
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -219,8 +223,8 @@ export default function SellerProducts() {
         return fallbackWithSpecs.data || [];
       };
 
-      // PARALLEL EXECUTION: Fetch products, categories, and curated collections concurrently
-      const [productsData, categoriesRes, curatedRes] = await Promise.all([
+      // PARALLEL EXECUTION: Fetch products, categories, curated collections, and GOα active IDs concurrently
+      const [productsData, categoriesRes, curatedRes, goAlphaRes] = await Promise.all([
         fetchProductsSafe(),
         supabase
           .from("categories")
@@ -231,8 +235,16 @@ export default function SellerProducts() {
           .from("curated_collections")
           .select("id, title, slug")
           .eq("is_active", true)
-          .order("display_order", { ascending: true })
+          .order("display_order", { ascending: true }),
+        fetch("/api/go-alpha/products", { headers: authHeaders, cache: "no-store" }).catch(() => null),
       ]);
+
+      if (goAlphaRes && goAlphaRes.ok) {
+        try {
+          const gJson = await goAlphaRes.json();
+          if (Array.isArray(gJson.activeProductIds)) setGoAlphaActiveIds(gJson.activeProductIds);
+        } catch {}
+      }
 
       const curatedItems = (curatedRes?.data || []).map((c: any) => ({
         id: c.id,
@@ -1124,6 +1136,51 @@ export default function SellerProducts() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {matchGoAlphaSubcategory({
+                          name: product.name,
+                          category: (product as any).categories?.name || "",
+                        }) && (() => {
+                          const pid = String(product.id);
+                          const isGoActive = goAlphaActiveIds.includes(pid);
+                          const isBusy = goAlphaTogglingId === pid;
+                          return (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={async () => {
+                                setGoAlphaTogglingId(pid);
+                                try {
+                                  const res = await fetch("/api/go-alpha/products", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ productId: pid, activate: !isGoActive }),
+                                  });
+                                  const json = await res.json();
+                                  if (json.success) {
+                                    setGoAlphaActiveIds((prev) =>
+                                      json.is_active
+                                        ? Array.from(new Set([...prev, pid]))
+                                        : prev.filter((id) => id !== pid)
+                                    );
+                                  } else {
+                                    alert(json.error || "Could not update GOα status");
+                                  }
+                                } finally {
+                                  setGoAlphaTogglingId(null);
+                                }
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-[11px] font-black transition-all cursor-pointer ${
+                                isGoActive
+                                  ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25"
+                                  : "border-orange-500/40 bg-orange-500/10 text-orange-500 hover:bg-orange-500/20"
+                              }`}
+                              title={isGoActive ? "Live on GOα (5–6 Hr). Click to pause." : "Eligible for GOα 5–6 Hr Quick Commerce. Click to activate."}
+                            >
+                              <Zap size={13} className={isGoActive ? "fill-emerald-500" : "fill-orange-500"} />
+                              <span>{isBusy ? "..." : isGoActive ? "GOα Live" : "Activate GOα"}</span>
+                            </button>
+                          );
+                        })()}
                         <button
                           onClick={() => handleOpenEditWizard(product)}
                           className="rounded-xl border border-foreground/[0.08] p-2 text-text-secondary hover:bg-foreground/[0.04] hover:text-text-primary transition-all cursor-pointer"

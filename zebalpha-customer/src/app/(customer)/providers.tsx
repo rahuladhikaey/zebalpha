@@ -16,6 +16,7 @@ import { checkIsNativeApp } from "@/lib/platform";
 import { ExperienceThemeProvider } from "@/context/ExperienceThemeContext";
 import { ExperienceOverlayManager } from "@/components/experience/ExperienceOverlayManager";
 import type { CustomerActiveExperiencePayload } from "@/lib/experienceThemes";
+import { GoAlphaProvider } from "@/context/GoAlphaContext";
 
 export function Providers({
   children,
@@ -54,19 +55,21 @@ export function Providers({
           <ActiveSessionTracker />
           <WishlistProvider>
             <CartProvider>
-              <VariantSelectorProvider>
-                <ProductNavigationOverlay />
-                <ExperienceOverlayManager />
-                <div className="flex w-full min-h-screen">
-                  <div className="flex-1 min-w-0 flex flex-col">
-                    {children}
+              <GoAlphaProvider>
+                <VariantSelectorProvider>
+                  <ProductNavigationOverlay />
+                  <ExperienceOverlayManager />
+                  <div className="flex w-full min-h-screen">
+                    <div className="flex-1 min-w-0 flex flex-col">
+                      {children}
+                    </div>
+                    <DesktopSideCart />
                   </div>
-                  <DesktopSideCart />
-                </div>
-                <FloatingCartBanner />
-                <MeeshoVariantBottomSheet />
-                <ShareBottomSheet />
-              </VariantSelectorProvider>
+                  <FloatingCartBanner />
+                  <MeeshoVariantBottomSheet />
+                  <ShareBottomSheet />
+                </VariantSelectorProvider>
+              </GoAlphaProvider>
             </CartProvider>
           </WishlistProvider>
         </AuthProvider>
