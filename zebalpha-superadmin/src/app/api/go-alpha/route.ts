@@ -35,7 +35,7 @@ export async function GET() {
     const pincodeList = pincodes || [];
     const subcategoryList = subcategories || [];
 
-    // Build lookup maps for full seller details + eligible sellers with 0 live GOα products
+    // Build lookup maps for full seller details + eligible sellers with 0 live ZebQuick products
     const activePinMap = new Map<string, any>();
     pincodeList.filter((p: any) => p.is_active).forEach((p: any) => activePinMap.set(String(p.pincode), p));
 
@@ -141,7 +141,7 @@ export async function GET() {
       mainCategories: mainCategories || [],
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Failed to load GOα data" }, { status: 500 });
+    return NextResponse.json({ error: err?.message || "Failed to load ZebQuick data" }, { status: 500 });
   }
 }
 

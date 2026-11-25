@@ -68,7 +68,7 @@ export function AndroidBottomNav() {
   // Only render on native Capacitor Android app shell or preview mode
   if (!isNativeApp) return null;
 
-  // Isolate GOα Quick Commerce sub-app from ZebAlpha's bottom nav
+  // Isolate ZebQuick Quick Commerce sub-app from ZebAlpha's bottom nav
   if (pathname?.startsWith("/go-alpha")) return null;
 
   // Hide global bottom bar on product detail routes where the sticky Cart / Buy Now bar owns the bottom dock
@@ -115,7 +115,7 @@ export function AndroidBottomNav() {
     },
     {
       id: "go_alpha",
-      label: "GOα",
+      label: "ZebQuick",
       href: "/go-alpha",
       icon: LayoutGrid,
       imageSrc: "/go-alpha-icon.png",

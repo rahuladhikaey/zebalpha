@@ -51,7 +51,7 @@ export default function GoAlphaCategoriesPage() {
     <div className="mx-auto max-w-5xl px-3.5 py-4 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-black text-neutral-900">GOα Express Categories</h1>
+          <h1 className="text-lg font-black text-neutral-900">ZebQuick Express Categories</h1>
           <p className="text-xs text-neutral-500">All essentials delivered within 5–6 hours</p>
         </div>
         <Link href="/go-alpha" className="text-xs font-extrabold text-[#EE2B00]">

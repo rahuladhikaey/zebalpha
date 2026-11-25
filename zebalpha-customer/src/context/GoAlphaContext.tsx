@@ -91,7 +91,7 @@ export function GoAlphaProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Hydrate isolated GOα cart & pincode from localStorage
+  // Hydrate isolated ZebQuick cart & pincode from localStorage
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY);
@@ -142,7 +142,7 @@ export function GoAlphaProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [cart, hydrated]);
 
-  // Sync GOα wishlist from go_alpha.wishlists when signed in (SSO shared auth)
+  // Sync ZebQuick wishlist from go_alpha.wishlists when signed in (SSO shared auth)
   useEffect(() => {
     if (!user?.id) return;
     let active = true;

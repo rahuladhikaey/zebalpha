@@ -30,7 +30,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ serviceable: true, products: items || [] });
     }
 
-    // 2. Validate pincode against active GOα corridor
+    // 2. Validate pincode against active ZebQuick corridor
     if (pincode.length === 6) {
       const { data: pinRow } = await db
         .from("serviceable_pincodes")
@@ -44,12 +44,12 @@ export async function GET(req: Request) {
           serviceable: false,
           pincode,
           products: [],
-          message: "GOα 5–6 Hr delivery is currently available on the Sealdah – Krishnanagar route.",
+          message: "ZebQuick 5–6 Hr delivery is currently available on the Sealdah – Krishnanagar route.",
         });
       }
     }
 
-    // 3. Find local approved GOα sellers serving this pincode
+    // 3. Find local approved ZebQuick sellers serving this pincode
     let sellerIds: string[] | null = null;
     if (pincode.length === 6) {
       const { data: sellers } = await db
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // 4. Query GOα products
+    // 4. Query ZebQuick products
     let query = db
       .from("products")
       .select("*")

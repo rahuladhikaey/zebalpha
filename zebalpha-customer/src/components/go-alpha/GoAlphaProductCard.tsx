@@ -80,7 +80,7 @@ export function GoAlphaProductCard({ product }: { product: GoAlphaProductRecord 
             e.preventDefault();
             toggleWishlist(product.id);
           }}
-          aria-label="Toggle GOα Wishlist"
+          aria-label="Toggle ZebQuick Wishlist"
           className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-xs backdrop-blur-xs transition active:scale-90 cursor-pointer"
         >
           <Heart className={`h-4 w-4 ${wishlisted ? "fill-[#EE2B00] text-[#EE2B00]" : "text-neutral-700"}`} />

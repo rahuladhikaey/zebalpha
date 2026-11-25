@@ -125,7 +125,7 @@ export default function GoAlphaCommandCenterView() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/20 border border-orange-500/40 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-orange-400">
             ⚡ Isolated Quick Commerce Engine (go_alpha schema)
           </span>
-          <h1 className="mt-2 text-2xl font-black text-white">GOα Quick Commerce Command Center</h1>
+          <h1 className="mt-2 text-2xl font-black text-white">ZebQuick Quick Commerce Command Center</h1>
           <p className="text-xs text-zinc-400">
             100% isolated from ZebAlpha — separate orders, revenue, sellers, users, and 5–6 hr SLA tracking.
           </p>
@@ -165,9 +165,9 @@ export default function GoAlphaCommandCenterView() {
         {(
           [
             { id: "overview", label: "Overview & Revenue" },
-            { id: "orders", label: `GOα Orders (${(data?.orders || []).length})` },
+            { id: "orders", label: `ZebQuick Orders (${(data?.orders || []).length})` },
             { id: "products", label: `Live Products (${(data?.products || []).length})` },
-            { id: "sellers", label: `GOα Sellers (${(data?.sellers || []).length + (data?.eligibleNotLiveSellers || []).length})` },
+            { id: "sellers", label: `ZebQuick Sellers (${(data?.sellers || []).length + (data?.eligibleNotLiveSellers || []).length})` },
             { id: "pincodes", label: `Pincode Corridors (${(data?.pincodes || []).length})` },
             { id: "categories", label: `Allowed Subcategories (${(data?.subcategories || []).length})` },
           ] as Array<{ id: SubTab; label: string }>
@@ -187,16 +187,16 @@ export default function GoAlphaCommandCenterView() {
       </div>
 
       {loading && !data ? (
-        <div className="p-8 text-xs text-zinc-400">Loading GOα Quick Commerce data...</div>
+        <div className="p-8 text-xs text-zinc-400">Loading ZebQuick Quick Commerce data...</div>
       ) : (
         <>
           {subTab === "overview" && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: "GOα Total GMV / Revenue", value: `₹${stats.totalRevenue.toFixed(0)}`, sub: `Commission: ₹${stats.totalCommission.toFixed(0)}` },
-                { label: "GOα Orders (5–6 Hr)", value: stats.totalOrders, sub: `On-Time SLA: ${stats.onTimeSlaPct}%` },
-                { label: "Active GOα Users", value: stats.activeUsers, sub: "Unique express buyers" },
-                { label: "GOα Live Catalog & Zones", value: `${stats.activeProducts} Items`, sub: `${stats.totalSellers} Sellers • ${stats.activePincodes} Pincodes` },
+                { label: "ZebQuick Total GMV / Revenue", value: `₹${stats.totalRevenue.toFixed(0)}`, sub: `Commission: ₹${stats.totalCommission.toFixed(0)}` },
+                { label: "ZebQuick Orders (5–6 Hr)", value: stats.totalOrders, sub: `On-Time SLA: ${stats.onTimeSlaPct}%` },
+                { label: "Active ZebQuick Users", value: stats.activeUsers, sub: "Unique express buyers" },
+                { label: "ZebQuick Live Catalog & Zones", value: `${stats.activeProducts} Items`, sub: `${stats.totalSellers} Sellers • ${stats.activePincodes} Pincodes` },
               ].map((kpi) => (
                 <div key={kpi.label} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">{kpi.label}</p>
@@ -247,7 +247,7 @@ export default function GoAlphaCommandCenterView() {
                     </tr>
                   ))}
                   {(data?.orders || []).length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-zinc-500">No GOα orders yet.</td></tr>
+                    <tr><td colSpan={6} className="p-6 text-center text-zinc-500">No ZebQuick orders yet.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -297,15 +297,15 @@ export default function GoAlphaCommandCenterView() {
 
           {subTab === "sellers" && (
             <div className="space-y-6">
-              {/* Eligible Sellers by Pincode with 0 Live GOα Products */}
+              {/* Eligible Sellers by Pincode with 0 Live ZebQuick Products */}
               <div className="rounded-2xl border border-amber-500/30 bg-zinc-950 overflow-hidden">
                 <div className="border-b border-zinc-800 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 bg-amber-500/5">
                   <div>
                     <h3 className="text-sm font-black text-white">
-                      Eligible GOα Sellers — No Products Live Yet ({(data?.eligibleNotLiveSellers || []).length})
+                      Eligible ZebQuick Sellers — No Products Live Yet ({(data?.eligibleNotLiveSellers || []).length})
                     </h3>
                     <p className="text-[11px] text-zinc-400">
-                      Sellers whose registered pickup pincode is active in GOα corridors, but have not activated any GOα products yet.
+                      Sellers whose registered pickup pincode is active in ZebQuick corridors, but have not activated any ZebQuick products yet.
                     </p>
                   </div>
                 </div>
@@ -317,7 +317,7 @@ export default function GoAlphaCommandCenterView() {
                         <th className="px-4 py-3 font-black">Contact Details</th>
                         <th className="px-4 py-3 font-black">Pickup Address &amp; Pincode</th>
                         <th className="px-4 py-3 font-black">Catalog</th>
-                        <th className="px-4 py-3 font-black text-right">GOα Status</th>
+                        <th className="px-4 py-3 font-black text-right">ZebQuick Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/70">
@@ -341,7 +341,7 @@ export default function GoAlphaCommandCenterView() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="font-bold text-zinc-200">{es.total_zeb_products} ZebAlpha</div>
-                            <div className="text-[11px] text-amber-400 font-bold">0 GOα Live</div>
+                            <div className="text-[11px] text-amber-400 font-bold">0 ZebQuick Live</div>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <span className="inline-flex rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-[10px] font-black text-amber-300">
@@ -353,7 +353,7 @@ export default function GoAlphaCommandCenterView() {
                       {(data?.eligibleNotLiveSellers || []).length === 0 && (
                         <tr>
                           <td colSpan={5} className="p-6 text-center text-zinc-500">
-                            All eligible corridor sellers already have live GOα products, or no matching pincode sellers found.
+                            All eligible corridor sellers already have live ZebQuick products, or no matching pincode sellers found.
                           </td>
                         </tr>
                       )}
@@ -362,11 +362,11 @@ export default function GoAlphaCommandCenterView() {
                 </div>
               </div>
 
-              {/* Active / Onboarded GOα Sellers */}
+              {/* Active / Onboarded ZebQuick Sellers */}
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950 overflow-hidden">
                 <div className="border-b border-zinc-800 px-5 py-3.5">
                   <h3 className="text-sm font-black text-white">
-                    Onboarded GOα Sellers ({(data?.sellers || []).length})
+                    Onboarded ZebQuick Sellers ({(data?.sellers || []).length})
                   </h3>
                 </div>
                 <div className="overflow-x-auto">
@@ -376,7 +376,7 @@ export default function GoAlphaCommandCenterView() {
                         <th className="px-4 py-3 font-black">Store &amp; Owner</th>
                         <th className="px-4 py-3 font-black">Contact</th>
                         <th className="px-4 py-3 font-black">Pickup Pincode &amp; Address</th>
-                        <th className="px-4 py-3 font-black">Live GOα Products</th>
+                        <th className="px-4 py-3 font-black">Live ZebQuick Products</th>
                         <th className="px-4 py-3 font-black text-right">Approval</th>
                       </tr>
                     </thead>

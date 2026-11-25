@@ -72,34 +72,34 @@ export default function SellerGoAlphaDashboardPage() {
         <div>
           <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-orange-600">
             <Zap className="h-3.5 w-3.5 fill-orange-500 text-orange-500" />
-            GOα 5–6 Hr Quick Commerce (Isolated)
+            ZebQuick 5–6 Hr Quick Commerce (Isolated)
           </div>
-          <h1 className="mt-2 text-2xl font-black text-[#14120F]">GOα Express Seller Hub</h1>
+          <h1 className="mt-2 text-2xl font-black text-[#14120F]">ZebQuick Express Seller Hub</h1>
           <p className="text-xs text-[#5C4E35]">
-            Your GOα orders, 5–6 hr SLA deliveries, and earnings are tracked 100% separately from ZebAlpha.
+            Your ZebQuick orders, 5–6 hr SLA deliveries, and earnings are tracked 100% separately from ZebAlpha.
           </p>
         </div>
       </div>
 
-      {/* Isolated GOα KPIs */}
+      {/* Isolated ZebQuick KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-[#EAD296] bg-white p-4 shadow-xs">
           <div className="flex items-center gap-2 text-xs font-bold text-[#5C4E35]">
-            <IndianRupee className="h-4 w-4 text-orange-600" /> GOα Net Earnings
+            <IndianRupee className="h-4 w-4 text-orange-600" /> ZebQuick Net Earnings
           </div>
           <p className="mt-2 text-2xl font-black text-[#14120F]">₹{stats.totalNetEarnings.toFixed(0)}</p>
           <p className="text-[11px] text-neutral-500">Gross: ₹{stats.totalGrossRevenue.toFixed(0)}</p>
         </div>
         <div className="rounded-2xl border border-[#EAD296] bg-white p-4 shadow-xs">
           <div className="flex items-center gap-2 text-xs font-bold text-[#5C4E35]">
-            <Clock className="h-4 w-4 text-orange-600" /> GOα Orders
+            <Clock className="h-4 w-4 text-orange-600" /> ZebQuick Orders
           </div>
           <p className="mt-2 text-2xl font-black text-[#14120F]">{stats.totalOrders}</p>
           <p className="text-[11px] text-neutral-500">5–6 Hr Express SLA</p>
         </div>
         <div className="rounded-2xl border border-[#EAD296] bg-white p-4 shadow-xs">
           <div className="flex items-center gap-2 text-xs font-bold text-[#5C4E35]">
-            <Package className="h-4 w-4 text-orange-600" /> Active GOα Products
+            <Package className="h-4 w-4 text-orange-600" /> Active ZebQuick Products
           </div>
           <p className="mt-2 text-2xl font-black text-[#14120F]">{stats.activeProducts}</p>
           <p className="text-[11px] text-neutral-500">Shared ZebAlpha images</p>
@@ -122,32 +122,32 @@ export default function SellerGoAlphaDashboardPage() {
         data.isGoAlphaServiceable ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs font-bold text-emerald-900 flex items-center justify-between gap-3">
             <span>
-              GOα 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}).
+              ZebQuick 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}).
             </span>
           </div>
         ) : (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-xs text-amber-950 space-y-1">
             <p className="font-black text-sm">
-              Pickup is not available at this address yet — GOα Express is coming soon to Pincode {data.zebalphaPickupPincode || "your area"}.
+              Pickup is not available at this address yet — ZebQuick Express is coming soon to Pincode {data.zebalphaPickupPincode || "your area"}.
             </p>
             <p className="text-amber-800">
-              Your registered ZebAlpha Pickup Hub address ({data.zebalphaPickupAddress || "Default Warehouse"}, {data.zebalphaPickupPincode || "N/A"}) is currently outside active GOα pickup corridors.
+              Your registered ZebAlpha Pickup Hub address ({data.zebalphaPickupAddress || "Default Warehouse"}, {data.zebalphaPickupPincode || "N/A"}) is currently outside active ZebQuick pickup corridors.
             </p>
           </div>
         )
       )}
 
-      {/* Isolated GOα Orders Table */}
+      {/* Isolated ZebQuick Orders Table */}
       <div className="rounded-2xl border border-[#EAD296] bg-white overflow-hidden shadow-xs">
         <div className="border-b border-[#F0E2BE] px-5 py-3.5 flex items-center justify-between">
-          <h2 className="text-sm font-black text-[#14120F]">GOα Express Orders (5–6 Hr SLA)</h2>
+          <h2 className="text-sm font-black text-[#14120F]">ZebQuick Express Orders (5–6 Hr SLA)</h2>
         </div>
 
         {loading ? (
-          <div className="p-6 text-xs text-neutral-500">Loading GOα orders...</div>
+          <div className="p-6 text-xs text-neutral-500">Loading ZebQuick orders...</div>
         ) : (data?.orderItems || []).length === 0 ? (
           <div className="p-8 text-center text-xs text-neutral-500">
-            No GOα express orders yet. Activate eligible products from your <strong>Products</strong> page!
+            No ZebQuick express orders yet. Activate eligible products from your <strong>Products</strong> page!
           </div>
         ) : (
           <div className="overflow-x-auto">

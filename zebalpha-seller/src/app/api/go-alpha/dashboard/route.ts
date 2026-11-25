@@ -129,7 +129,7 @@ export async function PATCH(req: Request) {
           {
             seller_id: ctx.seller.id,
             user_id: ctx.user.id,
-            store_name: body.store_name || ctx.seller.business_name || ctx.seller.full_name || "GOα Store",
+            store_name: body.store_name || ctx.seller.business_name || ctx.seller.full_name || "ZebQuick Store",
             pickup_pincode: pickupPin,
             pickup_address: body.pickup_address || ctx.seller.pickup_address || "",
             serviceable_pincodes: mergedPins,
@@ -144,7 +144,7 @@ export async function PATCH(req: Request) {
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-      // Sync pickup pincode onto seller's active GOα products
+      // Sync pickup pincode onto seller's active ZebQuick products
       await db.from("products").update({ pickup_pincode: pickupPin }).eq("seller_id", ctx.seller.id);
 
       return NextResponse.json({ success: true, goSeller: upserted });
@@ -174,7 +174,7 @@ export async function PATCH(req: Request) {
         .eq("id", body.orderId)
         .maybeSingle();
       if (!orderRow) {
-        return NextResponse.json({ error: "GOα order not found" }, { status: 404 });
+        return NextResponse.json({ error: "ZebQuick order not found" }, { status: 404 });
       }
       const { data: items } = await db
         .from("order_items")

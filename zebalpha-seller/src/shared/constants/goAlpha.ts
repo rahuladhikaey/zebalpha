@@ -100,7 +100,7 @@ export const GO_ALPHA_INITIAL_PINCODES: GoAlphaPincodeSeed[] = [
 ];
 
 /**
- * Matches a ZebAlpha product against GOα's allowed quick-commerce subcategories.
+ * Matches a ZebAlpha product against ZebQuick's allowed quick-commerce subcategories.
  * Optionally accepts a custom active subcategory list from DB.
  */
 export function matchGoAlphaSubcategory(

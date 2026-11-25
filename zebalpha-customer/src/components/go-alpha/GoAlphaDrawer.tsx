@@ -40,7 +40,7 @@ export function GoAlphaDrawer({
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-xs font-black text-[#EE2B00]">
                 <Zap className="h-3.5 w-3.5 fill-[#EE2B00]" />
-                GOα
+                ZebQuick
               </span>
               <span className="text-xs font-extrabold uppercase tracking-wider text-amber-100">
                 5–6 Hr Express
@@ -92,7 +92,7 @@ export function GoAlphaDrawer({
         </nav>
 
         <div className="border-t border-neutral-100 p-4 text-center text-[11px] font-semibold text-neutral-400">
-          GOα Quick Commerce • Powered by ZebAlpha
+          ZebQuick Quick Commerce • Powered by ZebAlpha
         </div>
       </aside>
     </div>

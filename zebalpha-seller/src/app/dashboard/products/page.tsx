@@ -224,7 +224,7 @@ export default function SellerProducts() {
         return fallbackWithSpecs.data || [];
       };
 
-      // PARALLEL EXECUTION: Fetch products, categories, curated collections, and GOα active IDs concurrently
+      // PARALLEL EXECUTION: Fetch products, categories, curated collections, and ZebQuick active IDs concurrently
       const [productsData, categoriesRes, curatedRes, goAlphaRes] = await Promise.all([
         fetchProductsSafe(),
         supabase
@@ -1171,7 +1171,7 @@ export default function SellerProducts() {
                                         : prev.filter((id) => id !== pid)
                                     );
                                   } else {
-                                    alert(json.error || "Could not update GOα status");
+                                    alert(json.error || "Could not update ZebQuick status");
                                   }
                                 } finally {
                                   setGoAlphaTogglingId(null);
@@ -1182,10 +1182,10 @@ export default function SellerProducts() {
                                   ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25"
                                   : "border-orange-500/40 bg-orange-500/10 text-orange-500 hover:bg-orange-500/20"
                               }`}
-                              title={isGoActive ? "Live on GOα (5–6 Hr). Click to pause." : "Eligible for GOα 5–6 Hr Quick Commerce. Click to activate."}
+                              title={isGoActive ? "Live on ZebQuick (5–6 Hr). Click to pause." : "Eligible for ZebQuick 5–6 Hr Quick Commerce. Click to activate."}
                             >
                               <Zap size={13} className={isGoActive ? "fill-emerald-500" : "fill-orange-500"} />
-                              <span>{isBusy ? "..." : isGoActive ? "GOα Live" : "Activate GOα"}</span>
+                              <span>{isBusy ? "..." : isGoActive ? "ZebQuick Live" : "Activate ZebQuick"}</span>
                             </button>
                           );
                         })()}

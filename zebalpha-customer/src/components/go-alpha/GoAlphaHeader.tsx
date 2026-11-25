@@ -64,13 +64,13 @@ export function GoAlphaHeader() {
     <>
       <header className="sticky top-0 z-40 w-full bg-gradient-to-r from-[#FF5100] via-[#FF6A00] to-[#EE2B00] text-white shadow-md pt-[max(env(safe-area-inset-top),0.5rem)]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-2.5 px-3.5 py-2.5">
-          {/* Left: 3-bar Menu on GOα Home, Back Arrow on all sub-pages */}
+          {/* Left: 3-bar Menu on ZebQuick Home, Back Arrow on all sub-pages */}
           <div className="flex items-center gap-2.5 min-w-0">
             {isGoHome ? (
               <button
                 type="button"
                 onClick={() => setDrawerOpen(true)}
-                aria-label="Open GOα Menu"
+                aria-label="Open ZebQuick Menu"
                 className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-95 shrink-0 cursor-pointer"
               >
                 <Menu className="h-5 w-5 stroke-[2.3]" />
@@ -98,7 +98,7 @@ export function GoAlphaHeader() {
               <div className="flex items-center gap-1.5">
                 <span className="inline-flex items-center gap-0.5 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-black tracking-tight text-[#EE2B00]">
                   <Zap className="h-2.5 w-2.5 fill-[#EE2B00]" />
-                  GOα
+                  ZebQuick
                 </span>
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-100">
                   5–6 Hr Express
@@ -118,10 +118,10 @@ export function GoAlphaHeader() {
             </button>
           </div>
 
-          {/* Right: GOα Cart */}
+          {/* Right: ZebQuick Cart */}
           <Link
             href="/go-alpha/cart"
-            aria-label={`GOα Cart (${cartCount})`}
+            aria-label={`ZebQuick Cart (${cartCount})`}
             className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#EE2B00] shadow-sm transition active:scale-95 shrink-0"
           >
             <ShoppingCart className="h-5 w-5 stroke-[2.2]" />

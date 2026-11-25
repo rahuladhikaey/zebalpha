@@ -81,7 +81,7 @@ export default function GoAlphaHomePage() {
           </div>
           <img
             src="/go-alpha-icon.png"
-            alt="GOα"
+            alt="ZebQuick"
             className="h-14 w-20 object-contain shrink-0 rounded-xl bg-white/95 p-1.5"
           />
         </div>
@@ -97,7 +97,7 @@ export default function GoAlphaHomePage() {
             Services Coming Soon
           </span>
           <h2 className="mt-2 text-lg font-black text-neutral-900">
-            GOα is Coming Soon to {pincode}!
+            ZebQuick is Coming Soon to {pincode}!
           </h2>
           <p className="mt-1.5 text-xs text-neutral-600 max-w-md mx-auto leading-relaxed">
             Our 5–6 Hour Express Delivery is currently live on the <strong>Sealdah → Krishnanagar</strong> corridor.
@@ -165,7 +165,7 @@ export default function GoAlphaHomePage() {
                 Products Coming Soon in {pincode}!
               </h2>
               <p className="mt-1.5 text-xs text-neutral-600 max-w-md mx-auto leading-relaxed">
-                GOα 5–6 Hr delivery service is active in your area. Local verified sellers are listing fresh innerwear &amp; dailywear inventory soon!
+                ZebQuick 5–6 Hr delivery service is active in your area. Local verified sellers are listing fresh innerwear &amp; dailywear inventory soon!
               </p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
                 <Link

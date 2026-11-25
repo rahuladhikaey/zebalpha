@@ -28,7 +28,7 @@ export default function GoAlphaAccountPage() {
           <div className="min-w-0 flex-1">
             <div className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-black text-[#EE2B00]">
               <Zap className="h-2.5 w-2.5 fill-[#EE2B00]" />
-              GOα Express Account
+              ZebQuick Express Account
             </div>
             <h1 className="mt-1 text-base font-black text-neutral-900 truncate">
               {user ? user.user_metadata?.full_name || "ZebAlpha Member" : "Guest Shopper"}
@@ -45,7 +45,7 @@ export default function GoAlphaAccountPage() {
         {!user && (
           <div className="mt-4 rounded-2xl bg-orange-50/80 p-3.5 flex items-center justify-between gap-3">
             <p className="text-xs font-semibold text-neutral-700">
-              Sign in once—works across both GOα and ZebAlpha.
+              Sign in once—works across both ZebQuick and ZebAlpha.
             </p>
             <Link
               href="/login"
@@ -84,7 +84,7 @@ export default function GoAlphaAccountPage() {
         </button>
       </div>
 
-      {/* GOα Quick Actions */}
+      {/* ZebQuick Quick Actions */}
       <div className="rounded-3xl border border-orange-200 bg-white divide-y divide-neutral-100 overflow-hidden shadow-xs">
         <Link
           href="/go-alpha/orders"
@@ -93,7 +93,7 @@ export default function GoAlphaAccountPage() {
           <div className="flex items-center gap-3">
             <Package className="h-5 w-5 text-[#EE2B00]" />
             <div>
-              <p className="text-sm font-bold text-neutral-900">My GOα Orders</p>
+              <p className="text-sm font-bold text-neutral-900">My ZebQuick Orders</p>
               <p className="text-[11px] text-neutral-500">5–6 Hr express order history & tracking</p>
             </div>
           </div>
@@ -107,7 +107,7 @@ export default function GoAlphaAccountPage() {
           <div className="flex items-center gap-3">
             <Heart className="h-5 w-5 text-[#EE2B00]" />
             <div>
-              <p className="text-sm font-bold text-neutral-900">My GOα Wishlist</p>
+              <p className="text-sm font-bold text-neutral-900">My ZebQuick Wishlist</p>
               <p className="text-[11px] text-neutral-500">{wishlistIds.length} saved items</p>
             </div>
           </div>
@@ -121,7 +121,7 @@ export default function GoAlphaAccountPage() {
           <div className="flex items-center gap-3">
             <ShoppingCart className="h-5 w-5 text-[#EE2B00]" />
             <div>
-              <p className="text-sm font-bold text-neutral-900">My GOα Cart</p>
+              <p className="text-sm font-bold text-neutral-900">My ZebQuick Cart</p>
               <p className="text-[11px] text-neutral-500">{cartCount} items ready for express checkout</p>
             </div>
           </div>

@@ -34,15 +34,15 @@ export default function GoAlphaOrdersPage() {
   return (
     <div className="mx-auto max-w-3xl px-3.5 py-4 space-y-4">
       <div>
-        <h1 className="text-lg font-black text-neutral-900">GOα Express Orders</h1>
+        <h1 className="text-lg font-black text-neutral-900">ZebQuick Express Orders</h1>
         <p className="text-xs text-neutral-500">
-          Only 5–6 hour GOα orders appear here (separate from ZebAlpha orders).
+          Only 5–6 hour ZebQuick orders appear here (separate from ZebAlpha orders).
         </p>
       </div>
 
       {!user ? (
         <div className="rounded-3xl border border-orange-200 bg-white p-8 text-center">
-          <p className="text-sm font-black text-neutral-900">Sign in to view your GOα orders</p>
+          <p className="text-sm font-black text-neutral-900">Sign in to view your ZebQuick orders</p>
           <p className="mt-1 text-xs text-neutral-500">Use your existing ZebAlpha account—no extra signup needed.</p>
           <Link
             href="/login"
@@ -60,7 +60,7 @@ export default function GoAlphaOrdersPage() {
       ) : orders.length === 0 ? (
         <div className="rounded-3xl border border-orange-200 bg-white p-10 text-center">
           <Package className="mx-auto h-10 w-10 text-orange-300" />
-          <p className="mt-3 text-sm font-black text-neutral-900">No GOα Express orders yet</p>
+          <p className="mt-3 text-sm font-black text-neutral-900">No ZebQuick Express orders yet</p>
           <Link
             href="/go-alpha"
             className="mt-4 inline-flex rounded-2xl bg-[#EE2B00] px-5 py-2.5 text-xs font-extrabold text-white"

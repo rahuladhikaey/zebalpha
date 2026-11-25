@@ -27,7 +27,7 @@ export default function GoAlphaCartPage() {
     e.preventDefault();
     setError(null);
     if (!serviceability.serviceable) {
-      setError(`Pincode ${pincode} is not serviceable for GOα 5–6 Hr delivery yet.`);
+      setError(`Pincode ${pincode} is not serviceable for ZebQuick 5–6 Hr delivery yet.`);
       return;
     }
     setSubmitting(true);
@@ -47,7 +47,7 @@ export default function GoAlphaCartPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setError(data.error || "Failed to place GOα order");
+        setError(data.error || "Failed to place ZebQuick order");
         setSubmitting(false);
         return;
       }
@@ -63,15 +63,15 @@ export default function GoAlphaCartPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-12 text-center">
         <ShoppingBag className="mx-auto h-12 w-12 text-orange-300" />
-        <h1 className="mt-3 text-lg font-black text-neutral-900">Your GOα Express Cart is empty</h1>
+        <h1 className="mt-3 text-lg font-black text-neutral-900">Your ZebQuick Express Cart is empty</h1>
         <p className="mt-1 text-xs text-neutral-500">
-          GOα cart is separate from your ZebAlpha cart for 5–6 hour hyperlocal delivery.
+          ZebQuick cart is separate from your ZebAlpha cart for 5–6 hour hyperlocal delivery.
         </p>
         <Link
           href="/go-alpha"
           className="mt-5 inline-flex rounded-2xl bg-[#EE2B00] px-5 py-2.5 text-xs font-extrabold text-white"
         >
-          Shop GOα Express
+          Shop ZebQuick Express
         </Link>
       </div>
     );
@@ -80,7 +80,7 @@ export default function GoAlphaCartPage() {
   return (
     <div className="mx-auto max-w-4xl px-3.5 py-4 space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-black text-neutral-900">GOα Express Cart</h1>
+        <h1 className="text-lg font-black text-neutral-900">ZebQuick Express Cart</h1>
         <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-[11px] font-extrabold text-[#EE2B00]">
           <Zap className="h-3 w-3 fill-[#EE2B00]" />
           5–6 Hr Delivery to {pincode}
@@ -202,7 +202,7 @@ export default function GoAlphaCartPage() {
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#EE2B00] py-3 text-xs font-black text-white shadow-sm transition hover:bg-[#d42600] disabled:opacity-60 cursor-pointer"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            Place GOα Express Order (₹{total})
+            Place ZebQuick Express Order (₹{total})
           </button>
         </form>
       </div>

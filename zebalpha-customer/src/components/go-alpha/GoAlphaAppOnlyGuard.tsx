@@ -27,10 +27,10 @@ export function GoAlphaAppOnlyGuard({ children }: { children: React.ReactNode })
             <Smartphone className="h-8 w-8" />
           </div>
           <h1 className="text-xl font-black tracking-tight text-neutral-900">
-            GOα is Android App Exclusive
+            ZebQuick is Android App Exclusive
           </h1>
           <p className="mt-2 text-xs text-neutral-600 leading-relaxed">
-            GOα 5–6 Hour Express Delivery is only available inside the ZebAlpha Android App, not on the website.
+            ZebQuick 5–6 Hour Express Delivery is only available inside the ZebAlpha Android App, not on the website.
           </p>
           <Link
             href="/"

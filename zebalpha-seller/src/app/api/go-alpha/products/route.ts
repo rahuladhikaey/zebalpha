@@ -115,7 +115,7 @@ export async function POST(req: Request) {
 
     if (!matchedSub) {
       return NextResponse.json(
-        { error: "This product subcategory is not eligible for GOα 5–6 Hr Quick Commerce." },
+        { error: "This product subcategory is not eligible for ZebQuick 5–6 Hr Quick Commerce." },
         { status: 400 }
       );
     }
@@ -137,12 +137,12 @@ export async function POST(req: Request) {
 
     if (sellerPin.length !== 6) {
       return NextResponse.json(
-        { error: "Please set your Pickup Warehouse & Hub pincode first before activating GOα." },
+        { error: "Please set your Pickup Warehouse & Hub pincode first before activating ZebQuick." },
         { status: 400 }
       );
     }
 
-    // Verify seller's registered pincode is active in GOα serviceable_pincodes
+    // Verify seller's registered pincode is active in ZebQuick serviceable_pincodes
     const { data: serviceableRow } = await db
       .from("serviceable_pincodes")
       .select("pincode")
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
     if (!serviceableRow) {
       return NextResponse.json(
         {
-          error: `Pickup is not available at your registered address (Pincode ${sellerPin}) yet. GOα Express is coming soon to this pincode.`,
+          error: `Pickup is not available at your registered address (Pincode ${sellerPin}) yet. ZebQuick Express is coming soon to this pincode.`,
         },
         { status: 400 }
       );
@@ -167,7 +167,7 @@ export async function POST(req: Request) {
         {
           seller_id: ctx.seller.id,
           user_id: ctx.user.id,
-          store_name: ctx.seller.business_name || ctx.seller.full_name || "GOα Local Store",
+          store_name: ctx.seller.business_name || ctx.seller.full_name || "ZebQuick Local Store",
           pickup_pincode: sellerPin,
           pickup_address: resolvedAddress,
           city: pickupHub?.city || "West Bengal",

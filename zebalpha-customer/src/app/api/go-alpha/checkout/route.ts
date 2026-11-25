@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Name, phone, and address are required" }, { status: 400 });
     }
     if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ success: false, error: "GOα cart is empty" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "ZebQuick cart is empty" }, { status: 400 });
     }
 
     const supabase = getSupabaseServer();
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     if (!pinRow) {
       return NextResponse.json(
-        { success: false, error: `Pincode ${cleanPin} is outside the active GOα 5–6 Hr delivery corridor.` },
+        { success: false, error: `Pincode ${cleanPin} is outside the active ZebQuick 5–6 Hr delivery corridor.` },
         { status: 400 }
       );
     }
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       .in("id", productIds);
 
     if (prodErr || !dbProducts || dbProducts.length === 0) {
-      return NextResponse.json({ success: false, error: "Selected GOα products are no longer available" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Selected ZebQuick products are no longer available" }, { status: 400 });
     }
 
     const prodMap = new Map(dbProducts.map((p: any) => [String(p.id), p]));
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     for (const item of items) {
       const dbP = prodMap.get(String(item.id));
       if (!dbP || !dbP.is_active) {
-        return NextResponse.json({ success: false, error: `"${item.title || "Item"}" is currently unavailable on GOα` }, { status: 400 });
+        return NextResponse.json({ success: false, error: `"${item.title || "Item"}" is currently unavailable on ZebQuick` }, { status: 400 });
       }
       const qty = Math.max(1, Number(item.quantity || 1));
       if (Number(dbP.go_alpha_stock || 0) < qty) {
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
       .single();
 
     if (orderErr || !createdOrder) {
-      return NextResponse.json({ success: false, error: orderErr?.message || "Failed to place GOα order" }, { status: 500 });
+      return NextResponse.json({ success: false, error: orderErr?.message || "Failed to place ZebQuick order" }, { status: 500 });
     }
 
     // 4. Insert order_items + payout ledger + decrement go_alpha_stock
