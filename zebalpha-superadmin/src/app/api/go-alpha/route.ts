@@ -157,6 +157,10 @@ export async function PATCH(req: Request) {
       await db.from("serviceable_pincodes").update({ is_active: Boolean(body.is_active) }).eq("pincode", body.pincode);
       return NextResponse.json({ success: true });
     }
+    if (body.action === "delete_pincode" && body.pincode) {
+      await db.from("serviceable_pincodes").delete().eq("pincode", body.pincode);
+      return NextResponse.json({ success: true });
+    }
     if (body.action === "toggle_subcategory" && body.id) {
       await db.from("allowed_subcategories").update({ is_active: Boolean(body.is_active) }).eq("id", body.id);
       return NextResponse.json({ success: true });

@@ -153,11 +153,10 @@ export default function GoAlphaCommandCenterView() {
             key={t.id}
             type="button"
             onClick={() => setSubTab(t.id)}
-            className={`rounded-xl px-4 py-2 text-xs font-extrabold transition cursor-pointer ${
-              subTab === t.id
+            className={`rounded-xl px-4 py-2 text-xs font-extrabold transition cursor-pointer ${subTab === t.id
                 ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
                 : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
-            }`}
+              }`}
           >
             {t.label}
           </button>
@@ -260,9 +259,8 @@ export default function GoAlphaCommandCenterView() {
                         <button
                           type="button"
                           onClick={() => patchAction({ action: "toggle_product", id: p.id, is_active: !p.is_active })}
-                          className={`rounded-lg px-3 py-1 text-[11px] font-black cursor-pointer ${
-                            p.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
-                          }`}
+                          className={`rounded-lg px-3 py-1 text-[11px] font-black cursor-pointer ${p.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                            }`}
                         >
                           {p.is_active ? "ACTIVE" : "PAUSED"}
                         </button>
@@ -295,9 +293,8 @@ export default function GoAlphaCommandCenterView() {
                         <button
                           type="button"
                           onClick={() => patchAction({ action: "toggle_seller", id: s.id, is_approved: !s.is_approved })}
-                          className={`rounded-lg px-3 py-1 text-[11px] font-black cursor-pointer ${
-                            s.is_approved ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                          }`}
+                          className={`rounded-lg px-3 py-1 text-[11px] font-black cursor-pointer ${s.is_approved ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                            }`}
                         >
                           {s.is_approved ? "APPROVED" : "SUSPENDED"}
                         </button>
@@ -363,15 +360,27 @@ export default function GoAlphaCommandCenterView() {
                         <td className="px-4 py-2.5 text-zinc-300">{p.city}</td>
                         <td className="px-4 py-2.5 text-zinc-400">{p.corridor_name}</td>
                         <td className="px-4 py-2.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => patchAction({ action: "toggle_pincode", pincode: p.pincode, is_active: !p.is_active })}
-                            className={`rounded-lg px-3 py-1 text-[10px] font-black cursor-pointer ${
-                              p.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
-                            }`}
-                          >
-                            {p.is_active ? "ACTIVE" : "OFF"}
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => patchAction({ action: "toggle_pincode", pincode: p.pincode, is_active: !p.is_active })}
+                              className={`rounded-lg px-3 py-1 text-[10px] font-black cursor-pointer ${p.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                                }`}
+                            >
+                              {p.is_active ? "ACTIVE" : "OFF"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Delete pincode ${p.pincode} (${p.area_name})?`)) {
+                                  void patchAction({ action: "delete_pincode", pincode: p.pincode });
+                                }
+                              }}
+                              className="rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1 text-[10px] font-black text-rose-400 hover:bg-rose-500/25 cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -415,9 +424,8 @@ export default function GoAlphaCommandCenterView() {
                       <button
                         type="button"
                         onClick={() => patchAction({ action: "toggle_main_category", id: mc.id, is_active: !mc.is_active })}
-                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${
-                          mc.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
-                        }`}
+                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${mc.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                          }`}
                       >
                         {mc.is_active ? "ACTIVE" : "OFF"}
                       </button>
@@ -476,9 +484,8 @@ export default function GoAlphaCommandCenterView() {
                       <button
                         type="button"
                         onClick={() => patchAction({ action: "toggle_subcategory", id: sub.id, is_active: !sub.is_active })}
-                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${
-                          sub.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
-                        }`}
+                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${sub.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                          }`}
                       >
                         {sub.is_active ? "ALLOWED" : "DISABLED"}
                       </button>
