@@ -46,7 +46,7 @@ export function AndroidBottomNav() {
   useEffect(() => {
     if (!isNativeApp) return;
     const timer = window.setTimeout(() => {
-      ["/", "/categories", "/assistant", "/profile"].forEach((route) => {
+      ["/", "/categories", "/assistant", "/go-alpha", "/profile"].forEach((route) => {
         try {
           router.prefetch(route);
         } catch {}
@@ -75,11 +75,19 @@ export function AndroidBottomNav() {
   const isHomeActive = pathname === "/";
   const isCategoriesActive = pathname.startsWith("/categories") || pathname.startsWith("/category");
   const isAlphaAiActive = pathname.startsWith("/assistant");
-  const isCartActive = pathname === "/cart";
+  const isGoAlphaActive = pathname.startsWith("/go-alpha");
   const isAccountActive =
     pathname.startsWith("/profile") || pathname === "/login" || pathname === "/signup" || pathname.startsWith("/orders");
 
-  const navItems = [
+  const navItems: Array<{
+    id: string;
+    label: string;
+    href: string;
+    icon: typeof LayoutGrid | typeof HomeStoreIcon;
+    isActive: boolean;
+    isCenterAi?: boolean;
+    imageSrc?: string;
+  }> = [
     {
       id: "home",
       label: t("nav_home"),
@@ -101,6 +109,14 @@ export function AndroidBottomNav() {
       icon: LayoutGrid,
       isActive: isAlphaAiActive,
       isCenterAi: true,
+    },
+    {
+      id: "go_alpha",
+      label: "GOα",
+      href: "/go-alpha",
+      icon: LayoutGrid,
+      imageSrc: "/go-alpha-icon.png",
+      isActive: isGoAlphaActive,
     },
     {
       id: "account",
@@ -141,7 +157,7 @@ export function AndroidBottomNav() {
           aria-hidden="true"
         />
 
-        <div className="relative mx-auto grid h-[68px] max-w-lg grid-cols-4 items-center gap-1 px-2">
+        <div className="relative mx-auto grid h-[68px] max-w-lg grid-cols-5 items-center gap-1 px-2">
           {navItems.map((item) => {
             const IconComponent = item.icon;
             const active = item.isActive;
@@ -235,21 +251,29 @@ export function AndroidBottomNav() {
                   }`}
                 />
 
-                {/* Icon Container with Champagne Gold Cart Badge */}
+                {/* Icon Container */}
                 <div
                   data-photo-overlay={active && isFestivalOverride && !isLightActiveTab ? "true" : undefined}
                   className="relative z-10 flex items-center justify-center"
                 >
-                  <IconComponent
-                    strokeWidth={active ? 2.2 : 1.85}
-                    className={`h-[21px] w-[21px] transition-all duration-200 ${
-                      active
-                        ? isFestivalOverride && !isLightActiveTab
-                          ? "text-white"
-                          : "text-[#14120F]"
-                        : "text-[#292319] group-hover:text-[#000000]"
-                    }`}
-                  />
+                  {item.imageSrc ? (
+                    <img
+                      src={item.imageSrc}
+                      alt={item.label}
+                      className="h-[23px] w-[34px] object-contain transition-transform duration-200 group-hover:scale-105"
+                    />
+                  ) : (
+                    <IconComponent
+                      strokeWidth={active ? 2.2 : 1.85}
+                      className={`h-[21px] w-[21px] transition-all duration-200 ${
+                        active
+                          ? isFestivalOverride && !isLightActiveTab
+                            ? "text-white"
+                            : "text-[#14120F]"
+                          : "text-[#292319] group-hover:text-[#000000]"
+                      }`}
+                    />
+                  )}
                 </div>
 
                 {/* Label */}
