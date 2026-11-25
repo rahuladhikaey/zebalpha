@@ -35,7 +35,7 @@ async function resolveSellerFromRequest(req: Request) {
 
   let query = supabaseServer
     .from("sellers")
-    .select("id, user_id, business_name, full_name, owner_name, pickup_pincode, pickup_address, email");
+    .select("id, user_id, business_name, full_name, owner_name, pincode, city, pickup_address, email");
 
   if (user.email) {
     query = query.or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase().trim()}`);
@@ -121,15 +121,17 @@ export async function POST(req: Request) {
     }
 
     // Resolve seller's registered ZebAlpha Pickup Hub pincode
+    const idsToQuery = Array.from(new Set([ctx.seller.id, ctx.user.id].filter(Boolean)));
     const { data: pickupHub } = await supabaseServer
       .from("seller_pickup_locations")
       .select("pincode, address, address_line1, city")
-      .eq("seller_id", ctx.seller.id)
+      .in("seller_id", idsToQuery)
       .order("is_default", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    const sellerPin = String(pickupHub?.pincode || ctx.seller.pickup_pincode || "")
+    const sellerPin = String(pickupHub?.pincode || (ctx.seller as any).pincode || "")
       .replace(/\D/g, "")
       .slice(0, 6);
 

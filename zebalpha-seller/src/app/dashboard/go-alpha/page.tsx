@@ -2,15 +2,26 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Zap, IndianRupee, Package, Clock, MapPin, CheckCircle2 } from "lucide-react";
+import { supabase } from "@shared/utils/supabaseClient";
 
 export default function SellerGoAlphaDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
 
+  const getAuthHeaders = async () => {
+    const headers: Record<string, string> = {};
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+    } catch {}
+    return headers;
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/go-alpha/dashboard");
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/go-alpha/dashboard", { headers, cache: "no-store" });
       const json = await res.json();
       setData(json);
     } catch {
@@ -24,9 +35,10 @@ export default function SellerGoAlphaDashboardPage() {
   }, [loadData]);
 
   const handleStatusChange = async (orderId: string, status: string) => {
+    const headers = await getAuthHeaders();
     await fetch("/api/go-alpha/dashboard", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify({ action: "update_order_status", orderId, status }),
     });
     await loadData();

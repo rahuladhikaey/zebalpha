@@ -15,7 +15,7 @@ async function resolveSeller(req: Request) {
 
   let query = supabaseServer
     .from("sellers")
-    .select("id, user_id, business_name, full_name, pickup_pincode, pickup_address, email");
+    .select("id, user_id, business_name, full_name, pincode, city, pickup_address, email");
   if (user.email) {
     query = query.or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase().trim()}`);
   } else {
@@ -31,6 +31,7 @@ export async function GET(req: Request) {
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = supabaseServer.schema("go_alpha");
+    const idsToQuery = Array.from(new Set([ctx.seller.id, ctx.user.id].filter(Boolean)));
     const [
       { data: pickupHub },
       { data: goSeller },
@@ -41,8 +42,9 @@ export async function GET(req: Request) {
       supabaseServer
         .from("seller_pickup_locations")
         .select("pincode, address, address_line1, city, state, is_default")
-        .eq("seller_id", ctx.seller.id)
+        .in("seller_id", idsToQuery)
         .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
       db.from("sellers").select("*").eq("seller_id", ctx.seller.id).maybeSingle(),
@@ -51,7 +53,7 @@ export async function GET(req: Request) {
       db.from("products").select("*").eq("seller_id", ctx.seller.id).eq("is_active", true),
     ]);
 
-    const resolvedPin = String(pickupHub?.pincode || ctx.seller.pickup_pincode || "")
+    const resolvedPin = String(pickupHub?.pincode || (ctx.seller as any).pincode || "")
       .replace(/\D/g, "")
       .slice(0, 6);
     const resolvedAddr =
@@ -59,7 +61,7 @@ export async function GET(req: Request) {
       pickupHub?.address_line1 ||
       ctx.seller.pickup_address ||
       "";
-    const resolvedCity = pickupHub?.city || "";
+    const resolvedCity = pickupHub?.city || (ctx.seller as any).city || "";
 
     let serviceablePinRow: any = null;
     if (resolvedPin.length === 6) {

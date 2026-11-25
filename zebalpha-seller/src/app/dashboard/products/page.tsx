@@ -1155,9 +1155,12 @@ export default function SellerProducts() {
                               onClick={async () => {
                                 setGoAlphaTogglingId(pid);
                                 try {
+                                  const { data: { session: activeSession } } = await supabase.auth.getSession();
+                                  const reqHeaders: Record<string, string> = { "Content-Type": "application/json" };
+                                  if (activeSession?.access_token) reqHeaders["Authorization"] = `Bearer ${activeSession.access_token}`;
                                   const res = await fetch("/api/go-alpha/products", {
                                     method: "POST",
-                                    headers: { "Content-Type": "application/json" },
+                                    headers: reqHeaders,
                                     body: JSON.stringify({ productId: pid, activate: !isGoActive }),
                                   });
                                   const json = await res.json();
