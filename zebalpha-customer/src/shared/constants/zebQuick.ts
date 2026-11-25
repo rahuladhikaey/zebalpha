@@ -21,7 +21,7 @@ export const ZEB_QUICK_ALLOWED_SUBCATEGORIES: ZebQuickSubcategoryDef[] = [
   { slug: "bras", name: "Bras", categoryGroup: "Women's Innerwear", keywords: ["bra", "bras", "sports bra", "padded bra", "t-shirt bra"] },
   { slug: "panties", name: "Panties", categoryGroup: "Women's Innerwear", keywords: ["panty", "panties", "briefs women", "hipster"] },
   { slug: "camisoles", name: "Camisoles", categoryGroup: "Women's Innerwear", keywords: ["camisole", "camisoles", "spaghetti"] },
-  { slug: "slips", name: "Slips", categoryGroup: "Women's Innerwear", keywords: ["slip", "slips", "petticoat", "underskirt"] },
+  { slug: "slips", name: "Slips", categoryGroup: "Women's Innerwear", keywords: ["slips", "inner slip", "petticoat", "underskirt", "saree slip"] },
   { slug: "womens-shorts", name: "Women's Shorts", categoryGroup: "Women's Innerwear", keywords: ["women shorts", "women's shorts", "cycling shorts", "boyshorts"] },
   { slug: "shapewear", name: "Shapewear", categoryGroup: "Women's Innerwear", keywords: ["shapewear", "tummy tucker", "body shaper"] },
 
@@ -127,6 +127,15 @@ export function matchZebQuickSubcategory(
     .toLowerCase();
 
   if (!haystack) return null;
+
+  // Explicitly exclude footwear (Clogs, Shoes, Slip-On, Sneakers, Sandals, Crocs, etc.)
+  if (
+    /\b(clog|clogs|shoe|shoes|sneaker|sneakers|slip-on|slipper|slippers|sandal|sandals|footwear|boot|boots|heel|heels|loafer|crocs)\b/i.test(
+      haystack
+    )
+  ) {
+    return null;
+  }
 
   for (const sub of allowedList) {
     if (haystack.includes(sub.name.toLowerCase()) || haystack.includes(sub.slug.replace(/-/g, " "))) {

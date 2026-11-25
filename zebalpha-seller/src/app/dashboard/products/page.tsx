@@ -1177,14 +1177,14 @@ export default function SellerProducts() {
                                   setZebQuickTogglingId(null);
                                 }
                               }}
-                              className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-[11px] font-black transition-all cursor-pointer ${
+                              className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-3.5 text-[11px] font-black whitespace-nowrap text-white transition-all cursor-pointer active:translate-y-0.5 ${
                                 isGoActive
-                                  ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25"
-                                  : "border-orange-500/40 bg-orange-500/10 text-orange-500 hover:bg-orange-500/20"
+                                  ? "bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-600 border border-emerald-300/60 shadow-[0_3px_0_#047857,0_6px_14px_rgba(16,185,129,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] active:shadow-[0_1px_0_#047857]"
+                                  : "bg-gradient-to-b from-orange-400 via-orange-500 to-[#EE2B00] border border-orange-300/60 shadow-[0_3px_0_#9a3412,0_6px_14px_rgba(238,43,0,0.25),inset_0_1px_0_rgba(255,255,255,0.45)] active:shadow-[0_1px_0_#9a3412]"
                               }`}
                               title={isGoActive ? "Live on ZebQuick (5–6 Hr). Click to pause." : "Eligible for ZebQuick 5–6 Hr Quick Commerce. Click to activate."}
                             >
-                              <Zap size={13} className={isGoActive ? "fill-emerald-500" : "fill-orange-500"} />
+                              <Zap size={13} className="fill-white text-white shrink-0" />
                               <span>{isBusy ? "..." : isGoActive ? "ZebQuick Live" : "Activate ZebQuick"}</span>
                             </button>
                           );
