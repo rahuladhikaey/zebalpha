@@ -4,6 +4,61 @@ import { useEffect, useState, useCallback } from "react";
 
 type SubTab = "overview" | "orders" | "products" | "sellers" | "pincodes" | "categories";
 
+const MAX_ICON_BYTES = 10 * 1024; // 10 KB
+
+async function compressIconTo10KB(file: File): Promise<{ dataUrl: string; kb: number }> {
+  // If already <= 10 KB SVG/WebP/PNG, keep directly as data URL
+  if (file.size <= MAX_ICON_BYTES) {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Failed to read icon"));
+      reader.readAsDataURL(file);
+    });
+    return { dataUrl, kb: Number((file.size / 1024).toFixed(1)) };
+  }
+
+  const bitmapUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("Invalid image file"));
+      i.src = bitmapUrl;
+    });
+
+    const sizes = [96, 72, 56, 48];
+    const qualities = [0.85, 0.7, 0.55, 0.4, 0.25];
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas unavailable");
+
+    let bestDataUrl = "";
+    for (const dim of sizes) {
+      canvas.width = dim;
+      canvas.height = dim;
+      ctx.clearRect(0, 0, dim, dim);
+      const scale = Math.min(dim / img.width, dim / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (dim - w) / 2, (dim - h) / 2, w, h);
+
+      for (const q of qualities) {
+        const candidate = canvas.toDataURL("image/webp", q);
+        const approxBytes = Math.ceil((candidate.length - (candidate.indexOf(",") + 1)) * 0.75);
+        bestDataUrl = candidate;
+        if (approxBytes <= MAX_ICON_BYTES) {
+          return { dataUrl: candidate, kb: Number((approxBytes / 1024).toFixed(1)) };
+        }
+      }
+    }
+    const finalBytes = Math.ceil((bestDataUrl.length - (bestDataUrl.indexOf(",") + 1)) * 0.75);
+    return { dataUrl: bestDataUrl, kb: Number((finalBytes / 1024).toFixed(1)) };
+  } finally {
+    URL.revokeObjectURL(bitmapUrl);
+  }
+}
+
 export default function ZebQuickCommandCenterView() {
   const [subTab, setSubTab] = useState<SubTab>("overview");
   const [loading, setLoading] = useState(true);
@@ -19,6 +74,7 @@ export default function ZebQuickCommandCenterView() {
   const [newMainCatName, setNewMainCatName] = useState("");
   const [newMainCatDesc, setNewMainCatDesc] = useState("");
   const [newMainCatImg, setNewMainCatImg] = useState("");
+  const [newMainCatIconKb, setNewMainCatIconKb] = useState<number | null>(null);
   const [newMainCatTheme, setNewMainCatTheme] = useState("#F8CB46");
   const [newSubGroup, setNewSubGroup] = useState("Women's Innerwear");
   const [newSubName, setNewSubName] = useState("");
@@ -530,12 +586,32 @@ export default function ZebQuickCommandCenterView() {
                     placeholder="Short Description (optional)"
                     className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
                   />
-                  <input
-                    value={newMainCatImg}
-                    onChange={(e) => setNewMainCatImg(e.target.value)}
-                    placeholder="Icon / Image URL (optional)"
-                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={newMainCatImg}
+                      onChange={(e) => {
+                        setNewMainCatImg(e.target.value);
+                        setNewMainCatIconKb(null);
+                      }}
+                      placeholder="Icon URL or upload ≤10KB"
+                      className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                    />
+                    <label className="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/15 px-2.5 py-2 text-[10.5px] font-black text-amber-300 cursor-pointer hover:bg-amber-500/25">
+                      {newMainCatIconKb ? `${newMainCatIconKb}KB` : "≤10KB"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          const { dataUrl, kb } = await compressIconTo10KB(f);
+                          setNewMainCatImg(dataUrl);
+                          setNewMainCatIconKb(kb);
+                        }}
+                      />
+                    </label>
+                  </div>
                   <select
                     value={newMainCatTheme}
                     onChange={(e) => setNewMainCatTheme(e.target.value)}
@@ -556,11 +632,31 @@ export default function ZebQuickCommandCenterView() {
                   {(data?.mainCategories || []).map((mc: any) => (
                     <div key={mc.id} className="flex items-center justify-between gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3.5">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span
-                          className="h-5 w-5 rounded-full shrink-0 border border-white/20"
-                          style={{ backgroundColor: mc.theme_color || "#F8CB46" }}
-                          title={`Theme: ${mc.theme_color || "#F8CB46"}`}
-                        />
+                        <label
+                          className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 cursor-pointer group"
+                          style={{
+                            borderColor: mc.theme_color || "#F8CB46",
+                            backgroundColor: mc.image_url ? "#ffffff" : mc.theme_color || "#F8CB46",
+                          }}
+                          title="Click to upload ≤10KB icon (auto-resized)"
+                        >
+                          {mc.image_url ? (
+                            <img src={mc.image_url} alt={mc.name} className="h-full w-full object-contain p-0.5" />
+                          ) : (
+                            <span className="text-[10px] font-black text-zinc-950">+10K</span>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              const { dataUrl } = await compressIconTo10KB(f);
+                              await patchAction({ action: "update_main_icon", id: mc.id, image_url: dataUrl });
+                            }}
+                          />
+                        </label>
                         <div className="min-w-0">
                           <p className="text-sm font-black text-white truncate">{mc.name}</p>
                           {mc.description && <p className="text-[11px] text-zinc-400 line-clamp-1">{mc.description}</p>}
@@ -628,9 +724,32 @@ export default function ZebQuickCommandCenterView() {
                 <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {(data?.subcategories || []).map((sub: any) => (
                     <div key={sub.id} className="flex items-center justify-between gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase text-orange-400">{sub.category_group}</p>
-                        <p className="text-sm font-black text-white truncate">{sub.name}</p>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <label
+                          className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950 cursor-pointer"
+                          title="Click to upload ≤10KB subcategory icon"
+                        >
+                          {sub.image_url ? (
+                            <img src={sub.image_url} alt={sub.name} className="h-full w-full object-contain p-0.5" />
+                          ) : (
+                            <span className="text-[9px] font-black text-zinc-400">+10K</span>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              const { dataUrl } = await compressIconTo10KB(f);
+                              await patchAction({ action: "update_subcategory_icon", id: sub.id, image_url: dataUrl });
+                            }}
+                          />
+                        </label>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold uppercase text-orange-400">{sub.category_group}</p>
+                          <p className="text-sm font-black text-white truncate">{sub.name}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button

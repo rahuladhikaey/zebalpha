@@ -265,6 +265,14 @@ export async function PATCH(req: Request) {
       await db.from("main_categories").update({ theme_color: String(body.theme_color).trim() }).eq("id", body.id);
       return NextResponse.json({ success: true });
     }
+    if (body.action === "update_main_icon" && body.id && typeof body.image_url === "string") {
+      await db.from("main_categories").update({ image_url: body.image_url.trim() || null }).eq("id", body.id);
+      return NextResponse.json({ success: true });
+    }
+    if (body.action === "update_subcategory_icon" && body.id && typeof body.image_url === "string") {
+      await db.from("allowed_subcategories").update({ image_url: body.image_url.trim() || null }).eq("id", body.id);
+      return NextResponse.json({ success: true });
+    }
     if (body.action === "update_order_status" && body.id && body.order_status) {
       const nextStatus = String(body.order_status).toUpperCase();
       const patch: any = { order_status: nextStatus, updated_at: new Date().toISOString() };
