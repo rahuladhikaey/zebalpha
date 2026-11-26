@@ -38,7 +38,7 @@ async function compressIconTo10KB(file: File): Promise<{ dataUrl: string; kb: nu
       canvas.width = dim;
       canvas.height = dim;
       ctx.clearRect(0, 0, dim, dim);
-      const scale = Math.min(dim / img.width, dim / img.height);
+      const scale = Math.max(dim / img.width, dim / img.height);
       const w = img.width * scale;
       const h = img.height * scale;
       ctx.drawImage(img, (dim - w) / 2, (dim - h) / 2, w, h);
@@ -641,7 +641,7 @@ export default function ZebQuickCommandCenterView() {
                           title="Click to upload ≤10KB icon (auto-resized)"
                         >
                           {mc.image_url ? (
-                            <img src={mc.image_url} alt={mc.name} className="h-full w-full object-contain p-0.5" />
+                            <img src={mc.image_url} alt={mc.name} className="h-full w-full object-cover" />
                           ) : (
                             <span className="text-[10px] font-black text-zinc-950">+10K</span>
                           )}
@@ -730,7 +730,7 @@ export default function ZebQuickCommandCenterView() {
                           title="Click to upload ≤10KB subcategory icon"
                         >
                           {sub.image_url ? (
-                            <img src={sub.image_url} alt={sub.name} className="h-full w-full object-contain p-0.5" />
+                            <img src={sub.image_url} alt={sub.name} className="h-full w-full object-cover" />
                           ) : (
                             <span className="text-[9px] font-black text-zinc-400">+10K</span>
                           )}
