@@ -144,8 +144,6 @@ export function AndroidNewSeasonDropBanner({
     setActiveIndex(0);
   }, [showFirstOrderSlide, showNewDropSlide]);
 
-  if (totalSlides === 0) return null;
-
   // Auto-advance timer when multiple slides are active
   useEffect(() => {
     if (totalSlides <= 1 || isPaused) return;
@@ -162,6 +160,9 @@ export function AndroidNewSeasonDropBanner({
     },
     [totalSlides]
   );
+
+  // Early return MUST stay after all React hooks to prevent React Error #310
+  if (totalSlides === 0) return null;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (totalSlides <= 1) return;

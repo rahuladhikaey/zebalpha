@@ -3,7 +3,7 @@
 -- Run once in Supabase SQL Editor.
 -- ============================================================================
 
--- 1. Main Category dynamic header theme color (e.g. #F8CB46, #1E293B, #BAE6FD)
+-- 1. Main Category dynamic header theme color (e.g. #faa040ff, #1E293B, #BAE6FD)
 ALTER TABLE zeb_quick.main_categories
   ADD COLUMN IF NOT EXISTS theme_color TEXT DEFAULT '#F8CB46';
 
