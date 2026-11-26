@@ -39,11 +39,8 @@ function slimSpecsForCard(rawSpecs: any): Record<string, any> | undefined {
   if (!rawSpecs || typeof rawSpecs !== 'object') return undefined;
   const out: Record<string, any> = {};
   if (rawSpecs.tier) out.tier = rawSpecs.tier;
-  if (rawSpecs.is_premium !== undefined) out.is_premium = rawSpecs.is_premium;
-  if (rawSpecs.is_new_drop !== undefined) out.is_new_drop = rawSpecs.is_new_drop;
   if (rawSpecs.collection) out.collection = rawSpecs.collection;
   if (rawSpecs.category) out.category = rawSpecs.category;
-  if (rawSpecs.target_drop_date) out.target_drop_date = rawSpecs.target_drop_date;
   if (rawSpecs.size_chart) out.size_chart = true;
   return Object.keys(out).length > 0 ? out : undefined;
 }
@@ -366,27 +363,11 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
           const upperStatus = String(p.status || '').toUpperCase();
           if (upperStatus === 'DELETED' || upperStatus === 'COMING_SOON') return false;
           if (String(p.approval_status || '').toLowerCase() === 'rejected') return false;
-
-          const specs = p.specifications || {};
-          const isDrop =
-            p.is_new_drop === true ||
-            p.is_new_drop === 'true' ||
-            specs.is_new_drop === true ||
-            specs.is_new_drop === 'true' ||
-            p.tier === 'DROP' ||
-            specs.tier === 'DROP';
-          return !isDrop;
+          return true;
         })
         .slice(0, limit)
         .map((p: any) => {
           const specs = p.specifications || {};
-          const isPrem =
-            p.is_premium === true ||
-            p.tier === 'PREMIUM' ||
-            specs.is_premium === true ||
-            specs.is_premium === 'true' ||
-            specs.tier === 'PREMIUM' ||
-            (p.name || '').toLowerCase().includes('premium');
           const trimmedImages = Array.isArray(p.images) ? p.images.filter(Boolean).slice(0, 3) : [];
           return {
             id: p.id,
@@ -405,11 +386,8 @@ export async function getCachedHomeProducts(brandFilter?: string, limit: number 
             created_at: p.created_at,
             seller_id: p.seller_id,
             specifications: slimSpecsForCard(specs),
-            is_premium: isPrem,
-            tier: isPrem ? 'PREMIUM' : (p.tier || specs.tier || 'STANDARD'),
-            is_new_drop: false,
+            tier: p.tier || specs.tier || 'STANDARD',
             collection: p.collection || specs.collection || '',
-            target_drop_date: p.target_drop_date || specs.target_drop_date || '',
             category: p.category || specs.category || 'Apparel',
           };
         }) as unknown as Product[];

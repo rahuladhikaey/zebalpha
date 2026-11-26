@@ -5,7 +5,6 @@ import { useCart } from "@/context/CartContext";
 import { useVariantSelector } from "@/context/VariantSelectorContext";
 import { Product } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
-import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { useOfficialTheme } from "@/lib/platform";
 import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
@@ -33,8 +32,8 @@ export function AddToCartButton({
     (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
     (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   
-  const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
-  const isOutOfStock = !isUpcomingDrop && ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK");
+  const isUpcomingDrop = false;
+  const isOutOfStock = (product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) || product.status === "OUT_OF_STOCK";
 
   const handleAdd = (e?: React.MouseEvent) => {
     if (e) {

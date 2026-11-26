@@ -12,8 +12,6 @@ import {
   Search, 
   Image as ImageIcon,
   AlertCircle,
-  Crown,
-  Flame,
   Layers,
   Sparkles,
   Store,
@@ -60,7 +58,7 @@ export default function ProductApprovalView({
   const [loading, setLoading] = useState(!initialProducts);
   const [products, setProducts] = useState<any[]>(initialProducts || []);
   const [sellersMap, setSellersMap] = useState<Record<string, any>>(() => buildSellersMap(initialSellers));
-  const [filterTab, setFilterTab] = useState<"all" | "premium" | "new_drops" | "approved" | "hidden">("all");
+  const [filterTab, setFilterTab] = useState<"all" | "approved" | "hidden">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [actioningId, setActioningId] = useState<string | number | null>(null);
@@ -92,7 +90,7 @@ export default function ProductApprovalView({
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, video_proof_url, brand, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, collection, target_drop_date, status, seller_id, specifications, created_at";
+      const SLIM_ADMIN_FIELDS = "id, name, price, mrp, stock, image_url, video_proof_url, brand, is_active, is_approved, approval_status, tier, collection, status, seller_id, specifications, created_at";
       const SLIM_SELLER_FIELDS = "id, user_id, seller_id, seller_code, business_name, shop_name, name, full_name, owner_name";
 
       let productsList: any[] = [];
@@ -225,21 +223,9 @@ export default function ProductApprovalView({
     setActioningId(null);
   };
 
-  const isProductPremium = (p: any) => {
-    return p.is_premium === true || p.tier === "PREMIUM" || String(p.tier).toUpperCase() === "PREMIUM" || (p.specifications as any)?.is_premium === "true" || (p.specifications as any)?.is_premium === true || (p.specifications as any)?.tier === "PREMIUM" || p.name?.toLowerCase().includes("premium") || p.name?.toLowerCase().includes("supima") || p.collection?.toLowerCase().includes("premium");
-  };
-
-  const isProductNewDrop = (p: any) => {
-    return p.is_new_drop === true || (p.specifications as any)?.is_new_drop === "true" || (p.specifications as any)?.is_new_drop === true || p.status === "COMING_SOON";
-  };
-
   const filteredProducts = products.filter(p => {
     let matchesTab = true;
-    if (filterTab === "premium") {
-      matchesTab = isProductPremium(p);
-    } else if (filterTab === "new_drops") {
-      matchesTab = isProductNewDrop(p);
-    } else if (filterTab === "approved") {
+    if (filterTab === "approved") {
       matchesTab = p.is_active !== false && (p.approval_status === "approved" || p.is_approved === true || !p.approval_status);
     } else if (filterTab === "hidden") {
       matchesTab = p.is_active === false;
@@ -275,7 +261,7 @@ export default function ProductApprovalView({
           <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">Product Moderation</span>
           <h1 className="text-2xl font-black tracking-tight text-white uppercase">Product Catalog & Tier Moderation</h1>
           <p className="text-xs font-bold text-zinc-400 mt-0.5">
-            Manage approved marketplace products, inspect Seller Name & Seller ID, assign to Premium Store or New Drops, and moderate listings.
+            Manage approved marketplace products, inspect Seller Name & Seller ID, and moderate listings.
           </p>
         </div>
       </div>
@@ -285,8 +271,6 @@ export default function ProductApprovalView({
         <div className="flex gap-2 overflow-x-auto w-full sm:w-auto no-scrollbar">
           {[
             { id: "all", label: `All (${products.length})` },
-            { id: "premium", label: `💎 Premium Store (${products.filter(isProductPremium).length})` },
-            { id: "new_drops", label: `⚡ New Drops (${products.filter(isProductNewDrop).length})` },
             { id: "approved", label: "Approved" },
             { id: "hidden", label: "Hidden" }
           ].map(tab => (
@@ -330,9 +314,6 @@ export default function ProductApprovalView({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {paginatedProducts.map(prod => {
-            const isPremium = prod.is_premium === true || prod.tier === "PREMIUM" || (prod.specifications as any)?.is_premium === "true";
-            const isNewDrop = prod.is_new_drop === true || prod.status === "COMING_SOON" || (prod.specifications as any)?.is_new_drop === "true";
-
             const seller = prod.seller_id ? sellersMap[String(prod.seller_id)] : null;
             const shopName = seller?.business_name || seller?.shop_name || seller?.name || prod.brand || "Zebalpha Store";
             const ownerName = seller?.full_name || seller?.owner_name || "";
@@ -393,40 +374,8 @@ export default function ProductApprovalView({
                     </div>
                   </div>
 
-                  {/* Tier Badges & Quick Toggles */}
+                  {/* Video Proof Badge */}
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-900">
-                    <button
-                      onClick={() => handleUpdateProductStatus(prod.id, { 
-                        is_premium: !isPremium, 
-                        tier: !isPremium ? "PREMIUM" : "STANDARD" 
-                      })}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border transition-all cursor-pointer ${
-                        isPremium
-                          ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm shadow-amber-500/10"
-                          : "bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300"
-                      }`}
-                      title="Toggle Premium Store placement"
-                    >
-                      <Crown size={11} className={isPremium ? "text-amber-400" : "text-zinc-500"} />
-                      <span>{isPremium ? "💎 Premium" : "+ Set Premium"}</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleUpdateProductStatus(prod.id, { 
-                        is_new_drop: !isNewDrop,
-                        status: !isNewDrop ? "COMING_SOON" : (prod.stock > 0 ? "IN_STOCK" : "OUT_OF_STOCK")
-                      })}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border transition-all cursor-pointer ${
-                        isNewDrop
-                          ? "bg-orange-500/20 text-orange-300 border-orange-500/50 shadow-sm shadow-orange-500/10"
-                          : "bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300"
-                      }`}
-                      title="Toggle New Drop placement"
-                    >
-                      <Flame size={11} className={isNewDrop ? "text-orange-400" : "text-zinc-500"} />
-                      <span>{isNewDrop ? "⚡ New Drop" : "+ Set Drop"}</span>
-                    </button>
-
                     {(() => {
                       const vidInfo = parseProductVideoProof(prod.video_proof_url || (prod.specifications as any)?.video_proof_url);
                       return vidInfo ? (

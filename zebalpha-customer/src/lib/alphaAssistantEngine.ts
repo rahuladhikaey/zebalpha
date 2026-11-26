@@ -722,8 +722,7 @@ async function getAssistantCatalogSnapshot(): Promise<IndexedCatalogItem[]> {
       Math.log1p(reviewCount) * 8 +
       Math.log1p(orderCount) * 18 +
       Math.log1p(eventScore) * 4 +
-      (hasVideoProof ? 3 : 0) +
-      (product.is_new_drop ? 2 : 0);
+      (hasVideoProof ? 3 : 0);
 
     return {
       product,
@@ -834,9 +833,6 @@ function buildReasonBadge(
   }
   if (item.hasVideoProof) {
     return "Verified Video Proof";
-  }
-  if (item.product.is_new_drop) {
-    return "Fresh Drop";
   }
   return "Top Pick";
 }

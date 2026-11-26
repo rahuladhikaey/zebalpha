@@ -35,11 +35,7 @@ export type Product = {
 	approval_status?: string;
 	seller_id?: string;
 	packages?: ProductPackage[];
-	is_premium?: boolean;
-	is_new_drop?: boolean;
 	collection?: string;
-	drop_date?: string;
-	target_drop_date?: string;
 	tier?: string;
 };
 

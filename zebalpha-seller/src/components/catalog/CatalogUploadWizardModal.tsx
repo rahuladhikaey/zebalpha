@@ -25,7 +25,6 @@ export interface CatalogUploadWizardModalProps {
   categories: Category[];
   editingProduct?: any | null;
   onSuccess: () => void;
-  initialIsNewDrop?: boolean;
 }
 
 export interface MasterCatalogFormState {
@@ -84,11 +83,7 @@ export interface MasterCatalogFormState {
   // Step 3
   style_code: string;
   brand: string;
-  is_premium: boolean;
-  is_new_drop: boolean;
   collection: string;
-  target_drop_date: string;
-  tier: string;
 
   // Step 4: Variants & Size Chart
   has_variants: boolean;
@@ -153,11 +148,7 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
 
   style_code: "",
   brand: "zebalpha",
-  is_premium: false,
-  is_new_drop: false,
   collection: "",
-  target_drop_date: "",
-  tier: "STANDARD",
 
   has_variants: false,
   variants: [],
@@ -182,7 +173,6 @@ export default function CatalogUploadWizardModal({
   categories,
   editingProduct,
   onSuccess,
-  initialIsNewDrop = false,
 }: CatalogUploadWizardModalProps): React.JSX.Element | null {
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<MasterCatalogFormState>(INITIAL_FORM_STATE);
@@ -624,19 +614,6 @@ export default function CatalogUploadWizardModal({
         }
       });
 
-      const resolvedIsPremium =
-        editingProduct.is_premium === true ||
-        editingProduct.tier === "PREMIUM" ||
-        specs.is_premium === true ||
-        specs.is_premium === "true" ||
-        specs.tier === "PREMIUM";
-
-      const resolvedIsNewDrop =
-        editingProduct.is_new_drop === true ||
-        editingProduct.status === "COMING_SOON" ||
-        specs.is_new_drop === true ||
-        specs.is_new_drop === "true";
-
       setForm({
         category_id: finalCatId,
         subcategory_id: resolvedSubcatId,
@@ -703,25 +680,19 @@ export default function CatalogUploadWizardModal({
           return "";
         })(),
         brand: editingProduct.brand || "zebalpha",
-        is_premium: resolvedIsPremium,
-        is_new_drop: resolvedIsNewDrop,
         collection: editingProduct.collection || specs.collection || "",
-        target_drop_date: editingProduct.target_drop_date || specs.target_drop_date || "",
-        tier: editingProduct.tier || specs.tier || (resolvedIsPremium ? "PREMIUM" : resolvedIsNewDrop ? "DROP" : "STANDARD"),
 
         has_variants: hasVars,
         variants: loadedVariants,
         default_color: (editingProduct as any).default_color || (editingProduct.specifications as any)?.default_color || editingProduct.packages?.[0]?.color || loadedVariants[0]?.color || "",
         main_color: (editingProduct as any).main_color || (editingProduct as any).default_color || (editingProduct.specifications as any)?.main_color || loadedVariants[0]?.color || "",
-        single_stock: resolvedIsNewDrop ? "0" : String(editingProduct.stock ?? 20),
+        single_stock: String(editingProduct.stock ?? 20),
         single_sku: editingProduct.sku || "",
       });
     } else {
       setForm({
         ...INITIAL_FORM_STATE,
-        is_new_drop: Boolean(initialIsNewDrop),
-        single_stock: initialIsNewDrop ? "0" : "20",
-        tier: initialIsNewDrop ? "DROP" : "STANDARD",
+        single_stock: "20",
         manufacturer_same_as_pickup: true,
         manufacturer_name: initialSellerOrigin?.name || sellerProfile?.business_name || sellerProfile?.store_name || "",
         manufacturer_address: initialSellerOrigin?.address || sellerProfile?.pickup_address || sellerProfile?.warehouse_address || "",
@@ -732,7 +703,7 @@ export default function CatalogUploadWizardModal({
         packer_pincode: initialSellerOrigin?.pincode || sellerProfile?.pincode || "",
       });
     }
-  }, [editingProduct, isOpen, initialIsNewDrop]);
+  }, [editingProduct, isOpen]);
 
   // Keep manufacturer details synchronized with seller origin info whenever it loads or seller navigates to Step 2
   React.useEffect(() => {
@@ -813,26 +784,6 @@ export default function CatalogUploadWizardModal({
   const validateStep = (step: number): boolean => {
     setErrorMsg("");
 
-    // Fast validation for New Drop teaser
-    if (form.is_new_drop) {
-      if (!form.name.trim()) {
-        setErrorMsg("Please enter a drop title / product name.");
-        scrollModalToTop();
-        return false;
-      }
-      if (form.images.length === 0) {
-        setErrorMsg("Please upload 2 photos for this New Drop teaser (Cover & Showcase).");
-        scrollModalToTop();
-        return false;
-      }
-      if (!form.target_drop_date || !form.target_drop_date.trim()) {
-        setErrorMsg("Please select a target launch / drop date.");
-        scrollModalToTop();
-        return false;
-      }
-      return true;
-    }
-
     if (step === 1) {
       if (!form.name.trim()) {
         setErrorMsg("Please enter a product title/name.");
@@ -848,7 +799,7 @@ export default function CatalogUploadWizardModal({
       const hasSizing = activePt.sizingSystem !== "none";
 
       // Require at least one size ONLY for apparel / sized products
-      if (!form.is_new_drop && hasSizing && form.selected_sizes.length === 0) {
+      if (hasSizing && form.selected_sizes.length === 0) {
         setErrorMsg(`Please select at least 1 size for ${activePt.name} in Step 1 to configure pricing and inventory.`);
         scrollModalToTop();
         return false;
@@ -870,7 +821,7 @@ export default function CatalogUploadWizardModal({
       }
 
       // Validate non-sized / single configuration products in Step 1 (Saree, Jewellery, Home, Electronics)
-      if (!form.is_new_drop && !hasSizing) {
+      if (!hasSizing) {
         const p = parseFloat(form.price);
         if (isNaN(p) || p <= 0) {
           setErrorMsg("Please enter a valid listing price (greater than ₹0).");
@@ -884,7 +835,7 @@ export default function CatalogUploadWizardModal({
           return false;
         }
       }
-    } else if (step === 2 && !form.is_new_drop) {
+    } else if (step === 2) {
       const activePt = resolveProductTypeConfig(form.category_id, form.subcategory_name);
       const hasSizing = activePt.sizingSystem !== "none";
       const hasSizeDetails = form.size_details && form.size_details.length > 0;
@@ -906,7 +857,7 @@ export default function CatalogUploadWizardModal({
         scrollModalToTop();
         return false;
       }
-    } else if (step === 4 && !form.is_new_drop) {
+    } else if (step === 4) {
       if (!form.has_variants) {
         if (!form.single_stock || parseInt(form.single_stock) < 0) {
           setErrorMsg("Please enter a valid stock quantity.");
@@ -934,26 +885,6 @@ export default function CatalogUploadWizardModal({
 
   const validateAllSteps = (): boolean => {
     setErrorMsg("");
-
-    // Fast validation for New Drop teaser: only title, 2 pics, and launch date
-    if (form.is_new_drop) {
-      if (!form.name.trim()) {
-        setErrorMsg("Please enter a drop title / product name.");
-        scrollModalToTop();
-        return false;
-      }
-      if (form.images.length === 0) {
-        setErrorMsg("Please upload 2 photos for your New Drop teaser (Cover & Showcase).");
-        scrollModalToTop();
-        return false;
-      }
-      if (!form.target_drop_date || !form.target_drop_date.trim()) {
-        setErrorMsg("Please select a target launch / drop date.");
-        scrollModalToTop();
-        return false;
-      }
-      return true;
-    }
 
     // Step 1 check
     if (!form.name.trim()) {
@@ -985,7 +916,7 @@ export default function CatalogUploadWizardModal({
       (variantPrices.length > 0 ? Math.min(...variantPrices) : 0) ||
       (sizePrices.length > 0 ? Math.min(...sizePrices) : 0);
 
-    if (!form.is_new_drop && (!effectivePrice || effectivePrice <= 0)) {
+    if (!effectivePrice || effectivePrice <= 0) {
       setErrorMsg("Please provide a valid listing price (greater than ₹0).");
       if (hasVariants) setCurrentStep(4);
       else setCurrentStep(2);
@@ -994,7 +925,7 @@ export default function CatalogUploadWizardModal({
     }
 
     // Step 4 variants check
-    if (!form.is_new_drop && form.has_variants) {
+    if (form.has_variants) {
       if (form.variants.length === 0) {
         setErrorMsg("Multi-variants are enabled. Please add at least 1 color variant with sizes, or disable multi-variants.");
         setCurrentStep(4);
@@ -1317,11 +1248,8 @@ export default function CatalogUploadWizardModal({
         volumetric_weight: form.volumetric_weight || "360",
         billable_weight: form.billable_weight || "360",
         estimated_shipping_fee: form.estimated_shipping_fee || 62,
-        is_premium: form.is_premium,
-        is_new_drop: form.is_new_drop,
         collection: form.collection,
-        target_drop_date: form.target_drop_date,
-        tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
+        tier: "STANDARD",
       };
 
       if (isFootwearCategory) {
@@ -1453,7 +1381,7 @@ export default function CatalogUploadWizardModal({
         primaryCatId = String(form.category_id).trim();
       } else if (categories && categories.length > 0 && isValidUuid(categories[0].id)) {
         primaryCatId = String(categories[0].id).trim();
-      } else if (!form.is_new_drop) {
+      } else {
         throw new Error("Please select an approved Main Category for your product in Step 1 before publishing.");
       }
 
@@ -1491,10 +1419,7 @@ export default function CatalogUploadWizardModal({
       let effectivePrice = 0;
       let effectiveMrp = 0;
 
-      if (form.is_new_drop) {
-        effectivePrice = parseFloat(form.price) || 0;
-        effectiveMrp = parseFloat(form.mrp) || effectivePrice;
-      } else if (defaultVariant && parseFloat(defaultVariant.price) > 0) {
+      if (defaultVariant && parseFloat(defaultVariant.price) > 0) {
         effectivePrice = parseFloat(defaultVariant.price);
         effectiveMrp = parseFloat(defaultVariant.mrp) || effectivePrice;
       } else if (hasSizeDetails && form.size_details[0] && parseFloat(form.size_details[0].selling_price) > 0) {
@@ -1513,32 +1438,12 @@ export default function CatalogUploadWizardModal({
         ? defaultVariant.gallery
         : (defaultVariant?.image_url ? [defaultVariant.image_url] : []);
 
-      const finalImagesList = form.is_new_drop
-        ? uploadedImagesList.slice(0, 2)
-        : (defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList);
+      const finalImagesList = defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList;
       const defaultColorCover = defaultVariant?.image_url || defaultVariant?.gallery?.[0] || coverImageUrl;
-      const finalProductCover = form.is_new_drop
-        ? (finalImagesList[0] || coverImageUrl)
-        : (defaultColorCover || coverImageUrl);
+      const finalProductCover = defaultColorCover || coverImageUrl;
 
       // Build packages JSON array for multi-color and multi-size matrix
-      const computedPackages = form.is_new_drop
-        ? [
-            {
-              id: `pkg_drop_${Date.now()}`,
-              name: "New Drop Teaser",
-              color: "Standard",
-              size: "Free Size",
-              price: 0,
-              mrp: 0,
-              stock: 0,
-              sku: form.name ? `DROP_${form.name.toUpperCase().replace(/[^A-Z0-9]/g, "_").slice(0, 20)}` : "DROP_TEASER",
-              image_url: finalProductCover,
-              gallery: finalImagesList,
-              isBestSeller: true,
-            }
-          ]
-        : hasVariants
+      const computedPackages = hasVariants
         ? sortedVariants.map((v, idx) => {
             const isMain = (v.color || "").trim().toLowerCase() === activeDefaultCol.toLowerCase();
             const isStandard = (v.color || "").trim().toLowerCase() === "standard" || (v.color || "").trim().toLowerCase() === "default";
@@ -1595,9 +1500,7 @@ export default function CatalogUploadWizardModal({
             }
           ];
 
-      const calculatedStock = form.is_new_drop
-        ? 0
-        : form.has_variants
+      const calculatedStock = form.has_variants
         ? processedVariants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
         : hasSizeDetails
         ? form.size_details.reduce((acc, d) => acc + (parseInt(d.inventory) || 0), 0)
@@ -1623,7 +1526,7 @@ export default function CatalogUploadWizardModal({
         category_id: primaryCatId,
         subcategory_id: resolvedSubcatId,
         image_url: finalProductCover,
-        images: form.is_new_drop ? finalImagesList : (defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList),
+        images: defaultColorGallery.length > 0 ? defaultColorGallery : uploadedImagesList,
         video_proof_url: normalizedVideoProofUrl || null,
         default_color: activeDefaultCol,
         main_color: activeDefaultCol,
@@ -1639,17 +1542,14 @@ export default function CatalogUploadWizardModal({
         brand: form.brand || "zebalpha",
         stock: calculatedStock,
         sku: form.has_variants ? (form.style_code || "MULTI_VARIANT") : (form.single_sku || form.style_code || `SKU_${Date.now()}`),
-        status: form.is_new_drop ? "COMING_SOON" : (calculatedStock > 0 ? "IN_STOCK" : "OUT_OF_STOCK"),
+        status: calculatedStock > 0 ? "IN_STOCK" : "OUT_OF_STOCK",
         is_active: true,
         is_approved: true,
         approval_status: "approved",
         low_stock_limit: 5,
         seller_id: finalSellerId || null,
-        is_premium: form.is_premium,
-        is_new_drop: form.is_new_drop,
         collection: form.collection || "",
-        target_drop_date: form.target_drop_date || "",
-        tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
+        tier: "STANDARD",
         packages: computedPackages,
       };
 
@@ -1697,12 +1597,12 @@ export default function CatalogUploadWizardModal({
           category_id: primaryCatId,
           subcategory_id: resolvedSubcatId,
           image_url: finalProductCover,
-          images: form.is_new_drop ? finalImagesList : uploadedImagesList,
+          images: uploadedImagesList,
           specifications: specificationsData,
           brand: form.brand || "zebalpha",
           stock: calculatedStock,
           sku: form.has_variants ? (form.style_code || "MULTI_VARIANT") : (form.single_sku || form.style_code || `SKU_${Date.now()}`),
-          status: form.is_new_drop ? "COMING_SOON" : (calculatedStock > 0 ? "IN_STOCK" : "OUT_OF_STOCK"),
+          status: calculatedStock > 0 ? "IN_STOCK" : "OUT_OF_STOCK",
           is_active: true,
           is_approved: true,
           approval_status: "approved",
@@ -1752,24 +1652,11 @@ export default function CatalogUploadWizardModal({
         <div className="p-4 md:p-5 border-b border-[#EAD296] flex items-center justify-between bg-gradient-to-r from-[#FFF8DB] via-[#FFFDF8] to-[#FFF2EE]">
           <div>
             <h2 className="text-lg md:text-xl font-black text-[#14120F] flex items-center gap-2">
-              {form.is_new_drop ? (
-                <>
-                  <span className="w-7 h-7 rounded-xl bg-[#FFF4F2] border border-[#F03A46]/30 text-[#F03A46] flex items-center justify-center text-sm font-black">
-                    ⚡
-                  </span>
-                  Add New Drop (Teaser Launch)
-                </>
-              ) : (
-                <>
-                  <UploadCloud className="w-5 h-5 text-[#F03A46]" />
-                  {editingProduct ? "Edit Product Catalog" : "Upload Product Catalog"}
-                </>
-              )}
+              <UploadCloud className="w-5 h-5 text-[#F03A46]" />
+              {editingProduct ? "Edit Product Catalog" : "Upload Product Catalog"}
             </h2>
             <p className="text-xs font-semibold text-[#5C4E35] mt-0.5">
-              {form.is_new_drop
-                ? "Fast Drop Studio: 2 photos, title & launch date only. No sizes, price, or complex fields required."
-                : `Step ${currentStep} of 4: ${STEPS[currentStep - 1].desc}`}
+              {`Step ${currentStep} of 4: ${STEPS[currentStep - 1].desc}`}
             </p>
           </div>
 
@@ -1782,22 +1669,6 @@ export default function CatalogUploadWizardModal({
         </div>
 
         {/* Stepper Progress Indicator */}
-        {form.is_new_drop ? (
-          <div className="px-5 py-3 border-b border-[#EAD296] bg-[#FFF9EB] flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-black bg-[#FFF4F2] text-[#F03A46] border border-[#F03A46]/30">
-                ⚡ 1-Step Teaser Upload
-              </span>
-              <span className="text-xs text-[#5C4E35] font-semibold hidden sm:inline">
-                Price, MRP, Sizes, Categories &amp; Variants are automatically skipped.
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-[11px] font-bold text-[#9A6503]">
-              <span className="w-2 h-2 rounded-full bg-[#F03A46] animate-pulse" />
-              <span>Status: COMING SOON</span>
-            </div>
-          </div>
-        ) : (
           <div className="grid grid-cols-4 border-b border-[#EAD296] bg-[#FFF9EB]">
             {STEPS.map((s) => {
               const isActive = currentStep === s.id;
@@ -1839,7 +1710,6 @@ export default function CatalogUploadWizardModal({
               );
             })}
           </div>
-        )}
 
         {/* Modal Body / Active Step */}
         <div ref={modalBodyRef} className="p-4 md:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-4 bg-[#FFFDF8]">
@@ -1869,46 +1739,6 @@ export default function CatalogUploadWizardModal({
 
         {/* Navigation Footer */}
         <div className="p-4 border-t border-[#EAD296] bg-[#FFF9EB] flex flex-col sm:flex-row items-center justify-between gap-3">
-          {form.is_new_drop ? (
-            <>
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={submitting}
-                className="py-2.5 px-4 rounded-xl text-xs font-extrabold bg-white text-[#5C4E35] hover:text-[#14120F] hover:bg-[#FAF2DC] border border-[#DFBE6F] transition-all cursor-pointer w-full sm:w-auto"
-              >
-                Cancel
-              </button>
-
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                {errorMsg && (
-                  <div className="text-xs text-[#DC2626] font-bold flex items-center gap-1.5 bg-[#FFF4F2] border border-[#F03A46]/30 px-3 py-1.5 rounded-lg max-w-sm truncate">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#DC2626]" />
-                    <span className="truncate">{errorMsg}</span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleSubmitCatalog}
-                  disabled={submitting}
-                  data-photo-overlay="true"
-                  className="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white hover:brightness-105 text-xs font-black shadow-[0_8px_20px_rgba(240,58,70,0.28)] flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {submitting ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      {uploadStatus || "Publishing Drop..."}
-                    </>
-                  ) : (
-                    <>
-                      <span>⚡ Publish New Drop Now</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </>
-          ) : (
             <>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                 <button
@@ -1969,7 +1799,6 @@ export default function CatalogUploadWizardModal({
                 )}
               </div>
             </>
-          )}
         </div>
       </div>
     </div>

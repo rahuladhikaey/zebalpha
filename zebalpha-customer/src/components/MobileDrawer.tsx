@@ -252,8 +252,6 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                 {[
                   { name: "Store Home", href: "/" },
                   { name: "Browse Categories", href: "/categories" },
-                  { name: "New Drops & Hype", href: "/new-drops" },
-                  { name: "💎 Premium Store", href: "/premium-store" },
                   { name: "All Apparel", href: "/products" },
                   { name: "Track Order", href: "/profile/orders" },
                 ].map((item) => (

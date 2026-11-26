@@ -65,10 +65,7 @@ export default function AdminProductEditModal({
     style_code: "",
     volumetric_weight: "",
     
-    is_premium: false,
-    is_new_drop: false,
     collection: "",
-    target_drop_date: "",
     
     images: [] as string[],
     front_image_index: 0,
@@ -128,10 +125,7 @@ export default function AdminProductEditModal({
         style_code: specs.style_code || "",
         volumetric_weight: specs.volumetric_weight || "",
         
-        is_premium: product.is_premium === true || product.tier === "PREMIUM",
-        is_new_drop: product.is_new_drop === true || product.status === "COMING_SOON",
         collection: product.collection || "",
-        target_drop_date: product.target_drop_date || "",
         
         images: imgList,
         front_image_index: 0,
@@ -302,11 +296,7 @@ export default function AdminProductEditModal({
         images: orderedImages,
         video_proof_url: normalizedVideoUrl || null,
         specifications: updatedSpecifications,
-        is_premium: form.is_premium,
-        is_new_drop: form.is_new_drop,
         collection: form.collection.trim() || null,
-        target_drop_date: form.target_drop_date.trim() || null,
-        tier: form.is_premium ? "PREMIUM" : form.is_new_drop ? "DROP" : "STANDARD",
       };
 
       if (updatedPackages) {

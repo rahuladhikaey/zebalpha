@@ -28,7 +28,6 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { useIsNativeApp, useOfficialTheme } from "@/lib/platform";
 
 function CategoriesContent() {
@@ -107,18 +106,7 @@ function CategoriesContent() {
   const products = paginatedData?.products || [];
   const totalCount = paginatedData?.totalCount || 0;
 
-  // Filter out unreleased new drops
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const isNewDrop = isProductNewDrop(product);
-      const isLive = isDropLive(product);
-      const isDropFilter = selectedCategory && String(selectedCategory).toLowerCase().includes("drop");
-      if (isNewDrop && !isLive && !isDropFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [products, selectedCategory]);
+  const filteredProducts = products;
 
   // Category Search in Directory Mode (Main Categories & Subcategories)
   const categorySearchResults = useMemo(() => {
@@ -573,7 +561,6 @@ function CategoriesContent() {
                         alt={product.name}
                         href={`/products/${product.id}`}
                         discountPercent={discountPercent}
-                        isPremium={product.is_premium || product.tier === "PREMIUM"}
                         isAboveTheFold={idx < 4}
                       />
                       <div className="absolute right-2 top-2 z-30 flex flex-col gap-1.5 items-center">

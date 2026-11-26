@@ -182,11 +182,7 @@ export async function POST(req: NextRequest) {
       is_active = true,
       specifications = {},
       packages = [],
-      is_premium = false,
-      is_new_drop = false,
       collection = "",
-      target_drop_date = "",
-      tier = "STANDARD",
     } = body;
 
     if (!name || !String(name).trim()) {
@@ -293,24 +289,19 @@ export async function POST(req: NextRequest) {
       normalizedVideoProofUrl = videoCheck.normalizedUrl;
     }
 
-    // 4. Merge all specifications, tags, sizes, and drop details into specifications JSONB
+    // 4. Merge all specifications, tags, and sizes into specifications JSONB
     const mergedSpecs = {
       ...(typeof specifications === "object" && specifications !== null ? specifications : {}),
       video_proof_url: normalizedVideoProofUrl || "",
-      is_premium: Boolean(is_premium),
-      is_new_drop: Boolean(is_new_drop),
       collection: collection || "",
-      target_drop_date: target_drop_date || "",
-      tier: is_premium ? "PREMIUM" : (tier || "STANDARD"),
+      tier: "STANDARD",
     };
 
     const finalCoverImage = image_url || (Array.isArray(images) && images.length > 0 ? images[0] : "");
     const finalImagesList = Array.isArray(images) && images.length > 0 ? images : (finalCoverImage ? [finalCoverImage] : []);
 
     const calculatedStock = Number(stock) || 0;
-    const finalStatus = is_new_drop
-      ? "COMING_SOON"
-      : (status || (calculatedStock > 0 ? "IN_STOCK" : "OUT_OF_STOCK"));
+    const finalStatus = status || (calculatedStock > 0 ? "IN_STOCK" : "OUT_OF_STOCK");
 
     // 5. Construct DB-safe product payload adhering strictly to public.products schema
     const productPayload: Record<string, any> = {
@@ -557,17 +548,13 @@ export async function PUT(req: NextRequest) {
     }
 
     // Merge specifications
-    if (updates.specifications || updates.is_premium !== undefined || updates.is_new_drop !== undefined || hasVideoUpdate) {
+    if (updates.specifications || updates.collection !== undefined || hasVideoUpdate) {
       const currentSpecs = existingProduct.specifications || {};
       updatePayload.specifications = {
         ...currentSpecs,
         ...(updates.specifications || {}),
         ...(hasVideoUpdate ? { video_proof_url: normalizedUpdateVideoUrl || "" } : {}),
-        ...(updates.is_premium !== undefined ? { is_premium: Boolean(updates.is_premium) } : {}),
-        ...(updates.is_new_drop !== undefined ? { is_new_drop: Boolean(updates.is_new_drop) } : {}),
         ...(updates.collection !== undefined ? { collection: updates.collection } : {}),
-        ...(updates.target_drop_date !== undefined ? { target_drop_date: updates.target_drop_date } : {}),
-        ...(updates.tier !== undefined ? { tier: updates.tier } : {}),
       };
     }
 

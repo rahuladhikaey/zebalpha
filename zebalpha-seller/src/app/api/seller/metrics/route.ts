@@ -122,7 +122,6 @@ export async function GET(req: NextRequest) {
     const period = searchParams.get("period") || "this_month";
     const customStart = searchParams.get("start");
     const customEnd = searchParams.get("end");
-    const stream = searchParams.get("stream") || "all";
 
     // Resolve seller ID
     let sellerId: string | null = null;
@@ -168,17 +167,11 @@ export async function GET(req: NextRequest) {
       pending: 0
     };
 
-    // 2. Fetch products to identify premium vs standard tier
+    // 2. Fetch products to check stock levels
     const { data: products } = await supabaseServer
       .from("products")
-      .select("id, is_premium, tier, specifications, category, stock, low_stock_limit")
+      .select("id, stock, low_stock_limit")
       .eq("seller_id", sellerId);
-
-    const premiumProductIdSet = new Set(
-      (products || [])
-        .filter((p: any) => p.is_premium === true || p.tier === "PREMIUM" || (p.specifications as any)?.is_premium === "true" || (p.category && p.category.toLowerCase().includes("premium")))
-        .map((p: any) => String(p.id))
-    );
 
     const lowStockCount = (products || []).filter((p: any) => (p.stock ?? 0) <= (p.low_stock_limit ?? 5)).length;
 
@@ -211,9 +204,7 @@ export async function GET(req: NextRequest) {
     let validOrderCount = 0;
     let cancelledOrderCount = 0;
     let validUnitsSold = 0;
-    let premNetSales = 0;
     let stdNetSales = 0;
-    let premUnits = 0;
     let stdUnits = 0;
 
     const operations = {
@@ -230,7 +221,7 @@ export async function GET(req: NextRequest) {
     };
 
     // Grouping map for time breakdown
-    const groupMap: Record<string, { label: string; dateObj: Date; revenue: number; premiumRevenue: number; standardRevenue: number; ordersCount: number; units: number }> = {};
+    const groupMap: Record<string, { label: string; dateObj: Date; revenue: number; standardRevenue: number; ordersCount: number; units: number }> = {};
 
     orders.forEach((order: any) => {
       const rawTotal = Number(order.total_amount) || 0;
@@ -245,9 +236,7 @@ export async function GET(req: NextRequest) {
       if (!Array.isArray(items) && items && typeof items === "object") items = [items];
 
       let orderUnits = 0;
-      let orderPremRev = 0;
       let orderStdRev = 0;
-      let orderPremUnits = 0;
       let orderStdUnits = 0;
 
       if (Array.isArray(items)) {
@@ -255,16 +244,10 @@ export async function GET(req: NextRequest) {
           const qty = Number(it.quantity) || 1;
           const price = Number(it.price) || 0;
           const subtotal = Number(it.subtotal) || (price * qty);
-          const isPrem = it.is_premium === true || it.tier === "PREMIUM" || premiumProductIdSet.has(String(it.product_id || it.id));
 
           orderUnits += qty;
-          if (isPrem) {
-            orderPremRev += subtotal;
-            orderPremUnits += qty;
-          } else {
-            orderStdRev += subtotal;
-            orderStdUnits += qty;
-          }
+          orderStdRev += subtotal;
+          orderStdUnits += qty;
         });
       }
       if (orderUnits === 0) orderUnits = 1;
@@ -281,9 +264,7 @@ export async function GET(req: NextRequest) {
         netSalesValue += rawTotal;
         validUnitsSold += orderUnits;
 
-        premNetSales += orderPremRev;
-        stdNetSales += orderStdRev > 0 ? orderStdRev : (orderPremRev > 0 ? 0 : rawTotal);
-        premUnits += orderPremUnits;
+        stdNetSales += orderStdRev > 0 ? orderStdRev : rawTotal;
         stdUnits += orderStdUnits;
 
         if (["placed", "new"].includes(status)) operations.new_orders++;
@@ -316,13 +297,11 @@ export async function GET(req: NextRequest) {
         }
 
         if (!groupMap[key]) {
-          groupMap[key] = { label: groupLabel, dateObj: createdAt, revenue: 0, premiumRevenue: 0, standardRevenue: 0, ordersCount: 0, units: 0 };
+          groupMap[key] = { label: groupLabel, dateObj: createdAt, revenue: 0, standardRevenue: 0, ordersCount: 0, units: 0 };
         }
 
-        const revToAdd = stream === "premium" ? orderPremRev : stream === "standard" ? orderStdRev : rawTotal;
-        groupMap[key].revenue += Number(revToAdd);
-        groupMap[key].premiumRevenue += Number(orderPremRev);
-        groupMap[key].standardRevenue += Number(orderStdRev > 0 ? orderStdRev : (orderPremRev > 0 ? 0 : rawTotal));
+        groupMap[key].revenue += Number(rawTotal);
+        groupMap[key].standardRevenue += Number(orderStdRev > 0 ? orderStdRev : rawTotal);
         groupMap[key].ordersCount += 1;
         groupMap[key].units += Number(orderUnits);
       }
@@ -344,10 +323,10 @@ export async function GET(req: NextRequest) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    let todayRev = 0, todayPremRev = 0, todayStdRev = 0, todayCount = 0;
-    let weekRev = 0, weekPremRev = 0, weekStdRev = 0;
-    let monthRev = 0, monthPremRev = 0, monthStdRev = 0;
-    let allTimeRev = 0, allTimePremRev = 0, allTimeStdRev = 0;
+    let todayRev = 0, todayCount = 0;
+    let weekRev = 0;
+    let monthRev = 0;
+    let allTimeRev = 0;
 
     allOrders.forEach((o: any) => {
       const st = String(o.order_status || "").toLowerCase();
@@ -433,17 +412,13 @@ export async function GET(req: NextRequest) {
       },
       quick_kpis: {
         todayRevenue: Number(todayRev.toFixed(2)),
-        todayPremiumRevenue: Number(todayPremRev.toFixed(2)),
-        todayStandardRevenue: Number(todayStdRev.toFixed(2)),
+        todayStandardRevenue: Number(todayRev.toFixed(2)),
         weeklyRevenue: Number(weekRev.toFixed(2)),
-        weeklyPremiumRevenue: Number(weekPremRev.toFixed(2)),
-        weeklyStandardRevenue: Number(weekStdRev.toFixed(2)),
+        weeklyStandardRevenue: Number(weekRev.toFixed(2)),
         monthlyRevenue: Number(monthRev.toFixed(2)),
-        monthlyPremiumRevenue: Number(monthPremRev.toFixed(2)),
-        monthlyStandardRevenue: Number(monthStdRev.toFixed(2)),
+        monthlyStandardRevenue: Number(monthRev.toFixed(2)),
         allTimeRevenue: Number(allTimeRev.toFixed(2)),
-        allTimePremiumRevenue: Number(allTimePremRev.toFixed(2)),
-        allTimeStandardRevenue: Number(allTimeStdRev.toFixed(2)),
+        allTimeStandardRevenue: Number(allTimeRev.toFixed(2)),
         totalOrders: allOrders.length,
         todaysOrders: todayCount,
         lowStockCount,
@@ -458,9 +433,7 @@ export async function GET(req: NextRequest) {
         cancelled_orders: cancelledOrderCount,
         units_sold: validUnitsSold,
         aov: aov, // Net Sales / Valid Sales Orders
-        premium_revenue: Number(premNetSales.toFixed(2)),
         standard_revenue: Number(stdNetSales.toFixed(2)),
-        premium_units: premUnits,
         standard_units: stdUnits
       },
       settlement: {

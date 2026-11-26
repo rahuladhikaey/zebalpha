@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Product, Category } from '@/lib/types';
 import { resolveCategoryIcon } from '@/lib/categoryIcons';
-import { isProductNewDrop } from '@/lib/dropUtils';
 import { attachRatingsToProducts, fetchProductRatingSummaries } from '@/lib/productRatings';
 import {
   applyMultilingualSearchConstraints,
@@ -1110,19 +1109,15 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
         const st = String(p.status || "").toUpperCase();
         if (st === "DELETED" || st === "COMING_SOON") return false;
         if (String(p.approval_status || "").toLowerCase() === "rejected") return false;
-        return !isProductNewDrop(p);
+        return true;
       })
       .map((p: any) => {
         const specs = p.specifications || {};
-        const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true" || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium");
         return {
           ...p,
           thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
-          is_premium: isPrem,
-          tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
-          is_new_drop: false,
+          tier: p.tier || specs.tier || "STANDARD",
           collection: p.collection || specs.collection || "",
-          target_drop_date: p.target_drop_date || specs.target_drop_date || "",
           category: p.category || specs.category || "Apparel",
         };
       });

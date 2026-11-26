@@ -123,7 +123,6 @@ const RESERVED_SLUGS = new Set([
   "products",
   "product",
   "go",
-  "new-drops",
   "categories",
   "profile",
   "orders",

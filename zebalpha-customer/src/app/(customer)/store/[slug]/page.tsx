@@ -5,7 +5,6 @@ import { Header } from "@/components/Header";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isSellerStorePassActive } from "@/lib/smartStoreSearch";
 import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
-import { isProductNewDrop } from "@/lib/dropUtils";
 import { NativePlatformProvider } from "@/lib/platform";
 import { detectNativeAppOnServer } from "@/lib/platformServer";
 import {
@@ -30,7 +29,7 @@ function normalizeProductRows(rows: Array<Record<string, unknown>>): Product[] {
       const st = String(p.status || "").toUpperCase();
       if (["DELETED", "COMING_SOON", "BLOCKED", "DRAFT"].includes(st)) return false;
       if (String(p.approval_status || "").toLowerCase() === "rejected") return false;
-      return !isProductNewDrop(p as unknown as Product);
+      return true;
     })
     .map((p) => {
       const specs = (p.specifications as Record<string, unknown>) || {};

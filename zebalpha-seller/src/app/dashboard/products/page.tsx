@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { matchZebQuickSubcategory, type ZebQuickSubcategoryDef } from "@shared/constants/zebQuick";
 import { uploadToCloudinary, compressImageTo100KB } from "@shared/services";
-import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 import dynamic from "next/dynamic";
 import { UploadCloud } from "lucide-react";
@@ -43,7 +42,6 @@ export default function SellerProducts() {
 
   // Multi-step Catalog Wizard state
   const [isWizardModalOpen, setIsWizardModalOpen] = useState(false);
-  const [isNewDropInitial, setIsNewDropInitial] = useState(false);
   const [zebQuickActiveIds, setZebQuickActiveIds] = useState<string[]>([]);
   const [zebQuickAllowedSubs, setZebQuickAllowedSubs] = useState<ZebQuickSubcategoryDef[] | undefined>(undefined);
   const [zebQuickMainCats, setZebQuickMainCats] = useState<Array<{ id: string; slug: string; name: string }>>([]);
@@ -71,11 +69,7 @@ export default function SellerProducts() {
     sku: "",
     specificationsText: "",
     packagesText: "",
-    is_premium: false,
-    is_new_drop: false,
     collection: "",
-    target_drop_date: "",
-    tier: "STANDARD",
   });
 
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -86,14 +80,14 @@ export default function SellerProducts() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const maxAllowed = form.is_new_drop ? 2 : 4;
+    const maxAllowed = 4;
     if (uploadedImages.length + files.length > maxAllowed) {
-      setImageError(form.is_new_drop ? "❌ Maximum 2 photos allowed for New Drop." : "❌ You can upload a maximum of 4 images.");
+      setImageError("❌ You can upload a maximum of 4 images.");
       return;
     }
 
-    const MAX_ALLOWED_BYTES = form.is_new_drop ? 80 * 1024 : 150 * 1024;
-    const limitLabel = form.is_new_drop ? "80 KB" : "150 KB";
+    const MAX_ALLOWED_BYTES = 150 * 1024;
+    const limitLabel = "150 KB";
 
     const processedImages: string[] = [];
 
@@ -133,7 +127,7 @@ export default function SellerProducts() {
     setForm((f) => ({ ...f, image_url: updated[0] || "" }));
   };
 
-  const [activeTab, setActiveTab] = useState<"ALL" | "PREMIUM" | "NORMAL" | "DROPS" | "ZEBQUICK">("ALL");
+  const [activeTab, setActiveTab] = useState<"ALL" | "ZEBQUICK">("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 25;
 
@@ -289,21 +283,14 @@ export default function SellerProducts() {
         const specs = typeof p.specifications === "string"
           ? (() => { try { return JSON.parse(p.specifications); } catch { return {}; } })()
           : (p.specifications || {});
-        const isPrem = p.is_premium === true || p.tier === "PREMIUM" || specs.is_premium === "true" || specs.is_premium === true || specs.tier === "PREMIUM" || (p.name || "").toLowerCase().includes("premium") || (p.name || "").toLowerCase().includes("supima");
-        const isDrop = p.is_new_drop === true || specs.is_new_drop === "true" || specs.is_new_drop === true || p.status === "COMING_SOON" || p.tier === "DROP";
         const coll = p.collection || specs.collection || "";
-        const dropDate = p.target_drop_date || p.drop_date || specs.target_drop_date || "";
         const resolvedVideoUrl = String(p.video_proof_url || specs.video_proof_url || "").trim();
         return {
           ...p,
           specifications: specs,
           video_proof_url: resolvedVideoUrl,
-          stock: isDrop ? 0 : (p.stock ?? 0),
-          is_premium: isPrem,
-          is_new_drop: isDrop,
+          stock: p.stock ?? 0,
           collection: coll,
-          target_drop_date: dropDate,
-          tier: isPrem ? "PREMIUM" : (p.tier || specs.tier || "STANDARD"),
         };
       });
 
@@ -363,12 +350,11 @@ export default function SellerProducts() {
     };
   }, [isModalOpen]);
 
-  const openAddModal = (presetDrop = false) => {
+  const openAddModal = () => {
     if (accountStatus.toLowerCase() === "suspended") {
       alert("🚫 Your seller account is suspended by Admin. You cannot add or publish new products.");
       return;
     }
-    const isDrop = presetDrop || activeTab === "DROPS";
     setEditingProduct(null);
     setUploadedImages([]);
     setImageError("");
@@ -378,22 +364,18 @@ export default function SellerProducts() {
     setSelectedSubcategoryId(firstSubcategory?.id?.toString() || "");
     setForm({
       name: "",
-      price: isDrop ? "0" : "",
+      price: "",
       mrp: "",
       description: "",
       category_id: categories[0]?.id.toString() || "",
       image_url: "",
       brand: "ZEBALPHA",
-      stock: isDrop ? "0" : "20",
+      stock: "20",
       low_stock_limit: "5",
       sku: "",
       specificationsText: "",
-      packagesText: isDrop ? "Standard:0:0:false" : "",
-      is_premium: false,
-      is_new_drop: isDrop,
+      packagesText: "",
       collection: "",
-      target_drop_date: "",
-      tier: "STANDARD",
     });
     setStatusMessage("");
     setIsModalOpen(true);
@@ -404,8 +386,6 @@ export default function SellerProducts() {
       alert("🚫 Your seller account is suspended by Admin. Product modification is disabled.");
       return;
     }
-    const isDrop = Boolean(product.is_new_drop || product.status === "COMING_SOON" || product.tier === "DROP");
-    setIsNewDropInitial(isDrop);
     let resolvedFullProduct: any = null;
     try {
       // 1. Primary: Fetch authoritative full product via server API (bypasses any client RLS limits)
@@ -485,10 +465,7 @@ export default function SellerProducts() {
     const packagesText = pkgsArray.join("\n");
 
     const specs = product.specifications || {};
-    const isPrem = !!product.is_premium || product.tier === "PREMIUM" || (specs as any)?.is_premium === "true" || (specs as any)?.tier === "PREMIUM";
-    const isDrop = !!product.is_new_drop || (product as any).status === "COMING_SOON" || (specs as any)?.is_new_drop === "true";
     const coll = product.collection || (specs as any)?.collection || (product as any).category_name || "";
-    const dropDate = product.target_drop_date || (product as any).drop_date || (specs as any)?.target_drop_date || "";
 
     setForm({
       name: product.name || "",
@@ -503,11 +480,7 @@ export default function SellerProducts() {
       sku: product.sku || "",
       specificationsText,
       packagesText,
-      is_premium: isPrem,
-      is_new_drop: isDrop,
       collection: coll,
-      target_drop_date: dropDate,
-      tier: isPrem ? "PREMIUM" : (product.tier || (specs as any)?.tier || "STANDARD"),
     });
     setStatusMessage("");
     setIsModalOpen(true);
@@ -574,10 +547,9 @@ export default function SellerProducts() {
     }
     setStatusMessage("Saving product...");
 
-    const isDrop = form.is_new_drop;
     const price = Number(form.price) || 0;
     const mrp = form.mrp ? Number(form.mrp) : null;
-    const stock = isDrop ? 0 : (Number(form.stock) || 0);
+    const stock = Number(form.stock) || 0;
     const low_stock_limit = Number(form.low_stock_limit) || 0;
 
     if (!form.name.trim()) {
@@ -585,7 +557,7 @@ export default function SellerProducts() {
       return;
     }
 
-    if (!isDrop && (isNaN(price) || price <= 0)) {
+    if (isNaN(price) || price <= 0) {
       setStatusMessage("❌ Please enter a valid price.");
       return;
     }
@@ -601,49 +573,38 @@ export default function SellerProducts() {
       });
     }
 
-    let packages: any[] = [];
-    if (!isDrop) {
-      if (!form.packagesText.trim()) {
-        setStatusMessage("❌ Please add at least one package (e.g. 250g:120:150:false).");
-        return;
-      }
+    if (!form.packagesText.trim()) {
+      setStatusMessage("❌ Please add at least one package (e.g. 250g:120:150:false).");
+      return;
+    }
 
-      // Parse packages (Name:Price:MRP:isBestSeller)
-      packages = form.packagesText.split("\n").map((line, index) => {
-        const parts = line.split(":");
-        if (parts.length >= 1 && parts[0].trim() !== "") {
-          const name = parts[0].trim();
-          const pkgPrice = parts[1] ? Number(parts[1].trim()) : price;
-          const pkgMrp = parts[2] ? Number(parts[2].trim()) : (mrp || price);
-          const isBestSeller = parts[3] ? parts[3].trim().toLowerCase() === "true" : false;
+    // Parse packages (Name:Price:MRP:isBestSeller)
+    const packages: any[] = form.packagesText.split("\n").map((line, index) => {
+      const parts = line.split(":");
+      if (parts.length >= 1 && parts[0].trim() !== "") {
+        const name = parts[0].trim();
+        const pkgPrice = parts[1] ? Number(parts[1].trim()) : price;
+        const pkgMrp = parts[2] ? Number(parts[2].trim()) : (mrp || price);
+        const isBestSeller = parts[3] ? parts[3].trim().toLowerCase() === "true" : false;
 
-          if (isNaN(pkgPrice) || pkgPrice <= 0) {
-            return null;
-          }
-
-          return {
-            id: `pkg-${Date.now()}-${index}`,
-            name,
-            price: pkgPrice,
-            mrp: pkgMrp,
-            isBestSeller
-          };
+        if (isNaN(pkgPrice) || pkgPrice <= 0) {
+          return null;
         }
-        return null;
-      }).filter(Boolean);
 
-      if (packages.length === 0) {
-        setStatusMessage("❌ Please enter at least one valid package in the format: Name:Price:MRP:isBestSeller");
-        return;
+        return {
+          id: `pkg-${Date.now()}-${index}`,
+          name,
+          price: pkgPrice,
+          mrp: pkgMrp,
+          isBestSeller
+        };
       }
-    } else {
-      packages = [{
-        id: `drop-${Date.now()}`,
-        name: "Standard",
-        price: price > 0 ? price : 0,
-        mrp: mrp || (price > 0 ? price : 0),
-        isBestSeller: false
-      }];
+      return null;
+    }).filter(Boolean);
+
+    if (packages.length === 0) {
+      setStatusMessage("❌ Please enter at least one valid package in the format: Name:Price:MRP:isBestSeller");
+      return;
     }
 
     const slug = form.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
@@ -714,23 +675,17 @@ export default function SellerProducts() {
       offers: [],
       specifications: {
         ...specifications,
-        tier: form.is_premium ? "PREMIUM" : (form.tier || "STANDARD"),
-        is_premium: form.is_premium ? "true" : "false",
-        is_new_drop: form.is_new_drop ? "true" : "false",
+        tier: "STANDARD",
         collection: form.collection.trim() || "",
-        target_drop_date: form.target_drop_date.trim() || ""
       },
       packages,
-      status: form.is_new_drop ? "COMING_SOON" : (stock > 0 ? "IN_STOCK" : "OUT_OF_STOCK"),
+      status: stock > 0 ? "IN_STOCK" : "OUT_OF_STOCK",
       is_active: true,
       is_approved: true,
       approval_status: "approved",
       seller_id: finalSellerId,
-      is_premium: form.is_premium,
-      is_new_drop: form.is_new_drop,
       collection: form.collection.trim() || null,
-      target_drop_date: form.target_drop_date.trim() || null,
-      tier: form.is_premium ? "PREMIUM" : (form.tier || "STANDARD")
+      tier: "STANDARD"
     };
 
     try {
@@ -801,9 +756,6 @@ export default function SellerProducts() {
     }
   };
 
-  const dropCount = products.filter(p => p.is_new_drop || p.status === "COMING_SOON" || p.tier === "DROP").length;
-  const premiumCount = products.filter(p => p.is_premium && !p.is_new_drop && p.tier !== "DROP").length;
-  const normalCount = products.filter(p => !p.is_premium && !p.is_new_drop && p.status !== "COMING_SOON" && p.tier !== "DROP").length;
   const isZebQuickEligibleProduct = (p: Product) =>
     Boolean(
       matchZebQuickSubcategory(
@@ -814,10 +766,6 @@ export default function SellerProducts() {
   const zebQuickEligibleCount = products.filter(isZebQuickEligibleProduct).length + zebQuickOnlyProducts.length;
 
   const filteredProducts = products.filter(p => {
-    const isDrop = p.is_new_drop === true || p.status === "COMING_SOON" || p.tier === "DROP";
-    if (activeTab === "PREMIUM") return p.is_premium && !isDrop;
-    if (activeTab === "NORMAL") return !p.is_premium && !isDrop;
-    if (activeTab === "DROPS") return isDrop;
     if (activeTab === "ZEBQUICK") return isZebQuickEligibleProduct(p);
     return true;
   });
@@ -834,7 +782,7 @@ export default function SellerProducts() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Products Catalog</h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">Manage standard streetwear and high-ticket 💎 Premium Store items.</p>
+          <p className="text-xs font-medium text-slate-500 mt-1">Manage your product catalog and ZebQuick eligible listings.</p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
           <a
@@ -850,18 +798,6 @@ export default function SellerProducts() {
           <button
             onClick={() => {
               setEditingProduct(null);
-              setIsNewDropInitial(true);
-              setIsWizardModalOpen(true);
-            }}
-            disabled={accountStatus.toLowerCase() === "suspended"}
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-black bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <span className="text-sm">⚡</span> Add New Drop
-          </button>
-          <button
-            onClick={() => {
-              setEditingProduct(null);
-              setIsNewDropInitial(false);
               setIsWizardModalOpen(true);
             }}
             disabled={accountStatus.toLowerCase() === "suspended"}
@@ -882,7 +818,7 @@ export default function SellerProducts() {
       )}
 
       {/* Quick Stream Metrics Breakdown Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div
           onClick={() => { setActiveTab("ALL"); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "ALL"
@@ -896,42 +832,15 @@ export default function SellerProducts() {
         </div>
 
         <div
-          onClick={() => { setActiveTab("PREMIUM"); setCurrentPage(1); }}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "PREMIUM"
+          onClick={() => { setActiveTab("ZEBQUICK"); setCurrentPage(1); }}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "ZEBQUICK"
               ? "bg-amber-950/40 border-amber-500/60 shadow-md shadow-amber-500/10"
               : "bg-zinc-950/80 border-zinc-800/80 hover:border-amber-500/30"
             }`}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">💎 Premium Store</span>
-            <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
-          </div>
-          <p className="text-2xl font-black text-amber-400 mt-1">{premiumCount}</p>
-          <span className="text-[10px] font-semibold text-amber-500/80">Luxury atelier stream</span>
-        </div>
-
-        <div
-          onClick={() => { setActiveTab("NORMAL"); setCurrentPage(1); }}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "NORMAL"
-              ? "bg-sky-950/40 border-sky-500/60 shadow-md shadow-sky-500/10"
-              : "bg-zinc-950/80 border-zinc-800/80 hover:border-sky-500/30"
-            }`}
-        >
-          <span className="text-[10px] font-black uppercase tracking-wider text-sky-400">🏷️ Normal Apparel</span>
-          <p className="text-2xl font-black text-white mt-1">{normalCount}</p>
-          <span className="text-[10px] font-semibold text-sky-500/80">Standard everyday items</span>
-        </div>
-
-        <div
-          onClick={() => { setActiveTab("DROPS"); setCurrentPage(1); }}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === "DROPS"
-              ? "bg-orange-950/40 border-orange-500/60 shadow-md shadow-orange-500/10"
-              : "bg-zinc-950/80 border-zinc-800/80 hover:border-orange-500/30"
-            }`}
-        >
-          <span className="text-[10px] font-black uppercase tracking-wider text-orange-400">⚡ New Drops</span>
-          <p className="text-2xl font-black text-white mt-1">{dropCount}</p>
-          <span className="text-[10px] font-semibold text-orange-500/80">Hype release catalog</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">⚡ ZebQuick Eligible</span>
+          <p className="text-2xl font-black text-amber-300 mt-1">{zebQuickEligibleCount}</p>
+          <span className="text-[10px] font-semibold text-amber-500/80">5–6 Hr Quick Commerce catalog</span>
         </div>
       </div>
 
@@ -939,9 +848,6 @@ export default function SellerProducts() {
       <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 overflow-x-auto no-scrollbar">
         {[
           { key: "ALL", label: `🏷️ All Items (${products.length})` },
-          { key: "PREMIUM", label: `💎 Premium Store Items (${premiumCount})`, highlight: "text-amber-400 border-amber-500/40 bg-amber-500/10" },
-          { key: "NORMAL", label: `🏷️ Normal Apparel (${normalCount})`, highlight: "text-sky-400 border-sky-500/40 bg-sky-500/10" },
-          { key: "DROPS", label: `⚡ New Drops (${dropCount})`, highlight: "text-orange-400 border-orange-500/40 bg-orange-500/10" },
           { key: "ZEBQUICK", label: `⚡ ZebQuick Eligible (${zebQuickEligibleCount})`, highlight: "text-amber-300 border-amber-500/50 bg-amber-500/15" },
         ].map((tab) => (
           <button
@@ -1095,22 +1001,19 @@ export default function SellerProducts() {
         <div className="rounded-3xl border-2 border-dashed border-foreground/[0.08] p-12 text-center text-text-muted">
           <ShoppingBag size={48} className="mx-auto mb-4 opacity-40" />
           <h3 className="text-lg font-black text-foreground">
-            {activeTab === "PREMIUM" ? "No 💎 Premium Store Products Found" : activeTab === "DROPS" ? "No ⚡ New Drops Found" : "No Products Listed"}
+            No Products Listed
           </h3>
           <p className="text-xs font-bold mt-1 max-w-sm mx-auto">
-            {activeTab === "PREMIUM"
-              ? "Check 'Flag as Premium Store Item' when creating/editing products to list them here."
-              : "Get started by creating your product listing for the ZEB-ALPHA storefront."}
+            Get started by creating your product listing for the ZEB-ALPHA storefront.
           </p>
           <button
             onClick={() => {
               setEditingProduct(null);
-              setIsNewDropInitial(activeTab === "DROPS");
               setIsWizardModalOpen(true);
             }}
             className="mt-6 rounded-2xl border border-white/20 px-5 py-3 text-xs font-black text-white hover:bg-white/10 transition-all cursor-pointer"
           >
-            {activeTab === "DROPS" ? "⚡ Add New Drop Now" : "Add Product Now"}
+            Add Product Now
           </button>
         </div>
       ) : (
@@ -1130,10 +1033,7 @@ export default function SellerProducts() {
                 {paginatedProducts.map((product) => (
                   <tr
                     key={product.id}
-                    className={`transition-all ${product.is_premium
-                        ? "bg-amber-500/[0.02] hover:bg-amber-500/[0.05]"
-                        : "hover:bg-foreground/[0.01]"
-                      }`}
+                    className="transition-all hover:bg-foreground/[0.01]"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
@@ -1145,51 +1045,15 @@ export default function SellerProducts() {
                             decoding="async"
                             width={56}
                             height={56}
-                            className={`h-14 w-14 rounded-2xl object-cover border ${product.is_premium
-                                ? "border-amber-500/50 shadow-md shadow-amber-500/20"
-                                : "border-foreground/[0.08]"
-                              }`}
+                            className="h-14 w-14 rounded-2xl object-cover border border-foreground/[0.08]"
                           />
-                          {product.is_premium && (
-                            <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-amber-400 text-black flex items-center justify-center text-[10px] shadow font-black" title="Premium Product">
-                              💎
-                            </span>
-                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-black text-foreground text-sm">{product.name}</p>
-
-                            {/* Prominent Stream Badge (Normal vs Premium) */}
-                            {product.is_premium ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 text-amber-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm">
-                                💎 PREMIUM STORE
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
-                                🏷️ NORMAL APPAREL
-                              </span>
-                            )}
-
-                            {isProductNewDrop(product) && (
-                              isDropLive(product) ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
-                                  🔥 DROP LIVE
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
-                                  ⚡ UPCOMING DROP
-                                </span>
-                              )
-                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <p className="text-[10px] font-bold text-text-muted">SKU: {product.sku || "N/A"}</p>
-                            {isProductNewDrop(product) && (
-                              <span className="text-[10px] font-semibold text-orange-400/90 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-md">
-                                📅 {getDropDisplayStatus(product).dateText}
-                              </span>
-                            )}
                             {(product.collection || (product.specifications as any)?.collection) && (
                               <span className="text-[10px] font-semibold text-zinc-400 bg-foreground/[0.05] border border-foreground/[0.08] px-2 py-0.5 rounded-md">
                                 🏷️ {product.collection || (product.specifications as any)?.collection}
@@ -1217,38 +1081,23 @@ export default function SellerProducts() {
                       {(product as any).categories?.name || "General"}
                     </td>
                     <td className="px-6 py-4">
-                      {product.is_new_drop && (!product.price || Number(product.price) === 0) ? (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30">
-                          <span>⚡</span> Drop Teaser
-                        </div>
-                      ) : (
-                        <>
-                          <div className="font-black text-foreground text-base">₹{product.price}</div>
-                          {product.mrp && product.mrp > product.price && (
-                            <div className="text-[11px] font-bold text-text-muted line-through">₹{product.mrp}</div>
-                          )}
-                        </>
+                      <div className="font-black text-foreground text-base">₹{product.price}</div>
+                      {product.mrp && product.mrp > product.price && (
+                        <div className="text-[11px] font-bold text-text-muted line-through">₹{product.mrp}</div>
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      {isProductNewDrop(product) ? (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                          <span className="h-1.5 w-1.5 rounded-full bg-orange-400 animate-pulse" />
-                          <span>Hype Teaser (No Stock)</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className={`h-2.5 w-2.5 rounded-full ${(product.stock ?? 0) === 0
-                              ? "bg-rose-500"
-                              : (product.stock ?? 0) <= (product.low_stock_limit ?? 5)
-                                ? "bg-amber-500"
-                                : "bg-emerald-500"
-                            }`} />
-                          <span className="font-bold text-text-secondary">
-                            {product.stock ?? 0} in stock
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${(product.stock ?? 0) === 0
+                            ? "bg-rose-500"
+                            : (product.stock ?? 0) <= (product.low_stock_limit ?? 5)
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
+                          }`} />
+                        <span className="font-bold text-text-secondary">
+                          {product.stock ?? 0} in stock
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -1379,8 +1228,6 @@ export default function SellerProducts() {
           isWizardModalOpen
             ? editingProduct?.id
               ? `edit-${editingProduct.id}`
-              : isNewDropInitial
-              ? "new-drop"
               : "new-product"
             : "closed"
         }
@@ -1388,9 +1235,7 @@ export default function SellerProducts() {
         onClose={() => {
           setIsWizardModalOpen(false);
           setEditingProduct(null);
-          setIsNewDropInitial(false);
         }}
-        initialIsNewDrop={isNewDropInitial}
         sellerId={sellerId || userId}
         sellerProfile={sellerProfile}
         categories={categories}

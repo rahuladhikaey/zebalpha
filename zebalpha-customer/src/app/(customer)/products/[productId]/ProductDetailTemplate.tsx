@@ -17,7 +17,6 @@ import { PackageSelection } from "@/components/PackageSelection";
 import { normalizeProductImages, isDeadLegacySupabaseImage } from "@/lib/productImageUtils";
 import { VirtualTryOnButton } from "@/components/vto/VirtualTryOnButton";
 
-import { isProductNewDrop, isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { evaluateProductTryOnEligibility } from "@/shared/constants/tryOnEligibility";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
@@ -888,10 +887,10 @@ export default function ProductDetailTemplate({
     [product.video_proof_url, product.specifications]
   );
 
-  const isNewDrop = useMemo(() => isProductNewDrop(product), [product]);
-  const isLive = useMemo(() => isDropLive(product), [product]);
-  const isUpcomingDrop = isNewDrop && !isLive;
-  const dropStatusInfo = useMemo(() => getDropDisplayStatus(product), [product]);
+  const isNewDrop = false;
+  const isLive = true;
+  const isUpcomingDrop = false;
+  const dropStatusInfo = { label: "", badgeLabel: "", dateText: "", isLive: true, targetDate: null as Date | null, countdownLabel: "" };
 
   const handleNotifyDrop = () => {
     setIsDropNotified(true);

@@ -235,7 +235,6 @@ export function Footer() {
               <ul className="mt-5 space-y-2.5 text-sm text-neutral-100 font-bold drop-shadow">
                 <li><Link href="/products" className="transition hover:text-white block">Shop All Products</Link></li>
                 <li><Link href="/customize" className="transition hover:text-amber-300 text-amber-200 block">Custom Print Studio</Link></li>
-                <li><Link href="/new-drops" className="transition hover:text-white block">New Season Drops</Link></li>
                 <li><Link href="/category/oversized-t-shirts" className="transition hover:text-white block">Oversized T-Shirts (240 GSM)</Link></li>
                 <li><Link href="/category/polos" className="transition hover:text-white block">Polo T-Shirts</Link></li>
                 <li><Link href="/category/hoodies" className="transition hover:text-white block">Hoodies &amp; Sweatshirts</Link></li>

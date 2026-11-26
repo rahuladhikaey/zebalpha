@@ -161,7 +161,7 @@ export default function NotificationsBroadcastView() {
                 type="text"
                 value={actionUrl}
                 onChange={e => setActionUrl(e.target.value)}
-                placeholder="/new-drops or /products"
+                placeholder="/products or /categories"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>

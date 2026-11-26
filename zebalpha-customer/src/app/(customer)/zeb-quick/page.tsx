@@ -18,6 +18,7 @@ export default function ZebQuickHomePage() {
     selectedMainCategory,
     setSelectedMainCategory,
     mainCategories,
+    subcategories,
   } = useZebQuick();
   const [products, setProducts] = useState<ZebQuickProductRecord[]>([]);
   const [bestsellerGroups, setBestsellerGroups] = useState<
@@ -125,38 +126,11 @@ export default function ZebQuickHomePage() {
     );
   }
 
+  const liveSubSlugs = new Set(products.map((p) => p.subcategory_slug).filter(Boolean));
+
   return (
-    <div className="mx-auto max-w-5xl px-3.5 py-4 space-y-4">
-      {/* Express Hero Banner */}
-      <div className="rounded-3xl bg-gradient-to-r from-[#F8CB46] via-[#FDE68A] to-[#FEF3C7] p-4 sm:p-5 text-neutral-950 border border-amber-300/70 shadow-xs">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="inline-flex items-center gap-1 rounded-full bg-neutral-950 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#F8CB46]">
-              <Zap className="h-3 w-3 fill-[#F8CB46]" />
-              5–6 Hour Delivery
-            </div>
-            <h1 className="mt-2 text-lg sm:text-xl font-black leading-tight">
-              Daily Essentials &amp; Innerwear at Express Speed
-            </h1>
-            <p className="mt-1 text-xs font-semibold text-neutral-700">
-              Free delivery above ₹{ZEB_QUICK_FREE_DELIVERY_MIN} • Discreet sealed hygiene packaging
-            </p>
-          </div>
-          <img
-            src="/zeb-quick-icon.png"
-            alt="ZebQuick"
-            className="h-14 w-20 object-contain shrink-0 rounded-xl bg-white p-1.5 shadow-xs"
-          />
-        </div>
-      </div>
-
-      {/* Hygiene & Discreet Trust Strip */}
-      <div className="flex items-center gap-2 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 px-3.5 py-2 text-[11px] font-bold text-emerald-900">
-        <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-        <span>100% Discreet Opaque Packaging • Local Verified Stores • Delivered within 5–6 Hours</span>
-      </div>
-
-      {/* Blinkit-style Bestsellers 2x2 Collage Grid */}
+    <div className="mx-auto max-w-5xl px-3.5 py-4 space-y-5">
+      {/* Blinkit-style Bestsellers 2x2 Collage Grid right at the top when live products exist */}
       {!searchQuery.trim() && bestsellerGroups.length > 0 && (
         <section className="space-y-2.5">
           <h2 className="text-base font-black tracking-tight text-neutral-950">Bestsellers</h2>
@@ -202,40 +176,73 @@ export default function ZebQuickHomePage() {
         </section>
       )}
 
-      {/* Main Category Cards Grid (Tap to open Blinkit Split Subcategory View) */}
-      {!searchQuery.trim() && mainCategories.length > 0 && (
-        <section className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-black text-neutral-900">Shop by Category</h2>
-            <Link href="/zeb-quick/categories" className="text-xs font-extrabold text-emerald-700">
-              See all →
-            </Link>
-          </div>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
-            {mainCategories.map((mc) => (
-              <button
-                key={mc.id || mc.name}
-                type="button"
-                onClick={() => {
-                  setSelectedMainCategory(mc.name);
-                  setSplitSubSlug("__ALL__");
-                }}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-neutral-200/80 bg-white p-3 text-center shadow-xs transition hover:border-amber-400 active:scale-95 cursor-pointer"
-              >
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-amber-50 text-neutral-900">
-                  {mc.image_url ? (
-                    <img src={mc.image_url} alt={mc.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-xs font-black text-amber-800">{mc.name.slice(0, 2).toUpperCase()}</span>
-                  )}
+      {/* Blinkit-style Main Category Headings + 4-Column Subcategory Cards (only live in this pincode when products exist) */}
+      {!searchQuery.trim() && products.length > 0 && mainCategories.length > 0 && (
+        <div className="space-y-5">
+          {mainCategories.map((mc) => {
+            const allGroupSubs = subcategories.filter((s) => s.category_group === mc.name);
+            const liveGroupSubs = allGroupSubs.filter((s) => liveSubSlugs.has(s.slug));
+            const subsToShow = liveGroupSubs.length > 0 ? liveGroupSubs : [];
+            if (subsToShow.length === 0) return null;
+
+            return (
+              <section key={mc.id || mc.name} className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-black tracking-tight text-neutral-950">{mc.name}</h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMainCategory(mc.name);
+                      setSplitSubSlug("__ALL__");
+                    }}
+                    className="text-xs font-extrabold text-emerald-700 cursor-pointer"
+                  >
+                    See all →
+                  </button>
                 </div>
-                <span className="text-[11px] font-extrabold text-neutral-900 leading-tight line-clamp-2">
-                  {mc.name}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
+                <div className="grid grid-cols-4 gap-2.5 sm:gap-3.5">
+                  {subsToShow.map((sub) => (
+                    <button
+                      key={sub.slug}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMainCategory(mc.name);
+                        setSplitSubSlug(sub.slug);
+                      }}
+                      className="flex flex-col items-center text-center group cursor-pointer active:scale-95 transition"
+                    >
+                      <div className="aspect-square w-full overflow-hidden rounded-2xl bg-[#EEF6F6] p-2 flex items-center justify-center border border-neutral-200/50 group-hover:border-emerald-400 transition">
+                        {sub.image_url ? (
+                          <img
+                            src={sub.image_url}
+                            alt={sub.name}
+                            loading="lazy"
+                            className="h-full w-full object-contain rounded-xl"
+                          />
+                        ) : (
+                          <span className="text-xs font-black text-emerald-800">
+                            {sub.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <span className="mt-1.5 line-clamp-2 text-[11px] font-bold text-neutral-900 leading-tight">
+                        {sub.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Hygiene & Discreet Trust Strip */}
+      {products.length > 0 && (
+        <div className="flex items-center gap-2 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 px-3.5 py-2 text-[11px] font-bold text-emerald-900">
+          <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+          <span>100% Discreet Opaque Packaging • Local Verified Stores • Delivered within 5–6 Hours</span>
+        </div>
       )}
 
       {/* Product Grid */}

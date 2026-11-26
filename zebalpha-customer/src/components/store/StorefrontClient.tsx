@@ -129,7 +129,6 @@ export function StorefrontClient({
             alt={product.name}
             href={`/products/${product.id}`}
             discountPercent={discountPercent}
-            isPremium={product.is_premium || product.tier === "PREMIUM"}
             isAboveTheFold={idx < 4}
           />
           <div className="absolute right-2 top-2 z-30">

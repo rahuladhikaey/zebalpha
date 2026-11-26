@@ -16,8 +16,6 @@ import { useOfficialTheme } from "@/lib/platform";
 import { Star } from "lucide-react";
 import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 
-import { isProductNewDrop } from "@/lib/dropUtils";
-
 interface InfiniteProductFeedProps {
   initialProducts: Product[];
   brandFilter?: string;
@@ -31,7 +29,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
   const { recommendedBatchSize, prefetchMargin, isOnline } = useNetworkAdaptive();
   const currentBatchSize = isOnline ? recommendedBatchSize : 20;
 
-  const cleanInitial = (initialProducts || []).filter((p) => !isProductNewDrop(p));
+  const cleanInitial = initialProducts || [];
   const [products, setProducts] = useState<Product[]>(cleanInitial);
   // SSR fetches up to 20 items; if fewer than 20 returned, catalog has no further pages
   const [hasMore, setHasMore] = useState(cleanInitial.length >= 20);
@@ -54,7 +52,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
 
   // Sync initial products when SSR revalidates (filtering out any new drops)
   useEffect(() => {
-    const clean = (initialProducts || []).filter((p) => !isProductNewDrop(p));
+    const clean = initialProducts || [];
     if (clean.length > 0) {
       setProducts(clean);
       setHasMore(clean.length >= 20);
@@ -87,8 +85,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
           const rows = Array.isArray(json?.items) ? json.items : [];
 
           if (isMounted && rows.length > 0) {
-            const nonDrops = rows.filter((p: any) => !isProductNewDrop(p));
-            setProducts(nonDrops);
+            setProducts(rows);
             setNextCursor(json?.nextCursor || null);
             setHasMore(Boolean(json?.hasMore));
           }
@@ -124,7 +121,7 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
       const rows = Array.isArray(json?.items) ? json.items : [];
 
       if (rows.length > 0) {
-        const nonDrops: Product[] = rows.filter((p: any) => !isProductNewDrop(p));
+        const nonDrops: Product[] = rows;
         setProducts((prev) => {
           const existingIds = new Set(prev.map((p) => p.id));
           const uniqueNew = nonDrops.filter((p) => !existingIds.has(p.id));
@@ -218,11 +215,6 @@ export function InfiniteProductFeed({ initialProducts = [], brandFilter }: Infin
                   alt={product.name}
                   href={`/products/${product.id}`}
                   discountPercent={discountPercent}
-                  isPremium={
-                    product.is_premium ||
-                    product.tier === "PREMIUM" ||
-                    (product.specifications as any)?.is_premium === "true"
-                  }
                   isAboveTheFold={idx < 4}
                 />
                 <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3 flex flex-col gap-1.5 items-center">

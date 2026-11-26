@@ -107,12 +107,10 @@ test("isProductEligibleForRecommendation enforces strict approval, active, stock
     isProductEligibleForRecommendation(
       makeProduct({
         tier: "DROP",
-        is_new_drop: true,
-        specifications: { target_drop_date: "2099-01-01T00:00:00Z" },
       }),
       sellers
     ),
-    false
+    true
   );
   assert.equal(
     isProductEligibleForRecommendation(makeProduct({ seller_id: "seller-suspended" }), sellers),

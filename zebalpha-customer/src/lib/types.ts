@@ -77,11 +77,8 @@ export type Product = {
   virtual_tryon_image?: string;
   virtual_tryon_category?: 'upper_body' | 'lower_body' | 'dresses' | 'outerwear' | string;
   is_vto_enabled?: boolean;
-  is_premium?: boolean;
-  is_new_drop?: boolean;
   collection?: string;
-  drop_date?: string;
-  tier?: 'STANDARD' | 'PREMIUM' | 'LIMITED' | string;
+  tier?: 'STANDARD' | 'LIMITED' | string;
   default_color?: string;
   main_color?: string;
   mainColorId?: string;

@@ -350,7 +350,7 @@ export const DEFAULT_HOME_SECTIONS: ExperienceHomeSectionItem[] = [
     app_enabled: true,
     style_variant: "default",
     target_audience: "all",
-    destination_url: "/new-drops",
+    destination_url: "/products",
     settings_json: { show_first_order_slide: true, show_new_drop_slide: true },
   },
   {
@@ -950,7 +950,7 @@ export function validateDestinationUrl(type: BannerDestinationType, value: strin
   if (type === "product") return { valid: true, normalizedUrl: `/products/${clean}` };
   if (type === "category") return { valid: true, normalizedUrl: `/products?category=${encodeURIComponent(clean)}` };
   if (type === "collection") return { valid: true, normalizedUrl: `/collections` };
-  if (type === "campaign") return { valid: true, normalizedUrl: `/new-drops` };
+  if (type === "campaign") return { valid: true, normalizedUrl: `/products` };
   return { valid: true, normalizedUrl: `/${clean}` };
 }
 

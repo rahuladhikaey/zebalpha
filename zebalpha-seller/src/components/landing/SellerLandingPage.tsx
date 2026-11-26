@@ -795,7 +795,7 @@ export function SellerLandingPage() {
                   Free Catalog Visibility Boost
                 </h3>
                 <p className="mt-2.5 text-sm text-[#5C4E35] leading-relaxed">
-                  Get featured discovery placement inside New Drops &amp; Trending Picks on ZebAlpha Web &amp; App to attract your first buyers quickly.
+                  Get featured discovery placement inside Trending Picks on ZebAlpha Web &amp; App to attract your first buyers quickly.
                 </p>
               </div>
 

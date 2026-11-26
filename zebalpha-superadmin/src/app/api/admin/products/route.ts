@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   try {
     await requireSuperAdmin(req);
 
-    const VALID_ADMIN_PRODUCT_FIELDS = "id, name, slug, description, price, mrp, stock, low_stock_limit, status, is_premium, is_new_drop, tier, collection, target_drop_date, is_active, is_approved, approval_status, category_id, brand, seller_id, created_at, updated_at, image_url, images, video_proof_url, specifications, packages";
+    const VALID_ADMIN_PRODUCT_FIELDS = "id, name, slug, description, price, mrp, stock, low_stock_limit, status, tier, collection, is_active, is_approved, approval_status, category_id, brand, seller_id, created_at, updated_at, image_url, images, video_proof_url, specifications, packages";
 
     let { data: products, error } = await supabaseServer
       .from("products")

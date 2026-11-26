@@ -10,7 +10,6 @@ import {
   rankProductsByQueryConcepts,
 } from "@/lib/multilingualSearch";
 import { attachRatingsToProducts, fetchProductRatingSummaries } from "@/lib/productRatings";
-import { isProductNewDrop } from "@/lib/dropUtils";
 import type { Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -170,7 +169,7 @@ async function fetchSellerMatchingProducts(
       const st = String(p.status || "").toUpperCase();
       if (["DELETED", "COMING_SOON", "BLOCKED", "DRAFT"].includes(st)) return false;
       if (String(p.approval_status || "").toLowerCase() === "rejected") return false;
-      return !isProductNewDrop(p as unknown as Product);
+      return true;
     })
     .map((p: Record<string, unknown>) => {
       const specs = (p.specifications as Record<string, unknown>) || {};

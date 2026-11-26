@@ -262,45 +262,6 @@ export default function DashboardOverview({
       const valid = filtered.filter((o) => o.order_status !== "CANCELLED" && o.order_status !== "RETURNED");
       const rev = valid.reduce((sum, o) => sum + o.total_amount, 0);
 
-      // Separate Premium vs Standard breakdown
-      let premiumRev = 0;
-      let standardRev = 0;
-      let premiumOrdersCount = 0;
-      let standardOrdersCount = 0;
-
-      valid.forEach((o) => {
-        let hasPremium = false;
-        let oPrem = 0;
-        let oStd = 0;
-        try {
-          const items = typeof o.product_details === "string" ? JSON.parse(o.product_details) : o.product_details;
-          if (Array.isArray(items) && items.length > 0) {
-            items.forEach((item: any) => {
-              const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
-              const isPrem = item.is_premium === true || item.tier === 'PREMIUM' ||
-                (item.name || item.product_name || '').toLowerCase().includes('premium') ||
-                (item.name || item.product_name || '').toLowerCase().includes('supima') ||
-                products.some((p) => (p.name === (item.name || item.product_name) || p.id === item.id) && (p.is_premium || p.tier === 'PREMIUM' || (p.category || '').toLowerCase().includes('premium')));
-              if (isPrem) {
-                oPrem += itemTotal;
-                hasPremium = true;
-              } else {
-                oStd += itemTotal;
-              }
-            });
-          } else {
-            oStd = o.total_amount;
-          }
-        } catch {
-          oStd = o.total_amount;
-        }
-        if (oPrem === 0 && oStd === 0) oStd = o.total_amount;
-        premiumRev += oPrem;
-        standardRev += oStd;
-        if (hasPremium) premiumOrdersCount++;
-        else standardOrdersCount++;
-      });
-
       const profit = rev * 0.35;
       const aov = valid.length > 0 ? rev / valid.length : 0;
       const lowStk = products.filter((p) => p.stock !== undefined && p.stock <= (p.low_stock_limit || 5)).length;
@@ -308,14 +269,9 @@ export default function DashboardOverview({
       const headers = ["Metric Category", "Indicator / Statistic", "Value"];
       const rows = [
         ["Financials", "Total Sales Revenue", formatCurrency(rev)],
-        ["Financials - Streams", "💎 Premium Store Sales Revenue", formatCurrency(premiumRev)],
-        ["Financials - Streams", "🏷️ Standard Apparel Sales Revenue", formatCurrency(standardRev)],
-        ["Financials - Streams", "💎 Premium Sales Contribution", `${rev > 0 ? Math.round((premiumRev / rev) * 100) : 0}%`],
         ["Financials", "Estimated Profit (35%)", formatCurrency(profit)],
         ["Financials", "Average Order Value (AOV)", formatCurrency(aov)],
         ["Orders", "Total Orders Placed", filtered.length],
-        ["Orders", "💎 Orders with Premium Items", premiumOrdersCount],
-        ["Orders", "🏷️ Standard Orders", standardOrdersCount],
         ["Orders", "Delivered Orders", filtered.filter(o => o.order_status === "DELIVERED").length],
         ["Orders", "Shipped Orders", filtered.filter(o => o.order_status === "SHIPPED").length],
         ["Orders", "Processing Orders", filtered.filter(o => o.order_status === "PROCESSING").length],
@@ -356,48 +312,21 @@ export default function DashboardOverview({
         "Reporting Date",
         "Total Orders",
         "Gross Revenue",
-        "💎 Premium Sales",
-        "🏷️ Standard Sales",
         "Net Revenue",
         "Average Order Value (AOV)",
       ];
 
       const rows = Object.entries(dayGroups).map(([dateStr, dayOrders]) => {
         const grossRev = dayOrders.reduce((sum, o) => sum + o.total_amount, 0);
-        let dayPrem = 0;
-        let dayStd = 0;
-
-        dayOrders.forEach((o) => {
-          let oP = 0;
-          let oS = 0;
-          try {
-            const items = typeof o.product_details === "string" ? JSON.parse(o.product_details) : o.product_details;
-            if (Array.isArray(items)) {
-              items.forEach((item: any) => {
-                const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
-                const isPrem = item.is_premium === true || item.tier === 'PREMIUM' ||
-                  (item.name || item.product_name || '').toLowerCase().includes('premium') ||
-                  (item.name || item.product_name || '').toLowerCase().includes('supima') ||
-                  products.some((p) => (p.name === (item.name || item.product_name) || p.id === item.id) && (p.is_premium || p.tier === 'PREMIUM' || (p.category || '').toLowerCase().includes('premium')));
-                if (isPrem) oP += itemTotal;
-                else oS += itemTotal;
-              });
-            }
-          } catch {}
-          if (oP === 0 && oS === 0) oS = o.total_amount;
-          dayPrem += oP;
-          dayStd += oS;
-        });
-
         const refund = 0;
         const netRev = grossRev - refund;
         const aov = dayOrders.length > 0 ? netRev / dayOrders.length : 0;
-        return [dateStr, dayOrders.length, grossRev, dayPrem, dayStd, netRev, aov];
+        return [dateStr, dayOrders.length, grossRev, netRev, aov];
       })
       .filter(row => matchesSearch(String(row[0])))
       .sort((a, b) => new Date(String(a[0]).split("/").reverse().join("-")).getTime() - new Date(String(b[0]).split("/").reverse().join("-")).getTime());
 
-      const totalRev = rows.reduce((sum, r) => sum + Number(r[5]), 0);
+      const totalRev = rows.reduce((sum, r) => sum + Number(r[3]), 0);
 
       return {
         headers,
@@ -522,11 +451,9 @@ export default function DashboardOverview({
       if (activeReportId === "revenue") {
         const totalOrders = finalRows.reduce((sum, r) => sum + Number(r[1]), 0);
         const totalGross = finalRows.reduce((sum, r) => sum + Number(r[2]), 0);
-        const totalPrem = finalRows.reduce((sum, r) => sum + Number(r[3]), 0);
-        const totalStd = finalRows.reduce((sum, r) => sum + Number(r[4]), 0);
-        const totalNet = finalRows.reduce((sum, r) => sum + Number(r[5]), 0);
+        const totalNet = finalRows.reduce((sum, r) => sum + Number(r[3]), 0);
         const avgAOV = totalOrders > 0 ? totalNet / totalOrders : 0;
-        finalRows.push([], ["TOTALS SUMMARY", totalOrders, totalGross, totalPrem, totalStd, totalNet, avgAOV]);
+        finalRows.push([], ["TOTALS SUMMARY", totalOrders, totalGross, totalNet, avgAOV]);
       } else if (activeReportId === "payments") {
         const totalAmt = finalRows.reduce((sum, r) => sum + Number(r[6]), 0);
         finalRows.push([], ["TOTALS", "", "", "", "", "", totalAmt, ""]);
@@ -559,63 +486,12 @@ export default function DashboardOverview({
     const totalProfit = totalRevenue * 0.35; // 35% estimated gross profit margin
     const aov = validOrders.length > 0 ? totalRevenue / validOrders.length : 0;
 
-    // Helper to identify premium items
-    const isItemPrem = (item: any) => {
-      if (!item) return false;
-      if (item.is_premium === true || item.tier === 'PREMIUM') return true;
-      const match = (products || []).find((p) => p && (p.name === (item.name || item.product_name) || (item.id && p.id === item.id)));
-      if (match) {
-        if (match.is_premium || match.tier === 'PREMIUM') return true;
-        const cat = (match.category || "").toLowerCase();
-        if (cat.includes("premium") || cat.includes("luxe")) return true;
-      }
-      const name = (item.name || item.product_name || "").toLowerCase();
-      return name.includes("premium") || name.includes("supima") || name.includes("luxe");
-    };
-
-    const calcStreamBreakdown = (orderList: Order[]) => {
-      let prem = 0;
-      let std = 0;
-      orderList.forEach((o) => {
-        let oPrem = 0;
-        let oStd = 0;
-        try {
-          const items = typeof o.product_details === "string" ? JSON.parse(o.product_details) : o.product_details;
-          if (Array.isArray(items) && items.length > 0) {
-            items.forEach((item: any) => {
-              const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
-              if (isItemPrem(item)) {
-                oPrem += itemTotal;
-              } else {
-                oStd += itemTotal;
-              }
-            });
-          } else {
-            oStd = o.total_amount;
-          }
-        } catch {
-          oStd = o.total_amount;
-        }
-        if (oPrem === 0 && oStd === 0) oStd = o.total_amount;
-        prem += oPrem;
-        std += oStd;
-      });
-      return { prem, std };
-    };
-
-    const totalStreams = calcStreamBreakdown(validOrders);
-    const premiumRevenue = totalStreams.prem;
-    const standardRevenue = totalStreams.std;
-    const premiumShare = totalRevenue > 0 ? Math.round((premiumRevenue / totalRevenue) * 100) : 0;
-    const standardShare = 100 - premiumShare;
-
     // Daily/Yesterday/Weekly/Monthly calculations for compared period
     const startOfToday = getStartOfToday();
     const todayOrders = validOrders.filter(
       (o) => parseDate(o.created_at) >= startOfToday
     );
     const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total_amount, 0);
-    const todayStreams = calcStreamBreakdown(todayOrders);
 
     const yesterdayStart = new Date(startOfToday);
     yesterdayStart.setDate(yesterdayStart.getDate() - 1);
@@ -639,7 +515,6 @@ export default function DashboardOverview({
       (o) => parseDate(o.created_at) >= thisMonthStart
     );
     const thisMonthRevenue = thisMonthOrders.reduce((sum, o) => sum + o.total_amount, 0);
-    const thisMonthStreams = calcStreamBreakdown(thisMonthOrders);
 
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
@@ -651,23 +526,15 @@ export default function DashboardOverview({
 
     return {
       totalRevenue,
-      premiumRevenue,
-      standardRevenue,
-      premiumShare,
-      standardShare,
       todayRevenue,
-      todayPremiumRevenue: todayStreams.prem,
-      todayStandardRevenue: todayStreams.std,
       yesterdayRevenue,
       thisWeekRevenue,
       thisMonthRevenue,
-      thisMonthPremiumRevenue: thisMonthStreams.prem,
-      thisMonthStandardRevenue: thisMonthStreams.std,
       lastMonthRevenue,
       totalProfit,
       aov,
     };
-  }, [filteredOrders, products]);
+  }, [filteredOrders]);
 
   // 2. ORDER METRICS
   const orderStats = useMemo(() => {
@@ -1287,70 +1154,18 @@ export default function DashboardOverview({
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-              Financial Dashboard & Revenue Streams
+              Financial Dashboard &amp; Revenue Overview
             </h3>
           </div>
-
-          {/* Revenue Stream Split Pill */}
-          <div className="flex items-center gap-2 text-xs font-bold">
-            <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center gap-1.5">
-              <span>💎 Premium Store:</span>
-              <span className="font-mono text-white font-black">{revenueStats.premiumShare}%</span>
-            </span>
-            <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center gap-1.5">
-              <span>🏷️ Standard:</span>
-              <span className="font-mono text-white font-black">{revenueStats.standardShare}%</span>
-            </span>
-          </div>
         </div>
 
-        {/* Visual Revenue Stream Bar */}
-        <div className="bg-zinc-900/80 border border-zinc-800 p-4 rounded-2xl">
-          <div className="flex items-center justify-between text-xs font-bold text-zinc-400 mb-2">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
-              <span className="text-zinc-200">💎 Premium Store Sales:</span>
-              <span className="text-amber-400 font-mono font-black">₹{Math.round(revenueStats.premiumRevenue).toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-sky-400"></span>
-              <span className="text-zinc-200">🏷️ Standard Apparel Sales:</span>
-              <span className="text-sky-400 font-mono font-black">₹{Math.round(revenueStats.standardRevenue).toLocaleString()}</span>
-            </div>
-          </div>
-          <div className="h-2.5 w-full bg-zinc-950 rounded-full overflow-hidden flex border border-zinc-800">
-            <div
-              style={{ width: `${revenueStats.premiumShare}%` }}
-              className="bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-500"
-              title={`Premium Store: ${revenueStats.premiumShare}%`}
-            />
-            <div
-              style={{ width: `${revenueStats.standardShare}%` }}
-              className="bg-gradient-to-r from-sky-500 to-blue-500 transition-all duration-500"
-              title={`Standard Apparel: ${revenueStats.standardShare}%`}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
             {
               label: "Total Gross Revenue",
               value: `₹${Math.round(revenueStats.totalRevenue).toLocaleString()}`,
               color: "emerald",
               desc: "Combined platform revenue",
-            },
-            {
-              label: "💎 Premium Store Revenue",
-              value: `₹${Math.round(revenueStats.premiumRevenue).toLocaleString()}`,
-              color: "amber",
-              desc: `${revenueStats.premiumShare}% of total gross volume`,
-            },
-            {
-              label: "🏷️ Standard Apparel Revenue",
-              value: `₹${Math.round(revenueStats.standardRevenue).toLocaleString()}`,
-              color: "sky",
-              desc: `${revenueStats.standardShare}% of total gross volume`,
             },
             {
               label: "Estimated Profit",
@@ -1368,13 +1183,13 @@ export default function DashboardOverview({
               label: "Today's Revenue",
               value: `₹${Math.round(revenueStats.todayRevenue).toLocaleString()}`,
               color: "emerald",
-              desc: `💎 ₹${Math.round(revenueStats.todayPremiumRevenue).toLocaleString()} | 🏷️ ₹${Math.round(revenueStats.todayStandardRevenue).toLocaleString()}`,
+              desc: "Revenue generated today",
             },
             {
               label: "This Month Revenue",
               value: `₹${Math.round(revenueStats.thisMonthRevenue).toLocaleString()}`,
               color: "rose",
-              desc: `💎 ₹${Math.round(revenueStats.thisMonthPremiumRevenue).toLocaleString()} | 🏷️ ₹${Math.round(revenueStats.thisMonthStandardRevenue).toLocaleString()}`,
+              desc: "Revenue in current month",
             },
             {
               label: "This Week Revenue",

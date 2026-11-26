@@ -11,7 +11,6 @@ import {
 import { CartItem, Product } from "@/lib/types";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/lib/supabaseClient";
-import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { trackRecommendationEvent } from "@/lib/recommendationClient";
 
 type CartContextValue = {
@@ -276,11 +275,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Add To Cart Handler
   const addToCart = async (product: Product, quantity = 1, packageName = "Standard") => {
-    // Block adding unreleased upcoming drops to cart before their drop date
-    if (isProductNewDrop(product) && !isDropLive(product)) {
-      console.warn("[Cart Notice]: Product is an upcoming drop and cannot be added to cart until release date.");
-      return;
-    }
 
     const maxStock = product.stock ?? Infinity;
     if (maxStock <= 0) return;

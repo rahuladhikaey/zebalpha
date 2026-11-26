@@ -39,8 +39,6 @@ function slimProductRow(p: any) {
   const trimmedImages = Array.isArray(p.images) ? p.images.filter(Boolean).slice(0, 3) : [];
   const slimSpecs: Record<string, any> = {};
   if (specs.tier) slimSpecs.tier = specs.tier;
-  if (specs.is_premium !== undefined) slimSpecs.is_premium = specs.is_premium;
-  if (specs.is_new_drop !== undefined) slimSpecs.is_new_drop = specs.is_new_drop;
   if (specs.collection) slimSpecs.collection = specs.collection;
   if (specs.category) slimSpecs.category = specs.category;
   if (specs.size_chart) slimSpecs.size_chart = true;
@@ -281,10 +279,6 @@ export async function GET(request: NextRequest) {
           const st = String(p.status || "").toUpperCase();
           if (st === "DELETED" || st === "COMING_SOON") return false;
           if (String(p.approval_status || "").toLowerCase() === "rejected") return false;
-          const specs = p.specifications || {};
-          if (p.tier === "DROP" || specs.tier === "DROP" || specs.is_new_drop === true || specs.is_new_drop === "true") {
-            return false;
-          }
           return true;
         });
         const hasMore = items.length > limit;

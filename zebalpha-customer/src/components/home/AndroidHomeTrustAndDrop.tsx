@@ -130,11 +130,10 @@ export function AndroidNewSeasonDropBanner({
     isFirstOrderEligible &&
     firstOrderConfig.discountAmount > 0;
 
-  const showNewDropSlide = showNewDropSlideConfig !== false;
+  const showNewDropSlide = false;
 
   const slideKeys: Array<"first-order" | "new-drop"> = [
     ...(showFirstOrderSlide ? (["first-order"] as const) : []),
-    ...(showNewDropSlide ? (["new-drop"] as const) : []),
   ];
 
   const totalSlides = slideKeys.length;
@@ -144,38 +143,6 @@ export function AndroidNewSeasonDropBanner({
   useEffect(() => {
     setActiveIndex(0);
   }, [showFirstOrderSlide, showNewDropSlide]);
-
-  // Only query Supabase on client if initialDropThumbs were not hydrated by SSR
-  useEffect(() => {
-    if (initialDropThumbs && initialDropThumbs.length > 0) {
-      setDropThumbs(initialDropThumbs);
-      return;
-    }
-    let active = true;
-    const fetchDropThumbs = async () => {
-      try {
-        const { data } = await supabase
-          .from("products")
-          .select("image_url")
-          .eq("is_active", true)
-          .order("is_new_drop", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(2);
-
-        if (!active || !data) return;
-        const urls = (data as Array<{ image_url?: string | null }>)
-          .map((item) => item.image_url)
-          .filter((u: string | null | undefined): u is string => Boolean(u && u.trim().length > 0));
-        setDropThumbs(urls);
-      } catch {
-        // Ignore and use crest fallback
-      }
-    };
-    fetchDropThumbs();
-    return () => {
-      active = false;
-    };
-  }, [initialDropThumbs]);
 
   if (totalSlides === 0) return null;
 

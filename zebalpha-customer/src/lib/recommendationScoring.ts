@@ -1,6 +1,5 @@
 import { Product } from "@/lib/types";
 import { getProductDisplayPricing } from "@/lib/productPricing";
-import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { detectProductFamily } from "@/lib/similarProducts";
 
 export type RecommendationEventType =
@@ -183,11 +182,6 @@ export function isProductEligibleForRecommendation(
     return false;
   }
 
-  // Upcoming drops remain hidden until live release
-  if (isProductNewDrop(product) && !isDropLive(product)) {
-    return false;
-  }
-
   // Must have valid purchasable inventory
   if (getAvailableStock(product) <= 0) {
     return false;
@@ -241,8 +235,6 @@ export function formatRecommendedProduct(
   let badgeLabel: string | undefined;
   if (isBestseller) {
     badgeLabel = "Bestseller";
-  } else if (product.is_premium || product.tier === "PREMIUM") {
-    badgeLabel = "Premium";
   } else if (pricing.hasDiscount && pricing.discountPercent >= 40) {
     badgeLabel = "Hot Deal";
   }
@@ -620,7 +612,6 @@ export function scoreAndRankRecommendations(params: {
       Math.min(30, (pop?.eventScore || 0) * 0.6) +
       (rev && rev.count > 0 ? rev.avg * 4 + Math.min(10, Math.log2(rev.count + 1) * 4) : 0) +
       (pricing.hasDiscount ? Math.min(10, pricing.discountPercent * 0.2) : 0) +
-      (prod.is_premium || prod.tier === "PREMIUM" ? 6 : 0) +
       freshnessScore;
 
     const totalScore =

@@ -75,8 +75,6 @@ export default function CollectionsPage() {
             const resolvedCatName = (p.category_id ? catMap.get(String(p.category_id)) : "") || p.category || specs.category || "Apparel";
             return {
               ...p,
-              is_premium: p.is_premium ?? (p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true"),
-              is_new_drop: p.is_new_drop ?? (specs.is_new_drop === true || specs.is_new_drop === "true" || p.status === "COMING_SOON"),
               tier: p.tier || specs.tier || "STANDARD",
               category: resolvedCatName,
               category_name: resolvedCatName,
@@ -148,8 +146,6 @@ export default function CollectionsPage() {
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {collections.map((col) => {
             const matchedProducts = products.filter((p) => {
-              if (col.categoryFilter === "premium-store") return p.is_premium || p.tier === "PREMIUM";
-              if (col.categoryFilter === "new-drops") return p.is_new_drop || p.status === "COMING_SOON";
               return doesProductMatchCategory(p, col.categoryFilter || col.title);
             });
 
@@ -157,15 +153,9 @@ export default function CollectionsPage() {
             const productWithImage = matchedProducts.find((p) => p.image_url || (p.images && p.images.length > 0));
             const cardImage = productWithImage ? (productWithImage.image_url || productWithImage.images?.[0]!) : col.image;
 
-            const isNewDropsCard = col.categoryFilter === "new-drops";
-            const isPremiumStoreCard = col.categoryFilter === "premium-store";
             const targetHref = col.link
               ? col.link
-              : isPremiumStoreCard 
-                ? "/premium-store" 
-                : isNewDropsCard 
-                  ? "/new-drops" 
-                  : `/products?category=${encodeURIComponent(col.categoryFilter)}`;
+              : `/products?category=${encodeURIComponent(col.categoryFilter)}`;
 
             return (
               <div
@@ -212,7 +202,7 @@ export default function CollectionsPage() {
                     href={targetHref}
                     className="inline-flex items-center gap-2 rounded-xl bg-white text-black font-black text-xs uppercase tracking-wider px-5 py-3 transition-all hover:bg-neutral-200 active:scale-95 shadow-md"
                   >
-                    <span>{isNewDropsCard ? "Preview Upcoming Drops" : "Explore Collection"}</span>
+                    <span>Explore Collection</span>
                     <ArrowUpRight className="h-4 w-4" />
                   </Link>
                 </div>
@@ -247,12 +237,6 @@ export default function CollectionsPage() {
               className="rounded-full border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-xs font-bold text-white hover:border-white transition-all"
             >
               👔 Shirts
-            </Link>
-            <Link
-              href="/new-drops"
-              className="rounded-full border border-white bg-white text-black px-5 py-2.5 text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition-all"
-            >
-              ⚡ New Drops
             </Link>
           </div>
         </div>

@@ -101,12 +101,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.95,
     },
     {
-      url: `${baseUrl}/new-drops`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.95,
-    },
-    {
       url: `${baseUrl}/categories`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
@@ -114,12 +108,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${baseUrl}/collections`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.85,
-    },
-    {
-      url: `${baseUrl}/premium-store`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.85,

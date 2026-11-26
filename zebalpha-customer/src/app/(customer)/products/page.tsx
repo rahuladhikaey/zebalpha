@@ -15,7 +15,6 @@ import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { ProductCardImageSlider } from "@/components/ProductCardImageSlider";
 import { Search, ShoppingBag, SlidersHorizontal, X, RotateCcw, Star, Mic, Store, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { VoiceSearchSheet, useVoiceSearch } from "@/components/VoiceSearchSheet";
-import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import {
   useCategories,
   usePaginatedProducts,
@@ -410,15 +409,6 @@ function ProductsContent() {
   // Multi-facet filter pipeline
   const filtered = useMemo(() => {
     return products.filter((product) => {
-      // 1. Upcoming drop check
-      const isNewDrop = isProductNewDrop(product);
-      const isLive = isDropLive(product);
-      const isDropFilter =
-        selectedCategory && String(selectedCategory).toLowerCase().includes("drop");
-      if (isNewDrop && !isLive && !isDropFilter) {
-        return false;
-      }
-
       // 2. Gender filter
       if (filters.genders.length > 0) {
         const prodText = `${product.name} ${product.description || ""} ${product.category_name || ""} ${JSON.stringify(product.specifications || {})}`.toLowerCase();
@@ -1490,11 +1480,6 @@ function ProductsContent() {
                             alt={product.name}
                             href={`/products/${product.id}`}
                             discountPercent={discountPercent}
-                            isPremium={
-                              product.is_premium ||
-                              product.tier === "PREMIUM" ||
-                              (product.specifications as any)?.is_premium === "true"
-                            }
                             isAboveTheFold={idx < 4}
                           />
                           <div className="absolute right-2 top-2 z-30 sm:right-3 sm:top-3 flex flex-col gap-1.5 items-center">
@@ -1592,20 +1577,7 @@ function ProductsContent() {
                             </div>
 
                             <div className="pt-1 flex items-center justify-between gap-2">
-                              {isProductNewDrop(product) && !isDropLive(product) ? (
-                                <Link
-                                  href={`/products/${product.id}`}
-                                  className={
-                                    isNativeApp
-                                      ? "w-full flex h-10 items-center justify-center rounded-xl border border-[#D4A017]/60 bg-[#FFF6D6] text-[#9A6503] text-[10px] font-black uppercase tracking-wider hover:bg-[#FCE38A] transition-all"
-                                      : "w-full flex h-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider hover:bg-amber-500/20 transition-all"
-                                  }
-                                >
-                                  ⚡ Dropping Soon
-                                </Link>
-                              ) : (
-                                <AddToCartButton product={product} />
-                              )}
+                              <AddToCartButton product={product} />
                             </div>
                           </div>
                         </div>

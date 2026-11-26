@@ -8,7 +8,7 @@ export interface FcmPushInput {
   url?: string;
   tag?: string;
   userId?: string | null;
-  target?: "all" | "customers" | "sellers" | "new_drops" | "orders" | "user";
+  target?: "all" | "customers" | "sellers" | "orders" | "user";
   topic?: string | null;
 }
 
@@ -369,7 +369,7 @@ export async function sendFcmPushServer(input: FcmPushInput): Promise<FcmPushRes
   let topicSent = false;
   const resolvedTopic =
     input.topic ||
-    (input.target === "all" || input.target === "customers" || input.target === "new_drops"
+    (input.target === "all" || input.target === "customers"
       ? "zebalpha_customers"
       : null);
 

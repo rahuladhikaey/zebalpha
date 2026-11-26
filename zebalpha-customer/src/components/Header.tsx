@@ -559,7 +559,6 @@ export function Header({
             {[
               { name: "Shop", href: "/products" },
               { name: "Custom Studio", href: "/customize" },
-              { name: "New Drops", href: "/new-drops" },
               { name: "About", href: "/about" },
               { name: "Sell", href: "/seller" },
               { name: "Blogs", href: "/blogs" },

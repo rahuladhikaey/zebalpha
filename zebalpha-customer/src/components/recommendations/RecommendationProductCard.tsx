@@ -7,7 +7,6 @@ import { WishlistButton } from "@/components/WishlistButton";
 import { DeliveryEstimateWidget } from "@/components/DeliveryEstimateWidget";
 import { useCart } from "@/context/CartContext";
 import { useVariantSelector } from "@/context/VariantSelectorContext";
-import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { trackRecommendationClick } from "@/lib/recommendationClient";
 import { IMAGE_VARIANTS } from "@/services/imageOptimizationService";
 import { Product } from "@/lib/types";
@@ -51,11 +50,10 @@ export function RecommendationProductCard({
         (Array.isArray(product.images) && product.images[0]) ||
         "");
 
-  const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
+  const isUpcomingDrop = false;
   const isOutOfStock =
-    !isUpcomingDrop &&
-    ((product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) ||
-      product.status === "OUT_OF_STOCK");
+    (product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) ||
+    product.status === "OUT_OF_STOCK";
 
   const productHref = `/products/${product.id}`;
 

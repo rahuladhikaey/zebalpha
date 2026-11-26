@@ -22,10 +22,7 @@ import {
   Filter, 
   CheckCircle2, 
   Boxes,
-  Crown,
-  Shirt,
   Sparkles,
-  Layers
 } from "lucide-react";
 import Link from "next/link";
 
@@ -42,7 +39,6 @@ const MONTH_NAMES = [
 ];
 
 type FilterType = "today" | "yesterday" | "this_week" | "this_month" | "specific_month" | "specific_day" | "custom" | "all";
-type StreamFilterType = "all" | "premium" | "standard";
 
 export default function SellerDashboard() {
   const [loading, setLoading] = useState(true);
@@ -71,7 +67,6 @@ export default function SellerDashboard() {
 
   // Filter controls state
   const [filterType, setFilterType] = useState<FilterType>("this_month");
-  const [streamFilter, setStreamFilter] = useState<StreamFilterType>("all");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<number>(0);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -92,9 +87,9 @@ export default function SellerDashboard() {
     setCustomEndDate(now.toISOString().split("T")[0]);
   }, []);
 
-  async function fetchCanonicalMetrics(fType = filterType, sFilter = streamFilter, cStart = customStartDate, cEnd = customEndDate, sDate = selectedDate) {
+  async function fetchCanonicalMetrics(fType = filterType, cStart = customStartDate, cEnd = customEndDate, sDate = selectedDate) {
     try {
-      let url = `/api/seller/metrics?period=${fType}&stream=${sFilter}`;
+      let url = `/api/seller/metrics?period=${fType}`;
       if (fType === "custom") {
         url += `&start=${cStart}&end=${cEnd}`;
       } else if (fType === "specific_day" && sDate) {
@@ -123,28 +118,18 @@ export default function SellerDashboard() {
   }
 
   useEffect(() => {
-    fetchCanonicalMetrics(filterType, streamFilter, customStartDate, customEndDate, selectedDate);
-  }, [filterType, streamFilter, customStartDate, customEndDate, selectedDate, selectedMonth, selectedYear]);
+    fetchCanonicalMetrics(filterType, customStartDate, customEndDate, selectedDate);
+  }, [filterType, customStartDate, customEndDate, selectedDate, selectedMonth, selectedYear]);
 
-  // Overall quick stats with Premium vs Standard separation
+  // Overall quick stats
   const [quickKPIs, setQuickKPIs] = useState({
     todayRevenue: 0,
-    todayPremiumRevenue: 0,
-    todayStandardRevenue: 0,
     weeklyRevenue: 0,
-    weeklyPremiumRevenue: 0,
-    weeklyStandardRevenue: 0,
     monthlyRevenue: 0,
-    monthlyPremiumRevenue: 0,
-    monthlyStandardRevenue: 0,
     allTimeRevenue: 0,
-    allTimePremiumRevenue: 0,
-    allTimeStandardRevenue: 0,
     totalOrders: 0,
     todaysOrders: 0,
     pendingOrders: 0,
-    totalPremiumUnits: 0,
-    totalStandardUnits: 0
   });
 
   // Fetch all data
@@ -185,11 +170,6 @@ export default function SellerDashboard() {
       setSellerProducts(productsList);
 
       const pIds = productsList.map(p => p.id);
-      const premiumProductIdSet = new Set(
-        productsList
-          .filter(p => p.is_premium === true || p.tier === "PREMIUM" || (p.specifications as any)?.is_premium === "true" || (p.category && p.category.toLowerCase().includes("premium")))
-          .map(p => String(p.id))
-      );
 
       const lowStock = productsList.filter(p => (p.stock ?? 0) <= (p.low_stock_limit ?? 5)).length;
       setLowStockCount(lowStock);
@@ -228,9 +208,7 @@ export default function SellerDashboard() {
           }
 
           if (isDirectSellerOrder || sellerItems.length > 0 || !currentUserId) {
-            let premRev = 0;
             let stdRev = 0;
-            let premUnits = 0;
             let stdUnits = 0;
 
             const orderTotalAmt = Number(order.total_amount) || 0;
@@ -241,44 +219,27 @@ export default function SellerDashboard() {
               : (orderTotalAmt > 0 && rawGrossSum > orderTotalAmt ? (rawGrossSum - orderTotalAmt) : 0);
 
             sellerItems.forEach((item: any) => {
-              const itemId = String(item.product_id || item.id || "");
               const qty = Number(item.quantity) || 1;
               const rawPrice = Number(item.price) || 0;
               const gross = rawPrice * qty;
               const disc = Number(item.discount) || (rawGrossSum > 0 ? Math.round((gross / rawGrossSum) * totalDiscount) : 0);
               const itemTotal = Number(item.subtotal) || Math.max(0, gross - disc);
-              const isPrem = 
-                item.is_premium === true || 
-                item.tier === "PREMIUM" || 
-                premiumProductIdSet.has(itemId) ||
-                (item.name && item.name.toLowerCase().includes("premium")) ||
-                (item.name && item.name.toLowerCase().includes("supima"));
-
-              if (isPrem) {
-                premRev += itemTotal;
-                premUnits += qty;
-              } else {
-                stdRev += itemTotal;
-                stdUnits += qty;
-              }
+              stdRev += itemTotal;
+              stdUnits += qty;
             });
 
-            const itemsRevenue = premRev + stdRev;
-            const orderRevenue = (orderTotalAmt > 0 && orderTotalAmt < itemsRevenue)
+            const orderRevenue = (orderTotalAmt > 0 && orderTotalAmt < stdRev)
               ? orderTotalAmt
-              : (itemsRevenue > 0 ? itemsRevenue : orderTotalAmt);
-            const totalUnits = premUnits + stdUnits || 1;
+              : (stdRev > 0 ? stdRev : orderTotalAmt);
+            const totalUnits = stdUnits || 1;
 
             processedSellerOrders.push({
               ...order,
               _revenue: orderRevenue,
-              _premiumRevenue: premRev,
-              _standardRevenue: stdRev > 0 ? stdRev : (premRev > 0 ? 0 : orderRevenue),
+              _standardRevenue: orderRevenue,
               _units: totalUnits,
-              _premiumUnits: premUnits,
               _standardUnits: stdUnits,
               _sellerItems: sellerItems,
-              _isPremiumOrder: premRev > 0
             });
           }
         } catch (e) {
@@ -288,7 +249,7 @@ export default function SellerDashboard() {
 
       setAllSellerOrders(processedSellerOrders);
 
-      // 3. Compute Quick KPIs with Premium vs Standard
+      // 3. Compute Quick KPIs
       const now = new Date();
       const todayStart = startOfDay(now);
       const todayEnd = endOfDay(now);
@@ -296,43 +257,28 @@ export default function SellerDashboard() {
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
 
-      let todayRev = 0, todayPrem = 0, todayStd = 0;
-      let weekRev = 0, weekPrem = 0, weekStd = 0;
-      let monthRev = 0, monthPrem = 0, monthStd = 0;
-      let allRev = 0, allPrem = 0, allStd = 0;
-      let totalPremUnits = 0, totalStdUnits = 0;
+      let todayRev = 0;
+      let weekRev = 0;
+      let monthRev = 0;
+      let allRev = 0;
       let todayCount = 0;
       let pendingCount = 0;
 
       processedSellerOrders.forEach(o => {
         const d = new Date(o.created_at);
         const rev = Number(o._revenue) || 0;
-        const pRev = Number(o._premiumRevenue) || 0;
-        const sRev = Number(o._standardRevenue) || 0;
-        const pU = Number(o._premiumUnits) || 0;
-        const sU = Number(o._standardUnits) || 0;
 
         allRev += rev;
-        allPrem += pRev;
-        allStd += sRev;
-        totalPremUnits += pU;
-        totalStdUnits += sU;
 
         if (d >= todayStart && d <= todayEnd) {
           todayRev += rev;
-          todayPrem += pRev;
-          todayStd += sRev;
           todayCount++;
         }
         if (d >= weekStart && d <= todayEnd) {
           weekRev += rev;
-          weekPrem += pRev;
-          weekStd += sRev;
         }
         if (d >= monthStart && d <= monthEnd) {
           monthRev += rev;
-          monthPrem += pRev;
-          monthStd += sRev;
         }
         if (["placed", "pending", "processing", "PLACED", "PENDING", "PROCESSING"].includes(o.order_status || "")) {
           pendingCount++;
@@ -341,22 +287,12 @@ export default function SellerDashboard() {
 
       setQuickKPIs({
         todayRevenue: todayRev,
-        todayPremiumRevenue: todayPrem,
-        todayStandardRevenue: todayStd,
         weeklyRevenue: weekRev,
-        weeklyPremiumRevenue: weekPrem,
-        weeklyStandardRevenue: weekStd,
         monthlyRevenue: monthRev,
-        monthlyPremiumRevenue: monthPrem,
-        monthlyStandardRevenue: monthStd,
         allTimeRevenue: allRev,
-        allTimePremiumRevenue: allPrem,
-        allTimeStandardRevenue: allStd,
         totalOrders: processedSellerOrders.length,
         todaysOrders: todayCount,
         pendingOrders: pendingCount,
-        totalPremiumUnits: totalPremUnits,
-        totalStandardUnits: totalStdUnits
       });
 
       // 4. Fetch live financial ledger balances
@@ -455,19 +391,10 @@ export default function SellerDashboard() {
       groupMode = "monthly";
     }
 
-    // Filter orders by Date & Stream
+    // Filter orders by Date
     const matched = allSellerOrders.filter(o => {
       const d = new Date(o.created_at);
-      const matchesDate = d >= start && d <= end;
-      if (!matchesDate) return false;
-
-      if (streamFilter === "premium") {
-        return (Number(o._premiumRevenue) || 0) > 0;
-      }
-      if (streamFilter === "standard") {
-        return (Number(o._standardRevenue) || 0) > 0;
-      }
-      return true;
+      return d >= start && d <= end;
     });
 
     // Use canonical backend performance metrics if available
@@ -478,7 +405,6 @@ export default function SellerDashboard() {
     let netSales = 0;
     let cancelledVal = 0;
     let totalUnits = 0;
-    let totalPremUnits = 0;
     let totalStdUnits = 0;
     let validCount = 0;
     let cancelledCount = 0;
@@ -486,11 +412,8 @@ export default function SellerDashboard() {
     matched.forEach(o => {
       const isCancelled = String(o.order_status || "").toLowerCase() === "cancelled";
       const rev = Number(o._revenue) || 0;
-      const pRev = Number(o._premiumRevenue) || 0;
-      const sRev = Number(o._standardRevenue) || 0;
-      const pU = Number(o._premiumUnits) || 0;
       const sU = Number(o._standardUnits) || 0;
-      const u = (pU + sU) || Number(o._units) || 1;
+      const u = sU || Number(o._units) || 1;
 
       totalGrossGMV += rev;
 
@@ -499,9 +422,8 @@ export default function SellerDashboard() {
         cancelledVal += rev;
       } else {
         validCount++;
-        netSales += streamFilter === "premium" ? pRev : streamFilter === "standard" ? sRev : ((pRev + sRev) || rev);
+        netSales += rev;
         totalUnits += u;
-        totalPremUnits += pU;
         totalStdUnits += sU;
       }
     });
@@ -517,12 +439,11 @@ export default function SellerDashboard() {
       cancelledOrders: canonicalPerf ? Number(canonicalPerf.cancelled_orders) : cancelledCount,
       aov: canonicalPerf ? Number(canonicalPerf.aov) : fallbackAov,
       totalUnits: canonicalPerf ? Number(canonicalPerf.units_sold) : totalUnits,
-      totalPremUnits,
       totalStdUnits
     };
 
     // Time-series breakdown grouping
-    const groupMap: Record<string, { label: string; dateObj: Date; revenue: number; premiumRevenue: number; standardRevenue: number; ordersCount: number; units: number }> = {};
+    const groupMap: Record<string, { label: string; dateObj: Date; revenue: number; standardRevenue: number; ordersCount: number; units: number }> = {};
 
     matched.forEach(o => {
       const isCancelled = String(o.order_status || "").toLowerCase() === "cancelled";
@@ -547,12 +468,11 @@ export default function SellerDashboard() {
       }
 
       if (!groupMap[key]) {
-        groupMap[key] = { label: groupLabel, dateObj: d, revenue: 0, premiumRevenue: 0, standardRevenue: 0, ordersCount: 0, units: 0 };
+        groupMap[key] = { label: groupLabel, dateObj: d, revenue: 0, standardRevenue: 0, ordersCount: 0, units: 0 };
       }
 
-      const revToAdd = streamFilter === "premium" ? (o._premiumRevenue || 0) : streamFilter === "standard" ? (o._standardRevenue || 0) : (o._revenue || 0);
+      const revToAdd = o._revenue || 0;
       groupMap[key].revenue += Number(revToAdd);
-      groupMap[key].premiumRevenue += Number(o._premiumRevenue) || 0;
       groupMap[key].standardRevenue += Number(o._standardRevenue) || 0;
       groupMap[key].ordersCount += 1;
       groupMap[key].units += Number(o._units) || 1;
@@ -575,7 +495,7 @@ export default function SellerDashboard() {
         mode: groupMode
       }
     };
-  }, [allSellerOrders, filterType, streamFilter, selectedDate, selectedMonth, selectedYear, customStartDate, customEndDate, metricsData]);
+  }, [allSellerOrders, filterType, selectedDate, selectedMonth, selectedYear, customStartDate, customEndDate, metricsData]);
 
   // Operational metrics aggregation
   const opCounts = useMemo(() => {
@@ -648,9 +568,6 @@ export default function SellerDashboard() {
     setSelectedYear(newY);
   };
 
-  const allTimeTotal = quickKPIs.allTimeRevenue || 1;
-  const premiumSharePct = Math.round((quickKPIs.allTimePremiumRevenue / allTimeTotal) * 100) || 0;
-
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -671,13 +588,10 @@ export default function SellerDashboard() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#9A6503]">Overview &amp; Ledger</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white text-[#9A6503] border border-[#DFBE6F] px-2.5 py-0.5 text-[9.5px] font-black uppercase shadow-sm">
-                <Crown size={10} className="text-[#D49014]" /> Premium Revenue Engine
-              </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1.5 text-[#14120F]">Merchant Performance</h1>
             <p className="mt-2 text-xs sm:text-sm font-medium text-[#5C4E35] max-w-xl">
-              Track real-time earnings with separated calculations for Premium Store vs. Standard collections at 0% commission.
+              Track real-time earnings and order performance across your ZebAlpha store at 0% commission.
             </p>
           </div>
 
@@ -687,7 +601,7 @@ export default function SellerDashboard() {
               className="px-4 py-2.5 rounded-2xl bg-white border-[1.5px] border-[#DFBE6F] text-xs font-extrabold uppercase text-[#14120F] hover:border-[#F03A46] hover:text-[#F03A46] transition-all flex items-center gap-2 shadow-sm"
             >
               <Sparkles size={14} className="text-[#D49014]" />
-              <span>Collections &amp; Drops</span>
+              <span>Collections</span>
             </Link>
             <Link
               href="/dashboard/reports"
@@ -701,56 +615,13 @@ export default function SellerDashboard() {
         </div>
       </div>
 
-      {/* ── Revenue Stream Switcher ── */}
-      <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 p-2 rounded-2xl w-fit flex-wrap">
-        <span className="text-[10px] font-black uppercase text-zinc-400 px-2">Filter Stream:</span>
-        <button
-          onClick={() => setStreamFilter("all")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-            streamFilter === "all"
-              ? "bg-white text-black shadow-md font-extrabold"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          <Layers size={13} />
-          <span>All Revenue</span>
-        </button>
-
-        <button
-          onClick={() => setStreamFilter("premium")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-            streamFilter === "premium"
-              ? "bg-amber-500 text-black shadow-md font-extrabold"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          <Crown size={13} className={streamFilter === "premium" ? "text-black" : "text-amber-400"} />
-          <span>💎 Premium Store</span>
-        </button>
-
-        <button
-          onClick={() => setStreamFilter("standard")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-            streamFilter === "standard"
-              ? "bg-blue-600 text-white shadow-md font-extrabold"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          <Shirt size={13} />
-          <span>👕 Standard Apparel</span>
-        </button>
-      </div>
-
-      {/* ── Quick KPI Summary Cards with Separated Revenue ── */}
+      {/* ── Quick KPI Summary Cards ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <IndianRupee size={16} className="text-white" />
             <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Quick Revenue Overview</h2>
           </div>
-          <span className="text-xs font-black text-amber-400 flex items-center gap-1">
-            <Crown size={13} /> Premium Share: {premiumSharePct}%
-          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -770,12 +641,8 @@ export default function SellerDashboard() {
               </div>
             </div>
             <p className="mt-3 text-2xl font-black tracking-tight text-white">
-              {fmt(streamFilter === "premium" ? quickKPIs.todayPremiumRevenue : streamFilter === "standard" ? quickKPIs.todayStandardRevenue : quickKPIs.todayRevenue)}
+              {fmt(quickKPIs.todayRevenue)}
             </p>
-            <div className="mt-2 text-[10px] font-bold text-zinc-400 pt-2 border-t border-zinc-900 flex items-center justify-between">
-              <span className="text-amber-400">💎 Prem: {fmt(quickKPIs.todayPremiumRevenue)}</span>
-              <span>👕 Std: {fmt(quickKPIs.todayStandardRevenue)}</span>
-            </div>
           </div>
 
           {/* This Week */}
@@ -794,12 +661,8 @@ export default function SellerDashboard() {
               </div>
             </div>
             <p className="mt-3 text-2xl font-black tracking-tight text-white">
-              {fmt(streamFilter === "premium" ? quickKPIs.weeklyPremiumRevenue : streamFilter === "standard" ? quickKPIs.weeklyStandardRevenue : quickKPIs.weeklyRevenue)}
+              {fmt(quickKPIs.weeklyRevenue)}
             </p>
-            <div className="mt-2 text-[10px] font-bold text-zinc-400 pt-2 border-t border-zinc-900 flex items-center justify-between">
-              <span className="text-amber-400">💎 Prem: {fmt(quickKPIs.weeklyPremiumRevenue)}</span>
-              <span>👕 Std: {fmt(quickKPIs.weeklyStandardRevenue)}</span>
-            </div>
           </div>
 
           {/* This Month */}
@@ -818,12 +681,8 @@ export default function SellerDashboard() {
               </div>
             </div>
             <p className="mt-3 text-2xl font-black tracking-tight text-white">
-              {fmt(streamFilter === "premium" ? quickKPIs.monthlyPremiumRevenue : streamFilter === "standard" ? quickKPIs.monthlyStandardRevenue : quickKPIs.monthlyRevenue)}
+              {fmt(quickKPIs.monthlyRevenue)}
             </p>
-            <div className="mt-2 text-[10px] font-bold text-zinc-400 pt-2 border-t border-zinc-900 flex items-center justify-between">
-              <span className="text-amber-400">💎 Prem: {fmt(quickKPIs.monthlyPremiumRevenue)}</span>
-              <span>👕 Std: {fmt(quickKPIs.monthlyStandardRevenue)}</span>
-            </div>
           </div>
 
           {/* All Time */}
@@ -842,12 +701,8 @@ export default function SellerDashboard() {
               </div>
             </div>
             <p className="mt-3 text-2xl font-black tracking-tight text-white">
-              {fmt(streamFilter === "premium" ? quickKPIs.allTimePremiumRevenue : streamFilter === "standard" ? quickKPIs.allTimeStandardRevenue : quickKPIs.allTimeRevenue)}
+              {fmt(quickKPIs.allTimeRevenue)}
             </p>
-            <div className="mt-2 text-[10px] font-bold text-zinc-400 pt-2 border-t border-zinc-900 flex items-center justify-between">
-              <span className="text-amber-400">💎 Prem: {fmt(quickKPIs.allTimePremiumRevenue)}</span>
-              <span>👕 Std: {fmt(quickKPIs.allTimeStandardRevenue)}</span>
-            </div>
           </div>
         </div>
       </div>
@@ -893,7 +748,7 @@ export default function SellerDashboard() {
               <h2 className="text-lg font-black tracking-tight text-white">Income & Tier Period Analytics</h2>
             </div>
             <p className="text-xs font-bold text-zinc-400 mt-1">
-              Showing {streamFilter === "premium" ? "💎 Premium Store" : streamFilter === "standard" ? "👕 Standard Apparel" : "All Marketplace"} earnings for {selectedPeriodData.periodLabel}.
+              Showing marketplace earnings for {selectedPeriodData.periodLabel}.
             </p>
           </div>
 
@@ -1166,7 +1021,7 @@ export default function SellerDashboard() {
                       <div>
                         <p className="text-xs font-black text-white">{item.label}</p>
                         <p className="text-[10px] font-bold text-zinc-400">
-                          {item.ordersCount} orders • 💎 ₹{item.premiumRevenue} Prem | 👕 ₹{item.standardRevenue} Std
+                          {item.ordersCount} orders • {item.units} units
                         </p>
                       </div>
                     </div>
@@ -1326,7 +1181,7 @@ export default function SellerDashboard() {
             </div>
             <p className="mt-3 text-2xl font-black text-white">{sellerProducts.length}</p>
             <span className="text-[10px] font-bold text-zinc-400 mt-1 inline-block">
-              {sellerProducts.filter(p => p.is_premium).length} 💎 Premium Items
+              Total active catalog items
             </span>
           </Link>
 

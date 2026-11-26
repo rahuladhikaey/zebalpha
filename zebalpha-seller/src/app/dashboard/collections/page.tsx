@@ -8,14 +8,11 @@ import {
   Layers,
   Eye,
   EyeOff,
-  Crown,
-  Flame,
   ArrowRight,
   Package,
   ShieldCheck,
   Plus,
 } from "lucide-react";
-import { isDropLive, getDropDisplayStatus } from "@/lib/dropUtils";
 
 interface CategoryItem {
   id: string;
@@ -155,14 +152,6 @@ function doesProductBelongToCollection(
     return true;
   }
 
-  // 2. Special storefront collection slugs
-  if (rawSlug === "premium-store" || target.includes("premium store")) {
-    return Boolean(p.is_premium || p.tier === "PREMIUM" || specs.is_premium === true || specs.is_premium === "true");
-  }
-  if (rawSlug === "new-drops" || target.includes("new drops")) {
-    return Boolean(p.is_new_drop || p.status === "COMING_SOON" || specs.is_new_drop === true || specs.is_new_drop === "true");
-  }
-
   // 3. Crocs & Clogs
   if (/\b(crocs?|clogs?)\b/i.test(target)) {
     return /\b(crocs?|clogs?)\b/i.test(combined);
@@ -257,7 +246,6 @@ function doesProductBelongToCollection(
 }
 
 export default function SellerCollectionsPage() {
-  const [activeTab, setActiveTab] = useState<"collections" | "new_drops" | "premium">("collections");
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [sellerProducts, setSellerProducts] = useState<any[]>([]);
   const [liveStorefrontProducts, setLiveStorefrontProducts] = useState<any[]>([]);
@@ -292,7 +280,7 @@ export default function SellerCollectionsPage() {
           .limit(300),
         supabase
           .from("products")
-          .select("id, name, brand, category_id, subcategory_id, collection, description, status, is_active, is_approved, approval_status, is_premium, is_new_drop, tier, specifications, seller_id")
+          .select("id, name, brand, category_id, subcategory_id, collection, description, status, is_active, is_approved, approval_status, specifications, seller_id")
           .or("is_active.is.null,is_active.eq.true")
           .limit(400),
         user
@@ -453,14 +441,6 @@ export default function SellerCollectionsPage() {
     return map;
   }, [categories, liveStorefrontProducts, sellerProducts, catNameMap]);
 
-  // Filtered lists for tabs
-  const newDropProducts = sellerProducts.filter(
-    (p) => p.is_new_drop || p.status === "COMING_SOON" || (p.specifications as any)?.is_new_drop === "true"
-  );
-  const premiumProducts = sellerProducts.filter(
-    (p) => p.is_premium || p.tier === "PREMIUM" || (p.specifications as any)?.is_premium === "true"
-  );
-
   return (
     <div className="space-y-6 select-none">
       {/* 1. Page Header with Admin Authority Banner */}
@@ -494,48 +474,17 @@ export default function SellerCollectionsPage() {
 
       {/* 2. Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-[#EAD296] pb-3 overflow-x-auto no-scrollbar">
-        <button
-          onClick={() => setActiveTab("collections")}
-          data-photo-overlay={activeTab === "collections" ? "true" : undefined}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "collections"
-              ? "bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white shadow-md font-extrabold"
-              : "text-[#5C4E35] hover:text-[#14120F] hover:bg-[#FFF8DB]"
-          }`}
+        <div
+          data-photo-overlay="true"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white shadow-md font-extrabold whitespace-nowrap"
         >
-          <Layers size={14} className={activeTab === "collections" ? "text-white" : undefined} />
+          <Layers size={14} className="text-white" />
           <span>Curated Collections ({categories.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("new_drops")}
-          data-photo-overlay={activeTab === "new_drops" ? "true" : undefined}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "new_drops"
-              ? "bg-orange-500 text-white shadow-md font-extrabold"
-              : "text-[#5C4E35] hover:text-[#14120F] hover:bg-[#FFF8DB]"
-          }`}
-        >
-          <Flame size={14} className={activeTab === "new_drops" ? "text-white" : "text-orange-600"} />
-          <span>⚡ Upcoming New Drops ({newDropProducts.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("premium")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "premium"
-              ? "bg-gradient-to-r from-[#FCE89C] to-[#EAB308] text-[#14120F] border border-[#DFBE6F] shadow-md font-extrabold"
-              : "text-[#5C4E35] hover:text-[#14120F] hover:bg-[#FFF8DB]"
-          }`}
-        >
-          <Crown size={14} className={activeTab === "premium" ? "text-[#14120F]" : "text-[#9A6503]"} />
-          <span>💎 Premium Store Vault ({premiumProducts.length})</span>
-        </button>
+        </div>
       </div>
 
-      {/* 3. TAB 1: CURATED COLLECTIONS (Read-Only Catalogue) */}
-      {activeTab === "collections" && (
-        <>
+      {/* 3. CURATED COLLECTIONS (Read-Only Catalogue) */}
+      <>
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#F0E2BE] border-t-[#F03A46]" />
@@ -647,159 +596,6 @@ export default function SellerCollectionsPage() {
             </div>
           )}
         </>
-      )}
-
-      {/* 4. TAB 2: UPCOMING NEW DROPS */}
-      {activeTab === "new_drops" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap p-4 rounded-2xl bg-[#FFF4F2] border border-[#F03A46]/25">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-white border border-[#F03A46]/25 text-[#F03A46] flex items-center justify-center">
-                <Flame size={18} />
-              </div>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-[#14120F]">Upcoming Hype Drops List</h4>
-                <p className="text-[11px] text-[#5C4E35]">
-                  Products flagged as New Drops show on /new-drops where customers can cast hype votes and get drop alerts.
-                </p>
-              </div>
-            </div>
-            <Link
-              href="/dashboard/products"
-              data-photo-overlay="true"
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#F03A46] to-[#FF5757] text-white font-black text-xs uppercase hover:brightness-105 transition-all shadow-sm"
-            >
-              + Flag New Product as Drop
-            </Link>
-          </div>
-
-          {newDropProducts.length === 0 ? (
-            <div className="py-16 text-center rounded-3xl border border-[#EAD296] bg-white p-8">
-              <Flame size={36} className="text-[#F03A46]/60 mx-auto mb-3" />
-              <h3 className="text-sm font-black uppercase text-[#14120F]">No Upcoming Drops Set</h3>
-              <p className="text-xs text-[#5C4E35] mt-1 max-w-sm mx-auto">
-                Go to Product Management and check &quot;Flag as New Drop&quot; on any upcoming design.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {newDropProducts.map((p) => {
-                const live = isDropLive(p);
-                const dropStatus = getDropDisplayStatus(p);
-
-                return (
-                  <div key={p.id} className="rounded-3xl border border-[#EAD296] bg-white p-5 flex flex-col justify-between space-y-4 shadow-sm">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border ${
-                            live
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                              : "bg-[#FFF4F2] text-[#F03A46] border-[#F03A46]/30"
-                          }`}
-                        >
-                          {live ? "🔥 LIVE DROP" : "⚡ DROPPING SOON"}
-                        </span>
-                        <span className="text-[10px] font-bold text-[#7A6847]">
-                          {dropStatus.dateText}
-                        </span>
-                      </div>
-
-                      <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-[#FFF9EB] mb-3 border border-[#F0E2BE]">
-                        <img src={p.image_url || "/banner-premium-polo.png"} alt={p.name} className="w-full h-full object-cover" />
-                      </div>
-
-                      <h4 className="text-sm font-black text-[#14120F]">{p.name}</h4>
-                      <p className="text-xs text-[#5C4E35] mt-1 line-clamp-2">{p.description}</p>
-                    </div>
-
-                    <div className="pt-3 border-t border-[#F0E2BE] flex items-center justify-between text-xs">
-                      <span className="font-black text-[#14120F]">₹{p.price}</span>
-                      <Link
-                        href="/dashboard/products"
-                        className="text-[#F03A46] font-black hover:underline inline-flex items-center gap-1 text-[11px]"
-                      >
-                        <span>Edit Drop Settings</span>
-                        <ArrowRight size={12} />
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 5. TAB 3: PREMIUM STORE ITEMS */}
-      {activeTab === "premium" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap p-4 rounded-2xl bg-[#FFF8DB] border border-[#DFBE6F]">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-white border border-[#DFBE6F] text-[#9A6503] flex items-center justify-center">
-                <Crown size={18} />
-              </div>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-[#14120F]">Premium Store Vault Listings</h4>
-                <p className="text-[11px] text-[#5C4E35]">
-                  Items tagged as Premium are featured in /premium-store and calculated in separated Premium Revenue reports.
-                </p>
-              </div>
-            </div>
-            <Link
-              href="/dashboard/products"
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#FCE89C] to-[#EAB308] border border-[#DFBE6F] text-[#14120F] font-black text-xs uppercase hover:brightness-105 transition-all shadow-sm"
-            >
-              + Tag Product as Premium
-            </Link>
-          </div>
-
-          {premiumProducts.length === 0 ? (
-            <div className="py-16 text-center rounded-3xl border border-[#EAD296] bg-white p-8">
-              <Crown size={36} className="text-[#D49014] mx-auto mb-3" />
-              <h3 className="text-sm font-black uppercase text-[#14120F]">No Premium Products Tagged</h3>
-              <p className="text-xs text-[#5C4E35] mt-1 max-w-sm mx-auto">
-                Tag your high-GSM, luxury Supima, or capsule pieces as &quot;Premium Store Item&quot; in Product Management.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {premiumProducts.map((p) => (
-                <div key={p.id} className="rounded-3xl border border-[#DFBE6F] bg-white p-5 flex flex-col justify-between space-y-4 shadow-sm">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="rounded-full bg-[#FFF8DB] text-[#9A6503] border border-[#DFBE6F] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
-                        💎 PREMIUM VAULT
-                      </span>
-                      <span className="text-[10px] font-bold text-[#7A6847]">
-                        {p.collection || "Luxury Tier"}
-                      </span>
-                    </div>
-
-                    <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-[#FFF9EB] mb-3 border border-[#F0E2BE]">
-                      <img src={p.image_url || "/banner-premium-polo.png"} alt={p.name} className="w-full h-full object-cover" />
-                    </div>
-
-                    <h4 className="text-sm font-black text-[#14120F]">{p.name}</h4>
-                    <p className="text-xs text-[#5C4E35] mt-1 line-clamp-2">{p.description}</p>
-                  </div>
-
-                  <div className="pt-3 border-t border-[#F0E2BE] flex items-center justify-between text-xs">
-                    <span className="font-black text-[#9A6503]">₹{p.price}</span>
-                    <Link
-                      href="/dashboard/products"
-                      className="text-[#F03A46] font-black hover:underline inline-flex items-center gap-1 text-[11px]"
-                    >
-                      <span>Edit Settings</span>
-                      <ArrowRight size={12} />
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Product } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { isProductNewDrop, isDropLive } from "@/lib/dropUtils";
 import { useOfficialTheme } from "@/lib/platform";
 import { useExperienceTheme } from "@/context/ExperienceThemeContext";
 import { Zap, Loader2 } from "lucide-react";
@@ -30,7 +29,7 @@ export function BuyNowButton({
     (t.primaryButtonText || "").toUpperCase() === "#FFFFFF" ||
     (t.primaryButtonText || "").toUpperCase() === "#FFFDF8";
   
-  const isUpcomingDrop = isProductNewDrop(product) && !isDropLive(product);
+  const isUpcomingDrop = false;
 
   // Prefetch checkout route for zero-latency Buy Now navigation
   useEffect(() => {

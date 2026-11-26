@@ -132,8 +132,6 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/products/') ||
     pathname.startsWith('/categories') ||
     pathname.startsWith('/category/') ||
-    pathname.startsWith('/new-drops') ||
-    pathname.startsWith('/premium-store') ||
     pathname.startsWith('/wishlist') ||
     pathname.startsWith('/cart') ||
     pathname.startsWith('/search') ||
