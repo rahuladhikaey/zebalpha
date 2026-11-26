@@ -27,6 +27,7 @@ const CatalogUploadWizardModal = dynamic(
   () => import("@/components/catalog/CatalogUploadWizardModal"),
   { ssr: false, loading: () => null }
 );
+import { ZebQuickOnlyProductModal } from "@/components/zeb-quick/ZebQuickOnlyProductModal";
 
 export default function SellerProducts() {
   const [loading, setLoading] = useState(true);
@@ -45,6 +46,9 @@ export default function SellerProducts() {
   const [isNewDropInitial, setIsNewDropInitial] = useState(false);
   const [zebQuickActiveIds, setZebQuickActiveIds] = useState<string[]>([]);
   const [zebQuickAllowedSubs, setZebQuickAllowedSubs] = useState<ZebQuickSubcategoryDef[] | undefined>(undefined);
+  const [zebQuickMainCats, setZebQuickMainCats] = useState<Array<{ id: string; slug: string; name: string }>>([]);
+  const [zebQuickOnlyProducts, setZebQuickOnlyProducts] = useState<any[]>([]);
+  const [isZebQuickOnlyModalOpen, setIsZebQuickOnlyModalOpen] = useState(false);
   const [zebQuickTogglingId, setZebQuickTogglingId] = useState<string | null>(null);
 
   // Modal / Form state
@@ -129,7 +133,7 @@ export default function SellerProducts() {
     setForm((f) => ({ ...f, image_url: updated[0] || "" }));
   };
 
-  const [activeTab, setActiveTab] = useState<"ALL" | "PREMIUM" | "NORMAL" | "DROPS">("ALL");
+  const [activeTab, setActiveTab] = useState<"ALL" | "PREMIUM" | "NORMAL" | "DROPS" | "ZEBQUICK">("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 25;
 
@@ -245,6 +249,8 @@ export default function SellerProducts() {
           const gJson = await zebQuickRes.json();
           if (Array.isArray(gJson.activeProductIds)) setZebQuickActiveIds(gJson.activeProductIds);
           if (Array.isArray(gJson.allowedSubcategories)) setZebQuickAllowedSubs(gJson.allowedSubcategories);
+          if (Array.isArray(gJson.mainCategories)) setZebQuickMainCats(gJson.mainCategories);
+          if (Array.isArray(gJson.zebQuickOnlyProducts)) setZebQuickOnlyProducts(gJson.zebQuickOnlyProducts);
         } catch {}
       }
 
@@ -798,12 +804,21 @@ export default function SellerProducts() {
   const dropCount = products.filter(p => p.is_new_drop || p.status === "COMING_SOON" || p.tier === "DROP").length;
   const premiumCount = products.filter(p => p.is_premium && !p.is_new_drop && p.tier !== "DROP").length;
   const normalCount = products.filter(p => !p.is_premium && !p.is_new_drop && p.status !== "COMING_SOON" && p.tier !== "DROP").length;
+  const isZebQuickEligibleProduct = (p: Product) =>
+    Boolean(
+      matchZebQuickSubcategory(
+        { name: p.name, category: (p as any).categories?.name || "" },
+        zebQuickAllowedSubs
+      )
+    );
+  const zebQuickEligibleCount = products.filter(isZebQuickEligibleProduct).length + zebQuickOnlyProducts.length;
 
   const filteredProducts = products.filter(p => {
     const isDrop = p.is_new_drop === true || p.status === "COMING_SOON" || p.tier === "DROP";
     if (activeTab === "PREMIUM") return p.is_premium && !isDrop;
     if (activeTab === "NORMAL") return !p.is_premium && !isDrop;
     if (activeTab === "DROPS") return isDrop;
+    if (activeTab === "ZEBQUICK") return isZebQuickEligibleProduct(p);
     return true;
   });
 
@@ -927,6 +942,7 @@ export default function SellerProducts() {
           { key: "PREMIUM", label: `💎 Premium Store Items (${premiumCount})`, highlight: "text-amber-400 border-amber-500/40 bg-amber-500/10" },
           { key: "NORMAL", label: `🏷️ Normal Apparel (${normalCount})`, highlight: "text-sky-400 border-sky-500/40 bg-sky-500/10" },
           { key: "DROPS", label: `⚡ New Drops (${dropCount})`, highlight: "text-orange-400 border-orange-500/40 bg-orange-500/10" },
+          { key: "ZEBQUICK", label: `⚡ ZebQuick Eligible (${zebQuickEligibleCount})`, highlight: "text-amber-300 border-amber-500/50 bg-amber-500/15" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -943,6 +959,104 @@ export default function SellerProducts() {
           </button>
         ))}
       </div>
+
+      {activeTab === "ZEBQUICK" && (
+        <div className="space-y-4 rounded-3xl border border-amber-500/30 bg-amber-500/5 p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-black text-amber-300 flex items-center gap-1.5">
+                <Zap size={16} className="fill-amber-400 text-amber-400" />
+                ZebQuick Eligible &amp; Exclusive Catalog
+              </h2>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Eligible ZebAlpha products appear below with their <strong>Activate ZebQuick</strong> button. You can also add <strong>ZebQuick-Only</strong> products that will never go live on main ZebAlpha.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsZebQuickOnlyModalOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-b from-orange-400 via-orange-500 to-[#EE2B00] border border-orange-300/60 px-4 py-2.5 text-xs font-black text-white shadow-[0_3px_0_#9a3412,0_6px_14px_rgba(238,43,0,0.25)] active:translate-y-0.5 cursor-pointer shrink-0"
+            >
+              <Plus size={14} />
+              Add ZebQuick-Only Product
+            </button>
+          </div>
+
+          {zebQuickOnlyProducts.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                ZebQuick-Only Products ({zebQuickOnlyProducts.length}) — Not Live on Main ZebAlpha
+              </p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {zebQuickOnlyProducts.map((zp) => (
+                  <div key={zp.id} className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/25 bg-zinc-950/90 p-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={zp.image_url || "/placeholder.png"}
+                        alt={zp.title}
+                        className="h-12 w-12 rounded-xl object-cover bg-zinc-900 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="inline-block rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-black uppercase text-amber-300">
+                          ZebQuick Only
+                        </span>
+                        <p className="text-xs font-bold text-white truncate mt-0.5">{zp.title}</p>
+                        <p className="text-[11px] text-zinc-400">
+                          ₹{zp.zeb_quick_price} • Stock {zp.zeb_quick_stock} • {zp.category_group}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const { data: { session: s } } = await supabase.auth.getSession();
+                          const h: Record<string, string> = { "Content-Type": "application/json" };
+                          if (s?.access_token) h["Authorization"] = `Bearer ${s.access_token}`;
+                          const res = await fetch("/api/zeb-quick/products", {
+                            method: "POST",
+                            headers: h,
+                            body: JSON.stringify({ mode: "toggle_zebquick_only", zebQuickProductId: zp.id, activate: !zp.is_active }),
+                          });
+                          if (res.ok) {
+                            setZebQuickOnlyProducts((prev) =>
+                              prev.map((item) => (item.id === zp.id ? { ...item, is_active: !zp.is_active } : item))
+                            );
+                          }
+                        }}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-black cursor-pointer ${
+                          zp.is_active ? "bg-emerald-500/20 text-emerald-300" : "bg-zinc-800 text-zinc-400"
+                        }`}
+                      >
+                        {zp.is_active ? "LIVE" : "PAUSED"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const { data: { session: s } } = await supabase.auth.getSession();
+                          const h: Record<string, string> = { "Content-Type": "application/json" };
+                          if (s?.access_token) h["Authorization"] = `Bearer ${s.access_token}`;
+                          const res = await fetch("/api/zeb-quick/products", {
+                            method: "POST",
+                            headers: h,
+                            body: JSON.stringify({ mode: "delete_zebquick_only", zebQuickProductId: zp.id }),
+                          });
+                          if (res.ok) {
+                            setZebQuickOnlyProducts((prev) => prev.filter((item) => item.id !== zp.id));
+                          }
+                        }}
+                        className="text-[10px] font-bold text-rose-400 hover:underline cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="overflow-hidden rounded-3xl border border-foreground/[0.06] bg-foreground/[0.01] shadow-sm">
@@ -1285,6 +1399,15 @@ export default function SellerProducts() {
           setStatusMessage("✅ Product catalog published successfully!");
           loadData();
           setTimeout(() => setStatusMessage(""), 5000);
+        }}
+      />
+      <ZebQuickOnlyProductModal
+        open={isZebQuickOnlyModalOpen}
+        onClose={() => setIsZebQuickOnlyModalOpen(false)}
+        allowedSubcategories={zebQuickAllowedSubs}
+        mainCategories={zebQuickMainCats}
+        onCreated={(created) => {
+          setZebQuickOnlyProducts((prev) => [created, ...prev]);
         }}
       />
     </div>

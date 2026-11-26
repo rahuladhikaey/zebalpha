@@ -6,6 +6,7 @@ import { ShieldCheck, Zap, MapPinOff, ArrowRight } from "lucide-react";
 import { useZebQuick } from "@/context/ZebQuickContext";
 import { ZebQuickProductCard, type ZebQuickProductRecord } from "@/components/zeb-quick/ZebQuickProductCard";
 import { ZebQuickSplitCategoryView } from "@/components/zeb-quick/ZebQuickSplitCategoryView";
+import { ZebQuickMainCategoryView } from "@/components/zeb-quick/ZebQuickMainCategoryView";
 import { ZEB_QUICK_FREE_DELIVERY_MIN } from "../../../../../shared/constants/zebQuick";
 
 export default function ZebQuickHomePage() {
@@ -30,6 +31,11 @@ export default function ZebQuickHomePage() {
     }>
   >([]);
   const [loading, setLoading] = useState(true);
+  const [splitSubSlug, setSplitSubSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSplitSubSlug(null);
+  }, [selectedMainCategory]);
 
   useEffect(() => {
     if (selectedMainCategory !== "All" && !searchQuery.trim()) return;
@@ -97,12 +103,24 @@ export default function ZebQuickHomePage() {
     );
   }
 
-  // Blinkit-Style Split Subcategory View when user taps any Main Category tab
+  // Blinkit-Style Main Category Tab View (Featured + Top Deals) OR Split Subcategory View
   if (selectedMainCategory !== "All" && !searchQuery.trim()) {
+    if (splitSubSlug !== null) {
+      return (
+        <ZebQuickSplitCategoryView
+          mainCategory={selectedMainCategory}
+          initialSubSlug={splitSubSlug}
+          onClose={() => {
+            setSplitSubSlug(null);
+            setSelectedMainCategory("All");
+          }}
+        />
+      );
+    }
     return (
-      <ZebQuickSplitCategoryView
+      <ZebQuickMainCategoryView
         mainCategory={selectedMainCategory}
-        onClose={() => setSelectedMainCategory("All")}
+        onOpenSplit={(subSlug) => setSplitSubSlug(subSlug)}
       />
     );
   }
@@ -147,7 +165,10 @@ export default function ZebQuickHomePage() {
               <button
                 key={grp.subcategory_slug || grp.title}
                 type="button"
-                onClick={() => setSelectedMainCategory(grp.category_group)}
+                onClick={() => {
+                  setSelectedMainCategory(grp.category_group);
+                  setSplitSubSlug(grp.subcategory_slug || "__ALL__");
+                }}
                 className="flex flex-col items-center rounded-2xl bg-neutral-100/90 p-2 pb-2.5 text-center transition hover:bg-neutral-200/70 active:scale-95 cursor-pointer"
               >
                 <div className="relative w-full">
@@ -195,7 +216,10 @@ export default function ZebQuickHomePage() {
               <button
                 key={mc.id || mc.name}
                 type="button"
-                onClick={() => setSelectedMainCategory(mc.name)}
+                onClick={() => {
+                  setSelectedMainCategory(mc.name);
+                  setSplitSubSlug("__ALL__");
+                }}
                 className="flex flex-col items-center gap-1.5 rounded-2xl border border-neutral-200/80 bg-white p-3 text-center shadow-xs transition hover:border-amber-400 active:scale-95 cursor-pointer"
               >
                 <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-amber-50 text-neutral-900">

@@ -182,6 +182,7 @@ export async function POST(req: Request) {
           name,
           description: String(body.description || "").trim() || null,
           image_url: String(body.image_url || "").trim() || null,
+          theme_color: String(body.theme_color || "#F8CB46").trim() || "#F8CB46",
           display_order: Number(body.display_order || 10),
           is_active: true,
         },
@@ -252,8 +253,16 @@ export async function PATCH(req: Request) {
       await db.from("allowed_subcategories").update({ is_active: Boolean(body.is_active) }).eq("id", body.id);
       return NextResponse.json({ success: true });
     }
+    if (body.action === "toggle_featured_subcategory" && body.id) {
+      await db.from("allowed_subcategories").update({ is_featured: Boolean(body.is_featured) }).eq("id", body.id);
+      return NextResponse.json({ success: true });
+    }
     if (body.action === "toggle_main_category" && body.id) {
       await db.from("main_categories").update({ is_active: Boolean(body.is_active) }).eq("id", body.id);
+      return NextResponse.json({ success: true });
+    }
+    if (body.action === "update_main_theme" && body.id && body.theme_color) {
+      await db.from("main_categories").update({ theme_color: String(body.theme_color).trim() }).eq("id", body.id);
       return NextResponse.json({ success: true });
     }
     if (body.action === "update_order_status" && body.id && body.order_status) {

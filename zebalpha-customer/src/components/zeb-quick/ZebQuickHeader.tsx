@@ -61,6 +61,13 @@ export function ZebQuickHeader() {
   const [detecting, setDetecting] = useState(false);
 
   const isGoHome = pathname === "/zeb-quick";
+  const isCategoriesPage = pathname === "/zeb-quick/categories";
+  const activeMainObj = mainCategories.find((m) => m.name === selectedMainCategory);
+  const headerThemeColor =
+    isGoHome && selectedMainCategory !== "All" && activeMainObj?.theme_color
+      ? activeMainObj.theme_color
+      : "#F8CB46";
+  const isDarkTheme = headerThemeColor.toLowerCase() === "#1e293b";
 
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -96,7 +103,14 @@ export function ZebQuickHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-gradient-to-b from-[#F8CB46] via-[#FBE285] to-[#FFFDF5] text-neutral-950 shadow-[0_2px_12px_rgba(0,0,0,0.06)] pt-[max(env(safe-area-inset-top),0.5rem)]">
+      <header
+        className={`sticky top-0 z-40 w-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] pt-[max(env(safe-area-inset-top),0.5rem)] transition-colors duration-300 ${
+          isDarkTheme ? "text-white" : "text-neutral-950"
+        }`}
+        style={{
+          background: `linear-gradient(to bottom, ${headerThemeColor}, ${headerThemeColor}d9 55%, #FFFDF5)`,
+        }}
+      >
         {/* Top Delivery ETA + Account Row */}
         <div className="mx-auto max-w-5xl px-3.5 pt-2 pb-1.5">
           <div className="flex items-start justify-between gap-2.5">
@@ -130,18 +144,18 @@ export function ZebQuickHeader() {
                 }}
                 className="flex flex-col text-left min-w-0 cursor-pointer"
               >
-                <span className="text-[11px] font-extrabold tracking-tight text-neutral-900 leading-none">
+                <span className={`text-[11px] font-extrabold tracking-tight leading-none ${isDarkTheme ? "text-white/90" : "text-neutral-900"}`}>
                   ZebQuick in
                 </span>
                 <div className="mt-0.5 flex items-center gap-2">
-                  <span className="text-[22px] font-black tracking-tight text-neutral-950 leading-none">
+                  <span className={`text-[22px] font-black tracking-tight leading-none ${isDarkTheme ? "text-white" : "text-neutral-950"}`}>
                     5–6 hours
                   </span>
                   <span className="rounded-full bg-emerald-100/90 border border-emerald-300/80 px-2 py-0.5 text-[10px] font-extrabold text-emerald-800">
                     Express
                   </span>
                 </div>
-                <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-neutral-800 truncate">
+                <div className={`mt-1 flex items-center gap-1 text-xs font-semibold truncate ${isDarkTheme ? "text-white/85" : "text-neutral-800"}`}>
                   <span className="truncate">
                     {serviceability.loading
                       ? "Detecting location..."
@@ -149,7 +163,7 @@ export function ZebQuickHeader() {
                         ? `${serviceability.areaName}, ${serviceability.city || "WB"} (${pincode})`
                         : `Pincode ${pincode} • Coming Soon`}
                   </span>
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-neutral-900" />
+                  <ChevronDown className={`h-3.5 w-3.5 shrink-0 ${isDarkTheme ? "text-white" : "text-neutral-900"}`} />
                 </div>
               </button>
             </div>
@@ -165,7 +179,7 @@ export function ZebQuickHeader() {
           </div>
 
           {/* Search Bar inside Golden Header */}
-          {isGoHome && (
+          {(isGoHome || isCategoriesPage) && (
             <div className="mt-3 relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
               <input

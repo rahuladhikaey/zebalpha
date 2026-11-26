@@ -7,20 +7,22 @@ import { ZebQuickProductCard, type ZebQuickProductRecord } from "@/components/ze
 
 export function ZebQuickSplitCategoryView({
   mainCategory,
+  initialSubSlug,
   onClose,
 }: {
   mainCategory: string;
+  initialSubSlug?: string;
   onClose?: () => void;
 }) {
   const { pincode, subcategories } = useZebQuick();
   const groupSubs = subcategories.filter((s) => s.category_group === mainCategory);
-  const [selectedSubSlug, setSelectedSubSlug] = useState<string>("__ALL__");
+  const [selectedSubSlug, setSelectedSubSlug] = useState<string>(initialSubSlug || "__ALL__");
   const [products, setProducts] = useState<ZebQuickProductRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setSelectedSubSlug("__ALL__");
-  }, [mainCategory]);
+    setSelectedSubSlug(initialSubSlug || "__ALL__");
+  }, [mainCategory, initialSubSlug]);
 
   useEffect(() => {
     let active = true;

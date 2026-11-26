@@ -34,6 +34,7 @@ export interface ZebQuickMainCategory {
   name: string;
   description?: string | null;
   image_url?: string | null;
+  theme_color?: string | null;
 }
 
 export interface ZebQuickSubcategory {
@@ -42,6 +43,7 @@ export interface ZebQuickSubcategory {
   name: string;
   category_group: string;
   image_url?: string | null;
+  is_featured?: boolean | null;
 }
 
 interface ZebQuickContextValue {

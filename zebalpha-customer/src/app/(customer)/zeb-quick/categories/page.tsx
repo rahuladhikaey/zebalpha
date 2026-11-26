@@ -1,44 +1,77 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useZebQuick } from "@/context/ZebQuickContext";
 import { ZebQuickSplitCategoryView } from "@/components/zeb-quick/ZebQuickSplitCategoryView";
 
 export default function ZebQuickCategoriesPage() {
-  const { mainCategories } = useZebQuick();
-  const [activeMain, setActiveMain] = useState<string>("Women's Innerwear");
+  const { mainCategories, subcategories, searchQuery } = useZebQuick();
+  const [selectedSplit, setSelectedSplit] = useState<{
+    mainCategory: string;
+    subSlug: string;
+  } | null>(null);
 
-  useEffect(() => {
-    if (mainCategories.length > 0 && !mainCategories.some((m) => m.name === activeMain)) {
-      setActiveMain(mainCategories[0].name);
-    }
-  }, [mainCategories, activeMain]);
+  if (selectedSplit) {
+    return (
+      <ZebQuickSplitCategoryView
+        mainCategory={selectedSplit.mainCategory}
+        initialSubSlug={selectedSplit.subSlug}
+        onClose={() => setSelectedSplit(null)}
+      />
+    );
+  }
+
+  const q = searchQuery.trim().toLowerCase();
 
   return (
-    <div className="mx-auto max-w-5xl">
-      {/* Top Main Category Strip */}
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-neutral-200 bg-white px-3.5 py-2.5 no-scrollbar">
-        {mainCategories.map((mc) => {
-          const active = activeMain === mc.name;
-          return (
-            <button
-              key={mc.id || mc.name}
-              type="button"
-              onClick={() => setActiveMain(mc.name)}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-extrabold transition cursor-pointer ${
-                active
-                  ? "bg-neutral-950 text-[#F8CB46]"
-                  : "border border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-amber-400"
-              }`}
-            >
-              {mc.name}
-            </button>
-          );
-        })}
-      </div>
+    <div className="mx-auto max-w-5xl px-3.5 py-4 space-y-6">
+      {mainCategories.map((mc) => {
+        const subs = subcategories.filter(
+          (s) =>
+            s.category_group === mc.name &&
+            (!q || s.name.toLowerCase().includes(q) || mc.name.toLowerCase().includes(q))
+        );
+        if (subs.length === 0) return null;
 
-      {/* Blinkit Split Subcategory View */}
-      <ZebQuickSplitCategoryView mainCategory={activeMain} />
+        return (
+          <section key={mc.id || mc.name} className="space-y-3">
+            <h2 className="text-base font-black tracking-tight text-neutral-950">{mc.name}</h2>
+            <div className="grid grid-cols-4 gap-2.5 sm:gap-3.5">
+              {subs.map((sub) => (
+                <button
+                  key={sub.slug}
+                  type="button"
+                  onClick={() =>
+                    setSelectedSplit({
+                      mainCategory: mc.name,
+                      subSlug: sub.slug,
+                    })
+                  }
+                  className="flex flex-col items-center text-center group cursor-pointer active:scale-95 transition"
+                >
+                  <div className="aspect-square w-full overflow-hidden rounded-2xl bg-[#EEF6F6] p-2 flex items-center justify-center border border-neutral-200/50 group-hover:border-emerald-400 transition">
+                    {sub.image_url ? (
+                      <img
+                        src={sub.image_url}
+                        alt={sub.name}
+                        loading="lazy"
+                        className="h-full w-full object-contain rounded-xl"
+                      />
+                    ) : (
+                      <span className="text-sm font-black text-emerald-800">
+                        {sub.name.slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <span className="mt-1.5 line-clamp-2 text-[11px] font-bold text-neutral-900 leading-tight">
+                    {sub.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

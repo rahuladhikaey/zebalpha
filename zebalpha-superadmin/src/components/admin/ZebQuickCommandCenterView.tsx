@@ -19,6 +19,7 @@ export default function ZebQuickCommandCenterView() {
   const [newMainCatName, setNewMainCatName] = useState("");
   const [newMainCatDesc, setNewMainCatDesc] = useState("");
   const [newMainCatImg, setNewMainCatImg] = useState("");
+  const [newMainCatTheme, setNewMainCatTheme] = useState("#F8CB46");
   const [newSubGroup, setNewSubGroup] = useState("Women's Innerwear");
   const [newSubName, setNewSubName] = useState("");
   const [newSubKeywords, setNewSubKeywords] = useState("");
@@ -81,12 +82,14 @@ export default function ZebQuickCommandCenterView() {
         name: newMainCatName,
         description: newMainCatDesc,
         image_url: newMainCatImg,
+        theme_color: newMainCatTheme,
       }),
     });
     if (res.ok) {
       setNewMainCatName("");
       setNewMainCatDesc("");
       setNewMainCatImg("");
+      setNewMainCatTheme("#F8CB46");
       await loadData();
     }
   };
@@ -513,7 +516,7 @@ export default function ZebQuickCommandCenterView() {
               {/* Create Main Category */}
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-4">
                 <h3 className="text-sm font-black text-white">1. Main Categories ({(data?.mainCategories || []).length})</h3>
-                <form onSubmit={handleCreateMainCategory} className="grid sm:grid-cols-4 gap-3">
+                <form onSubmit={handleCreateMainCategory} className="grid sm:grid-cols-5 gap-3">
                   <input
                     required
                     value={newMainCatName}
@@ -533,6 +536,17 @@ export default function ZebQuickCommandCenterView() {
                     placeholder="Icon / Image URL (optional)"
                     className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
                   />
+                  <select
+                    value={newMainCatTheme}
+                    onChange={(e) => setNewMainCatTheme(e.target.value)}
+                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                  >
+                    <option value="#F8CB46">Theme: Blinkit Yellow</option>
+                    <option value="#1E293B">Theme: Electronics Dark</option>
+                    <option value="#BAE6FD">Theme: Winter Icy Blue</option>
+                    <option value="#FBCFE8">Theme: Rose Beauty</option>
+                    <option value="#A7F3D0">Theme: Fresh Mint</option>
+                  </select>
                   <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white cursor-pointer">
                     + Create Main Category
                   </button>
@@ -540,15 +554,22 @@ export default function ZebQuickCommandCenterView() {
 
                 <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {(data?.mainCategories || []).map((mc: any) => (
-                    <div key={mc.id} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3.5">
-                      <div>
-                        <p className="text-sm font-black text-white">{mc.name}</p>
-                        {mc.description && <p className="text-[11px] text-zinc-400 line-clamp-1">{mc.description}</p>}
+                    <div key={mc.id} className="flex items-center justify-between gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className="h-5 w-5 rounded-full shrink-0 border border-white/20"
+                          style={{ backgroundColor: mc.theme_color || "#F8CB46" }}
+                          title={`Theme: ${mc.theme_color || "#F8CB46"}`}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-white truncate">{mc.name}</p>
+                          {mc.description && <p className="text-[11px] text-zinc-400 line-clamp-1">{mc.description}</p>}
+                        </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => patchAction({ action: "toggle_main_category", id: mc.id, is_active: !mc.is_active })}
-                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${mc.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer shrink-0 ${mc.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
                           }`}
                       >
                         {mc.is_active ? "ACTIVE" : "OFF"}
@@ -606,19 +627,30 @@ export default function ZebQuickCommandCenterView() {
 
                 <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {(data?.subcategories || []).map((sub: any) => (
-                    <div key={sub.id} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                      <div>
+                    <div key={sub.id} className="flex items-center justify-between gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+                      <div className="min-w-0">
                         <p className="text-[10px] font-bold uppercase text-orange-400">{sub.category_group}</p>
-                        <p className="text-sm font-black text-white">{sub.name}</p>
+                        <p className="text-sm font-black text-white truncate">{sub.name}</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => patchAction({ action: "toggle_subcategory", id: sub.id, is_active: !sub.is_active })}
-                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${sub.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
-                          }`}
-                      >
-                        {sub.is_active ? "ALLOWED" : "DISABLED"}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => patchAction({ action: "toggle_featured_subcategory", id: sub.id, is_featured: !sub.is_featured })}
+                          className={`rounded-xl px-2.5 py-1.5 text-[10px] font-black cursor-pointer ${sub.is_featured ? "bg-amber-400/20 text-amber-300 border border-amber-400/40" : "bg-zinc-800 text-zinc-500"
+                            }`}
+                          title="Show in Featured strip on Main Category Tab"
+                        >
+                          {sub.is_featured ? "★ FEATURED" : "☆"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => patchAction({ action: "toggle_subcategory", id: sub.id, is_active: !sub.is_active })}
+                          className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer ${sub.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                            }`}
+                        >
+                          {sub.is_active ? "ALLOWED" : "DISABLED"}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
