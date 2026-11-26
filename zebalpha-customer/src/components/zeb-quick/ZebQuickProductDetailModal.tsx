@@ -11,7 +11,6 @@ import {
   RotateCcw,
   Share2,
   ShieldCheck,
-  Store,
   Zap,
 } from "lucide-react";
 import { useZebQuick } from "@/context/ZebQuickContext";
@@ -26,6 +25,7 @@ export function ZebQuickProductDetailModal() {
     cartCount,
     addToCart,
     updateQty,
+    returnWindowDays,
   } = useZebQuick();
 
   const [activeImgIdx, setActiveImgIdx] = useState(0);
@@ -244,30 +244,18 @@ export function ZebQuickProductDetailModal() {
             </div>
           </div>
 
-          {/* Store / Brand Row */}
-          <div className="flex items-center justify-between rounded-2xl border border-neutral-200/80 bg-white p-3.5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-                <Store className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-black text-neutral-900">ZebQuick Verified Store</p>
-                <p className="text-[11px] font-semibold text-neutral-500">
-                  Dispatched from Pincode {activeProduct.pickup_pincode}
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-neutral-400" />
-          </div>
-
-          {/* Replacement / Hygiene Assurance */}
+          {/* Replacement / Return Policy synced from Admin Marketplace Settings */}
           <div className="flex items-center justify-between rounded-2xl border border-neutral-200/80 bg-white p-3.5">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
                 <RotateCcw className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-black text-neutral-900">72 hours easy replacement</p>
+                <p className="text-xs font-black text-neutral-900">
+                  {returnWindowDays > 0
+                    ? `${returnWindowDays}-day easy return & replacement`
+                    : "Hygiene sealed • Non-returnable"}
+                </p>
                 <p className="text-[11px] font-semibold text-neutral-500 flex items-center gap-1">
                   <ShieldCheck className="h-3 w-3 text-emerald-600" />
                   100% discreet sealed hygiene pack

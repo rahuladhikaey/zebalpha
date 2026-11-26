@@ -72,6 +72,7 @@ interface ZebQuickContextValue {
   activeProduct: any | null;
   openProductDetail: (product: any) => void;
   closeProductDetail: () => void;
+  returnWindowDays: number;
 }
 
 const ZebQuickContext = createContext<ZebQuickContextValue | null>(null);
@@ -101,6 +102,7 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
   const [mainCategories, setMainCategories] = useState<ZebQuickMainCategory[]>([]);
   const [subcategories, setSubcategories] = useState<ZebQuickSubcategory[]>([]);
   const [activeProduct, setActiveProduct] = useState<any | null>(null);
+  const [returnWindowDays, setReturnWindowDays] = useState<number>(5);
 
   useEffect(() => {
     fetch("/api/zeb-quick/categories")
@@ -108,6 +110,7 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
       .then((d) => {
         if (Array.isArray(d.mainCategories)) setMainCategories(d.mainCategories);
         if (Array.isArray(d.subcategories)) setSubcategories(d.subcategories);
+        if (typeof d.returnWindowDays === "number") setReturnWindowDays(d.returnWindowDays);
       })
       .catch(() => {});
   }, []);
@@ -399,6 +402,7 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
         activeProduct,
         openProductDetail: (product: any) => setActiveProduct(product),
         closeProductDetail: () => setActiveProduct(null),
+        returnWindowDays,
       }}
     >
       {children}
