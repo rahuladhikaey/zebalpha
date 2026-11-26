@@ -1,6 +1,19 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 import { ZEB_QUICK_DELIVERY_FEE, ZEB_QUICK_FREE_DELIVERY_MIN } from "@shared/constants/zebQuick";
+
+function verifyRazorpaySignature(orderId: string, paymentId: string, signature: string, secret: string): boolean {
+  if (!orderId || !paymentId || !signature || !secret) return false;
+  try {
+    const expected = crypto.createHmac("sha256", secret).update(`${orderId}|${paymentId}`).digest("hex");
+    const a = Buffer.from(expected, "utf-8");
+    const b = Buffer.from(signature, "utf-8");
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -13,6 +26,9 @@ export async function POST(req: Request) {
       delivery_pincode,
       payment_method = "COD",
       items,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
     } = body;
 
     const cleanPin = String(delivery_pincode || "").replace(/\D/g, "").slice(0, 6);
@@ -24,6 +40,14 @@ export async function POST(req: Request) {
     }
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ success: false, error: "ZebQuick cart is empty" }, { status: 400 });
+    }
+
+    const isOnline = String(payment_method).toUpperCase() === "ONLINE";
+    if (isOnline) {
+      const secret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
+      if (!verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, secret)) {
+        return NextResponse.json({ success: false, error: "Invalid Razorpay payment signature" }, { status: 400 });
+      }
     }
 
     const supabase = getSupabaseServer();
