@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, Plus, Minus, Clock } from "lucide-react";
+import { Plus, Minus, Clock } from "lucide-react";
 import { useZebQuick } from "@/context/ZebQuickContext";
 
 export interface ZebQuickProductRecord {
@@ -22,7 +22,7 @@ export interface ZebQuickProductRecord {
 }
 
 export function ZebQuickProductCard({ product }: { product: ZebQuickProductRecord }) {
-  const { cart, addToCart, updateQty, toggleWishlist, isWishlisted, openProductDetail } = useZebQuick();
+  const { cart, addToCart, updateQty, openProductDetail } = useZebQuick();
 
   const img =
     product.image_url ||
@@ -32,7 +32,6 @@ export function ZebQuickProductCard({ product }: { product: ZebQuickProductRecor
   const price = Number(product.zeb_quick_price || 0);
   const mrp = Number(product.mrp || 0);
   const discountPct = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
-  const wishlisted = isWishlisted(product.id);
   const defaultSize = Array.isArray(product.sizes) && product.sizes.length > 0 ? String(product.sizes[0]) : undefined;
   const cartItem = cart.find((c) => c.id === product.id && (c.size || "") === (defaultSize || ""));
   const qty = cartItem?.quantity || 0;
@@ -65,19 +64,6 @@ export function ZebQuickProductCard({ product }: { product: ZebQuickProductRecor
           loading="lazy"
           className="h-full w-full rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
         />
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleWishlist(product.id);
-          }}
-          aria-label="Toggle ZebQuick Wishlist"
-          className="absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-neutral-600 shadow-xs backdrop-blur-xs transition active:scale-90 cursor-pointer"
-        >
-          <Heart className={`h-3.5 w-3.5 ${wishlisted ? "fill-rose-500 text-rose-500" : "text-neutral-600"}`} />
-        </button>
 
         {/* Blinkit-style floating ADD / - 1 + Toggle on bottom-right of image */}
         {qty === 0 ? (

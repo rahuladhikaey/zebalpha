@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabaseClient";
 export default function ZebQuickAccountPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { pincode, serviceability, setLocationModalOpen, cartCount, wishlistIds } = useZebQuick();
+  const { pincode, serviceability, setLocationModalOpen, cartCount } = useZebQuick();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -95,20 +95,6 @@ export default function ZebQuickAccountPage() {
             <div>
               <p className="text-sm font-bold text-neutral-900">My ZebQuick Orders</p>
               <p className="text-[11px] text-neutral-500">5–6 Hr express order history & tracking</p>
-            </div>
-          </div>
-          <span className="text-xs font-bold text-neutral-400">→</span>
-        </Link>
-
-        <Link
-          href="/zeb-quick/wishlist"
-          className="flex items-center justify-between px-4 py-3.5 hover:bg-orange-50/50 transition"
-        >
-          <div className="flex items-center gap-3">
-            <Heart className="h-5 w-5 text-[#EE2B00]" />
-            <div>
-              <p className="text-sm font-bold text-neutral-900">My ZebQuick Wishlist</p>
-              <p className="text-[11px] text-neutral-500">{wishlistIds.length} saved items</p>
             </div>
           </div>
           <span className="text-xs font-bold text-neutral-400">→</span>

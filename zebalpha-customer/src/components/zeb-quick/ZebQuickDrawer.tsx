@@ -20,7 +20,6 @@ export function ZebQuickDrawer({
     { label: "Account", href: "/zeb-quick/account", icon: User },
     { label: "View Profile", href: "/zeb-quick/account#profile", icon: UserCheck },
     { label: "My Orders", href: "/zeb-quick/orders", icon: Package },
-    { label: "My Wishlist", href: "/zeb-quick/wishlist", icon: Heart },
   ];
 
   return (

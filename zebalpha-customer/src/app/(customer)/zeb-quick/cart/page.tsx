@@ -49,7 +49,6 @@ export default function ZebQuickCartPage() {
     updateQty,
     removeFromCart,
     clearCart,
-    toggleWishlist,
     openProductDetail,
   } = useZebQuick();
 
@@ -358,13 +357,10 @@ export default function ZebQuickCartPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={async () => {
-                      await toggleWishlist(item.id);
-                      removeFromCart(item.id, item.size, item.color);
-                    }}
+                    onClick={() => removeFromCart(item.id, item.size, item.color)}
                     className="mt-1 text-[11px] font-semibold text-neutral-500 underline cursor-pointer"
                   >
-                    Move to wishlist
+                    Remove
                   </button>
                 </div>
 

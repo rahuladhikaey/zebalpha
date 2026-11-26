@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Minus, Plus, Clock, Zap } from "lucide-react";
+import { ChevronRight, Minus, Plus, Zap } from "lucide-react";
 import { useZebQuick } from "@/context/ZebQuickContext";
 import type { ZebQuickProductRecord } from "@/components/zeb-quick/ZebQuickProductCard";
 
@@ -185,28 +185,15 @@ export function ZebQuickMainCategoryView({
                       )}
                     </div>
 
-                    <div className="mt-1 flex items-baseline gap-1">
+                    <div className="mt-1.5 flex items-baseline gap-1">
                       <span className="text-xs font-black text-neutral-950">₹{price}</span>
                       {mrp > price && (
                         <span className="text-[10px] text-neutral-400 line-through">₹{mrp}</span>
                       )}
                     </div>
-                    {saveAmt > 0 && (
-                      <p className="text-[9.5px] font-extrabold text-sky-600 leading-tight">
-                        ₹{saveAmt} OFF
-                      </p>
-                    )}
-
-                    <h3 className="mt-0.5 line-clamp-2 text-[11px] font-bold text-neutral-900 leading-snug">
-                      {p.title}
-                    </h3>
                   </div>
 
-                  <div className="mt-1.5 space-y-1">
-                    <div className="flex items-center gap-1 text-[9.5px] font-bold text-neutral-500">
-                      <Clock className="h-2.5 w-2.5 text-emerald-600" />
-                      <span>5–6 hrs</span>
-                    </div>
+                  <div className="mt-2">
                     <button
                       type="button"
                       onClick={() => onOpenSplit(p.subcategory_slug || "__ALL__")}
