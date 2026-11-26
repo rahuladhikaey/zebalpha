@@ -11,26 +11,16 @@ import {
   Loader2,
   MapPin,
   Minus,
-  Navigation,
   Plus,
   ShoppingBag,
   Smartphone,
   Wallet,
-  X,
   Zap,
 } from "lucide-react";
 import { useZebQuick } from "@/context/ZebQuickContext";
 import { useAuth } from "@/context/AuthContext";
 import { ZEB_QUICK_DELIVERY_FEE, ZEB_QUICK_FREE_DELIVERY_MIN } from "@shared/constants/zebQuick";
-
-interface SavedZebQuickAddress {
-  label: "Home" | "Work" | "Other";
-  name: string;
-  phone: string;
-  houseLine: string;
-  areaLine: string;
-  pincode: string;
-}
+import { ZebQuickAddressSheet, type SavedZebQuickAddress } from "@/components/zeb-quick/ZebQuickAddressSheet";
 
 const ADDRESS_STORAGE_KEY = "zeb_quick_saved_address_v1";
 
@@ -43,8 +33,6 @@ export default function ZebQuickCartPage() {
     cartSubtotal,
     pincode,
     serviceability,
-    setPincode,
-    detectGpsPincode,
     addToCart,
     updateQty,
     removeFromCart,
@@ -58,14 +46,6 @@ export default function ZebQuickCartPage() {
 
   // Saved address state
   const [savedAddress, setSavedAddress] = useState<SavedZebQuickAddress | null>(null);
-  const [addrLabel, setAddrLabel] = useState<"Home" | "Work" | "Other">("Home");
-  const [addrName, setAddrName] = useState(user?.user_metadata?.full_name || "");
-  const [addrPhone, setAddrPhone] = useState(user?.user_metadata?.phone || "");
-  const [addrHouse, setAddrHouse] = useState("");
-  const [addrArea, setAddrArea] = useState(serviceability.areaName ? `${serviceability.areaName}, ${serviceability.city}` : "");
-  const [addrPin, setAddrPin] = useState(pincode);
-  const [gpsLoading, setGpsLoading] = useState(false);
-  const [addrError, setAddrError] = useState<string | null>(null);
 
   // Upsells ("You might also like")
   const [upsells, setUpsells] = useState<any[]>([]);
@@ -80,16 +60,10 @@ export default function ZebQuickCartPage() {
         const parsed = JSON.parse(raw) as SavedZebQuickAddress;
         if (parsed?.houseLine && parsed?.pincode) {
           setSavedAddress(parsed);
-          setAddrLabel(parsed.label || "Home");
-          setAddrName(parsed.name || "");
-          setAddrPhone(parsed.phone || "");
-          setAddrHouse(parsed.houseLine || "");
-          setAddrArea(parsed.areaLine || "");
-          setAddrPin(parsed.pincode || pincode);
         }
       }
     } catch {}
-  }, [pincode]);
+  }, []);
 
   // Load "You might also like" items for current pincode
   useEffect(() => {
@@ -114,54 +88,7 @@ export default function ZebQuickCartPage() {
     cartSubtotal >= ZEB_QUICK_FREE_DELIVERY_MIN || cartSubtotal === 0 ? 0 : ZEB_QUICK_DELIVERY_FEE;
   const total = cartSubtotal + deliveryFee;
 
-  const handleUseGps = async () => {
-    setGpsLoading(true);
-    setAddrError(null);
-    const res = await detectGpsPincode();
-    setGpsLoading(false);
-    if (res.ok && res.pincode) {
-      setAddrPin(res.pincode);
-      setAddrArea(
-        serviceability.areaName
-          ? `${serviceability.areaName}, ${serviceability.city || "West Bengal"}`
-          : `Detected Pincode ${res.pincode}`
-      );
-    } else {
-      setAddrError(res.error || "Could not detect GPS location. Please enter pincode manually.");
-    }
-  };
-
-  const handleSaveAddress = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAddrError(null);
-    const cleanPin = addrPin.replace(/\D/g, "").slice(0, 6);
-    const cleanPhone = addrPhone.replace(/\D/g, "").slice(-10);
-    if (!addrName.trim()) {
-      setAddrError("Please enter receiver's name.");
-      return;
-    }
-    if (cleanPhone.length !== 10) {
-      setAddrError("Please enter a valid 10-digit mobile number.");
-      return;
-    }
-    if (!addrHouse.trim()) {
-      setAddrError("Please enter House / Flat / Street details.");
-      return;
-    }
-    if (cleanPin.length !== 6) {
-      setAddrError("Please enter a valid 6-digit pincode.");
-      return;
-    }
-
-    await setPincode(cleanPin);
-    const nextAddr: SavedZebQuickAddress = {
-      label: addrLabel,
-      name: addrName.trim(),
-      phone: cleanPhone,
-      houseLine: addrHouse.trim(),
-      areaLine: addrArea.trim() || `${serviceability.areaName}, ${serviceability.city}`,
-      pincode: cleanPin,
-    };
+  const handleSaveAddress = (nextAddr: SavedZebQuickAddress) => {
     setSavedAddress(nextAddr);
     try {
       localStorage.setItem(ADDRESS_STORAGE_KEY, JSON.stringify(nextAddr));
@@ -185,7 +112,7 @@ export default function ZebQuickCartPage() {
     rzp?: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
   ) => {
     if (!savedAddress) return;
-    const fullAddress = `${savedAddress.houseLine}${savedAddress.areaLine ? `, ${savedAddress.areaLine}` : ""} - ${savedAddress.pincode}`;
+    const fullAddress = `${savedAddress.houseLine}, ${savedAddress.areaStreet}, ${savedAddress.city} - ${savedAddress.pincode}`;
     const res = await fetch("/api/zeb-quick/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -485,7 +412,7 @@ export default function ZebQuickCartPage() {
                     Delivering to {savedAddress.label}
                   </p>
                   <p className="text-[11px] text-neutral-500 truncate">
-                    {savedAddress.houseLine}, {savedAddress.areaLine} ({savedAddress.pincode})
+                    {savedAddress.houseLine}, {savedAddress.areaStreet}, {savedAddress.city} ({savedAddress.pincode})
                   </p>
                 </div>
               </div>
@@ -522,107 +449,13 @@ export default function ZebQuickCartPage() {
         </div>
       </div>
 
-      {/* Step 2 Modal: Blinkit Address Sheet (GPS or Manual Pincode + Full Details) */}
-      {addressSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-xs">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-black text-neutral-950">Enter Complete Address</h2>
-                <p className="text-xs text-neutral-500">Use GPS or enter pincode manually for 5–6 Hr delivery</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAddressSheetOpen(false)}
-                className="rounded-full p-1.5 text-neutral-500 hover:bg-neutral-100 cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleUseGps}
-              disabled={gpsLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 py-2.5 text-xs font-extrabold text-emerald-800 cursor-pointer"
-            >
-              <Navigation className="h-4 w-4" />
-              {gpsLoading ? "Detecting GPS Location..." : "Use Current GPS Location"}
-            </button>
-
-            <form onSubmit={handleSaveAddress} className="space-y-3">
-              <div className="flex gap-2">
-                {(["Home", "Work", "Other"] as const).map((lbl) => (
-                  <button
-                    key={lbl}
-                    type="button"
-                    onClick={() => setAddrLabel(lbl)}
-                    className={`rounded-xl border px-3.5 py-1.5 text-xs font-extrabold cursor-pointer ${
-                      addrLabel === lbl
-                        ? "border-[#0C831F] bg-emerald-50 text-[#0C831F]"
-                        : "border-neutral-200 text-neutral-600"
-                    }`}
-                  >
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <input
-                  required
-                  value={addrName}
-                  onChange={(e) => setAddrName(e.target.value)}
-                  placeholder="Receiver's Name"
-                  className="rounded-xl border border-neutral-300 px-3 py-2.5 text-xs font-semibold"
-                />
-                <input
-                  required
-                  value={addrPhone}
-                  onChange={(e) => setAddrPhone(e.target.value)}
-                  placeholder="10-digit Mobile"
-                  maxLength={10}
-                  className="rounded-xl border border-neutral-300 px-3 py-2.5 text-xs font-semibold"
-                />
-              </div>
-
-              <input
-                required
-                value={addrHouse}
-                onChange={(e) => setAddrHouse(e.target.value)}
-                placeholder="House / Flat No., Building, Landmark"
-                className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-xs font-semibold"
-              />
-
-              <div className="grid grid-cols-3 gap-2.5">
-                <input
-                  value={addrArea}
-                  onChange={(e) => setAddrArea(e.target.value)}
-                  placeholder="Area / City"
-                  className="col-span-2 rounded-xl border border-neutral-300 px-3 py-2.5 text-xs font-semibold"
-                />
-                <input
-                  required
-                  value={addrPin}
-                  onChange={(e) => setAddrPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="Pincode"
-                  maxLength={6}
-                  className="rounded-xl border border-neutral-300 px-3 py-2.5 text-xs font-black tracking-wider"
-                />
-              </div>
-
-              {addrError && <p className="text-xs font-bold text-rose-600">{addrError}</p>}
-
-              <button
-                type="submit"
-                className="w-full rounded-2xl bg-[#0C831F] py-3 text-sm font-black text-white cursor-pointer"
-              >
-                Save &amp; Continue
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Step 2 Modal: Blinkit Address Sheet (GPS, City, Area/Street & Contact Details) */}
+      <ZebQuickAddressSheet
+        open={addressSheetOpen}
+        initialAddress={savedAddress}
+        onClose={() => setAddressSheetOpen(false)}
+        onSave={handleSaveAddress}
+      />
 
       {/* Step 3 Modal: Blinkit Payment Sheet (Razorpay UPI/Cards/Wallets/Netbanking + COD) */}
       {paymentSheetOpen && (
