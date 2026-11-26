@@ -18,9 +18,11 @@ export default function ZebQuickCommandCenterView() {
   // Create Main Category & Subcategory forms
   const [newMainCatName, setNewMainCatName] = useState("");
   const [newMainCatDesc, setNewMainCatDesc] = useState("");
+  const [newMainCatImg, setNewMainCatImg] = useState("");
   const [newSubGroup, setNewSubGroup] = useState("Women's Innerwear");
   const [newSubName, setNewSubName] = useState("");
   const [newSubKeywords, setNewSubKeywords] = useState("");
+  const [newSubImg, setNewSubImg] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -78,11 +80,13 @@ export default function ZebQuickCommandCenterView() {
         action: "create_main_category",
         name: newMainCatName,
         description: newMainCatDesc,
+        image_url: newMainCatImg,
       }),
     });
     if (res.ok) {
       setNewMainCatName("");
       setNewMainCatDesc("");
+      setNewMainCatImg("");
       await loadData();
     }
   };
@@ -97,11 +101,13 @@ export default function ZebQuickCommandCenterView() {
         category_group: newSubGroup,
         name: newSubName,
         keywords: newSubKeywords,
+        image_url: newSubImg,
       }),
     });
     if (res.ok) {
       setNewSubName("");
       setNewSubKeywords("");
+      setNewSubImg("");
       await loadData();
     }
   };
@@ -507,7 +513,7 @@ export default function ZebQuickCommandCenterView() {
               {/* Create Main Category */}
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-4">
                 <h3 className="text-sm font-black text-white">1. Main Categories ({(data?.mainCategories || []).length})</h3>
-                <form onSubmit={handleCreateMainCategory} className="grid sm:grid-cols-3 gap-3">
+                <form onSubmit={handleCreateMainCategory} className="grid sm:grid-cols-4 gap-3">
                   <input
                     required
                     value={newMainCatName}
@@ -519,6 +525,12 @@ export default function ZebQuickCommandCenterView() {
                     value={newMainCatDesc}
                     onChange={(e) => setNewMainCatDesc(e.target.value)}
                     placeholder="Short Description (optional)"
+                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                  />
+                  <input
+                    value={newMainCatImg}
+                    onChange={(e) => setNewMainCatImg(e.target.value)}
+                    placeholder="Icon / Image URL (optional)"
                     className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
                   />
                   <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white cursor-pointer">
@@ -549,7 +561,7 @@ export default function ZebQuickCommandCenterView() {
               {/* Create Subcategory */}
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-4">
                 <h3 className="text-sm font-black text-white">2. Allowed Subcategories ({(data?.subcategories || []).length})</h3>
-                <form onSubmit={handleCreateSubcategory} className="grid sm:grid-cols-4 gap-3">
+                <form onSubmit={handleCreateSubcategory} className="grid sm:grid-cols-5 gap-3">
                   <select
                     value={newSubGroup}
                     onChange={(e) => setNewSubGroup(e.target.value)}
@@ -578,7 +590,13 @@ export default function ZebQuickCommandCenterView() {
                   <input
                     value={newSubKeywords}
                     onChange={(e) => setNewSubKeywords(e.target.value)}
-                    placeholder="Keywords (comma-separated, e.g. bra, sports bra)"
+                    placeholder="Keywords (comma-separated)"
+                    className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+                  />
+                  <input
+                    value={newSubImg}
+                    onChange={(e) => setNewSubImg(e.target.value)}
+                    placeholder="Thumbnail Image URL (optional)"
                     className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
                   />
                   <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white cursor-pointer">

@@ -28,6 +28,22 @@ export interface ZebQuickServiceability {
   checked: boolean;
 }
 
+export interface ZebQuickMainCategory {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  image_url?: string | null;
+}
+
+export interface ZebQuickSubcategory {
+  id: string;
+  slug: string;
+  name: string;
+  category_group: string;
+  image_url?: string | null;
+}
+
 interface ZebQuickContextValue {
   pincode: string;
   serviceability: ZebQuickServiceability;
@@ -35,6 +51,12 @@ interface ZebQuickContextValue {
   detectGpsPincode: () => Promise<{ ok: boolean; pincode?: string; error?: string }>;
   locationModalOpen: boolean;
   setLocationModalOpen: (open: boolean) => void;
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  selectedMainCategory: string;
+  setSelectedMainCategory: (cat: string) => void;
+  mainCategories: ZebQuickMainCategory[];
+  subcategories: ZebQuickSubcategory[];
   cart: ZebQuickCartItem[];
   cartCount: number;
   cartSubtotal: number;
@@ -69,6 +91,20 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMainCategory, setSelectedMainCategory] = useState<string>("All");
+  const [mainCategories, setMainCategories] = useState<ZebQuickMainCategory[]>([]);
+  const [subcategories, setSubcategories] = useState<ZebQuickSubcategory[]>([]);
+
+  useEffect(() => {
+    fetch("/api/zeb-quick/categories")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.mainCategories)) setMainCategories(d.mainCategories);
+        if (Array.isArray(d.subcategories)) setSubcategories(d.subcategories);
+      })
+      .catch(() => {});
+  }, []);
 
   const checkPincode = useCallback(async (pin: string) => {
     const clean = pin.replace(/\D/g, "").slice(0, 6);
@@ -338,6 +374,12 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
         detectGpsPincode,
         locationModalOpen,
         setLocationModalOpen,
+        searchQuery,
+        setSearchQuery,
+        selectedMainCategory,
+        setSelectedMainCategory,
+        mainCategories,
+        subcategories,
         cart,
         cartCount,
         cartSubtotal,
