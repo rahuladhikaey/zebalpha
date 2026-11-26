@@ -69,6 +69,9 @@ interface ZebQuickContextValue {
   wishlistIds: string[];
   toggleWishlist: (zebQuickProductId: string) => Promise<void>;
   isWishlisted: (zebQuickProductId: string) => boolean;
+  activeProduct: any | null;
+  openProductDetail: (product: any) => void;
+  closeProductDetail: () => void;
 }
 
 const ZebQuickContext = createContext<ZebQuickContextValue | null>(null);
@@ -97,6 +100,7 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
   const [selectedMainCategory, setSelectedMainCategory] = useState<string>("All");
   const [mainCategories, setMainCategories] = useState<ZebQuickMainCategory[]>([]);
   const [subcategories, setSubcategories] = useState<ZebQuickSubcategory[]>([]);
+  const [activeProduct, setActiveProduct] = useState<any | null>(null);
 
   useEffect(() => {
     fetch("/api/zeb-quick/categories")
@@ -392,6 +396,9 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
         wishlistIds,
         toggleWishlist,
         isWishlisted,
+        activeProduct,
+        openProductDetail: (product: any) => setActiveProduct(product),
+        closeProductDetail: () => setActiveProduct(null),
       }}
     >
       {children}

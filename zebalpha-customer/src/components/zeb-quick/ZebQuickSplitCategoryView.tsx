@@ -146,10 +146,33 @@ export function ZebQuickSplitCategoryView({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {products.map((p) => (
-                <ZebQuickProductCard key={p.id} product={p} />
-              ))}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {products.slice(0, 2).map((p) => (
+                  <ZebQuickProductCard key={p.id} product={p} />
+                ))}
+              </div>
+
+              {products.length > 2 && (
+                <div className="rounded-2xl bg-neutral-50/90 border border-neutral-200/70 p-2.5 space-y-2">
+                  <p className="text-xs font-black text-neutral-950">People also bought</p>
+                  <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+                    {products.slice(2, 8).map((p) => (
+                      <div key={p.id} className="w-36 shrink-0">
+                        <ZebQuickProductCard product={p} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {products.length > 2 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {products.slice(2).map((p) => (
+                    <ZebQuickProductCard key={`grid-${p.id}`} product={p} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

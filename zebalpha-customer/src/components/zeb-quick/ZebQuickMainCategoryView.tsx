@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Plus, Check, Clock, Zap } from "lucide-react";
+import { ChevronRight, Minus, Plus, Clock, Zap } from "lucide-react";
 import { useZebQuick } from "@/context/ZebQuickContext";
 import type { ZebQuickProductRecord } from "@/components/zeb-quick/ZebQuickProductCard";
 
@@ -12,10 +12,9 @@ export function ZebQuickMainCategoryView({
   mainCategory: string;
   onOpenSplit: (subSlug: string) => void;
 }) {
-  const { pincode, subcategories, addToCart } = useZebQuick();
+  const { pincode, subcategories, cart, addToCart, updateQty, openProductDetail } = useZebQuick();
   const [products, setProducts] = useState<ZebQuickProductRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addedId, setAddedId] = useState<string | null>(null);
 
   const groupSubs = subcategories.filter((s) => s.category_group === mainCategory);
   const featuredSubs = groupSubs.some((s) => s.is_featured)
@@ -65,8 +64,6 @@ export function ZebQuickMainCategoryView({
       size: Array.isArray(p.sizes) && p.sizes.length > 0 ? String(p.sizes[0]) : undefined,
       pickup_pincode: p.pickup_pincode,
     });
-    setAddedId(p.id);
-    setTimeout(() => setAddedId(null), 1100);
   };
 
   return (
@@ -140,34 +137,52 @@ export function ZebQuickMainCategoryView({
               const mrp = Number(p.mrp || 0);
               const saveAmt = mrp > price ? Math.round(mrp - price) : 0;
               const sizeLabel = Array.isArray(p.sizes) && p.sizes.length > 0 ? String(p.sizes[0]) : "1 unit";
-              const isAdded = addedId === p.id;
+              const defaultSize = Array.isArray(p.sizes) && p.sizes.length > 0 ? String(p.sizes[0]) : undefined;
+              const qty = cart.find((c) => c.id === p.id && (c.size || "") === (defaultSize || ""))?.quantity || 0;
 
               return (
                 <div
                   key={p.id}
-                  className="flex flex-col justify-between rounded-2xl border border-neutral-200/80 bg-white p-1.5 shadow-[0_1px_6px_rgba(0,0,0,0.03)]"
+                  onClick={() => openProductDetail(p)}
+                  className="flex flex-col justify-between rounded-2xl border border-neutral-200/80 bg-white p-1.5 shadow-[0_1px_6px_rgba(0,0,0,0.03)] cursor-pointer"
                 >
                   <div>
                     <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-neutral-50">
                       <img src={img} alt={p.title} loading="lazy" className="h-full w-full object-cover" />
                     </div>
 
-                    <div className="mt-1.5 flex items-center justify-between gap-1">
+                    <div className="mt-1.5 flex items-center justify-between gap-1" onClick={(e) => e.stopPropagation()}>
                       <span className="truncate rounded-md bg-neutral-100 px-1.5 py-0.5 text-[9.5px] font-bold text-neutral-700">
                         {sizeLabel}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickAdd(p)}
-                        className={`inline-flex h-6 items-center gap-0.5 rounded-lg border px-2 text-[10px] font-black transition cursor-pointer ${
-                          isAdded
-                            ? "border-emerald-600 bg-emerald-600 text-white"
-                            : "border-emerald-600 bg-white text-emerald-700 hover:bg-emerald-600 hover:text-white"
-                        }`}
-                      >
-                        {isAdded ? <Check className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
-                        {isAdded ? "ADDED" : "ADD"}
-                      </button>
+                      {qty === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickAdd(p)}
+                          className="inline-flex h-6 items-center gap-0.5 rounded-lg border border-emerald-600 bg-white px-2 text-[10px] font-black text-emerald-700 transition hover:bg-emerald-600 hover:text-white cursor-pointer"
+                        >
+                          <Plus className="h-2.5 w-2.5" />
+                          ADD
+                        </button>
+                      ) : (
+                        <div className="inline-flex h-6 items-center gap-1.5 rounded-lg bg-[#0C831F] px-1.5 text-[10px] font-black text-white">
+                          <button
+                            type="button"
+                            onClick={() => updateQty(p.id, defaultSize, undefined, qty - 1)}
+                            className="cursor-pointer"
+                          >
+                            <Minus className="h-2.5 w-2.5 stroke-[2.5]" />
+                          </button>
+                          <span>{qty}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateQty(p.id, defaultSize, undefined, qty + 1)}
+                            className="cursor-pointer"
+                          >
+                            <Plus className="h-2.5 w-2.5 stroke-[2.5]" />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-1 flex items-baseline gap-1">

@@ -103,15 +103,15 @@ export function ZebQuickHeader() {
 
   return (
     <>
-      <header
-        className={`sticky top-0 z-40 w-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] pt-[max(env(safe-area-inset-top),0.5rem)] transition-colors duration-300 ${
+      {/* Non-sticky Top Delivery ETA + Account Row (scrolls up on scroll like Blinkit) */}
+      <div
+        className={`w-full pt-[max(env(safe-area-inset-top),0.5rem)] transition-colors duration-300 ${
           isDarkTheme ? "text-white" : "text-neutral-950"
         }`}
         style={{
-          background: `linear-gradient(to bottom, ${headerThemeColor}, ${headerThemeColor}d9 55%, #FFFDF5)`,
+          background: `linear-gradient(to bottom, ${headerThemeColor}, ${headerThemeColor}e6)`,
         }}
       >
-        {/* Top Delivery ETA + Account Row */}
         <div className="mx-auto max-w-5xl px-3.5 pt-2 pb-1.5">
           <div className="flex items-start justify-between gap-2.5">
             <div className="flex items-start gap-2.5 min-w-0">
@@ -177,10 +177,19 @@ export function ZebQuickHeader() {
               <User className="h-5 w-5 stroke-[2.2]" />
             </Link>
           </div>
+        </div>
+      </div>
 
-          {/* Search Bar inside Golden Header */}
-          {(isGoHome || isCategoriesPage) && (
-            <div className="mt-3 relative">
+      {/* Sticky Search Bar + Horizontal Main Category Strip */}
+      {(isGoHome || isCategoriesPage) && (
+        <header
+          className="sticky top-0 z-40 w-full shadow-[0_2px_12px_rgba(0,0,0,0.06)] transition-colors duration-300"
+          style={{
+            background: `linear-gradient(to bottom, ${headerThemeColor}e6, ${headerThemeColor}70 45%, #FFFFFF)`,
+          }}
+        >
+          <div className="mx-auto max-w-5xl px-3.5 pt-1.5 pb-2">
+            <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
               <input
                 type="text"
@@ -190,8 +199,7 @@ export function ZebQuickHeader() {
                 className="w-full rounded-2xl border border-black/10 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-neutral-900 placeholder:text-neutral-400 shadow-xs focus:border-neutral-900 focus:outline-none"
               />
             </div>
-          )}
-        </div>
+          </div>
 
         {/* Blinkit Horizontal Main Category Strip */}
         {isGoHome && (
@@ -249,6 +257,7 @@ export function ZebQuickHeader() {
           </div>
         )}
       </header>
+      )}
 
       {/* 3-Bar Mobile Drawer */}
       <ZebQuickDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />

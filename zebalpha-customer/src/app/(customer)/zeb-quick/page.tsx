@@ -237,15 +237,7 @@ export default function ZebQuickHomePage() {
         </div>
       )}
 
-      {/* Hygiene & Discreet Trust Strip */}
-      {products.length > 0 && (
-        <div className="flex items-center gap-2 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 px-3.5 py-2 text-[11px] font-bold text-emerald-900">
-          <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-          <span>100% Discreet Opaque Packaging • Local Verified Stores • Delivered within 5–6 Hours</span>
-        </div>
-      )}
-
-      {/* Product Grid */}
+      {/* Product Grid (only shown while searching, or Coming Soon when empty; Home stays pure Blinkit Bestsellers + 4-col Categories) */}
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -279,13 +271,13 @@ export default function ZebQuickHomePage() {
             </Link>
           </div>
         </div>
-      ) : (
+      ) : searchQuery.trim() ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {products.map((p) => (
             <ZebQuickProductCard key={p.id} product={p} />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
