@@ -100,10 +100,88 @@ export async function GET(req: Request) {
       return NextResponse.json({ serviceable: true, pincode, products: [], warning: error.message });
     }
 
+    const productList = products || [];
+
+    // Build Blinkit-style Bestsellers 2x2 collage groups (ordered by sales velocity, then product count)
+    let bestsellerGroups: Array<{
+      category_group: string;
+      subcategory_slug: string;
+      title: string;
+      totalCount: number;
+      moreCount: number;
+      previewImages: string[];
+    }> = [];
+
+    if (productList.length > 0 && !categoryGroup && !subcategory && !q) {
+      const salesCountByProd = new Map<string, number>();
+      try {
+        const { data: recentSales } = await db
+          .from("order_items")
+          .select("zeb_quick_product_id, quantity")
+          .limit(500);
+        (recentSales || []).forEach((row: any) => {
+          const pid = String(row.zeb_quick_product_id || "");
+          if (pid) {
+            salesCountByProd.set(pid, (salesCountByProd.get(pid) || 0) + Number(row.quantity || 1));
+          }
+        });
+      } catch {}
+
+      const groupMap = new Map<
+        string,
+        {
+          category_group: string;
+          subcategory_slug: string;
+          title: string;
+          salesScore: number;
+          images: string[];
+          totalCount: number;
+        }
+      >();
+
+      for (const p of productList) {
+        const key = String(p.subcategory_slug || p.category_group || "essentials");
+        const niceTitle = key
+          .split("-")
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+        const existing = groupMap.get(key) || {
+          category_group: String(p.category_group || "Everyday Essentials"),
+          subcategory_slug: String(p.subcategory_slug || ""),
+          title: niceTitle,
+          salesScore: 0,
+          images: [],
+          totalCount: 0,
+        };
+        existing.totalCount += 1;
+        existing.salesScore += salesCountByProd.get(String(p.id)) || 0;
+        const img =
+          p.image_url ||
+          (Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : "");
+        if (img && existing.images.length < 4) {
+          existing.images.push(String(img));
+        }
+        groupMap.set(key, existing);
+      }
+
+      bestsellerGroups = Array.from(groupMap.values())
+        .sort((a, b) => b.salesScore - a.salesScore || b.totalCount - a.totalCount)
+        .slice(0, 6)
+        .map((g) => ({
+          category_group: g.category_group,
+          subcategory_slug: g.subcategory_slug,
+          title: g.title,
+          totalCount: g.totalCount,
+          moreCount: Math.max(0, g.totalCount - 4),
+          previewImages: g.images,
+        }));
+    }
+
     return NextResponse.json({
       serviceable: true,
       pincode,
-      products: products || [],
+      products: productList,
+      bestsellerGroups,
     });
   } catch (err: any) {
     return NextResponse.json({ serviceable: false, products: [], error: err?.message || "Server error" }, { status: 500 });

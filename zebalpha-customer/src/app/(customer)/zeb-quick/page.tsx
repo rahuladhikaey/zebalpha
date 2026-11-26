@@ -19,6 +19,16 @@ export default function ZebQuickHomePage() {
     mainCategories,
   } = useZebQuick();
   const [products, setProducts] = useState<ZebQuickProductRecord[]>([]);
+  const [bestsellerGroups, setBestsellerGroups] = useState<
+    Array<{
+      category_group: string;
+      subcategory_slug: string;
+      title: string;
+      totalCount: number;
+      moreCount: number;
+      previewImages: string[];
+    }>
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,6 +45,9 @@ export default function ZebQuickHomePage() {
       .then((data) => {
         if (!active) return;
         setProducts(Array.isArray(data.products) ? data.products : []);
+        if (Array.isArray(data.bestsellerGroups)) {
+          setBestsellerGroups(data.bestsellerGroups);
+        }
         setLoading(false);
       })
       .catch(() => {
@@ -124,6 +137,49 @@ export default function ZebQuickHomePage() {
         <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
         <span>100% Discreet Opaque Packaging • Local Verified Stores • Delivered within 5–6 Hours</span>
       </div>
+
+      {/* Blinkit-style Bestsellers 2x2 Collage Grid */}
+      {!searchQuery.trim() && bestsellerGroups.length > 0 && (
+        <section className="space-y-2.5">
+          <h2 className="text-base font-black tracking-tight text-neutral-950">Bestsellers</h2>
+          <div className="grid grid-cols-3 gap-2.5">
+            {bestsellerGroups.map((grp) => (
+              <button
+                key={grp.subcategory_slug || grp.title}
+                type="button"
+                onClick={() => setSelectedMainCategory(grp.category_group)}
+                className="flex flex-col items-center rounded-2xl bg-neutral-100/90 p-2 pb-2.5 text-center transition hover:bg-neutral-200/70 active:scale-95 cursor-pointer"
+              >
+                <div className="relative w-full">
+                  <div className="grid grid-cols-2 gap-1">
+                    {Array.from({ length: 4 }).map((_, idx) => {
+                      const img = grp.previewImages[idx];
+                      return (
+                        <div
+                          key={idx}
+                          className="aspect-square w-full overflow-hidden rounded-lg bg-white flex items-center justify-center p-0.5"
+                        >
+                          {img ? (
+                            <img src={img} alt={grp.title} className="h-full w-full object-cover rounded-md" />
+                          ) : (
+                            <div className="h-full w-full rounded-md bg-neutral-50" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[9.5px] font-extrabold text-neutral-700 shadow-xs">
+                    {grp.moreCount > 0 ? `+${grp.moreCount} more` : `${grp.totalCount} items`}
+                  </span>
+                </div>
+                <span className="mt-3.5 line-clamp-2 text-[11px] font-extrabold text-neutral-900 leading-tight">
+                  {grp.title}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Main Category Cards Grid (Tap to open Blinkit Split Subcategory View) */}
       {!searchQuery.trim() && mainCategories.length > 0 && (
