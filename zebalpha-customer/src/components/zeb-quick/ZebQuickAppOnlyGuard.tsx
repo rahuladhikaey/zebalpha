@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Smartphone, ArrowLeft } from "lucide-react";
 import { useIsNativeApp } from "@/lib/platform";
 import { ZebQuickHeader } from "@/components/zeb-quick/ZebQuickHeader";
 import { ZebQuickBottomNav } from "@/components/zeb-quick/ZebQuickBottomNav";
 
 export function ZebQuickAppOnlyGuard({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const isNativeApp = useIsNativeApp();
   const [mounted, setMounted] = useState(false);
+  const isCheckoutRoute = pathname?.startsWith("/zeb-quick/cart");
 
   useEffect(() => {
     setMounted(true);
@@ -46,9 +49,9 @@ export function ZebQuickAppOnlyGuard({ children }: { children: React.ReactNode }
 
   return (
     <div className="min-h-screen bg-[#FFFDF9] text-neutral-900 flex flex-col">
-      <ZebQuickHeader />
-      <main className="flex-1 pb-24">{children}</main>
-      <ZebQuickBottomNav />
+      {!isCheckoutRoute && <ZebQuickHeader />}
+      <main className={`flex-1 ${isCheckoutRoute ? "" : "pb-24"}`}>{children}</main>
+      {!isCheckoutRoute && <ZebQuickBottomNav />}
     </div>
   );
 }
