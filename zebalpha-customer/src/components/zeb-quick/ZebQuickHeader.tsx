@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { MapPin, ShoppingCart, ArrowLeft, Menu, Zap, Navigation, ChevronDown, X } from "lucide-react";
+import { MapPin, User, ArrowLeft, Menu, Zap, Navigation, ChevronDown, X } from "lucide-react";
 import { useZebQuick } from "@/context/ZebQuickContext";
 import { ZebQuickDrawer } from "@/components/zeb-quick/ZebQuickDrawer";
 
@@ -19,7 +19,7 @@ const QUICK_PINCODES = [
 export function ZebQuickHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { pincode, serviceability, setPincode, detectGpsPincode, cartCount, locationModalOpen, setLocationModalOpen } =
+  const { pincode, serviceability, setPincode, detectGpsPincode, locationModalOpen, setLocationModalOpen } =
     useZebQuick();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pinInput, setPinInput] = useState(pincode);
@@ -118,18 +118,13 @@ export function ZebQuickHeader() {
             </button>
           </div>
 
-          {/* Right: ZebQuick Cart */}
+          {/* Right: ZebQuick Account */}
           <Link
-            href="/zeb-quick/cart"
-            aria-label={`ZebQuick Cart (${cartCount})`}
-            className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#EE2B00] shadow-sm transition active:scale-95 shrink-0"
+            href="/zeb-quick/account"
+            aria-label="ZebQuick Account"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#EE2B00] shadow-sm transition active:scale-95 shrink-0"
           >
-            <ShoppingCart className="h-5 w-5 stroke-[2.2]" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-neutral-950 px-1 text-[10px] font-black text-white ring-2 ring-white">
-                {cartCount > 99 ? "99+" : cartCount}
-              </span>
-            )}
+            <User className="h-5 w-5 stroke-[2.2]" />
           </Link>
         </div>
       </header>

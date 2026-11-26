@@ -114,14 +114,6 @@ export function AndroidBottomNav() {
       isCenterAi: true,
     },
     {
-      id: "zeb_quick",
-      label: "ZebQuick",
-      href: "/zeb-quick",
-      icon: LayoutGrid,
-      imageSrc: "/zeb-quick-icon.png",
-      isActive: isZebQuickActive,
-    },
-    {
       id: "account",
       label: t("nav_account"),
       href: user ? "/profile" : "/profile",
@@ -160,7 +152,8 @@ export function AndroidBottomNav() {
           aria-hidden="true"
         />
 
-        <div className="relative mx-auto grid h-[68px] max-w-lg grid-cols-5 items-center gap-1 px-2">
+        <div className="relative mx-auto flex h-[68px] max-w-lg items-center justify-between pl-2">
+          <div className="grid h-full flex-1 grid-cols-4 items-center gap-0.5">
           {navItems.map((item) => {
             const IconComponent = item.icon;
             const active = item.isActive;
@@ -295,6 +288,18 @@ export function AndroidBottomNav() {
               </Link>
             );
           })}
+          </div>
+
+          {/* Right-edge Blinkit/Zomato-style Switch to ZebQuick Pill */}
+          <Link
+            href="/zeb-quick"
+            aria-label="Switch to ZebQuick Express"
+            className="ml-1 flex h-11 items-center justify-center rounded-l-2xl bg-gradient-to-r from-[#FF6A00] to-[#EE2B00] px-3.5 shadow-[0_4px_14px_rgba(238,43,0,0.35)] transition active:scale-95 shrink-0"
+          >
+            <span className="font-sans font-black text-[13.5px] tracking-tight text-white leading-none select-none">
+              ZebQuick
+            </span>
+          </Link>
         </div>
       </nav>
     </>
