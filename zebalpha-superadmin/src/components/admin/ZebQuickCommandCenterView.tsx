@@ -66,11 +66,15 @@ export default function ZebQuickCommandCenterView() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
 
-  // Add new pincode form
+  // Add new pincode form & live hyperlocal radius controls
   const [newPin, setNewPin] = useState("");
   const [newArea, setNewArea] = useState("");
   const [newCity, setNewCity] = useState("");
   const [newCorridor, setNewCorridor] = useState("Sealdah-Krishnanagar");
+  const [radiusInput, setRadiusInput] = useState<number>(25);
+  const [savingRadius, setSavingRadius] = useState(false);
+  const [syncingCoords, setSyncingCoords] = useState(false);
+  const [geoNotice, setGeoNotice] = useState<string | null>(null);
 
   // Create Main Category & Subcategory forms
   const [newMainCatName, setNewMainCatName] = useState("");
@@ -92,6 +96,9 @@ export default function ZebQuickCommandCenterView() {
       const res = await fetch(`/api/zeb-quick?_t=${Date.now()}`, { cache: "no-store" });
       const json = await res.json();
       setData(json);
+      if (typeof json?.deliveryRadiusKm === "number") {
+        setRadiusInput(json.deliveryRadiusKm);
+      }
       setLastSyncedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     } finally {
       setLoading(false);
@@ -113,6 +120,7 @@ export default function ZebQuickCommandCenterView() {
 
   const handleAddPincode = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGeoNotice(null);
     const res = await fetch("/api/zeb-quick", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -124,11 +132,59 @@ export default function ZebQuickCommandCenterView() {
         corridor_name: newCorridor,
       }),
     });
+    const json = await res.json().catch(() => ({}));
     if (res.ok) {
+      setGeoNotice(
+        json.geocoded
+          ? `Added ${newPin} with GPS (${Number(json.lat).toFixed(4)}, ${Number(json.lng).toFixed(4)}).`
+          : `Added ${newPin}. Click "Sync Missing GPS" if coordinates didn't auto-resolve.`
+      );
       setNewPin("");
       setNewArea("");
       setNewCity("");
       await loadData();
+    }
+  };
+
+  const handleSaveRadius = async (targetKm?: number) => {
+    const km = Math.round(Number(targetKm ?? radiusInput));
+    if (!Number.isFinite(km) || km < 1 || km > 100) return;
+    setSavingRadius(true);
+    setGeoNotice(null);
+    try {
+      const res = await fetch("/api/zeb-quick", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_delivery_radius", radius_km: km }),
+      });
+      if (res.ok) {
+        setRadiusInput(km);
+        setGeoNotice(`ZebQuick delivery radius updated to ${km} km across all active pincodes.`);
+        await loadData();
+      }
+    } finally {
+      setSavingRadius(false);
+    }
+  };
+
+  const handleSyncMissingCoords = async () => {
+    setSyncingCoords(true);
+    setGeoNotice(null);
+    try {
+      const res = await fetch("/api/zeb-quick", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync_missing_coords" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setGeoNotice(
+          `GPS sync complete: ${json.updatedPins || 0} pincodes and ${json.updatedSellers || 0} sellers updated.`
+        );
+        await loadData();
+      }
+    } finally {
+      setSyncingCoords(false);
     }
   };
 
@@ -489,6 +545,74 @@ export default function ZebQuickCommandCenterView() {
 
           {subTab === "pincodes" && (
             <div className="space-y-4">
+              {/* Hyperlocal GPS Delivery Radius Control */}
+              <div className="rounded-2xl border border-orange-500/30 bg-zinc-950 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-black text-white">Hyperlocal GPS Delivery Radius</h3>
+                      <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-black text-emerald-300">
+                        Live: {data?.deliveryRadiusKm ?? 25} km
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      A seller&apos;s ZebQuick products automatically show in every active pincode within this GPS radius (cross-prefix 700xxx / 743xxx / 741xxx supported).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={syncingCoords}
+                    onClick={() => void handleSyncMissingCoords()}
+                    className="rounded-xl border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-[11px] font-black text-amber-300 hover:bg-amber-500/25 disabled:opacity-50 cursor-pointer"
+                  >
+                    {syncingCoords ? "Syncing GPS..." : "Sync Missing GPS"}
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {[10, 15, 20, 25, 30].map((km) => (
+                    <button
+                      key={km}
+                      type="button"
+                      disabled={savingRadius}
+                      onClick={() => void handleSaveRadius(km)}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-black transition cursor-pointer ${
+                        (data?.deliveryRadiusKm ?? 25) === km
+                          ? "bg-orange-500 text-white"
+                          : "bg-zinc-900 border border-zinc-700 text-zinc-300 hover:border-orange-400"
+                      }`}
+                    >
+                      {km} km
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={radiusInput}
+                      onChange={(e) => setRadiusInput(Number(e.target.value))}
+                      className="w-20 rounded-xl bg-zinc-900 border border-zinc-700 px-2.5 py-1.5 text-xs font-bold text-white"
+                    />
+                    <span className="text-xs text-zinc-400 font-bold">km</span>
+                    <button
+                      type="button"
+                      disabled={savingRadius}
+                      onClick={() => void handleSaveRadius()}
+                      className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-50 cursor-pointer"
+                    >
+                      {savingRadius ? "Saving..." : "Save Radius"}
+                    </button>
+                  </div>
+                </div>
+
+                {geoNotice && (
+                  <p className="rounded-xl bg-emerald-500/10 border border-emerald-500/25 px-3 py-2 text-[11px] font-bold text-emerald-300">
+                    {geoNotice}
+                  </p>
+                )}
+              </div>
+
               <form onSubmit={handleAddPincode} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 grid sm:grid-cols-5 gap-3">
                 <input
                   required
@@ -518,7 +642,7 @@ export default function ZebQuickCommandCenterView() {
                   className="rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
                 />
                 <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white cursor-pointer">
-                  + Add Pincode
+                  + Add Pincode (Auto-GPS)
                 </button>
               </form>
 
@@ -530,6 +654,7 @@ export default function ZebQuickCommandCenterView() {
                       <th className="px-4 py-3 font-black">Area</th>
                       <th className="px-4 py-3 font-black">City</th>
                       <th className="px-4 py-3 font-black">Corridor</th>
+                      <th className="px-4 py-3 font-black">GPS Coords</th>
                       <th className="px-4 py-3 font-black text-right">Status</th>
                     </tr>
                   </thead>
@@ -540,6 +665,17 @@ export default function ZebQuickCommandCenterView() {
                         <td className="px-4 py-2.5 font-bold text-white">{p.area_name}</td>
                         <td className="px-4 py-2.5 text-zinc-300">{p.city}</td>
                         <td className="px-4 py-2.5 text-zinc-400">{p.corridor_name}</td>
+                        <td className="px-4 py-2.5">
+                          {p.lat && p.lng ? (
+                            <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300">
+                              {Number(p.lat).toFixed(4)}, {Number(p.lng).toFixed(4)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                              Missing GPS
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-right">
                           <div className="inline-flex items-center gap-2">
                             <button

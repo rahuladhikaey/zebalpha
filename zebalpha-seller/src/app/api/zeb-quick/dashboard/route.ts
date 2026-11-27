@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
 import { createShadowfaxHyperlocalOrder } from "@/lib/shadowfaxHyperlocal";
+import {
+  extractRadiusKm,
+  geocodeIndianPincode,
+  haversineDistanceKm,
+  parseValidCoord,
+  resolvePincodeCoordFromRow,
+  ZEB_QUICK_RADIUS_SETTING_KEY,
+} from "@/lib/zebQuickGeo";
 
 async function resolveSeller(req: Request) {
   const supabase = await createSupabaseServerClient();
@@ -39,6 +47,8 @@ export async function GET(req: Request) {
       { data: orderItems },
       { data: ledger },
       { data: goProducts },
+      { data: activePincodes },
+      { data: radiusSetting },
     ] = await Promise.all([
       supabaseServer
         .from("seller_pickup_locations")
@@ -52,6 +62,8 @@ export async function GET(req: Request) {
       db.from("order_items").select("*, orders(*)").eq("seller_id", ctx.seller.id).order("created_at", { ascending: false }).limit(100),
       db.from("seller_payout_ledger").select("*").eq("seller_id", ctx.seller.id).order("created_at", { ascending: false }),
       db.from("products").select("*").eq("seller_id", ctx.seller.id).eq("is_active", true),
+      db.from("serviceable_pincodes").select("pincode, area_name, city, corridor_name, lat, lng, is_active").eq("is_active", true),
+      supabaseServer.from("store_settings").select("value").eq("key", ZEB_QUICK_RADIUS_SETTING_KEY).maybeSingle(),
     ]);
 
     const resolvedPin = String(pickupHub?.pincode || (ctx.seller as any).pincode || "")
@@ -64,15 +76,28 @@ export async function GET(req: Request) {
       "";
     const resolvedCity = pickupHub?.city || (ctx.seller as any).city || "";
 
-    let serviceablePinRow: any = null;
-    if (resolvedPin.length === 6) {
-      const { data: pinData } = await db
-        .from("serviceable_pincodes")
-        .select("pincode, area_name, city, corridor_name, is_active")
-        .eq("pincode", resolvedPin)
-        .eq("is_active", true)
-        .maybeSingle();
-      serviceablePinRow = pinData || null;
+    const deliveryRadiusKm = extractRadiusKm(radiusSetting?.value);
+    const activePinList = (activePincodes || []) as any[];
+    const serviceablePinRow =
+      resolvedPin.length === 6
+        ? activePinList.find((p) => String(p.pincode || "").replace(/\D/g, "").slice(0, 6) === resolvedPin) || null
+        : null;
+
+    let coveredPincodeCount = 0;
+    if (serviceablePinRow) {
+      const sellerCoord =
+        parseValidCoord(goSeller?.lat, goSeller?.lng) ||
+        resolvePincodeCoordFromRow(resolvedPin, serviceablePinRow);
+      if (sellerCoord) {
+        coveredPincodeCount = activePinList.filter((p) => {
+          const pPin = String(p.pincode || "").replace(/\D/g, "").slice(0, 6);
+          if (pPin === resolvedPin) return true;
+          const pCoord = resolvePincodeCoordFromRow(pPin, p);
+          return pCoord ? haversineDistanceKm(sellerCoord, pCoord) <= deliveryRadiusKm : false;
+        }).length;
+      } else {
+        coveredPincodeCount = 1;
+      }
     }
 
     const items = orderItems || [];
@@ -155,6 +180,8 @@ export async function GET(req: Request) {
       isZebQuickServiceable: Boolean(serviceablePinRow),
       serviceAreaName: serviceablePinRow?.area_name || "",
       corridorName: serviceablePinRow?.corridor_name || "",
+      deliveryRadiusKm,
+      coveredPincodeCount,
       stats: {
         totalOrders: groupedOrders.filter((o) => String(o.order_status).toUpperCase() !== "CANCELLED").length,
         activeProducts: (goProducts || []).length,
@@ -190,6 +217,15 @@ export async function PATCH(req: Request) {
         .filter((p) => p.length === 6);
       const mergedPins = Array.from(new Set([pickupPin, ...extraPins]));
 
+      const [{ data: pinMeta }, { data: radiusSetting }] = await Promise.all([
+        db.from("serviceable_pincodes").select("pincode, area_name, city, lat, lng").eq("pincode", pickupPin).maybeSingle(),
+        supabaseServer.from("store_settings").select("value").eq("key", ZEB_QUICK_RADIUS_SETTING_KEY).maybeSingle(),
+      ]);
+      const coord =
+        resolvePincodeCoordFromRow(pickupPin, pinMeta) ||
+        (await geocodeIndianPincode(pickupPin, pinMeta?.area_name, pinMeta?.city));
+      const radiusKm = extractRadiusKm(radiusSetting?.value);
+
       const { data: upserted, error } = await db
         .from("sellers")
         .upsert(
@@ -199,6 +235,9 @@ export async function PATCH(req: Request) {
             store_name: body.store_name || ctx.seller.business_name || ctx.seller.full_name || "ZebQuick Store",
             pickup_pincode: pickupPin,
             pickup_address: body.pickup_address || ctx.seller.pickup_address || "",
+            lat: coord?.lat ?? null,
+            lng: coord?.lng ?? null,
+            delivery_radius_km: radiusKm,
             serviceable_pincodes: mergedPins,
             is_approved: true,
             is_active: true,
@@ -262,6 +301,47 @@ export async function PATCH(req: Request) {
         .maybeSingle();
 
       const pickupPin = String(pickupHub?.pincode || (ctx.seller as any).pincode || "741222").replace(/\D/g, "").slice(0, 6);
+      const dropPin = String(orderRow.delivery_pincode || "").replace(/\D/g, "").slice(0, 6);
+
+      // Resolve real GPS coordinates for pickup & drop pincodes for accurate Shadowfax Hyperlocal dispatch
+      const [{ data: pinCoords }, { data: goSellerRow }] = await Promise.all([
+        db
+          .from("serviceable_pincodes")
+          .select("pincode, area_name, city, lat, lng")
+          .in("pincode", Array.from(new Set([pickupPin, dropPin].filter((p) => p.length === 6)))),
+        db
+          .from("sellers")
+          .select("lat, lng")
+          .eq("seller_id", ctx.seller.id)
+          .maybeSingle(),
+      ]);
+
+      const coordPinMap = new Map<string, any>();
+      (pinCoords || []).forEach((p: any) => {
+        coordPinMap.set(String(p.pincode || "").replace(/\D/g, "").slice(0, 6), p);
+      });
+
+      const pickupRow = coordPinMap.get(pickupPin);
+      const dropRow = coordPinMap.get(dropPin);
+
+      let pickupCoord =
+        parseValidCoord(goSellerRow?.lat, goSellerRow?.lng) ||
+        resolvePincodeCoordFromRow(pickupPin, pickupRow);
+      if (!pickupCoord && pickupPin.length === 6) {
+        pickupCoord = await geocodeIndianPincode(pickupPin, pickupRow?.area_name, pickupRow?.city);
+        if (pickupCoord && pickupRow) {
+          void db.from("serviceable_pincodes").update({ lat: pickupCoord.lat, lng: pickupCoord.lng }).eq("pincode", pickupPin);
+        }
+      }
+
+      let dropCoord = resolvePincodeCoordFromRow(dropPin, dropRow);
+      if (!dropCoord && dropPin.length === 6) {
+        dropCoord = await geocodeIndianPincode(dropPin, dropRow?.area_name, dropRow?.city);
+        if (dropCoord && dropRow) {
+          void db.from("serviceable_pincodes").update({ lat: dropCoord.lat, lng: dropCoord.lng }).eq("pincode", dropPin);
+        }
+      }
+
       const sfxRes = await createShadowfaxHyperlocalOrder({
         orderNumber: orderRow.order_number,
         orderValue: Number(orderRow.total_amount || 0),
@@ -272,12 +352,16 @@ export async function PATCH(req: Request) {
           address: pickupHub?.address || pickupHub?.address_line1 || ctx.seller.pickup_address || "Local Pickup Hub",
           city: pickupHub?.city || (ctx.seller as any).city || "West Bengal",
           pincode: pickupPin,
+          lat: pickupCoord?.lat,
+          lng: pickupCoord?.lng,
         },
         drop: {
           name: orderRow.customer_name,
           phone: orderRow.phone,
           address: orderRow.delivery_address,
-          pincode: orderRow.delivery_pincode,
+          pincode: dropPin || orderRow.delivery_pincode,
+          lat: dropCoord?.lat,
+          lng: dropCoord?.lng,
         },
         items: (items || []).map((it: any) => ({
           name: it.title,

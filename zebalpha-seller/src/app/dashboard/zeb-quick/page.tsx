@@ -183,7 +183,11 @@ export default function SellerZebQuickDashboardPage() {
       {!loading && data && (
         data.isZebQuickServiceable ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs font-bold text-emerald-900">
-            ZebQuick 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}).
+            ZebQuick 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}) — auto-serving{" "}
+            <span className="font-black underline decoration-emerald-500">
+              {data.coveredPincodeCount || 1} active pincode{(data.coveredPincodeCount || 1) === 1 ? "" : "s"} within {data.deliveryRadiusKm || 25} km
+            </span>{" "}
+            GPS radius.
           </div>
         ) : (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-xs text-amber-950 space-y-1">

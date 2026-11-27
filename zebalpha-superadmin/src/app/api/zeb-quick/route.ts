@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import {
+  extractRadiusKm,
+  geocodeIndianPincode,
+  parseValidCoord,
+  resolvePincodeCoordFromRow,
+  ZEB_QUICK_RADIUS_SETTING_KEY,
+} from "@/lib/zebQuickGeo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +24,7 @@ export async function GET() {
       { data: publicSellers },
       { data: publicPickupHubs },
       { data: publicProducts },
+      { data: radiusSetting },
     ] = await Promise.all([
       db.from("orders").select("*").order("created_at", { ascending: false }).limit(200),
       db.from("products").select("*").order("activated_at", { ascending: false }).limit(300),
@@ -27,7 +35,10 @@ export async function GET() {
       supabaseServer.from("sellers").select("id, user_id, business_name, owner_name, full_name, email, phone_number, mobile_number, pincode, city, pickup_address, status, account_status").limit(500),
       supabaseServer.from("seller_pickup_locations").select("seller_id, location_name, name, contact_name, contact_phone, phone, contact_email, address, address_line1, city, state, pincode, is_default").order("is_default", { ascending: false }).limit(1000),
       supabaseServer.from("products").select("id, seller_id").limit(2000),
+      supabaseServer.from("store_settings").select("value").eq("key", ZEB_QUICK_RADIUS_SETTING_KEY).maybeSingle(),
     ]);
+
+    const deliveryRadiusKm = extractRadiusKm(radiusSetting?.value);
 
     const orderList = orders || [];
     const productList = products || [];
@@ -137,6 +148,7 @@ export async function GET() {
       sellers: enrichedGoSellers,
       eligibleNotLiveSellers,
       pincodes: pincodeList,
+      deliveryRadiusKm,
       subcategories: subcategoryList,
       mainCategories: mainCategories || [],
     });
@@ -155,18 +167,30 @@ export async function POST(req: Request) {
       if (pincode.length !== 6 || !body.area_name || !body.city) {
         return NextResponse.json({ error: "6-digit pincode, area name, and city are required" }, { status: 400 });
       }
+      const manualCoord = parseValidCoord(body.lat, body.lng);
+      const coord =
+        manualCoord ||
+        (await geocodeIndianPincode(pincode, String(body.area_name).trim(), String(body.city).trim()));
+
       const { error } = await db.from("serviceable_pincodes").upsert(
         {
           pincode,
           area_name: String(body.area_name).trim(),
           city: String(body.city).trim(),
           corridor_name: String(body.corridor_name || "Sealdah-Krishnanagar").trim(),
+          lat: coord?.lat ?? null,
+          lng: coord?.lng ?? null,
           is_active: true,
         },
         { onConflict: "pincode" }
       );
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      return NextResponse.json({ success: true });
+      return NextResponse.json({
+        success: true,
+        geocoded: Boolean(coord),
+        lat: coord?.lat ?? null,
+        lng: coord?.lng ?? null,
+      });
     }
 
     if (body.action === "create_main_category") {
@@ -248,6 +272,71 @@ export async function PATCH(req: Request) {
     if (body.action === "delete_pincode" && body.pincode) {
       await db.from("serviceable_pincodes").delete().eq("pincode", body.pincode);
       return NextResponse.json({ success: true });
+    }
+    if (body.action === "update_delivery_radius") {
+      const radiusKm = Math.round(Number(body.radius_km));
+      if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 100) {
+        return NextResponse.json({ error: "Delivery radius must be between 1 and 100 km" }, { status: 400 });
+      }
+      const { error: setErr } = await supabaseServer
+        .from("store_settings")
+        .upsert(
+          { key: ZEB_QUICK_RADIUS_SETTING_KEY, value: { radius_km: radiusKm } },
+          { onConflict: "key" }
+        );
+      if (setErr) return NextResponse.json({ error: setErr.message }, { status: 500 });
+
+      // Keep seller table default radius in sync
+      await db.from("sellers").update({ delivery_radius_km: radiusKm, updated_at: new Date().toISOString() }).neq("id", "00000000-0000-0000-0000-000000000000");
+
+      return NextResponse.json({ success: true, deliveryRadiusKm: radiusKm });
+    }
+    if (body.action === "sync_missing_coords") {
+      const { data: allPins } = await db
+        .from("serviceable_pincodes")
+        .select("pincode, area_name, city, lat, lng");
+
+      let updatedPins = 0;
+      const coordByPin = new Map<string, { lat: number; lng: number }>();
+
+      for (const p of (allPins || []) as any[]) {
+        const cleanPin = String(p.pincode || "").replace(/\D/g, "").slice(0, 6);
+        const existing = parseValidCoord(p.lat, p.lng);
+        if (existing) {
+          coordByPin.set(cleanPin, existing);
+          continue;
+        }
+        const resolved =
+          resolvePincodeCoordFromRow(cleanPin, p) ||
+          (await geocodeIndianPincode(cleanPin, p.area_name, p.city));
+        if (resolved) {
+          await db
+            .from("serviceable_pincodes")
+            .update({ lat: resolved.lat, lng: resolved.lng })
+            .eq("pincode", p.pincode);
+          coordByPin.set(cleanPin, resolved);
+          updatedPins += 1;
+        }
+      }
+
+      const { data: allSellers } = await db
+        .from("sellers")
+        .select("id, pickup_pincode, lat, lng");
+      let updatedSellers = 0;
+      for (const s of (allSellers || []) as any[]) {
+        if (parseValidCoord(s.lat, s.lng)) continue;
+        const cleanPin = String(s.pickup_pincode || "").replace(/\D/g, "").slice(0, 6);
+        const c = coordByPin.get(cleanPin) || resolvePincodeCoordFromRow(cleanPin);
+        if (c) {
+          await db
+            .from("sellers")
+            .update({ lat: c.lat, lng: c.lng, updated_at: new Date().toISOString() })
+            .eq("id", s.id);
+          updatedSellers += 1;
+        }
+      }
+
+      return NextResponse.json({ success: true, updatedPins, updatedSellers });
     }
     if (body.action === "toggle_subcategory" && body.id) {
       await db.from("allowed_subcategories").update({ is_active: Boolean(body.is_active) }).eq("id", body.id);

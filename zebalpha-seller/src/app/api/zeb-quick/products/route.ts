@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseServer, createSupabaseServerClient } from "@shared/utils/supabaseServer";
 import { matchZebQuickSubcategory, type ZebQuickSubcategoryDef } from "@shared/constants/zebQuick";
+import {
+  extractRadiusKm,
+  geocodeIndianPincode,
+  resolvePincodeCoordFromRow,
+  ZEB_QUICK_RADIUS_SETTING_KEY,
+} from "@/lib/zebQuickGeo";
 
 async function loadLiveAllowedSubcategories(db: ReturnType<typeof supabaseServer.schema>): Promise<ZebQuickSubcategoryDef[] | undefined> {
   try {
@@ -100,12 +106,19 @@ async function resolveAndVerifySellerHub(
     return { error: "Please set your Pickup Warehouse & Hub pincode first before activating ZebQuick.", status: 400 };
   }
 
-  const { data: serviceableRow } = await db
-    .from("serviceable_pincodes")
-    .select("pincode")
-    .eq("pincode", sellerPin)
-    .eq("is_active", true)
-    .maybeSingle();
+  const [{ data: serviceableRow }, { data: radiusSetting }] = await Promise.all([
+    db
+      .from("serviceable_pincodes")
+      .select("pincode, area_name, city, lat, lng")
+      .eq("pincode", sellerPin)
+      .eq("is_active", true)
+      .maybeSingle(),
+    supabaseServer
+      .from("store_settings")
+      .select("value")
+      .eq("key", ZEB_QUICK_RADIUS_SETTING_KEY)
+      .maybeSingle(),
+  ]);
 
   if (!serviceableRow) {
     return {
@@ -113,6 +126,11 @@ async function resolveAndVerifySellerHub(
       status: 400,
     };
   }
+
+  const radiusKm = extractRadiusKm(radiusSetting?.value);
+  const coord =
+    resolvePincodeCoordFromRow(sellerPin, serviceableRow) ||
+    (await geocodeIndianPincode(sellerPin, serviceableRow.area_name, serviceableRow.city));
 
   const resolvedAddress = pickupHub?.address || pickupHub?.address_line1 || ctx.seller.pickup_address || "";
   const { error: createSelErr } = await db
@@ -124,7 +142,10 @@ async function resolveAndVerifySellerHub(
         store_name: ctx.seller.business_name || ctx.seller.full_name || "ZebQuick Local Store",
         pickup_pincode: sellerPin,
         pickup_address: resolvedAddress,
-        city: pickupHub?.city || "West Bengal",
+        city: pickupHub?.city || serviceableRow.city || "West Bengal",
+        lat: coord?.lat ?? null,
+        lng: coord?.lng ?? null,
+        delivery_radius_km: radiusKm,
         serviceable_pincodes: [sellerPin],
         is_approved: true,
         is_active: true,
