@@ -116,6 +116,32 @@ export async function POST(req: Request) {
     const deliveryFee = subtotal >= ZEB_QUICK_FREE_DELIVERY_MIN ? 0 : ZEB_QUICK_DELIVERY_FEE;
     const totalCommission = verifiedItems.reduce((s, i) => s + i.commission_amount, 0);
     const totalAmount = subtotal + deliveryFee;
+
+    // 2.5 Server-side duplicate-order guard (prevents double-tap creating 2 identical orders within 45s)
+    const fortyFiveSecondsAgo = new Date(Date.now() - 45 * 1000).toISOString();
+    let dupQuery = db
+      .from("orders")
+      .select("id, order_number, total_amount, promised_delivery_at")
+      .eq("delivery_pincode", cleanPin)
+      .eq("total_amount", totalAmount)
+      .eq("payment_method", String(payment_method).toUpperCase())
+      .gte("created_at", fortyFiveSecondsAgo)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (user_id) {
+      dupQuery = dupQuery.eq("user_id", user_id);
+    } else {
+      dupQuery = dupQuery.eq("phone", String(phone).trim());
+    }
+    const { data: existingRecent } = await dupQuery.maybeSingle();
+    if (existingRecent) {
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        order: existingRecent,
+      });
+    }
+
     const orderNumber = `ZBQ-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
     const promisedDeliveryAt = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
 

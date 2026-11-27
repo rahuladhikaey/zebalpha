@@ -23,6 +23,8 @@ export interface SavedZebQuickAddress {
   city: string;
   areaStreet: string;
   houseLine: string;
+  buildingName?: string;
+  landmark?: string;
   pincode: string;
 }
 
@@ -64,6 +66,8 @@ export function ZebQuickAddressSheet({
   );
   const [selectedPin, setSelectedPin] = useState(initialAddress?.pincode || pincode);
   const [completeAddress, setCompleteAddress] = useState(initialAddress?.houseLine || "");
+  const [buildingName, setBuildingName] = useState(initialAddress?.buildingName || "");
+  const [landmark, setLandmark] = useState(initialAddress?.landmark || "");
   const [contactFor, setContactFor] = useState<"myself" | "someone">("myself");
   const [receiverName, setReceiverName] = useState(
     initialAddress?.name || user?.user_metadata?.full_name || ""
@@ -175,7 +179,11 @@ export function ZebQuickAddressSheet({
       return;
     }
     if (!completeAddress.trim()) {
-      setError("Please enter your complete address (House/Flat/Plot No.).");
+      setError("Please enter House / Flat / Plot No.");
+      return;
+    }
+    if (!landmark.trim()) {
+      setError("Please enter a nearby Landmark.");
       return;
     }
     if (!receiverName.trim()) {
@@ -197,6 +205,8 @@ export function ZebQuickAddressSheet({
         city: selectedCity.trim(),
         areaStreet: selectedArea.trim(),
         houseLine: completeAddress.trim(),
+        buildingName: buildingName.trim(),
+        landmark: landmark.trim(),
         pincode: cleanPin,
       });
     } finally {
@@ -306,18 +316,45 @@ export function ZebQuickAddressSheet({
               </span>
             </div>
 
-            {/* Complete Address */}
-            <div>
-              <input
-                required
-                value={completeAddress}
-                onChange={(e) => setCompleteAddress(e.target.value)}
-                placeholder="Enter complete address*"
-                className="w-full rounded-2xl border border-neutral-200 px-3.5 py-3 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:border-[#0C831F] focus:outline-none"
-              />
-              <p className="mt-1 px-1 text-[10.5px] text-neutral-400">
-                Example: Plot No. 112, Near Station Road, {selectedArea || "Chakdaha"}
-              </p>
+            {/* Step-by-Step Address Boxes: House/Flat No., Building Name, Landmark */}
+            <div className="space-y-2.5 pt-1">
+              <div>
+                <label className="block px-1 mb-1 text-[11px] font-bold text-neutral-600">
+                  House / Flat / Plot No. *
+                </label>
+                <input
+                  required
+                  value={completeAddress}
+                  onChange={(e) => setCompleteAddress(e.target.value)}
+                  placeholder="e.g. Flat 3B, House No. 112"
+                  className="w-full rounded-2xl border border-neutral-200 px-3.5 py-2.5 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:border-[#0C831F] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block px-1 mb-1 text-[11px] font-bold text-neutral-600">
+                  Building / Apartment / Floor Name
+                </label>
+                <input
+                  value={buildingName}
+                  onChange={(e) => setBuildingName(e.target.value)}
+                  placeholder="e.g. Shree Vihar Residency, 2nd Floor"
+                  className="w-full rounded-2xl border border-neutral-200 px-3.5 py-2.5 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:border-[#0C831F] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block px-1 mb-1 text-[11px] font-bold text-neutral-600">
+                  Nearby Landmark *
+                </label>
+                <input
+                  required
+                  value={landmark}
+                  onChange={(e) => setLandmark(e.target.value)}
+                  placeholder={`e.g. Near Station Road / Kali Mandir, ${selectedArea || "Chakdaha"}`}
+                  className="w-full rounded-2xl border border-neutral-200 px-3.5 py-2.5 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:border-[#0C831F] focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 

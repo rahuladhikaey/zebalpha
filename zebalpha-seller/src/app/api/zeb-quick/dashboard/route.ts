@@ -77,12 +77,76 @@ export async function GET(req: Request) {
 
     const items = orderItems || [];
     const ledgerRows = ledger || [];
-    const totalGrossRevenue = ledgerRows.reduce((s: number, r: any) => s + Number(r.gross_amount || 0), 0);
-    const totalCommission = ledgerRows.reduce((s: number, r: any) => s + Number(r.commission_amount || 0), 0);
-    const totalNetEarnings = ledgerRows.reduce((s: number, r: any) => s + Number(r.net_earning || 0), 0);
+    const cancelledOrderIds = new Set(
+      items
+        .filter((i: any) => String(i.item_status || i.orders?.order_status || "").toUpperCase() === "CANCELLED")
+        .map((i: any) => String(i.order_id))
+    );
+    const activeLedgerRows = ledgerRows.filter((r: any) => !cancelledOrderIds.has(String(r.order_id)));
+    const totalGrossRevenue = activeLedgerRows.reduce((s: number, r: any) => s + Number(r.gross_amount || 0), 0);
+    const totalCommission = activeLedgerRows.reduce((s: number, r: any) => s + Number(r.commission_amount || 0), 0);
+    const totalNetEarnings = activeLedgerRows.reduce((s: number, r: any) => s + Number(r.net_earning || 0), 0);
+
+    // Group order_items by order_id so each ZebQuick order shows cleanly once with full customer details
+    const orderGroupMap = new Map<string, any>();
+    for (const it of items) {
+      const oid = String(it.order_id);
+      const ord = it.orders || {};
+      if (!orderGroupMap.has(oid)) {
+        orderGroupMap.set(oid, {
+          id: oid,
+          order_number: ord.order_number || oid,
+          customer_name: ord.customer_name || "Customer",
+          phone: ord.phone || "",
+          delivery_address: ord.delivery_address || "",
+          delivery_pincode: ord.delivery_pincode || "",
+          payment_method: ord.payment_method || "COD",
+          payment_status: ord.payment_status || "PENDING",
+          order_status: ord.order_status || it.item_status || "PLACED",
+          subtotal: Number(ord.subtotal || 0),
+          delivery_fee: Number(ord.delivery_fee || 0),
+          total_amount: Number(ord.total_amount || 0),
+          promised_delivery_at: ord.promised_delivery_at || null,
+          created_at: ord.created_at || it.created_at,
+          cancel_reason: ord.cancel_reason || null,
+          cancelled_at: ord.cancelled_at || null,
+          shadowfax_order_id: ord.shadowfax_order_id || null,
+          tracking_url: ord.tracking_url || null,
+          rider_name: ord.rider_name || null,
+          rider_phone: ord.rider_phone || null,
+          net_earning: 0,
+          items: [],
+        });
+      }
+      const grp = orderGroupMap.get(oid);
+      grp.net_earning += Number(it.seller_earning || 0);
+      grp.items.push({
+        id: it.id,
+        title: it.title,
+        name: it.title,
+        size: it.size || "Standard",
+        color: it.color || "",
+        quantity: Number(it.quantity || 1),
+        unit_price: Number(it.unit_price || 0),
+        price: Number(it.unit_price || 0),
+        image_url: it.image_url || "",
+        item_status: it.item_status || grp.order_status,
+        seller_earning: Number(it.seller_earning || 0),
+      });
+    }
+    const groupedOrders = Array.from(orderGroupMap.values());
 
     return NextResponse.json({
       goSeller: goSeller || null,
+      sellerProfile: {
+        business_name: ctx.seller.business_name || ctx.seller.full_name || "ZebQuick Store",
+        full_name: ctx.seller.full_name || "",
+        phone: ctx.seller.phone_number || ctx.seller.mobile_number || "",
+        email: ctx.seller.email || "",
+        pickup_address: resolvedAddr,
+        city: resolvedCity,
+        pincode: resolvedPin,
+      },
       zebalphaPickupPincode: resolvedPin,
       zebalphaPickupAddress: resolvedAddr,
       zebalphaPickupCity: resolvedCity,
@@ -90,12 +154,13 @@ export async function GET(req: Request) {
       serviceAreaName: serviceablePinRow?.area_name || "",
       corridorName: serviceablePinRow?.corridor_name || "",
       stats: {
-        totalOrders: new Set(items.map((i: any) => i.order_id)).size,
+        totalOrders: groupedOrders.filter((o) => String(o.order_status).toUpperCase() !== "CANCELLED").length,
         activeProducts: (goProducts || []).length,
         totalGrossRevenue,
         totalCommission,
         totalNetEarnings,
       },
+      orders: groupedOrders,
       orderItems: items,
       goProducts: goProducts || [],
     });

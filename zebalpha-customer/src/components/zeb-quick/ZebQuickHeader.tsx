@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Menu,
   Search,
+  Mic,
   Navigation,
   ChevronDown,
   X,
@@ -54,11 +55,55 @@ export function ZebQuickHeader() {
     selectedMainCategory,
     setSelectedMainCategory,
     mainCategories,
+    subcategories,
   } = useZebQuick();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pinInput, setPinInput] = useState(pincode);
   const [gpsStatus, setGpsStatus] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [listeningVoice, setListeningVoice] = useState(false);
+
+  const searchHints = useMemo(() => {
+    const dynamicNames = subcategories
+      .map((s) => String(s.name || "").trim().toLowerCase())
+      .filter(Boolean);
+    const list = dynamicNames.length > 0
+      ? Array.from(new Set(dynamicNames)).slice(0, 12)
+      : ["bras", "vest", "track pants", "bermudas", "briefs", "socks"];
+    return list;
+  }, [subcategories]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) return;
+    const timer = window.setInterval(() => {
+      setPlaceholderIdx((prev) => (prev + 1) % searchHints.length);
+    }, 2400);
+    return () => window.clearInterval(timer);
+  }, [searchHints.length, searchQuery]);
+
+  const handleVoiceSearch = () => {
+    if (typeof window === "undefined") return;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    try {
+      const recognition = new SR();
+      recognition.lang = "en-IN";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      setListeningVoice(true);
+      recognition.onresult = (event: any) => {
+        const transcript = event?.results?.[0]?.[0]?.transcript || "";
+        if (transcript) setSearchQuery(transcript.trim());
+        setListeningVoice(false);
+      };
+      recognition.onerror = () => setListeningVoice(false);
+      recognition.onend = () => setListeningVoice(false);
+      recognition.start();
+    } catch {
+      setListeningVoice(false);
+    }
+  };
 
   const isGoHome = pathname === "/zeb-quick";
   const isCategoriesPage = pathname === "/zeb-quick/categories";
@@ -189,16 +234,57 @@ export function ZebQuickHeader() {
           }}
         >
           <div className="mx-auto max-w-5xl px-3.5 pt-1.5 pb-2">
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder='Search "bras", "vest", "track pants"...'
-                className="w-full rounded-2xl border border-black/10 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-neutral-900 placeholder:text-neutral-400 shadow-xs focus:border-neutral-900 focus:outline-none"
-              />
+            <div className="relative flex items-center rounded-2xl border border-black/10 bg-white shadow-xs focus-within:border-neutral-900">
+              <Search className="ml-3.5 h-4.5 w-4.5 shrink-0 text-neutral-800 stroke-[2.2]" />
+              <div className="relative flex-1 min-w-0">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label="Search ZebQuick products"
+                  className="w-full bg-transparent py-2.5 pl-2.5 pr-2 text-sm font-medium text-neutral-900 focus:outline-none"
+                />
+                {!searchQuery && (
+                  <div className="pointer-events-none absolute inset-y-0 left-2.5 right-2 flex items-center overflow-hidden text-sm font-medium text-neutral-500">
+                    <span className="shrink-0">Search&nbsp;&ldquo;</span>
+                    <span
+                      key={placeholderIdx}
+                      className="inline-block truncate animate-[zebSearchRoll_0.38s_ease-out]"
+                    >
+                      {searchHints[placeholderIdx % searchHints.length]}
+                    </span>
+                    <span className="shrink-0">&rdquo;</span>
+                  </div>
+                )}
+              </div>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                  className="mr-1 flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              <div className="h-5 w-px bg-neutral-200 shrink-0" />
+              <button
+                type="button"
+                onClick={handleVoiceSearch}
+                aria-label="Voice search"
+                className={`flex h-9 w-10 items-center justify-center shrink-0 transition cursor-pointer ${
+                  listeningVoice ? "text-rose-600 animate-pulse" : "text-neutral-800 hover:text-neutral-950"
+                }`}
+              >
+                <Mic className="h-4.5 w-4.5 stroke-[2.1]" />
+              </button>
             </div>
+            <style>{`
+              @keyframes zebSearchRoll {
+                0% { opacity: 0; transform: translateY(10px); }
+                100% { opacity: 1; transform: translateY(0); }
+              }
+            `}</style>
           </div>
 
         {/* Blinkit Horizontal Main Category Strip */}

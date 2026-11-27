@@ -1,12 +1,30 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Zap, IndianRupee, Package, Clock, MapPin, CheckCircle2 } from "lucide-react";
+import {
+  Zap,
+  IndianRupee,
+  Package,
+  Clock,
+  MapPin,
+  CheckCircle2,
+  Printer,
+  Phone,
+  User,
+  ExternalLink,
+  RefreshCw,
+} from "lucide-react";
 import { supabase } from "@shared/utils/supabaseClient";
+import { ShippingLabelModal } from "@/components/ShippingLabelModal";
+
+type StatusTab = "ALL" | "PLACED" | "PACKED" | "OUT_FOR_DELIVERY" | "DELIVERED" | "CANCELLED";
 
 export default function SellerZebQuickDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
+  const [statusTab, setStatusTab] = useState<StatusTab>("ALL");
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  const [labelOrder, setLabelOrder] = useState<any | null>(null);
 
   const getAuthHeaders = async () => {
     const headers: Record<string, string> = {};
@@ -35,27 +53,67 @@ export default function SellerZebQuickDashboardPage() {
   }, [loadData]);
 
   const handleStatusChange = async (orderId: string, status: string) => {
-    const headers = await getAuthHeaders();
-    await fetch("/api/zeb-quick/dashboard", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: JSON.stringify({ action: "update_order_status", orderId, status }),
-    });
-    await loadData();
+    setBusyOrderId(orderId);
+    try {
+      const headers = await getAuthHeaders();
+      await fetch("/api/zeb-quick/dashboard", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({ action: "update_order_status", orderId, status }),
+      });
+      await loadData();
+    } finally {
+      setBusyOrderId(null);
+    }
   };
 
   const handleBookShadowfax = async (orderId: string) => {
-    const headers = await getAuthHeaders();
-    const res = await fetch("/api/zeb-quick/dashboard", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: JSON.stringify({ action: "dispatch_shadowfax", orderId }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      alert(json.error || "Shadowfax rider booking failed");
+    setBusyOrderId(orderId);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/zeb-quick/dashboard", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({ action: "dispatch_shadowfax", orderId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || "Shadowfax rider booking failed");
+      }
+      await loadData();
+    } finally {
+      setBusyOrderId(null);
     }
-    await loadData();
+  };
+
+  const openShippingLabel = (ord: any) => {
+    setLabelOrder({
+      id: ord.id,
+      order_number: ord.order_number,
+      invoice_number: `ZBQ-INV-${ord.order_number}`,
+      tracking_number: ord.shadowfax_order_id || ord.order_number,
+      courier_name: ord.shadowfax_order_id ? "Shadowfax 5–6 Hr Express" : "ZebQuick 5–6 Hr Express",
+      routing_hub: `ZBQ-${ord.delivery_pincode || "EXP"}`,
+      customer_name: ord.customer_name,
+      phone: ord.phone,
+      address: ord.delivery_address,
+      pincode: ord.delivery_pincode,
+      payment_method: ord.payment_method,
+      status: ord.order_status,
+      cancel_reason: ord.cancel_reason,
+      created_at: ord.created_at,
+      total_amount: ord.total_amount,
+      subtotal: ord.subtotal,
+      shipping_charge: ord.delivery_fee,
+      items: (ord.items || []).map((it: any) => ({
+        name: it.title || it.name,
+        sku: `ZBQ-${String(it.id).slice(0, 6).toUpperCase()}`,
+        size: it.size || "Standard",
+        color: it.color || "",
+        quantity: it.quantity || 1,
+        price: Number(it.unit_price || it.price || 0),
+      })),
+    });
   };
 
   const stats = data?.stats || {
@@ -65,6 +123,17 @@ export default function SellerZebQuickDashboardPage() {
     totalCommission: 0,
     totalNetEarnings: 0,
   };
+
+  const allOrders: any[] = Array.isArray(data?.orders) ? data.orders : [];
+  const filteredOrders = allOrders.filter((o) => {
+    if (statusTab === "ALL") return true;
+    return String(o.order_status || "").toUpperCase() === statusTab;
+  });
+
+  const countByStatus = (st: StatusTab) =>
+    st === "ALL"
+      ? allOrders.length
+      : allOrders.filter((o) => String(o.order_status || "").toUpperCase() === st).length;
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -76,9 +145,17 @@ export default function SellerZebQuickDashboardPage() {
           </div>
           <h1 className="mt-2 text-2xl font-black text-[#14120F]">ZebQuick Express Seller Hub</h1>
           <p className="text-xs text-[#5C4E35]">
-            Your ZebQuick orders, 5–6 hr SLA deliveries, and earnings are tracked 100% separately from ZebAlpha.
+            Full customer details, auto-generated shipping labels, Shadowfax 5–6 Hr express dispatch, and earnings.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => void loadData()}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[#EAD296] bg-white px-3.5 py-2 text-xs font-extrabold text-[#14120F] hover:bg-[#FFFDF8] cursor-pointer"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Refresh Orders
+        </button>
       </div>
 
       {/* Isolated ZebQuick KPIs */}
@@ -92,7 +169,7 @@ export default function SellerZebQuickDashboardPage() {
         </div>
         <div className="rounded-2xl border border-[#EAD296] bg-white p-4 shadow-xs">
           <div className="flex items-center gap-2 text-xs font-bold text-[#5C4E35]">
-            <Clock className="h-4 w-4 text-orange-600" /> ZebQuick Orders
+            <Clock className="h-4 w-4 text-orange-600" /> Active Express Orders
           </div>
           <p className="mt-2 text-2xl font-black text-[#14120F]">{stats.totalOrders}</p>
           <p className="text-[11px] text-neutral-500">5–6 Hr Express SLA</p>
@@ -102,7 +179,7 @@ export default function SellerZebQuickDashboardPage() {
             <Package className="h-4 w-4 text-orange-600" /> Active ZebQuick Products
           </div>
           <p className="mt-2 text-2xl font-black text-[#14120F]">{stats.activeProducts}</p>
-          <p className="text-[11px] text-neutral-500">Shared ZebAlpha images</p>
+          <p className="text-[11px] text-neutral-500">Ready for instant dispatch</p>
         </div>
         <div className="rounded-2xl border border-[#EAD296] bg-white p-4 shadow-xs">
           <div className="flex items-center gap-2 text-xs font-bold text-[#5C4E35]">
@@ -120,10 +197,8 @@ export default function SellerZebQuickDashboardPage() {
       {/* Pickup Serviceability Banner */}
       {!loading && data && (
         data.isZebQuickServiceable ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs font-bold text-emerald-900 flex items-center justify-between gap-3">
-            <span>
-              ZebQuick 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}).
-            </span>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs font-bold text-emerald-900">
+            ZebQuick 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}).
           </div>
         ) : (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-xs text-amber-950 space-y-1">
@@ -137,98 +212,280 @@ export default function SellerZebQuickDashboardPage() {
         )
       )}
 
-      {/* Isolated ZebQuick Orders Table */}
+      {/* Order Status Filter Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+        {(
+          [
+            { key: "ALL", label: "All Orders" },
+            { key: "PLACED", label: "New Placed" },
+            { key: "PACKED", label: "Packed" },
+            { key: "OUT_FOR_DELIVERY", label: "Dispatched" },
+            { key: "DELIVERED", label: "Delivered" },
+            { key: "CANCELLED", label: "Cancelled" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setStatusTab(t.key)}
+            className={`shrink-0 rounded-xl border px-3.5 py-2 text-xs font-extrabold transition cursor-pointer ${
+              statusTab === t.key
+                ? "border-[#14120F] bg-[#14120F] text-white"
+                : "border-[#EAD296] bg-white text-[#5C4E35] hover:bg-[#FFFDF8]"
+            }`}
+          >
+            {t.label} ({countByStatus(t.key)})
+          </button>
+        ))}
+      </div>
+
+      {/* Full ZebAlpha-Style ZebQuick Orders Cards with Customer Details & Auto Label */}
       <div className="rounded-2xl border border-[#EAD296] bg-white overflow-hidden shadow-xs">
         <div className="border-b border-[#F0E2BE] px-5 py-3.5 flex items-center justify-between">
-          <h2 className="text-sm font-black text-[#14120F]">ZebQuick Express Orders (5–6 Hr SLA)</h2>
+          <h2 className="text-sm font-black text-[#14120F]">
+            ZebQuick Express Orders ({filteredOrders.length})
+          </h2>
+          <span className="text-[11px] font-bold text-emerald-700">
+            Auto Shipping Label Ready on Every Order
+          </span>
         </div>
 
         {loading ? (
           <div className="p-6 text-xs text-neutral-500">Loading ZebQuick orders...</div>
-        ) : (data?.orderItems || []).length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div className="p-8 text-center text-xs text-neutral-500">
-            No ZebQuick express orders yet. Activate eligible products from your <strong>Products</strong> page!
+            No ZebQuick express orders in this tab yet.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#FFFDF8] border-b border-[#F0E2BE] text-[#5C4E35]">
-                <tr>
-                  <th className="px-4 py-3 font-black">Order</th>
-                  <th className="px-4 py-3 font-black">Product</th>
-                  <th className="px-4 py-3 font-black">Delivery Pincode</th>
-                  <th className="px-4 py-3 font-black">Net Earning</th>
-                  <th className="px-4 py-3 font-black">Status</th>
-                  <th className="px-4 py-3 font-black text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F0E2BE]/60">
-                {(data.orderItems || []).map((item: any) => {
-                  const ord = item.orders || {};
-                  return (
-                    <tr key={item.id}>
-                      <td className="px-4 py-3 font-black text-[#14120F]">{ord.order_number || item.order_id}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-[#14120F]">{item.title}</div>
-                        <div className="text-[11px] text-neutral-500">
-                          Qty {item.quantity} {item.size ? `• ${item.size}` : ""}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-bold">{ord.delivery_pincode || "-"}</td>
-                      <td className="px-4 py-3 font-black text-emerald-700">₹{item.seller_earning}</td>
-                      <td className="px-4 py-3">
-                        <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-black text-[#EE2B00]">
-                          {item.item_status}
+          <div className="divide-y divide-[#F0E2BE]">
+            {filteredOrders.map((ord) => {
+              const st = String(ord.order_status || "PLACED").toUpperCase();
+              const isCancelled = st === "CANCELLED";
+              const isBusy = busyOrderId === ord.id;
+
+              return (
+                <div key={ord.id} className="p-4 sm:p-5 space-y-4 hover:bg-[#FFFDF8]/60 transition">
+                  {/* Top Row: Order Number, Payment, Status, SLA & Print Label */}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-black text-[#14120F]">{ord.order_number}</span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                            isCancelled
+                              ? "bg-rose-100 text-rose-700"
+                              : st === "DELIVERED"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : st === "OUT_FOR_DELIVERY"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-orange-100 text-[#EE2B00]"
+                          }`}
+                        >
+                          {st}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex gap-1.5">
-                          {item.item_status === "PLACED" && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleBookShadowfax(item.order_id)}
-                                className="rounded-lg bg-[#EE2B00] px-2.5 py-1 text-[10px] font-black text-white cursor-pointer"
-                              >
-                                ⚡ Book Shadowfax Rider
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleStatusChange(item.order_id, "PACKED")}
-                                className="rounded-lg bg-amber-500 px-2.5 py-1 text-[10px] font-black text-white cursor-pointer"
-                              >
-                                Mark Packed
-                              </button>
-                            </>
-                          )}
-                          {item.item_status === "PACKED" && (
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                            ord.payment_method === "COD"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-emerald-100 text-emerald-800"
+                          }`}
+                        >
+                          {ord.payment_method === "COD"
+                            ? `COD • Collect ₹${ord.total_amount}`
+                            : `PREPAID • ₹${ord.total_amount}`}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium text-neutral-500">
+                        Placed:{" "}
+                        {ord.created_at
+                          ? new Date(ord.created_at).toLocaleString([], {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                        {ord.promised_delivery_at && !isCancelled && (
+                          <span className="ml-2 font-bold text-emerald-700">
+                            • SLA By:{" "}
+                            {new Date(ord.promised_delivery_at).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Action Controls */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!isCancelled && (
+                        <button
+                          type="button"
+                          onClick={() => openShippingLabel(ord)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-[#14120F] bg-[#14120F] px-3 py-1.5 text-[11px] font-black text-white hover:bg-neutral-800 cursor-pointer"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          Print Shipping Label
+                        </button>
+                      )}
+
+                      {st === "PLACED" && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleBookShadowfax(ord.id)}
+                            className="rounded-xl bg-[#EE2B00] px-3 py-1.5 text-[11px] font-black text-white hover:bg-[#d42600] disabled:opacity-60 cursor-pointer"
+                          >
+                            ⚡ Book Shadowfax Rider
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleStatusChange(ord.id, "PACKED")}
+                            className="rounded-xl bg-amber-500 px-3 py-1.5 text-[11px] font-black text-white hover:bg-amber-600 disabled:opacity-60 cursor-pointer"
+                          >
+                            Mark Packed
+                          </button>
+                        </>
+                      )}
+
+                      {st === "PACKED" && (
+                        <>
+                          {!ord.shadowfax_order_id && (
                             <button
                               type="button"
-                              onClick={() => handleStatusChange(item.order_id, "OUT_FOR_DELIVERY")}
-                              className="rounded-lg bg-blue-600 px-2.5 py-1 text-[10px] font-black text-white cursor-pointer"
+                              disabled={isBusy}
+                              onClick={() => handleBookShadowfax(ord.id)}
+                              className="rounded-xl bg-[#EE2B00] px-3 py-1.5 text-[11px] font-black text-white cursor-pointer"
                             >
-                              Dispatch
+                              ⚡ Book Shadowfax Rider
                             </button>
                           )}
-                          {item.item_status === "OUT_FOR_DELIVERY" && (
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(item.order_id, "DELIVERED")}
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-black text-white cursor-pointer"
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleStatusChange(ord.id, "OUT_FOR_DELIVERY")}
+                            className="rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-black text-white cursor-pointer"
+                          >
+                            Mark Dispatched
+                          </button>
+                        </>
+                      )}
+
+                      {st === "OUT_FOR_DELIVERY" && (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => handleStatusChange(ord.id, "DELIVERED")}
+                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-[11px] font-black text-white cursor-pointer"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Mark Delivered
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Cancellation Reason Banner */}
+                  {isCancelled && ord.cancel_reason && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700">
+                      Customer Cancelled • Reason: {ord.cancel_reason}
+                    </div>
+                  )}
+
+                  {/* Middle Grid: Customer Details + Ordered Items */}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {/* Customer & Delivery Details Box */}
+                    <div className="rounded-2xl border border-[#F0E2BE] bg-[#FFFDF8] p-3.5 space-y-2 text-xs">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-[#8C7343]">
+                        Customer &amp; Delivery Address
+                      </p>
+                      <div className="flex items-center gap-2 font-black text-[#14120F]">
+                        <User className="h-3.5 w-3.5 text-orange-600 shrink-0" />
+                        <span>{ord.customer_name || "Customer"}</span>
+                      </div>
+                      {ord.phone && (
+                        <div className="flex items-center gap-2 font-bold text-neutral-700">
+                          <Phone className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          <a href={`tel:${ord.phone}`} className="hover:underline">
+                            +91 {ord.phone}
+                          </a>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2 text-neutral-700 leading-relaxed">
+                        <MapPin className="h-3.5 w-3.5 text-orange-600 shrink-0 mt-0.5" />
+                        <span>
+                          {ord.delivery_address || "Address not provided"}
+                          {ord.delivery_pincode && (
+                            <strong className="ml-1 text-[#14120F]">
+                              (PIN: {ord.delivery_pincode})
+                            </strong>
+                          )}
+                        </span>
+                      </div>
+                      {ord.shadowfax_order_id && (
+                        <div className="pt-1 border-t border-[#F0E2BE] flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-neutral-600">
+                            Shadowfax AWB: <strong className="text-[#14120F]">{ord.shadowfax_order_id}</strong>
+                          </span>
+                          {ord.tracking_url && (
+                            <a
+                              href={ord.tracking_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 font-extrabold text-blue-600 hover:underline"
                             >
-                              <CheckCircle2 className="h-3 w-3" /> Delivered
-                            </button>
+                              Track <ExternalLink className="h-3 w-3" />
+                            </a>
                           )}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      )}
+                    </div>
+
+                    {/* Items & Seller Payout Box */}
+                    <div className="rounded-2xl border border-[#F0E2BE] bg-white p-3.5 space-y-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-[#8C7343]">
+                          Order Items ({(ord.items || []).length})
+                        </p>
+                        <span className="font-black text-emerald-700">
+                          Net Payout: ₹{Number(ord.net_earning || 0).toFixed(0)}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {(ord.items || []).map((it: any) => (
+                          <div key={it.id} className="flex items-center gap-2.5">
+                            <img
+                              src={it.image_url || "/placeholder.png"}
+                              alt={it.title}
+                              className="h-11 w-11 rounded-xl object-cover border border-neutral-100 bg-orange-50 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-[#14120F] truncate">{it.title}</p>
+                              <p className="text-[11px] text-neutral-500">
+                                Qty: {it.quantity} • Size: {it.size || "Standard"} • ₹{it.unit_price}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* ZebAlpha Auto-Generated Shipping Label & Tax Invoice Modal */}
+      <ShippingLabelModal
+        isOpen={Boolean(labelOrder)}
+        onClose={() => setLabelOrder(null)}
+        order={labelOrder}
+        sellerInfo={data?.sellerProfile}
+      />
     </div>
   );
 }

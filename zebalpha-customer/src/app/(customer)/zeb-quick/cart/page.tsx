@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -50,6 +50,7 @@ export default function ZebQuickCartPage() {
   // Upsells ("You might also like")
   const [upsells, setUpsells] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   // Hydrate saved address
@@ -112,7 +113,14 @@ export default function ZebQuickCartPage() {
     rzp?: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
   ) => {
     if (!savedAddress) return;
-    const fullAddress = `${savedAddress.houseLine}, ${savedAddress.areaStreet}, ${savedAddress.city} - ${savedAddress.pincode}`;
+    const addressParts = [
+      savedAddress.houseLine,
+      savedAddress.buildingName,
+      savedAddress.landmark ? `Near ${savedAddress.landmark}` : "",
+      savedAddress.areaStreet,
+      savedAddress.city,
+    ].filter(Boolean);
+    const fullAddress = `${addressParts.join(", ")} - ${savedAddress.pincode}`;
     const res = await fetch("/api/zeb-quick/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -202,11 +210,13 @@ export default function ZebQuickCartPage() {
   };
 
   const handlePlaceCod = async () => {
+    if (submittingRef.current || submitting) return;
     if (!savedAddress) return;
     if (!serviceability.serviceable) {
       setError(`Pincode ${savedAddress.pincode} is not serviceable yet.`);
       return;
     }
+    submittingRef.current = true;
     setError(null);
     setSubmitting(true);
     try {
@@ -214,6 +224,7 @@ export default function ZebQuickCartPage() {
     } catch (err: any) {
       setError(err?.message || "Could not place COD order");
       setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -412,7 +423,7 @@ export default function ZebQuickCartPage() {
                     Delivering to {savedAddress.label}
                   </p>
                   <p className="text-[11px] text-neutral-500 truncate">
-                    {savedAddress.houseLine}, {savedAddress.areaStreet}, {savedAddress.city} ({savedAddress.pincode})
+                    {[savedAddress.houseLine, savedAddress.buildingName, savedAddress.landmark ? `Near ${savedAddress.landmark}` : "", savedAddress.areaStreet, savedAddress.city].filter(Boolean).join(", ")} ({savedAddress.pincode})
                   </p>
                 </div>
               </div>
