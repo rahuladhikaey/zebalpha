@@ -22,6 +22,8 @@ interface LocationSuggestion {
   area_name: string;
   city: string;
   pincode: string;
+  lat?: number | null;
+  lng?: number | null;
   serviceable: boolean;
   source: "admin" | "osm";
 }
@@ -140,9 +142,13 @@ export function ZebQuickLocationModal() {
       return;
     }
     const label = [item.area_name || item.title, item.city].filter(Boolean).join(", ");
+    const coords =
+      typeof item.lat === "number" && typeof item.lng === "number"
+        ? { lat: item.lat, lng: item.lng }
+        : null;
     setQuery("");
     setGpsError(null);
-    await setPincode(cleanPin, label);
+    await setPincode(cleanPin, label, coords);
   };
 
   const directSixDigitPin = query.replace(/\D/g, "").length === 6 ? query.replace(/\D/g, "").slice(0, 6) : "";

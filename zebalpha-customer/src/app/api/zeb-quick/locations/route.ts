@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 import { ZEB_QUICK_INITIAL_PINCODES } from "@shared/constants/zebQuick";
+import {
+  extractRadiusKm,
+  haversineDistanceKm,
+  parseValidCoord,
+  resolvePincodeCoordFromRow,
+  ZEB_QUICK_RADIUS_SETTING_KEY,
+} from "@/lib/zebQuickGeo";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +18,28 @@ export async function GET(req: Request) {
     const cityFilter = (searchParams.get("city") || "").trim();
 
     const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .schema("zeb_quick")
-      .from("serviceable_pincodes")
-      .select("pincode, area_name, city, corridor_name, is_active")
-      .eq("is_active", true)
-      .order("city", { ascending: true })
-      .order("area_name", { ascending: true });
+    const [{ data, error }, { data: activeSellers }, { data: radiusSetting }] = await Promise.all([
+      supabase
+        .schema("zeb_quick")
+        .from("serviceable_pincodes")
+        .select("pincode, area_name, city, corridor_name, lat, lng, is_active")
+        .eq("is_active", true)
+        .order("city", { ascending: true })
+        .order("area_name", { ascending: true }),
+      supabase
+        .schema("zeb_quick")
+        .from("sellers")
+        .select("pickup_pincode, lat, lng")
+        .eq("is_active", true)
+        .eq("is_approved", true),
+      supabase
+        .from("store_settings")
+        .select("value")
+        .eq("key", ZEB_QUICK_RADIUS_SETTING_KEY)
+        .maybeSingle(),
+    ]);
+
+    const maxRadiusKm = extractRadiusKm(radiusSetting?.value);
 
     const areas =
       !error && Array.isArray(data) && data.length > 0
@@ -27,8 +49,21 @@ export async function GET(req: Request) {
             area_name: p.areaName,
             city: p.city,
             corridor_name: p.corridorName,
+            lat: null,
+            lng: null,
             is_active: true,
           }));
+
+    const hubCoords = [
+      ...areas.map((a: any) => resolvePincodeCoordFromRow(String(a.pincode || ""), a)),
+      ...(activeSellers || []).map((s: any) => parseValidCoord(s.lat, s.lng)),
+    ].filter((c): c is { lat: number; lng: number } => Boolean(c));
+
+    const isCoordWithinRadius = (lat: unknown, lng: unknown) => {
+      const c = parseValidCoord(lat, lng);
+      if (!c) return false;
+      return hubCoords.some((h) => haversineDistanceKm(c, h) <= maxRadiusKm);
+    };
 
     // Build distinct active cities from Admin serviceable_pincodes
     const cityCountMap = new Map<string, number>();
@@ -51,6 +86,8 @@ export async function GET(req: Request) {
       area_name: string;
       city: string;
       pincode: string;
+      lat?: number | null;
+      lng?: number | null;
       serviceable: boolean;
       source: "admin" | "osm";
     }> = [];
@@ -66,12 +103,14 @@ export async function GET(req: Request) {
           String(a.pincode).includes(ql)
         );
       })
-      .map((a) => ({
+      .map((a: any) => ({
         title: a.area_name,
         subtitle: `${a.city}, West Bengal • Pincode ${a.pincode}`,
         area_name: a.area_name,
         city: a.city,
         pincode: String(a.pincode),
+        lat: parseValidCoord(a.lat, a.lng)?.lat ?? null,
+        lng: parseValidCoord(a.lat, a.lng)?.lng ?? null,
         serviceable: true,
         source: "admin" as const,
       }));
@@ -113,13 +152,17 @@ export async function GET(req: Request) {
                   : "";
               const finalPin = pin || fallbackCityPin;
 
+              const osmCoord = parseValidCoord(row.lat, row.lon);
+              const withinRadius = isCoordWithinRadius(row.lat, row.lon);
               streetSuggestions.push({
                 title,
                 subtitle,
                 area_name: title,
                 city: resolvedCity,
                 pincode: finalPin,
-                serviceable: finalPin ? activePinSet.has(finalPin) : false,
+                lat: osmCoord?.lat ?? null,
+                lng: osmCoord?.lng ?? null,
+                serviceable: (finalPin ? activePinSet.has(finalPin) : false) || withinRadius,
                 source: "osm",
               });
             }

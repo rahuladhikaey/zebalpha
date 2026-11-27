@@ -12,6 +12,7 @@ import { ZEB_QUICK_FREE_DELIVERY_MIN } from "../../../../../shared/constants/zeb
 export default function ZebQuickHomePage() {
   const {
     pincode,
+    userCoords,
     serviceability,
     setLocationModalOpen,
     searchQuery,
@@ -50,6 +51,10 @@ export default function ZebQuickHomePage() {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("pincode", pincode);
+    if (userCoords) {
+      params.set("lat", String(userCoords.lat));
+      params.set("lng", String(userCoords.lng));
+    }
     if (selectedMainCategory !== "All") params.set("category_group", selectedMainCategory);
     if (searchQuery.trim()) params.set("q", searchQuery.trim());
 
@@ -70,7 +75,7 @@ export default function ZebQuickHomePage() {
     return () => {
       active = false;
     };
-  }, [pincode, selectedMainCategory, searchQuery]);
+  }, [pincode, userCoords?.lat, userCoords?.lng, selectedMainCategory, searchQuery]);
 
   // Serviceability Warning if outside active delivery corridor
   if (serviceability.checked && !serviceability.serviceable) {

@@ -32,6 +32,7 @@ export default function ZebQuickCartPage() {
     cartCount,
     cartSubtotal,
     pincode,
+    userCoords,
     serviceability,
     activeAddress,
     saveZebQuickAddress,
@@ -76,7 +77,12 @@ export default function ZebQuickCartPage() {
   useEffect(() => {
     if (!pincode || pincode.length !== 6) return;
     let active = true;
-    fetch(`/api/zeb-quick/products?pincode=${encodeURIComponent(pincode)}`)
+    const qs = new URLSearchParams({ pincode });
+    if (userCoords) {
+      qs.set("lat", String(userCoords.lat));
+      qs.set("lng", String(userCoords.lng));
+    }
+    fetch(`/api/zeb-quick/products?${qs.toString()}`)
       .then((r) => r.json())
       .then((data) => {
         if (!active) return;
@@ -90,7 +96,7 @@ export default function ZebQuickCartPage() {
     return () => {
       active = false;
     };
-  }, [pincode, cart.length]);
+  }, [pincode, userCoords?.lat, userCoords?.lng, cart.length]);
 
   const deliveryFee =
     cartSubtotal >= ZEB_QUICK_FREE_DELIVERY_MIN || cartSubtotal === 0 ? 0 : ZEB_QUICK_DELIVERY_FEE;
@@ -135,6 +141,9 @@ export default function ZebQuickCartPage() {
         phone: savedAddress.phone,
         delivery_address: fullAddress,
         delivery_pincode: savedAddress.pincode,
+        ...(savedAddress.pincode === pincode && userCoords
+          ? { delivery_lat: userCoords.lat, delivery_lng: userCoords.lng }
+          : {}),
         payment_method: method,
         items: cart,
         ...(rzp || {}),

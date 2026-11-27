@@ -61,15 +61,21 @@ export interface StoredZebQuickAddress {
 export type LocationGateMode = "closed" | "permission" | "manual";
 export type GpsPermissionState = "unknown" | "granted" | "denied";
 
+export interface UserGeoCoord {
+  lat: number;
+  lng: number;
+}
+
 interface ZebQuickContextValue {
   pincode: string;
+  userCoords: UserGeoCoord | null;
   hasLocation: boolean;
   locationLabel: string;
   gpsPermissionState: GpsPermissionState;
   locationGateMode: LocationGateMode;
   setLocationGateMode: (mode: LocationGateMode) => void;
   serviceability: ZebQuickServiceability;
-  setPincode: (pin: string, customLabel?: string) => Promise<void>;
+  setPincode: (pin: string, customLabel?: string, coords?: UserGeoCoord | null) => Promise<void>;
   detectGpsPincode: () => Promise<{ ok: boolean; pincode?: string; label?: string; error?: string }>;
   locationModalOpen: boolean;
   setLocationModalOpen: (open: boolean) => void;
@@ -103,6 +109,7 @@ const ZebQuickContext = createContext<ZebQuickContextValue | null>(null);
 
 const CART_STORAGE_KEY = "zeb_quick_cart_v1";
 const PINCODE_STORAGE_KEY = "zeb_quick_pincode_v2";
+const COORDS_STORAGE_KEY = "zeb_quick_coords_v1";
 const LOCATION_LABEL_STORAGE_KEY = "zeb_quick_location_label_v1";
 const ADDRESS_STORAGE_KEY = "zeb_quick_saved_address_v1";
 const ADDRESSES_LIST_STORAGE_KEY = "zeb_quick_saved_addresses_v1";
@@ -117,6 +124,7 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   // ZERO hardcoded default pincode — user must confirm live GPS or select manually like Blinkit
   const [pincode, setPincodeState] = useState<string>("");
+  const [userCoords, setUserCoords] = useState<UserGeoCoord | null>(null);
   const [locationLabel, setLocationLabel] = useState<string>("");
   const [gpsPermissionState, setGpsPermissionState] = useState<GpsPermissionState>("unknown");
   const [locationGateMode, setLocationGateMode] = useState<LocationGateMode>("closed");
@@ -152,12 +160,17 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
-  const checkPincode = useCallback(async (pin: string) => {
+  const checkPincode = useCallback(async (pin: string, coords?: UserGeoCoord | null) => {
     const clean = pin.replace(/\D/g, "").slice(0, 6);
     if (clean.length !== 6) return null;
     setServiceability((prev) => ({ ...prev, pincode: clean, loading: true }));
     try {
-      const res = await fetch(`/api/zeb-quick/pincode-check?pincode=${clean}`);
+      const qs = new URLSearchParams({ pincode: clean });
+      if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
+        qs.set("lat", String(coords.lat));
+        qs.set("lng", String(coords.lng));
+      }
+      const res = await fetch(`/api/zeb-quick/pincode-check?${qs.toString()}`);
       const data = await res.json();
       const next: ZebQuickServiceability = {
         serviceable: Boolean(data.serviceable),
@@ -177,15 +190,23 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setPincode = useCallback(
-    async (pin: string, customLabel?: string) => {
+    async (pin: string, customLabel?: string, coords?: UserGeoCoord | null) => {
       const clean = pin.replace(/\D/g, "").slice(0, 6);
       if (clean.length !== 6) return;
       setPincodeState(clean);
+      const validCoords =
+        coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng) ? coords : null;
+      setUserCoords(validCoords);
       try {
         localStorage.setItem(PINCODE_STORAGE_KEY, clean);
+        if (validCoords) {
+          localStorage.setItem(COORDS_STORAGE_KEY, JSON.stringify(validCoords));
+        } else {
+          localStorage.removeItem(COORDS_STORAGE_KEY);
+        }
       } catch {}
 
-      const result = await checkPincode(clean);
+      const result = await checkPincode(clean, validCoords);
       const resolvedLabel =
         (customLabel || "").trim() ||
         (result?.areaName
@@ -242,7 +263,7 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
 
       if (pin.length === 6) {
         setGpsPermissionState("granted");
-        await setPincode(pin, streetLabel || undefined);
+        await setPincode(pin, streetLabel || undefined, { lat, lng });
         return { ok: true, pincode: pin, label: streetLabel || undefined };
       }
 
@@ -352,10 +373,22 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
 
       const savedPin = localStorage.getItem(PINCODE_STORAGE_KEY);
       const savedLbl = localStorage.getItem(LOCATION_LABEL_STORAGE_KEY) || "";
+      let savedCoords: UserGeoCoord | null = null;
+      try {
+        const rawCoords = localStorage.getItem(COORDS_STORAGE_KEY);
+        if (rawCoords) {
+          const parsed = JSON.parse(rawCoords);
+          if (typeof parsed?.lat === "number" && typeof parsed?.lng === "number") {
+            savedCoords = { lat: parsed.lat, lng: parsed.lng };
+          }
+        }
+      } catch {}
+
       if (savedPin && /^\d{6}$/.test(savedPin)) {
         setPincodeState(savedPin);
+        if (savedCoords) setUserCoords(savedCoords);
         if (savedLbl) setLocationLabel(savedLbl);
-        void checkPincode(savedPin);
+        void checkPincode(savedPin, savedCoords);
         setLocationGateMode("closed");
       } else {
         // First visit (no user-confirmed location yet): NEVER show a hardcoded default pincode!
@@ -532,6 +565,7 @@ export function ZebQuickProvider({ children }: { children: React.ReactNode }) {
     <ZebQuickContext.Provider
       value={{
         pincode,
+        userCoords,
         hasLocation: pincode.length === 6,
         locationLabel,
         gpsPermissionState,

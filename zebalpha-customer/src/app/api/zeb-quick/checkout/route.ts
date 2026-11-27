@@ -6,6 +6,7 @@ import {
   extractRadiusKm,
   geocodeIndianPincode,
   haversineDistanceKm,
+  lookupIndianPincodeMeta,
   parseValidCoord,
   resolvePincodeCoordFromRow,
   ZEB_QUICK_RADIUS_SETTING_KEY,
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
       phone,
       delivery_address,
       delivery_pincode,
+      delivery_lat,
+      delivery_lng,
       payment_method = "COD",
       items,
       razorpay_order_id,
@@ -61,12 +64,11 @@ export async function POST(req: Request) {
     const supabase = getSupabaseServer();
     const db = supabase.schema("zeb_quick");
 
-    // 1. Verify pincode is serviceable for 5-6 Hr delivery & load radius config
-    const [{ data: activePincodes }, { data: radiusSetting }] = await Promise.all([
+    // 1. Load pincodes & global radius config (supports both Admin-listed pincodes & nearby pincodes within 25 km radius)
+    const [{ data: allPincodes }, { data: radiusSetting }] = await Promise.all([
       db
         .from("serviceable_pincodes")
-        .select("pincode, area_name, city, lat, lng")
-        .eq("is_active", true),
+        .select("pincode, area_name, city, lat, lng, is_active"),
       supabase
         .from("store_settings")
         .select("value")
@@ -75,22 +77,38 @@ export async function POST(req: Request) {
     ]);
 
     const pinMap = new Map<string, any>();
-    (activePincodes || []).forEach((p: any) => {
-      pinMap.set(String(p.pincode || "").replace(/\D/g, "").slice(0, 6), p);
+    const disabledPinSet = new Set<string>();
+    (allPincodes || []).forEach((p: any) => {
+      const clean = String(p.pincode || "").replace(/\D/g, "").slice(0, 6);
+      if (p.is_active === false) {
+        disabledPinSet.add(clean);
+      } else {
+        pinMap.set(clean, p);
+      }
     });
 
-    const pinRow = pinMap.get(cleanPin);
-    if (!pinRow) {
+    if (disabledPinSet.has(cleanPin)) {
       return NextResponse.json(
-        { success: false, error: `Pincode ${cleanPin} is outside the active ZebQuick 5–6 Hr delivery corridor.` },
+        { success: false, error: `Pincode ${cleanPin} is currently disabled for ZebQuick delivery.` },
         { status: 400 }
       );
     }
 
+    const pinRow = pinMap.get(cleanPin);
     const maxRadiusKm = extractRadiusKm(radiusSetting?.value);
-    let customerCoord = resolvePincodeCoordFromRow(cleanPin, pinRow);
+    let customerCoord =
+      parseValidCoord(delivery_lat, delivery_lng) ||
+      resolvePincodeCoordFromRow(cleanPin, pinRow);
     if (!customerCoord) {
-      customerCoord = await geocodeIndianPincode(cleanPin, pinRow.area_name, pinRow.city);
+      const meta = await lookupIndianPincodeMeta(cleanPin, pinRow?.area_name, pinRow?.city);
+      customerCoord = meta.coord;
+    }
+
+    if (!pinRow && !customerCoord) {
+      return NextResponse.json(
+        { success: false, error: `Pincode ${cleanPin} is outside the active ZebQuick 5–6 Hr delivery range.` },
+        { status: 400 }
+      );
     }
 
     // 2. Verify all products from zeb_quick.products
@@ -104,11 +122,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Selected ZebQuick products are no longer available" }, { status: 400 });
     }
 
-    // 2.1 Verify every product's seller is within the active hyperlocal delivery radius (default 25 km)
+    // 2.1 Verify every product's seller is within the active hyperlocal delivery radius (default 17 km)
     const itemSellerIds = Array.from(new Set(dbProducts.map((p: any) => String(p.seller_id)).filter(Boolean)));
     const { data: itemSellers } = await db
       .from("sellers")
-      .select("seller_id, pickup_pincode, city, lat, lng, serviceable_pincodes")
+      .select("id, seller_id, pickup_pincode, city, lat, lng, serviceable_pincodes")
       .in("seller_id", itemSellerIds);
     const sellerMap = new Map((itemSellers || []).map((s: any) => [String(s.seller_id), s]));
 
@@ -119,9 +137,15 @@ export async function POST(req: Request) {
       if (Array.isArray(s?.serviceable_pincodes) && s.serviceable_pincodes.includes(cleanPin)) continue;
 
       const sellerPinRow = pinMap.get(sPin);
-      const sellerCoord =
+      let sellerCoord =
         parseValidCoord(s?.lat, s?.lng) ||
         resolvePincodeCoordFromRow(sPin, sellerPinRow);
+      if (!sellerCoord && sPin.length === 6) {
+        sellerCoord = await geocodeIndianPincode(sPin, sellerPinRow?.area_name, sellerPinRow?.city || s?.city);
+        if (sellerCoord && s?.id) {
+          void db.from("sellers").update({ lat: sellerCoord.lat, lng: sellerCoord.lng }).eq("id", s.id);
+        }
+      }
 
       if (customerCoord && sellerCoord) {
         const dist = haversineDistanceKm(customerCoord, sellerCoord);
@@ -134,6 +158,14 @@ export async function POST(req: Request) {
             { status: 400 }
           );
         }
+      } else if (!pinRow) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Pincode ${cleanPin} is outside our ${maxRadiusKm} km ZebQuick Express delivery range.`,
+          },
+          { status: 400 }
+        );
       }
     }
 

@@ -12,7 +12,7 @@ export function ZebQuickMainCategoryView({
   mainCategory: string;
   onOpenSplit: (subSlug: string) => void;
 }) {
-  const { pincode, subcategories, cart, addToCart, updateQty, openProductDetail } = useZebQuick();
+  const { pincode, userCoords, subcategories, cart, addToCart, updateQty, openProductDetail } = useZebQuick();
   const [products, setProducts] = useState<ZebQuickProductRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,6 +31,10 @@ export function ZebQuickMainCategoryView({
     setLoading(true);
     const params = new URLSearchParams();
     params.set("pincode", pincode);
+    if (userCoords) {
+      params.set("lat", String(userCoords.lat));
+      params.set("lng", String(userCoords.lng));
+    }
     params.set("category_group", mainCategory);
 
     fetch(`/api/zeb-quick/products?${params.toString()}`)
@@ -54,7 +58,7 @@ export function ZebQuickMainCategoryView({
     return () => {
       active = false;
     };
-  }, [pincode, mainCategory]);
+  }, [pincode, userCoords?.lat, userCoords?.lng, mainCategory]);
 
   const handleQuickAdd = (p: ZebQuickProductRecord) => {
     const img = p.image_url || (Array.isArray(p.images) && p.images[0]) || "/official-logo-sm.png";

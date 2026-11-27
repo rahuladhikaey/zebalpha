@@ -71,7 +71,7 @@ export default function ZebQuickCommandCenterView() {
   const [newArea, setNewArea] = useState("");
   const [newCity, setNewCity] = useState("");
   const [newCorridor, setNewCorridor] = useState("Sealdah-Krishnanagar");
-  const [radiusInput, setRadiusInput] = useState<number>(25);
+  const [radiusInput, setRadiusInput] = useState<number>(17);
   const [savingRadius, setSavingRadius] = useState(false);
   const [syncingCoords, setSyncingCoords] = useState(false);
   const [geoNotice, setGeoNotice] = useState<string | null>(null);
@@ -552,11 +552,11 @@ export default function ZebQuickCommandCenterView() {
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-black text-white">Hyperlocal GPS Delivery Radius</h3>
                       <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-black text-emerald-300">
-                        Live: {data?.deliveryRadiusKm ?? 25} km
+                        Live: {data?.deliveryRadiusKm ?? 17} km
                       </span>
                     </div>
                     <p className="mt-1 text-[11px] text-zinc-400">
-                      A seller&apos;s ZebQuick products automatically show in every active pincode within this GPS radius (cross-prefix 700xxx / 743xxx / 741xxx supported).
+                      Pure Blinkit-style GPS matching: a seller&apos;s ZebQuick products automatically show to any customer within this GPS radius (zero manual pincode list required).
                     </p>
                   </div>
                   <button
@@ -570,14 +570,14 @@ export default function ZebQuickCommandCenterView() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {[10, 15, 20, 25, 30].map((km) => (
+                  {[10, 12, 15, 17, 20, 25].map((km) => (
                     <button
                       key={km}
                       type="button"
                       disabled={savingRadius}
                       onClick={() => void handleSaveRadius(km)}
                       className={`rounded-xl px-3 py-1.5 text-xs font-black transition cursor-pointer ${
-                        (data?.deliveryRadiusKm ?? 25) === km
+                        (data?.deliveryRadiusKm ?? 17) === km
                           ? "bg-orange-500 text-white"
                           : "bg-zinc-900 border border-zinc-700 text-zinc-300 hover:border-orange-400"
                       }`}

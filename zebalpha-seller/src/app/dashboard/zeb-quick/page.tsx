@@ -25,6 +25,7 @@ export default function SellerZebQuickDashboardPage() {
   const [statusTab, setStatusTab] = useState<StatusTab>("ALL");
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [labelOrder, setLabelOrder] = useState<any | null>(null);
+  const [showCoveredPins, setShowCoveredPins] = useState(false);
 
   const getAuthHeaders = async () => {
     const headers: Record<string, string> = {};
@@ -182,12 +183,51 @@ export default function SellerZebQuickDashboardPage() {
       {/* Pickup Serviceability Banner */}
       {!loading && data && (
         data.isZebQuickServiceable ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs font-bold text-emerald-900">
-            ZebQuick 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}) — auto-serving{" "}
-            <span className="font-black underline decoration-emerald-500">
-              {data.coveredPincodeCount || 1} active pincode{(data.coveredPincodeCount || 1) === 1 ? "" : "s"} within {data.deliveryRadiusKm || 25} km
-            </span>{" "}
-            GPS radius.
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs text-emerald-900 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-bold">
+                ZebQuick 5–6 Hr Pickup is active at your registered address ({data.serviceAreaName || data.zebalphaPickupCity} • Pincode {data.zebalphaPickupPincode}) — auto-serving{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowCoveredPins((v) => !v)}
+                  className="font-black underline decoration-emerald-600 hover:text-emerald-700 cursor-pointer"
+                >
+                  {data.coveredPincodeCount || 1} active pincode{(data.coveredPincodeCount || 1) === 1 ? "" : "s"} within {data.deliveryRadiusKm || 17} km
+                </button>{" "}
+                GPS radius.
+              </p>
+              {Array.isArray(data.coveredPincodes) && data.coveredPincodes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowCoveredPins((v) => !v)}
+                  className="rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-extrabold text-emerald-800 hover:bg-emerald-100/70 transition cursor-pointer shrink-0"
+                >
+                  {showCoveredPins ? "Hide Pincodes ▲" : `View All ${data.coveredPincodes.length} Pincodes ▼`}
+                </button>
+              )}
+            </div>
+
+            {showCoveredPins && Array.isArray(data.coveredPincodes) && data.coveredPincodes.length > 0 && (
+              <div className="border-t border-emerald-200/80 pt-3">
+                <p className="mb-2 text-[11px] font-extrabold text-emerald-800">
+                  Customers in these {data.coveredPincodes.length} pincodes can see &amp; order your ZebQuick products:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {data.coveredPincodes.map((cp: any) => (
+                    <span
+                      key={cp.pincode}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-2.5 py-1.5 text-[11px] shadow-2xs"
+                    >
+                      <span className="font-black text-emerald-900">{cp.pincode}</span>
+                      <span className="text-neutral-700 font-semibold">{cp.area_name || cp.city}</span>
+                      <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black text-emerald-800">
+                        {cp.distance_km === 0 ? "Your Hub" : `${cp.distance_km} km`}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-xs text-amber-950 space-y-1">

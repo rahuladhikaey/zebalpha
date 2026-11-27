@@ -83,22 +83,62 @@ export async function GET(req: Request) {
         ? activePinList.find((p) => String(p.pincode || "").replace(/\D/g, "").slice(0, 6) === resolvedPin) || null
         : null;
 
-    let coveredPincodeCount = 0;
+    let coveredPincodes: Array<{
+      pincode: string;
+      area_name: string;
+      city: string;
+      distance_km: number;
+    }> = [];
     if (serviceablePinRow) {
-      const sellerCoord =
+      let sellerCoord =
         parseValidCoord(goSeller?.lat, goSeller?.lng) ||
         resolvePincodeCoordFromRow(resolvedPin, serviceablePinRow);
+      if (!sellerCoord && resolvedPin.length === 6) {
+        sellerCoord = await geocodeIndianPincode(resolvedPin, serviceablePinRow.area_name, serviceablePinRow.city);
+        if (sellerCoord) {
+          void db.from("serviceable_pincodes").update({ lat: sellerCoord.lat, lng: sellerCoord.lng }).eq("pincode", resolvedPin);
+          if (goSeller?.id) {
+            void db.from("sellers").update({ lat: sellerCoord.lat, lng: sellerCoord.lng }).eq("id", goSeller.id);
+          }
+        }
+      }
       if (sellerCoord) {
-        coveredPincodeCount = activePinList.filter((p) => {
-          const pPin = String(p.pincode || "").replace(/\D/g, "").slice(0, 6);
-          if (pPin === resolvedPin) return true;
-          const pCoord = resolvePincodeCoordFromRow(pPin, p);
-          return pCoord ? haversineDistanceKm(sellerCoord, pCoord) <= deliveryRadiusKm : false;
-        }).length;
+        coveredPincodes = activePinList
+          .map((p) => {
+            const pPin = String(p.pincode || "").replace(/\D/g, "").slice(0, 6);
+            if (pPin === resolvedPin) {
+              return {
+                pincode: pPin,
+                area_name: p.area_name || "",
+                city: p.city || "",
+                distance_km: 0,
+              };
+            }
+            const pCoord = resolvePincodeCoordFromRow(pPin, p);
+            if (!pCoord) return null;
+            const dist = haversineDistanceKm(sellerCoord, pCoord);
+            if (dist > deliveryRadiusKm) return null;
+            return {
+              pincode: pPin,
+              area_name: p.area_name || "",
+              city: p.city || "",
+              distance_km: dist,
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => Boolean(x))
+          .sort((a, b) => a.distance_km - b.distance_km || a.pincode.localeCompare(b.pincode));
       } else {
-        coveredPincodeCount = 1;
+        coveredPincodes = [
+          {
+            pincode: resolvedPin,
+            area_name: serviceablePinRow.area_name || "",
+            city: serviceablePinRow.city || "",
+            distance_km: 0,
+          },
+        ];
       }
     }
+    const coveredPincodeCount = coveredPincodes.length;
 
     const items = orderItems || [];
     const ledgerRows = ledger || [];
@@ -182,6 +222,7 @@ export async function GET(req: Request) {
       corridorName: serviceablePinRow?.corridor_name || "",
       deliveryRadiusKm,
       coveredPincodeCount,
+      coveredPincodes,
       stats: {
         totalOrders: groupedOrders.filter((o) => String(o.order_status).toUpperCase() !== "CANCELLED").length,
         activeProducts: (goProducts || []).length,

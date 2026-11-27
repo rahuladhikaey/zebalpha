@@ -14,7 +14,7 @@ export function ZebQuickSplitCategoryView({
   initialSubSlug?: string;
   onClose?: () => void;
 }) {
-  const { pincode, subcategories } = useZebQuick();
+  const { pincode, userCoords, subcategories } = useZebQuick();
   const groupSubs = subcategories.filter((s) => s.category_group === mainCategory);
   const [selectedSubSlug, setSelectedSubSlug] = useState<string>(initialSubSlug || "__ALL__");
   const [products, setProducts] = useState<ZebQuickProductRecord[]>([]);
@@ -34,6 +34,10 @@ export function ZebQuickSplitCategoryView({
     setLoading(true);
     const params = new URLSearchParams();
     params.set("pincode", pincode);
+    if (userCoords) {
+      params.set("lat", String(userCoords.lat));
+      params.set("lng", String(userCoords.lng));
+    }
     params.set("category_group", mainCategory);
     if (selectedSubSlug !== "__ALL__") {
       params.set("subcategory", selectedSubSlug);
@@ -53,7 +57,7 @@ export function ZebQuickSplitCategoryView({
     return () => {
       active = false;
     };
-  }, [pincode, mainCategory, selectedSubSlug]);
+  }, [pincode, userCoords?.lat, userCoords?.lng, mainCategory, selectedSubSlug]);
 
   return (
     <div className="mx-auto max-w-5xl bg-white min-h-[70vh] flex flex-col">

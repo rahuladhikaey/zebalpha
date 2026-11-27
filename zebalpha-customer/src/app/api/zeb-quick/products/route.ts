@@ -4,6 +4,7 @@ import {
   extractRadiusKm,
   geocodeIndianPincode,
   haversineDistanceKm,
+  lookupIndianPincodeMeta,
   parseValidCoord,
   resolvePincodeCoordFromRow,
   ZEB_QUICK_DEFAULT_RADIUS_KM,
@@ -16,6 +17,7 @@ export async function GET(req: Request) {
     const pincode = String(searchParams.get("pincode") || "")
       .replace(/\D/g, "")
       .slice(0, 6);
+    const userGpsCoord = parseValidCoord(searchParams.get("lat"), searchParams.get("lng"));
     const categoryGroup = searchParams.get("category_group") || "";
     const subcategory = searchParams.get("subcategory") || "";
     const q = (searchParams.get("q") || "").trim();
@@ -39,17 +41,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ serviceable: true, products: items || [] });
     }
 
-    // 2 & 3. Validate pincode against active ZebQuick corridor & match sellers within live GPS radius (default 25 km)
+    // 2 & 3. Pure Blinkit-style real GPS / dynamic geocoded matching within live radius (default 17 km)
     let sellerIds: string[] | null = null;
     let maxRadiusKm = ZEB_QUICK_DEFAULT_RADIUS_KM;
     const sellerDistanceMap = new Map<string, number>();
 
-    if (pincode.length === 6) {
-      const [{ data: activePincodes }, { data: radiusSetting }, { data: sellers }] = await Promise.all([
+    if (pincode.length === 6 || userGpsCoord) {
+      const [{ data: allPincodes }, { data: radiusSetting }, { data: sellers }] = await Promise.all([
         db
           .from("serviceable_pincodes")
-          .select("pincode, area_name, city, corridor_name, lat, lng")
-          .eq("is_active", true),
+          .select("pincode, area_name, city, corridor_name, lat, lng, is_active"),
         supabase
           .from("store_settings")
           .select("value")
@@ -57,33 +58,46 @@ export async function GET(req: Request) {
           .maybeSingle(),
         db
           .from("sellers")
-          .select("seller_id, pickup_pincode, city, lat, lng, delivery_radius_km, serviceable_pincodes")
+          .select("id, seller_id, pickup_pincode, city, lat, lng, delivery_radius_km, serviceable_pincodes")
           .eq("is_active", true)
           .eq("is_approved", true),
       ]);
 
       maxRadiusKm = extractRadiusKm(radiusSetting?.value);
 
+      const allPinRows = (allPincodes || []) as any[];
       const pinMap = new Map<string, any>();
-      (activePincodes || []).forEach((p: any) => {
-        pinMap.set(String(p.pincode || "").replace(/\D/g, "").slice(0, 6), p);
-      });
+      const disabledPinSet = new Set<string>();
+      for (const p of allPinRows) {
+        const clean = String(p.pincode || "").replace(/\D/g, "").slice(0, 6);
+        if (p.is_active === false) {
+          disabledPinSet.add(clean);
+        } else {
+          pinMap.set(clean, p);
+        }
+      }
 
-      const pinRow = pinMap.get(pincode);
-      if (!pinRow) {
+      // Respect explicit Admin disable
+      if (pincode.length === 6 && disabledPinSet.has(pincode)) {
         return NextResponse.json({
           serviceable: false,
           pincode,
           radiusKm: maxRadiusKm,
           products: [],
-          message: "ZebQuick 5–6 Hr delivery is currently available on the Sealdah – Krishnanagar route.",
+          message: "ZebQuick 5–6 Hr delivery is currently unavailable in this pincode.",
         });
       }
 
-      let customerCoord = resolvePincodeCoordFromRow(pincode, pinRow);
-      if (!customerCoord) {
-        customerCoord = await geocodeIndianPincode(pincode, pinRow.area_name, pinRow.city);
-        if (customerCoord) {
+      const pinRow = pincode.length === 6 ? pinMap.get(pincode) : undefined;
+      // Priority 1: Exact live customer GPS (Blinkit-accurate) -> Priority 2: DB pincode cache -> Priority 3: Pan-India auto-geocode
+      let customerCoord = userGpsCoord || (pincode.length === 6 ? resolvePincodeCoordFromRow(pincode, pinRow) : null);
+      let resolvedCity = String(pinRow?.city || "").trim();
+
+      if (!customerCoord && pincode.length === 6) {
+        const meta = await lookupIndianPincodeMeta(pincode, pinRow?.area_name, pinRow?.city);
+        customerCoord = meta.coord;
+        resolvedCity = resolvedCity || meta.city;
+        if (customerCoord && pinRow) {
           void db
             .from("serviceable_pincodes")
             .update({ lat: customerCoord.lat, lng: customerCoord.lng })
@@ -91,24 +105,38 @@ export async function GET(req: Request) {
         }
       }
 
-      const custCity = String(pinRow.city || "").trim().toLowerCase();
+      const custCity = resolvedCity.toLowerCase();
+      const matchedIds: string[] = [];
 
       if (Array.isArray(sellers) && sellers.length > 0) {
-        const matchedIds: string[] = [];
         for (const s of sellers as any[]) {
           const sPin = String(s.pickup_pincode || "").replace(/\D/g, "").slice(0, 6);
           const sellerPinRow = pinMap.get(sPin);
-          const sellerCoord =
+          let sellerCoord =
             parseValidCoord(s.lat, s.lng) ||
             resolvePincodeCoordFromRow(sPin, sellerPinRow);
 
-          if (sPin === pincode) {
+          // Self-heal seller GPS coordinates automatically if NULL in DB
+          if (!sellerCoord && sPin.length === 6) {
+            sellerCoord = await geocodeIndianPincode(sPin, sellerPinRow?.area_name, sellerPinRow?.city || s.city);
+            if (sellerCoord) {
+              void db.from("sellers").update({ lat: sellerCoord.lat, lng: sellerCoord.lng }).eq("id", s.id);
+              if (sellerPinRow && !parseValidCoord(sellerPinRow.lat, sellerPinRow.lng)) {
+                void db
+                  .from("serviceable_pincodes")
+                  .update({ lat: sellerCoord.lat, lng: sellerCoord.lng })
+                  .eq("pincode", sPin);
+              }
+            }
+          }
+
+          if (pincode.length === 6 && sPin === pincode) {
             matchedIds.push(s.seller_id);
             sellerDistanceMap.set(String(s.seller_id), 0);
             continue;
           }
 
-          if (Array.isArray(s.serviceable_pincodes) && s.serviceable_pincodes.includes(pincode)) {
+          if (pincode.length === 6 && Array.isArray(s.serviceable_pincodes) && s.serviceable_pincodes.includes(pincode)) {
             const dist = customerCoord && sellerCoord ? haversineDistanceKm(customerCoord, sellerCoord) : 0;
             matchedIds.push(s.seller_id);
             sellerDistanceMap.set(String(s.seller_id), dist);
@@ -124,23 +152,46 @@ export async function GET(req: Request) {
             continue;
           }
 
-          // Fallback ONLY if GPS coordinates are unavailable for a custom unmapped pincode
+          // Last-resort fallback ONLY if GPS lookup failed for both sides
           const sellerCity = String(sellerPinRow?.city || s.city || "").trim().toLowerCase();
-          if (custCity && sellerCity && custCity === sellerCity) {
+          if (pinRow && custCity && sellerCity && custCity === sellerCity) {
             matchedIds.push(s.seller_id);
             sellerDistanceMap.set(String(s.seller_id), 0);
           }
         }
+      }
 
-        sellerIds = matchedIds;
-        if (sellerIds.length === 0) {
+      // If pincode wasn't explicitly listed in serviceable_pincodes, verify it falls within 17 km of an active seller or hub
+      if (!pinRow && matchedIds.length === 0) {
+        let withinHubRadius = false;
+        if (customerCoord) {
+          for (const [hPin, hRow] of pinMap.entries()) {
+            const hCoord = resolvePincodeCoordFromRow(hPin, hRow);
+            if (hCoord && haversineDistanceKm(customerCoord, hCoord) <= maxRadiusKm) {
+              withinHubRadius = true;
+              break;
+            }
+          }
+        }
+        if (!withinHubRadius) {
           return NextResponse.json({
-            serviceable: true,
+            serviceable: false,
             pincode,
             radiusKm: maxRadiusKm,
             products: [],
+            message: "ZebQuick 5–6 Hr delivery is coming soon to your area.",
           });
         }
+      }
+
+      sellerIds = matchedIds;
+      if (sellerIds.length === 0) {
+        return NextResponse.json({
+          serviceable: true,
+          pincode,
+          radiusKm: maxRadiusKm,
+          products: [],
+        });
       }
     }
 
