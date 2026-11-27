@@ -221,15 +221,39 @@ export default function ZebQuickOrdersPage() {
                 </div>
 
                 {!isCancelled && order.promised_delivery_at && (
-                  <div className="flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>
+                  <div className="flex items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
                       5–6 Hr SLA Promised By:{" "}
                       {new Date(order.promised_delivery_at).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </span>
+                    {order.shadowfax_tracking_url && (
+                      <a
+                        href={order.shadowfax_tracking_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg bg-emerald-600 px-2.5 py-0.5 text-[10px] font-black text-white"
+                      >
+                        Track Rider →
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {!isCancelled && (order.shadowfax_rider_name || order.shadowfax_awb) && (
+                  <div className="rounded-xl bg-blue-50/70 border border-blue-100 px-3 py-1.5 text-[11px] font-semibold text-blue-900">
+                    {order.shadowfax_rider_name && (
+                      <span>
+                        Delivery Partner: <strong>{order.shadowfax_rider_name}</strong>
+                        {order.shadowfax_rider_phone ? ` (+91 ${order.shadowfax_rider_phone})` : ""}
+                      </span>
+                    )}
+                    {order.shadowfax_awb && (
+                      <span className="ml-2 text-blue-700">• AWB: {order.shadowfax_awb}</span>
+                    )}
                   </div>
                 )}
 

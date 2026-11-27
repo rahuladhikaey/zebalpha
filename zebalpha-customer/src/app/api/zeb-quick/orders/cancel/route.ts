@@ -4,6 +4,34 @@ import { getSupabaseServer } from "@/lib/supabaseServer";
 const CANCEL_WINDOW_MS = 20 * 60 * 1000; // 20 minutes
 const CANCELLABLE_STATUSES = new Set(["PLACED", "CONFIRMED", "PACKED"]);
 
+async function syncCancelToShadowfax(sfxOrderId: string, reason: string) {
+  const env = process.env.SHADOWFAX_HL_ENV === "production" ? "production" : "staging";
+  const baseUrl =
+    env === "production" ? "https://api.shadowfax.in" : "https://hlbackend.staging.shadowfax.in";
+  const token =
+    env === "production"
+      ? (process.env.SHADOWFAX_HL_PROD_TOKEN || process.env.SHADOWFAX_API_TOKEN || "").trim()
+      : (process.env.SHADOWFAX_HL_STAGING_TOKEN || process.env.SHADOWFAX_API_TOKEN || "").trim();
+
+  if (!token || !sfxOrderId) return { synced: false };
+  try {
+    const res = await fetch(`${baseUrl}/api/v2/orders/${encodeURIComponent(sfxOrderId)}/cancel/`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        cancel_reason: reason,
+        reason,
+      }),
+    });
+    return { synced: res.ok, status: res.status };
+  } catch {
+    return { synced: false };
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -23,7 +51,7 @@ export async function POST(req: Request) {
 
     const { data: order, error: fetchErr } = await db
       .from("orders")
-      .select("id, user_id, order_status, created_at")
+      .select("id, user_id, order_status, created_at, shadowfax_order_id, shadowfax_status")
       .eq("id", orderId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -104,11 +132,25 @@ export async function POST(req: Request) {
       }
     }
 
+    // Sync cancellation back to Shadowfax if rider was already allotted (ZebQuick -> Shadowfax)
+    let shadowfaxSynced = false;
+    if (order.shadowfax_order_id) {
+      const sfxCancel = await syncCancelToShadowfax(String(order.shadowfax_order_id), reason);
+      shadowfaxSynced = Boolean(sfxCancel.synced);
+      if (shadowfaxSynced) {
+        await db
+          .from("orders")
+          .update({ shadowfax_status: "CANCELLED_BY_CUSTOMER", updated_at: nowIso })
+          .eq("id", order.id);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       order_status: "CANCELLED",
       cancel_reason: reason,
       cancelled_at: nowIso,
+      shadowfax_synced: shadowfaxSynced,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err?.message || "Failed to cancel order" }, { status: 500 });

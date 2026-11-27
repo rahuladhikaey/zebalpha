@@ -5,10 +5,21 @@ export const dynamic = "force-dynamic";
 
 function mapShadowfaxStatusToZebQuick(sfxStatus: string): string {
   const s = String(sfxStatus || "").toUpperCase();
-  if (s === "DELIVERED") return "DELIVERED";
-  if (s === "DISPATCHED" || s === "PICKED_UP" || s === "ARRIVED_AT_DROP") return "OUT_FOR_DELIVERY";
-  if (s === "ACCEPTED" || s === "ALLOTTED" || s === "ARRIVED_AT_PICKUP") return "PACKED";
-  if (s === "CANCELLED" || s === "CANCELLED_BY_CUSTOMER") return "CANCELLED";
+  if (s === "DELIVERED" || s === "COMPLETED") return "DELIVERED";
+  if (
+    s === "DISPATCHED" ||
+    s === "PICKED_UP" ||
+    s === "COLLECTED" ||
+    s === "RIDER_PICKED_UP" ||
+    s === "IN_TRANSIT" ||
+    s === "OUT_FOR_DELIVERY" ||
+    s === "SHIPPED" ||
+    s === "ARRIVED_AT_DROP"
+  ) {
+    return "OUT_FOR_DELIVERY";
+  }
+  if (s === "ACCEPTED" || s === "ALLOTTED" || s === "ARRIVED" || s === "ARRIVED_AT_PICKUP") return "PACKED";
+  if (s === "CANCELLED" || s === "CANCELLED_BY_CUSTOMER" || s === "CANCELLED_BY_SELLER") return "CANCELLED";
   return "PACKED";
 }
 

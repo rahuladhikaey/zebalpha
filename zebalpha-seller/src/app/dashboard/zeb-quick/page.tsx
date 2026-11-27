@@ -52,22 +52,7 @@ export default function SellerZebQuickDashboardPage() {
     void loadData();
   }, [loadData]);
 
-  const handleStatusChange = async (orderId: string, status: string) => {
-    setBusyOrderId(orderId);
-    try {
-      const headers = await getAuthHeaders();
-      await fetch("/api/zeb-quick/dashboard", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...headers },
-        body: JSON.stringify({ action: "update_order_status", orderId, status }),
-      });
-      await loadData();
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const handleBookShadowfax = async (orderId: string) => {
+  const handleAcceptOrder = async (orderId: string) => {
     setBusyOrderId(orderId);
     try {
       const headers = await getAuthHeaders();
@@ -78,7 +63,7 @@ export default function SellerZebQuickDashboardPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        alert(json.error || "Shadowfax rider booking failed");
+        alert(json.error || "Could not accept order & sync with Shadowfax");
       }
       await loadData();
     } finally {
@@ -91,8 +76,8 @@ export default function SellerZebQuickDashboardPage() {
       id: ord.id,
       order_number: ord.order_number,
       invoice_number: `ZBQ-INV-${ord.order_number}`,
-      tracking_number: ord.shadowfax_order_id || ord.order_number,
-      courier_name: ord.shadowfax_order_id ? "Shadowfax 5–6 Hr Express" : "ZebQuick 5–6 Hr Express",
+      tracking_number: ord.shadowfax_awb || ord.shadowfax_order_id || ord.order_number,
+      courier_name: "Shadowfax 5–6 Hr Express",
       routing_hub: `ZBQ-${ord.delivery_pincode || "EXP"}`,
       customer_name: ord.customer_name,
       phone: ord.phone,
@@ -318,7 +303,7 @@ export default function SellerZebQuickDashboardPage() {
                       </p>
                     </div>
 
-                    {/* Action Controls */}
+                    {/* Action Controls (Accept Order + Auto Label; Shipped/Delivered auto-synced via Shadowfax QR scan) */}
                     <div className="flex flex-wrap items-center gap-2">
                       {!isCancelled && (
                         <button
@@ -333,63 +318,37 @@ export default function SellerZebQuickDashboardPage() {
                       )}
 
                       {st === "PLACED" && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleBookShadowfax(ord.id)}
-                            style={{ color: "#FFFFFF" }}
-                            className="rounded-xl bg-[#EE2B00] px-3 py-1.5 text-[11px] font-black text-white shadow-xs hover:bg-[#d42600] disabled:opacity-60 cursor-pointer"
-                          >
-                            ⚡ Book Shadowfax Rider
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleStatusChange(ord.id, "PACKED")}
-                            style={{ color: "#FFFFFF" }}
-                            className="rounded-xl bg-amber-600 px-3 py-1.5 text-[11px] font-black text-white shadow-xs hover:bg-amber-700 disabled:opacity-60 cursor-pointer"
-                          >
-                            Mark Packed
-                          </button>
-                        </>
-                      )}
-
-                      {st === "PACKED" && (
-                        <>
-                          {!ord.shadowfax_order_id && (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => handleBookShadowfax(ord.id)}
-                              style={{ color: "#FFFFFF" }}
-                              className="rounded-xl bg-[#EE2B00] px-3 py-1.5 text-[11px] font-black text-white shadow-xs cursor-pointer"
-                            >
-                              ⚡ Book Shadowfax Rider
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleStatusChange(ord.id, "OUT_FOR_DELIVERY")}
-                            style={{ color: "#FFFFFF" }}
-                            className="rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-black text-white shadow-xs cursor-pointer"
-                          >
-                            Mark Dispatched
-                          </button>
-                        </>
-                      )}
-
-                      {st === "OUT_FOR_DELIVERY" && (
                         <button
                           type="button"
                           disabled={isBusy}
-                          onClick={() => handleStatusChange(ord.id, "DELIVERED")}
+                          onClick={() => handleAcceptOrder(ord.id)}
                           style={{ color: "#FFFFFF" }}
-                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-[11px] font-black text-white shadow-xs cursor-pointer"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#EE2B00] px-3.5 py-1.5 text-[11px] font-black text-white shadow-xs hover:bg-[#d42600] disabled:opacity-60 cursor-pointer"
                         >
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Mark Delivered
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {isBusy ? "Accepting..." : "Accept Order"}
                         </button>
+                      )}
+
+                      {st === "PACKED" && (
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-extrabold text-amber-800">
+                          <Clock className="h-3.5 w-3.5" />
+                          Accepted • Awaiting Rider QR Scan
+                        </span>
+                      )}
+
+                      {st === "OUT_FOR_DELIVERY" && (
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-extrabold text-blue-700">
+                          <Zap className="h-3.5 w-3.5" />
+                          Shipped (Auto-Synced via Shadowfax)
+                        </span>
+                      )}
+
+                      {st === "DELIVERED" && (
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-extrabold text-emerald-700">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Delivered
+                        </span>
                       )}
                     </div>
                   </div>
@@ -431,20 +390,31 @@ export default function SellerZebQuickDashboardPage() {
                           )}
                         </span>
                       </div>
-                      {ord.shadowfax_order_id && (
-                        <div className="pt-1 border-t border-[#F0E2BE] flex items-center justify-between text-[11px]">
-                          <span className="font-bold text-neutral-600">
-                            Shadowfax AWB: <strong className="text-[#14120F]">{ord.shadowfax_order_id}</strong>
-                          </span>
-                          {ord.tracking_url && (
-                            <a
-                              href={ord.tracking_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 font-extrabold text-blue-600 hover:underline"
-                            >
-                              Track <ExternalLink className="h-3 w-3" />
-                            </a>
+                      {(ord.shadowfax_awb || ord.shadowfax_order_id) && (
+                        <div className="pt-1.5 border-t border-[#F0E2BE] space-y-1 text-[11px]">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-neutral-600">
+                              Shadowfax AWB:{" "}
+                              <strong className="text-[#14120F]">
+                                {ord.shadowfax_awb || ord.shadowfax_order_id}
+                              </strong>
+                            </span>
+                            {ord.tracking_url && (
+                              <a
+                                href={ord.tracking_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 font-extrabold text-blue-600 hover:underline"
+                              >
+                                Track <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                          {ord.rider_name && (
+                            <p className="text-neutral-600 font-semibold">
+                              Rider: <strong className="text-[#14120F]">{ord.rider_name}</strong>
+                              {ord.rider_phone ? ` • +91 ${ord.rider_phone}` : ""}
+                            </p>
                           )}
                         </div>
                       )}

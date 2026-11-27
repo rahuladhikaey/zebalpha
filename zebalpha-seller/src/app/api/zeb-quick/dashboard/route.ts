@@ -111,9 +111,11 @@ export async function GET(req: Request) {
           cancel_reason: ord.cancel_reason || null,
           cancelled_at: ord.cancelled_at || null,
           shadowfax_order_id: ord.shadowfax_order_id || null,
-          tracking_url: ord.tracking_url || null,
-          rider_name: ord.rider_name || null,
-          rider_phone: ord.rider_phone || null,
+          shadowfax_awb: ord.shadowfax_awb || ord.shadowfax_order_id || null,
+          shadowfax_status: ord.shadowfax_status || null,
+          tracking_url: ord.shadowfax_tracking_url || ord.tracking_url || null,
+          rider_name: ord.shadowfax_rider_name || ord.rider_name || null,
+          rider_phone: ord.shadowfax_rider_phone || ord.rider_phone || null,
           net_earning: 0,
           items: [],
         });
@@ -240,6 +242,9 @@ export async function PATCH(req: Request) {
         .maybeSingle();
       if (!orderRow) {
         return NextResponse.json({ error: "ZebQuick order not found" }, { status: 404 });
+      }
+      if (String(orderRow.order_status || "").toUpperCase() === "CANCELLED") {
+        return NextResponse.json({ error: "Cannot accept a cancelled order." }, { status: 400 });
       }
       const { data: items } = await db
         .from("order_items")
