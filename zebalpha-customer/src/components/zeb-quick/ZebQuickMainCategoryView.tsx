@@ -77,19 +77,19 @@ export function ZebQuickMainCategoryView({
                 key={sub.slug}
                 type="button"
                 onClick={() => onOpenSplit(sub.slug)}
-                className="relative flex w-28 shrink-0 flex-col items-center justify-between overflow-hidden rounded-2xl border-2 border-sky-400/70 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950 p-2 text-center shadow-sm transition active:scale-95 cursor-pointer"
+                className="relative flex w-28 shrink-0 flex-col items-center justify-between overflow-hidden rounded-2xl border-2 border-emerald-300/80 bg-gradient-to-br from-[#ECFDF5] via-[#FEF9C3] to-[#D1FAE5] p-2 text-center shadow-xs transition active:scale-95 cursor-pointer"
               >
-                <span className="rounded-b-lg bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-rose-600 shadow-xs">
+                <span className="rounded-b-lg bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700 shadow-xs">
                   Featured
                 </span>
-                <p className="mt-1.5 line-clamp-2 text-[11px] font-extrabold text-white leading-tight">
+                <p className="mt-1.5 line-clamp-2 text-[11px] font-black text-neutral-950 leading-tight">
                   {sub.name}
                 </p>
-                <div className="mt-2 h-16 w-16 overflow-hidden rounded-xl bg-white/95 p-1">
+                <div className="mt-2 h-16 w-16 overflow-hidden rounded-xl bg-white p-1 shadow-xs">
                   {sub.image_url ? (
                     <img src={sub.image_url} alt={sub.name} className="h-full w-full object-cover rounded-lg" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs font-black text-slate-700">
+                    <div className="flex h-full w-full items-center justify-center text-xs font-black text-emerald-800">
                       {sub.name.slice(0, 2).toUpperCase()}
                     </div>
                   )}

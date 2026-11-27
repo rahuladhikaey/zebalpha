@@ -4,10 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 
 type SubTab = "overview" | "orders" | "products" | "sellers" | "pincodes" | "categories";
 
-const MAX_ICON_BYTES = 10 * 1024; // 10 KB
+const MAX_ICON_BYTES = 16 * 1024; // 16 KB crisp retina icon
 
-async function compressIconTo10KB(file: File): Promise<{ dataUrl: string; kb: number }> {
-  // If already <= 10 KB SVG/WebP/PNG, keep directly as data URL
+async function compressIconTo16KB(file: File): Promise<{ dataUrl: string; kb: number }> {
+  // If already <= 16 KB SVG/WebP/PNG, keep directly as data URL
   if (file.size <= MAX_ICON_BYTES) {
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -27,8 +27,8 @@ async function compressIconTo10KB(file: File): Promise<{ dataUrl: string; kb: nu
       i.src = bitmapUrl;
     });
 
-    const sizes = [96, 72, 56, 48];
-    const qualities = [0.85, 0.7, 0.55, 0.4, 0.25];
+    const sizes = [256, 192, 160, 128, 96];
+    const qualities = [0.92, 0.85, 0.78, 0.68, 0.55, 0.42];
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas unavailable");
@@ -38,6 +38,8 @@ async function compressIconTo10KB(file: File): Promise<{ dataUrl: string; kb: nu
       canvas.width = dim;
       canvas.height = dim;
       ctx.clearRect(0, 0, dim, dim);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       const scale = Math.max(dim / img.width, dim / img.height);
       const w = img.width * scale;
       const h = img.height * scale;
@@ -595,11 +597,11 @@ export default function ZebQuickCommandCenterView() {
                         setNewMainCatImg(e.target.value);
                         setNewMainCatIconKb(null);
                       }}
-                      placeholder="Icon URL or upload ≤10KB"
+                      placeholder="Icon URL or upload ≤16KB"
                       className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
                     />
                     <label className="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/15 px-2.5 py-2 text-[10.5px] font-black text-amber-300 cursor-pointer hover:bg-amber-500/25">
-                      {newMainCatIconKb ? `${newMainCatIconKb}KB` : "≤10KB"}
+                      {newMainCatIconKb ? `${newMainCatIconKb}KB` : "≤16KB"}
                       <input
                         type="file"
                         accept="image/*"
@@ -607,7 +609,7 @@ export default function ZebQuickCommandCenterView() {
                         onChange={async (e) => {
                           const f = e.target.files?.[0];
                           if (!f) return;
-                          const { dataUrl, kb } = await compressIconTo10KB(f);
+                          const { dataUrl, kb } = await compressIconTo16KB(f);
                           setNewMainCatImg(dataUrl);
                           setNewMainCatIconKb(kb);
                         }}
@@ -640,12 +642,12 @@ export default function ZebQuickCommandCenterView() {
                             borderColor: mc.theme_color || "#F8CB46",
                             backgroundColor: mc.image_url ? "#ffffff" : mc.theme_color || "#F8CB46",
                           }}
-                          title="Click to upload ≤10KB icon (auto-resized)"
+                          title="Click to upload ≤16KB icon (auto-resized)"
                         >
                           {mc.image_url ? (
                             <img src={mc.image_url} alt={mc.name} className="h-full w-full object-cover" />
                           ) : (
-                            <span className="text-[10px] font-black text-zinc-950">+10K</span>
+                            <span className="text-[10px] font-black text-zinc-950">+16K</span>
                           )}
                           <input
                             type="file"
@@ -654,7 +656,7 @@ export default function ZebQuickCommandCenterView() {
                             onChange={async (e) => {
                               const f = e.target.files?.[0];
                               if (!f) return;
-                              const { dataUrl } = await compressIconTo10KB(f);
+                              const { dataUrl } = await compressIconTo16KB(f);
                               await patchAction({ action: "update_main_icon", id: mc.id, image_url: dataUrl });
                             }}
                           />
@@ -759,12 +761,12 @@ export default function ZebQuickCommandCenterView() {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <label
                           className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950 cursor-pointer"
-                          title="Click to upload ≤10KB subcategory icon"
+                          title="Click to upload ≤16KB subcategory icon"
                         >
                           {sub.image_url ? (
                             <img src={sub.image_url} alt={sub.name} className="h-full w-full object-cover" />
                           ) : (
-                            <span className="text-[9px] font-black text-zinc-400">+10K</span>
+                            <span className="text-[9px] font-black text-zinc-400">+16K</span>
                           )}
                           <input
                             type="file"
@@ -773,7 +775,7 @@ export default function ZebQuickCommandCenterView() {
                             onChange={async (e) => {
                               const f = e.target.files?.[0];
                               if (!f) return;
-                              const { dataUrl } = await compressIconTo10KB(f);
+                              const { dataUrl } = await compressIconTo16KB(f);
                               await patchAction({ action: "update_subcategory_icon", id: sub.id, image_url: dataUrl });
                             }}
                           />
@@ -885,11 +887,11 @@ export default function ZebQuickCommandCenterView() {
               <input
                 value={editingMainCat.image_url}
                 onChange={(e) => setEditingMainCat({ ...editingMainCat, image_url: e.target.value })}
-                placeholder="Icon URL or upload ≤10KB"
+                placeholder="Icon URL or upload ≤16KB"
                 className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
               />
               <label className="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-[11px] font-black text-amber-300 cursor-pointer">
-                ≤10KB
+                ≤16KB
                 <input
                   type="file"
                   accept="image/*"
@@ -897,7 +899,7 @@ export default function ZebQuickCommandCenterView() {
                   onChange={async (e) => {
                     const f = e.target.files?.[0];
                     if (!f) return;
-                    const { dataUrl } = await compressIconTo10KB(f);
+                    const { dataUrl } = await compressIconTo16KB(f);
                     setEditingMainCat({ ...editingMainCat, image_url: dataUrl });
                   }}
                 />
@@ -971,11 +973,11 @@ export default function ZebQuickCommandCenterView() {
               <input
                 value={editingSubCat.image_url}
                 onChange={(e) => setEditingSubCat({ ...editingSubCat, image_url: e.target.value })}
-                placeholder="Thumbnail URL or upload ≤10KB"
+                placeholder="Thumbnail URL or upload ≤16KB"
                 className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
               />
               <label className="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-[11px] font-black text-amber-300 cursor-pointer">
-                ≤10KB
+                ≤16KB
                 <input
                   type="file"
                   accept="image/*"
@@ -983,7 +985,7 @@ export default function ZebQuickCommandCenterView() {
                   onChange={async (e) => {
                     const f = e.target.files?.[0];
                     if (!f) return;
-                    const { dataUrl } = await compressIconTo10KB(f);
+                    const { dataUrl } = await compressIconTo16KB(f);
                     setEditingSubCat({ ...editingSubCat, image_url: dataUrl });
                   }}
                 />
