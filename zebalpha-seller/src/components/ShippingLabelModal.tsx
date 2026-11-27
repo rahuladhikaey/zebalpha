@@ -19,6 +19,7 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
   sellerInfo
 }) => {
   const printRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = React.useState(false);
 
   if (!isOpen || !order) return null;
 
@@ -120,8 +121,6 @@ export const ShippingLabelModal: React.FC<ShippingLabelProps> = ({
 
   const orderDateFormatted = new Date(order.created_at || Date.now()).toLocaleDateString("en-GB");
   const invoiceDateFormatted = new Date(order.label_generated_at || order.created_at || Date.now()).toLocaleDateString("en-GB");
-
-  const [downloading, setDownloading] = React.useState(false);
 
   // 1. Direct 4x6" PDF Download Handler (html2canvas + jsPDF with fallback)
   const handleDownloadLabel = async () => {

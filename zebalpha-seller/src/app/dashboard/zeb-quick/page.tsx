@@ -228,9 +228,10 @@ export default function SellerZebQuickDashboardPage() {
             key={t.key}
             type="button"
             onClick={() => setStatusTab(t.key)}
+            style={statusTab === t.key ? { color: "#FFFFFF" } : undefined}
             className={`shrink-0 rounded-xl border px-3.5 py-2 text-xs font-extrabold transition cursor-pointer ${
               statusTab === t.key
-                ? "border-[#14120F] bg-[#14120F] text-white"
+                ? "border-[#EE2B00] bg-[#EE2B00] text-white shadow-xs"
                 : "border-[#EAD296] bg-white text-[#5C4E35] hover:bg-[#FFFDF8]"
             }`}
           >
@@ -323,7 +324,8 @@ export default function SellerZebQuickDashboardPage() {
                         <button
                           type="button"
                           onClick={() => openShippingLabel(ord)}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-[#14120F] bg-[#14120F] px-3 py-1.5 text-[11px] font-black text-white hover:bg-neutral-800 cursor-pointer"
+                          style={{ color: "#FFFFFF" }}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-700 bg-emerald-600 px-3.5 py-1.5 text-[11px] font-black text-white shadow-xs hover:bg-emerald-700 cursor-pointer"
                         >
                           <Printer className="h-3.5 w-3.5" />
                           Print Shipping Label
@@ -336,7 +338,8 @@ export default function SellerZebQuickDashboardPage() {
                             type="button"
                             disabled={isBusy}
                             onClick={() => handleBookShadowfax(ord.id)}
-                            className="rounded-xl bg-[#EE2B00] px-3 py-1.5 text-[11px] font-black text-white hover:bg-[#d42600] disabled:opacity-60 cursor-pointer"
+                            style={{ color: "#FFFFFF" }}
+                            className="rounded-xl bg-[#EE2B00] px-3 py-1.5 text-[11px] font-black text-white shadow-xs hover:bg-[#d42600] disabled:opacity-60 cursor-pointer"
                           >
                             ⚡ Book Shadowfax Rider
                           </button>
@@ -344,7 +347,8 @@ export default function SellerZebQuickDashboardPage() {
                             type="button"
                             disabled={isBusy}
                             onClick={() => handleStatusChange(ord.id, "PACKED")}
-                            className="rounded-xl bg-amber-500 px-3 py-1.5 text-[11px] font-black text-white hover:bg-amber-600 disabled:opacity-60 cursor-pointer"
+                            style={{ color: "#FFFFFF" }}
+                            className="rounded-xl bg-amber-600 px-3 py-1.5 text-[11px] font-black text-white shadow-xs hover:bg-amber-700 disabled:opacity-60 cursor-pointer"
                           >
                             Mark Packed
                           </button>
@@ -358,7 +362,8 @@ export default function SellerZebQuickDashboardPage() {
                               type="button"
                               disabled={isBusy}
                               onClick={() => handleBookShadowfax(ord.id)}
-                              className="rounded-xl bg-[#EE2B00] px-3 py-1.5 text-[11px] font-black text-white cursor-pointer"
+                              style={{ color: "#FFFFFF" }}
+                              className="rounded-xl bg-[#EE2B00] px-3 py-1.5 text-[11px] font-black text-white shadow-xs cursor-pointer"
                             >
                               ⚡ Book Shadowfax Rider
                             </button>
@@ -367,7 +372,8 @@ export default function SellerZebQuickDashboardPage() {
                             type="button"
                             disabled={isBusy}
                             onClick={() => handleStatusChange(ord.id, "OUT_FOR_DELIVERY")}
-                            className="rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-black text-white cursor-pointer"
+                            style={{ color: "#FFFFFF" }}
+                            className="rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-black text-white shadow-xs cursor-pointer"
                           >
                             Mark Dispatched
                           </button>
@@ -379,7 +385,8 @@ export default function SellerZebQuickDashboardPage() {
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleStatusChange(ord.id, "DELIVERED")}
-                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-[11px] font-black text-white cursor-pointer"
+                          style={{ color: "#FFFFFF" }}
+                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-[11px] font-black text-white shadow-xs cursor-pointer"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" /> Mark Delivered
                         </button>
