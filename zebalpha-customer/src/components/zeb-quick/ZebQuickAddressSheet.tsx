@@ -351,7 +351,7 @@ export function ZebQuickAddressSheet({
                   required
                   value={landmark}
                   onChange={(e) => setLandmark(e.target.value)}
-                  placeholder={`e.g. Near Station Road / Kali Mandir, ${selectedArea || "Chakdaha"}`}
+                  placeholder={`e.g. Near Station Road / Market, ${selectedArea || "your area"}`}
                   className="w-full rounded-2xl border border-neutral-200 px-3.5 py-2.5 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:border-[#0C831F] focus:outline-none"
                 />
               </div>

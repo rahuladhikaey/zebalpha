@@ -33,6 +33,8 @@ export default function ZebQuickCartPage() {
     cartSubtotal,
     pincode,
     serviceability,
+    activeAddress,
+    saveZebQuickAddress,
     addToCart,
     updateQty,
     removeFromCart,
@@ -44,7 +46,7 @@ export default function ZebQuickCartPage() {
   const [addressSheetOpen, setAddressSheetOpen] = useState(false);
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
 
-  // Saved address state
+  // Saved address state (synced with ZebQuickContext)
   const [savedAddress, setSavedAddress] = useState<SavedZebQuickAddress | null>(null);
 
   // Upsells ("You might also like")
@@ -53,8 +55,12 @@ export default function ZebQuickCartPage() {
   const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Hydrate saved address
+  // Hydrate saved address from context or localStorage
   useEffect(() => {
+    if (activeAddress?.houseLine && activeAddress?.pincode) {
+      setSavedAddress(activeAddress);
+      return;
+    }
     try {
       const raw = localStorage.getItem(ADDRESS_STORAGE_KEY);
       if (raw) {
@@ -64,10 +70,11 @@ export default function ZebQuickCartPage() {
         }
       }
     } catch {}
-  }, []);
+  }, [activeAddress]);
 
   // Load "You might also like" items for current pincode
   useEffect(() => {
+    if (!pincode || pincode.length !== 6) return;
     let active = true;
     fetch(`/api/zeb-quick/products?pincode=${encodeURIComponent(pincode)}`)
       .then((r) => r.json())
@@ -89,11 +96,9 @@ export default function ZebQuickCartPage() {
     cartSubtotal >= ZEB_QUICK_FREE_DELIVERY_MIN || cartSubtotal === 0 ? 0 : ZEB_QUICK_DELIVERY_FEE;
   const total = cartSubtotal + deliveryFee;
 
-  const handleSaveAddress = (nextAddr: SavedZebQuickAddress) => {
+  const handleSaveAddress = async (nextAddr: SavedZebQuickAddress) => {
     setSavedAddress(nextAddr);
-    try {
-      localStorage.setItem(ADDRESS_STORAGE_KEY, JSON.stringify(nextAddr));
-    } catch {}
+    await saveZebQuickAddress(nextAddr);
     setAddressSheetOpen(false);
   };
 

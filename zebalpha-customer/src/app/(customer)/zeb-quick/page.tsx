@@ -40,6 +40,12 @@ export default function ZebQuickHomePage() {
 
   useEffect(() => {
     if (selectedMainCategory !== "All" && !searchQuery.trim()) return;
+    if (!pincode || pincode.length !== 6) {
+      setProducts([]);
+      setBestsellerGroups([]);
+      setLoading(true);
+      return;
+    }
     let active = true;
     setLoading(true);
     const params = new URLSearchParams();

@@ -25,6 +25,11 @@ export function ZebQuickSplitCategoryView({
   }, [mainCategory, initialSubSlug]);
 
   useEffect(() => {
+    if (!pincode || pincode.length !== 6) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
     let active = true;
     setLoading(true);
     const params = new URLSearchParams();
