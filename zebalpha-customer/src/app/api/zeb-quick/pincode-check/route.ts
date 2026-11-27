@@ -110,7 +110,7 @@ export async function GET(req: Request) {
           pincode: nearestHub?.row?.pincode || "",
           area_name: nearestHub?.row?.area_name || "Current Location",
           city: nearestHub?.row?.city || "",
-          corridor_name: nearestHub?.row?.corridor_name || "ZebQuick Express Zone",
+          corridor_name: nearestHub?.row?.corridor_name || "ZebQuick Zone",
           distance_km: bestDist,
           radius_km: maxRadiusKm,
         });
@@ -166,7 +166,7 @@ export async function GET(req: Request) {
           pincode,
           area_name: meta.areaName || nearestHub?.row?.area_name || `Pincode ${pincode}`,
           city: meta.city || nearestHub?.row?.city || "",
-          corridor_name: nearestHub?.row?.corridor_name || "ZebQuick Express Zone",
+          corridor_name: nearestHub?.row?.corridor_name || "ZebQuick Zone",
           distance_km: bestDist,
           radius_km: maxRadiusKm,
           auto_covered_by_radius: true,

@@ -293,7 +293,7 @@ export function AndroidBottomNav() {
           {/* Right-edge Blinkit/Zomato-style Switch to ZebQuick Pill */}
           <Link
             href="/zeb-quick"
-            aria-label="Switch to ZebQuick Express"
+            aria-label="Switch to ZebQuick"
             className="ml-1 flex h-11 items-center justify-center rounded-l-2xl bg-gradient-to-r from-[#FF6A00] to-[#EE2B00] px-3.5 shadow-[0_4px_14px_rgba(238,43,0,0.35)] transition active:scale-95 shrink-0"
           >
             <span className="font-sans font-black text-[13.5px] tracking-tight text-white leading-none select-none">

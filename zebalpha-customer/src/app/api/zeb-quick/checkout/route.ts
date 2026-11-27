@@ -153,7 +153,7 @@ export async function POST(req: Request) {
           return NextResponse.json(
             {
               success: false,
-              error: `"${dbP.title}" is ${dist} km from pincode ${cleanPin}, outside our ${maxRadiusKm} km ZebQuick Express delivery radius. Please remove it or select a closer address.`,
+              error: `"${dbP.title}" is ${dist} km from pincode ${cleanPin}, outside our ${maxRadiusKm} km ZebQuick delivery radius. Please remove it or select a closer address.`,
             },
             { status: 400 }
           );
@@ -162,7 +162,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Pincode ${cleanPin} is outside our ${maxRadiusKm} km ZebQuick Express delivery range.`,
+            error: `Pincode ${cleanPin} is outside our ${maxRadiusKm} km ZebQuick delivery range.`,
           },
           { status: 400 }
         );
@@ -296,10 +296,24 @@ export async function POST(req: Request) {
     for (const vi of verifiedItems) {
       const dbP = prodMap.get(String(vi.zeb_quick_product_id));
       if (dbP) {
+        const prevStock = Number(dbP.zeb_quick_stock || 0);
+        const nextStock = Math.max(0, prevStock - vi.quantity);
         await db
           .from("products")
-          .update({ zeb_quick_stock: Math.max(0, Number(dbP.zeb_quick_stock) - vi.quantity) })
+          .update({ zeb_quick_stock: nextStock, updated_at: new Date().toISOString() })
           .eq("id", vi.zeb_quick_product_id);
+        // Non-blocking audit log into zeb_quick.stock_history
+        try {
+          await db.from("stock_history").insert({
+            zeb_quick_product_id: vi.zeb_quick_product_id,
+            seller_id: vi.seller_id,
+            product_title: vi.title,
+            previous_stock: prevStock,
+            new_stock: nextStock,
+            change_amount: -vi.quantity,
+            reason: `Order Placed (${orderNumber})`,
+          });
+        } catch {}
       }
     }
 

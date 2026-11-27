@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import {
   Zap,
   IndianRupee,
@@ -129,7 +130,7 @@ export default function SellerZebQuickDashboardPage() {
             <Zap className="h-3.5 w-3.5 fill-orange-500 text-orange-500" />
             ZebQuick 5–6 Hr Quick Commerce (Isolated)
           </div>
-          <h1 className="mt-2 text-2xl font-black text-[#14120F]">ZebQuick Express Seller Hub</h1>
+          <h1 className="mt-2 text-2xl font-black text-[#14120F]">ZebQuick Seller Hub</h1>
           <p className="text-xs text-[#5C4E35]">
             Full customer details, auto-generated shipping labels, Shadowfax 5–6 Hr express dispatch, and earnings.
           </p>
@@ -165,7 +166,12 @@ export default function SellerZebQuickDashboardPage() {
             <Package className="h-4 w-4 text-orange-600" /> Active ZebQuick Products
           </div>
           <p className="mt-2 text-2xl font-black text-[#14120F]">{stats.activeProducts}</p>
-          <p className="text-[11px] text-neutral-500">Ready for instant dispatch</p>
+          <Link
+            href="/dashboard/inventory?tab=zebquick"
+            className="mt-0.5 inline-block text-[11px] font-extrabold text-orange-600 hover:underline"
+          >
+            Manage Stock &amp; Restock →
+          </Link>
         </div>
         <div className="rounded-2xl border border-[#EAD296] bg-white p-4 shadow-xs">
           <div className="flex items-center gap-2 text-xs font-bold text-[#5C4E35]">
@@ -232,7 +238,7 @@ export default function SellerZebQuickDashboardPage() {
         ) : (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-xs text-amber-950 space-y-1">
             <p className="font-black text-sm">
-              Pickup is not available at this address yet — ZebQuick Express is coming soon to Pincode {data.zebalphaPickupPincode || "your area"}.
+              Pickup is not available at this address yet — ZebQuick is coming soon to Pincode {data.zebalphaPickupPincode || "your area"}.
             </p>
             <p className="text-amber-800">
               Your registered ZebAlpha Pickup Hub address ({data.zebalphaPickupAddress || "Default Warehouse"}, {data.zebalphaPickupPincode || "N/A"}) is currently outside active ZebQuick pickup corridors.
@@ -273,7 +279,7 @@ export default function SellerZebQuickDashboardPage() {
       <div className="rounded-2xl border border-[#EAD296] bg-white overflow-hidden shadow-xs">
         <div className="border-b border-[#F0E2BE] px-5 py-3.5 flex items-center justify-between">
           <h2 className="text-sm font-black text-[#14120F]">
-            ZebQuick Express Orders ({filteredOrders.length})
+            ZebQuick Orders ({filteredOrders.length})
           </h2>
           <span className="text-[11px] font-bold text-emerald-700">
             Auto Shipping Label Ready on Every Order
@@ -284,7 +290,7 @@ export default function SellerZebQuickDashboardPage() {
           <div className="p-6 text-xs text-neutral-500">Loading ZebQuick orders...</div>
         ) : filteredOrders.length === 0 ? (
           <div className="p-8 text-center text-xs text-neutral-500">
-            No ZebQuick express orders in this tab yet.
+            No ZebQuick orders in this tab yet.
           </div>
         ) : (
           <div className="divide-y divide-[#F0E2BE]">

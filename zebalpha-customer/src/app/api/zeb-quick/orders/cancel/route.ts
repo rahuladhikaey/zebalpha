@@ -109,26 +109,40 @@ export async function POST(req: Request) {
     // Mark order_items cancelled and restore ZebQuick stock
     const { data: orderItems } = await db
       .from("order_items")
-      .select("id, zeb_quick_product_id, quantity")
+      .select("id, zeb_quick_product_id, seller_id, title, quantity")
       .eq("order_id", order.id);
 
     await db.from("order_items").update({ item_status: "CANCELLED" }).eq("order_id", order.id);
 
     for (const it of orderItems || []) {
       if (!it.zeb_quick_product_id) continue;
+      const qtyRestored = Math.max(1, Number(it.quantity || 1));
       const { data: prod } = await db
         .from("products")
-        .select("zeb_quick_stock")
+        .select("zeb_quick_stock, title")
         .eq("id", it.zeb_quick_product_id)
         .maybeSingle();
       if (prod) {
+        const prevStock = Number(prod.zeb_quick_stock || 0);
+        const nextStock = prevStock + qtyRestored;
         await db
           .from("products")
           .update({
-            zeb_quick_stock: Number(prod.zeb_quick_stock || 0) + Math.max(1, Number(it.quantity || 1)),
+            zeb_quick_stock: nextStock,
             updated_at: nowIso,
           })
           .eq("id", it.zeb_quick_product_id);
+        try {
+          await db.from("stock_history").insert({
+            zeb_quick_product_id: it.zeb_quick_product_id,
+            seller_id: it.seller_id,
+            product_title: it.title || prod.title || "ZebQuick Product",
+            previous_stock: prevStock,
+            new_stock: nextStock,
+            change_amount: qtyRestored,
+            reason: `Order Cancelled — Stock Restored (${reason})`,
+          });
+        } catch {}
       }
     }
 

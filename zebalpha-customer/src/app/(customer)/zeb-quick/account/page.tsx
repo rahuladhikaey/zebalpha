@@ -28,7 +28,7 @@ export default function ZebQuickAccountPage() {
           <div className="min-w-0 flex-1">
             <div className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-black text-[#EE2B00]">
               <Zap className="h-2.5 w-2.5 fill-[#EE2B00]" />
-              ZebQuick Express Account
+              ZebQuick Account
             </div>
             <h1 className="mt-1 text-base font-black text-neutral-900 truncate">
               {user ? user.user_metadata?.full_name || "ZebAlpha Member" : "Guest Shopper"}

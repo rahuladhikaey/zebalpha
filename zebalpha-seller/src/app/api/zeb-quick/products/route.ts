@@ -122,7 +122,7 @@ async function resolveAndVerifySellerHub(
 
   if (!serviceableRow) {
     return {
-      error: `Pickup is not available at your registered address (Pincode ${sellerPin}) yet. ZebQuick Express is coming soon to this pincode.`,
+      error: `Pickup is not available at your registered address (Pincode ${sellerPin}) yet. ZebQuick is coming soon to this pincode.`,
       status: 400,
     };
   }

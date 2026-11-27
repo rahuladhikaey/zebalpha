@@ -149,7 +149,7 @@ export default function ZebQuickOrdersPage() {
   return (
     <div className="mx-auto max-w-3xl px-3.5 py-4 space-y-4">
       <div>
-        <h1 className="text-lg font-black text-neutral-900">ZebQuick Express Orders</h1>
+        <h1 className="text-lg font-black text-neutral-900">ZebQuick Orders</h1>
         <p className="text-xs text-neutral-500">
           Only 5–6 hour ZebQuick orders appear here (separate from ZebAlpha orders).
         </p>
@@ -175,7 +175,7 @@ export default function ZebQuickOrdersPage() {
       ) : orders.length === 0 ? (
         <div className="rounded-3xl border border-orange-200 bg-white p-10 text-center">
           <Package className="mx-auto h-10 w-10 text-orange-300" />
-          <p className="mt-3 text-sm font-black text-neutral-900">No ZebQuick Express orders yet</p>
+          <p className="mt-3 text-sm font-black text-neutral-900">No ZebQuick orders yet</p>
           <Link
             href="/zeb-quick"
             className="mt-4 inline-flex rounded-2xl bg-[#EE2B00] px-5 py-2.5 text-xs font-extrabold text-white"

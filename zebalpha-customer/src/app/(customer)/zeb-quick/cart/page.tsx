@@ -191,7 +191,7 @@ export default function ZebQuickCartPage() {
         key: orderJson.keyId,
         amount: orderJson.amountPaise,
         currency: "INR",
-        name: "ZebQuick Express",
+        name: "ZebQuick",
         description: `5–6 Hr Express Order (${cartCount} items)`,
         order_id: orderJson.orderId,
         prefill: {
@@ -246,7 +246,7 @@ export default function ZebQuickCartPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-14 text-center">
         <ShoppingBag className="mx-auto h-12 w-12 text-emerald-300" />
-        <h1 className="mt-3 text-lg font-black text-neutral-900">Your ZebQuick Express Cart is empty</h1>
+        <h1 className="mt-3 text-lg font-black text-neutral-900">Your ZebQuick Cart is empty</h1>
         <p className="mt-1 text-xs text-neutral-500">
           Add innerwear or daily essentials for 5–6 hour express delivery.
         </p>
@@ -254,7 +254,7 @@ export default function ZebQuickCartPage() {
           href="/zeb-quick"
           className="mt-5 inline-flex rounded-2xl bg-[#0C831F] px-5 py-2.5 text-xs font-extrabold text-white"
         >
-          Shop ZebQuick Express
+          Shop ZebQuick
         </Link>
       </div>
     );
