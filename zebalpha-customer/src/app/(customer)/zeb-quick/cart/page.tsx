@@ -21,6 +21,7 @@ import { useZebQuick } from "@/context/ZebQuickContext";
 import { useAuth } from "@/context/AuthContext";
 import { ZEB_QUICK_DELIVERY_FEE, ZEB_QUICK_FREE_DELIVERY_MIN } from "@shared/constants/zebQuick";
 import { ZebQuickAddressSheet, type SavedZebQuickAddress } from "@/components/zeb-quick/ZebQuickAddressSheet";
+import { ZebQuickBottomNav } from "@/components/zeb-quick/ZebQuickBottomNav";
 
 const ADDRESS_STORAGE_KEY = "zeb_quick_saved_address_v1";
 
@@ -242,20 +243,75 @@ export default function ZebQuickCartPage() {
     }
   };
 
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/zeb-quick");
+    }
+  };
+
   if (cart.length === 0) {
     return (
-      <div className="mx-auto max-w-xl px-4 py-14 text-center">
-        <ShoppingBag className="mx-auto h-12 w-12 text-emerald-300" />
-        <h1 className="mt-3 text-lg font-black text-neutral-900">Your ZebQuick Cart is empty</h1>
-        <p className="mt-1 text-xs text-neutral-500">
-          Add innerwear or daily essentials for 5–6 hour express delivery.
-        </p>
-        <Link
-          href="/zeb-quick"
-          className="mt-5 inline-flex rounded-2xl bg-[#0C831F] px-5 py-2.5 text-xs font-extrabold text-white"
-        >
-          Shop ZebQuick
-        </Link>
+      <div className="min-h-screen bg-[#F4F6FB] pb-28 flex flex-col">
+        {/* Top Sticky Header with Back Button */}
+        <div className="sticky top-0 z-30 border-b border-neutral-200 bg-white px-3.5 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleBack}
+                aria-label="Go back"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-900 hover:bg-neutral-200 active:scale-95 transition cursor-pointer"
+              >
+                <ArrowLeft className="h-5 w-5 stroke-[2.3]" />
+              </button>
+              <h1 className="text-base font-black text-neutral-950">Your Cart</h1>
+            </div>
+            <Link
+              href="/zeb-quick/orders"
+              className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-extrabold text-neutral-800 hover:bg-neutral-100"
+            >
+              My Orders
+            </Link>
+          </div>
+        </div>
+
+        {/* Centered Empty State */}
+        <div className="flex-1 flex items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md rounded-3xl border border-neutral-200/80 bg-white p-7 text-center shadow-xs">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-[#0C831F]">
+              <ShoppingBag className="h-8 w-8 stroke-[2.2]" />
+            </div>
+            <h2 className="mt-4 text-lg font-black text-neutral-950">Your ZebQuick Cart is empty</h2>
+            <p className="mt-1.5 text-xs font-medium text-neutral-500 leading-relaxed">
+              Add innerwear or daily essentials for 5–6 hour delivery.
+            </p>
+            <Link
+              href="/zeb-quick"
+              style={{ color: "#FFFFFF" }}
+              className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#0C831F] hover:bg-[#096b18] px-5 py-3 text-sm font-extrabold text-white shadow-sm active:scale-[0.99] transition"
+            >
+              Shop ZebQuick
+            </Link>
+            <div className="mt-3 grid grid-cols-2 gap-2.5">
+              <Link
+                href="/zeb-quick/categories"
+                className="inline-flex items-center justify-center rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs font-extrabold text-neutral-800 hover:bg-neutral-100"
+              >
+                Browse Categories
+              </Link>
+              <Link
+                href="/zeb-quick/orders"
+                className="inline-flex items-center justify-center rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs font-extrabold text-neutral-800 hover:bg-neutral-100"
+              >
+                View My Orders
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <ZebQuickBottomNav />
       </div>
     );
   }
@@ -263,14 +319,15 @@ export default function ZebQuickCartPage() {
   return (
     <div className="min-h-screen bg-[#F4F6FB] pb-36">
       {/* Top Checkout Header */}
-      <div className="sticky top-0 z-30 border-b border-neutral-200 bg-white px-3.5 py-3">
+      <div className="sticky top-0 z-30 border-b border-neutral-200 bg-white px-3.5 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <button
             type="button"
-            onClick={() => router.back()}
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100 cursor-pointer"
+            onClick={handleBack}
+            aria-label="Go back"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-900 hover:bg-neutral-200 active:scale-95 transition cursor-pointer"
           >
-            <ArrowLeft className="h-5 w-5 text-neutral-900" />
+            <ArrowLeft className="h-5 w-5 stroke-[2.3]" />
           </button>
           <h1 className="text-base font-black text-neutral-950">Checkout</h1>
         </div>
