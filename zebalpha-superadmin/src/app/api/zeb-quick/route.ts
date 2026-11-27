@@ -273,6 +273,65 @@ export async function PATCH(req: Request) {
       await db.from("allowed_subcategories").update({ image_url: body.image_url.trim() || null }).eq("id", body.id);
       return NextResponse.json({ success: true });
     }
+    if (body.action === "update_main_category" && body.id) {
+      const name = String(body.name || "").trim();
+      if (!name) return NextResponse.json({ error: "Main category name is required" }, { status: 400 });
+      const { data: existing } = await db.from("main_categories").select("name").eq("id", body.id).maybeSingle();
+      const { error } = await db
+        .from("main_categories")
+        .update({
+          name,
+          description: String(body.description || "").trim() || null,
+          theme_color: String(body.theme_color || "#F8CB46").trim() || "#F8CB46",
+          image_url: typeof body.image_url === "string" ? body.image_url.trim() || null : undefined,
+        })
+        .eq("id", body.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      // Keep linked subcategories & products in sync if Main Category name changed
+      if (existing?.name && existing.name !== name) {
+        await Promise.all([
+          db.from("allowed_subcategories").update({ category_group: name }).eq("category_group", existing.name),
+          db.from("products").update({ category_group: name }).eq("category_group", existing.name),
+        ]);
+      }
+      return NextResponse.json({ success: true });
+    }
+    if (body.action === "delete_main_category" && body.id) {
+      const { error } = await db.from("main_categories").delete().eq("id", body.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+    if (body.action === "update_subcategory" && body.id) {
+      const name = String(body.name || "").trim();
+      const categoryGroup = String(body.category_group || "").trim();
+      if (!name || !categoryGroup) {
+        return NextResponse.json({ error: "Main category and subcategory name are required" }, { status: 400 });
+      }
+      const keywords = Array.isArray(body.keywords)
+        ? body.keywords.map((k: any) => String(k).trim().toLowerCase()).filter(Boolean)
+        : String(body.keywords || name)
+            .split(",")
+            .map((k) => k.trim().toLowerCase())
+            .filter(Boolean);
+
+      const { error } = await db
+        .from("allowed_subcategories")
+        .update({
+          name,
+          category_group: categoryGroup,
+          keywords: keywords.length > 0 ? keywords : [name.toLowerCase()],
+          image_url: typeof body.image_url === "string" ? body.image_url.trim() || null : undefined,
+        })
+        .eq("id", body.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+    if (body.action === "delete_subcategory" && body.id) {
+      const { error } = await db.from("allowed_subcategories").delete().eq("id", body.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
     if (body.action === "update_order_status" && body.id && body.order_status) {
       const nextStatus = String(body.order_status).toUpperCase();
       const patch: any = { order_status: nextStatus, updated_at: new Date().toISOString() };

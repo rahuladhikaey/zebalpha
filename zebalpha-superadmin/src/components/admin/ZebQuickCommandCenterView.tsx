@@ -80,6 +80,8 @@ export default function ZebQuickCommandCenterView() {
   const [newSubName, setNewSubName] = useState("");
   const [newSubKeywords, setNewSubKeywords] = useState("");
   const [newSubImg, setNewSubImg] = useState("");
+  const [editingMainCat, setEditingMainCat] = useState<any | null>(null);
+  const [editingSubCat, setEditingSubCat] = useState<any | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -662,14 +664,44 @@ export default function ZebQuickCommandCenterView() {
                           {mc.description && <p className="text-[11px] text-zinc-400 line-clamp-1">{mc.description}</p>}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => patchAction({ action: "toggle_main_category", id: mc.id, is_active: !mc.is_active })}
-                        className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer shrink-0 ${mc.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
-                          }`}
-                      >
-                        {mc.is_active ? "ACTIVE" : "OFF"}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingMainCat({
+                              id: mc.id,
+                              name: mc.name || "",
+                              description: mc.description || "",
+                              theme_color: mc.theme_color || "#F8CB46",
+                              image_url: mc.image_url || "",
+                            })
+                          }
+                          className="rounded-xl bg-zinc-800 px-2.5 py-1.5 text-[11px] font-bold text-zinc-200 hover:bg-zinc-700 cursor-pointer"
+                          title="Edit Main Category"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Delete main category "${mc.name}"?`)) {
+                              void patchAction({ action: "delete_main_category", id: mc.id });
+                            }
+                          }}
+                          className="rounded-xl bg-rose-500/15 px-2.5 py-1.5 text-[11px] font-bold text-rose-400 hover:bg-rose-500/25 cursor-pointer"
+                          title="Delete Main Category"
+                        >
+                          Del
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => patchAction({ action: "toggle_main_category", id: mc.id, is_active: !mc.is_active })}
+                          className={`rounded-xl px-3 py-1.5 text-[11px] font-black cursor-pointer shrink-0 ${mc.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"
+                            }`}
+                        >
+                          {mc.is_active ? "ACTIVE" : "OFF"}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -751,7 +783,35 @@ export default function ZebQuickCommandCenterView() {
                           <p className="text-sm font-black text-white truncate">{sub.name}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingSubCat({
+                              id: sub.id,
+                              category_group: sub.category_group || "Women's Innerwear",
+                              name: sub.name || "",
+                              keywords: Array.isArray(sub.keywords) ? sub.keywords.join(", ") : "",
+                              image_url: sub.image_url || "",
+                            })
+                          }
+                          className="rounded-xl bg-zinc-800 px-2 py-1.5 text-[10px] font-bold text-zinc-200 hover:bg-zinc-700 cursor-pointer"
+                          title="Edit Subcategory"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Delete subcategory "${sub.name}"?`)) {
+                              void patchAction({ action: "delete_subcategory", id: sub.id });
+                            }
+                          }}
+                          className="rounded-xl bg-rose-500/15 px-2 py-1.5 text-[10px] font-bold text-rose-400 hover:bg-rose-500/25 cursor-pointer"
+                          title="Delete Subcategory"
+                        >
+                          Del
+                        </button>
                         <button
                           type="button"
                           onClick={() => patchAction({ action: "toggle_featured_subcategory", id: sub.id, is_featured: !sub.is_featured })}
@@ -777,6 +837,172 @@ export default function ZebQuickCommandCenterView() {
             </div>
           )}
         </>
+      )}
+      {/* Edit Main Category Modal */}
+      {editingMainCat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await patchAction({
+                action: "update_main_category",
+                id: editingMainCat.id,
+                name: editingMainCat.name,
+                description: editingMainCat.description,
+                theme_color: editingMainCat.theme_color,
+                image_url: editingMainCat.image_url,
+              });
+              setEditingMainCat(null);
+            }}
+            className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 p-5 space-y-3.5 text-white shadow-2xl"
+          >
+            <h3 className="text-base font-black">Edit Main Category</h3>
+            <input
+              required
+              value={editingMainCat.name}
+              onChange={(e) => setEditingMainCat({ ...editingMainCat, name: e.target.value })}
+              placeholder="Main Category Name"
+              className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+            />
+            <input
+              value={editingMainCat.description}
+              onChange={(e) => setEditingMainCat({ ...editingMainCat, description: e.target.value })}
+              placeholder="Short Description"
+              className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+            />
+            <select
+              value={editingMainCat.theme_color}
+              onChange={(e) => setEditingMainCat({ ...editingMainCat, theme_color: e.target.value })}
+              className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+            >
+              <option value="#F8CB46">Theme: Blinkit Yellow</option>
+              <option value="#1E293B">Theme: Electronics Dark</option>
+              <option value="#BAE6FD">Theme: Winter Icy Blue</option>
+              <option value="#FBCFE8">Theme: Rose Beauty</option>
+              <option value="#A7F3D0">Theme: Fresh Mint</option>
+            </select>
+            <div className="flex items-center gap-2">
+              <input
+                value={editingMainCat.image_url}
+                onChange={(e) => setEditingMainCat({ ...editingMainCat, image_url: e.target.value })}
+                placeholder="Icon URL or upload ≤10KB"
+                className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+              />
+              <label className="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-[11px] font-black text-amber-300 cursor-pointer">
+                ≤10KB
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const { dataUrl } = await compressIconTo10KB(f);
+                    setEditingMainCat({ ...editingMainCat, image_url: dataUrl });
+                  }}
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditingMainCat(null)}
+                className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-bold text-zinc-300 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white cursor-pointer">
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Subcategory Modal */}
+      {editingSubCat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await patchAction({
+                action: "update_subcategory",
+                id: editingSubCat.id,
+                category_group: editingSubCat.category_group,
+                name: editingSubCat.name,
+                keywords: editingSubCat.keywords,
+                image_url: editingSubCat.image_url,
+              });
+              setEditingSubCat(null);
+            }}
+            className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 p-5 space-y-3.5 text-white shadow-2xl"
+          >
+            <h3 className="text-base font-black">Edit Subcategory</h3>
+            <select
+              value={editingSubCat.category_group}
+              onChange={(e) => setEditingSubCat({ ...editingSubCat, category_group: e.target.value })}
+              className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+            >
+              {Array.from(
+                new Set([
+                  ...((data?.mainCategories || []).map((m: any) => m.name)),
+                  editingSubCat.category_group,
+                ])
+              )
+                .filter(Boolean)
+                .map((grp: any) => (
+                  <option key={grp} value={grp}>{grp}</option>
+                ))}
+            </select>
+            <input
+              required
+              value={editingSubCat.name}
+              onChange={(e) => setEditingSubCat({ ...editingSubCat, name: e.target.value })}
+              placeholder="Subcategory Name"
+              className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+            />
+            <input
+              value={editingSubCat.keywords}
+              onChange={(e) => setEditingSubCat({ ...editingSubCat, keywords: e.target.value })}
+              placeholder="Keywords (comma-separated)"
+              className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+            />
+            <div className="flex items-center gap-2">
+              <input
+                value={editingSubCat.image_url}
+                onChange={(e) => setEditingSubCat({ ...editingSubCat, image_url: e.target.value })}
+                placeholder="Thumbnail URL or upload ≤10KB"
+                className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2 text-xs text-white"
+              />
+              <label className="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-[11px] font-black text-amber-300 cursor-pointer">
+                ≤10KB
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const { dataUrl } = await compressIconTo10KB(f);
+                    setEditingSubCat({ ...editingSubCat, image_url: dataUrl });
+                  }}
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditingSubCat(null)}
+                className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-bold text-zinc-300 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button type="submit" className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white cursor-pointer">
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );
