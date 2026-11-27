@@ -22,7 +22,7 @@ async function loadLiveAllowedSubcategories(db: ReturnType<typeof supabaseServer
         keywords: Array.isArray(row.keywords) ? row.keywords : [String(row.name || "").toLowerCase()],
       }));
     }
-  } catch {}
+  } catch { }
   return undefined;
 }
 

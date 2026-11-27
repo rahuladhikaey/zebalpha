@@ -86,7 +86,7 @@ export default function SellerInventory() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
-    } catch {}
+    } catch { }
     return headers;
   };
 
@@ -422,11 +422,10 @@ export default function SellerInventory() {
             setShowHistory(false);
           }}
           style={activeStream === "ZEBALPHA" ? { color: "#FFFFFF" } : undefined}
-          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition cursor-pointer ${
-            activeStream === "ZEBALPHA"
-              ? "bg-[#EE2B00] text-white shadow-sm"
-              : "border border-foreground/[0.1] bg-foreground/[0.02] text-text-secondary hover:bg-foreground/[0.05]"
-          }`}
+          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition cursor-pointer ${activeStream === "ZEBALPHA"
+            ? "bg-[#EE2B00] text-white shadow-sm"
+            : "border border-foreground/[0.1] bg-foreground/[0.02] text-text-secondary hover:bg-foreground/[0.05]"
+            }`}
         >
           <Package size={15} />
           ZebAlpha Inventory ({products.length})
@@ -439,11 +438,10 @@ export default function SellerInventory() {
             setShowHistory(false);
           }}
           style={activeStream === "ZEBQUICK" ? { color: "#FFFFFF" } : undefined}
-          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition cursor-pointer ${
-            activeStream === "ZEBQUICK"
-              ? "bg-amber-600 text-white shadow-sm"
-              : "border border-amber-500/35 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20"
-          }`}
+          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition cursor-pointer ${activeStream === "ZEBQUICK"
+            ? "bg-amber-600 text-white shadow-sm"
+            : "border border-amber-500/35 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20"
+            }`}
         >
           <Zap size={15} className="fill-current" />
           ZebQuick Inventory ({zqProducts.length})
@@ -499,9 +497,8 @@ export default function SellerInventory() {
                           </p>
                         </div>
                         <div
-                          className={`flex items-center gap-1.5 font-black text-sm shrink-0 ${
-                            isUp ? "text-emerald-600" : "text-rose-600"
-                          }`}
+                          className={`flex items-center gap-1.5 font-black text-sm shrink-0 ${isUp ? "text-emerald-600" : "text-rose-600"
+                            }`}
                         >
                           {isUp ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                           {isUp ? "+" : ""}
@@ -521,11 +518,10 @@ export default function SellerInventory() {
               <button
                 type="button"
                 onClick={() => setZqFilter("ALL")}
-                className={`rounded-2xl border p-4 text-left transition cursor-pointer ${
-                  zqFilter === "ALL"
-                    ? "border-amber-500 bg-amber-50/70"
-                    : "border-foreground/[0.08] bg-foreground/[0.01] hover:border-amber-400/60"
-                }`}
+                className={`rounded-2xl border p-4 text-left transition cursor-pointer ${zqFilter === "ALL"
+                  ? "border-amber-500 bg-amber-50/70"
+                  : "border-foreground/[0.08] bg-foreground/[0.01] hover:border-amber-400/60"
+                  }`}
               >
                 <span className="text-[10px] font-black uppercase tracking-wider text-text-secondary">
                   ZebQuick SKUs
@@ -545,11 +541,10 @@ export default function SellerInventory() {
               <button
                 type="button"
                 onClick={() => setZqFilter("LOW")}
-                className={`rounded-2xl border p-4 text-left transition cursor-pointer ${
-                  zqFilter === "LOW"
-                    ? "border-amber-600 bg-amber-50"
-                    : "border-amber-500/25 bg-amber-500/[0.04] hover:border-amber-500"
-                }`}
+                className={`rounded-2xl border p-4 text-left transition cursor-pointer ${zqFilter === "LOW"
+                  ? "border-amber-600 bg-amber-50"
+                  : "border-amber-500/25 bg-amber-500/[0.04] hover:border-amber-500"
+                  }`}
               >
                 <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">
                   Low Stock Alerts
@@ -561,11 +556,10 @@ export default function SellerInventory() {
               <button
                 type="button"
                 onClick={() => setZqFilter("OUT")}
-                className={`rounded-2xl border p-4 text-left transition cursor-pointer ${
-                  zqFilter === "OUT"
-                    ? "border-rose-600 bg-rose-50"
-                    : "border-rose-500/25 bg-rose-500/[0.04] hover:border-rose-500"
-                }`}
+                className={`rounded-2xl border p-4 text-left transition cursor-pointer ${zqFilter === "OUT"
+                  ? "border-rose-600 bg-rose-50"
+                  : "border-rose-500/25 bg-rose-500/[0.04] hover:border-rose-500"
+                  }`}
               >
                 <span className="text-[10px] font-black uppercase tracking-wider text-rose-700">
                   Out of Stock
@@ -591,11 +585,10 @@ export default function SellerInventory() {
                     type="button"
                     onClick={() => setZqFilter(tab.key)}
                     style={zqFilter === tab.key ? { color: "#FFFFFF" } : undefined}
-                    className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition cursor-pointer ${
-                      zqFilter === tab.key
-                        ? "bg-[#EE2B00] text-white shadow-xs"
-                        : "border border-foreground/[0.1] bg-foreground/[0.02] text-text-secondary hover:bg-foreground/[0.05]"
-                    }`}
+                    className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition cursor-pointer ${zqFilter === tab.key
+                      ? "bg-[#EE2B00] text-white shadow-xs"
+                      : "border border-foreground/[0.1] bg-foreground/[0.02] text-text-secondary hover:bg-foreground/[0.05]"
+                      }`}
                   >
                     {tab.label}
                   </button>
@@ -654,13 +647,12 @@ export default function SellerInventory() {
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-3xl border p-6 flex flex-col justify-between bg-foreground/[0.01] transition-all duration-300 ${
-                        isOut
-                          ? "border-rose-500/40 bg-rose-500/[0.02] shadow-md"
-                          : isLow
-                            ? "border-amber-500/40 bg-amber-500/[0.02] shadow-md"
-                            : "border-foreground/[0.08] hover:shadow-md"
-                      }`}
+                      className={`rounded-3xl border p-6 flex flex-col justify-between bg-foreground/[0.01] transition-all duration-300 ${isOut
+                        ? "border-rose-500/40 bg-rose-500/[0.02] shadow-md"
+                        : isLow
+                          ? "border-amber-500/40 bg-amber-500/[0.02] shadow-md"
+                          : "border-foreground/[0.08] hover:shadow-md"
+                        }`}
                     >
                       <div>
                         {/* Card Top: Thumbnail + Title + Status Badge */}
@@ -772,11 +764,10 @@ export default function SellerInventory() {
                           disabled={isBusy}
                           onClick={() => void handleToggleZebQuickActive(item)}
                           title={item.is_active ? "Pause on ZebQuick" : "Resume on ZebQuick"}
-                          className={`flex h-11 items-center justify-center gap-1 rounded-2xl border px-3 text-[11px] font-black transition cursor-pointer disabled:opacity-50 shrink-0 ${
-                            item.is_active
-                              ? "border-amber-500/35 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                              : "border-emerald-500/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                          }`}
+                          className={`flex h-11 items-center justify-center gap-1 rounded-2xl border px-3 text-[11px] font-black transition cursor-pointer disabled:opacity-50 shrink-0 ${item.is_active
+                            ? "border-amber-500/35 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                            : "border-emerald-500/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            }`}
                         >
                           {item.is_active ? <PauseCircle size={15} /> : <PlayCircle size={15} />}
                           {item.is_active ? "Pause" : "Go Live"}
@@ -830,9 +821,8 @@ export default function SellerInventory() {
                         </p>
                       </div>
                       <div
-                        className={`flex items-center gap-1.5 font-black text-sm ${
-                          isUp ? "text-emerald-600" : "text-rose-600"
-                        }`}
+                        className={`flex items-center gap-1.5 font-black text-sm ${isUp ? "text-emerald-600" : "text-rose-600"
+                          }`}
                       >
                         {isUp ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                         {isUp ? "+" : ""}
@@ -860,11 +850,10 @@ export default function SellerInventory() {
             return (
               <div
                 key={product.id}
-                className={`rounded-3xl border p-6 flex flex-col justify-between bg-foreground/[0.01] transition-all duration-300 ${
-                  isLow
-                    ? "border-rose-500/20 bg-rose-500/[0.01] shadow-rose-900/5 shadow-md"
-                    : "border-foreground/[0.06] hover:shadow-md"
-                }`}
+                className={`rounded-3xl border p-6 flex flex-col justify-between bg-foreground/[0.01] transition-all duration-300 ${isLow
+                  ? "border-rose-500/20 bg-rose-500/[0.01] shadow-rose-900/5 shadow-md"
+                  : "border-foreground/[0.06] hover:shadow-md"
+                  }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-4">
