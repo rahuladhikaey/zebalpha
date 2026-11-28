@@ -3,7 +3,7 @@
 import React, { useRef } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { CategoryIconRenderer } from "@/lib/categoryIcons";
+import { CategoryIconRenderer, resolveCategoryIcon } from "@/lib/categoryIcons";
 import type { CategoryThemeTokens, CategoryWidgetConfig } from "@/lib/categoryStorefrontTypes";
 import type { EnrichedSubcategory, StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
 
@@ -37,26 +37,35 @@ export function SubcategoryNavWidget({
   const fallbackItems: Array<{ title: string; tag?: string; image_url?: string }> =
     Array.isArray(widget.config?.fallback_items) ? widget.config.fallback_items : [];
 
-  // Build normalized items from real DB subcategories -> fallback preset items -> auto product slices
+  // Build normalized items from real DB subcategories -> fallback preset items
+  // Never recycle the same product image across unrelated subcategories!
   const items =
     subcategories.length > 0
-      ? subcategories.map((sc, i) => ({
+      ? subcategories.map((sc) => ({
           id: sc.id,
           name: sc.name,
-          image_url: sc.image_url || sc.sample_image_url || products[i % Math.max(1, products.length)]?.image_url || "",
-          icon_key: sc.icon_key,
+          image_url: sc.image_url || sc.sample_image_url || "",
+          icon_key: sc.icon_key || resolveCategoryIcon(sc.name).icon_key,
           icon_url: sc.icon_url,
           href: `/products?category=${catParam}&subcategory=${encodeURIComponent(sc.id)}`,
         }))
       : fallbackItems.length > 0
-        ? fallbackItems.map((fi, i) => ({
-            id: `fb-${i}`,
-            name: fi.title,
-            image_url: fi.image_url || products[i % Math.max(1, products.length)]?.image_url || "",
-            icon_key: null,
-            icon_url: null,
-            href: `/products?category=${catParam}&search=${encodeURIComponent(fi.tag || fi.title)}`,
-          }))
+        ? fallbackItems.map((fi, i) => {
+            const kw = (fi.tag || fi.title).toLowerCase();
+            const matchedProd = products.find(
+              (p) =>
+                p.image_url &&
+                (p.name.toLowerCase().includes(kw) || p.storeTags.includes(kw))
+            );
+            return {
+              id: `fb-${i}`,
+              name: fi.title,
+              image_url: fi.image_url || matchedProd?.image_url || "",
+              icon_key: resolveCategoryIcon(fi.title).icon_key,
+              icon_url: null,
+              href: `/products?category=${catParam}&search=${encodeURIComponent(fi.tag || fi.title)}`,
+            };
+          })
         : [];
 
   if (items.length === 0) return null;

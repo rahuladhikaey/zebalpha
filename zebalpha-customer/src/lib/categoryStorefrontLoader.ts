@@ -313,7 +313,9 @@ export async function loadCategoryStorefrontData(
     updated_at: savedLayout?.updated_at,
   };
 
-  // 5. Fetch live products for this category + subcategories (up to 120 for rich auto-pilot)
+  // 5. Fetch live products STRICTLY belonging to this category + its child subcategories
+  //    (Never run loose description keyword fallback on a real DB category — prevents sarees
+  //     whose description contains "beauty" from leaking into Beauty & Care!)
   let rawProducts: any[] = [];
   if (matchedCat) {
     const allIds = [String(matchedCat.id), ...childCats.map((s) => String(s.id))];
@@ -327,19 +329,17 @@ export async function loadCategoryStorefrontData(
       .order("created_at", { ascending: false })
       .limit(120);
     rawProducts = prods || [];
-  }
-
-  // Fallback keyword search if a category has no strictly linked rows yet (or virtual SEO slug)
-  if (rawProducts.length === 0) {
-    const keyword = category.name.split(/[\s&'/]+/).find((w) => w.length >= 3) || cleanSlug.split("-")[0];
-    if (keyword && keyword.length >= 3) {
+  } else {
+    // Only for virtual SEO slugs that don't correspond to a DB category row: match product name only (strict)
+    const keyword = cleanSlug.replace(/-/g, " ").trim();
+    if (keyword.length >= 3) {
       const { data: fallbackProds } = await client
         .from("products")
         .select("id, name, brand, price, mrp, image_url, images, is_active, stock, specifications, packages, category_id, subcategory_id, created_at, status, tier")
         .eq("is_active", true)
         .neq("status", "COMING_SOON")
         .neq("tier", "DROP")
-        .or(`name.ilike.%${keyword}%,description.ilike.%${keyword}%,brand.ilike.%${keyword}%`)
+        .ilike("name", `%${keyword}%`)
         .order("created_at", { ascending: false })
         .limit(80);
       rawProducts = fallbackProds || [];

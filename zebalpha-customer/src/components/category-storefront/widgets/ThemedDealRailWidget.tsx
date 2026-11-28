@@ -72,7 +72,8 @@ export function ThemedDealRailWidget({
     }
   }
 
-  if (cards.length === 0) return null;
+  // Hide lonely 1-card auto-filled deal shelves when a category doesn't have enough real listings yet
+  if (cards.length === 0 || (manualCards.length === 0 && cards.length < 2)) return null;
 
   // VARIANT 1: Pastel Seasonal Beauty Edit Header + 3-Col Cards (Video 1: 00:08–00:09)
   if (variant === "pastel_seasonal_edit") {

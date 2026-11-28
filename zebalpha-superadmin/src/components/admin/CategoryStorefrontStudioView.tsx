@@ -547,14 +547,18 @@ export default function CategoryStorefrontStudioView() {
 
             {/* Add New Widget Card */}
             <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 space-y-3 shadow-sm">
-              <h3 className="text-sm font-black">Add Flipkart Section Widget</h3>
+              <h3 className="text-sm font-black text-zinc-900 dark:text-white">Add Flipkart Section Widget</h3>
               <select
                 value={addWidgetType}
                 onChange={(e) => setAddWidgetType(e.target.value as CategoryWidgetType)}
-                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-xs font-bold"
+                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] px-3 py-2.5 text-xs font-bold focus:border-amber-400 focus:outline-none"
               >
                 {(Object.keys(WIDGET_CATALOG_META) as CategoryWidgetType[]).map((wt) => (
-                  <option key={wt} value={wt} className="text-black">
+                  <option
+                    key={wt}
+                    value={wt}
+                    className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white"
+                  >
                     {WIDGET_CATALOG_META[wt].label}
                   </option>
                 ))}
@@ -562,7 +566,7 @@ export default function CategoryStorefrontStudioView() {
               <button
                 type="button"
                 onClick={handleAddWidget}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-black py-2.5 text-xs font-black cursor-pointer hover:opacity-90"
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-950 dark:bg-amber-400 text-white dark:text-black py-2.5 text-xs font-black cursor-pointer hover:opacity-90 transition"
               >
                 <Plus className="h-4 w-4" /> Add Section to {blueprint.category_name}
               </button>
@@ -667,35 +671,39 @@ export default function CategoryStorefrontStudioView() {
 
                   {/* Expanded Inline Visual Config Editor */}
                   {isOpen && (
-                    <div className="border-t border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/70 dark:bg-zinc-900/40 space-y-4">
+                    <div className="border-t border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/70 dark:bg-zinc-900/60 space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-500 mb-1">Section Title</label>
+                          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Section Title</label>
                           <input
                             type="text"
                             value={w.title}
                             onChange={(e) => updateWidget(w.id, { title: e.target.value })}
-                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold focus:border-amber-400 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-500 mb-1">Subtitle / Eyebrow</label>
+                          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Subtitle / Eyebrow</label>
                           <input
                             type="text"
                             value={w.subtitle || ""}
                             onChange={(e) => updateWidget(w.id, { subtitle: e.target.value })}
-                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold focus:border-amber-400 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-500 mb-1">Visual Style Variant</label>
+                          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Visual Style Variant</label>
                           <select
                             value={w.style_variant || meta?.variants[0]?.value || ""}
                             onChange={(e) => updateWidget(w.id, { style_variant: e.target.value })}
-                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] px-3 py-1.5 text-xs font-bold focus:border-amber-400 focus:outline-none"
                           >
                             {(meta?.variants || []).map((v) => (
-                              <option key={v.value} value={v.value}>
+                              <option
+                                key={v.value}
+                                value={v.value}
+                                className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white"
+                              >
                                 {v.label}
                               </option>
                             ))}
@@ -730,7 +738,7 @@ export default function CategoryStorefrontStudioView() {
                                     .filter((n) => !isNaN(n) && n > 0),
                                 })
                               }
-                              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
                             />
                           </div>
                           <div>
@@ -748,7 +756,7 @@ export default function CategoryStorefrontStudioView() {
                                     .filter((n) => !isNaN(n) && n > 0),
                                 })
                               }
-                              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
                             />
                           </div>
                         </div>
@@ -764,7 +772,7 @@ export default function CategoryStorefrontStudioView() {
                                 value={w.config?.campaign_badge || ""}
                                 onChange={(e) => updateWidgetConfig(w.id, { campaign_badge: e.target.value })}
                                 placeholder="e.g. GLAM UP / ZEBALPHA DROP"
-                                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
                               />
                             </div>
                             <div>
@@ -773,7 +781,7 @@ export default function CategoryStorefrontStudioView() {
                                 type="text"
                                 value={w.config?.footer_offer || ""}
                                 onChange={(e) => updateWidgetConfig(w.id, { footer_offer: e.target.value })}
-                                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
                               />
                             </div>
                           </div>
@@ -816,7 +824,7 @@ export default function CategoryStorefrontStudioView() {
                                     updateWidgetConfig(w.id, { slides: copy });
                                   }}
                                   placeholder="Title / Brand"
-                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-xs"
+                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
                                 />
                                 <input
                                   type="text"
@@ -827,7 +835,7 @@ export default function CategoryStorefrontStudioView() {
                                     updateWidgetConfig(w.id, { slides: copy });
                                   }}
                                   placeholder="Up to 60% Off"
-                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-xs"
+                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
                                 />
                                 <input
                                   type="text"
@@ -838,7 +846,7 @@ export default function CategoryStorefrontStudioView() {
                                     updateWidgetConfig(w.id, { slides: copy });
                                   }}
                                   placeholder="Image URL"
-                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-xs"
+                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
                                 />
                                 <input
                                   type="text"
@@ -849,7 +857,7 @@ export default function CategoryStorefrontStudioView() {
                                     updateWidgetConfig(w.id, { slides: copy });
                                   }}
                                   placeholder="/products?..."
-                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-xs"
+                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
                                 />
                                 <button
                                   type="button"
@@ -874,21 +882,21 @@ export default function CategoryStorefrontStudioView() {
                             value={w.config?.cta_label || "Explore now"}
                             onChange={(e) => updateWidgetConfig(w.id, { cta_label: e.target.value })}
                             placeholder="CTA Label"
-                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
                           />
                           <input
                             type="text"
                             value={w.config?.banner_image_url || ""}
                             onChange={(e) => updateWidgetConfig(w.id, { banner_image_url: e.target.value })}
                             placeholder="Spotlight Image URL"
-                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
                           />
                           <input
                             type="text"
                             value={w.config?.destination_url || ""}
                             onChange={(e) => updateWidgetConfig(w.id, { destination_url: e.target.value })}
                             placeholder="/products?..."
-                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
                           />
                         </div>
                       )}
@@ -900,7 +908,7 @@ export default function CategoryStorefrontStudioView() {
                             type="text"
                             value={w.config?.marquee_text || ""}
                             onChange={(e) => updateWidgetConfig(w.id, { marquee_text: e.target.value })}
-                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold"
+                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
                           />
                         </div>
                       )}
@@ -920,7 +928,7 @@ export default function CategoryStorefrontStudioView() {
                                     updateWidgetConfig(w.id, { stores: copy });
                                   }}
                                   placeholder="Store Title"
-                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-xs font-bold"
+                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs font-bold"
                                 />
                                 <input
                                   type="text"
@@ -931,7 +939,7 @@ export default function CategoryStorefrontStudioView() {
                                     updateWidgetConfig(w.id, { stores: copy });
                                   }}
                                   placeholder="Tag filter (e.g. korean)"
-                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-xs"
+                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
                                 />
                                 <input
                                   type="text"
@@ -942,7 +950,7 @@ export default function CategoryStorefrontStudioView() {
                                     updateWidgetConfig(w.id, { stores: copy });
                                   }}
                                   placeholder="Optional Image URL"
-                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-xs"
+                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
                                 />
                               </div>
                             ))}
@@ -991,7 +999,7 @@ export default function CategoryStorefrontStudioView() {
                       value={subcatEdits[sc.id] || ""}
                       onChange={(e) => setSubcatEdits((prev) => ({ ...prev, [sc.id]: e.target.value }))}
                       placeholder="Paste portrait image URL..."
-                      className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent px-2.5 py-1.5 text-xs"
+                      className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 px-2.5 py-1.5 text-xs focus:border-amber-400 focus:outline-none"
                     />
                     <button
                       type="button"

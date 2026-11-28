@@ -36,7 +36,7 @@ export function AudienceSplit3ColWidget({ widget, categoryId, products }: Common
         {cards.slice(0, 3).map((card, idx) => {
           const matchedProd =
             products.find((p) => card.tag_filter && p.storeTags.includes(card.tag_filter.toLowerCase())) ||
-            products[(idx * 2) % Math.max(1, products.length)];
+            products[idx * 2];
           const imgUrl = card.image_url || matchedProd?.image_url || "";
           const href = card.destination_url || `/products?category=${catParam}&tag=${encodeURIComponent(card.tag_filter || card.title)}`;
 
@@ -88,7 +88,7 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
             id: `ed-${idx}`,
             title: it.title,
             offer: it.offer || "Explore",
-            image_url: it.image_url || products[(idx * 2) % Math.max(1, products.length)]?.image_url || "",
+            image_url: it.image_url || products[idx * 2]?.image_url || "",
             href: it.destination_url || `/products?category=${catParam}&tag=${encodeURIComponent(it.tag || it.title)}`,
           }))
         : products.slice(0, 6).map((p) => ({
@@ -269,7 +269,7 @@ export function Occasion2ColWidget({ widget, categoryId, tokens, products }: Com
         {cards.slice(0, 2).map((card, idx) => {
           const matchedProd =
             products.find((p) => card.tag_filter && p.storeTags.includes(card.tag_filter.toLowerCase())) ||
-            products[(idx + 3) % Math.max(1, products.length)];
+            products[idx + 2];
           const imgUrl = card.image_url || matchedProd?.image_url || "";
           const href = card.destination_url || `/products?category=${catParam}&tag=${encodeURIComponent(card.tag_filter || card.title)}`;
 

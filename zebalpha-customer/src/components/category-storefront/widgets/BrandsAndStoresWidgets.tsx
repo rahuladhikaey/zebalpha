@@ -375,7 +375,7 @@ export function ComboKitsMarqueeWidget({
     manualKits.length > 0
       ? manualKits.map((k, idx) => ({
           ...k,
-          image_url: k.image_url || fallbackPool[idx % Math.max(1, fallbackPool.length)]?.image_url || "",
+          image_url: k.image_url || fallbackPool[idx]?.image_url || "",
           destination_url: k.destination_url || `/products?category=${catParam}&tag=combo`,
         }))
       : fallbackPool.slice(0, 3).map((p) => ({
@@ -482,7 +482,7 @@ export function ExploreStores3x3Widget({
         {stores.slice(0, 9).map((st, idx) => {
           const taggedProd =
             products.find((p) => st.tag_filter && p.storeTags.includes(st.tag_filter.toLowerCase())) ||
-            products[idx % Math.max(1, products.length)];
+            products[idx];
           const imgUrl = st.image_url || taggedProd?.image_url || "";
           const href = st.destination_url || `/products?category=${catParam}&tag=${encodeURIComponent(st.tag_filter || st.title)}`;
 

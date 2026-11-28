@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, ShoppingCart, ArrowLeft, ChevronDown, Zap, Sparkles } from "lucide-react";
+import { Search, ShoppingCart, ArrowLeft, ChevronDown, Sparkles } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useIsNativeApp } from "@/lib/platform";
 import { CategoryIconRenderer } from "@/lib/categoryIcons";
@@ -63,10 +63,15 @@ export function CategoryStorefrontClient({ data, seoGuideSlot }: CategoryStorefr
     return () => clearInterval(t);
   }, [rotatingHints.length]);
 
-  // Scroll-linked collapsing category icon strip (Video 1 & Video 2)
+  // Scroll-linked collapsing category icon strip with hysteresis (zero top-scroll bounce/jitter!)
   useEffect(() => {
     const onScroll = () => {
-      setIsScrolled((window.scrollY || 0) > 48);
+      const y = window.scrollY || 0;
+      setIsScrolled((prev) => {
+        if (!prev && y > 72) return true;
+        if (prev && y < 24) return false;
+        return prev;
+      });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
@@ -252,71 +257,23 @@ export function CategoryStorefrontClient({ data, seoGuideSlot }: CategoryStorefr
       className="min-h-screen w-full transition-colors duration-300"
       style={{ backgroundColor: tokens.pageBg, color: "#111111" }}
     >
-      {/* STICKY FLIPKART-STYLE CATEGORY THEME HEADER + COLLAPSING CATEGORY TAB BAR */}
+      {/* STICKY CLEAN CATEGORY HEADER (NO REDUNDANT ZEBQUICK/CUSTOM PILLS) + COLLAPSING CATEGORY TABS */}
       <header
         data-keep-dark="true"
-        className="sticky top-0 z-40 w-full shadow-sm transition-all duration-200"
+        className="sticky top-0 z-40 w-full shadow-sm transition-colors duration-200"
         style={{ backgroundColor: tokens.headerBg, color: tokens.headerText }}
       >
-        {/* Top Row: Quick Storefront Switcher + Back + Search + Cart */}
-        <div className="max-w-[1440px] mx-auto px-3 md:px-6 pt-2.5 pb-2 space-y-2">
-          {/* Top Brand Pills (Video 2 Flipkart | Value | Grocery equivalent for Zebalpha) */}
-          {!isScrolled && (
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-black tracking-tight shadow-sm shrink-0"
-                  style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  Zebalpha
-                </Link>
-                <Link
-                  href="/zeb-quick"
-                  className="inline-flex items-center gap-1 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 px-2.5 py-1 text-[11px] font-bold text-white shrink-0 transition"
-                >
-                  <Zap className="h-3 w-3 text-amber-300 fill-amber-300" />
-                  ZebQuick
-                </Link>
-                <Link
-                  href="/customize"
-                  className="inline-flex items-center gap-1 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 px-2.5 py-1 text-[11px] font-bold text-white shrink-0 transition"
-                >
-                  <Sparkles className="h-3 w-3 text-pink-300" />
-                  Custom Studio
-                </Link>
-              </div>
-
-              <Link
-                href="/cart"
-                className="relative inline-flex items-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 px-2.5 py-1 text-xs font-extrabold text-white shrink-0 transition"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                <span className="hidden sm:inline">Cart</span>
-                {cartCount > 0 && (
-                  <span
-                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black"
-                    style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
-                  >
-                    {cartCount}
-                  </span>
-                )}
-              </Link>
-            </div>
-          )}
-
-          {/* Search Bar with Rotating Flipkart-Style Hints */}
+        {/* Single Sleek Top Row: Back + Search Bar + Cart */}
+        <div className="max-w-[1440px] mx-auto px-3 md:px-6 pt-2.5 pb-2">
           <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
-            {isScrolled && (
-              <Link
-                href="/"
-                aria-label="Back to Home"
-                className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center text-white shrink-0"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            )}
+            <Link
+              href="/"
+              aria-label="Back to Home"
+              className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white shrink-0 transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
               <input
@@ -328,23 +285,23 @@ export function CategoryStorefrontClient({ data, seoGuideSlot }: CategoryStorefr
                 style={{ ["--tw-ring-color" as any]: tokens.accentBg }}
               />
             </div>
-            {isScrolled && (
-              <Link
-                href="/cart"
-                aria-label="Cart"
-                className="relative h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center text-white shrink-0"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                {cartCount > 0 && (
-                  <span
-                    className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full px-1 text-[9px] font-black flex items-center justify-center"
-                    style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
-                  >
-                    {cartCount}
-                  </span>
-                )}
-              </Link>
-            )}
+
+            <Link
+              href="/cart"
+              aria-label="Cart"
+              className="relative h-10 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center gap-1.5 text-white shrink-0 transition"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs font-extrabold">Cart</span>
+              {cartCount > 0 && (
+                <span
+                  className="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black"
+                  style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
+                >
+                  {cartCount}
+                </span>
+              )}
+            </Link>
           </form>
         </div>
 
