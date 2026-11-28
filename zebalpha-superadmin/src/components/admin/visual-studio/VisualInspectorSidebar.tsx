@@ -513,9 +513,9 @@ export function VisualInspectorSidebar({
     selectedWidget?.widget_type === "HERO_CAROUSEL" || selectedWidget?.widget_type === "FULL_SPOTLIGHT_BANNER";
 
   return (
-    <aside className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col max-h-[calc(100vh-140px)] sticky top-4">
-      {/* 3 Clean Tabs */}
-      <div className="grid grid-cols-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/70 p-1.5 gap-1">
+    <aside className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col h-[680px] xl:h-full">
+      {/* 3 Clean Tabs (Pinned at Top) */}
+      <div className="shrink-0 grid grid-cols-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/70 p-1.5 gap-1">
         <button
           type="button"
           onClick={() => onTabChange("selected")}
@@ -551,8 +551,8 @@ export function VisualInspectorSidebar({
         </button>
       </div>
 
-      {/* Scrollable Inspector Body */}
-      <div className="p-4 overflow-y-auto space-y-4 flex-1">
+      {/* Scrollable Inspector Body (Independent Scrollbar) */}
+      <div className="p-4 overflow-y-auto overscroll-contain space-y-4 flex-1 min-h-0">
         {tab === "selected" && (
           <>
             {!selectedWidget ? (

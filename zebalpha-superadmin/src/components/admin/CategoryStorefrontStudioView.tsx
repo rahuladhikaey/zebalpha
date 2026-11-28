@@ -276,7 +276,13 @@ export default function CategoryStorefrontStudioView() {
   const pendingCount = spotlights.filter((s) => s.status === "PENDING").length;
 
   return (
-    <div className="space-y-4 pb-12">
+    <div
+      className={
+        studioMode === "visual"
+          ? "flex flex-col gap-3 xl:h-[calc(100vh-96px)] xl:overflow-hidden"
+          : "space-y-4 pb-12"
+      }
+    >
       {/* Live Floating Toast */}
       {toast && (
         <div
@@ -291,15 +297,15 @@ export default function CategoryStorefrontStudioView() {
         </div>
       )}
 
-      {/* TOP VISUAL STUDIO COMMAND BAR */}
-      <div className="rounded-3xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-zinc-800 p-4 md:p-5 text-white shadow-xl space-y-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-400/30 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300">
-              <Sparkles className="h-3 w-3" /> Live Interactive Visual Studio
-            </div>
-            <h1 className="text-lg md:text-xl font-black tracking-tight mt-1">
-              Click Directly on Screen to Edit Banners, Photos, Text & Colors
+      {/* TOP VISUAL STUDIO COMMAND BAR (Pinned — Never Scrolls Away!) */}
+      <div className="shrink-0 rounded-3xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-zinc-800 px-4 py-3 text-white shadow-xl space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-400/30 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300">
+              <Sparkles className="h-3 w-3" /> Canva Visual Studio
+            </span>
+            <h1 className="text-sm md:text-base font-black tracking-tight">
+              Drag, Resize &amp; Edit Directly Inside Screen
             </h1>
           </div>
 
@@ -517,44 +523,54 @@ export default function CategoryStorefrontStudioView() {
           )}
         </div>
       ) : (
-        /* LIVE INTERACTIVE VISUAL CANVAS + RIGHT SMART INSPECTOR */
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-          {/* LEFT / CENTER: REALISTIC DEVICE LIVE EDITABLE SCREEN (8 COLS) */}
-          <div className="xl:col-span-8 flex flex-col items-center rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/50 p-3 sm:p-5 overflow-x-auto">
-            {/* Helper hint bar */}
-            <div className="w-full flex flex-wrap items-center justify-between gap-2 mb-3 text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
-              <span>
-                ✨ Canva Mode: <strong>Drag ⋮⋮</strong> sections &amp; cards to reorder • <strong>Drag Bottom Handle</strong> to resize • Click <strong>Text</strong> to type • Click <strong>Photo</strong> (≤150KB)
+        /* LOCKED VIEWPORT WORKSPACE: ONLY THE DEVICE SCREEN & INSPECTOR SCROLL INDEPENDENTLY! */
+        <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
+          {/* LEFT / CENTER: FIXED DEVICE STAGE WITH INDEPENDENT INTERNAL PHONE/TABLET/DESKTOP SCROLL */}
+          <div className="xl:col-span-8 min-h-0 flex flex-col items-center rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/50 p-3 sm:p-4 overflow-hidden">
+            {/* Compact Helper Hint Strip */}
+            <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 mb-2.5 text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
+              <span className="truncate">
+                ✨ Scroll inside screen • <strong>Drag ⋮⋮</strong> to reorder • <strong>Drag Bottom Bar</strong> to resize • Click <strong>Text/Photo</strong> to edit
               </span>
-              <span className="rounded-full bg-zinc-200 dark:bg-zinc-800 px-2.5 py-0.5 text-[10px] font-black uppercase text-zinc-800 dark:text-zinc-200">
+              <span className="shrink-0 rounded-full bg-zinc-200 dark:bg-zinc-800 px-2.5 py-0.5 text-[10px] font-black uppercase text-zinc-800 dark:text-zinc-200">
                 {deviceMode === "mobile"
-                  ? "Phone Preview • 390px"
+                  ? "Phone • 390px"
                   : deviceMode === "tablet"
-                    ? "Tablet Preview • 768px"
-                    : "Desktop Preview • Full"}
+                    ? "Tablet • 768px"
+                    : "Desktop • Full"}
               </span>
             </div>
 
-            {/* Realistic Device Frame */}
+            {/* Realistic Device Frame (Fixed Height — Scrolls ONLY Inside!) */}
             <div
-              className={`w-full transition-all duration-300 shadow-2xl overflow-hidden border ${
+              className={`w-full flex-1 min-h-0 flex flex-col transition-all duration-300 shadow-2xl overflow-hidden border h-[680px] xl:h-full ${
                 deviceMode === "mobile"
-                  ? "max-w-[398px] rounded-[34px] border-[6px] border-zinc-900"
+                  ? "max-w-[404px] rounded-[36px] border-[7px] border-zinc-900"
                   : deviceMode === "tablet"
                     ? "max-w-[768px] rounded-[26px] border-[5px] border-zinc-800"
                     : "max-w-full rounded-2xl border-zinc-300 dark:border-zinc-700"
               }`}
               style={{ backgroundColor: blueprint.theme_tokens.pageBg, color: "#111111" }}
             >
-              {/* Authentic Mirror of Customer Category Sticky Header */}
+              {/* Sleek Phone Speaker Notch Bar (Mobile Preview Only) */}
+              {deviceMode === "mobile" && (
+                <div
+                  className="shrink-0 flex items-center justify-center pt-1.5 pb-1"
+                  style={{ backgroundColor: blueprint.theme_tokens.headerBg }}
+                >
+                  <span className="h-1.5 w-16 rounded-full bg-white/25" />
+                </div>
+              )}
+
+              {/* Authentic Mirror of Customer Category Sticky Header (Pinned Inside Phone Screen!) */}
               <div
-                className="w-full shadow-xs"
+                className="shrink-0 w-full shadow-xs"
                 style={{
                   backgroundColor: blueprint.theme_tokens.headerBg,
                   color: blueprint.theme_tokens.headerText,
                 }}
               >
-                <div className="px-3 pt-2.5 pb-2 flex items-center gap-2">
+                <div className="px-3 pt-2 pb-2 flex items-center gap-2">
                   <span className="h-9 w-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white shrink-0">
                     <ArrowLeft className="h-4 w-4" />
                   </span>
@@ -591,8 +607,8 @@ export default function CategoryStorefrontStudioView() {
                 </div>
               </div>
 
-              {/* LIVE EDITABLE WIDGET STACK */}
-              <div className="pb-6 divide-y divide-transparent">
+              {/* INDEPENDENT INTERNAL SCROLLABLE PHONE / TABLET / DESKTOP CONTENT */}
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8 divide-y divide-transparent">
                 {blueprint.widgets.map((w, idx) => (
                   <SectionFrameWrapper
                     key={w.id}
@@ -708,8 +724,8 @@ export default function CategoryStorefrontStudioView() {
             </div>
           </div>
 
-          {/* RIGHT: STICKY SMART CONTEXT INSPECTOR (4 COLS) */}
-          <div className="xl:col-span-4">
+          {/* RIGHT: INDEPENDENT SCROLLING SMART CONTEXT INSPECTOR (4 COLS) */}
+          <div className="xl:col-span-4 min-h-0 flex flex-col">
             <VisualInspectorSidebar
               tab={inspectorTab}
               onTabChange={setInspectorTab}
