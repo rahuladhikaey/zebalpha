@@ -3,7 +3,15 @@
 import React from "react";
 import Link from "next/link";
 import { Flame, Sparkles } from "lucide-react";
-import type { CategoryThemeTokens, CategoryWidgetConfig } from "@/lib/categoryStorefrontTypes";
+import {
+  getResponsiveGridColsClass,
+  getTitleAlignClass,
+  getTitleSizeClass,
+  getWidgetStyle,
+  type CardImageTransform,
+  type CategoryThemeTokens,
+  type CategoryWidgetConfig,
+} from "@/lib/categoryStorefrontTypes";
 import type { StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
 import { SmartFitImage } from "../SmartFitImage";
 
@@ -24,16 +32,43 @@ export function AudienceSplit3ColWidget({ widget, categoryId, products }: Common
     variant === "blush_framed" ? "#F472B6" : variant === "gold_framed" ? "#D97706" : "#34D399";
   const softBg =
     variant === "blush_framed" ? "#FFF1F5" : variant === "gold_framed" ? "#FEF9E7" : "#ECFDF5";
+  const wStyle = getWidgetStyle(widget);
+  const hasCustomH = Boolean(wStyle.cardHeightMobile || wStyle.cardHeightDesktop);
+  const cardHVars = hasCustomH
+    ? ({
+        "--cs-h-m": `${wStyle.cardHeightMobile || 135}px`,
+        "--cs-h-d": `${wStyle.cardHeightDesktop || 195}px`,
+      } as React.CSSProperties)
+    : undefined;
 
-  const cards: Array<{ id: string; title: string; image_url?: string; tag_filter?: string; destination_url?: string }> =
+  const cards: Array<{ id: string; title: string; image_url?: string; tag_filter?: string; destination_url?: string } & CardImageTransform> =
     Array.isArray(widget.config?.cards) ? widget.config.cards : [];
 
   if (cards.length === 0) return null;
 
+  const gridClass = getResponsiveGridColsClass(
+    wStyle.mobileCols,
+    wStyle.desktopCols,
+    "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+  );
+
   return (
-    <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-3">
-      <h2 className="text-base md:text-xl font-black text-zinc-900 tracking-tight mb-3">{widget.title}</h2>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5 md:gap-4">
+    <section
+      className="max-w-[1440px] mx-auto px-3 md:px-6 py-3"
+      style={typeof wStyle.paddingY === "number" ? { paddingTop: `${wStyle.paddingY}px`, paddingBottom: `${wStyle.paddingY}px` } : undefined}
+    >
+      {!wStyle.hideTitle && (
+        <h2
+          className={`font-black text-zinc-900 tracking-tight mb-3 ${getTitleSizeClass(wStyle.titleSize, "text-base md:text-xl")} ${getTitleAlignClass(wStyle.titleAlign, "text-left")}`}
+          style={wStyle.titleColor ? { color: wStyle.titleColor } : undefined}
+        >
+          {widget.title}
+        </h2>
+      )}
+      <div
+        className={`grid ${gridClass} gap-2.5 md:gap-4`}
+        style={typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : undefined}
+      >
         {cards.map((card, idx) => {
           const matchedProd =
             products.find((p) => card.tag_filter && p.storeTags.includes(card.tag_filter.toLowerCase())) ||
@@ -44,13 +79,21 @@ export function AudienceSplit3ColWidget({ widget, categoryId, products }: Common
           return (
             <Link key={card.id || idx} href={href} className="group flex flex-col items-center">
               <div
-                className="w-full aspect-[4/4.3] rounded-2xl overflow-hidden border-[2.5px] shadow-sm group-hover:shadow-md transition-all"
-                style={{ borderColor: frameColor, backgroundColor: softBg }}
+                className={`w-full rounded-2xl overflow-hidden border-[2.5px] shadow-sm group-hover:shadow-md transition-all ${
+                  hasCustomH ? "cs-h-responsive" : "aspect-[4/4.3]"
+                }`}
+                style={{
+                  borderColor: frameColor,
+                  backgroundColor: softBg,
+                  ...(typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {}),
+                  ...cardHVars,
+                }}
               >
                 {imgUrl ? (
                   <SmartFitImage
                     src={imgUrl}
                     alt={card.title}
+                    transform={card}
                     imgClassName="group-hover:scale-[1.03]"
                   />
                 ) : (
@@ -85,7 +128,20 @@ export function AudienceSplit3ColWidget({ widget, categoryId, products }: Common
 export function TrendLookbookWidget({ widget, categoryId, tokens, products }: CommonProps) {
   const catParam = encodeURIComponent(categoryId);
   const variant = widget.style_variant || "dark_2x2_and_rail";
-  const manualItems: Array<{ title: string; offer?: string; tag?: string; image_url?: string; destination_url?: string }> =
+  const wStyle = getWidgetStyle(widget);
+  const hasCustomH = Boolean(wStyle.cardHeightMobile || wStyle.cardHeightDesktop);
+  const cardHVars = hasCustomH
+    ? ({
+        "--cs-h-m": `${wStyle.cardHeightMobile || 210}px`,
+        "--cs-h-d": `${wStyle.cardHeightDesktop || 240}px`,
+      } as React.CSSProperties)
+    : undefined;
+  const gridClass = getResponsiveGridColsClass(
+    wStyle.mobileCols,
+    wStyle.desktopCols,
+    "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+  );
+  const manualItems: Array<{ title: string; offer?: string; tag?: string; image_url?: string; destination_url?: string } & CardImageTransform> =
     Array.isArray(widget.config?.items) ? widget.config.items : [];
 
   // VARIANT A: Beauty 4:5 Editorial Portrait Strip (Video 1: "Black Friday Specials")
@@ -178,19 +234,29 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
         </div>
       </div>
 
-      {/* Responsive Lookbook Grid (2-col Mobile -> 5/6-col Desktop, Auto-Fitted Card Sizes) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 md:gap-4">
+      {/* Responsive Lookbook Grid */}
+      <div
+        className={`grid ${gridClass} gap-2.5 md:gap-4`}
+        style={typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : undefined}
+      >
         {topGrid.map((item, idx) => (
           <Link
             key={`tr-grid-${idx}`}
             href={item.destination_url || `/products?category=${catParam}`}
             data-keep-dark="true"
-            className="group relative aspect-[4/5] rounded-[20px] overflow-hidden bg-zinc-950 shadow-md"
+            className={`group relative rounded-[20px] overflow-hidden bg-zinc-950 shadow-md ${
+              hasCustomH ? "cs-h-responsive" : "aspect-[4/5]"
+            }`}
+            style={{
+              ...(typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {}),
+              ...cardHVars,
+            }}
           >
             {item.image_url && (
               <SmartFitImage
                 src={item.image_url}
                 alt={item.title}
+                transform={item as CardImageTransform}
                 imgClassName="group-hover:scale-[1.03]"
               />
             )}
@@ -250,16 +316,39 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
 // ---------------------------------------------------------------------------
 export function Occasion2ColWidget({ widget, categoryId, tokens, products }: CommonProps) {
   const catParam = encodeURIComponent(categoryId);
-  const cards: Array<{ id: string; title: string; image_url?: string; tag_filter?: string; destination_url?: string }> =
+  const wStyle = getWidgetStyle(widget);
+  const hasCustomH = Boolean(wStyle.cardHeightMobile || wStyle.cardHeightDesktop);
+  const cardHVars = hasCustomH
+    ? ({
+        "--cs-h-m": `${wStyle.cardHeightMobile || 190}px`,
+        "--cs-h-d": `${wStyle.cardHeightDesktop || 230}px`,
+      } as React.CSSProperties)
+    : undefined;
+  const gridClass = getResponsiveGridColsClass(
+    wStyle.mobileCols,
+    wStyle.desktopCols,
+    "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+  );
+  const cards: Array<{ id: string; title: string; image_url?: string; tag_filter?: string; destination_url?: string } & CardImageTransform> =
     Array.isArray(widget.config?.cards) ? widget.config.cards : [];
 
   if (cards.length === 0) return null;
 
   return (
-    <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-3">
-      <div className="text-center mb-3">
-        <h2 className="text-lg md:text-2xl font-black text-zinc-950 tracking-tight">{widget.title}</h2>
-        {widget.subtitle && (
+    <section
+      className="max-w-[1440px] mx-auto px-3 md:px-6 py-3"
+      style={typeof wStyle.paddingY === "number" ? { paddingTop: `${wStyle.paddingY}px`, paddingBottom: `${wStyle.paddingY}px` } : undefined}
+    >
+      <div className={`${getTitleAlignClass(wStyle.titleAlign, "text-center")} mb-3`}>
+        {!wStyle.hideTitle && (
+          <h2
+            className={`font-black text-zinc-950 tracking-tight ${getTitleSizeClass(wStyle.titleSize, "text-lg md:text-2xl")}`}
+            style={wStyle.titleColor ? { color: wStyle.titleColor } : undefined}
+          >
+            {widget.title}
+          </h2>
+        )}
+        {!wStyle.hideSubtitle && widget.subtitle && (
           <p
             className="inline-flex items-center gap-1 mt-0.5 rounded-full px-3 py-0.5 text-[11px] font-extrabold"
             style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
@@ -270,7 +359,10 @@ export function Occasion2ColWidget({ widget, categoryId, tokens, products }: Com
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
+      <div
+        className={`grid ${gridClass} gap-3 md:gap-4`}
+        style={typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : undefined}
+      >
         {cards.map((card, idx) => {
           const matchedProd =
             products.find((p) => card.tag_filter && p.storeTags.includes(card.tag_filter.toLowerCase())) ||
@@ -283,12 +375,19 @@ export function Occasion2ColWidget({ widget, categoryId, tokens, products }: Com
               key={card.id || idx}
               href={href}
               data-keep-dark="true"
-              className="group relative aspect-[4/4.5] rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 shadow-md"
+              className={`group relative rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 shadow-md ${
+                hasCustomH ? "cs-h-responsive" : "aspect-[4/4.5]"
+              }`}
+              style={{
+                ...(typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {}),
+                ...cardHVars,
+              }}
             >
               {imgUrl ? (
                 <SmartFitImage
                   src={imgUrl}
                   alt={card.title}
+                  transform={card}
                   imgClassName="group-hover:scale-[1.03]"
                 />
               ) : (

@@ -3,12 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronRight, Sparkles, ShieldCheck, Truck } from "lucide-react";
-import type {
-  CategoryThemeTokens,
-  CategoryWidgetConfig,
-  BrandSpotlightItem,
-  MicroStoreTile,
-  CategorySpotlightRequest,
+import {
+  getResponsiveGridColsClass,
+  getTitleAlignClass,
+  getTitleSizeClass,
+  getWidgetStyle,
+  type CardImageTransform,
+  type CategoryThemeTokens,
+  type CategoryWidgetConfig,
+  type BrandSpotlightItem,
+  type MicroStoreTile,
+  type CategorySpotlightRequest,
 } from "@/lib/categoryStorefrontTypes";
 import type { AutoPilotBrandSummary, StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
 import { SmartFitImage } from "../SmartFitImage";
@@ -281,6 +286,14 @@ export function FullSpotlightBannerWidget({
   const catParam = encodeURIComponent(categoryId);
   const variant = widget.style_variant || "luxe_noir_gold";
   const cfg = widget.config || {};
+  const wStyle = getWidgetStyle(widget);
+  const hasBannerH = Boolean(wStyle.bannerHeightMobile || wStyle.bannerHeightDesktop);
+  const bannerHVars = hasBannerH
+    ? ({
+        "--cs-h-m": `${wStyle.bannerHeightMobile || 200}px`,
+        "--cs-h-d": `${wStyle.bannerHeightDesktop || 200}px`,
+      } as React.CSSProperties)
+    : undefined;
   const href = cfg.destination_url || `/products?category=${catParam}&sort=discount_desc`;
   const bannerImg = cfg.banner_image_url || products[0]?.image_url || "";
 
@@ -288,17 +301,24 @@ export function FullSpotlightBannerWidget({
   const isBridal = variant === "bridal_pastel";
 
   return (
-    <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-3">
+    <section
+      className="max-w-[1440px] mx-auto px-3 md:px-6 py-3"
+      style={typeof wStyle.paddingY === "number" ? { paddingTop: `${wStyle.paddingY}px`, paddingBottom: `${wStyle.paddingY}px` } : undefined}
+    >
       <Link
         href={href}
         data-keep-dark="true"
-        className="group relative block rounded-[24px] overflow-hidden shadow-md hover:shadow-xl transition-all"
+        className={`group relative block rounded-[24px] overflow-hidden shadow-md hover:shadow-xl transition-all ${
+          hasBannerH ? "cs-h-responsive flex items-center" : ""
+        }`}
         style={{
           background: isLuxeGold
             ? "linear-gradient(125deg, #0b0907 0%, #3a2711 50%, #120d08 100%)"
             : isBridal
               ? "linear-gradient(125deg, #4a0e2e 0%, #be185d 55%, #831843 100%)"
               : "linear-gradient(125deg, #111315 0%, #23272b 55%, #0c0e10 100%)",
+          ...(typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {}),
+          ...bannerHVars,
         }}
       >
         <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-6 md:px-10 md:py-9">
@@ -365,8 +385,21 @@ export function ComboKitsMarqueeWidget({
 }) {
   const catParam = encodeURIComponent(categoryId);
   const cfg = widget.config || {};
+  const wStyle = getWidgetStyle(widget);
+  const hasCustomH = Boolean(wStyle.cardHeightMobile || wStyle.cardHeightDesktop);
+  const cardHVars = hasCustomH
+    ? ({
+        "--cs-h-m": `${wStyle.cardHeightMobile || 150}px`,
+        "--cs-h-d": `${wStyle.cardHeightDesktop || 190}px`,
+      } as React.CSSProperties)
+    : undefined;
+  const gridClass = getResponsiveGridColsClass(
+    wStyle.mobileCols,
+    wStyle.desktopCols,
+    "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+  );
   const marqueeText = cfg.marquee_text || "ZEBALPHA SPECIALS • VALUE COMBOS • UP TO 80% OFF •";
-  const manualKits: Array<{ id: string; title: string; offer_pill: string; image_url?: string; destination_url?: string }> =
+  const manualKits: Array<{ id: string; title: string; offer_pill: string; image_url?: string; destination_url?: string } & CardImageTransform> =
     Array.isArray(cfg.kits) ? cfg.kits : [];
 
   const comboProds = products.filter((p) => p.isCombo);
@@ -410,19 +443,31 @@ export function ComboKitsMarqueeWidget({
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 md:gap-4 relative z-10">
+        <div
+          className={`grid ${gridClass} gap-2.5 md:gap-4 relative z-10`}
+          style={typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : undefined}
+        >
           {kits.map((kit) => (
             <Link
               key={kit.id}
               href={kit.destination_url || `/products?category=${catParam}&tag=combo`}
               className="group flex flex-col items-center text-center"
             >
-              <div className="w-full aspect-[4/4.3] rounded-2xl overflow-hidden bg-white p-1.5 shadow-md">
+              <div
+                className={`w-full rounded-2xl overflow-hidden bg-white p-1.5 shadow-md ${
+                  hasCustomH ? "cs-h-responsive" : "aspect-[4/4.3]"
+                }`}
+                style={{
+                  ...(typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {}),
+                  ...cardHVars,
+                }}
+              >
                 {kit.image_url ? (
                   <SmartFitImage
                     src={kit.image_url}
                     alt={kit.title}
                     roundedClass="rounded-xl"
+                    transform={kit as CardImageTransform}
                     imgClassName="group-hover:scale-[1.04]"
                   />
                 ) : (
@@ -468,6 +513,19 @@ export function ExploreStores3x3Widget({
   products: StorefrontProductCard[];
 }) {
   const catParam = encodeURIComponent(categoryId);
+  const wStyle = getWidgetStyle(widget);
+  const hasCustomH = Boolean(wStyle.cardHeightMobile || wStyle.cardHeightDesktop);
+  const cardHVars = hasCustomH
+    ? ({
+        "--cs-h-m": `${wStyle.cardHeightMobile || 135}px`,
+        "--cs-h-d": `${wStyle.cardHeightDesktop || 165}px`,
+      } as React.CSSProperties)
+    : undefined;
+  const gridClass = getResponsiveGridColsClass(
+    wStyle.mobileCols,
+    wStyle.desktopCols,
+    "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+  );
   const stores: MicroStoreTile[] = Array.isArray(widget.config?.stores) ? widget.config.stores : [];
   if (stores.length === 0) return null;
 
@@ -475,13 +533,28 @@ export function ExploreStores3x3Widget({
   const frameBg = isBlush ? "#4A0E2E" : "#111214";
 
   return (
-    <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-4">
-      <div className="text-center mb-3.5">
-        <h2 className="text-lg md:text-2xl font-black text-zinc-950 tracking-tight">{widget.title}</h2>
-        {widget.subtitle && <p className="text-xs text-zinc-500 font-semibold">{widget.subtitle}</p>}
+    <section
+      className="max-w-[1440px] mx-auto px-3 md:px-6 py-4"
+      style={typeof wStyle.paddingY === "number" ? { paddingTop: `${wStyle.paddingY}px`, paddingBottom: `${wStyle.paddingY}px` } : undefined}
+    >
+      <div className={`${getTitleAlignClass(wStyle.titleAlign, "text-center")} mb-3.5`}>
+        {!wStyle.hideTitle && (
+          <h2
+            className={`font-black text-zinc-950 tracking-tight ${getTitleSizeClass(wStyle.titleSize, "text-lg md:text-2xl")}`}
+            style={wStyle.titleColor ? { color: wStyle.titleColor } : undefined}
+          >
+            {widget.title}
+          </h2>
+        )}
+        {!wStyle.hideSubtitle && widget.subtitle && (
+          <p className="text-xs text-zinc-500 font-semibold">{widget.subtitle}</p>
+        )}
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5 md:gap-3.5">
+      <div
+        className={`grid ${gridClass} gap-2.5 md:gap-3.5`}
+        style={typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : undefined}
+      >
         {stores.map((st, idx) => {
           const taggedProd =
             products.find((p) => st.tag_filter && p.storeTags.includes(st.tag_filter.toLowerCase())) ||
@@ -494,8 +567,14 @@ export function ExploreStores3x3Widget({
               key={st.id || idx}
               href={href}
               data-keep-dark="true"
-              className="group relative rounded-2xl overflow-hidden p-2 sm:p-2.5 flex flex-col justify-between aspect-[4/4.4] shadow-sm hover:shadow-lg transition-all"
-              style={{ backgroundColor: frameBg }}
+              className={`group relative rounded-2xl overflow-hidden p-2 sm:p-2.5 flex flex-col justify-between shadow-sm hover:shadow-lg transition-all ${
+                hasCustomH ? "cs-h-responsive" : "aspect-[4/4.4]"
+              }`}
+              style={{
+                backgroundColor: frameBg,
+                ...(typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {}),
+                ...cardHVars,
+              }}
             >
               <p className="relative z-10 text-[10px] sm:text-[11px] font-black uppercase leading-tight text-white line-clamp-2 pr-1">
                 {st.title}
@@ -506,6 +585,7 @@ export function ExploreStores3x3Widget({
                   <SmartFitImage
                     src={imgUrl}
                     alt={st.title}
+                    transform={st}
                     imgClassName="group-hover:scale-[1.04]"
                   />
                 ) : (

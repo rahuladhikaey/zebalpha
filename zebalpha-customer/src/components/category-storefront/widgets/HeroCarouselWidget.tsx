@@ -3,11 +3,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
-import type {
-  CategoryThemeTokens,
-  CategoryWidgetConfig,
-  HeroSlideItem,
-  CategorySpotlightRequest,
+import {
+  getWidgetStyle,
+  type CategoryThemeTokens,
+  type CategoryWidgetConfig,
+  type HeroSlideItem,
+  type CategorySpotlightRequest,
 } from "@/lib/categoryStorefrontTypes";
 import type { StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
 import { SmartFitImage } from "../SmartFitImage";
@@ -120,10 +121,19 @@ export function HeroCarouselWidget({
 
   const isFullArtwork = (slide: HeroSlideItem) =>
     Boolean((slide as any).full_banner_mode && slide.image_url);
+  const wStyle = getWidgetStyle(widget);
+  const padStyle: React.CSSProperties =
+    typeof wStyle.paddingY === "number" ? { paddingTop: `${wStyle.paddingY}px`, paddingBottom: `${wStyle.paddingY}px` } : {};
+  const radiusStyle: React.CSSProperties =
+    typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {};
+  const gapStyle: React.CSSProperties =
+    typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : {};
+  const hasSlideTransform = (sl: HeroSlideItem) =>
+    Boolean(sl.img_fit || (sl.img_zoom && sl.img_zoom !== 100) || typeof sl.img_pos_y === "number" || typeof sl.img_pos_x === "number");
 
   return (
-    <section className="w-full">
-      {/* MOBILE / ANDROID APP VIEW: Full-Bleed Banners Adopt Uploaded Photo's Actual Natural Ratio (ZERO Crop!) */}
+    <section className="w-full" style={padStyle}>
+      {/* MOBILE / ANDROID APP VIEW: Full-Bleed Banners Adopt Uploaded Photo's Actual Natural Ratio or Custom Admin Height */}
       <div className="md:hidden px-3 pt-2.5 pb-1">
         <Link
           href={currentMobile.destination_url}
@@ -135,15 +145,26 @@ export function HeroCarouselWidget({
             background: isFullArtwork(currentMobile)
               ? "#0B0D0E"
               : currentMobile.bg_gradient || DARK_GRADIENTS[activeIdx % DARK_GRADIENTS.length],
+            height: wStyle.bannerHeightMobile ? `${wStyle.bannerHeightMobile}px` : undefined,
+            ...radiusStyle,
           }}
         >
           {isFullArtwork(currentMobile) ? (
-            <img
-              src={currentMobile.image_url}
-              alt={currentMobile.title}
-              className="block w-full h-auto max-h-[440px] object-contain mx-auto"
-              loading="eager"
-            />
+            wStyle.bannerHeightMobile || hasSlideTransform(currentMobile) ? (
+              <SmartFitImage
+                src={currentMobile.image_url || ""}
+                alt={currentMobile.title}
+                loading="eager"
+                transform={currentMobile}
+              />
+            ) : (
+              <img
+                src={currentMobile.image_url}
+                alt={currentMobile.title}
+                className="block w-full h-auto max-h-[440px] object-contain mx-auto"
+                loading="eager"
+              />
+            )
           ) : (
             <>
               {/* Decorative neon/accent corner geometric shapes */}
@@ -244,14 +265,16 @@ export function HeroCarouselWidget({
         )}
       </div>
 
-      {/* DESKTOP / TABLET VIEW: Uploaded Banners Automatically Take Their Exact Natural Aspect Ratio (ZERO Cropping!) */}
+      {/* DESKTOP / TABLET VIEW: Uploaded Banners Automatically Take Their Exact Natural Aspect Ratio (or Admin Custom Height) */}
       <div className="hidden md:block relative max-w-[1440px] mx-auto px-6 pt-4 pb-2">
         <div
           ref={desktopScrollRef}
           className="flex items-stretch gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-1"
+          style={gapStyle}
         >
           {slides.map((slide, idx) => {
             const fullArt = isFullArtwork(slide);
+            const deskH = wStyle.bannerHeightDesktop;
             return (
               <Link
                 key={slide.id}
@@ -259,28 +282,41 @@ export function HeroCarouselWidget({
                 data-keep-dark="true"
                 className={`group relative shrink-0 rounded-[20px] overflow-hidden snap-start shadow-md hover:shadow-xl transition-all ${
                   fullArt
-                    ? "h-[260px] lg:h-[310px] w-auto flex items-center justify-center bg-zinc-950"
+                    ? `${deskH ? "" : "h-[260px] lg:h-[310px]"} w-auto flex items-center justify-center bg-zinc-950`
                     : `${
                         slides.length === 1
-                          ? "w-full max-w-[920px] mx-auto h-[260px] lg:h-[300px]"
+                          ? `w-full max-w-[920px] mx-auto ${deskH ? "" : "h-[260px] lg:h-[300px]"}`
                           : slides.length === 2
-                            ? "w-[calc(50%-8px)] h-[260px] lg:h-[310px]"
-                            : "w-[420px] lg:w-[460px] h-[260px] lg:h-[310px]"
+                            ? `w-[calc(50%-8px)] ${deskH ? "" : "h-[260px] lg:h-[310px]"}`
+                            : `w-[420px] lg:w-[460px] ${deskH ? "" : "h-[260px] lg:h-[310px]"}`
                       } flex flex-col justify-between`
                 }`}
                 style={{
                   background: fullArt
                     ? "#0B0D0E"
                     : slide.bg_gradient || DARK_GRADIENTS[idx % DARK_GRADIENTS.length],
+                  height: deskH ? `${deskH}px` : undefined,
+                  ...radiusStyle,
                 }}
               >
                 {fullArt ? (
-                  <img
-                    src={slide.image_url}
-                    alt={slide.title}
-                    className="block h-full w-auto max-w-[82vw] object-contain group-hover:scale-[1.015] transition-transform duration-300"
-                    loading="lazy"
-                  />
+                  hasSlideTransform(slide) ? (
+                    <div className="h-full w-[420px] lg:w-[480px]">
+                      <SmartFitImage
+                        src={slide.image_url || ""}
+                        alt={slide.title}
+                        transform={slide}
+                        imgClassName="group-hover:scale-[1.015]"
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={slide.image_url}
+                      alt={slide.title}
+                      className="block h-full w-auto max-w-[82vw] object-contain group-hover:scale-[1.015] transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  )
                 ) : (
                   <>
                     <div

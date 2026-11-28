@@ -43,7 +43,84 @@ export type CategoryWidgetType =
   | "OFFER_PAYMENT_STRIP"
   | "INFINITE_PRODUCT_FEED";
 
-export interface HeroSlideItem {
+export interface WidgetLayoutStyle {
+  bannerHeightMobile?: number;
+  bannerHeightDesktop?: number;
+  cardHeightMobile?: number;
+  cardHeightDesktop?: number;
+  mobileCols?: number;
+  desktopCols?: number;
+  gapPx?: number;
+  paddingY?: number;
+  borderRadius?: number;
+  titleSize?: "sm" | "md" | "lg" | "xl";
+  titleAlign?: "left" | "center" | "right";
+  titleColor?: string;
+  hideTitle?: boolean;
+  hideSubtitle?: boolean;
+}
+
+export interface CardImageTransform {
+  img_fit?: "contain" | "cover";
+  img_zoom?: number;
+  img_pos_x?: number;
+  img_pos_y?: number;
+}
+
+export function getWidgetStyle(widget?: CategoryWidgetConfig | null): WidgetLayoutStyle {
+  const s = widget?.config?.style;
+  return s && typeof s === "object" ? (s as WidgetLayoutStyle) : {};
+}
+
+export function getTitleSizeClass(size?: WidgetLayoutStyle["titleSize"], fallback = "text-base md:text-xl"): string {
+  switch (size) {
+    case "sm":
+      return "text-sm md:text-base";
+    case "md":
+      return "text-base md:text-xl";
+    case "lg":
+      return "text-lg md:text-2xl";
+    case "xl":
+      return "text-xl md:text-3xl";
+    default:
+      return fallback;
+  }
+}
+
+export function getTitleAlignClass(align?: WidgetLayoutStyle["titleAlign"], fallback = "text-left"): string {
+  if (align === "center") return "text-center";
+  if (align === "right") return "text-right";
+  if (align === "left") return "text-left";
+  return fallback;
+}
+
+const MOBILE_COLS_MAP: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+};
+
+const DESKTOP_COLS_MAP: Record<number, string> = {
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-3",
+  4: "md:grid-cols-4",
+  5: "md:grid-cols-5",
+  6: "md:grid-cols-6",
+};
+
+export function getResponsiveGridColsClass(
+  mobileCols?: number,
+  desktopCols?: number,
+  fallback = "grid-cols-2 md:grid-cols-4"
+): string {
+  if (!mobileCols && !desktopCols) return fallback;
+  const m = MOBILE_COLS_MAP[Number(mobileCols)] || "grid-cols-2";
+  const d = DESKTOP_COLS_MAP[Number(desktopCols)] || "md:grid-cols-4";
+  return `${m} ${d}`;
+}
+
+export interface HeroSlideItem extends CardImageTransform {
   id: string;
   badge?: string;
   title: string;
@@ -52,10 +129,11 @@ export interface HeroSlideItem {
   footer_pill?: string;
   image_url?: string;
   bg_gradient?: string;
+  full_banner_mode?: boolean;
   destination_url: string;
 }
 
-export interface DealCardItem {
+export interface DealCardItem extends CardImageTransform {
   id: string;
   title: string;
   offer_pill: string;
@@ -64,7 +142,7 @@ export interface DealCardItem {
   tag_filter?: string;
 }
 
-export interface MicroStoreTile {
+export interface MicroStoreTile extends CardImageTransform {
   id: string;
   title: string;
   subtitle?: string;
@@ -73,7 +151,7 @@ export interface MicroStoreTile {
   tag_filter?: string;
 }
 
-export interface BrandSpotlightItem {
+export interface BrandSpotlightItem extends CardImageTransform {
   id: string;
   brand_name: string;
   offer_text: string;

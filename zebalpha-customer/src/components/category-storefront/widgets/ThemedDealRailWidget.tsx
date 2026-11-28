@@ -3,7 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
-import type { CategoryThemeTokens, CategoryWidgetConfig, DealCardItem } from "@/lib/categoryStorefrontTypes";
+import {
+  getTitleAlignClass,
+  getTitleSizeClass,
+  getWidgetStyle,
+  type CategoryThemeTokens,
+  type CategoryWidgetConfig,
+  type DealCardItem,
+} from "@/lib/categoryStorefrontTypes";
 import type { StorefrontProductCard, EnrichedSubcategory } from "@/lib/categoryStorefrontLoader";
 import { SmartFitImage } from "../SmartFitImage";
 
@@ -23,6 +30,20 @@ export function ThemedDealRailWidget({
   subcategories,
 }: ThemedDealRailWidgetProps) {
   const cfg = widget.config || {};
+  const wStyle = getWidgetStyle(widget);
+  const hasCustomH = Boolean(wStyle.cardHeightMobile || wStyle.cardHeightDesktop);
+  const cardHVars = hasCustomH
+    ? ({
+        "--cs-h-m": `${wStyle.cardHeightMobile || 150}px`,
+        "--cs-h-d": `${wStyle.cardHeightDesktop || 185}px`,
+      } as React.CSSProperties)
+    : undefined;
+  const padStyle: React.CSSProperties =
+    typeof wStyle.paddingY === "number" ? { paddingTop: `${wStyle.paddingY}px`, paddingBottom: `${wStyle.paddingY}px` } : {};
+  const radiusStyle: React.CSSProperties =
+    typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {};
+  const gapStyle: React.CSSProperties =
+    typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : {};
   const variant = widget.style_variant || "clean_white";
   const maxItems = Number(cfg.max_items || 8);
   const catParam = encodeURIComponent(categoryId);
@@ -167,17 +188,24 @@ export function ThemedDealRailWidget({
     const pillText = isLime ? "#FFFFFF" : tokens.accentText;
 
     return (
-      <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-2.5">
+      <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-2.5" style={padStyle}>
         <div
           data-keep-dark={isBlack ? "true" : undefined}
           className="relative rounded-[24px] p-4 md:p-5 overflow-hidden shadow-sm"
-          style={{ backgroundColor: boxBg, color: boxText }}
+          style={{ backgroundColor: boxBg, color: boxText, ...radiusStyle }}
         >
           {/* Header Row */}
           <div className="flex items-start justify-between gap-3 mb-3.5">
-            <div>
-              <h2 className="text-lg md:text-2xl font-black tracking-tight leading-none">{widget.title}</h2>
-              {widget.subtitle && (
+            <div className={getTitleAlignClass(wStyle.titleAlign, "text-left")}>
+              {!wStyle.hideTitle && (
+                <h2
+                  className={`font-black tracking-tight leading-none ${getTitleSizeClass(wStyle.titleSize, "text-lg md:text-2xl")}`}
+                  style={wStyle.titleColor ? { color: wStyle.titleColor } : undefined}
+                >
+                  {widget.title}
+                </h2>
+              )}
+              {!wStyle.hideSubtitle && widget.subtitle && (
                 <p className="text-[11px] md:text-xs font-extrabold uppercase tracking-wider mt-1 opacity-75">
                   {widget.subtitle}
                 </p>
@@ -193,18 +221,24 @@ export function ThemedDealRailWidget({
           </div>
 
           {/* Horizontal Scroll Cards */}
-          <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-1">
+          <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-1" style={gapStyle}>
             {cards.map((card) => (
               <Link
                 key={card.id}
                 href={card.destination_url}
                 className="group shrink-0 w-[138px] sm:w-[164px] md:w-[188px] flex flex-col"
               >
-                <div className="relative aspect-[4/4.6] w-full rounded-2xl overflow-hidden bg-white shadow-sm">
+                <div
+                  className={`relative w-full rounded-2xl overflow-hidden bg-white shadow-sm ${
+                    hasCustomH ? "cs-h-responsive" : "aspect-[4/4.6]"
+                  }`}
+                  style={{ ...radiusStyle, ...cardHVars }}
+                >
                   {card.image_url ? (
                     <SmartFitImage
                       src={card.image_url}
                       alt={card.title}
+                      transform={card}
                       imgClassName="group-hover:scale-[1.04]"
                     />
                   ) : (

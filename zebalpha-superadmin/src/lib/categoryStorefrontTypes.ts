@@ -43,6 +43,57 @@ export type CategoryWidgetType =
   | "OFFER_PAYMENT_STRIP"
   | "INFINITE_PRODUCT_FEED";
 
+export interface WidgetLayoutStyle {
+  bannerHeightMobile?: number;
+  bannerHeightDesktop?: number;
+  cardHeightMobile?: number;
+  cardHeightDesktop?: number;
+  mobileCols?: number;
+  desktopCols?: number;
+  gapPx?: number;
+  paddingY?: number;
+  borderRadius?: number;
+  titleSize?: "sm" | "md" | "lg" | "xl";
+  titleAlign?: "left" | "center" | "right";
+  titleColor?: string;
+  hideTitle?: boolean;
+  hideSubtitle?: boolean;
+}
+
+export interface CardImageTransform {
+  img_fit?: "contain" | "cover";
+  img_zoom?: number;
+  img_pos_x?: number;
+  img_pos_y?: number;
+}
+
+export function getWidgetStyle(widget?: CategoryWidgetConfig | null): WidgetLayoutStyle {
+  const s = widget?.config?.style;
+  return s && typeof s === "object" ? (s as WidgetLayoutStyle) : {};
+}
+
+export function getTitleSizeClass(size?: WidgetLayoutStyle["titleSize"], fallback = "text-base md:text-xl"): string {
+  switch (size) {
+    case "sm":
+      return "text-sm md:text-base";
+    case "md":
+      return "text-base md:text-xl";
+    case "lg":
+      return "text-lg md:text-2xl";
+    case "xl":
+      return "text-xl md:text-3xl";
+    default:
+      return fallback;
+  }
+}
+
+export function getTitleAlignClass(align?: WidgetLayoutStyle["titleAlign"], fallback = "text-left"): string {
+  if (align === "center") return "text-center";
+  if (align === "right") return "text-right";
+  if (align === "left") return "text-left";
+  return fallback;
+}
+
 export interface CategoryWidgetConfig {
   id: string;
   widget_type: CategoryWidgetType;

@@ -35,6 +35,7 @@ import {
   type StudioSelection,
   type StudioSubcategoryRow,
   SectionFrameWrapper,
+  reorderArray,
 } from "./visual-studio/VisualStudioShared";
 import { VisualCanvasWidgetRenderer } from "./visual-studio/VisualCanvasWidgets";
 import { VisualInspectorSidebar, type InspectorTab } from "./visual-studio/VisualInspectorSidebar";
@@ -84,6 +85,8 @@ export default function CategoryStorefrontStudioView() {
   const [spotlights, setSpotlights] = useState<SpotlightRequestRow[]>([]);
 
   const [selection, setSelection] = useState<StudioSelection | null>(null);
+  const [draggedSectionIdx, setDraggedSectionIdx] = useState<number | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const notify = (text: string, type: "success" | "error" = "success") => {
@@ -521,7 +524,7 @@ export default function CategoryStorefrontStudioView() {
             {/* Helper hint bar */}
             <div className="w-full flex flex-wrap items-center justify-between gap-2 mb-3 text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
               <span>
-                ✨ Tip: Click any <strong>Text</strong> to type directly • Click <strong>📷 Photo</strong> on any banner/card (auto ≤150KB) • Use <strong>Right Panel</strong> for Colors & Auto-Links
+                ✨ Canva Mode: <strong>Drag ⋮⋮</strong> sections &amp; cards to reorder • <strong>Drag Bottom Handle</strong> to resize • Click <strong>Text</strong> to type • Click <strong>Photo</strong> (≤150KB)
               </span>
               <span className="rounded-full bg-zinc-200 dark:bg-zinc-800 px-2.5 py-0.5 text-[10px] font-black uppercase text-zinc-800 dark:text-zinc-200">
                 {deviceMode === "mobile"
@@ -597,6 +600,23 @@ export default function CategoryStorefrontStudioView() {
                     index={idx}
                     total={blueprint.widgets.length}
                     isSelected={selection?.widgetId === w.id}
+                    isDropTarget={dropTargetIdx === idx && draggedSectionIdx !== null && draggedSectionIdx !== idx}
+                    onDragStart={(from) => setDraggedSectionIdx(from)}
+                    onDragOver={(over) => setDropTargetIdx(over)}
+                    onDragLeave={() => setDropTargetIdx(null)}
+                    onDrop={(toIdx) => {
+                      if (draggedSectionIdx !== null && draggedSectionIdx !== toIdx) {
+                        mutateBlueprint((prev) => ({
+                          ...prev,
+                          widgets: reorderArray(prev.widgets, draggedSectionIdx, toIdx).map((x, i) => ({
+                            ...x,
+                            display_order: i + 1,
+                          })),
+                        }));
+                      }
+                      setDraggedSectionIdx(null);
+                      setDropTargetIdx(null);
+                    }}
                     onSelect={() => {
                       setSelection({ widgetId: w.id });
                       setInspectorTab("selected");

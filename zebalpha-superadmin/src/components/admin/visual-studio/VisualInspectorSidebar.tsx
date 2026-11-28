@@ -2,20 +2,30 @@
 
 import React from "react";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Link2,
+  Maximize2,
+  Move,
   Palette,
   Plus,
+  RotateCcw,
   Sliders,
   Sparkles,
   Trash2,
+  Type,
 } from "lucide-react";
 import {
   CATEGORY_THEME_PRESETS,
   WIDGET_CATALOG_META,
+  getWidgetStyle,
+  type CardImageTransform,
   type CategoryStorefrontBlueprint,
   type CategoryThemePresetKey,
   type CategoryWidgetConfig,
   type CategoryWidgetType,
+  type WidgetLayoutStyle,
 } from "@/lib/categoryStorefrontTypes";
 import { AdminImageUploadField } from "../CategoryWidgetInlineEditor";
 import type { StudioSelection, StudioSubcategoryRow } from "./VisualStudioShared";
@@ -88,6 +98,131 @@ function AutoLinkPills({
   );
 }
 
+/**
+ * Canva-style Photo Zoom, Fit Mode & Pan Position Adjuster for any banner or card!
+ */
+function PhotoTransformPanel({
+  item,
+  onChange,
+}: {
+  item: CardImageTransform;
+  onChange: (patch: Partial<CardImageTransform>) => void;
+}) {
+  const fit = item.img_fit === "cover" ? "cover" : "contain";
+  const zoom = Number(item.img_zoom || 100);
+  const posX = typeof item.img_pos_x === "number" ? item.img_pos_x : 50;
+  const posY = typeof item.img_pos_y === "number" ? item.img_pos_y : 50;
+
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 p-2.5 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-zinc-500">
+          <Move className="h-3 w-3 text-amber-500" /> Photo Zoom & Position
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange({ img_fit: "contain", img_zoom: 100, img_pos_x: 50, img_pos_y: 50 })}
+          className="text-[10px] font-bold text-amber-500 hover:underline cursor-pointer"
+        >
+          Reset
+        </button>
+      </div>
+
+      {/* Fit Mode Toggle */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange({ img_fit: "contain" })}
+          className={`rounded-lg py-1 text-[10px] font-black border cursor-pointer ${
+            fit === "contain"
+              ? "bg-amber-400 text-black border-amber-400"
+              : "border-zinc-300 dark:border-zinc-700 text-zinc-500"
+          }`}
+        >
+          Full Auto-Fit
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({ img_fit: "cover" })}
+          className={`rounded-lg py-1 text-[10px] font-black border cursor-pointer ${
+            fit === "cover"
+              ? "bg-amber-400 text-black border-amber-400"
+              : "border-zinc-300 dark:border-zinc-700 text-zinc-500"
+          }`}
+        >
+          Edge-to-Edge Fill
+        </button>
+      </div>
+
+      {/* Zoom Slider */}
+      <div>
+        <div className="flex justify-between text-[10px] font-bold text-zinc-500">
+          <span>Zoom</span>
+          <span className="text-amber-500">{zoom}%</span>
+        </div>
+        <input
+          type="range"
+          min={80}
+          max={180}
+          step={2}
+          value={zoom}
+          onChange={(e) => onChange({ img_zoom: Number(e.target.value) })}
+          className="w-full accent-amber-400 cursor-pointer h-1.5"
+        />
+      </div>
+
+      {/* Quick Vertical Alignment + Fine Sliders */}
+      <div className="grid grid-cols-3 gap-1">
+        {(
+          [
+            ["Top", 15],
+            ["Center", 50],
+            ["Bottom", 85],
+          ] as const
+        ).map(([lbl, y]) => (
+          <button
+            key={lbl}
+            type="button"
+            onClick={() => onChange({ img_pos_y: y })}
+            className={`rounded-md py-0.5 text-[10px] font-bold border cursor-pointer ${
+              Math.abs(posY - y) <= 10
+                ? "border-amber-400 bg-amber-400/15 text-amber-500"
+                : "border-zinc-300 dark:border-zinc-700 text-zinc-500"
+            }`}
+          >
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <span className="text-[9.5px] font-bold text-zinc-500">Left ↔ Right ({posX}%)</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={posX}
+            onChange={(e) => onChange({ img_pos_x: Number(e.target.value) })}
+            className="w-full accent-amber-400 cursor-pointer h-1.5"
+          />
+        </div>
+        <div>
+          <span className="text-[9.5px] font-bold text-zinc-500">Up ↕ Down ({posY}%)</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={posY}
+            onChange={(e) => onChange({ img_pos_y: Number(e.target.value) })}
+            className="w-full accent-amber-400 cursor-pointer h-1.5"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function VisualInspectorSidebar({
   tab,
   onTabChange,
@@ -124,8 +259,18 @@ export function VisualInspectorSidebar({
     : null;
   const meta = selectedWidget ? WIDGET_CATALOG_META[selectedWidget.widget_type] : null;
   const cfg = selectedWidget?.config || {};
+  const style: WidgetLayoutStyle = getWidgetStyle(selectedWidget);
 
-  // Resolve currently clicked inner item (slide / card / store / kit / brand / subcategory)
+  const patchWidgetStyle = (patch: Partial<WidgetLayoutStyle>) => {
+    if (!selectedWidget) return;
+    onUpdateWidgetConfig(selectedWidget.id, { style: { ...style, ...patch } });
+  };
+
+  const resetWidgetStyle = () => {
+    if (!selectedWidget) return;
+    onUpdateWidgetConfig(selectedWidget.id, { style: {} });
+  };
+
   const renderSelectedItemControls = () => {
     if (!selectedWidget || !selection) return null;
 
@@ -172,7 +317,7 @@ export function VisualInspectorSidebar({
 
           <div>
             <label className="block text-[10.5px] font-bold text-zinc-500 mb-1">
-              Banner Photo (Recommended: 1200×600 or 1:1 • Auto ≤150KB)
+              Banner Photo (1200×600 or 1:1 • Auto ≤150KB)
             </label>
             <AdminImageUploadField
               value={slide.image_url || ""}
@@ -180,6 +325,8 @@ export function VisualInspectorSidebar({
               folder="category-banners"
             />
           </div>
+
+          <PhotoTransformPanel item={slide} onChange={(patch) => updateSlide(patch)} />
 
           {!slide.full_banner_mode && (
             <>
@@ -252,7 +399,7 @@ export function VisualInspectorSidebar({
             Subcategory: {sc.name}
           </span>
           <p className="text-[11px] text-zinc-500">
-            Recommended: <strong>400×400 (1:1)</strong> • Auto-compressed ≤150 KB & saved directly to live DB.
+            Recommended: <strong>400×400 (1:1)</strong> • Auto-compressed ≤150 KB & saved directly to DB.
           </p>
           <AdminImageUploadField
             value={subcatImages[sc.id] || sc.image_url || ""}
@@ -330,6 +477,8 @@ export function VisualInspectorSidebar({
             />
           </div>
 
+          <PhotoTransformPanel item={item} onChange={(patch) => updateItem(patch)} />
+
           <div>
             <label className="block text-[10.5px] font-bold text-zinc-500 mb-1">Click Link URL</label>
             <input
@@ -359,6 +508,9 @@ export function VisualInspectorSidebar({
 
     return null;
   };
+
+  const isBannerWidget =
+    selectedWidget?.widget_type === "HERO_CAROUSEL" || selectedWidget?.widget_type === "FULL_SPOTLIGHT_BANNER";
 
   return (
     <aside className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col max-h-[calc(100vh-140px)] sticky top-4">
@@ -401,7 +553,6 @@ export function VisualInspectorSidebar({
 
       {/* Scrollable Inspector Body */}
       <div className="p-4 overflow-y-auto space-y-4 flex-1">
-        {/* TAB 1: SELECTED SECTION / ITEM */}
         {tab === "selected" && (
           <>
             {!selectedWidget ? (
@@ -409,22 +560,255 @@ export function VisualInspectorSidebar({
                 <Sparkles className="h-6 w-6 text-amber-400 mx-auto" />
                 <p className="text-xs font-black">Click Any Banner, Card, or Section</p>
                 <p className="text-[11px] text-zinc-500">
-                  Tap directly on the live screen on the left to upload photos, write text inline, or auto-link prices & subcategories.
+                  Drag sections &amp; cards directly on the live screen, pull bottom handles to resize height, or zoom/move photos right here.
                 </p>
               </div>
             ) : (
               <div className="space-y-3.5">
-                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
-                  <span className="inline-block rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300 px-2 py-0.5 text-[10px] font-black uppercase">
-                    {meta?.label || selectedWidget.widget_type}
-                  </span>
-                  <p className="text-xs font-black mt-1">{selectedWidget.title}</p>
+                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2.5 flex items-start justify-between gap-2">
+                  <div>
+                    <span className="inline-block rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300 px-2 py-0.5 text-[10px] font-black uppercase">
+                      {meta?.label || selectedWidget.widget_type}
+                    </span>
+                    <p className="text-xs font-black mt-1">{selectedWidget.title}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetWidgetStyle}
+                    title="Reset custom size, columns, spacing & typography"
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-[10px] font-bold hover:border-amber-400 cursor-pointer shrink-0"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Reset Size
+                  </button>
                 </div>
 
-                {/* Inner clicked banner/card controls */}
+                {/* Inner clicked banner/card controls (Photo Zoom + Fit + Auto-Link) */}
                 {renderSelectedItemControls()}
 
-                {/* Section-level Style & Title Controls */}
+                {/* CANVA SIZE, GRID & SPACING PANEL */}
+                <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 p-3 space-y-2.5">
+                  <p className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-zinc-500">
+                    <Maximize2 className="h-3 w-3 text-amber-500" /> Canva Size, Grid & Spacing
+                  </p>
+
+                  {/* Phone vs Desktop Columns (Card Width) */}
+                  {!isBannerWidget && selectedWidget.widget_type !== "OFFER_PAYMENT_STRIP" && selectedWidget.widget_type !== "SUBCATEGORY_NAV" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="block text-[10px] font-bold text-zinc-500 mb-1">Phone Cards / Row</span>
+                        <div className="grid grid-cols-4 gap-1">
+                          {[1, 2, 3, 4].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => patchWidgetStyle({ mobileCols: c })}
+                              className={`rounded-lg py-1 text-[10px] font-black border cursor-pointer ${
+                                style.mobileCols === c
+                                  ? "bg-amber-400 text-black border-amber-400"
+                                  : "border-zinc-300 dark:border-zinc-700 text-zinc-500"
+                              }`}
+                            >
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-zinc-500 mb-1">Desktop Cards / Row</span>
+                        <div className="grid grid-cols-5 gap-1">
+                          {[2, 3, 4, 5, 6].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => patchWidgetStyle({ desktopCols: c })}
+                              className={`rounded-lg py-1 text-[10px] font-black border cursor-pointer ${
+                                style.desktopCols === c
+                                  ? "bg-amber-400 text-black border-amber-400"
+                                  : "border-zinc-300 dark:border-zinc-700 text-zinc-500"
+                              }`}
+                            >
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Separate Phone & Desktop Height Sliders */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="flex justify-between text-[10px] font-bold text-zinc-500">
+                        <span>Phone Height</span>
+                        <span className="text-amber-500">
+                          {(isBannerWidget ? style.bannerHeightMobile : style.cardHeightMobile) || "Auto"}
+                          {(isBannerWidget ? style.bannerHeightMobile : style.cardHeightMobile) ? "px" : ""}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={isBannerWidget ? 140 : 100}
+                        max={isBannerWidget ? 440 : 380}
+                        step={4}
+                        value={(isBannerWidget ? style.bannerHeightMobile : style.cardHeightMobile) || (isBannerWidget ? 220 : 150)}
+                        onChange={(e) =>
+                          patchWidgetStyle(
+                            isBannerWidget
+                              ? { bannerHeightMobile: Number(e.target.value) }
+                              : { cardHeightMobile: Number(e.target.value) }
+                          )
+                        }
+                        className="w-full accent-amber-400 cursor-pointer h-1.5"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[10px] font-bold text-zinc-500">
+                        <span>Desktop Height</span>
+                        <span className="text-amber-500">
+                          {(isBannerWidget ? style.bannerHeightDesktop : style.cardHeightDesktop) || "Auto"}
+                          {(isBannerWidget ? style.bannerHeightDesktop : style.cardHeightDesktop) ? "px" : ""}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={isBannerWidget ? 180 : 110}
+                        max={isBannerWidget ? 460 : 420}
+                        step={4}
+                        value={(isBannerWidget ? style.bannerHeightDesktop : style.cardHeightDesktop) || (isBannerWidget ? 260 : 190)}
+                        onChange={(e) =>
+                          patchWidgetStyle(
+                            isBannerWidget
+                              ? { bannerHeightDesktop: Number(e.target.value) }
+                              : { cardHeightDesktop: Number(e.target.value) }
+                          )
+                        }
+                        className="w-full accent-amber-400 cursor-pointer h-1.5"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Gap, Corner Radius & Section Padding */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="text-[9.5px] font-bold text-zinc-500">Gap ({style.gapPx ?? 12}px)</span>
+                      <input
+                        type="range"
+                        min={4}
+                        max={28}
+                        value={style.gapPx ?? 12}
+                        onChange={(e) => patchWidgetStyle({ gapPx: Number(e.target.value) })}
+                        className="w-full accent-amber-400 cursor-pointer h-1.5"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[9.5px] font-bold text-zinc-500">Corners ({style.borderRadius ?? 16}px)</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={32}
+                        value={style.borderRadius ?? 16}
+                        onChange={(e) => patchWidgetStyle({ borderRadius: Number(e.target.value) })}
+                        className="w-full accent-amber-400 cursor-pointer h-1.5"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[9.5px] font-bold text-zinc-500">Space ({style.paddingY ?? 12}px)</span>
+                      <input
+                        type="range"
+                        min={2}
+                        max={40}
+                        value={style.paddingY ?? 12}
+                        onChange={(e) => patchWidgetStyle({ paddingY: Number(e.target.value) })}
+                        className="w-full accent-amber-400 cursor-pointer h-1.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* CANVA TYPOGRAPHY & TEXT DELETE/HIDE PANEL */}
+                <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 p-3 space-y-2.5">
+                  <p className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-zinc-500">
+                    <Type className="h-3 w-3 text-amber-500" /> Typography & Text Controls
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="block text-[10px] font-bold text-zinc-500 mb-1">Title Size</span>
+                      <div className="grid grid-cols-4 gap-1">
+                        {(["sm", "md", "lg", "xl"] as const).map((sz) => (
+                          <button
+                            key={sz}
+                            type="button"
+                            onClick={() => patchWidgetStyle({ titleSize: sz })}
+                            className={`rounded-lg py-1 text-[10px] font-black uppercase border cursor-pointer ${
+                              style.titleSize === sz
+                                ? "bg-amber-400 text-black border-amber-400"
+                                : "border-zinc-300 dark:border-zinc-700 text-zinc-500"
+                            }`}
+                          >
+                            {sz}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="block text-[10px] font-bold text-zinc-500 mb-1">Alignment</span>
+                      <div className="grid grid-cols-3 gap-1">
+                        {(
+                          [
+                            ["left", AlignLeft],
+                            ["center", AlignCenter],
+                            ["right", AlignRight],
+                          ] as const
+                        ).map(([al, Icon]) => (
+                          <button
+                            key={al}
+                            type="button"
+                            onClick={() => patchWidgetStyle({ titleAlign: al })}
+                            className={`rounded-lg py-1 flex items-center justify-center border cursor-pointer ${
+                              style.titleAlign === al
+                                ? "bg-amber-400 text-black border-amber-400"
+                                : "border-zinc-300 dark:border-zinc-700 text-zinc-500"
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <label className="inline-flex items-center gap-1.5 text-[11px] font-bold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(style.hideTitle)}
+                        onChange={(e) => patchWidgetStyle({ hideTitle: e.target.checked })}
+                      />
+                      Hide Title
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 text-[11px] font-bold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(style.hideSubtitle)}
+                        onChange={(e) => patchWidgetStyle({ hideSubtitle: e.target.checked })}
+                      />
+                      Hide Subtitle
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 text-[11px] font-bold cursor-pointer">
+                      <span>Color</span>
+                      <input
+                        type="color"
+                        value={style.titleColor || "#111111"}
+                        onChange={(e) => patchWidgetStyle({ titleColor: e.target.value })}
+                        className="h-5 w-6 rounded cursor-pointer border-0 bg-transparent"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Section-level Title, Style & Quick Actions */}
                 <div className="space-y-2.5 pt-1">
                   <div>
                     <label className="block text-[10.5px] font-bold text-zinc-500 mb-1">Section Title</label>

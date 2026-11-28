@@ -631,3 +631,19 @@ body.is-android-app.zebalpha-onboarding-active [data-floating-assistant] {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* ── CATEGORY STOREFRONT CANVA RESPONSIVE CUSTOM HEIGHTS (Zero JS Overhead) ── */
+.cs-h-responsive {
+  height: var(--cs-h-m, auto);
+}
+.cs-w-square-responsive {
+  width: var(--cs-h-m, 74px);
+}
+@media (min-width: 768px) {
+  .cs-h-responsive {
+    height: var(--cs-h-d, var(--cs-h-m, auto));
+  }
+  .cs-w-square-responsive {
+    width: var(--cs-h-d, var(--cs-h-m, 96px));
+  }
+}

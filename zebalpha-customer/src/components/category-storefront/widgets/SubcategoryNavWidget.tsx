@@ -4,7 +4,11 @@ import React, { useRef } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { CategoryIconRenderer, resolveCategoryIcon } from "@/lib/categoryIcons";
-import type { CategoryThemeTokens, CategoryWidgetConfig } from "@/lib/categoryStorefrontTypes";
+import {
+  getWidgetStyle,
+  type CategoryThemeTokens,
+  type CategoryWidgetConfig,
+} from "@/lib/categoryStorefrontTypes";
 import type { EnrichedSubcategory, StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
 import { SmartFitImage } from "../SmartFitImage";
 
@@ -35,6 +39,20 @@ export function SubcategoryNavWidget({
   const scrollRef = useRef<HTMLDivElement>(null);
   const catParam = encodeURIComponent(categoryId);
   const variant = widget.style_variant || "grid_2row_tiles";
+  const wStyle = getWidgetStyle(widget);
+  const hasCustomSize = Boolean(wStyle.cardHeightMobile || wStyle.cardHeightDesktop);
+  const sizeVars = hasCustomSize
+    ? ({
+        "--cs-h-m": `${wStyle.cardHeightMobile || 74}px`,
+        "--cs-h-d": `${wStyle.cardHeightDesktop || 96}px`,
+      } as React.CSSProperties)
+    : undefined;
+  const padStyle: React.CSSProperties =
+    typeof wStyle.paddingY === "number" ? { paddingTop: `${wStyle.paddingY}px`, paddingBottom: `${wStyle.paddingY}px` } : {};
+  const radiusStyle: React.CSSProperties =
+    typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {};
+  const gapStyle: React.CSSProperties =
+    typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : {};
   const fallbackItems: Array<{ title: string; tag?: string; image_url?: string }> =
     Array.isArray(widget.config?.fallback_items) ? widget.config.fallback_items : [];
 
@@ -123,30 +141,37 @@ export function SubcategoryNavWidget({
     );
   }
 
-  // VARIANT B: Fashion 2-Row Horizontal Square Icon Grid (Video 2: 00:00–00:08)
+  // VARIANT B: Fashion 2-Row Horizontal Square Icon Grid (Synced with Canva Size, Gap & Radius)
   const useScrollable2Row = items.length > 8;
   return (
-    <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-3">
+    <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-3" style={padStyle}>
       <div
         className={
           useScrollable2Row
             ? "grid grid-rows-2 grid-flow-col auto-cols-[78px] sm:auto-cols-[92px] md:auto-cols-[106px] gap-x-2.5 gap-y-3 overflow-x-auto no-scrollbar scroll-smooth pb-1"
             : "flex flex-wrap items-start justify-start gap-x-3 gap-y-3.5 sm:gap-x-4 md:gap-x-5"
         }
+        style={gapStyle}
       >
         {items.map((item) => (
           <Link
             key={item.id}
             href={item.href}
             className={`group flex flex-col items-center gap-1.5 text-center cursor-pointer ${
-              useScrollable2Row ? "" : "w-[74px] sm:w-[86px] md:w-[96px]"
+              useScrollable2Row
+                ? ""
+                : hasCustomSize
+                  ? "cs-w-square-responsive"
+                  : "w-[74px] sm:w-[86px] md:w-[96px]"
             }`}
+            style={hasCustomSize && !useScrollable2Row ? sizeVars : undefined}
           >
             <div
               className="w-full aspect-square rounded-2xl overflow-hidden border transition-all group-hover:shadow-md group-active:scale-95 flex items-center justify-center"
               style={{
                 backgroundColor: tokens.softTintBg,
                 borderColor: tokens.borderColor,
+                ...radiusStyle,
               }}
             >
               {item.image_url ? (

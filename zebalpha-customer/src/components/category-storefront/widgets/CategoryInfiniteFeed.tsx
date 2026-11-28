@@ -4,7 +4,13 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { ArrowDown, Star, Loader2, SlidersHorizontal } from "lucide-react";
 import { WishlistButton } from "@/components/WishlistButton";
-import type { CategoryWidgetConfig } from "@/lib/categoryStorefrontTypes";
+import {
+  getResponsiveGridColsClass,
+  getTitleAlignClass,
+  getTitleSizeClass,
+  getWidgetStyle,
+  type CategoryWidgetConfig,
+} from "@/lib/categoryStorefrontTypes";
 import type { StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
 
 interface CategoryInfiniteFeedProps {
@@ -32,6 +38,12 @@ export function CategoryInfiniteFeed({
   const [loadingMore, setLoadingMore] = useState(false);
 
   const catParam = encodeURIComponent(categoryId);
+  const wStyle = getWidgetStyle(widget);
+  const gridClass = getResponsiveGridColsClass(
+    wStyle.mobileCols,
+    wStyle.desktopCols,
+    "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+  );
 
   const handleLoadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -97,12 +109,16 @@ export function CategoryInfiniteFeed({
         </div>
       ) : (
         <>
-          {/* Flipkart-Grade Device-Fitted Product Grid: 2-Col Mobile -> 3-Col Small -> 4-Col Tablet -> 5-Col Laptop -> 6-Col Desktop */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3 md:gap-4">
+          {/* Flipkart-Grade Device-Fitted Product Grid (Synced with Superadmin Canva Columns, Gap & Radius) */}
+          <div
+            className={`grid ${gridClass} gap-2.5 sm:gap-3 md:gap-4`}
+            style={typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : undefined}
+          >
             {items.map((p) => (
               <div
                 key={p.id}
                 className="group relative bg-white rounded-2xl border border-zinc-200/80 overflow-hidden hover:shadow-md transition-all flex flex-col"
+                style={typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : undefined}
               >
                 {/* Wishlist Heart Floating Top-Right */}
                 <div className="absolute top-2 right-2 z-20">

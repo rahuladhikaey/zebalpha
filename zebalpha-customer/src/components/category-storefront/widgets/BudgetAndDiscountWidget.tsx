@@ -3,7 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import type { CategoryThemeTokens, CategoryWidgetConfig } from "@/lib/categoryStorefrontTypes";
+import {
+  getResponsiveGridColsClass,
+  getTitleAlignClass,
+  getTitleSizeClass,
+  getWidgetStyle,
+  type CategoryThemeTokens,
+  type CategoryWidgetConfig,
+} from "@/lib/categoryStorefrontTypes";
 import type { StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
 
 interface BudgetAndDiscountWidgetProps {
@@ -43,6 +50,13 @@ export function BudgetAndDiscountWidget({
   const catParam = encodeURIComponent(categoryId);
   const variant = widget.style_variant || "ticket_3col";
   const cfg = widget.config || {};
+  const wStyle = getWidgetStyle(widget);
+  const padStyle: React.CSSProperties =
+    typeof wStyle.paddingY === "number" ? { paddingTop: `${wStyle.paddingY}px`, paddingBottom: `${wStyle.paddingY}px` } : {};
+  const radiusStyle: React.CSSProperties =
+    typeof wStyle.borderRadius === "number" ? { borderRadius: `${wStyle.borderRadius}px` } : {};
+  const gapStyle: React.CSSProperties =
+    typeof wStyle.gapPx === "number" ? { gap: `${wStyle.gapPx}px` } : {};
 
   const configuredPriceSlabs: number[] =
     Array.isArray(cfg.price_slabs) && cfg.price_slabs.length > 0
@@ -153,12 +167,20 @@ export function BudgetAndDiscountWidget({
     );
   }
 
-  // VARIANT B: Fashion Perforated Ticket Cards (Dynamic count — Admin can add 2, 3, 4, 6+ cards!)
+  // VARIANT B: Fashion Perforated Ticket Cards (Dynamic count + Canva Spacing, Columns, Radius & Typography)
+  const customPriceGrid = getResponsiveGridColsClass(wStyle.mobileCols, wStyle.desktopCols, priceGridCols);
   return (
-    <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-4">
-      <div className="text-center mb-3.5">
-        <h2 className="text-lg md:text-2xl font-black italic text-zinc-950 tracking-tight">{widget.title}</h2>
-        {widget.subtitle && (
+    <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-4" style={padStyle}>
+      <div className={`${getTitleAlignClass(wStyle.titleAlign, "text-center")} mb-3.5`}>
+        {!wStyle.hideTitle && (
+          <h2
+            className={`font-black italic text-zinc-950 tracking-tight ${getTitleSizeClass(wStyle.titleSize, "text-lg md:text-2xl")}`}
+            style={wStyle.titleColor ? { color: wStyle.titleColor } : undefined}
+          >
+            {widget.title}
+          </h2>
+        )}
+        {!wStyle.hideSubtitle && widget.subtitle && (
           <p
             className="inline-block mt-0.5 rounded-full px-3 py-0.5 text-[11px] font-black"
             style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
@@ -170,7 +192,10 @@ export function BudgetAndDiscountWidget({
 
       {/* Dynamic Ticket-Style Price Cards */}
       {priceSlabs.length > 0 && (
-        <div className={`grid ${priceGridCols} gap-2.5 md:gap-4 max-w-4xl mx-auto`}>
+        <div
+          className={`grid ${customPriceGrid} gap-2.5 md:gap-4 max-w-4xl mx-auto`}
+          style={gapStyle}
+        >
           {priceSlabs.map((price) => {
             const matchCnt = countUnderPrice(price);
             return (
@@ -178,7 +203,7 @@ export function BudgetAndDiscountWidget({
                 key={`ticket-${price}`}
                 href={`/products?category=${catParam}&maxPrice=${price}&sort=price_asc`}
                 className="group relative rounded-2xl p-3 sm:p-5 text-center border-2 border-dashed border-zinc-900 shadow-sm hover:-translate-y-0.5 transition-all overflow-hidden"
-                style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
+                style={{ backgroundColor: tokens.accentBg, color: tokens.accentText, ...radiusStyle }}
               >
                 <span className="pointer-events-none absolute -left-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white border-r-2 border-zinc-900" />
                 <span className="pointer-events-none absolute -right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white border-l-2 border-zinc-900" />
