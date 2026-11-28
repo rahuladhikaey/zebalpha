@@ -438,206 +438,244 @@ function ProductsContent() {
     };
   }, [products, dbSellers]);
 
-  // Multi-facet filter pipeline
-  const filtered = useMemo(() => {
-    return products.filter((product) => {
-      // 2. Gender filter
-      if (filters.genders.length > 0) {
-        const prodText = `${product.name} ${product.description || ""} ${product.category_name || ""} ${JSON.stringify(product.specifications || {})}`.toLowerCase();
-        const matchesGender = filters.genders.some((g) => {
-          const gl = g.toLowerCase();
-          if (gl === "women") {
-            return (
-              prodText.includes("women") ||
-              prodText.includes("female") ||
-              prodText.includes("girl") ||
-              prodText.includes("saree") ||
-              prodText.includes("sari") ||
-              prodText.includes("kurti") ||
-              prodText.includes("lehenga") ||
-              prodText.includes("gown") ||
-              prodText.includes("dress") ||
-              prodText.includes("ladies")
+  // Multi-facet filter pipeline with smart budget/discount closest-match fallback
+  const { filtered, fallbackNotice } = useMemo(() => {
+    const runFilter = (relaxBudgetAndDiscount: boolean) =>
+      products
+        .filter((product) => {
+          // 2. Gender filter
+          if (filters.genders.length > 0) {
+            const prodText = `${product.name} ${product.description || ""} ${product.category_name || ""} ${JSON.stringify(product.specifications || {})}`.toLowerCase();
+            const matchesGender = filters.genders.some((g) => {
+              const gl = g.toLowerCase();
+              if (gl === "women") {
+                return (
+                  prodText.includes("women") ||
+                  prodText.includes("female") ||
+                  prodText.includes("girl") ||
+                  prodText.includes("saree") ||
+                  prodText.includes("sari") ||
+                  prodText.includes("kurti") ||
+                  prodText.includes("kurta") ||
+                  prodText.includes("lehenga") ||
+                  prodText.includes("gown") ||
+                  prodText.includes("dress") ||
+                  prodText.includes("ladies")
+                );
+              }
+              if (gl === "men") {
+                return (
+                  prodText.includes("men") ||
+                  prodText.includes("male") ||
+                  prodText.includes("boy") ||
+                  prodText.includes("polo") ||
+                  prodText.includes("shirt")
+                );
+              }
+              if (gl === "unisex") {
+                return (
+                  prodText.includes("unisex") ||
+                  (!prodText.includes("women") && !prodText.includes("men"))
+                );
+              }
+              return prodText.includes(gl);
+            });
+            if (!matchesGender) return false;
+          }
+
+          // 3. Real Size filter
+          if (filters.sizes.length > 0) {
+            const pkgSizes = (product.packages || []).map((p) => (p.size || "").toUpperCase());
+            const specSize = product.specifications?.size
+              ? String(product.specifications.size).toUpperCase()
+              : "";
+            const specSizes = Array.isArray(product.specifications?.sizes)
+              ? product.specifications.sizes.map((s: any) => String(s).toUpperCase())
+              : [];
+            const prodSku = (product.sku || "").toUpperCase();
+
+            const allSizes = new Set([...pkgSizes, specSize, ...specSizes, prodSku]);
+            const matchesSize = filters.sizes.some((s) => {
+              const su = s.toUpperCase();
+              for (const sizeVal of allSizes) {
+                if (sizeVal === su || sizeVal.includes(su)) return true;
+              }
+              if (su === "FREE SIZE" && product.name.toLowerCase().includes("free size")) {
+                return true;
+              }
+              return false;
+            });
+            if (!matchesSize) return false;
+          }
+
+          // 4. Real Color filter
+          if (filters.colors.length > 0) {
+            const pkgColors = (product.packages || []).map((p) => (p.color || "").toLowerCase());
+            const specColor = product.specifications?.color
+              ? String(product.specifications.color).toLowerCase()
+              : "";
+            const defColor = (product.default_color || "").toLowerCase();
+            const nameLower = product.name.toLowerCase();
+
+            const matchesColor = filters.colors.some((c) => {
+              const cl = c.toLowerCase();
+              return (
+                pkgColors.some((pc) => pc.includes(cl)) ||
+                specColor.includes(cl) ||
+                defColor.includes(cl) ||
+                nameLower.includes(cl)
+              );
+            });
+            if (!matchesColor) return false;
+          }
+
+          // 5. Real Brand filter (checks product.brand, seller_name, business_name, and product title)
+          if (!relaxBudgetAndDiscount && filters.brands.length > 0) {
+            const brand = (product.brand || "").toLowerCase();
+            const sellerBrand = (
+              product.seller_name ||
+              product.business_name ||
+              (product.seller as any)?.business_name ||
+              ""
+            ).toLowerCase();
+            const matchesBrand = filters.brands.some(
+              (b) => {
+                const bl = b.toLowerCase();
+                return (
+                  brand === bl ||
+                  brand.includes(bl) ||
+                  sellerBrand.includes(bl) ||
+                  product.name.toLowerCase().includes(bl)
+                );
+              }
             );
+            if (!matchesBrand) return false;
           }
-          if (gl === "men") {
-            return (
-              prodText.includes("men") ||
-              prodText.includes("male") ||
-              prodText.includes("boy") ||
-              prodText.includes("polo") ||
-              prodText.includes("shirt")
+
+          // 6. Real Seller filter
+          if (filters.sellers.length > 0) {
+            const seller = (
+              product.seller_name ||
+              product.business_name ||
+              (product.seller as any)?.business_name ||
+              product.brand ||
+              ""
+            ).toLowerCase();
+            const matchesSeller = filters.sellers.some((s) => seller.includes(s.toLowerCase()));
+            if (!matchesSeller) return false;
+          }
+
+          // 7. Customer Reviews
+          if (filters.minRating > 0) {
+            const rating = Number(product.rating) || 0;
+            if (rating < filters.minRating) return false;
+          }
+
+          // 8. Discount
+          if (!relaxBudgetAndDiscount && filters.minDiscount > 0) {
+            const { discountPercent } = getProductDisplayPricing(product);
+            if (discountPercent < filters.minDiscount) return false;
+          }
+
+          // 9. Real Fabric / Material
+          if (filters.materials.length > 0) {
+            const specMaterial = (
+              product.specifications?.material ||
+              product.specifications?.fabric ||
+              ""
+            ).toLowerCase();
+            const text = `${product.name} ${product.description || ""}`.toLowerCase();
+            const matchesMat = filters.materials.some(
+              (m) =>
+                specMaterial.includes(m.toLowerCase()) || text.includes(m.toLowerCase())
             );
+            if (!matchesMat) return false;
           }
-          if (gl === "unisex") {
-            return (
-              prodText.includes("unisex") ||
-              (!prodText.includes("women") && !prodText.includes("men"))
+
+          // 10. Real Sleeve Type
+          if (filters.sleeves.length > 0) {
+            const specSleeve = (
+              product.specifications?.sleeve ||
+              product.specifications?.sleeve_type ||
+              ""
+            ).toLowerCase();
+            const text = `${product.name} ${product.description || ""}`.toLowerCase();
+            const matchesSleeve = filters.sleeves.some(
+              (sl) =>
+                specSleeve.includes(sl.toLowerCase()) || text.includes(sl.toLowerCase())
             );
+            if (!matchesSleeve) return false;
           }
-          return prodText.includes(gl);
+
+          // 11. Price Filter (Dynamic Brackets + Custom)
+          if (!relaxBudgetAndDiscount) {
+            const { price } = getProductDisplayPricing(product);
+            if (filters.priceRange) {
+              const matchedBracket = dynamicPriceBrackets.find(
+                (b) => b.value === filters.priceRange
+              );
+              if (matchedBracket) {
+                if (price < matchedBracket.min || price > matchedBracket.max) {
+                  return false;
+                }
+              }
+            }
+            if (filters.customMinPrice && price < Number(filters.customMinPrice)) return false;
+            if (filters.customMaxPrice && price > Number(filters.customMaxPrice)) return false;
+          }
+
+          // 12. Category Storefront Discovery Tag filter
+          if (!relaxBudgetAndDiscount && activeTag) {
+            const tl = activeTag.toLowerCase();
+            const specs = (product.specifications as Record<string, any>) || {};
+            const rawTags = specs.storefront_tags || specs.store_tags || specs.tags || [];
+            const tagText = Array.isArray(rawTags) ? rawTags.join(" ").toLowerCase() : String(rawTags).toLowerCase();
+            const isComboProd = specs.is_combo === true || specs.is_combo === "true";
+            const haystack = `${product.name} ${product.description || ""} ${product.brand || ""} ${tagText}`.toLowerCase();
+            if (tl === "combo") {
+              if (!isComboProd && !/\b(combo|kit|pack of|set of|bundle)\b/i.test(haystack)) return false;
+            } else if (!haystack.includes(tl)) {
+              return false;
+            }
+          }
+
+          return true;
+        })
+        .sort((a, b) => {
+          if (sortBy === "price_asc") {
+            return getProductDisplayPricing(a).price - getProductDisplayPricing(b).price;
+          }
+          if (sortBy === "price_desc") {
+            return getProductDisplayPricing(b).price - getProductDisplayPricing(a).price;
+          }
+          if (sortBy === "discount_desc") {
+            return getProductDisplayPricing(b).discountPercent - getProductDisplayPricing(a).discountPercent;
+          }
+          if (sortBy === "newest") {
+            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+          }
+          return 0;
         });
-        if (!matchesGender) return false;
-      }
 
-      // 3. Real Size filter
-      if (filters.sizes.length > 0) {
-        const pkgSizes = (product.packages || []).map((p) => (p.size || "").toUpperCase());
-        const specSize = product.specifications?.size
-          ? String(product.specifications.size).toUpperCase()
-          : "";
-        const specSizes = Array.isArray(product.specifications?.sizes)
-          ? product.specifications.sizes.map((s: any) => String(s).toUpperCase())
-          : [];
-        const prodSku = (product.sku || "").toUpperCase();
-
-        const allSizes = new Set([...pkgSizes, specSize, ...specSizes, prodSku]);
-        const matchesSize = filters.sizes.some((s) => {
-          const su = s.toUpperCase();
-          for (const sizeVal of allSizes) {
-            if (sizeVal === su || sizeVal.includes(su)) return true;
-          }
-          if (su === "FREE SIZE" && product.name.toLowerCase().includes("free size")) {
-            return true;
-          }
-          return false;
-        });
-        if (!matchesSize) return false;
+    const strict = runFilter(false);
+    if (
+      strict.length === 0 &&
+      products.length > 0 &&
+      (filters.customMaxPrice || filters.minDiscount > 0 || activeTag || filters.brands.length > 0)
+    ) {
+      const relaxed = runFilter(true);
+      if (relaxed.length > 0) {
+        const lowestPrice = Math.min(...relaxed.map((p) => getProductDisplayPricing(p).price));
+        const maxDisc = Math.max(...relaxed.map((p) => getProductDisplayPricing(p).discountPercent));
+        const reason = filters.customMaxPrice
+          ? `No items under ₹${filters.customMaxPrice} yet — showing closest budget picks starting at ₹${lowestPrice}`
+          : filters.minDiscount > 0
+            ? `No items at ${filters.minDiscount}%+ off yet — showing top deals up to ${maxDisc}% Off`
+            : `Showing curated picks in this category`;
+        return { filtered: relaxed, fallbackNotice: reason };
       }
-
-      // 4. Real Color filter
-      if (filters.colors.length > 0) {
-        const pkgColors = (product.packages || []).map((p) => (p.color || "").toLowerCase());
-        const specColor = product.specifications?.color
-          ? String(product.specifications.color).toLowerCase()
-          : "";
-        const defColor = (product.default_color || "").toLowerCase();
-        const nameLower = product.name.toLowerCase();
-
-        const matchesColor = filters.colors.some((c) => {
-          const cl = c.toLowerCase();
-          return (
-            pkgColors.some((pc) => pc.includes(cl)) ||
-            specColor.includes(cl) ||
-            defColor.includes(cl) ||
-            nameLower.includes(cl)
-          );
-        });
-        if (!matchesColor) return false;
-      }
-
-      // 5. Real Brand filter
-      if (filters.brands.length > 0) {
-        const brand = (product.brand || "").toLowerCase();
-        const matchesBrand = filters.brands.some(
-          (b) =>
-            brand === b.toLowerCase() ||
-            product.name.toLowerCase().includes(b.toLowerCase())
-        );
-        if (!matchesBrand) return false;
-      }
-
-      // 6. Real Seller filter
-      if (filters.sellers.length > 0) {
-        const seller = (
-          product.seller_name ||
-          product.business_name ||
-          (product.seller as any)?.business_name ||
-          product.brand ||
-          ""
-        ).toLowerCase();
-        const matchesSeller = filters.sellers.some((s) => seller.includes(s.toLowerCase()));
-        if (!matchesSeller) return false;
-      }
-
-      // 7. Customer Reviews
-      if (filters.minRating > 0) {
-        const rating = Number(product.rating) || 0;
-        if (rating < filters.minRating) return false;
-      }
-
-      // 8. Discount
-      if (filters.minDiscount > 0) {
-        const { discountPercent } = getProductDisplayPricing(product);
-        if (discountPercent < filters.minDiscount) return false;
-      }
-
-      // 9. Real Fabric / Material
-      if (filters.materials.length > 0) {
-        const specMaterial = (
-          product.specifications?.material ||
-          product.specifications?.fabric ||
-          ""
-        ).toLowerCase();
-        const text = `${product.name} ${product.description || ""}`.toLowerCase();
-        const matchesMat = filters.materials.some(
-          (m) =>
-            specMaterial.includes(m.toLowerCase()) || text.includes(m.toLowerCase())
-        );
-        if (!matchesMat) return false;
-      }
-
-      // 10. Real Sleeve Type
-      if (filters.sleeves.length > 0) {
-        const specSleeve = (
-          product.specifications?.sleeve ||
-          product.specifications?.sleeve_type ||
-          ""
-        ).toLowerCase();
-        const text = `${product.name} ${product.description || ""}`.toLowerCase();
-        const matchesSleeve = filters.sleeves.some(
-          (sl) =>
-            specSleeve.includes(sl.toLowerCase()) || text.includes(sl.toLowerCase())
-        );
-        if (!matchesSleeve) return false;
-      }
-
-      // 11. Price Filter (Dynamic Brackets + Custom)
-      const { price } = getProductDisplayPricing(product);
-      if (filters.priceRange) {
-        const matchedBracket = dynamicPriceBrackets.find(
-          (b) => b.value === filters.priceRange
-        );
-        if (matchedBracket) {
-          if (price < matchedBracket.min || price > matchedBracket.max) {
-            return false;
-          }
-        }
-      }
-      if (filters.customMinPrice && price < Number(filters.customMinPrice)) return false;
-      if (filters.customMaxPrice && price > Number(filters.customMaxPrice)) return false;
-
-      // 12. Category Storefront Discovery Tag filter (Combo, Korean, Winter, Party, Festive, etc.)
-      if (activeTag) {
-        const tl = activeTag.toLowerCase();
-        const specs = (product.specifications as Record<string, any>) || {};
-        const rawTags = specs.storefront_tags || specs.store_tags || specs.tags || [];
-        const tagText = Array.isArray(rawTags) ? rawTags.join(" ").toLowerCase() : String(rawTags).toLowerCase();
-        const isComboProd = specs.is_combo === true || specs.is_combo === "true";
-        const haystack = `${product.name} ${product.description || ""} ${product.brand || ""} ${tagText}`.toLowerCase();
-        if (tl === "combo") {
-          if (!isComboProd && !/\b(combo|kit|pack of|set of|bundle)\b/i.test(haystack)) return false;
-        } else if (!haystack.includes(tl)) {
-          return false;
-        }
-      }
-
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === "price_asc") {
-        return getProductDisplayPricing(a).price - getProductDisplayPricing(b).price;
-      }
-      if (sortBy === "price_desc") {
-        return getProductDisplayPricing(b).price - getProductDisplayPricing(a).price;
-      }
-      if (sortBy === "discount_desc") {
-        return getProductDisplayPricing(b).discountPercent - getProductDisplayPricing(a).discountPercent;
-      }
-      if (sortBy === "newest") {
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      }
-      return 0;
-    });
+    }
+    return { filtered: strict, fallbackNotice: null as string | null };
   }, [products, selectedCategory, filters, dynamicPriceBrackets, activeTag, sortBy]);
 
   // Handle category switch from horizontal tabs
@@ -1127,6 +1165,19 @@ function ProductsContent() {
                 </span>
               )}
             </div>
+
+            {/* Smart Closest-Match Budget/Discount Notice Banner */}
+            {fallbackNotice && (
+              <div
+                className={
+                  isNativeApp
+                    ? "mb-3 rounded-xl border border-[#DFBE6F] bg-[#FFF8E1] px-3.5 py-2.5 text-xs font-bold text-[#6E4705]"
+                    : "mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs font-bold text-amber-200"
+                }
+              >
+                {fallbackNotice}
+              </div>
+            )}
 
             {/* Active Filters Summary Bar */}
             {(activeFilterCount > 0 || selectedCategory) && (

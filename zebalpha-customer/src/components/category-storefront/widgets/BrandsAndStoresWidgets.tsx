@@ -409,8 +409,8 @@ export function ComboKitsMarqueeWidget({
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5 md:gap-5 relative z-10">
-          {kits.slice(0, 3).map((kit) => (
+        <div className={`grid gap-2.5 md:gap-5 relative z-10 ${kits.length === 2 ? "grid-cols-2" : kits.length >= 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
+          {kits.map((kit) => (
             <Link
               key={kit.id}
               href={kit.destination_url || `/products?category=${catParam}&tag=combo`}
@@ -478,8 +478,8 @@ export function ExploreStores3x3Widget({
         {widget.subtitle && <p className="text-xs text-zinc-500 font-semibold">{widget.subtitle}</p>}
       </div>
 
-      <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5 md:gap-3">
-        {stores.slice(0, 9).map((st, idx) => {
+      <div className={`grid grid-cols-3 gap-2.5 md:gap-3 ${stores.length <= 6 ? "md:grid-cols-6" : "md:grid-cols-5 lg:grid-cols-9"}`}>
+        {stores.map((st, idx) => {
           const taggedProd =
             products.find((p) => st.tag_filter && p.storeTags.includes(st.tag_filter.toLowerCase())) ||
             products[idx];

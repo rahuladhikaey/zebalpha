@@ -160,6 +160,7 @@ export function CategoryStorefrontClient({ data, seoGuideSlot }: CategoryStorefr
             widget={widget}
             categoryId={category.id}
             tokens={tokens}
+            products={allCategoryProducts}
           />
         );
       case "OCCASION_2COL":
@@ -328,6 +329,7 @@ export function CategoryStorefrontClient({ data, seoGuideSlot }: CategoryStorefr
                 <Link
                   key={nc.id}
                   href={`/category/${encodeURIComponent(nc.slug)}`}
+                  prefetch={true}
                   className={`group relative shrink-0 flex flex-col items-center gap-1 pb-1.5 transition ${
                     isActive ? "text-white" : "text-white/70 hover:text-white"
                   }`}

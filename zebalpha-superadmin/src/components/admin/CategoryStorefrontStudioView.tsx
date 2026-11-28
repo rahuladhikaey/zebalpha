@@ -33,6 +33,7 @@ import {
   type CategoryWidgetConfig,
   type CategoryWidgetType,
 } from "@/lib/categoryStorefrontTypes";
+import { CategoryWidgetInlineEditor, AdminImageUploadField } from "./CategoryWidgetInlineEditor";
 
 interface MainCategoryItem {
   id: string;
@@ -720,243 +721,13 @@ export default function CategoryStorefrontStudioView() {
                         Auto-Pilot Live Fill (automatically fills from real Supabase products if manual items are empty)
                       </label>
 
-                      {/* Widget-Specific Smart Controls */}
-                      {w.widget_type === "BUDGET_DISCOUNT_TILES" && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                          <div>
-                            <label className="block text-[11px] font-bold text-zinc-500 mb-1">
-                              Price Slabs (comma-separated ₹, e.g. 199, 299, 399)
-                            </label>
-                            <input
-                              type="text"
-                              value={(w.config?.price_slabs || [199, 299, 399]).join(", ")}
-                              onChange={(e) =>
-                                updateWidgetConfig(w.id, {
-                                  price_slabs: e.target.value
-                                    .split(",")
-                                    .map((n) => parseInt(n.trim(), 10))
-                                    .filter((n) => !isNaN(n) && n > 0),
-                                })
-                              }
-                              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-bold text-zinc-500 mb-1">
-                              Min. Discount Slabs (comma-separated %, e.g. 30, 50, 70)
-                            </label>
-                            <input
-                              type="text"
-                              value={(w.config?.discount_slabs || [30, 50, 70]).join(", ")}
-                              onChange={(e) =>
-                                updateWidgetConfig(w.id, {
-                                  discount_slabs: e.target.value
-                                    .split(",")
-                                    .map((n) => parseInt(n.trim(), 10))
-                                    .filter((n) => !isNaN(n) && n > 0),
-                                })
-                              }
-                              className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {w.widget_type === "HERO_CAROUSEL" && (
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Campaign Badge</label>
-                              <input
-                                type="text"
-                                value={w.config?.campaign_badge || ""}
-                                onChange={(e) => updateWidgetConfig(w.id, { campaign_badge: e.target.value })}
-                                placeholder="e.g. GLAM UP / ZEBALPHA DROP"
-                                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[11px] font-bold text-zinc-500 mb-1">Footer Offer Strip</label>
-                              <input
-                                type="text"
-                                value={w.config?.footer_offer || ""}
-                                onChange={(e) => updateWidgetConfig(w.id, { footer_offer: e.target.value })}
-                                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Custom Slides Manager */}
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-black uppercase text-zinc-500">
-                                Custom Hero Slides ({(w.config?.slides || []).length})
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextSlides = [
-                                    ...(w.config?.slides || []),
-                                    {
-                                      id: `slide-${Date.now()}`,
-                                      title: "Featured Drop",
-                                      subtitle: "Limited season offer",
-                                      offer_text: "Up to 60% Off",
-                                      image_url: "",
-                                      destination_url: `/products?category=${encodeURIComponent(blueprint.category_id)}`,
-                                    },
-                                  ];
-                                  updateWidgetConfig(w.id, { slides: nextSlides });
-                                }}
-                                className="inline-flex items-center gap-1 rounded-lg bg-zinc-900 text-white px-2.5 py-1 text-[11px] font-black cursor-pointer"
-                              >
-                                <Plus className="h-3 w-3" /> Add Custom Slide
-                              </button>
-                            </div>
-                            {(w.config?.slides || []).map((sl: any, sIdx: number) => (
-                              <div key={sl.id || sIdx} className="grid grid-cols-1 md:grid-cols-5 gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-                                <input
-                                  type="text"
-                                  value={sl.title || ""}
-                                  onChange={(e) => {
-                                    const copy = [...(w.config?.slides || [])];
-                                    copy[sIdx] = { ...copy[sIdx], title: e.target.value };
-                                    updateWidgetConfig(w.id, { slides: copy });
-                                  }}
-                                  placeholder="Title / Brand"
-                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
-                                />
-                                <input
-                                  type="text"
-                                  value={sl.offer_text || ""}
-                                  onChange={(e) => {
-                                    const copy = [...(w.config?.slides || [])];
-                                    copy[sIdx] = { ...copy[sIdx], offer_text: e.target.value };
-                                    updateWidgetConfig(w.id, { slides: copy });
-                                  }}
-                                  placeholder="Up to 60% Off"
-                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
-                                />
-                                <input
-                                  type="text"
-                                  value={sl.image_url || ""}
-                                  onChange={(e) => {
-                                    const copy = [...(w.config?.slides || [])];
-                                    copy[sIdx] = { ...copy[sIdx], image_url: e.target.value };
-                                    updateWidgetConfig(w.id, { slides: copy });
-                                  }}
-                                  placeholder="Image URL"
-                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
-                                />
-                                <input
-                                  type="text"
-                                  value={sl.destination_url || ""}
-                                  onChange={(e) => {
-                                    const copy = [...(w.config?.slides || [])];
-                                    copy[sIdx] = { ...copy[sIdx], destination_url: e.target.value };
-                                    updateWidgetConfig(w.id, { slides: copy });
-                                  }}
-                                  placeholder="/products?..."
-                                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const copy = (w.config?.slides || []).filter((_: any, i: number) => i !== sIdx);
-                                    updateWidgetConfig(w.id, { slides: copy });
-                                  }}
-                                  className="rounded-lg bg-red-500/10 text-red-600 text-xs font-bold px-2 py-1 cursor-pointer"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {w.widget_type === "FULL_SPOTLIGHT_BANNER" && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <input
-                            type="text"
-                            value={w.config?.cta_label || "Explore now"}
-                            onChange={(e) => updateWidgetConfig(w.id, { cta_label: e.target.value })}
-                            placeholder="CTA Label"
-                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
-                          />
-                          <input
-                            type="text"
-                            value={w.config?.banner_image_url || ""}
-                            onChange={(e) => updateWidgetConfig(w.id, { banner_image_url: e.target.value })}
-                            placeholder="Spotlight Image URL"
-                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
-                          />
-                          <input
-                            type="text"
-                            value={w.config?.destination_url || ""}
-                            onChange={(e) => updateWidgetConfig(w.id, { destination_url: e.target.value })}
-                            placeholder="/products?..."
-                            className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
-                          />
-                        </div>
-                      )}
-
-                      {w.widget_type === "COMBO_KITS_MARQUEE" && (
-                        <div>
-                          <label className="block text-[11px] font-bold text-zinc-500 mb-1">Diagonal Marquee Ribbon Text</label>
-                          <input
-                            type="text"
-                            value={w.config?.marquee_text || ""}
-                            onChange={(e) => updateWidgetConfig(w.id, { marquee_text: e.target.value })}
-                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold"
-                          />
-                        </div>
-                      )}
-
-                      {w.widget_type === "EXPLORE_STORES_3X3" && (
-                        <div className="space-y-2">
-                          <span className="text-[11px] font-black uppercase text-zinc-500">Micro-Stores (3×3 Tiles)</span>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                            {(w.config?.stores || []).map((st: any, stIdx: number) => (
-                              <div key={st.id || stIdx} className="p-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-1.5">
-                                <input
-                                  type="text"
-                                  value={st.title || ""}
-                                  onChange={(e) => {
-                                    const copy = [...(w.config?.stores || [])];
-                                    copy[stIdx] = { ...copy[stIdx], title: e.target.value };
-                                    updateWidgetConfig(w.id, { stores: copy });
-                                  }}
-                                  placeholder="Store Title"
-                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs font-bold"
-                                />
-                                <input
-                                  type="text"
-                                  value={st.tag_filter || ""}
-                                  onChange={(e) => {
-                                    const copy = [...(w.config?.stores || [])];
-                                    copy[stIdx] = { ...copy[stIdx], tag_filter: e.target.value };
-                                    updateWidgetConfig(w.id, { stores: copy });
-                                  }}
-                                  placeholder="Tag filter (e.g. korean)"
-                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
-                                />
-                                <input
-                                  type="text"
-                                  value={st.image_url || ""}
-                                  onChange={(e) => {
-                                    const copy = [...(w.config?.stores || [])];
-                                    copy[stIdx] = { ...copy[stIdx], image_url: e.target.value };
-                                    updateWidgetConfig(w.id, { stores: copy });
-                                  }}
-                                  placeholder="Optional Image URL"
-                                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-2 py-1 text-xs"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {/* Rich Visual Widget-Specific Controls (Unlimited Cards + Direct Image Upload + Auto-Price Linking) */}
+                      <CategoryWidgetInlineEditor
+                        widget={w}
+                        categoryId={blueprint.category_id}
+                        subcategories={subcategories}
+                        onUpdateConfig={(patch) => updateWidgetConfig(w.id, patch)}
+                      />
                     </div>
                   )}
                 </div>
@@ -969,7 +740,7 @@ export default function CategoryStorefrontStudioView() {
           <div>
             <h2 className="text-sm font-black">Subcategory Portrait Images — {blueprint.category_name}</h2>
             <p className="text-xs text-zinc-500">
-              Set crisp photos for the 2-Row Fashion Grid or 1-Row Beauty Portrait Strip. Leave blank to auto-use live product photos.
+              Upload crisp photos directly (or paste URL) for the 2-Row Fashion Grid or 1-Row Beauty Portrait Strip. Leave blank to auto-use live product photos.
             </p>
           </div>
           {subcategories.length === 0 ? (
@@ -993,20 +764,19 @@ export default function CategoryStorefrontStudioView() {
                       <p className="text-[11px] text-zinc-500 truncate">/{sc.slug}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
+                  <div className="space-y-2">
+                    <AdminImageUploadField
                       value={subcatEdits[sc.id] || ""}
-                      onChange={(e) => setSubcatEdits((prev) => ({ ...prev, [sc.id]: e.target.value }))}
-                      placeholder="Paste portrait image URL..."
-                      className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 px-2.5 py-1.5 text-xs focus:border-amber-400 focus:outline-none"
+                      onChange={(url) => setSubcatEdits((prev) => ({ ...prev, [sc.id]: url }))}
+                      placeholder="Upload or paste portrait URL..."
+                      folder="category-subcategories"
                     />
                     <button
                       type="button"
                       onClick={() => handleSaveSubcatImage(sc.id)}
-                      className="rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-black px-3 py-1.5 text-xs font-black cursor-pointer"
+                      className="w-full rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-black px-3 py-1.5 text-xs font-black cursor-pointer hover:opacity-90"
                     >
-                      Save
+                      Save Portrait
                     </button>
                   </div>
                 </div>

@@ -32,8 +32,8 @@ export function AudienceSplit3ColWidget({ widget, categoryId, products }: Common
   return (
     <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-3">
       <h2 className="text-base md:text-xl font-black text-zinc-900 tracking-tight mb-3">{widget.title}</h2>
-      <div className="grid grid-cols-3 gap-2.5 md:gap-4">
-        {cards.slice(0, 3).map((card, idx) => {
+      <div className={`grid gap-2.5 md:gap-4 ${cards.length <= 2 ? "grid-cols-2" : cards.length === 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
+        {cards.map((card, idx) => {
           const matchedProd =
             products.find((p) => card.tag_filter && p.storeTags.includes(card.tag_filter.toLowerCase())) ||
             products[idx * 2];
@@ -265,8 +265,8 @@ export function Occasion2ColWidget({ widget, categoryId, tokens, products }: Com
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:gap-4">
-        {cards.slice(0, 2).map((card, idx) => {
+      <div className={`grid gap-3 md:gap-4 ${cards.length === 1 ? "grid-cols-1" : cards.length >= 3 ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2"}`}>
+        {cards.map((card, idx) => {
           const matchedProd =
             products.find((p) => card.tag_filter && p.storeTags.includes(card.tag_filter.toLowerCase())) ||
             products[idx + 2];

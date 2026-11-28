@@ -927,6 +927,7 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
   try {
     let validCat: string | null = null;
     let isUuidCat = false;
+    let isSubcatUuid = false;
     let uuidCatIds: string[] = [];
     let uuidCatName = "";
     let slugMatchedCatIds: string[] = [];
@@ -949,7 +950,7 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
         try {
           const { data: catRecord } = await supabase
             .from("categories")
-            .select("id, name")
+            .select("id, name, parent_id")
             .eq("id", validCat)
             .maybeSingle();
           if (catRecord?.name) uuidCatName = catRecord.name.trim();
@@ -960,6 +961,14 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
             .eq("parent_id", validCat);
           if (subcats && subcats.length > 0) {
             uuidCatIds.push(...subcats.map((s: any) => s.id));
+          } else if (catRecord?.parent_id) {
+            // Subcategory UUID selected: include parent category in DB fetch so products
+            // whose subcategory_id is null (stored under parent category_id) still match by taxonomy!
+            isSubcatUuid = true;
+            uuidCatIds.push(String(catRecord.parent_id));
+            const tax = getCategoryTaxonomyKeywords(uuidCatName);
+            slugCleanTerm = tax.cleanTerm;
+            slugSynonyms = tax.synonyms;
           }
         } catch (_) {}
       } else {
@@ -1013,16 +1022,22 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
       let query = supabase
         .from("products")
         .select(SLIM_PRODUCT_CARD_FIELDS, { count: "exact" })
-        .or("is_active.is.null,is_active.eq.true");
+        .neq("is_active", false);
 
       if (validCat) {
         if (isUuidCat) {
           if (uuidCatIds.length === 1) {
+            const orParts = [`category_id.eq.${validCat}`, `subcategory_id.eq.${validCat}`];
             if (uuidCatName) {
-              query = query.or(`category_id.eq.${validCat},subcategory_id.eq.${validCat},name.ilike.%${uuidCatName}%`);
-            } else {
-              query = query.or(`category_id.eq.${validCat},subcategory_id.eq.${validCat}`);
+              const safeName = uuidCatName.replace(/['",%()]/g, "").trim();
+              if (safeName.length >= 2) orParts.push(`name.ilike.%${safeName}%`);
+              const tax = getCategoryTaxonomyKeywords(uuidCatName);
+              tax.synonyms.slice(0, 6).forEach((syn) => {
+                const s = syn.replace(/['",%()]/g, "").trim();
+                if (s.length >= 2) orParts.push(`name.ilike.%${s}%`);
+              });
             }
+            query = query.or(orParts.join(","));
           } else {
             query = query.or(`category_id.in.(${uuidCatIds.join(",")}),subcategory_id.in.(${uuidCatIds.join(",")})`);
           }
@@ -1103,12 +1118,23 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
     }
 
     const rawList = data || [];
-    const normalizedProducts: Product[] = rawList
+    const isSubcategoryFallbackMode = Boolean(isSubcatUuid && uuidCatName);
+    let normalizedProducts: Product[] = rawList
       .filter((p: any) => {
         if (p.is_active === false) return false;
         const st = String(p.status || "").toUpperCase();
         if (st === "DELETED" || st === "COMING_SOON") return false;
         if (String(p.approval_status || "").toLowerCase() === "rejected") return false;
+        if (isSubcategoryFallbackMode && validCat) {
+          // Keep products explicitly linked to this subcategory OR matching the subcategory name/synonyms
+          const directSub =
+            String(p.subcategory_id || "") === validCat ||
+            String(p.category_id || "") === validCat ||
+            String(p.specifications?.subcategory_id || "") === validCat;
+          if (!directSub && !doesProductMatchCategory(p, uuidCatName)) {
+            return false;
+          }
+        }
         return true;
       })
       .map((p: any) => {
@@ -1121,6 +1147,50 @@ export async function fetchPaginatedProducts(params: PaginatedProductsParams): P
           category: p.category || specs.category || "Apparel",
         };
       });
+
+    // If a subcategory (e.g., "Tote Bag" under Women's Fashion) has 0 matches inside its parent category,
+    // search across active catalog by subcategory name/synonyms (e.g. Tote Bags listed under Fashion Accessories)
+    if (isSubcategoryFallbackMode && normalizedProducts.length === 0 && uuidCatName) {
+      const taxTerms = Array.from(
+        new Set([uuidCatName.toLowerCase(), slugCleanTerm, ...slugSynonyms].filter((t) => t && t.length >= 2))
+      ).slice(0, 8);
+      if (taxTerms.length > 0) {
+        const broadOr = taxTerms
+          .map((t) => t.replace(/['",%()]/g, "").trim())
+          .filter((t) => t.length >= 2)
+          .flatMap((t) => [`name.ilike.%${t}%`, `collection.ilike.%${t}%`]);
+        if (broadOr.length > 0) {
+          const { data: crossCatData } = await supabase
+            .from("products")
+            .select(SLIM_PRODUCT_CARD_FIELDS)
+            .neq("is_active", false)
+            .or(broadOr.join(","))
+            .order("created_at", { ascending: false })
+            .range(from, to);
+          if (crossCatData && crossCatData.length > 0) {
+            normalizedProducts = crossCatData
+              .filter((p: any) => {
+                if (p.is_active === false) return false;
+                const st = String(p.status || "").toUpperCase();
+                if (st === "DELETED" || st === "COMING_SOON") return false;
+                if (String(p.approval_status || "").toLowerCase() === "rejected") return false;
+                return doesProductMatchCategory(p, uuidCatName);
+              })
+              .map((p: any) => {
+                const specs = p.specifications || {};
+                return {
+                  ...p,
+                  thumbnail_url: p.thumbnail_url || p.image_url || (Array.isArray(p.images) && p.images[0]) || "",
+                  tier: p.tier || specs.tier || "STANDARD",
+                  collection: p.collection || specs.collection || "",
+                  category: p.category || specs.category || "Apparel",
+                };
+              });
+            count = normalizedProducts.length;
+          }
+        }
+      }
+    }
     const ratingsMap = await fetchProductRatingSummaries(
       supabase,
       normalizedProducts.map((p) => p.id)

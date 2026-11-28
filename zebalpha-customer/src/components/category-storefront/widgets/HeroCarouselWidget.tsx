@@ -63,13 +63,14 @@ export function HeroCarouselWidget({
 
   let slides: HeroSlideItem[] = [...manualSlides, ...sellerSlides];
 
-  if (slides.length < 3 && widget.auto_fill !== false && products.length > 0) {
+  const maxAutoSlides = Math.max(1, Number(cfg.max_slides || 5));
+  if (slides.length < maxAutoSlides && widget.auto_fill !== false && products.length > 0) {
     const sorted = [...products]
       .filter((p) => p.image_url)
       .sort((a, b) => b.discountPercent - a.discountPercent || b.rating - a.rating);
     const seenBrands = new Set(slides.map((s) => s.title.toLowerCase()));
     for (const p of sorted) {
-      if (slides.length >= 5) break;
+      if (slides.length >= maxAutoSlides) break;
       const key = p.brand.toLowerCase();
       if (seenBrands.has(key) && sorted.length > 4) continue;
       seenBrands.add(key);
@@ -129,80 +130,91 @@ export function HeroCarouselWidget({
             minHeight: "268px",
           }}
         >
-          {/* Decorative neon/accent corner geometric shapes matching Video 2 */}
-          <div
-            className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full opacity-20 blur-2xl"
-            style={{ backgroundColor: tokens.accentBg }}
-          />
-          <div
-            className="pointer-events-none absolute bottom-12 right-5 h-7 w-7 opacity-80"
-            style={{ backgroundColor: tokens.accentBg }}
-          />
-          <div
-            className="pointer-events-none absolute bottom-5 right-12 h-5 w-5 opacity-60"
-            style={{ backgroundColor: tokens.accentBg }}
-          />
+          {(currentMobile as any).full_banner_mode && currentMobile.image_url ? (
+            <img
+              src={currentMobile.image_url}
+              alt={currentMobile.title}
+              className="w-full h-[268px] object-cover"
+              loading="eager"
+            />
+          ) : (
+            <>
+              {/* Decorative neon/accent corner geometric shapes matching Video 2 */}
+              <div
+                className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full opacity-20 blur-2xl"
+                style={{ backgroundColor: tokens.accentBg }}
+              />
+              <div
+                className="pointer-events-none absolute bottom-12 right-5 h-7 w-7 opacity-80"
+                style={{ backgroundColor: tokens.accentBg }}
+              />
+              <div
+                className="pointer-events-none absolute bottom-5 right-12 h-5 w-5 opacity-60"
+                style={{ backgroundColor: tokens.accentBg }}
+              />
 
-          <div className="relative z-10 grid grid-cols-12 items-center min-h-[268px] p-4 gap-2">
-            {/* Left Copy */}
-            <div className="col-span-7 flex flex-col justify-between h-full py-1 space-y-2.5">
-              <span
-                className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider"
-                style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
-              >
-                <Sparkles className="h-2.5 w-2.5" />
-                {currentMobile.badge || campaignBadge}
-              </span>
+              <div className="relative z-10 grid grid-cols-12 items-center min-h-[268px] p-4 gap-2">
+                {/* Left Copy */}
+                <div className="col-span-7 flex flex-col justify-between h-full py-1 space-y-2.5">
+                  <span
+                    className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                    style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
+                  >
+                    <Sparkles className="h-2.5 w-2.5" />
+                    {currentMobile.badge || campaignBadge}
+                  </span>
 
-              <div className="space-y-1">
-                <h2 className="text-[22px] font-black uppercase leading-[1.08] tracking-tight text-white line-clamp-2 drop-shadow-sm">
-                  {currentMobile.title}
-                </h2>
-                {currentMobile.subtitle && (
-                  <p className="text-[11px] font-semibold text-white/80 line-clamp-2 leading-snug">
-                    {currentMobile.subtitle}
-                  </p>
-                )}
-              </div>
+                  <div className="space-y-1">
+                    <h2 className="text-[22px] font-black uppercase leading-[1.08] tracking-tight text-white line-clamp-2 drop-shadow-sm">
+                      {currentMobile.title}
+                    </h2>
+                    {currentMobile.subtitle && (
+                      <p className="text-[11px] font-semibold text-white/80 line-clamp-2 leading-snug">
+                        {currentMobile.subtitle}
+                      </p>
+                    )}
+                  </div>
 
-              <div className="pt-1 flex items-center gap-2">
-                <span
-                  className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-black shadow-md"
-                  style={{ backgroundColor: "#0B0D0E", color: tokens.accentBg }}
-                >
-                  {currentMobile.offer_text}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </span>
-              </div>
-            </div>
-
-            {/* Right Hero Product Cutout */}
-            <div className="col-span-5 flex items-center justify-center">
-              {currentMobile.image_url ? (
-                <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden bg-white/10 backdrop-blur-sm border border-white/15 shadow-xl">
-                  <img
-                    src={currentMobile.image_url}
-                    alt={currentMobile.title}
-                    className="w-full h-full object-cover"
-                    loading="eager"
-                  />
+                  <div className="pt-1 flex items-center gap-2">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-black shadow-md"
+                      style={{ backgroundColor: "#0B0D0E", color: tokens.accentBg }}
+                    >
+                      {currentMobile.offer_text}
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <div className="w-28 h-32 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white/70 text-xs font-black">
-                  {categoryName}
+
+                {/* Right Hero Product Cutout */}
+                <div className="col-span-5 flex items-center justify-center">
+                  {currentMobile.image_url ? (
+                    <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden bg-white/10 backdrop-blur-sm border border-white/15 shadow-xl">
+                      <img
+                        src={currentMobile.image_url}
+                        alt={currentMobile.title}
+                        className="w-full h-full object-cover"
+                        loading="eager"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-28 h-32 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white/70 text-xs font-black">
+                      {categoryName}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Offer Pill Strip */}
+              {currentMobile.footer_pill && (
+                <div className="relative z-10 border-t border-white/10 bg-black/35 backdrop-blur-sm px-4 py-1.5 text-[10px] font-bold text-white/90 flex items-center justify-between">
+                  <span className="truncate">{currentMobile.footer_pill}</span>
+                  <span className="shrink-0 font-black" style={{ color: tokens.accentBg }}>
+                    SHOP →
+                  </span>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Bottom Offer Pill Strip */}
-          {currentMobile.footer_pill && (
-            <div className="relative z-10 border-t border-white/10 bg-black/35 backdrop-blur-sm px-4 py-1.5 text-[10px] font-bold text-white/90 flex items-center justify-between">
-              <span className="truncate">{currentMobile.footer_pill}</span>
-              <span className="shrink-0 font-black" style={{ color: tokens.accentBg }}>
-                SHOP →
-              </span>
-            </div>
+            </>
           )}
         </Link>
 
@@ -246,50 +258,61 @@ export function HeroCarouselWidget({
               } h-[220px] rounded-[20px] overflow-hidden snap-start shadow-md hover:shadow-xl transition-all`}
               style={{ background: slide.bg_gradient || DARK_GRADIENTS[idx % DARK_GRADIENTS.length] }}
             >
-              <div
-                className="pointer-events-none absolute -right-8 -bottom-8 h-36 w-36 rounded-full opacity-25 blur-2xl"
-                style={{ backgroundColor: tokens.accentBg }}
-              />
-              <div className="relative z-10 flex h-[calc(100%-30px)] items-center justify-between p-5 gap-3">
-                <div className="flex flex-col justify-between h-full flex-1 min-w-0">
-                  <span
-                    className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider"
-                    style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
-                  >
-                    <Sparkles className="h-2.5 w-2.5" />
-                    {slide.badge || campaignBadge}
-                  </span>
+              {(slide as any).full_banner_mode && slide.image_url ? (
+                <img
+                  src={slide.image_url}
+                  alt={slide.title}
+                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                  loading="lazy"
+                />
+              ) : (
+                <>
+                  <div
+                    className="pointer-events-none absolute -right-8 -bottom-8 h-36 w-36 rounded-full opacity-25 blur-2xl"
+                    style={{ backgroundColor: tokens.accentBg }}
+                  />
+                  <div className="relative z-10 flex h-[calc(100%-30px)] items-center justify-between p-5 gap-3">
+                    <div className="flex flex-col justify-between h-full flex-1 min-w-0">
+                      <span
+                        className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                        style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
+                      >
+                        <Sparkles className="h-2.5 w-2.5" />
+                        {slide.badge || campaignBadge}
+                      </span>
 
-                  <div className="space-y-1">
-                    <h3 className="text-xl font-black text-white leading-tight truncate group-hover:underline">
-                      {slide.title}
-                    </h3>
-                    <p className="text-base font-extrabold" style={{ color: tokens.accentBg }}>
-                      {slide.offer_text}
-                    </p>
-                    {slide.subtitle && (
-                      <p className="text-xs font-medium text-white/75 line-clamp-1">{slide.subtitle}</p>
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-black text-white leading-tight truncate group-hover:underline">
+                          {slide.title}
+                        </h3>
+                        <p className="text-base font-extrabold" style={{ color: tokens.accentBg }}>
+                          {slide.offer_text}
+                        </p>
+                        {slide.subtitle && (
+                          <p className="text-xs font-medium text-white/75 line-clamp-1">{slide.subtitle}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {slide.image_url && (
+                      <div className="w-[126px] h-[146px] shrink-0 rounded-2xl overflow-hidden bg-white/10 border border-white/15 shadow-lg group-hover:scale-105 transition-transform duration-300">
+                        <img
+                          src={slide.image_url}
+                          alt={slide.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
                     )}
                   </div>
-                </div>
 
-                {slide.image_url && (
-                  <div className="w-[126px] h-[146px] shrink-0 rounded-2xl overflow-hidden bg-white/10 border border-white/15 shadow-lg group-hover:scale-105 transition-transform duration-300">
-                    <img
-                      src={slide.image_url}
-                      alt={slide.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
+                  {/* Bottom White Offer Ribbon (Video 1 Flipkart Beauty style) */}
+                  <div className="relative z-10 h-[30px] bg-white/95 px-4 flex items-center justify-between text-[11px] font-bold text-zinc-800">
+                    <span className="truncate">{slide.footer_pill || footerOffer}</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-zinc-900 shrink-0" />
                   </div>
-                )}
-              </div>
-
-              {/* Bottom White Offer Ribbon (Video 1 Flipkart Beauty style) */}
-              <div className="relative z-10 h-[30px] bg-white/95 px-4 flex items-center justify-between text-[11px] font-bold text-zinc-800">
-                <span className="truncate">{slide.footer_pill || footerOffer}</span>
-                <ArrowRight className="h-3.5 w-3.5 text-zinc-900 shrink-0" />
-              </div>
+                </>
+              )}
             </Link>
           ))}
         </div>

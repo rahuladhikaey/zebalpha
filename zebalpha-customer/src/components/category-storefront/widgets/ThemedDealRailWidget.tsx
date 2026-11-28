@@ -54,9 +54,17 @@ export function ThemedDealRailWidget({
         );
         if (colorMatches.length >= 2) pool = colorMatches;
       }
-      if (cfg.min_discount) {
+      if (cfg.max_price && Number(cfg.max_price) > 0) {
+        const priceMatches = pool.filter((p) => p.price > 0 && p.price <= Number(cfg.max_price));
+        if (priceMatches.length > 0) pool = priceMatches;
+      }
+      if (cfg.min_discount && Number(cfg.min_discount) > 0) {
         const discMatches = pool.filter((p) => p.discountPercent >= Number(cfg.min_discount));
         if (discMatches.length >= 2) pool = discMatches;
+      }
+      if (cfg.subcategory_id) {
+        const subMatches = pool.filter((p) => p.subcategory_id === cfg.subcategory_id || p.category_id === cfg.subcategory_id);
+        if (subMatches.length > 0) pool = subMatches;
       }
       pool.sort((a, b) => b.discountPercent - a.discountPercent || b.rating - a.rating);
       cards = pool.slice(0, maxItems).map((p) => ({
