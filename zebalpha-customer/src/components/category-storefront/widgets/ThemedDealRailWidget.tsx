@@ -128,7 +128,7 @@ export function ThemedDealRailWidget({
                     <img
                       src={card.image_url}
                       alt={card.title}
-                      className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover object-top rounded-xl group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                     />
                   ) : (
@@ -204,7 +204,7 @@ export function ThemedDealRailWidget({
                     <img
                       src={card.image_url}
                       alt={card.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                     />
                   ) : (

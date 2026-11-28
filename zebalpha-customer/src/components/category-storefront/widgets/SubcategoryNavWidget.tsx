@@ -92,7 +92,7 @@ export function SubcategoryNavWidget({
                   <img
                     src={item.image_url}
                     alt={item.name}
-                    className="w-full h-full object-cover rounded-[15px] group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover object-top rounded-[15px] group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
                 ) : (
@@ -130,17 +130,19 @@ export function SubcategoryNavWidget({
         className={
           useScrollable2Row
             ? "grid grid-rows-2 grid-flow-col auto-cols-[78px] sm:auto-cols-[92px] md:auto-cols-[106px] gap-x-2.5 gap-y-3 overflow-x-auto no-scrollbar scroll-smooth pb-1"
-            : "grid grid-cols-4 md:grid-cols-8 gap-x-2.5 gap-y-3.5"
+            : "flex flex-wrap items-start justify-start gap-x-3 gap-y-3.5 sm:gap-x-4 md:gap-x-5"
         }
       >
         {items.map((item) => (
           <Link
             key={item.id}
             href={item.href}
-            className="group flex flex-col items-center gap-1.5 text-center cursor-pointer"
+            className={`group flex flex-col items-center gap-1.5 text-center cursor-pointer ${
+              useScrollable2Row ? "" : "w-[74px] sm:w-[86px] md:w-[96px]"
+            }`}
           >
             <div
-              className="w-full max-w-[84px] aspect-square rounded-2xl overflow-hidden border transition-all group-hover:shadow-md group-active:scale-95 flex items-center justify-center"
+              className="w-full aspect-square rounded-2xl overflow-hidden border transition-all group-hover:shadow-md group-active:scale-95 flex items-center justify-center"
               style={{
                 backgroundColor: tokens.softTintBg,
                 borderColor: tokens.borderColor,
@@ -150,7 +152,7 @@ export function SubcategoryNavWidget({
                 <img
                   src={item.image_url}
                   alt={item.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
               ) : (

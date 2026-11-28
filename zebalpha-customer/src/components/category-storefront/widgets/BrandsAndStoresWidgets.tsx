@@ -113,12 +113,12 @@ export function BrandSpotlightGridWidget({
               <div className="relative z-10 mt-3 flex items-end justify-end gap-2">
                 {b.product_image_url && (
                   <div className="w-16 h-20 sm:w-24 sm:h-28 rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg group-hover:-translate-y-1 transition-transform">
-                    <img src={b.product_image_url} alt={b.brand_name} className="w-full h-full object-cover" loading="lazy" />
+                    <img src={b.product_image_url} alt={b.brand_name} className="w-full h-full object-cover object-top" loading="lazy" />
                   </div>
                 )}
                 {b.secondary_image_url && b.secondary_image_url !== b.product_image_url && (
                   <div className="w-14 h-16 sm:w-20 sm:h-24 rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg group-hover:translate-y-0.5 transition-transform">
-                    <img src={b.secondary_image_url} alt={b.brand_name} className="w-full h-full object-cover" loading="lazy" />
+                    <img src={b.secondary_image_url} alt={b.brand_name} className="w-full h-full object-cover object-top" loading="lazy" />
                   </div>
                 )}
               </div>
@@ -157,7 +157,7 @@ export function BrandSpotlightGridWidget({
             <div className="px-2.5 pb-2 flex flex-col items-center text-center gap-1.5">
               {b.product_image_url && (
                 <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-zinc-50 border border-zinc-100">
-                  <img src={b.product_image_url} alt={b.brand_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
+                  <img src={b.product_image_url} alt={b.brand_name} className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform" loading="lazy" />
                 </div>
               )}
               <span className="text-[11px] sm:text-xs font-black uppercase tracking-tight text-zinc-950 line-clamp-1">
@@ -237,7 +237,7 @@ export function CuratedShelfWidget({
                 <img
                   src={c.image_url}
                   alt={c.brand}
-                  className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover object-top rounded-xl group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
               ) : (
@@ -324,8 +324,8 @@ export function FullSpotlightBannerWidget({
           </div>
 
           {bannerImg && (
-            <div className="w-36 h-36 md:w-44 md:h-44 rounded-2xl overflow-hidden border border-white/20 shadow-2xl shrink-0 group-hover:scale-105 transition-transform duration-300">
-              <img src={bannerImg} alt={widget.title} className="w-full h-full object-cover" loading="lazy" />
+            <div className="w-32 h-32 sm:w-36 sm:h-36 md:w-44 md:h-44 rounded-2xl overflow-hidden border border-white/20 shadow-2xl shrink-0 group-hover:scale-105 transition-transform duration-300">
+              <img src={bannerImg} alt={widget.title} className="w-full h-full object-cover object-top" loading="lazy" />
             </div>
           )}
         </div>
@@ -409,7 +409,7 @@ export function ComboKitsMarqueeWidget({
           </Link>
         </div>
 
-        <div className={`grid gap-2.5 md:gap-5 relative z-10 ${kits.length === 2 ? "grid-cols-2" : kits.length >= 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 md:gap-4 relative z-10">
           {kits.map((kit) => (
             <Link
               key={kit.id}
@@ -421,14 +421,16 @@ export function ComboKitsMarqueeWidget({
                   <img
                     src={kit.image_url}
                     alt={kit.title}
-                    className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover object-top rounded-xl group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-full h-full rounded-xl bg-pink-100" />
+                  <div className="w-full h-full rounded-xl bg-zinc-100 flex items-center justify-center">
+                    <Sparkles className="h-6 w-6 text-zinc-400" />
+                  </div>
                 )}
               </div>
-              <p className="mt-2 text-xs sm:text-base font-black text-white leading-tight">{kit.offer_pill}</p>
+              <p className="mt-2 text-xs sm:text-sm font-black text-white leading-tight">{kit.offer_pill}</p>
               <p className="text-[11px] sm:text-xs font-semibold text-white/75 line-clamp-1">{kit.title}</p>
             </Link>
           ))}
@@ -478,7 +480,7 @@ export function ExploreStores3x3Widget({
         {widget.subtitle && <p className="text-xs text-zinc-500 font-semibold">{widget.subtitle}</p>}
       </div>
 
-      <div className={`grid grid-cols-3 gap-2.5 md:gap-3 ${stores.length <= 6 ? "md:grid-cols-6" : "md:grid-cols-5 lg:grid-cols-9"}`}>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5 md:gap-3.5">
         {stores.map((st, idx) => {
           const taggedProd =
             products.find((p) => st.tag_filter && p.storeTags.includes(st.tag_filter.toLowerCase())) ||
@@ -491,7 +493,7 @@ export function ExploreStores3x3Widget({
               key={st.id || idx}
               href={href}
               data-keep-dark="true"
-              className="group relative rounded-2xl overflow-hidden p-2 flex flex-col justify-between aspect-[4/4.6] shadow-sm hover:shadow-lg transition-all"
+              className="group relative rounded-2xl overflow-hidden p-2 sm:p-2.5 flex flex-col justify-between aspect-[4/4.4] shadow-sm hover:shadow-lg transition-all"
               style={{ backgroundColor: frameBg }}
             >
               <p className="relative z-10 text-[10px] sm:text-[11px] font-black uppercase leading-tight text-white line-clamp-2 pr-1">
@@ -499,13 +501,25 @@ export function ExploreStores3x3Widget({
               </p>
 
               <div className="relative mt-1.5 flex-1 w-full rounded-xl overflow-hidden bg-white/10">
-                {imgUrl && (
+                {imgUrl ? (
                   <img
                     src={imgUrl}
                     alt={st.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
+                ) : (
+                  <div
+                    className="w-full h-full flex flex-col items-center justify-center gap-1 p-2 text-center"
+                    style={{
+                      background: `radial-gradient(circle at 30% 25%, ${tokens.accentBg}30 0%, rgba(255,255,255,0.04) 75%)`,
+                    }}
+                  >
+                    <Sparkles className="h-5 w-5 opacity-75" style={{ color: tokens.accentBg }} />
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-white/65">
+                      Shop Edit
+                    </span>
+                  </div>
                 )}
                 {/* Signature Circular White Arrow Badge Bottom-Right */}
                 <span className="absolute bottom-1.5 right-1.5 h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow group-hover:scale-110 transition-transform">

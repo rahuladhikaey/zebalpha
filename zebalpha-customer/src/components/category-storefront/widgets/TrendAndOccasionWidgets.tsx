@@ -32,7 +32,7 @@ export function AudienceSplit3ColWidget({ widget, categoryId, products }: Common
   return (
     <section className="max-w-[1440px] mx-auto px-3 md:px-6 py-3">
       <h2 className="text-base md:text-xl font-black text-zinc-900 tracking-tight mb-3">{widget.title}</h2>
-      <div className={`grid gap-2.5 md:gap-4 ${cards.length <= 2 ? "grid-cols-2" : cards.length === 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5 md:gap-4">
         {cards.map((card, idx) => {
           const matchedProd =
             products.find((p) => card.tag_filter && p.storeTags.includes(card.tag_filter.toLowerCase())) ||
@@ -43,19 +43,27 @@ export function AudienceSplit3ColWidget({ widget, categoryId, products }: Common
           return (
             <Link key={card.id || idx} href={href} className="group flex flex-col items-center">
               <div
-                className="w-full aspect-[4/4.3] rounded-2xl overflow-hidden border-[3px] shadow-sm group-hover:shadow-md transition-all"
+                className="w-full aspect-[4/4.3] rounded-2xl overflow-hidden border-[2.5px] shadow-sm group-hover:shadow-md transition-all"
                 style={{ borderColor: frameColor, backgroundColor: softBg }}
               >
                 {imgUrl ? (
                   <img
                     src={imgUrl}
                     alt={card.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Sparkles className="h-7 w-7 opacity-40" style={{ color: frameColor }} />
+                  <div
+                    className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-3 text-center"
+                    style={{
+                      background: `radial-gradient(circle at 50% 35%, ${frameColor}28 0%, ${softBg} 85%)`,
+                    }}
+                  >
+                    <Sparkles className="h-6 w-6 opacity-75" style={{ color: frameColor }} />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 line-clamp-2">
+                      {card.title}
+                    </span>
                   </div>
                 )}
               </div>
@@ -107,7 +115,7 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
           <h2 className="text-base md:text-xl font-black text-zinc-900 tracking-tight">{widget.title}</h2>
           {widget.subtitle && <p className="text-xs text-zinc-500 font-medium">{widget.subtitle}</p>}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 md:gap-4">
           {cards.map((c) => (
             <Link
               key={c.id}
@@ -119,7 +127,7 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
                 <img
                   src={c.image_url}
                   alt={c.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
               )}
@@ -171,8 +179,8 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
         </div>
       </div>
 
-      {/* 2x2 Dark Lookbook Grid (4 cols on desktop) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-4">
+      {/* Responsive Lookbook Grid (2-col Mobile -> 5/6-col Desktop, Auto-Fitted Card Sizes) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 md:gap-4">
         {topGrid.map((item, idx) => (
           <Link
             key={`tr-grid-${idx}`}
@@ -184,7 +192,7 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
               <img
                 src={item.image_url}
                 alt={item.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                 loading="lazy"
               />
             )}
@@ -211,13 +219,13 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
             <Link
               key={`tr-rail-${p.id}`}
               href={`/products/${p.id}`}
-              className="group shrink-0 w-[138px] sm:w-[166px] md:w-[192px] rounded-2xl overflow-hidden border border-zinc-200 bg-white shadow-sm hover:shadow-md transition-all"
+              className="group shrink-0 w-[138px] sm:w-[162px] md:w-[184px] rounded-2xl overflow-hidden border border-zinc-200 bg-white shadow-sm hover:shadow-md transition-all"
             >
               <div className="aspect-[4/4.8] w-full bg-zinc-100 overflow-hidden">
                 <img
                   src={p.image_url}
                   alt={p.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
               </div>
@@ -265,7 +273,7 @@ export function Occasion2ColWidget({ widget, categoryId, tokens, products }: Com
         )}
       </div>
 
-      <div className={`grid gap-3 md:gap-4 ${cards.length === 1 ? "grid-cols-1" : cards.length >= 3 ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2"}`}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
         {cards.map((card, idx) => {
           const matchedProd =
             products.find((p) => card.tag_filter && p.storeTags.includes(card.tag_filter.toLowerCase())) ||
@@ -278,15 +286,19 @@ export function Occasion2ColWidget({ widget, categoryId, tokens, products }: Com
               key={card.id || idx}
               href={href}
               data-keep-dark="true"
-              className="group relative aspect-[4/4.6] md:aspect-[16/10] rounded-2xl overflow-hidden bg-zinc-900 shadow-md"
+              className="group relative aspect-[4/4.5] rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 shadow-md"
             >
-              {imgUrl && (
+              {imgUrl ? (
                 <img
                   src={imgUrl}
                   alt={card.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center pb-8">
+                  <Sparkles className="h-8 w-8 opacity-40" style={{ color: tokens.accentBg }} />
+                </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
               <div

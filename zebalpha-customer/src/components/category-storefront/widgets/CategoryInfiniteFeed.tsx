@@ -97,8 +97,8 @@ export function CategoryInfiniteFeed({
         </div>
       ) : (
         <>
-          {/* Flipkart-Style Dense 2-Col Mobile / 4-Col Desktop Product Grid (Video 1 & Video 2) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 md:gap-4">
+          {/* Flipkart-Grade Device-Fitted Product Grid: 2-Col Mobile -> 3-Col Small -> 4-Col Tablet -> 5-Col Laptop -> 6-Col Desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3 md:gap-4">
             {items.map((p) => (
               <div
                 key={p.id}
@@ -122,16 +122,16 @@ export function CategoryInfiniteFeed({
                   />
                 </div>
 
-                {/* Product Image */}
+                {/* Product Image (object-top keeps faces & collars cleanly framed!) */}
                 <Link
                   href={`/products/${p.id}`}
-                  className="relative block aspect-[4/4.9] w-full bg-zinc-50 overflow-hidden"
+                  className="relative block aspect-[4/5] w-full bg-zinc-50 overflow-hidden"
                 >
                   {p.image_url ? (
                     <img
                       src={p.image_url}
                       alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                     />
                   ) : (
