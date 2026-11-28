@@ -4,7 +4,7 @@ import { requireSuperAdmin, authErrorResponse } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2 MB for crisp banners & cards (auto-compressed by Cloudinary CDN!)
+const MAX_UPLOAD_BYTES = 150 * 1024; // Strictly 150 KB max — high-size banners/icons are blocked!
 const ALLOWED_MIME_TYPES = ["image/webp", "image/jpeg", "image/png"];
 
 function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
@@ -53,7 +53,10 @@ export async function POST(req: Request) {
     }
     if (file.size > MAX_UPLOAD_BYTES) {
       return NextResponse.json(
-        { success: false, message: `Image must be under 2 MB (got ${(file.size / 1024 / 1024).toFixed(2)} MB).` },
+        {
+          success: false,
+          message: `High-size image blocked: banners, icons & cards must be 150 KB or smaller (got ${(file.size / 1024).toFixed(0)} KB).`,
+        },
         { status: 400 }
       );
     }

@@ -3,6 +3,7 @@
 import React, { useRef, useState } from "react";
 import { Plus, Trash2, Upload, Loader2, Link2, Tag } from "lucide-react";
 import type { CategoryWidgetConfig } from "@/lib/categoryStorefrontTypes";
+import { compressImageStrictMaxKB } from "@shared/services/uploadService";
 
 interface SubcatOption {
   id: string;
@@ -25,10 +26,12 @@ const BANNER_GRADIENT_OPTIONS = [
   { label: "Emerald Forest", value: "linear-gradient(135deg, #062119 0%, #065f46 55%, #041510 100%)" },
 ];
 
+const STRICT_MAX_UPLOAD_KB = 150;
+
 export function AdminImageUploadField({
   value,
   onChange,
-  placeholder = "Image URL or click Upload",
+  placeholder = "Image URL or click Upload (auto <= 150 KB)",
   folder = "category-storefront",
 }: {
   value: string;
@@ -38,27 +41,72 @@ export function AdminImageUploadField({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
     setUploading(true);
+    setStatusMsg(null);
     try {
+      const isCompactAsset = /icon|subcat|portrait|badge/i.test(folder);
+      const { blob, contentType, ext, originalBytes, finalBytes } = await compressImageStrictMaxKB(
+        rawFile,
+        STRICT_MAX_UPLOAD_KB,
+        isCompactAsset ? 640 : 1400
+      );
+
+      if (finalBytes > STRICT_MAX_UPLOAD_KB * 1024) {
+        setStatusMsg({
+          type: "err",
+          text: `High-size image blocked: must be <= ${STRICT_MAX_UPLOAD_KB} KB (got ${Math.round(finalBytes / 1024)} KB).`,
+        });
+        return;
+      }
+
+      const baseName = rawFile.name.replace(/\.[^.]+$/, "") || "storefront";
+      const optimized = new File([blob], `${baseName}.${ext}`, { type: contentType });
+
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", optimized);
       fd.append("folder", folder);
       const res = await fetch("/api/admin/category-storefront/upload", {
         method: "POST",
         body: fd,
       });
-      const json = await res.json();
-      if (json?.success && json.publicUrl) {
+
+      const rawText = await res.text();
+      let json: any = null;
+      try {
+        json = JSON.parse(rawText);
+      } catch {
+        // Non-JSON response fallback
+      }
+
+      if (res.ok && json?.success && json.publicUrl) {
         onChange(json.publicUrl);
+        const origLabel =
+          originalBytes >= 1024 * 1024
+            ? `${(originalBytes / (1024 * 1024)).toFixed(1)} MB`
+            : `${Math.max(1, Math.round(originalBytes / 1024))} KB`;
+        const finalKb = Math.max(1, Math.round(finalBytes / 1024));
+        setStatusMsg({
+          type: "ok",
+          text:
+            originalBytes > finalBytes
+              ? `Auto-compressed ${origLabel} → ${finalKb} KB WebP • Uploaded ✓`
+              : `Uploaded (${finalKb} KB) ✓`,
+        });
       } else {
-        alert(json?.message || "Image upload failed");
+        const msg =
+          json?.message ||
+          (res.status === 413
+            ? `High-size image blocked: max ${STRICT_MAX_UPLOAD_KB} KB allowed.`
+            : `Upload failed (HTTP ${res.status})`);
+        setStatusMsg({ type: "err", text: msg });
       }
     } catch (err: any) {
-      alert(err?.message || "Upload error");
+      setStatusMsg({ type: "err", text: err?.message || "Upload error" });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -66,38 +114,45 @@ export function AdminImageUploadField({
   };
 
   return (
-    <div className="flex items-center gap-1.5">
-      {value && (
-        <img
-          src={value}
-          alt="Preview"
-          className="h-8 w-8 rounded-lg object-cover border border-zinc-300 dark:border-zinc-700 shrink-0"
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        {value && (
+          <img
+            src={value}
+            alt="Preview"
+            className="h-8 w-8 rounded-lg object-cover border border-zinc-300 dark:border-zinc-700 shrink-0"
+          />
+        )}
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={INPUT_CLS}
         />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFile}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-black px-2.5 py-1.5 text-[11px] font-black cursor-pointer disabled:opacity-50"
+          title="Auto-compress any image to <= 150 KB WebP & upload to Cloudinary CDN"
+        >
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          <span className="hidden sm:inline">{uploading ? "Optimizing..." : "Upload"}</span>
+        </button>
+      </div>
+      {statusMsg && (
+        <p className={`text-[10px] font-bold ${statusMsg.type === "err" ? "text-red-400" : "text-emerald-400"}`}>
+          {statusMsg.text}
+        </p>
       )}
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={INPUT_CLS}
-      />
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/webp,image/jpeg,image/png"
-        onChange={handleFile}
-        className="hidden"
-      />
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        disabled={uploading}
-        className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-black px-2.5 py-1.5 text-[11px] font-black cursor-pointer disabled:opacity-50"
-        title="Upload photo directly to Cloudinary CDN"
-      >
-        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-        <span className="hidden sm:inline">{uploading ? "..." : "Upload"}</span>
-      </button>
     </div>
   );
 }

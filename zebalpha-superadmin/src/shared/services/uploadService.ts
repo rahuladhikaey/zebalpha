@@ -160,25 +160,188 @@ const CLOUDINARY_CLOUD_NAME = "vtweyirx";
 const CLOUDINARY_UPLOAD_PRESET = "zebalpha_preset"; // Unsigned preset
 const CLOUDINARY_API_KEY = "317122266961536";
 
+/**
+ * Strict auto-compressor: converts ANY size image (even 10–25 MB 4K PNG/JPG) into a crisp WebP
+ * guaranteed to be <= maxKb (default 150 KB). Blocks high-size files that cannot fit under maxKb.
+ */
+export async function compressImageStrictMaxKB(
+  fileOrBase64: File | Blob | string,
+  maxKb: number = 150,
+  maxDim: number = 1400
+): Promise<{ blob: Blob; contentType: string; ext: string; originalBytes: number; finalBytes: number }> {
+  const maxBytes = maxKb * 1024;
+  const sourceBlob = typeof fileOrBase64 === "string" ? dataURLtoBlob(fileOrBase64) : fileOrBase64;
+  const originalBytes = sourceBlob.size;
+
+  if (typeof window === "undefined") {
+    if (originalBytes > maxBytes) {
+      throw new Error(`High-size image blocked: max allowed is ${maxKb} KB (got ${(originalBytes / 1024).toFixed(0)} KB).`);
+    }
+    return {
+      blob: sourceBlob,
+      contentType: sourceBlob.type || "image/webp",
+      ext: sourceBlob.type === "image/jpeg" ? "jpg" : sourceBlob.type === "image/png" ? "png" : "webp",
+      originalBytes,
+      finalBytes: originalBytes,
+    };
+  }
+
+  // Already compact WebP/JPEG within limit -> still check dimensions via canvas only if oversized
+  if (originalBytes <= maxBytes && (sourceBlob.type === "image/webp" || sourceBlob.type === "image/jpeg")) {
+    return {
+      blob: sourceBlob,
+      contentType: sourceBlob.type,
+      ext: sourceBlob.type === "image/jpeg" ? "jpg" : "webp",
+      originalBytes,
+      finalBytes: originalBytes,
+    };
+  }
+
+  return new Promise((resolve, reject) => {
+    const isString = typeof fileOrBase64 === "string";
+    const src = isString ? fileOrBase64 : URL.createObjectURL(fileOrBase64);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    const cleanup = () => {
+      if (!isString) URL.revokeObjectURL(src);
+    };
+
+    img.onload = async () => {
+      try {
+        let baseW = img.naturalWidth || img.width;
+        let baseH = img.naturalHeight || img.height;
+        if (!baseW || !baseH) {
+          cleanup();
+          reject(new Error("Invalid image dimensions."));
+          return;
+        }
+        if (baseW > maxDim || baseH > maxDim) {
+          const ratio = Math.min(maxDim / baseW, maxDim / baseH);
+          baseW = Math.max(1, Math.round(baseW * ratio));
+          baseH = Math.max(1, Math.round(baseH * ratio));
+        }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { alpha: true });
+        if (!ctx) {
+          cleanup();
+          reject(new Error("Browser canvas compression unavailable."));
+          return;
+        }
+
+        const toBlobAsync = (mime: string, q: number) =>
+          new Promise<Blob | null>((res) => canvas.toBlob((b) => res(b), mime, q));
+
+        const scales = [1.0, 0.85, 0.72, 0.6, 0.48, 0.38, 0.28];
+        const qualities = [0.84, 0.74, 0.64, 0.54, 0.44, 0.34];
+
+        let smallestBlob: Blob | null = null;
+        let smallestMime = "image/webp";
+
+        for (const scale of scales) {
+          const w = Math.max(120, Math.round(baseW * scale));
+          const h = Math.max(120, Math.round(baseH * scale));
+          canvas.width = w;
+          canvas.height = h;
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+
+          for (const q of qualities) {
+            let mime = "image/webp";
+            let blob = await toBlobAsync(mime, q);
+            if (!blob || blob.size === 0) {
+              mime = "image/jpeg";
+              blob = await toBlobAsync(mime, q);
+            }
+            if (!blob) continue;
+
+            if (!smallestBlob || blob.size < smallestBlob.size) {
+              smallestBlob = blob;
+              smallestMime = mime;
+            }
+            if (blob.size <= maxBytes) {
+              cleanup();
+              resolve({
+                blob,
+                contentType: mime,
+                ext: mime === "image/jpeg" ? "jpg" : "webp",
+                originalBytes,
+                finalBytes: blob.size,
+              });
+              return;
+            }
+          }
+        }
+
+        cleanup();
+        if (smallestBlob && smallestBlob.size <= maxBytes) {
+          resolve({
+            blob: smallestBlob,
+            contentType: smallestMime,
+            ext: smallestMime === "image/jpeg" ? "jpg" : "webp",
+            originalBytes,
+            finalBytes: smallestBlob.size,
+          });
+          return;
+        }
+
+        const gotKb = smallestBlob ? (smallestBlob.size / 1024).toFixed(0) : (originalBytes / 1024).toFixed(0);
+        reject(new Error(`High-size image blocked: compressed result (${gotKb} KB) still exceeds ${maxKb} KB limit.`));
+      } catch (err: any) {
+        cleanup();
+        reject(new Error(err?.message || "Image compression failed."));
+      }
+    };
+
+    img.onerror = () => {
+      cleanup();
+      if (originalBytes <= maxBytes) {
+        resolve({
+          blob: sourceBlob,
+          contentType: sourceBlob.type || "image/webp",
+          ext: sourceBlob.type === "image/jpeg" ? "jpg" : sourceBlob.type === "image/png" ? "png" : "webp",
+          originalBytes,
+          finalBytes: originalBytes,
+        });
+      } else {
+        reject(new Error(`High-size image blocked: unable to compress ${(originalBytes / 1024).toFixed(0)} KB image under ${maxKb} KB.`));
+      }
+    };
+
+    img.src = src;
+  });
+}
+
 export async function uploadDirectToCloudinary(
   fileOrBase64: File | Blob | string,
-  folder: string = "products"
+  folder: string = "products",
+  maxKb: number = 150
 ): Promise<string> {
   if (typeof fileOrBase64 === "string" && /^https?:\/\//i.test(fileOrBase64)) {
     return fileOrBase64;
   }
 
-  let base64Data = "";
-  if (typeof fileOrBase64 === "string") {
-    base64Data = fileOrBase64;
-  } else {
-    base64Data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(fileOrBase64);
-    });
+  // Strictly auto-compress EVERY banner, icon, card & asset to <= 150 KB WebP before upload
+  const isIconFolder = /icon|badge|logo|subcat/i.test(folder);
+  const { blob: compressedBlob } = await compressImageStrictMaxKB(
+    fileOrBase64,
+    maxKb,
+    isIconFolder ? 640 : 1400
+  );
+
+  if (compressedBlob.size > maxKb * 1024) {
+    throw new Error(
+      `High-size image blocked: max allowed is ${maxKb} KB (got ${(compressedBlob.size / 1024).toFixed(0)} KB).`
+    );
   }
+
+  const base64Data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(compressedBlob);
+  });
 
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
