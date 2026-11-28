@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import QRCode from "qrcode";
 import { supabase } from "@shared/utils/supabaseClient";
+import { CategorySpotlightRequestCard } from "@/components/CategorySpotlightRequestCard";
 import {
   CheckCircle2,
   Eye,
@@ -1497,6 +1498,12 @@ export default function AppBrandingPage() {
           )}
         </div>
       </section>
+
+      {/* CATEGORY STOREFRONT SPOTLIGHT REQUEST (Men's / Women's / Beauty Storefronts) */}
+      <CategorySpotlightRequestCard
+        defaultBrandName={seller.storeName}
+        sellerProducts={products}
+      />
 
       {/* ===================================================================== */}
       {/* MODAL A (LOCKED): APP OFFER & FESTIVAL AD BUILDER (₹99 / ₹139)        */}

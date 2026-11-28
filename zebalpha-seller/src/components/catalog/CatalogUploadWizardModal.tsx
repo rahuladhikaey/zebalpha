@@ -84,6 +84,8 @@ export interface MasterCatalogFormState {
   style_code: string;
   brand: string;
   collection: string;
+  is_combo?: boolean;
+  storefront_tags?: string[];
 
   // Step 4: Variants & Size Chart
   has_variants: boolean;
@@ -149,6 +151,8 @@ const INITIAL_FORM_STATE: MasterCatalogFormState = {
   style_code: "",
   brand: "zebalpha",
   collection: "",
+  is_combo: false,
+  storefront_tags: [],
 
   has_variants: false,
   variants: [],
@@ -681,6 +685,8 @@ export default function CatalogUploadWizardModal({
         })(),
         brand: editingProduct.brand || "zebalpha",
         collection: editingProduct.collection || specs.collection || "",
+        is_combo: Boolean(specs.is_combo === true || specs.is_combo === "true"),
+        storefront_tags: Array.isArray(specs.storefront_tags) ? specs.storefront_tags : [],
 
         has_variants: hasVars,
         variants: loadedVariants,
@@ -1249,6 +1255,8 @@ export default function CatalogUploadWizardModal({
         billable_weight: form.billable_weight || "360",
         estimated_shipping_fee: form.estimated_shipping_fee || 62,
         collection: form.collection,
+        is_combo: Boolean(form.is_combo),
+        storefront_tags: Array.isArray(form.storefront_tags) ? form.storefront_tags : [],
         tier: "STANDARD",
       };
 

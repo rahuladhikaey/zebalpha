@@ -52,12 +52,21 @@ function ProductsContent() {
 
   // Multi-facet Real Filter State
   const [filters, setFilters] = useState<FilterState>(INITIAL_FILTER_STATE);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"popularity" | "price_asc" | "price_desc" | "discount_desc" | "newest">("popularity");
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   // Category horizontal scroll ref
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   const categoryParam = searchParams.get("category");
+  const subcategoryParam = searchParams.get("subcategory");
+  const brandParam = searchParams.get("brand");
+  const maxPriceParam = searchParams.get("maxPrice");
+  const minPriceParam = searchParams.get("minPrice");
+  const minDiscountParam = searchParams.get("minDiscount");
+  const tagParam = searchParams.get("tag");
+  const sortParam = searchParams.get("sort");
   const searchParam = searchParams.get("search");
   const voiceHintParam = searchParams.get("vq");
 
@@ -112,10 +121,33 @@ function ProductsContent() {
     }
   }, [searchParam]);
 
+  // Sync deep-link URL params from Category Storefront tiles (brand, maxPrice, minPrice, minDiscount, tag, sort)
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      brands: brandParam ? [brandParam] : [],
+      customMaxPrice: maxPriceParam ? String(maxPriceParam) : "",
+      customMinPrice: minPriceParam ? String(minPriceParam) : "",
+      minDiscount: minDiscountParam ? Number(minDiscountParam) || 0 : 0,
+    }));
+    setActiveTag(tagParam ? tagParam.trim() : null);
+    if (
+      sortParam === "price_asc" ||
+      sortParam === "price_desc" ||
+      sortParam === "discount_desc" ||
+      sortParam === "newest" ||
+      sortParam === "popularity"
+    ) {
+      setSortBy(sortParam);
+    } else {
+      setSortBy("popularity");
+    }
+  }, [brandParam, maxPriceParam, minPriceParam, minDiscountParam, tagParam, sortParam]);
+
   // Reset page when category, debounced search, or filters change
   useEffect(() => {
     setPage(1);
-  }, [selectedCategory, debouncedSearch, filters]);
+  }, [selectedCategory, subcategoryParam, debouncedSearch, filters, activeTag, sortBy]);
 
   // Track real customer search & category browsing events across Web and Android
   useEffect(() => {
@@ -148,12 +180,12 @@ function ProductsContent() {
     }
   }, [selectedCategory, categories]);
 
-  // Server-side paginated query
+  // Server-side paginated query (subcategory overrides main category when deep-linked)
   const {
     data: paginatedData,
     isLoading: loading,
   } = usePaginatedProducts({
-    category: selectedCategory,
+    category: subcategoryParam || selectedCategory,
     search: debouncedSearch,
     voiceHint: debouncedSearch.trim() === (searchParam || "").trim() ? voiceHintParam || undefined : undefined,
     page,
@@ -575,9 +607,38 @@ function ProductsContent() {
       if (filters.customMinPrice && price < Number(filters.customMinPrice)) return false;
       if (filters.customMaxPrice && price > Number(filters.customMaxPrice)) return false;
 
+      // 12. Category Storefront Discovery Tag filter (Combo, Korean, Winter, Party, Festive, etc.)
+      if (activeTag) {
+        const tl = activeTag.toLowerCase();
+        const specs = (product.specifications as Record<string, any>) || {};
+        const rawTags = specs.storefront_tags || specs.store_tags || specs.tags || [];
+        const tagText = Array.isArray(rawTags) ? rawTags.join(" ").toLowerCase() : String(rawTags).toLowerCase();
+        const isComboProd = specs.is_combo === true || specs.is_combo === "true";
+        const haystack = `${product.name} ${product.description || ""} ${product.brand || ""} ${tagText}`.toLowerCase();
+        if (tl === "combo") {
+          if (!isComboProd && !/\b(combo|kit|pack of|set of|bundle)\b/i.test(haystack)) return false;
+        } else if (!haystack.includes(tl)) {
+          return false;
+        }
+      }
+
       return true;
+    }).sort((a, b) => {
+      if (sortBy === "price_asc") {
+        return getProductDisplayPricing(a).price - getProductDisplayPricing(b).price;
+      }
+      if (sortBy === "price_desc") {
+        return getProductDisplayPricing(b).price - getProductDisplayPricing(a).price;
+      }
+      if (sortBy === "discount_desc") {
+        return getProductDisplayPricing(b).discountPercent - getProductDisplayPricing(a).discountPercent;
+      }
+      if (sortBy === "newest") {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      }
+      return 0;
     });
-  }, [products, selectedCategory, filters, dynamicPriceBrackets]);
+  }, [products, selectedCategory, filters, dynamicPriceBrackets, activeTag, sortBy]);
 
   // Handle category switch from horizontal tabs
   const handleCategorySelect = (categoryId: number | string | null) => {
@@ -1015,6 +1076,58 @@ function ProductsContent() {
           {/* RIGHT CONTENT: PRODUCT GRID + ACTIVE PILLS + SERVER PAGINATION            */}
           {/* ========================================================================= */}
           <div className="flex-1 min-w-0 pb-16">
+            {/* Flipkart-Style Sort By Strip (Video 1: 00:36–00:38) */}
+            <div
+              className={
+                isNativeApp
+                  ? "flex items-center gap-2 overflow-x-auto no-scrollbar mb-3 px-3 py-2 rounded-xl bg-[#FFFDF8] border border-[#E4C988]"
+                  : "flex items-center gap-2 overflow-x-auto no-scrollbar mb-3 px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800"
+              }
+            >
+              <span className={`text-[11px] font-black uppercase tracking-wider shrink-0 ${isNativeApp ? "text-[#5C4D33]" : "text-zinc-400"}`}>
+                Sort By:
+              </span>
+              {(
+                [
+                  { id: "popularity", label: "Popularity" },
+                  { id: "price_asc", label: "Price — Low to High" },
+                  { id: "price_desc", label: "Price — High to Low" },
+                  { id: "discount_desc", label: "Biggest Discount" },
+                  { id: "newest", label: "Newest First" },
+                ] as const
+              ).map((opt) => {
+                const active = sortBy === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setSortBy(opt.id)}
+                    className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
+                      active
+                        ? isNativeApp
+                          ? "bg-[#111111] text-[#FFE68B]"
+                          : "bg-emerald-400 text-black font-extrabold"
+                        : isNativeApp
+                          ? "text-[#4A3F2B] hover:bg-[#FFF6D6]"
+                          : "text-zinc-300 hover:bg-zinc-900"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              {activeTag && (
+                <span className={`${filterPillClass} ml-auto shrink-0 capitalize`}>
+                  Store: {activeTag}
+                  <X
+                    size={12}
+                    className={filterPillCloseClass}
+                    onClick={() => setActiveTag(null)}
+                  />
+                </span>
+              )}
+            </div>
+
             {/* Active Filters Summary Bar */}
             {(activeFilterCount > 0 || selectedCategory) && (
               <div

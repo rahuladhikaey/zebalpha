@@ -470,13 +470,17 @@ export function CategoryNavigationBar({
           {/* DYNAMIC DATABASE-DRIVEN CATEGORIES (Flipkart-Inspired)             */}
           {/* =================================================================== */}
           {categories.map((cat) => {
-            const isSelected = String(activeCategoryId) === String(cat.id);
+            const catSlug = (cat.slug || cat.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")).trim();
+            const isSelected =
+              String(activeCategoryId) === String(cat.id) ||
+              pathname === `/category/${catSlug}` ||
+              pathname === `/category/${encodeURIComponent(catSlug)}`;
             const localizedName = getLocalizedCategoryName(cat.name, language);
 
             return (
               <Link
                 key={cat.id}
-                href={`/products?category=${encodeURIComponent(cat.id)}`}
+                href={`/category/${encodeURIComponent(catSlug)}`}
                 onClick={() => {
                   trackRecommendationEvent({
                     eventType: "category_viewed",
