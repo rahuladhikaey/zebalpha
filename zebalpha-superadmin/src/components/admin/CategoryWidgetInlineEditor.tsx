@@ -283,7 +283,7 @@ export function CategoryWidgetInlineEditor({
                     offer_text: "Under ₹499",
                     image_url: "",
                     bg_gradient: BANNER_GRADIENT_OPTIONS[0].value,
-                    full_banner_mode: false,
+                    full_banner_mode: true,
                     destination_url: `/products?category=${catParam}&maxPrice=499&sort=price_asc`,
                   },
                 ],

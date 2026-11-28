@@ -11,6 +11,7 @@ import type {
   CategorySpotlightRequest,
 } from "@/lib/categoryStorefrontTypes";
 import type { AutoPilotBrandSummary, StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
+import { SmartFitImage } from "../SmartFitImage";
 
 interface BrandsWidgetProps {
   widget: CategoryWidgetConfig;
@@ -113,12 +114,12 @@ export function BrandSpotlightGridWidget({
               <div className="relative z-10 mt-3 flex items-end justify-end gap-2">
                 {b.product_image_url && (
                   <div className="w-16 h-20 sm:w-24 sm:h-28 rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg group-hover:-translate-y-1 transition-transform">
-                    <img src={b.product_image_url} alt={b.brand_name} className="w-full h-full object-cover object-top" loading="lazy" />
+                    <SmartFitImage src={b.product_image_url} alt={b.brand_name} />
                   </div>
                 )}
                 {b.secondary_image_url && b.secondary_image_url !== b.product_image_url && (
                   <div className="w-14 h-16 sm:w-20 sm:h-24 rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg group-hover:translate-y-0.5 transition-transform">
-                    <img src={b.secondary_image_url} alt={b.brand_name} className="w-full h-full object-cover object-top" loading="lazy" />
+                    <SmartFitImage src={b.secondary_image_url} alt={b.brand_name} />
                   </div>
                 )}
               </div>
@@ -157,7 +158,7 @@ export function BrandSpotlightGridWidget({
             <div className="px-2.5 pb-2 flex flex-col items-center text-center gap-1.5">
               {b.product_image_url && (
                 <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-zinc-50 border border-zinc-100">
-                  <img src={b.product_image_url} alt={b.brand_name} className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform" loading="lazy" />
+                  <SmartFitImage src={b.product_image_url} alt={b.brand_name} imgClassName="group-hover:scale-105" />
                 </div>
               )}
               <span className="text-[11px] sm:text-xs font-black uppercase tracking-tight text-zinc-950 line-clamp-1">
@@ -234,11 +235,11 @@ export function CuratedShelfWidget({
           >
             <div className="aspect-[4/4.2] w-full p-2.5 flex items-center justify-center">
               {c.image_url ? (
-                <img
+                <SmartFitImage
                   src={c.image_url}
                   alt={c.brand}
-                  className="w-full h-full object-cover object-top rounded-xl group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  roundedClass="rounded-xl"
+                  imgClassName="group-hover:scale-[1.04]"
                 />
               ) : (
                 <div className="w-full h-full rounded-xl bg-white/70" />
@@ -324,8 +325,8 @@ export function FullSpotlightBannerWidget({
           </div>
 
           {bannerImg && (
-            <div className="w-32 h-32 sm:w-36 sm:h-36 md:w-44 md:h-44 rounded-2xl overflow-hidden border border-white/20 shadow-2xl shrink-0 group-hover:scale-105 transition-transform duration-300">
-              <img src={bannerImg} alt={widget.title} className="w-full h-full object-cover object-top" loading="lazy" />
+            <div className="w-32 h-32 sm:w-36 sm:h-36 md:w-44 md:h-44 rounded-2xl overflow-hidden border border-white/20 shadow-2xl shrink-0">
+              <SmartFitImage src={bannerImg} alt={widget.title} imgClassName="group-hover:scale-[1.04]" />
             </div>
           )}
         </div>
@@ -418,11 +419,11 @@ export function ComboKitsMarqueeWidget({
             >
               <div className="w-full aspect-[4/4.3] rounded-2xl overflow-hidden bg-white p-1.5 shadow-md">
                 {kit.image_url ? (
-                  <img
+                  <SmartFitImage
                     src={kit.image_url}
                     alt={kit.title}
-                    className="w-full h-full object-cover object-top rounded-xl group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
+                    roundedClass="rounded-xl"
+                    imgClassName="group-hover:scale-[1.04]"
                   />
                 ) : (
                   <div className="w-full h-full rounded-xl bg-zinc-100 flex items-center justify-center">
@@ -502,11 +503,10 @@ export function ExploreStores3x3Widget({
 
               <div className="relative mt-1.5 flex-1 w-full rounded-xl overflow-hidden bg-white/10">
                 {imgUrl ? (
-                  <img
+                  <SmartFitImage
                     src={imgUrl}
                     alt={st.title}
-                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
+                    imgClassName="group-hover:scale-[1.04]"
                   />
                 ) : (
                   <div

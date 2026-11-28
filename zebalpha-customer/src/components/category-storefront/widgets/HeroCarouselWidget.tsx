@@ -10,6 +10,7 @@ import type {
   CategorySpotlightRequest,
 } from "@/lib/categoryStorefrontTypes";
 import type { StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
+import { SmartFitImage } from "../SmartFitImage";
 
 interface HeroCarouselWidgetProps {
   widget: CategoryWidgetConfig;
@@ -117,27 +118,30 @@ export function HeroCarouselWidget({
 
   const currentMobile = slides[activeIdx % slides.length];
 
+  const isFullArtwork = (slide: HeroSlideItem) =>
+    Boolean((slide as any).full_banner_mode && slide.image_url);
+
   return (
     <section className="w-full">
-      {/* MOBILE / ANDROID APP VIEW: Auto-Fit Device Aspect Ratio Hero Banner + Segmented Progress Bars */}
+      {/* MOBILE / ANDROID APP VIEW: Full-Bleed Banners Adopt Uploaded Photo's Actual Natural Ratio (ZERO Crop!) */}
       <div className="md:hidden px-3 pt-2.5 pb-1">
         <Link
           href={currentMobile.destination_url}
           data-keep-dark="true"
           className={`relative block w-full overflow-hidden rounded-[20px] shadow-[0_10px_28px_rgba(0,0,0,0.14)] active:scale-[0.99] transition-transform ${
-            (currentMobile as any).full_banner_mode && currentMobile.image_url
-              ? "aspect-[16/9]"
-              : "min-h-[215px] sm:min-h-[240px]"
+            isFullArtwork(currentMobile) ? "" : "min-h-[215px] sm:min-h-[240px]"
           }`}
           style={{
-            background: currentMobile.bg_gradient || DARK_GRADIENTS[activeIdx % DARK_GRADIENTS.length],
+            background: isFullArtwork(currentMobile)
+              ? "#0B0D0E"
+              : currentMobile.bg_gradient || DARK_GRADIENTS[activeIdx % DARK_GRADIENTS.length],
           }}
         >
-          {(currentMobile as any).full_banner_mode && currentMobile.image_url ? (
+          {isFullArtwork(currentMobile) ? (
             <img
               src={currentMobile.image_url}
               alt={currentMobile.title}
-              className="w-full h-full object-cover object-center"
+              className="block w-full h-auto max-h-[440px] object-contain mx-auto"
               loading="eager"
             />
           ) : (
@@ -189,14 +193,13 @@ export function HeroCarouselWidget({
                   </div>
                 </div>
 
-                {/* Right Hero Product Cutout */}
+                {/* Right Hero Product Auto-Fit Cutout */}
                 <div className="col-span-5 flex items-center justify-center">
                   {currentMobile.image_url ? (
-                    <div className="relative w-full max-w-[132px] aspect-[4/4.8] rounded-2xl overflow-hidden bg-white/10 backdrop-blur-sm border border-white/15 shadow-xl">
-                      <img
+                    <div className="relative w-full max-w-[136px] aspect-[4/4.8] rounded-2xl overflow-hidden bg-white/10 border border-white/15 shadow-xl">
+                      <SmartFitImage
                         src={currentMobile.image_url}
                         alt={currentMobile.title}
-                        className="w-full h-full object-cover object-top"
                         loading="eager"
                       />
                     </div>
@@ -241,83 +244,93 @@ export function HeroCarouselWidget({
         )}
       </div>
 
-      {/* DESKTOP / TABLET VIEW: Proportional 16:9 / 2:1 Auto-Fit Banner Carousel (Never Over-Cropped!) */}
+      {/* DESKTOP / TABLET VIEW: Uploaded Banners Automatically Take Their Exact Natural Aspect Ratio (ZERO Cropping!) */}
       <div className="hidden md:block relative max-w-[1440px] mx-auto px-6 pt-4 pb-2">
         <div
           ref={desktopScrollRef}
-          className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory"
+          className="flex items-stretch gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-1"
         >
-          {slides.map((slide, idx) => (
-            <Link
-              key={slide.id}
-              href={slide.destination_url}
-              data-keep-dark="true"
-              className={`group relative shrink-0 ${
-                slides.length === 1
-                  ? "w-full max-w-[960px] mx-auto aspect-[21/9]"
-                  : slides.length === 2
-                    ? "w-[calc(50%-8px)] aspect-[16/9] max-h-[360px]"
-                    : "w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] aspect-[16/9] max-h-[280px]"
-              } rounded-[20px] overflow-hidden snap-start shadow-md hover:shadow-xl transition-all flex flex-col justify-between`}
-              style={{ background: slide.bg_gradient || DARK_GRADIENTS[idx % DARK_GRADIENTS.length] }}
-            >
-              {(slide as any).full_banner_mode && slide.image_url ? (
-                <img
-                  src={slide.image_url}
-                  alt={slide.title}
-                  className="w-full h-full object-cover object-center group-hover:scale-[1.02] transition-transform duration-300"
-                  loading="lazy"
-                />
-              ) : (
-                <>
-                  <div
-                    className="pointer-events-none absolute -right-8 -bottom-8 h-36 w-36 rounded-full opacity-25 blur-2xl"
-                    style={{ backgroundColor: tokens.accentBg }}
+          {slides.map((slide, idx) => {
+            const fullArt = isFullArtwork(slide);
+            return (
+              <Link
+                key={slide.id}
+                href={slide.destination_url}
+                data-keep-dark="true"
+                className={`group relative shrink-0 rounded-[20px] overflow-hidden snap-start shadow-md hover:shadow-xl transition-all ${
+                  fullArt
+                    ? "h-[260px] lg:h-[310px] w-auto flex items-center justify-center bg-zinc-950"
+                    : `${
+                        slides.length === 1
+                          ? "w-full max-w-[920px] mx-auto h-[260px] lg:h-[300px]"
+                          : slides.length === 2
+                            ? "w-[calc(50%-8px)] h-[260px] lg:h-[310px]"
+                            : "w-[420px] lg:w-[460px] h-[260px] lg:h-[310px]"
+                      } flex flex-col justify-between`
+                }`}
+                style={{
+                  background: fullArt
+                    ? "#0B0D0E"
+                    : slide.bg_gradient || DARK_GRADIENTS[idx % DARK_GRADIENTS.length],
+                }}
+              >
+                {fullArt ? (
+                  <img
+                    src={slide.image_url}
+                    alt={slide.title}
+                    className="block h-full w-auto max-w-[82vw] object-contain group-hover:scale-[1.015] transition-transform duration-300"
+                    loading="lazy"
                   />
-                  <div className="relative z-10 flex flex-1 min-h-0 items-center justify-between p-4 lg:p-5 gap-3">
-                    <div className="flex flex-col justify-between h-full flex-1 min-w-0">
-                      <span
-                        className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider"
-                        style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
-                      >
-                        <Sparkles className="h-2.5 w-2.5" />
-                        {slide.badge || campaignBadge}
-                      </span>
+                ) : (
+                  <>
+                    <div
+                      className="pointer-events-none absolute -right-8 -bottom-8 h-36 w-36 rounded-full opacity-25 blur-2xl"
+                      style={{ backgroundColor: tokens.accentBg }}
+                    />
+                    <div className="relative z-10 flex flex-1 min-h-0 items-center justify-between p-4 lg:p-5 gap-3">
+                      <div className="flex flex-col justify-between h-full flex-1 min-w-0">
+                        <span
+                          className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                          style={{ backgroundColor: tokens.accentBg, color: tokens.accentText }}
+                        >
+                          <Sparkles className="h-2.5 w-2.5" />
+                          {slide.badge || campaignBadge}
+                        </span>
 
-                      <div className="space-y-1 my-auto">
-                        <h3 className="text-lg lg:text-xl font-black text-white leading-tight truncate group-hover:underline">
-                          {slide.title}
-                        </h3>
-                        <p className="text-sm lg:text-base font-extrabold" style={{ color: tokens.accentBg }}>
-                          {slide.offer_text}
-                        </p>
-                        {slide.subtitle && (
-                          <p className="text-xs font-medium text-white/75 line-clamp-1">{slide.subtitle}</p>
-                        )}
+                        <div className="space-y-1 my-auto">
+                          <h3 className="text-lg lg:text-xl font-black text-white leading-tight truncate group-hover:underline">
+                            {slide.title}
+                          </h3>
+                          <p className="text-sm lg:text-base font-extrabold" style={{ color: tokens.accentBg }}>
+                            {slide.offer_text}
+                          </p>
+                          {slide.subtitle && (
+                            <p className="text-xs font-medium text-white/75 line-clamp-1">{slide.subtitle}</p>
+                          )}
+                        </div>
                       </div>
+
+                      {slide.image_url && (
+                        <div className="h-full max-h-[190px] aspect-[4/4.6] shrink-0 rounded-2xl overflow-hidden bg-white/10 border border-white/15 shadow-lg">
+                          <SmartFitImage
+                            src={slide.image_url}
+                            alt={slide.title}
+                            imgClassName="group-hover:scale-105"
+                          />
+                        </div>
+                      )}
                     </div>
 
-                    {slide.image_url && (
-                      <div className="h-full max-h-[168px] aspect-[4/4.6] shrink-0 rounded-2xl overflow-hidden bg-white/10 border border-white/15 shadow-lg group-hover:scale-105 transition-transform duration-300">
-                        <img
-                          src={slide.image_url}
-                          alt={slide.title}
-                          className="w-full h-full object-cover object-top"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom White Offer Ribbon */}
-                  <div className="relative z-10 h-[30px] shrink-0 bg-white/95 px-4 flex items-center justify-between text-[11px] font-bold text-zinc-800">
-                    <span className="truncate">{slide.footer_pill || footerOffer}</span>
-                    <ArrowRight className="h-3.5 w-3.5 text-zinc-900 shrink-0" />
-                  </div>
-                </>
-              )}
-            </Link>
-          ))}
+                    {/* Bottom White Offer Ribbon */}
+                    <div className="relative z-10 h-[30px] shrink-0 bg-white/95 px-4 flex items-center justify-between text-[11px] font-bold text-zinc-800">
+                      <span className="truncate">{slide.footer_pill || footerOffer}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-zinc-900 shrink-0" />
+                    </div>
+                  </>
+                )}
+              </Link>
+            );
+          })}
         </div>
 
         {slides.length > 3 && (

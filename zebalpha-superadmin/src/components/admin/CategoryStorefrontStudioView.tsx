@@ -2,27 +2,22 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
+  AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
-  Eye,
-  EyeOff,
-  Globe,
-  Image as ImageIcon,
-  Layers,
-  Palette,
+  Monitor,
   Plus,
   RefreshCw,
   RotateCcw,
   Save,
+  Search,
+  ShoppingCart,
   Smartphone,
   Sparkles,
-  Trash2,
+  Tablet,
+  Undo2,
   XCircle,
-  AlertTriangle,
 } from "lucide-react";
 import {
   CATEGORY_THEME_PRESETS,
@@ -33,16 +28,18 @@ import {
   type CategoryWidgetConfig,
   type CategoryWidgetType,
 } from "@/lib/categoryStorefrontTypes";
-import { CategoryWidgetInlineEditor, AdminImageUploadField } from "./CategoryWidgetInlineEditor";
+import {
+  type DeviceMode,
+  type StudioPreviewBrand,
+  type StudioPreviewProduct,
+  type StudioSelection,
+  type StudioSubcategoryRow,
+  SectionFrameWrapper,
+} from "./visual-studio/VisualStudioShared";
+import { VisualCanvasWidgetRenderer } from "./visual-studio/VisualCanvasWidgets";
+import { VisualInspectorSidebar, type InspectorTab } from "./visual-studio/VisualInspectorSidebar";
 
 interface MainCategoryItem {
-  id: string;
-  name: string;
-  slug: string;
-  image_url?: string | null;
-}
-
-interface SubcategoryRow {
   id: string;
   name: string;
   slug: string;
@@ -66,25 +63,32 @@ interface SpotlightRequestRow {
 }
 
 export default function CategoryStorefrontStudioView() {
-  const [subTab, setSubTab] = useState<"builder" | "subcategories" | "spotlights">("builder");
+  const [studioMode, setStudioMode] = useState<"visual" | "spotlights">("visual");
+  const [deviceMode, setDeviceMode] = useState<DeviceMode>("mobile");
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("selected");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [migrationRequired, setMigrationRequired] = useState(false);
 
   const [mainCategories, setMainCategories] = useState<MainCategoryItem[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [blueprint, setBlueprint] = useState<CategoryStorefrontBlueprint | null>(null);
-  const [subcategories, setSubcategories] = useState<SubcategoryRow[]>([]);
-  const [subcatEdits, setSubcatEdits] = useState<Record<string, string>>({});
+  const [undoStack, setUndoStack] = useState<CategoryStorefrontBlueprint[]>([]);
+
+  const [subcategories, setSubcategories] = useState<StudioSubcategoryRow[]>([]);
+  const [subcatImages, setSubcatImages] = useState<Record<string, string>>({});
+  const [previewProducts, setPreviewProducts] = useState<StudioPreviewProduct[]>([]);
+  const [previewBrands, setPreviewBrands] = useState<StudioPreviewBrand[]>([]);
   const [spotlights, setSpotlights] = useState<SpotlightRequestRow[]>([]);
 
-  const [expandedWidgetId, setExpandedWidgetId] = useState<string | null>(null);
-  const [addWidgetType, setAddWidgetType] = useState<CategoryWidgetType>("THEMED_DEAL_RAIL");
+  const [selection, setSelection] = useState<StudioSelection | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const notify = (text: string, type: "success" | "error" = "success") => {
     setToast({ text, type });
-    setTimeout(() => setToast(null), 4500);
+    setTimeout(() => setToast(null), 4200);
   };
 
   const getStorefrontBase = () => {
@@ -116,13 +120,19 @@ export default function CategoryStorefrontStudioView() {
         setSelectedCategoryId(String(d.selectedCategory.id));
       }
       setBlueprint(d.blueprint || null);
-      const subs: SubcategoryRow[] = d.subcategories || [];
+      setUndoStack([]);
+      setDirty(false);
+      setSelection(d.blueprint?.widgets?.[0] ? { widgetId: d.blueprint.widgets[0].id } : null);
+
+      const subs: StudioSubcategoryRow[] = d.subcategories || [];
       setSubcategories(subs);
       const imgMap: Record<string, string> = {};
       subs.forEach((s) => {
         imgMap[s.id] = s.image_url || "";
       });
-      setSubcatEdits(imgMap);
+      setSubcatImages(imgMap);
+      setPreviewProducts(d.previewProducts || []);
+      setPreviewBrands(d.previewBrands || []);
       setSpotlights(d.spotlightRequests || []);
     } catch (err: any) {
       notify(err?.message || "Network error", "error");
@@ -135,9 +145,28 @@ export default function CategoryStorefrontStudioView() {
     loadCategoryData();
   }, [loadCategoryData]);
 
+  // Blueprint updater with automatic 1-click Undo history
+  const mutateBlueprint = (updater: (prev: CategoryStorefrontBlueprint) => CategoryStorefrontBlueprint) => {
+    setBlueprint((prev) => {
+      if (!prev) return prev;
+      setUndoStack((stack) => [...stack.slice(-14), prev]);
+      setDirty(true);
+      return updater(prev);
+    });
+  };
+
+  const handleUndo = () => {
+    setUndoStack((stack) => {
+      if (stack.length === 0) return stack;
+      const previous = stack[stack.length - 1];
+      setBlueprint(previous);
+      setDirty(true);
+      return stack.slice(0, -1);
+    });
+  };
+
   const handleSelectCategory = (catId: string) => {
     setSelectedCategoryId(catId);
-    setExpandedWidgetId(null);
     loadCategoryData(catId);
   };
 
@@ -162,7 +191,8 @@ export default function CategoryStorefrontStudioView() {
         notify(json.message || "Save failed", "error");
         return;
       }
-      notify(`Saved ${blueprint.category_name} storefront live for Web & Android App!`);
+      setDirty(false);
+      notify(`Published ${blueprint.category_name} live for Web & Android App!`);
     } catch (err: any) {
       notify(err?.message || "Failed to save", "error");
     } finally {
@@ -170,71 +200,36 @@ export default function CategoryStorefrontStudioView() {
     }
   };
 
-  const applyThemePreset = (preset: Exclude<CategoryThemePresetKey, "custom">) => {
-    if (!blueprint) return;
-    setBlueprint({
-      ...blueprint,
-      theme_preset: preset,
-      theme_tokens: { ...CATEGORY_THEME_PRESETS[preset].tokens },
-    });
+  const handleUploadSubcatImage = async (subId: string, url: string, summary: string) => {
+    setSubcatImages((prev) => ({ ...prev, [subId]: url }));
+    try {
+      const res = await fetch("/api/admin/category-storefront", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_subcategory_image",
+          subcategory_id: subId,
+          image_url: url,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        notify(`${summary} • Saved to DB`);
+      } else {
+        notify(json.message || "Subcategory save failed", "error");
+      }
+    } catch (err: any) {
+      notify(err?.message || "Subcategory update error", "error");
+    }
   };
 
-  const updateToken = (key: keyof CategoryStorefrontBlueprint["theme_tokens"], value: string) => {
+  const handleAddWidget = (wt: CategoryWidgetType) => {
     if (!blueprint) return;
-    setBlueprint({
-      ...blueprint,
-      theme_preset: "custom",
-      theme_tokens: { ...blueprint.theme_tokens, [key]: value },
-    });
-  };
-
-  const updateWidget = (id: string, patch: Partial<CategoryWidgetConfig>) => {
-    if (!blueprint) return;
-    setBlueprint({
-      ...blueprint,
-      widgets: blueprint.widgets.map((w) => (w.id === id ? { ...w, ...patch } : w)),
-    });
-  };
-
-  const updateWidgetConfig = (id: string, configPatch: Record<string, any>) => {
-    if (!blueprint) return;
-    setBlueprint({
-      ...blueprint,
-      widgets: blueprint.widgets.map((w) =>
-        w.id === id ? { ...w, config: { ...(w.config || {}), ...configPatch } } : w
-      ),
-    });
-  };
-
-  const moveWidget = (index: number, delta: number) => {
-    if (!blueprint) return;
-    const next = [...blueprint.widgets];
-    const target = index + delta;
-    if (target < 0 || target >= next.length) return;
-    const [moved] = next.splice(index, 1);
-    next.splice(target, 0, moved);
-    setBlueprint({
-      ...blueprint,
-      widgets: next.map((w, i) => ({ ...w, display_order: i + 1 })),
-    });
-  };
-
-  const deleteWidget = (id: string) => {
-    if (!blueprint) return;
-    setBlueprint({
-      ...blueprint,
-      widgets: blueprint.widgets
-        .filter((w) => w.id !== id)
-        .map((w, i) => ({ ...w, display_order: i + 1 })),
-    });
-  };
-
-  const handleAddWidget = () => {
-    if (!blueprint) return;
-    const meta = WIDGET_CATALOG_META[addWidgetType];
+    const meta = WIDGET_CATALOG_META[wt];
+    const newId = `${wt.toLowerCase()}_${Date.now()}`;
     const newWidget: CategoryWidgetConfig = {
-      id: `${addWidgetType.toLowerCase()}_${Date.now()}`,
-      widget_type: addWidgetType,
+      id: newId,
+      widget_type: wt,
       title: meta.label,
       subtitle: "Curated picks for this category",
       style_variant: meta.variants[0]?.value,
@@ -244,49 +239,16 @@ export default function CategoryStorefrontStudioView() {
       auto_fill: true,
       display_order: blueprint.widgets.length + 1,
       config:
-        addWidgetType === "BUDGET_DISCOUNT_TILES"
-          ? { price_slabs: [199, 299, 399], discount_slabs: [30, 50, 70] }
-          : addWidgetType === "HERO_CAROUSEL"
+        wt === "BUDGET_DISCOUNT_TILES"
+          ? { price_slabs: [299, 499, 799], discount_slabs: [30, 50, 70] }
+          : wt === "HERO_CAROUSEL"
             ? { campaign_badge: "FEATURED", slides: [] }
             : {},
     };
-    setBlueprint({
-      ...blueprint,
-      widgets: [...blueprint.widgets, newWidget],
-    });
-    setExpandedWidgetId(newWidget.id);
-  };
-
-  const handleResetDefault = () => {
-    if (!blueprint) return;
-    const fresh = buildDefaultCategoryBlueprint(
-      { id: blueprint.category_id, name: blueprint.category_name, slug: blueprint.category_slug },
-      subcategories
-    );
-    setBlueprint(fresh);
-    notify("Reset to Flipkart smart default preset (click Save to publish).");
-  };
-
-  const handleSaveSubcatImage = async (subId: string) => {
-    try {
-      const res = await fetch("/api/admin/category-storefront", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update_subcategory_image",
-          subcategory_id: subId,
-          image_url: subcatEdits[subId] || "",
-        }),
-      });
-      const json = await res.json();
-      if (!json.success) {
-        notify(json.message || "Update failed", "error");
-        return;
-      }
-      notify("Subcategory portrait image saved!");
-    } catch (err: any) {
-      notify(err?.message || "Update error", "error");
-    }
+    mutateBlueprint((prev) => ({ ...prev, widgets: [...prev.widgets, newWidget] }));
+    setSelection({ widgetId: newId });
+    setInspectorTab("selected");
+    notify(`Added "${meta.label}" to live preview!`);
   };
 
   const handleReviewSpotlight = async (requestId: string, status: "APPROVED" | "REJECTED") => {
@@ -301,14 +263,8 @@ export default function CategoryStorefrontStudioView() {
         notify(json.message || "Action failed", "error");
         return;
       }
-      setSpotlights((prev) =>
-        prev.map((s) => (s.id === requestId ? { ...s, status } : s))
-      );
-      notify(
-        status === "APPROVED"
-          ? "Seller spotlight approved & live on Category Storefront!"
-          : "Seller spotlight request rejected."
-      );
+      setSpotlights((prev) => prev.map((s) => (s.id === requestId ? { ...s, status } : s)));
+      notify(status === "APPROVED" ? "Spotlight approved & live!" : "Spotlight rejected.");
     } catch (err: any) {
       notify(err?.message || "Network error", "error");
     }
@@ -317,8 +273,8 @@ export default function CategoryStorefrontStudioView() {
   const pendingCount = spotlights.filter((s) => s.status === "PENDING").length;
 
   return (
-    <div className="space-y-6 pb-16">
-      {/* Toast Notification */}
+    <div className="space-y-4 pb-12">
+      {/* Live Floating Toast */}
       {toast && (
         <div
           className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-2xl px-4 py-3 text-xs font-extrabold shadow-2xl border ${
@@ -332,459 +288,158 @@ export default function CategoryStorefrontStudioView() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="rounded-3xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-zinc-800 p-5 md:p-7 text-white shadow-xl">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      {/* TOP VISUAL STUDIO COMMAND BAR */}
+      <div className="rounded-3xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-zinc-800 p-4 md:p-5 text-white shadow-xl space-y-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-400/30 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300 mb-2">
-              <Sparkles className="h-3 w-3" /> Flipkart-Grade Category SDUI Studio
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-400/30 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300">
+              <Sparkles className="h-3 w-3" /> Live Interactive Visual Studio
             </div>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight">
-              Category Storefront Studio (Zero-Code Control)
+            <h1 className="text-lg md:text-xl font-black tracking-tight mt-1">
+              Click Directly on Screen to Edit Banners, Photos, Text & Colors
             </h1>
-            <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
-              Control themes, hero sliders, subcategory strips, deal boxes, budget tiles, spotlight brands, and micro-stores per Main Category — syncs live to Website & Android App with zero code deploys.
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Device Frame Switcher */}
+            <div className="inline-flex items-center rounded-xl bg-zinc-900 border border-zinc-800 p-1">
+              {(
+                [
+                  ["mobile", "Phone", Smartphone],
+                  ["tablet", "Tablet", Tablet],
+                  ["desktop", "Desktop", Monitor],
+                ] as const
+              ).map(([mode, label, Icon]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setDeviceMode(mode)}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-black cursor-pointer transition ${
+                    deviceMode === mode ? "bg-amber-400 text-black shadow-xs" : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {undoStack.length > 0 && (
+              <button
+                type="button"
+                onClick={handleUndo}
+                className="inline-flex items-center gap-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-200 cursor-pointer"
+                title="Undo last edit"
+              >
+                <Undo2 className="h-3.5 w-3.5" /> Undo
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!blueprint) return;
+                const fresh = buildDefaultCategoryBlueprint(
+                  { id: blueprint.category_id, name: blueprint.category_name, slug: blueprint.category_slug },
+                  subcategories
+                );
+                mutateBlueprint(() => fresh);
+                notify("Loaded Smart Default Preset (click Save & Publish to apply live).");
+              }}
+              disabled={!blueprint}
+              className="inline-flex items-center gap-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-200 cursor-pointer"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Preset
+            </button>
+
             {blueprint && (
               <a
                 href={`${getStorefrontBase()}/category/${encodeURIComponent(blueprint.category_slug)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3.5 py-2 text-xs font-bold text-white transition"
+                className="inline-flex items-center gap-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3 py-2 text-xs font-bold text-white"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Live Page
+                <ExternalLink className="h-3.5 w-3.5" /> Live
               </a>
             )}
-            <button
-              type="button"
-              onClick={handleResetDefault}
-              disabled={!blueprint}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3.5 py-2 text-xs font-bold text-zinc-200 transition cursor-pointer"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Smart Preset
-            </button>
+
             <button
               type="button"
               onClick={handleSaveBlueprint}
               disabled={saving || !blueprint}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black px-5 py-2 text-xs font-black shadow-lg shadow-amber-400/20 transition cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black px-4 py-2 text-xs font-black shadow-lg shadow-amber-400/20 cursor-pointer disabled:opacity-50"
             >
               {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              {saving ? "Publishing..." : "Save & Publish Live"}
+              <span>{saving ? "Publishing..." : dirty ? "Save & Publish Live •" : "Save & Publish Live"}</span>
             </button>
           </div>
         </div>
 
-        {/* Migration Notice Banner (Only if SQL not run yet) */}
-        {migrationRequired && (
-          <div className="mt-4 rounded-2xl bg-amber-500/15 border border-amber-400/40 p-3.5 flex items-start gap-3 text-xs text-amber-200">
-            <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-black">One-time SQL migration needed to persist custom edits:</p>
-              <p className="opacity-85 mt-0.5">
-                Run <code className="px-1.5 py-0.5 rounded bg-black/40 text-amber-100">supabase/add_category_storefront_sdui_engine.sql</code> in Supabase SQL Editor. Until then, all category storefronts run smoothly in Smart Auto-Pilot mode.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Main Category Pill Selector */}
-        <div className="mt-5 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-          {mainCategories.map((cat) => {
-            const active = String(cat.id) === String(selectedCategoryId);
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => handleSelectCategory(cat.id)}
-                className={`shrink-0 rounded-xl px-4 py-2 text-xs font-black transition cursor-pointer border ${
-                  active
-                    ? "bg-white text-black border-white shadow-md"
-                    : "bg-zinc-900/90 text-zinc-300 border-zinc-800 hover:border-zinc-600 hover:text-white"
-                }`}
-              >
-                {cat.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Sub-Navigation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
-        <button
-          type="button"
-          onClick={() => setSubTab("builder")}
-          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black cursor-pointer transition ${
-            subTab === "builder"
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-black"
-              : "bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-          }`}
-        >
-          <Layers className="h-4 w-4" /> Theme & Widget Builder
-        </button>
-        <button
-          type="button"
-          onClick={() => setSubTab("subcategories")}
-          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black cursor-pointer transition ${
-            subTab === "subcategories"
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-black"
-              : "bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-          }`}
-        >
-          <ImageIcon className="h-4 w-4" /> Subcategory Portraits ({subcategories.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setSubTab("spotlights")}
-          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black cursor-pointer transition ${
-            subTab === "spotlights"
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-black"
-              : "bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-          }`}
-        >
-          <Sparkles className="h-4 w-4" /> Seller Spotlight Queue
-          {pendingCount > 0 && (
-            <span className="rounded-full bg-amber-400 text-black px-2 py-0.5 text-[10px] font-black">
-              {pendingCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {loading || !blueprint ? (
-        <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 p-12 text-center text-xs font-bold text-zinc-500">
-          Loading category storefront configuration...
-        </div>
-      ) : subTab === "builder" ? (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          {/* LEFT: Theme Presets & Live Color Controls */}
-          <div className="xl:col-span-4 space-y-4">
-            <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Palette className="h-4 w-4 text-amber-500" />
-                  <h2 className="text-sm font-black">Category Theme Preset</h2>
-                </div>
-                <label className="inline-flex items-center gap-2 text-xs font-bold cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={blueprint.is_enabled}
-                    onChange={(e) => setBlueprint({ ...blueprint, is_enabled: e.target.checked })}
-                    className="rounded"
-                  />
-                  Enabled
-                </label>
-              </div>
-
-              <div className="space-y-2">
-                {(Object.keys(CATEGORY_THEME_PRESETS) as Array<Exclude<CategoryThemePresetKey, "custom">>).map(
-                  (key) => {
-                    const p = CATEGORY_THEME_PRESETS[key];
-                    const active = blueprint.theme_preset === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => applyThemePreset(key)}
-                        className={`w-full text-left rounded-2xl p-3 border transition cursor-pointer ${
-                          active
-                            ? "border-amber-500 bg-amber-50/70 dark:bg-amber-500/10"
-                            : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-400"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-black">{p.label}</span>
-                          <div className="flex items-center gap-1">
-                            <span className="h-4 w-4 rounded-full border border-black/15" style={{ background: p.tokens.headerBg }} />
-                            <span className="h-4 w-4 rounded-full border border-black/15" style={{ background: p.tokens.accentBg }} />
-                            <span className="h-4 w-4 rounded-full border border-black/15" style={{ background: p.tokens.softTintBg }} />
-                          </div>
-                        </div>
-                        <p className="text-[11px] text-zinc-500 mt-1 leading-snug">{p.description}</p>
-                      </button>
-                    );
-                  }
-                )}
-              </div>
-
-              {/* Fine-tune Color Swatches */}
-              <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-2.5">
-                <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500">
-                  Custom Color Tokens
-                </p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {(
-                    [
-                      ["headerBg", "Header Bar"],
-                      ["accentBg", "Primary Accent"],
-                      ["accentText", "Accent Text"],
-                      ["secondaryBoxBg", "Dark Deal Box"],
-                      ["softTintBg", "Soft Tint"],
-                      ["marqueeBg", "Marquee Ribbon"],
-                    ] as const
-                  ).map(([tokenKey, label]) => (
-                    <label
-                      key={tokenKey}
-                      className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-800 px-2.5 py-1.5 text-[11px] font-bold"
-                    >
-                      <span>{label}</span>
-                      <input
-                        type="color"
-                        value={blueprint.theme_tokens[tokenKey] || "#111111"}
-                        onChange={(e) => updateToken(tokenKey, e.target.value)}
-                        className="h-6 w-8 rounded cursor-pointer border-0 bg-transparent"
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Add New Widget Card */}
-            <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 space-y-3 shadow-sm">
-              <h3 className="text-sm font-black text-zinc-900 dark:text-white">Add Flipkart Section Widget</h3>
-              <select
-                value={addWidgetType}
-                onChange={(e) => setAddWidgetType(e.target.value as CategoryWidgetType)}
-                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] px-3 py-2.5 text-xs font-bold focus:border-amber-400 focus:outline-none"
-              >
-                {(Object.keys(WIDGET_CATALOG_META) as CategoryWidgetType[]).map((wt) => (
-                  <option
-                    key={wt}
-                    value={wt}
-                    className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white"
-                  >
-                    {WIDGET_CATALOG_META[wt].label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleAddWidget}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-950 dark:bg-amber-400 text-white dark:text-black py-2.5 text-xs font-black cursor-pointer hover:opacity-90 transition"
-              >
-                <Plus className="h-4 w-4" /> Add Section to {blueprint.category_name}
-              </button>
-            </div>
-          </div>
-
-          {/* RIGHT: Ordered Widget Stack Editor */}
-          <div className="xl:col-span-8 space-y-3">
-            {blueprint.widgets.map((w, idx) => {
-              const meta = WIDGET_CATALOG_META[w.widget_type];
-              const isOpen = expandedWidgetId === w.id;
-
+        {/* Category Switcher Pills + Mode Switch */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-800/80">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            {mainCategories.map((cat) => {
+              const active = String(cat.id) === String(selectedCategoryId);
               return (
-                <div
-                  key={w.id}
-                  className={`rounded-2xl border transition ${
-                    w.enabled
-                      ? "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xs"
-                      : "border-dashed border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 opacity-65"
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => handleSelectCategory(cat.id)}
+                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-black transition cursor-pointer ${
+                    active
+                      ? "bg-white text-black shadow-sm"
+                      : "bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white hover:border-zinc-600"
                   }`}
                 >
-                  {/* Row Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-3.5">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="h-7 w-7 rounded-lg bg-zinc-900 text-white text-xs font-black flex items-center justify-center shrink-0">
-                        {idx + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs sm:text-sm font-black truncate">{w.title}</span>
-                          <span className="rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2 py-0.5 text-[10px] font-black uppercase">
-                            {meta?.label || w.widget_type}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-zinc-500 truncate">{w.subtitle || meta?.description}</p>
-                      </div>
-                    </div>
-
-                    {/* Controls */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => updateWidget(w.id, { web_enabled: !w.web_enabled })}
-                        title="Toggle Desktop Web"
-                        className={`p-1.5 rounded-lg border text-xs cursor-pointer ${
-                          w.web_enabled ? "border-emerald-500/40 text-emerald-600 bg-emerald-500/10" : "border-zinc-300 text-zinc-400"
-                        }`}
-                      >
-                        <Globe className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateWidget(w.id, { app_enabled: !w.app_enabled })}
-                        title="Toggle Android App"
-                        className={`p-1.5 rounded-lg border text-xs cursor-pointer ${
-                          w.app_enabled ? "border-emerald-500/40 text-emerald-600 bg-emerald-500/10" : "border-zinc-300 text-zinc-400"
-                        }`}
-                      >
-                        <Smartphone className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateWidget(w.id, { enabled: !w.enabled })}
-                        title="Show / Hide Section"
-                        className="p-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                      >
-                        {w.enabled ? <Eye className="h-3.5 w-3.5 text-emerald-600" /> : <EyeOff className="h-3.5 w-3.5 text-zinc-400" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveWidget(idx, -1)}
-                        disabled={idx === 0}
-                        className="p-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 disabled:opacity-30 cursor-pointer"
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveWidget(idx, 1)}
-                        disabled={idx === blueprint.widgets.length - 1}
-                        className="p-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 disabled:opacity-30 cursor-pointer"
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedWidgetId(isOpen ? null : w.id)}
-                        className="px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-xs font-black inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        Edit {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteWidget(w.id)}
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 cursor-pointer"
-                        title="Remove Section"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Expanded Inline Visual Config Editor */}
-                  {isOpen && (
-                    <div className="border-t border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/70 dark:bg-zinc-900/60 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Section Title</label>
-                          <input
-                            type="text"
-                            value={w.title}
-                            onChange={(e) => updateWidget(w.id, { title: e.target.value })}
-                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold focus:border-amber-400 focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Subtitle / Eyebrow</label>
-                          <input
-                            type="text"
-                            value={w.subtitle || ""}
-                            onChange={(e) => updateWidget(w.id, { subtitle: e.target.value })}
-                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-3 py-1.5 text-xs font-bold focus:border-amber-400 focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Visual Style Variant</label>
-                          <select
-                            value={w.style_variant || meta?.variants[0]?.value || ""}
-                            onChange={(e) => updateWidget(w.id, { style_variant: e.target.value })}
-                            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] px-3 py-1.5 text-xs font-bold focus:border-amber-400 focus:outline-none"
-                          >
-                            {(meta?.variants || []).map((v) => (
-                              <option
-                                key={v.value}
-                                value={v.value}
-                                className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white"
-                              >
-                                {v.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <label className="inline-flex items-center gap-2 text-xs font-bold cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={w.auto_fill !== false}
-                          onChange={(e) => updateWidget(w.id, { auto_fill: e.target.checked })}
-                        />
-                        Auto-Pilot Live Fill (automatically fills from real Supabase products if manual items are empty)
-                      </label>
-
-                      {/* Rich Visual Widget-Specific Controls (Unlimited Cards + Direct Image Upload + Auto-Price Linking) */}
-                      <CategoryWidgetInlineEditor
-                        widget={w}
-                        categoryId={blueprint.category_id}
-                        subcategories={subcategories}
-                        onUpdateConfig={(patch) => updateWidgetConfig(w.id, patch)}
-                      />
-                    </div>
-                  )}
-                </div>
+                  {cat.name}
+                </button>
               );
             })}
           </div>
-        </div>
-      ) : subTab === "subcategories" ? (
-        <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 space-y-4">
-          <div>
-            <h2 className="text-sm font-black">Subcategory Portrait Images — {blueprint.category_name}</h2>
-            <p className="text-xs text-zinc-500">
-              Upload crisp photos directly (or paste URL) for the 2-Row Fashion Grid or 1-Row Beauty Portrait Strip. Leave blank to auto-use live product photos.
-            </p>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setStudioMode("visual")}
+              className={`rounded-lg px-3 py-1 text-[11px] font-black cursor-pointer ${
+                studioMode === "visual" ? "bg-amber-400/20 text-amber-300 border border-amber-400/40" : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Visual Canvas
+            </button>
+            <button
+              type="button"
+              onClick={() => setStudioMode("spotlights")}
+              className={`rounded-lg px-3 py-1 text-[11px] font-black cursor-pointer inline-flex items-center gap-1.5 ${
+                studioMode === "spotlights" ? "bg-amber-400/20 text-amber-300 border border-amber-400/40" : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Seller Spotlights
+              {pendingCount > 0 && (
+                <span className="rounded-full bg-amber-400 text-black px-1.5 text-[9.5px] font-black">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
           </div>
-          {subcategories.length === 0 ? (
-            <p className="text-xs text-zinc-500 py-8 text-center">
-              No child subcategories found under {blueprint.category_name}. Add subcategories from Categories & Taxonomy.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {subcategories.map((sc) => (
-                <div key={sc.id} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-3.5 space-y-2.5">
-                  <div className="flex items-center gap-3">
-                    <div className="h-14 w-14 rounded-xl bg-zinc-100 dark:bg-zinc-900 overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center">
-                      {subcatEdits[sc.id] ? (
-                        <img src={subcatEdits[sc.id]} alt={sc.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <ImageIcon className="h-5 w-5 text-zinc-400" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-black truncate">{sc.name}</p>
-                      <p className="text-[11px] text-zinc-500 truncate">/{sc.slug}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <AdminImageUploadField
-                      value={subcatEdits[sc.id] || ""}
-                      onChange={(url) => setSubcatEdits((prev) => ({ ...prev, [sc.id]: url }))}
-                      placeholder="Upload or paste portrait URL..."
-                      folder="category-subcategories"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleSaveSubcatImage(sc.id)}
-                      className="w-full rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-black px-3 py-1.5 text-xs font-black cursor-pointer hover:opacity-90"
-                    >
-                      Save Portrait
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      ) : (
+
+        {migrationRequired && (
+          <div className="rounded-2xl bg-amber-500/15 border border-amber-400/40 p-3 flex items-start gap-2.5 text-xs text-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" />
+            <span>
+              Run <code className="px-1.5 py-0.5 rounded bg-black/40 text-amber-100">supabase/add_category_storefront_sdui_engine.sql</code> in Supabase SQL Editor once to persist custom layouts.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* MAIN BODY */}
+      {loading || !blueprint ? (
+        <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-16 text-center text-sm font-bold text-zinc-400">
+          Loading Live Visual Canvas...
+        </div>
+      ) : studioMode === "spotlights" ? (
         <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 space-y-4">
           <div>
             <h2 className="text-sm font-black">Seller Category Spotlight Requests</h2>
@@ -830,9 +485,6 @@ export default function CategoryStorefrontStudioView() {
                       <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
                         {req.headline} — <span className="text-emerald-600">{req.offer_badge}</span>
                       </p>
-                      <p className="text-[11px] text-zinc-500">
-                        Seller: {req.seller_name || req.seller_id}
-                      </p>
                     </div>
                   </div>
 
@@ -860,6 +512,227 @@ export default function CategoryStorefrontStudioView() {
               ))}
             </div>
           )}
+        </div>
+      ) : (
+        /* LIVE INTERACTIVE VISUAL CANVAS + RIGHT SMART INSPECTOR */
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+          {/* LEFT / CENTER: REALISTIC DEVICE LIVE EDITABLE SCREEN (8 COLS) */}
+          <div className="xl:col-span-8 flex flex-col items-center rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/50 p-3 sm:p-5 overflow-x-auto">
+            {/* Helper hint bar */}
+            <div className="w-full flex flex-wrap items-center justify-between gap-2 mb-3 text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
+              <span>
+                ✨ Tip: Click any <strong>Text</strong> to type directly • Click <strong>📷 Photo</strong> on any banner/card (auto ≤150KB) • Use <strong>Right Panel</strong> for Colors & Auto-Links
+              </span>
+              <span className="rounded-full bg-zinc-200 dark:bg-zinc-800 px-2.5 py-0.5 text-[10px] font-black uppercase text-zinc-800 dark:text-zinc-200">
+                {deviceMode === "mobile"
+                  ? "Phone Preview • 390px"
+                  : deviceMode === "tablet"
+                    ? "Tablet Preview • 768px"
+                    : "Desktop Preview • Full"}
+              </span>
+            </div>
+
+            {/* Realistic Device Frame */}
+            <div
+              className={`w-full transition-all duration-300 shadow-2xl overflow-hidden border ${
+                deviceMode === "mobile"
+                  ? "max-w-[398px] rounded-[34px] border-[6px] border-zinc-900"
+                  : deviceMode === "tablet"
+                    ? "max-w-[768px] rounded-[26px] border-[5px] border-zinc-800"
+                    : "max-w-full rounded-2xl border-zinc-300 dark:border-zinc-700"
+              }`}
+              style={{ backgroundColor: blueprint.theme_tokens.pageBg, color: "#111111" }}
+            >
+              {/* Authentic Mirror of Customer Category Sticky Header */}
+              <div
+                className="w-full shadow-xs"
+                style={{
+                  backgroundColor: blueprint.theme_tokens.headerBg,
+                  color: blueprint.theme_tokens.headerText,
+                }}
+              >
+                <div className="px-3 pt-2.5 pb-2 flex items-center gap-2">
+                  <span className="h-9 w-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white shrink-0">
+                    <ArrowLeft className="h-4 w-4" />
+                  </span>
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+                    <div className="w-full h-9 rounded-xl bg-white pl-8 pr-3 flex items-center text-xs font-semibold text-zinc-400 truncate">
+                      Search {blueprint.category_name}...
+                    </div>
+                  </div>
+                  <span className="h-9 px-2.5 rounded-xl bg-white/10 border border-white/15 flex items-center gap-1 text-white shrink-0">
+                    <ShoppingCart className="h-4 w-4" />
+                  </span>
+                </div>
+
+                {/* Live Category Switcher Tabs Mirror */}
+                <div className="border-t border-white/10 px-3 py-1.5 flex items-center gap-4 overflow-x-auto no-scrollbar">
+                  <span className="shrink-0 text-[11px] font-bold text-white/65">For You</span>
+                  {mainCategories.slice(0, 7).map((c) => {
+                    const isAct = String(c.id) === String(blueprint.category_id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleSelectCategory(c.id)}
+                        className={`shrink-0 pb-1 text-[11px] font-extrabold border-b-2 transition cursor-pointer ${
+                          isAct ? "text-white" : "text-white/65 border-transparent hover:text-white"
+                        }`}
+                        style={{ borderBottomColor: isAct ? blueprint.theme_tokens.accentBg : "transparent" }}
+                      >
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* LIVE EDITABLE WIDGET STACK */}
+              <div className="pb-6 divide-y divide-transparent">
+                {blueprint.widgets.map((w, idx) => (
+                  <SectionFrameWrapper
+                    key={w.id}
+                    widget={w}
+                    index={idx}
+                    total={blueprint.widgets.length}
+                    isSelected={selection?.widgetId === w.id}
+                    onSelect={() => {
+                      setSelection({ widgetId: w.id });
+                      setInspectorTab("selected");
+                    }}
+                    onMove={(delta) => {
+                      const target = idx + delta;
+                      if (target < 0 || target >= blueprint.widgets.length) return;
+                      mutateBlueprint((prev) => {
+                        const next = [...prev.widgets];
+                        const [moved] = next.splice(idx, 1);
+                        next.splice(target, 0, moved);
+                        return { ...prev, widgets: next.map((x, i) => ({ ...x, display_order: i + 1 })) };
+                      });
+                    }}
+                    onToggleEnabled={() =>
+                      mutateBlueprint((prev) => ({
+                        ...prev,
+                        widgets: prev.widgets.map((x) => (x.id === w.id ? { ...x, enabled: !x.enabled } : x)),
+                      }))
+                    }
+                    onToggleWeb={() =>
+                      mutateBlueprint((prev) => ({
+                        ...prev,
+                        widgets: prev.widgets.map((x) => (x.id === w.id ? { ...x, web_enabled: !x.web_enabled } : x)),
+                      }))
+                    }
+                    onToggleApp={() =>
+                      mutateBlueprint((prev) => ({
+                        ...prev,
+                        widgets: prev.widgets.map((x) => (x.id === w.id ? { ...x, app_enabled: !x.app_enabled } : x)),
+                      }))
+                    }
+                    onDelete={() => {
+                      mutateBlueprint((prev) => ({
+                        ...prev,
+                        widgets: prev.widgets
+                          .filter((x) => x.id !== w.id)
+                          .map((x, i) => ({ ...x, display_order: i + 1 })),
+                      }));
+                      setSelection(null);
+                    }}
+                  >
+                    <VisualCanvasWidgetRenderer
+                      widget={w}
+                      deviceMode={deviceMode}
+                      categoryId={blueprint.category_id}
+                      categoryName={blueprint.category_name}
+                      tokens={blueprint.theme_tokens}
+                      subcategories={subcategories}
+                      subcatImages={subcatImages}
+                      products={previewProducts}
+                      brands={previewBrands}
+                      selection={selection}
+                      onSelect={(sel) => {
+                        setSelection(sel);
+                        setInspectorTab("selected");
+                      }}
+                      onUpdateWidget={(patch) =>
+                        mutateBlueprint((prev) => ({
+                          ...prev,
+                          widgets: prev.widgets.map((x) => (x.id === w.id ? { ...x, ...patch } : x)),
+                        }))
+                      }
+                      onUpdateConfig={(configPatch) =>
+                        mutateBlueprint((prev) => ({
+                          ...prev,
+                          widgets: prev.widgets.map((x) =>
+                            x.id === w.id ? { ...x, config: { ...(x.config || {}), ...configPatch } } : x
+                          ),
+                        }))
+                      }
+                      onUploadSubcatImage={handleUploadSubcatImage}
+                      onNotify={notify}
+                    />
+                  </SectionFrameWrapper>
+                ))}
+
+                {/* Bottom Quick "+ Add Section" CTA right on canvas */}
+                <div className="px-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab("add")}
+                    className="w-full rounded-2xl border-2 border-dashed border-amber-400/80 bg-amber-50/70 hover:bg-amber-100/70 py-3 text-xs font-black text-amber-900 flex items-center justify-center gap-1.5 cursor-pointer transition"
+                  >
+                    <Plus className="h-4 w-4" /> Add Another Section to {blueprint.category_name}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: STICKY SMART CONTEXT INSPECTOR (4 COLS) */}
+          <div className="xl:col-span-4">
+            <VisualInspectorSidebar
+              tab={inspectorTab}
+              onTabChange={setInspectorTab}
+              blueprint={blueprint}
+              subcategories={subcategories}
+              subcatImages={subcatImages}
+              selection={selection}
+              onSelect={setSelection}
+              onApplyPreset={(preset) =>
+                mutateBlueprint((prev) => ({
+                  ...prev,
+                  theme_preset: preset,
+                  theme_tokens: { ...CATEGORY_THEME_PRESETS[preset].tokens },
+                }))
+              }
+              onUpdateToken={(tokenKey, val) =>
+                mutateBlueprint((prev) => ({
+                  ...prev,
+                  theme_preset: "custom",
+                  theme_tokens: { ...prev.theme_tokens, [tokenKey]: val },
+                }))
+              }
+              onToggleStorefrontEnabled={(enabled) =>
+                mutateBlueprint((prev) => ({ ...prev, is_enabled: enabled }))
+              }
+              onUpdateWidget={(widgetId, patch) =>
+                mutateBlueprint((prev) => ({
+                  ...prev,
+                  widgets: prev.widgets.map((x) => (x.id === widgetId ? { ...x, ...patch } : x)),
+                }))
+              }
+              onUpdateWidgetConfig={(widgetId, configPatch) =>
+                mutateBlueprint((prev) => ({
+                  ...prev,
+                  widgets: prev.widgets.map((x) =>
+                    x.id === widgetId ? { ...x, config: { ...(x.config || {}), ...configPatch } } : x
+                  ),
+                }))
+              }
+              onAddWidget={handleAddWidget}
+              onUploadSubcatImage={handleUploadSubcatImage}
+            />
+          </div>
         </div>
       )}
     </div>

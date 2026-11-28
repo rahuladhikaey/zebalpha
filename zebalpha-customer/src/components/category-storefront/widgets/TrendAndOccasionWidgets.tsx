@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Flame, Sparkles } from "lucide-react";
 import type { CategoryThemeTokens, CategoryWidgetConfig } from "@/lib/categoryStorefrontTypes";
 import type { StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
+import { SmartFitImage } from "../SmartFitImage";
 
 interface CommonProps {
   widget: CategoryWidgetConfig;
@@ -47,11 +48,10 @@ export function AudienceSplit3ColWidget({ widget, categoryId, products }: Common
                 style={{ borderColor: frameColor, backgroundColor: softBg }}
               >
                 {imgUrl ? (
-                  <img
+                  <SmartFitImage
                     src={imgUrl}
                     alt={card.title}
-                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
+                    imgClassName="group-hover:scale-[1.03]"
                   />
                 ) : (
                   <div
@@ -124,11 +124,10 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
               className="group relative w-full aspect-[4/5] rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 shadow-sm hover:shadow-lg transition-all"
             >
               {c.image_url && (
-                <img
+                <SmartFitImage
                   src={c.image_url}
                   alt={c.title}
-                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  imgClassName="group-hover:scale-[1.03]"
                 />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
@@ -189,11 +188,10 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
             className="group relative aspect-[4/5] rounded-[20px] overflow-hidden bg-zinc-950 shadow-md"
           >
             {item.image_url && (
-              <img
+              <SmartFitImage
                 src={item.image_url}
                 alt={item.title}
-                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                loading="lazy"
+                imgClassName="group-hover:scale-[1.03]"
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent" />
@@ -222,11 +220,10 @@ export function TrendLookbookWidget({ widget, categoryId, tokens, products }: Co
               className="group shrink-0 w-[138px] sm:w-[162px] md:w-[184px] rounded-2xl overflow-hidden border border-zinc-200 bg-white shadow-sm hover:shadow-md transition-all"
             >
               <div className="aspect-[4/4.8] w-full bg-zinc-100 overflow-hidden">
-                <img
+                <SmartFitImage
                   src={p.image_url}
                   alt={p.name}
-                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  imgClassName="group-hover:scale-[1.04]"
                 />
               </div>
               <div className="p-2 text-center space-y-1">
@@ -289,11 +286,10 @@ export function Occasion2ColWidget({ widget, categoryId, tokens, products }: Com
               className="group relative aspect-[4/4.5] rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 shadow-md"
             >
               {imgUrl ? (
-                <img
+                <SmartFitImage
                   src={imgUrl}
                   alt={card.title}
-                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  imgClassName="group-hover:scale-[1.03]"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center pb-8">

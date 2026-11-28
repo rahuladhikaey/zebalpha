@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import type { CategoryThemeTokens, CategoryWidgetConfig, DealCardItem } from "@/lib/categoryStorefrontTypes";
 import type { StorefrontProductCard, EnrichedSubcategory } from "@/lib/categoryStorefrontLoader";
+import { SmartFitImage } from "../SmartFitImage";
 
 interface ThemedDealRailWidgetProps {
   widget: CategoryWidgetConfig;
@@ -125,11 +126,11 @@ export function ThemedDealRailWidget({
               >
                 <div className="aspect-square w-full bg-zinc-50 overflow-hidden p-2">
                   {card.image_url ? (
-                    <img
+                    <SmartFitImage
                       src={card.image_url}
                       alt={card.title}
-                      className="w-full h-full object-cover object-top rounded-xl group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
+                      roundedClass="rounded-xl"
+                      imgClassName="group-hover:scale-[1.04]"
                     />
                   ) : (
                     <div className="w-full h-full rounded-xl bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-400">
@@ -201,11 +202,10 @@ export function ThemedDealRailWidget({
               >
                 <div className="relative aspect-[4/4.6] w-full rounded-2xl overflow-hidden bg-white shadow-sm">
                   {card.image_url ? (
-                    <img
+                    <SmartFitImage
                       src={card.image_url}
                       alt={card.title}
-                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
+                      imgClassName="group-hover:scale-[1.04]"
                     />
                   ) : (
                     <div className="w-full h-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-500">
@@ -257,11 +257,10 @@ export function ThemedDealRailWidget({
           >
             <div className="relative aspect-[4/4.7] w-full rounded-2xl overflow-hidden bg-zinc-100 border border-zinc-200/80">
               {card.image_url ? (
-                <img
+                <SmartFitImage
                   src={card.image_url}
                   alt={card.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  imgClassName="group-hover:scale-[1.04]"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-400">

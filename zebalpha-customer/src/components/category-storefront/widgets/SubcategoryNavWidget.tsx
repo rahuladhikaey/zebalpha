@@ -6,6 +6,7 @@ import { ChevronRight } from "lucide-react";
 import { CategoryIconRenderer, resolveCategoryIcon } from "@/lib/categoryIcons";
 import type { CategoryThemeTokens, CategoryWidgetConfig } from "@/lib/categoryStorefrontTypes";
 import type { EnrichedSubcategory, StorefrontProductCard } from "@/lib/categoryStorefrontLoader";
+import { SmartFitImage } from "../SmartFitImage";
 
 interface SubcategoryNavWidgetProps {
   widget: CategoryWidgetConfig;
@@ -89,11 +90,11 @@ export function SubcategoryNavWidget({
                 style={{ background: BEAUTY_GRADIENTS[idx % BEAUTY_GRADIENTS.length] }}
               >
                 {item.image_url ? (
-                  <img
+                  <SmartFitImage
                     src={item.image_url}
                     alt={item.name}
-                    className="w-full h-full object-cover object-top rounded-[15px] group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
+                    roundedClass="rounded-[15px]"
+                    imgClassName="group-hover:scale-[1.04]"
                   />
                 ) : (
                   <div className="w-full h-full rounded-[15px] bg-white/25 backdrop-blur-sm flex items-center justify-center text-white">
@@ -149,11 +150,10 @@ export function SubcategoryNavWidget({
               }}
             >
               {item.image_url ? (
-                <img
+                <SmartFitImage
                   src={item.image_url}
                   alt={item.name}
-                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  imgClassName="group-hover:scale-[1.04]"
                 />
               ) : (
                 <CategoryIconRenderer
